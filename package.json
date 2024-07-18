@@ -1,9 +1,6 @@
 {
   "name": "react",
   "version": "1.0.0",
-  "description": "",
-  "keywords": [],
-  "main": "src/index.tsx",
   "homepage": "https://rtdacademy.github.io/SignupForm",
   "dependencies": {
     "autoprefixer": "^10.4.19",
