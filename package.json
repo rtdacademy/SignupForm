@@ -4,6 +4,7 @@
   "description": "",
   "keywords": [],
   "main": "src/index.tsx",
+  "homepage": "https://rtdacademy.github.io/SignupForm",
   "dependencies": {
     "autoprefixer": "^10.4.19",
     "core-js": "^3.37.1",
@@ -16,8 +17,10 @@
     "recharts": "^2.12.7"
   },
   "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@types/react": "^18.2.38",
     "@types/react-dom": "^18.2.15",
+    "gh-pages": "^6.1.1",
     "loader-utils": "^3.2.1",
     "typescript": "^4.9.5"
   },
@@ -25,7 +28,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test --env=jsdom",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   },
   "browserslist": [
     ">0.2%",
