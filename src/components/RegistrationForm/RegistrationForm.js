@@ -38,7 +38,7 @@ const RegistrationForm = () => {
         />
         <h1 className="form-title">Register with RTD Academy</h1>
         <p className="form-subtitle">
-          Start your next high school math course today. Math 10c to 31 | CTS
+          **Start your next high school math course today. Math 10c to 31 | CTS
           Coding
         </p>
       </div>
