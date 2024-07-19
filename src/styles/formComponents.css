@@ -1,0 +1,65 @@
+.questionnaire-container {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #f0f5f9;
+    border: 2px solid var(--primary-color);
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .questionnaire {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 0.5rem;
+  }
+  
+  .questionnaire h3 {
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+  }
+  
+  .question p {
+    font-weight: bold;
+    margin-bottom: 1rem;
+  }
+  
+  .answer-button {
+    display: inline-block;
+    margin-right: 1rem;
+    margin-bottom: 0.5rem;
+    background-color: var(--input-background);
+    color: var(--secondary-color);
+    border: 1px solid var(--secondary-color);
+    transition: all 0.3s ease;
+  }
+  
+  .answer-button:hover {
+    background-color: var(--secondary-color);
+    color: white;
+  }
+  
+  .student-type-info {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: var(--input-background);
+    border-radius: 0.5rem;
+    border: 1px solid var(--secondary-color);
+  }
+  
+  .student-type-info h3 {
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+  }
+  
+  .determination-message {
+    background-color: #e8f5e9;
+    border: 1px solid #4caf50;
+    color: #2e7d32;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    margin-bottom: 1rem;
+  }
+  
+  .determination-message strong {
+    font-weight: bold;
+  }
