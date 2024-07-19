@@ -1,2 +1,0 @@
-# SignupForm
-Created with CodeSandbox
