@@ -1,15 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, forwardRef, useImperativeHandle } from "react";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 
-const PersonalInformation = ({ formData, handleChange }) => {
+const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
   const [confirmEmail, setConfirmEmail] = useState("");
   const [emailsMatch, setEmailsMatch] = useState(true);
   const [phoneInputFocused, setPhoneInputFocused] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const validateEmail = (email) => {
-    const re =
-      /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
     return re.test(String(email).toLowerCase());
   };
 
@@ -18,26 +18,23 @@ const PersonalInformation = ({ formData, handleChange }) => {
     setEmailsMatch(e.target.value === formData.studentEmail);
   };
 
-  const handleASNChange = (e) => {
-    const { value } = e.target;
-    let formattedValue = value.replace(/\D/g, "").slice(0, 9);
-    if (formattedValue.length > 4) {
-      formattedValue = `${formattedValue.slice(0, 4)}-${formattedValue.slice(
-        4
-      )}`;
-    }
-    if (formattedValue.length > 9) {
-      formattedValue = `${formattedValue.slice(0, 9)}-${formattedValue.slice(
-        9
-      )}`;
-    }
-    handleChange({
-      target: {
-        name: "albertaStudentNumber",
-        value: formattedValue,
-      },
-    });
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.firstName) newErrors.firstName = "First name is required";
+    if (!formData.lastName) newErrors.lastName = "Last name is required";
+    if (!formData.studentEmail) newErrors.studentEmail = "Email is required";
+    else if (!validateEmail(formData.studentEmail)) newErrors.studentEmail = "Invalid email format";
+    if (formData.studentEmail !== confirmEmail) newErrors.confirmEmail = "Emails do not match";
+    if (!formData.phoneNumber) newErrors.phoneNumber = "Phone number is required";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
+
+  useImperativeHandle(ref, () => ({
+    validateForm
+  }));
 
   return (
     <section className="form-section">
@@ -51,12 +48,13 @@ const PersonalInformation = ({ formData, handleChange }) => {
           value={formData.firstName}
           onChange={handleChange}
           required
-          className="form-input"
+          className={`form-input ${errors.firstName ? 'is-invalid' : ''}`}
           placeholder=""
         />
         <label htmlFor="firstName" className="form-label">
           First Name
         </label>
+        {errors.firstName && <div className="error-message">{errors.firstName}</div>}
       </div>
 
       <div className="form-group">
@@ -67,12 +65,13 @@ const PersonalInformation = ({ formData, handleChange }) => {
           value={formData.lastName}
           onChange={handleChange}
           required
-          className="form-input"
+          className={`form-input ${errors.lastName ? 'is-invalid' : ''}`}
           placeholder=""
         />
         <label htmlFor="lastName" className="form-label">
           Last Name
         </label>
+        {errors.lastName && <div className="error-message">{errors.lastName}</div>}
       </div>
 
       <div className="form-group">
@@ -83,21 +82,13 @@ const PersonalInformation = ({ formData, handleChange }) => {
           value={formData.studentEmail}
           onChange={handleChange}
           required
-          className={`form-input ${
-            !validateEmail(formData.studentEmail) && formData.studentEmail
-              ? "is-invalid"
-              : ""
-          }`}
+          className={`form-input ${errors.studentEmail ? 'is-invalid' : ''}`}
           placeholder=""
         />
         <label htmlFor="studentEmail" className="form-label">
           Student Email
         </label>
-        {!validateEmail(formData.studentEmail) && formData.studentEmail && (
-          <span className="input-status invalid">
-            Please enter a valid email address
-          </span>
-        )}
+        {errors.studentEmail && <div className="error-message">{errors.studentEmail}</div>}
       </div>
 
       <div className="form-group">
@@ -108,17 +99,13 @@ const PersonalInformation = ({ formData, handleChange }) => {
           value={confirmEmail}
           onChange={handleConfirmEmailChange}
           required
-          className={`form-input ${
-            !emailsMatch && confirmEmail ? "is-invalid" : ""
-          }`}
+          className={`form-input ${errors.confirmEmail ? 'is-invalid' : ''}`}
           placeholder=""
         />
         <label htmlFor="confirmEmail" className="form-label">
           Confirm Student Email
         </label>
-        {!emailsMatch && confirmEmail && (
-          <span className="input-status invalid">Emails do not match</span>
-        )}
+        {errors.confirmEmail && <div className="error-message">{errors.confirmEmail}</div>}
       </div>
 
       <div className="form-group">
@@ -138,7 +125,7 @@ const PersonalInformation = ({ formData, handleChange }) => {
                 },
               })
             }
-            inputClass="form-input"
+            inputClass={`form-input ${errors.phoneNumber ? 'is-invalid' : ''}`}
             containerClass="phone-input-container"
             buttonClass="phone-input-button"
             onFocus={() => setPhoneInputFocused(true)}
@@ -149,40 +136,10 @@ const PersonalInformation = ({ formData, handleChange }) => {
         <small>
           Your instructor may send out class announcements through text message
         </small>
-      </div>
-
-      <div className="form-group">
-        <input
-          type="date"
-          id="birthday"
-          name="birthday"
-          value={formData.birthday}
-          onChange={handleChange}
-          required
-          className="form-input"
-        />
-        <label htmlFor="birthday" className="form-label">
-          Birthday
-        </label>
-      </div>
-
-      <div className="form-group">
-        <input
-          type="text"
-          id="albertaStudentNumber"
-          name="albertaStudentNumber"
-          value={formData.albertaStudentNumber}
-          onChange={handleASNChange}
-          required
-          className="form-input"
-          placeholder="####-####-#"
-        />
-        <label htmlFor="albertaStudentNumber" className="form-label">
-          Alberta Student Number
-        </label>
+        {errors.phoneNumber && <div className="error-message">{errors.phoneNumber}</div>}
       </div>
     </section>
   );
-};
+});
 
 export default PersonalInformation;

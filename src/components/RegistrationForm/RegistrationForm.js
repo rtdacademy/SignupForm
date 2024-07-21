@@ -1,8 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import PersonalInformation from "./PersonalInformation";
 import StudentTypeSelection from "./StudentTypeSelection";
+import CourseSelection from "./CourseSelection";
+import GrantEligibleStudentInfo from "./GrantEligibleStudentInfo";
+import AdultStudentInfo from "./AdultStudentInfo";
+import InternationalStudentInfo from "./InternationalStudentInfo";
 import "../../styles/styles.css";
-import "../../styles/formComponents.css";
 
 const RegistrationForm = () => {
   const [formData, setFormData] = useState({
@@ -10,14 +13,25 @@ const RegistrationForm = () => {
     lastName: "",
     studentEmail: "",
     phoneNumber: "",
-    birthday: "",
     albertaStudentNumber: "",
+    birthday: "",
     enrollmentYear: "",
     studentType: "",
-    // Add other fields as needed
+    course: "",
+    diplomaDate: "",
+    startDate: "",
+    completionDate: "",
+    currentSchool: "",
+    homeEducationOrg: "",
+    parentName: "",
+    parentPhone: "",
+    parentEmail: "",
   });
 
   const [currentStep, setCurrentStep] = useState(1);
+  const studentTypeSelectionRef = useRef();
+  const personalInformationRef = useRef();
+  const courseSelectionRef = useRef();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -29,23 +43,42 @@ const RegistrationForm = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("Form Data Submitted:", formData);
-    // Here you would typically send the data to your backend
+    if (validateStep()) {
+      console.log("Form Data Submitted:", formData);
+      // Here you would typically send the data to your backend
+    }
   };
 
-  const nextStep = () => setCurrentStep(prevStep => prevStep + 1);
+  const validateStep = () => {
+    switch (currentStep) {
+      case 1:
+        return personalInformationRef.current.validateForm();
+      case 2:
+        return studentTypeSelectionRef.current.validateForm();
+      case 3:
+        return courseSelectionRef.current.validateForm();
+      default:
+        return true;
+    }
+  };
+
+  const nextStep = () => {
+    if (validateStep()) {
+      setCurrentStep(prevStep => prevStep + 1);
+    }
+  };
+
   const prevStep = () => setCurrentStep(prevStep => prevStep - 1);
 
   const getCurrentSchoolYear = () => {
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const cutoffDate = new Date(currentYear, 8, 1); // September 1st
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const nextYear = currentYear + 1;
     
-    if (currentDate < cutoffDate) {
-      return `${currentYear - 1}/${currentYear.toString().slice(-2)}`;
-    } else {
-      return `${currentYear}/${(currentYear + 1).toString().slice(-2)}`;
+    if (today.getMonth() >= 8) { // 8 represents September (0-indexed)
+      return `${currentYear}/${nextYear.toString().slice(-2)}`;
     }
+    return `${currentYear - 1}/${currentYear.toString().slice(-2)}`;
   };
 
   const getNextSchoolYear = () => {
@@ -54,43 +87,84 @@ const RegistrationForm = () => {
     return `${nextStartYear}/${(nextStartYear + 1).toString().slice(-2)}`;
   };
 
+  const calculateAge = (birthday, referenceDate) => {
+    const birthDate = new Date(birthday);
+    const ageDifMs = referenceDate - birthDate;
+    const ageDate = new Date(ageDifMs);
+    return Math.abs(ageDate.getUTCFullYear() - 1970);
+  };
+
+  const shouldShowNextSchoolYear = () => {
+    const today = new Date();
+    return today.getMonth() >= 0 && today.getMonth() < 8; // Show next school year option from January to August
+  };
+
+  const getDefaultBirthday = () => {
+    const date = new Date();
+    date.setFullYear(date.getFullYear() - 16);
+    return date.toISOString().split('T')[0];
+  };
+
+  const isOver20ForSchoolYear = () => {
+    if (!formData.birthday || !formData.enrollmentYear) return false;
+
+    const birthDate = new Date(formData.birthday);
+    const [enrollmentStartYear] = formData.enrollmentYear.split('/');
+    const cutoffDate = new Date(enrollmentStartYear, 8, 1); // September 1st of the enrollment year
+    
+    const ageDifference = cutoffDate.getFullYear() - birthDate.getFullYear();
+    const monthDifference = cutoffDate.getMonth() - birthDate.getMonth();
+    const dayDifference = cutoffDate.getDate() - birthDate.getDate();
+
+    return ageDifference > 20 || (ageDifference === 20 && (monthDifference > 0 || (monthDifference === 0 && dayDifference >= 0)));
+  };
+
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <PersonalInformation formData={formData} handleChange={handleChange} />;
+        return <PersonalInformation ref={personalInformationRef} formData={formData} handleChange={handleChange} />;
       case 2:
         return (
-          <>
-            <div className="form-section">
-              <h2 className="section-title">Enrollment Year</h2>
-              <div className="form-group">
-                <select
-                  id="enrollmentYear"
-                  name="enrollmentYear"
-                  value={formData.enrollmentYear}
-                  onChange={handleChange}
-                  required
-                  className="form-select"
-                >
-                  <option value="">Select enrollment year</option>
-                  <option value={getCurrentSchoolYear()}>{`Current School Year (${getCurrentSchoolYear()})`}</option>
-                  <option value={getNextSchoolYear()}>{`Next School Year (${getNextSchoolYear()})`}</option>
-                </select>
-                <label htmlFor="enrollmentYear" className="form-label">Enrollment Year</label>
-              </div>
-            </div>
-            <StudentTypeSelection 
-              formData={formData} 
-              handleChange={handleChange}
-              getCurrentSchoolYear={getCurrentSchoolYear}
-              getNextSchoolYear={getNextSchoolYear}
-            />
-          </>
+          <StudentTypeSelection 
+            ref={studentTypeSelectionRef}
+            formData={formData} 
+            handleChange={handleChange}
+            getCurrentSchoolYear={getCurrentSchoolYear}
+            getNextSchoolYear={getNextSchoolYear}
+            calculateAge={calculateAge}
+            shouldShowNextSchoolYear={shouldShowNextSchoolYear}
+            getDefaultBirthday={getDefaultBirthday}
+            isOver20ForSchoolYear={isOver20ForSchoolYear}
+          />
         );
-      // Add more cases for additional steps
+      case 3:
+        return (
+          <CourseSelection 
+            ref={courseSelectionRef}
+            formData={formData} 
+            handleChange={handleChange}
+            calculateAge={calculateAge}
+          />
+        );
+      case 4:
+        if (['nonPrimary', 'homeEducation', 'summerSchool'].includes(formData.studentType)) {
+          return <GrantEligibleStudentInfo formData={formData} handleSubmit={handleSubmit} />;
+        } else if (formData.studentType === 'adultStudent') {
+          return <AdultStudentInfo formData={formData} handleSubmit={handleSubmit} />;
+        } else if (formData.studentType === 'internationalStudent') {
+          return <InternationalStudentInfo formData={formData} handleSubmit={handleSubmit} />;
+        }
+        return null;
       default:
         return null;
     }
+  };
+
+  const isLastStep = () => {
+    if (['nonPrimary', 'homeEducation', 'summerSchool', 'adultStudent', 'internationalStudent'].includes(formData.studentType)) {
+      return currentStep === 4;
+    }
+    return currentStep === 3;
   };
 
   return (
@@ -118,7 +192,7 @@ const RegistrationForm = () => {
                 Previous
               </button>
             )}
-            {currentStep < 2 ? (
+            {!isLastStep() ? (
               <button type="button" onClick={nextStep} className="form-button primary">
                 Next
               </button>
