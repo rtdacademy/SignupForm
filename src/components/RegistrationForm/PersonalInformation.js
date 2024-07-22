@@ -133,7 +133,7 @@ const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
           />
           <label className="form-label phone-label">Phone Number</label>
         </div>
-        <small>
+        <small className="form-help-text">
           Your instructor may send out class announcements through text message
         </small>
         {errors.phoneNumber && <div className="error-message">{errors.phoneNumber}</div>}

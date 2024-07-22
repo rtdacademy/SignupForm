@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "homepage": "https://rtdacademy.github.io/SignupForm",
   "dependencies": {
+    "@paypal/react-paypal-js": "^8.5.0",
     "autoprefixer": "^10.4.19",
     "core-js": "^3.37.1",
+    "env-cmd": "^10.1.0",
     "lodash.debounce": "^4.0.8",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -27,7 +29,12 @@
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "deploy": "gh-pages -d build",
+    "deploy:production": "env-cmd -f .env.production npm run deploy",
+    "start:sandbox": "env-cmd -f .env.development react-scripts start",
+    "build:sandbox": "env-cmd -f .env.development react-scripts build",
+    "start:production": "env-cmd -f .env.production react-scripts start",
+    "build:production": "env-cmd -f .env.production react-scripts build"
   },
   "browserslist": [
     ">0.2%",

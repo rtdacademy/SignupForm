@@ -168,44 +168,48 @@ const RegistrationForm = () => {
   };
 
   return (
-    <div className="form-container">
-      <div className="form-header">
+    <div className="page-container">
+      <div className="logo-container">
         <img
           src="https://cdn.prod.website-files.com/62f2cd1feafac51b7859878b/63000729c32fa7acc3f6ad95_iSpring%20Logo-p-500.png"
           alt="RTD Academy Logo"
           className="form-logo"
         />
-        <h1 className="form-title">Register with RTD Academy</h1>
-        <p className="form-subtitle">
-          Start your next high school math course today. Math 10c to 31 | CTS
-          Coding
-        </p>
       </div>
-
-      <div className="form-content">
-        <form onSubmit={handleSubmit}>
-          {renderStep()}
-
-          <div className="form-navigation">
-            {currentStep > 1 && (
-              <button type="button" onClick={prevStep} className="form-button secondary">
-                Previous
-              </button>
-            )}
-            {!isLastStep() ? (
-              <button type="button" onClick={nextStep} className="form-button primary">
-                Next
-              </button>
-            ) : (
-              <button type="submit" className="form-button primary">
-                Submit Registration
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
-      <div className="form-footer">
-        <p>RTD Academy © 2024</p>
+      <div className="form-container">
+        <div className="form-header">
+          <h1 className="form-title">Course Registration</h1>
+          <p className="form-subtitle">
+            Start your next high school math course today. Math 10c to 31 | CTS
+            Coding
+          </p>
+        </div>
+  
+        <div className="form-content">
+          <form onSubmit={handleSubmit}>
+            {renderStep()}
+  
+            <div className="form-navigation">
+              {currentStep > 1 && (
+                <button type="button" onClick={prevStep} className="form-button secondary">
+                  Previous
+                </button>
+              )}
+              {!isLastStep() ? (
+                <button type="button" onClick={nextStep} className="form-button primary">
+                  Next
+                </button>
+              ) : (
+                <button type="submit" className="form-button primary">
+                  Submit Registration
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+        <div className="form-footer">
+          <p>RTD Academy © 2024</p>
+        </div>
       </div>
     </div>
   );
