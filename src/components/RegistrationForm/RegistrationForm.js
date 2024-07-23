@@ -5,6 +5,7 @@ import CourseSelection from "./CourseSelection";
 import GrantEligibleStudentInfo from "./GrantEligibleStudentInfo";
 import AdultStudentInfo from "./AdultStudentInfo";
 import InternationalStudentInfo from "./InternationalStudentInfo";
+import ConfirmationPage from "./ConfirmationPage";
 import "../../styles/styles.css";
 
 const RegistrationForm = () => {
@@ -29,6 +30,7 @@ const RegistrationForm = () => {
   });
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const studentTypeSelectionRef = useRef();
   const personalInformationRef = useRef();
   const courseSelectionRef = useRef();
@@ -41,11 +43,71 @@ const RegistrationForm = () => {
     }));
   };
 
+  const handlePaymentSuccess = (paymentDetails) => {
+    const combinedData = {
+      ...formData,
+      paymentDetails: {
+        orderId: paymentDetails.id,
+        payerId: paymentDetails.payer.payer_id,
+        payerEmail: paymentDetails.payer.email_address,
+        transactionStatus: paymentDetails.status,
+        transactionTime: paymentDetails.update_time,
+        amount: paymentDetails.amount,
+      }
+    };
+
+    submitFormData(combinedData);
+  };
+
+  const submitFormData = (data) => {
+    console.log("Form Data Submitted:", data);
+
+    fetch('https://prod2-23.canadacentral.logic.azure.com:443/workflows/ba5dd61b9e79412c9a2be210a6f3d666/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Cf7iWwnDsUGOQI9ugqYqmAJWLWPaVsKkerXWxes8zv8', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+    .then(response => {
+      console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers);
+      
+      if (response.status === 202) {
+        return { status: 'success', message: 'Your registration has been accepted and is being processed.' };
+      }
+      
+      return response.text().then(text => {
+        try {
+          return text ? JSON.parse(text) : {}
+        } catch (e) {
+          console.log("Error parsing JSON:", e);
+          return text;
+        }
+      });
+    })
+    .then(result => {
+      console.log('Success:', result);
+      setIsSubmitted(true);
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        alert('Network error. Please check your internet connection and try again.');
+      } else {
+        alert(`There was an error submitting your registration: ${error.message}. Please try again later.`);
+      }
+    });
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (validateStep()) {
-      console.log("Form Data Submitted:", formData);
-      // Here you would typically send the data to your backend
+      if (!['nonPrimary', 'homeEducation', 'summerSchool'].includes(formData.studentType)) {
+        submitFormData(formData);
+      } else {
+        console.log("For grant-eligible students, form is submitted after payment.");
+      }
     }
   };
 
@@ -148,11 +210,11 @@ const RegistrationForm = () => {
         );
       case 4:
         if (['nonPrimary', 'homeEducation', 'summerSchool'].includes(formData.studentType)) {
-          return <GrantEligibleStudentInfo formData={formData} handleSubmit={handleSubmit} />;
+          return <GrantEligibleStudentInfo formData={formData} onPaymentSuccess={handlePaymentSuccess} />;
         } else if (formData.studentType === 'adultStudent') {
-          return <AdultStudentInfo formData={formData} handleSubmit={handleSubmit} />;
+          return <AdultStudentInfo formData={formData} />;
         } else if (formData.studentType === 'internationalStudent') {
-          return <InternationalStudentInfo formData={formData} handleSubmit={handleSubmit} />;
+          return <InternationalStudentInfo formData={formData} />;
         }
         return null;
       default:
@@ -167,49 +229,50 @@ const RegistrationForm = () => {
     return currentStep === 3;
   };
 
+  if (isSubmitted) {
+    return <ConfirmationPage />;
+  }
+
   return (
-    <div className="page-container">
-      <div className="logo-container">
+    <div className="form-container">
+      <div className="form-header">
         <img
           src="https://cdn.prod.website-files.com/62f2cd1feafac51b7859878b/63000729c32fa7acc3f6ad95_iSpring%20Logo-p-500.png"
           alt="RTD Academy Logo"
           className="form-logo"
         />
+        <h1 className="form-title">Register with RTD Academy</h1>
+        <p className="form-subtitle">
+          Start your next high school math course today. Math 10c to 31 | CTS
+          Coding
+        </p>
       </div>
-      <div className="form-container">
-        <div className="form-header">
-          <h1 className="form-title">Course Registration</h1>
-          <p className="form-subtitle">
-            Start your next high school math course today. Math 10c to 31 | CTS
-            Coding
-          </p>
-        </div>
-  
-        <div className="form-content">
-          <form onSubmit={handleSubmit}>
-            {renderStep()}
-  
-            <div className="form-navigation">
-              {currentStep > 1 && (
-                <button type="button" onClick={prevStep} className="form-button secondary">
-                  Previous
-                </button>
-              )}
-              {!isLastStep() ? (
-                <button type="button" onClick={nextStep} className="form-button primary">
-                  Next
-                </button>
-              ) : (
-                <button type="submit" className="form-button primary">
-                  Submit Registration
-                </button>
-              )}
-            </div>
-          </form>
-        </div>
-        <div className="form-footer">
-          <p>RTD Academy © 2024</p>
-        </div>
+
+      <div className="form-content">
+        <form onSubmit={handleSubmit}>
+          {renderStep()}
+
+          <div className="form-navigation">
+            {currentStep > 1 && (
+              <button type="button" onClick={prevStep} className="form-button secondary">
+                Previous
+              </button>
+            )}
+            {!isLastStep() && (
+              <button type="button" onClick={nextStep} className="form-button primary">
+                Next
+              </button>
+            )}
+            {isLastStep() && !['nonPrimary', 'homeEducation', 'summerSchool'].includes(formData.studentType) && (
+              <button type="submit" className="form-button primary">
+                Submit Registration
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+      <div className="form-footer">
+        <p>RTD Academy © 2024</p>
       </div>
     </div>
   );

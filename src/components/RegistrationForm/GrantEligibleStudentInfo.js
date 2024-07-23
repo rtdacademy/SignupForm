@@ -1,39 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import PayPalButton from './PayPalButton';
 
-const GrantEligibleStudentInfo = ({ formData, handleSubmit }) => {
-  const [isPaymentCompleted, setIsPaymentCompleted] = useState(false);
-  const [orderDetails, setOrderDetails] = useState(null);
-
+const GrantEligibleStudentInfo = ({ formData, onPaymentSuccess }) => {
   const handlePaymentSuccess = (order) => {
-    setOrderDetails(order);
-    setIsPaymentCompleted(true);
-  };
-
-  const handleFinalSubmit = (e) => {
-    e.preventDefault();
-    const payload = {
-      ...formData,
-      orderId: orderDetails.id,
-      payerId: orderDetails.payer.payer_id,
-      transactionStatus: orderDetails.status,
-    };
-
-    fetch('https://your-power-automate-url', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
-    .then(response => response.json())
-    .then(data => {
-      console.log('Success:', data);
-      handleSubmit();
-    })
-    .catch(error => {
-      console.error('Error:', error);
-    });
+    console.log("Payment successful:", order);
+    onPaymentSuccess(order);
   };
 
   return (
@@ -78,15 +49,9 @@ const GrantEligibleStudentInfo = ({ formData, handleSubmit }) => {
         </p>
 
         <div className="payment-section">
-          <p>Click the button below to pay your $50 deposit and complete your registration:</p>
-          {!isPaymentCompleted ? (
-            <PayPalButton amount="50.00" onSuccess={handlePaymentSuccess} />
-          ) : (
-            <button onClick={handleFinalSubmit} className="form-button primary">
-              Complete Registration
-            </button>
-          )}
-        </div>
+        <p>Click the button below to pay your $50 deposit and complete your registration:</p>
+        <PayPalButton amount="50.00" onSuccess={handlePaymentSuccess} />
+      </div>
       </div>
     </section>
   );

@@ -446,3 +446,32 @@ body {
     left: 1.25rem;
   }
 }
+
+
+.confirmation-container {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.confirmation-container h1 {
+  color: #1fa6a7;
+  margin-bottom: 1rem;
+}
+
+.confirmation-container h2 {
+  color: #315369;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.confirmation-container ul {
+  margin-left: 1.5rem;
+}
+
+.confirmation-container p {
+  margin-bottom: 1rem;
+}

@@ -18,7 +18,8 @@ const PayPalButton = ({ amount, onSuccess }) => {
         }}
         onApprove={(data, actions) => {
           return actions.order.capture().then((details) => {
-            onSuccess(details);
+            // Include the amount in the success callback
+            onSuccess({ ...details, amount: amount });
           });
         }}
         onError={(err) => {
