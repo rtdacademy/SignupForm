@@ -26,6 +26,11 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge }, re
     'Math 10-4': 'Basic math skills for everyday life and entry-level employment.'
   };
 
+  const validateEmail = (email) => {
+    const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return re.test(String(email).toLowerCase());
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -37,7 +42,13 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge }, re
     if (showParentInfo) {
       if (!formData.parentName) newErrors.parentName = "Parent name is required";
       if (!formData.parentPhone) newErrors.parentPhone = "Parent phone number is required";
-      if (!formData.parentEmail) newErrors.parentEmail = "Parent email is required";
+      if (!formData.parentEmail) {
+        newErrors.parentEmail = "Parent email is required";
+      } else if (!validateEmail(formData.parentEmail)) {
+        newErrors.parentEmail = "Please enter a valid email address";
+      }
+    } else if (formData.parentEmail && !validateEmail(formData.parentEmail)) {
+      newErrors.parentEmail = "Please enter a valid email address";
     }
 
     setErrors(newErrors);
@@ -148,7 +159,7 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge }, re
           className={`form-input ${errors.startDate ? 'is-invalid' : ''}`}
         />
         <label htmlFor="startDate" className="form-label">When do you intend to start the course?</label>
-        <p className="form-help-text">An date estimate is fine. This will be used to create your initial schedule, but we can create a new schedule at your orientation meeting.</p>
+        <p className="form-help-text">A date estimate is fine. This will be used to create your initial schedule, but we can create a new schedule at your orientation meeting.</p>
         {errors.startDate && <div className="error-message">{errors.startDate}</div>}
       </div>
 
@@ -164,14 +175,14 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge }, re
         />
         <label htmlFor="completionDate" className="form-label">When do you intend to complete the course by?</label>
         <p className="form-help-text">
-          An date estimate is fine. Note: You can start and complete a course at any time of year, but if you are in a diploma course,
+          A date estimate is fine. Note: You can start and complete a course at any time of year, but if you are in a diploma course,
           there are set times that you are allowed to take your diploma. If you know your diploma date please add it here.
           If you do not have your diploma date, an estimate is fine.
         </p>
         {errors.completionDate && <div className="error-message">{errors.completionDate}</div>}
       </div>
 
-      {showParentInfo && (
+      {showParentInfo ? (
         <div className="parent-info">
           <h3>Parent/Guardian Information</h3>
           <p className="form-help-text">As you are under 18, parent/guardian information is required.</p>
@@ -222,9 +233,7 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge }, re
             {errors.parentEmail && <div className="error-message">{errors.parentEmail}</div>}
           </div>
         </div>
-      )}
-
-      {!showParentInfo && (
+      ) : (
         <div className="parent-info">
           <h3>Parent/Guardian Information (Optional)</h3>
           <p className="form-help-text">As you are 18 or older, parent/guardian information is optional.</p>
@@ -263,10 +272,11 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge }, re
               name="parentEmail"
               value={formData.parentEmail || ''}
               onChange={handleChange}
-              className="form-input"
+              className={`form-input ${errors.parentEmail ? 'is-invalid' : ''}`}
               placeholder=""
             />
             <label htmlFor="parentEmail" className="form-label">Parent/Guardian Email</label>
+            {errors.parentEmail && <div className="error-message">{errors.parentEmail}</div>}
           </div>
         </div>
       )}

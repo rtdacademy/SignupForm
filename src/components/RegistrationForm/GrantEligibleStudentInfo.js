@@ -1,6 +1,7 @@
 import React from 'react';
 import PayPalButton from './PayPalButton';
 
+
 const GrantEligibleStudentInfo = ({ formData, onPaymentSuccess }) => {
   const handlePaymentSuccess = (order) => {
     console.log("Payment successful:", order);
@@ -10,6 +11,7 @@ const GrantEligibleStudentInfo = ({ formData, onPaymentSuccess }) => {
   return (
     <section className="form-section">
       <h2 className="section-title">Course Information for Grant-Eligible Students</h2>
+
       
       <div className="info-content">
         <p>

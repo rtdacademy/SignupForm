@@ -1,18 +1,19 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
-const StudentTypeSelection = forwardRef(({ formData, handleChange, getCurrentSchoolYear, getNextSchoolYear, calculateAge, shouldShowNextSchoolYear, getDefaultBirthday, isOver20ForSchoolYear }, ref) => {
+const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge, shouldShowNextSchoolYear, getDefaultBirthday, isOver20ForSchoolYear }, ref) => {
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [justDetermined, setJustDetermined] = useState(false);
   const [ageInfo, setAgeInfo] = useState('');
   const [errors, setErrors] = useState({});
+  const [noASN, setNoASN] = useState(false); // New state for the checkbox
 
   const studentTypes = [
-    { value: 'nonPrimary', label: 'Non-Primary Student' },
-    { value: 'homeEducation', label: 'Home Education Student' },
-    { value: 'summerSchool', label: 'Summer School Student' },
-    { value: 'adultStudent', label: 'Adult Student' },
-    { value: 'internationalStudent', label: 'International Student' }
+    { value: 'Non-Primary', label: 'Non-Primary Student' },
+    { value: 'Home Education', label: 'Home Education Student' },
+    { value: 'Summer School', label: 'Summer School Student' },
+    { value: 'Adult Student', label: 'Adult Student' },
+    { value: 'International Student', label: 'International Student' }
   ];
 
   const questions = [
@@ -20,7 +21,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, getCurrentSch
       id: 'albertaCitizen',
       text: 'Are you an Alberta citizen or permanent resident?',
       options: ['Yes', 'No'],
-      next: (answer) => answer === 'Yes' ? 1 : 'internationalStudent'
+      next: (answer) => answer === 'Yes' ? 1 : 'International Student'
     },
     {
       id: 'enrolledInSchool',
@@ -32,28 +33,46 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, getCurrentSch
       id: 'summerIntentEnrolled',
       text: 'Do you intend to complete the course between July and August?',
       options: ['Yes', 'No'],
-      next: (answer) => answer === 'Yes' ? 'summerSchool' : 'nonPrimary'
+      next: (answer) => answer === 'Yes' ? 'Summer School' : 'Non-Primary'
     },
     {
       id: 'homeEducation',
       text: 'Is your education parent-directed and part of a Home Education Program?',
       options: ['Yes', 'No'],
-      next: (answer) => answer === 'Yes' ? 4 : 'adultStudent'
+      next: (answer) => answer === 'Yes' ? 4 : 'Adult Student'
     },
     {
       id: 'summerIntentHomeEd',
       text: 'Do you intend to complete the course between July and August?',
       options: ['Yes', 'No'],
-      next: (answer) => answer === 'Yes' ? 'summerSchool' : 'homeEducation'
+      next: (answer) => answer === 'Yes' ? 'Summer School' : 'Home Education'
     }
   ];
 
   const studentTypeInfo = {
-    nonPrimary: "Non-Primary Students are school-aged students that have a primary registration at another high school in Alberta. You may take up to 10 credits per school year for free.",
-    homeEducation: "Home Education Students are school-aged students whose education is parent-directed and overseen by a school board as part of a Home Education Program. You may take up to 10 credits per school year for free.",
-    summerSchool: "Summer School Students are School-aged Alberta students intending to complete their course in July or August. Courses are free for students under 20 before September of the current school year.",
-    adultStudent: "Adult Students include Canadian citizens and permanent residents who do not qualify for other categories. This includes students under 20 for whom our school does not receive grant funding. Fees are $100 per credit.",
-    internationalStudent: "International Students include students who ordinarily reside outside of Alberta. Fees are $100 per credit (special introductory rate)."
+    'Non-Primary': "Non-Primary Students are school-aged students that have a primary registration at another high school in Alberta. You may take up to 10 credits per school year for free.",
+    'Home Education': "Home Education Students are school-aged students whose education is parent-directed and overseen by a school board as part of a Home Education Program. You may take up to 10 credits per school year for free.",
+    'Summer School': "Summer School Students are School-aged Alberta students intending to complete their course in July or August. Courses are free for students under 20 before September of the current school year.",
+    'Adult Student': "Adult Students include Canadian citizens and permanent residents who do not qualify for other categories. This includes students under 20 for whom our school does not receive grant funding. Fees are $100 per credit.",
+    'International Student': "International Students include students who ordinarily reside outside of Alberta. Fees are $100 per credit (special introductory rate)."
+  };
+
+
+  const getCurrentSchoolYear = () => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const nextYear = currentYear + 1;
+    
+    if (today.getMonth() >= 8) { // 8 represents September (0-indexed)
+      return `${currentYear.toString().slice(-2)}/${nextYear.toString().slice(-2)}`;
+    }
+    return `${(currentYear - 1).toString().slice(-2)}/${currentYear.toString().slice(-2)}`;
+  };
+
+  const getNextSchoolYear = () => {
+    const [startYear] = getCurrentSchoolYear().split('/');
+    const nextStartYear = parseInt(startYear) + 1;
+    return `${nextStartYear}/${(nextStartYear + 1).toString().slice(-2)}`;
   };
 
   useEffect(() => {
@@ -74,8 +93,8 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, getCurrentSch
   const updateAgeInfo = () => {
     if (formData.birthday && formData.enrollmentYear) {
       const [enrollmentStartYear] = formData.enrollmentYear.split('/');
-      const lastSeptember = new Date(enrollmentStartYear - 1, 8, 1);
-      const nextSeptember = new Date(enrollmentStartYear, 8, 1);
+      const lastSeptember = new Date(parseInt('20' + enrollmentStartYear) - 1, 8, 1);
+      const nextSeptember = new Date(parseInt('20' + enrollmentStartYear), 8, 1);
       const today = new Date();
       const currentAge = calculateAge(formData.birthday, today);
       const ageLastSeptember = calculateAge(formData.birthday, lastSeptember);
@@ -109,7 +128,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, getCurrentSch
         handleChange({
           target: {
             name: 'studentType',
-            value: 'adultStudent'
+            value: 'Adult Student'
           }
         });
         setShowQuestionnaire(false);
@@ -152,7 +171,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, getCurrentSch
 
   const getAvailableStudentTypes = () => {
     if (isOver20ForSchoolYear()) {
-      return studentTypes.filter(type => ['adultStudent', 'internationalStudent'].includes(type.value));
+      return studentTypes.filter(type => ['Adult Student', 'International Student'].includes(type.value));
     }
     return studentTypes;
   };
@@ -174,19 +193,18 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, getCurrentSch
     });
   };
 
-
   const renderASNInstructions = () => {
     switch (formData.studentType) {
-      case 'nonPrimary':
-      case 'homeEducation':
-      case 'summerSchool':
+      case 'Non-Primary':
+      case 'Home Education':
+      case 'Summer School':
         return (
           <p className="asn-instructions">
             Any student that has taken a course in Alberta has an ASN. 
             <a href="https://learnerregistry.ae.alberta.ca/Home/StartLookup" target="_blank" rel="noopener noreferrer"> Click here to easily find yours</a>.
           </p>
         );
-      case 'adultStudent':
+      case 'Adult Student':
         return (
           <p className="asn-instructions">
             If you have ever taken a course in Alberta, you should have an ASN. 
@@ -194,7 +212,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, getCurrentSch
             If you cannot find your ASN, please email info@rtdacademy.com for assistance.
           </p>
         );
-      case 'internationalStudent':
+      case 'International Student':
         return (
           <p className="asn-instructions">
             You would not have an ASN assigned unless you have taken a previous course in Alberta. 
@@ -222,8 +240,8 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, getCurrentSch
       newErrors.studentType = "Student type is required";
     }
 
-    if (formData.studentType && formData.studentType !== 'internationalStudent') {
-      if (!formData.albertaStudentNumber) {
+    if (formData.studentType && formData.studentType !== 'International Student') {
+      if (!formData.albertaStudentNumber && !noASN) {
         newErrors.albertaStudentNumber = "Alberta Student Number is required";
       } else if (formData.albertaStudentNumber.replace(/\D/g, "").length !== 9) {
         newErrors.albertaStudentNumber = "Alberta Student Number must be 9 digits";
@@ -237,7 +255,6 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, getCurrentSch
   useImperativeHandle(ref, () => ({
     validateForm
   }));
-
 
   return (
     <section className="form-section">
@@ -307,6 +324,9 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, getCurrentSch
                 onChange={(e) => {
                   handleChange(e);
                   setJustDetermined(false);
+                  if (e.target.value !== 'International Student') {
+                    setNoASN(false);
+                  }
                 }}
                 required
                 className={`form-select ${errors.studentType ? 'is-invalid' : ''}`}
@@ -369,22 +389,37 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, getCurrentSch
         <div className="asn-section">
           <h3>Alberta Student Number (ASN)</h3>
           {renderASNInstructions()}
-          <div className="form-group">
-          <input
-              type="text"
-              id="albertaStudentNumber"
-              name="albertaStudentNumber"
-              value={formData.albertaStudentNumber}
-              onChange={handleASNChange}
-              className={`form-input ${errors.albertaStudentNumber ? 'is-invalid' : ''}`}
-              placeholder=""
-              required={formData.studentType !== 'internationalStudent'}
-            />
-            <label htmlFor="albertaStudentNumber" className="form-label">
-              Alberta Student Number
-            </label>
-            {errors.albertaStudentNumber && <div className="error-message">{errors.albertaStudentNumber}</div>}
-          </div>
+          {formData.studentType === 'International Student' && (
+            <div className="form-group asn-checkbox">
+              <input
+                type="checkbox"
+                id="noASN"
+                name="noASN"
+                checked={noASN}
+                onChange={() => setNoASN(!noASN)}
+                className="form-checkbox"
+              />
+              <label htmlFor="noASN" className="form-checkbox-label">I do not have an Alberta Student Number (ASN) yet</label>
+            </div>
+          )}
+          {!noASN && (
+            <div className="form-group">
+              <input
+                type="text"
+                id="albertaStudentNumber"
+                name="albertaStudentNumber"
+                value={formData.albertaStudentNumber}
+                onChange={handleASNChange}
+                className={`form-input ${errors.albertaStudentNumber ? 'is-invalid' : ''}`}
+                placeholder=""
+                required={formData.studentType !== 'International Student' || !noASN}
+              />
+              <label htmlFor="albertaStudentNumber" className="form-label">
+                Alberta Student Number
+              </label>
+              {errors.albertaStudentNumber && <div className="error-message">{errors.albertaStudentNumber}</div>}
+            </div>
+          )}
         </div>
       )}
     </section>

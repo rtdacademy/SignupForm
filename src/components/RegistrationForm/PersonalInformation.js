@@ -49,7 +49,7 @@ const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
           onChange={handleChange}
           required
           className={`form-input ${errors.firstName ? 'is-invalid' : ''}`}
-          placeholder=""
+          placeholder=" "
         />
         <label htmlFor="firstName" className="form-label">
           First Name
@@ -66,7 +66,7 @@ const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
           onChange={handleChange}
           required
           className={`form-input ${errors.lastName ? 'is-invalid' : ''}`}
-          placeholder=""
+          placeholder=" "
         />
         <label htmlFor="lastName" className="form-label">
           Last Name
@@ -83,7 +83,7 @@ const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
           onChange={handleChange}
           required
           className={`form-input ${errors.studentEmail ? 'is-invalid' : ''}`}
-          placeholder=""
+          placeholder=" "
         />
         <label htmlFor="studentEmail" className="form-label">
           Student Email
@@ -100,7 +100,7 @@ const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
           onChange={handleConfirmEmailChange}
           required
           className={`form-input ${errors.confirmEmail ? 'is-invalid' : ''}`}
-          placeholder=""
+          placeholder=" "
         />
         <label htmlFor="confirmEmail" className="form-label">
           Confirm Student Email

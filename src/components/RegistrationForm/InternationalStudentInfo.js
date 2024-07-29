@@ -1,10 +1,16 @@
 import React from 'react';
+import PayPalButton from './PayPalButton';
 
-const InternationalStudentInfo = ({ formData, handleSubmit }) => {
+const InternationalStudentInfo = ({ formData, onPaymentSuccess }) => {
   // Function to format the date
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
+  };
+
+  const handlePaymentSuccess = (paymentDetails) => {
+    console.log("Payment successful:", paymentDetails);
+    onPaymentSuccess(paymentDetails);
   };
 
   return (
@@ -62,16 +68,13 @@ const InternationalStudentInfo = ({ formData, handleSubmit }) => {
 
         <h3>Next Steps</h3>
         <p>
-          To complete your registration and secure your spot in the course, please submit your payment using the button below.
+          To complete your registration and secure your spot in the course, please submit your payment using the PayPal button below.
           Once your payment is processed, we will finalize your enrollment, add you to the PASI system, and provide you with further instructions to get started.
         </p>
 
         <div className="payment-section">
-          <p>Click the button below to pay for your course and complete your registration:</p>
-          {/* Placeholder for payment integration */}
-          <button onClick={handleSubmit} className="form-button primary">
-            Pay ${formData.course ? '500' : '___'} and Submit Registration
-          </button>
+          <p>Click the PayPal button below to pay for your course and complete your registration:</p>
+          <PayPalButton amount="500.00" onSuccess={handlePaymentSuccess} />
         </div>
       </div>
     </section>
