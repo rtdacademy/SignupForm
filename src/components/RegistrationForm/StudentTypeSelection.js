@@ -1,6 +1,6 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 
-const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge, shouldShowNextSchoolYear, getDefaultBirthday, isOver20ForSchoolYear }, ref) => {
+const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge, shouldShowNextSchoolYear, getDefaultBirthday, isOver20ForSchoolYear, getCurrentSchoolYear, getNextSchoolYear }, ref) => {
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [justDetermined, setJustDetermined] = useState(false);
@@ -55,24 +55,6 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
     'Summer School': "Summer School Students are School-aged Alberta students intending to complete their course in July or August. Courses are free for students under 20 before September of the current school year.",
     'Adult Student': "Adult Students include Canadian citizens and permanent residents who do not qualify for other categories. This includes students under 20 for whom our school does not receive grant funding. Fees are $100 per credit.",
     'International Student': "International Students include students who ordinarily reside outside of Alberta. Fees are $100 per credit (special introductory rate)."
-  };
-
-
-  const getCurrentSchoolYear = () => {
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const nextYear = currentYear + 1;
-    
-    if (today.getMonth() >= 8) { // 8 represents September (0-indexed)
-      return `${currentYear.toString().slice(-2)}/${nextYear.toString().slice(-2)}`;
-    }
-    return `${(currentYear - 1).toString().slice(-2)}/${currentYear.toString().slice(-2)}`;
-  };
-
-  const getNextSchoolYear = () => {
-    const [startYear] = getCurrentSchoolYear().split('/');
-    const nextStartYear = parseInt(startYear) + 1;
-    return `${nextStartYear}/${(nextStartYear + 1).toString().slice(-2)}`;
   };
 
   useEffect(() => {

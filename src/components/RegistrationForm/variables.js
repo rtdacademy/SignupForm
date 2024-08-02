@@ -11,6 +11,7 @@ export const courseSharepointIDs = {
     "Math 20-4": 32,
     "Math 30-1": 33,
     "Math 30-3": 34,
-    "Math 30-2": 35
+    "Math 30-2": 35,
+    "Coding" : 41
   };
   
