@@ -26,19 +26,12 @@
     "typescript": "^4.9.5"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
+    "start:sandbox": "env-cmd -f .env.development react-scripts start",
+    "start:production": "env-cmd -f .env.production react-scripts start",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build",
-    "deploy:production": "env-cmd -f .env.production npm run deploy",
-    "start:sandbox": "env-cmd -f .env.development react-scripts start",
-    "build:sandbox": "env-cmd -f .env.development react-scripts build",
-    "start:production": "env-cmd -f .env.production react-scripts start",
-    "build:production": "env-cmd -f .env.production react-scripts build",
-    "deploy:sandbox": "env-cmd -f .env.development npm run build && gh-pages -d build",
-    "deploy:prod": "env-cmd -f .env.production npm run build && gh-pages -d build"
+    "deploy:sandbox": "env-cmd -f .env.development react-scripts build && gh-pages -d build",
+    "deploy:production": "env-cmd -f .env.production react-scripts build && gh-pages -d build"
   },
   "browserslist": [
     ">0.2%",
