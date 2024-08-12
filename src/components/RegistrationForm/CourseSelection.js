@@ -7,43 +7,43 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
   const [errors, setErrors] = useState({});
   const [filteredDiplomaDates, setFilteredDiplomaDates] = useState([]);
   const [showAdditionalNotes, setShowAdditionalNotes] = useState(false);
+  const [alreadyWroteDiploma, setAlreadyWroteDiploma] = useState(false);
+  const [isCodingOption, setIsCodingOption] = useState(false);
 
   useEffect(() => {
-    setShowDiplomaDate(['Math 30-1', 'Math 30-2'].includes(formData.course));
+    const isDiplomaCourse = ['Math 30-1', 'Math 30-2'].includes(formData.course);
+    setShowDiplomaDate(isDiplomaCourse);
     setShowParentInfo(calculateAge(formData.birthday, new Date()) < 18);
-  
-    console.log("All diploma dates:", diplomaDates);
-    console.log("Current selected course:", formData.course);
-  
-    // Get the date one month from now
+
     const oneMonthFromNow = new Date();
     oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
-    console.log("One month from now:", oneMonthFromNow);
-  
-    // Filter, sort, and limit the diploma dates
+
     const filtered = diplomaDates
       .filter(item => {
         const itemDate = new Date(item.date);
         const isCorrectCourse = item.course === `Mathematics ${formData.course.split(' ')[1]}`;
         const isAfterOneMonth = itemDate > oneMonthFromNow;
-        console.log(`Date: ${itemDate}, Course: ${item.course}, Is Correct Course: ${isCorrectCourse}, Is After One Month: ${isAfterOneMonth}`);
         return isCorrectCourse && isAfterOneMonth;
       })
       .sort((a, b) => new Date(a.date) - new Date(b.date))
       .slice(0, 6);
-  
-    console.log("Filtered diploma dates:", filtered);
-    setFilteredDiplomaDates(filtered);
-  }, [formData.course, formData.birthday, calculateAge, diplomaDates]);
 
+    setFilteredDiplomaDates(filtered);
+
+    if (!isDiplomaCourse) {
+      setAlreadyWroteDiploma(false);
+    }
+
+    setIsCodingOption(formData.course === 'Coding');
+  }, [formData.course, formData.birthday, calculateAge, diplomaDates]);
 
   const validateForm = () => {
     const newErrors = {};
 
     if (!formData.course) newErrors.course = "Course selection is required";
-    if (showDiplomaDate && !formData.diplomaMonth) newErrors.diplomaMonth = "Diploma month is required for Math 30-1 and Math 30-2";
+    if (showDiplomaDate && !formData.diplomaMonth && !alreadyWroteDiploma) newErrors.diplomaMonth = "Diploma month is required for Math 30-1 and Math 30-2";
     if (!formData.startDate) newErrors.startDate = "Start date is required";
-    if (!showDiplomaDate && !formData.completionDate) newErrors.completionDate = "Completion date is required";
+    if ((!showDiplomaDate || alreadyWroteDiploma) && !formData.completionDate) newErrors.completionDate = "Completion date is required";
 
     if (showParentInfo) {
       if (!formData.parentName) newErrors.parentName = "Parent name is required";
@@ -71,7 +71,6 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
     setShowAdditionalNotes(!showAdditionalNotes);
   };
 
-
   const getMinStartDate = () => {
     const today = new Date();
     let minDate = new Date(today);
@@ -79,15 +78,29 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
 
     while (addedDays < 2) {
       minDate.setDate(minDate.getDate() + 1);
-      // Check if it's a weekday (Monday = 1, Friday = 5)
       if (minDate.getDay() !== 0 && minDate.getDay() !== 6) {
         addedDays++;
       }
     }
 
-    return minDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+    return minDate.toISOString().split('T')[0];
   };
 
+  const handleDiplomaMonthChange = (e) => {
+    const value = e.target.value;
+    if (value === "I don't need to write the diploma") {
+      setAlreadyWroteDiploma(true);
+      handleChange({
+        target: {
+          name: "diplomaMonth",
+          value: "I don't need to write the diploma"
+        }
+      });
+    } else {
+      setAlreadyWroteDiploma(false);
+      handleChange(e);
+    }
+  };
 
   return (
     <section className="form-section">
@@ -123,11 +136,12 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
                 id="diplomaMonth"
                 name="diplomaMonth"
                 value={formData.diplomaMonth || ''}
-                onChange={handleChange}
+                onChange={handleDiplomaMonthChange}
                 required
                 className={`form-select ${errors.diplomaMonth ? 'is-invalid' : ''}`}
               >
                 <option value="">Select diploma writing month</option>
+                <option value="I don't need to write the diploma">I don't need to write the diploma</option>
                 {filteredDiplomaDates.map((date) => (
                   <option key={`${date.course}-${date.month}-${date.date}`} value={date.month}>
                     {`${date.month} (${new Date(date.date).toLocaleDateString()}) - ${date.status}`}
@@ -135,25 +149,27 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
                 ))}
               </select>
               <label htmlFor="diplomaMonth" className="form-label">Diploma Month</label>
+              {alreadyWroteDiploma && (
+                <p className="form-help-text">
+                  The diploma is required for this course, but you may not need to take it if you have already taken the diploma and wish to keep the original mark. The diploma accounts for 30% of your mark for this course.
+                </p>
+              )}
               <p className="form-help-text">
-              <p>Math 30-1 and Math 30-2 are diploma courses that require you to write an exam at a designated test center, often at your school.</p>
-  
-  <p><strong>Important Notes:</strong></p>
-  <ul>
-    <li>If a diploma date is marked as "Draft", please be aware that Alberta Education may still adjust this date.</li>
-    <li>You can register for your diploma exam now through your <a href="https://public.education.alberta.ca/PASI/myPass/welcome" target="_blank" rel="noopener noreferrer">MyPass account</a>.</li>
-    <li>If you're unsure about the registration process, don't worry. We'll send out detailed instructions as the exam date approaches.</li>
-  </ul>
-
-  <p>For more information on Diploma exams, please visit the <a href="https://www.alberta.ca/writing-diploma-exams" target="_blank" rel="noopener noreferrer">Alberta Education Diploma Exams page</a>.</p>
-
-  <p>If you have any questions about diplomas, please email us at <a href="mailto:info@rtdacademy.com">info@rtdacademy.com</a>.</p>.
+                <p>Math 30-1 and Math 30-2 are diploma courses that require you to write an exam at a designated test center, often at your school.</p>
+                <p><strong>Important Notes:</strong></p>
+                <ul>
+                  <li>If a diploma date is marked as "Draft", please be aware that Alberta Education may still adjust this date.</li>
+                  <li>You can register for your diploma exam now through your <a href="https://public.education.alberta.ca/PASI/myPass/welcome" target="_blank" rel="noopener noreferrer">MyPass account</a>.</li>
+                  <li>If you're unsure about the registration process, don't worry. We'll send out detailed instructions as the exam date approaches.</li>
+                </ul>
+                <p>For more information on Diploma exams, please visit the <a href="https://www.alberta.ca/writing-diploma-exams" target="_blank" rel="noopener noreferrer">Alberta Education Diploma Exams page</a>.</p>
+                <p>If you have any questions about diplomas, please email us at <a href="mailto:info@rtdacademy.com">info@rtdacademy.com</a>.</p>
               </p>
               {errors.diplomaMonth && <div className="error-message">{errors.diplomaMonth}</div>}
             </div>
           )}
 
-<div className="form-group">
+          <div className="form-group">
             <input
               type="date"
               id="startDate"
@@ -172,7 +188,7 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
             {errors.startDate && <div className="error-message">{errors.startDate}</div>}
           </div>
 
-          {!showDiplomaDate && (
+          {(!showDiplomaDate || alreadyWroteDiploma) && (
             <div className="form-group">
               <input
                 type="date"
@@ -191,8 +207,7 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
             </div>
           )}
 
-
-<button type="button" onClick={toggleAdditionalNotes} className="btn btn-secondary">
+          <button type="button" onClick={toggleAdditionalNotes} className="btn btn-secondary">
             {showAdditionalNotes ? 'Hide Additional Notes' : 'Include Additional Notes (Optional)'}
           </button>
 

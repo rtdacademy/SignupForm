@@ -6,8 +6,8 @@ import App from "./App";
 const initialOptions = {
   "client-id": process.env.REACT_APP_PAYPAL_CLIENT_ID,
   currency: "CAD",
-  intent: "capture",
   "data-env": process.env.REACT_APP_PAYPAL_ENV,
+  vault: true,
 };
 
 const root = ReactDOM.createRoot(document.getElementById("root"));

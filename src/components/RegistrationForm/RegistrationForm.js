@@ -8,7 +8,7 @@ import AdultStudentInfo from "./AdultStudentInfo";
 import InternationalStudentInfo from "./InternationalStudentInfo";
 import InternationalStudentDocuments from "./InternationalStudentDocuments";
 import ConfirmationPage from "./ConfirmationPage";
-import { courseSharepointIDs } from "./variables";
+import { courseSharepointIDs, pricing, courseCredits } from "./variables";
 import "../../styles/styles.css";
 
 const RegistrationForm = () => {
@@ -48,6 +48,12 @@ const RegistrationForm = () => {
     additionalID: null,
     residencyProof: null,
     currentAge: null,
+    
+    paymentOption: "",
+    paymentAmount: null,
+    paymentPlanFee: null,
+    paymentType: "",
+    subscriptionID: ""
   });
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -90,12 +96,10 @@ const RegistrationForm = () => {
       const data = await response.json();
       console.log("API response data:", data);
   
-      // Get the date one month from now
       const oneMonthFromNow = new Date();
       oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
       console.log("One month from now:", oneMonthFromNow);
   
-      // Filter the diploma dates
       const filteredDiplomaDates = data.filter(item => {
         const itemDate = new Date(item.date);
         return (item.course === 'Mathematics 30-1' || item.course === 'Mathematics 30-2') && 
@@ -126,7 +130,6 @@ const RegistrationForm = () => {
       }
       if (name === 'course') {
         newData.courseSharepointID = courseSharepointIDs[value] || null;
-        // Reset diplomaMonth and completionDate when course changes
         newData.diplomaMonth = '';
         newData.completionDate = '';
       }
@@ -135,30 +138,36 @@ const RegistrationForm = () => {
           date => date.month === value && date.course === `Mathematics ${newData.course.split(' ')[1]}`
         );
         if (selectedDiplomaDate) {
-          // Parse the date string to a Date object before calling toISOString()
           const dateObject = new Date(selectedDiplomaDate.date);
-          newData.completionDate = dateObject.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+          newData.completionDate = dateObject.toISOString().split('T')[0];
         }
       }
       return newData;
     });
   };
 
-
   const handlePaymentSuccess = (paymentDetails) => {
+    console.log("Payment Details: ", paymentDetails);
     const combinedData = {
       ...formData,
-      orderId: paymentDetails.id,
-      payerId: paymentDetails.payer.payer_id,
-      payerEmail: paymentDetails.payer.email_address,
-      transactionStatus: paymentDetails.status,
-      transactionTime: paymentDetails.update_time,
+      orderId: paymentDetails.orderId || paymentDetails.subscriptionID,
+      payerId: paymentDetails.payerId,
+      payerEmail: paymentDetails.payerEmail,
+      transactionStatus: paymentDetails.transactionStatus,
+      transactionTime: paymentDetails.transactionTime,
       amount: paymentDetails.amount,
+      paymentType: paymentDetails.paymentType,
+      subscriptionID: paymentDetails.subscriptionID || '',
+      paymentAmount: paymentDetails.amount.value,
+      paymentPlanFee: paymentDetails.paymentType === 'subscription' ? pricing.paymentPlanFee : 0,
+      planId: paymentDetails.planId || '', // Add this line to capture the plan ID
     };
-  
+    // Remove the paymentOption field as it's redundant with paymentType
+    delete combinedData.paymentOption;
+    
+    console.log("Combined Data: ", combinedData);
     submitFormData(combinedData);
   };
-
   const submitFormData = async (data) => {
     const fileToBase64 = (file) => {
       return new Promise((resolve, reject) => {
@@ -172,24 +181,21 @@ const RegistrationForm = () => {
     const formatDate = (dateString) => {
       if (!dateString) return '';
       const date = new Date(dateString);
-      return date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+      return date.toISOString().split('T')[0];
     };
   
     try {
       const jsonData = { ...data };
   
-      // Handle date fields
       jsonData.birthday = formatDate(jsonData.birthday);
       jsonData.startDate = formatDate(jsonData.startDate);
       jsonData.completionDate = formatDate(jsonData.completionDate);
       jsonData.additionalNotes = data.additionalNotes || '';
   
-      // Ensure courseSharepointID is a string
       if (jsonData.courseSharepointID !== null && jsonData.courseSharepointID !== undefined) {
         jsonData.courseSharepointID = jsonData.courseSharepointID.toString();
       }
   
-      // Convert file fields to Base64
       if (data.passport) {
         jsonData.passport = await fileToBase64(data.passport);
         jsonData.passportFileName = data.passport.name;
@@ -212,7 +218,6 @@ const RegistrationForm = () => {
         jsonData.residencyProofFileName = '';
       }
   
-      // Replace null, undefined, or empty values with empty strings
       Object.keys(jsonData).forEach(key => {
         if (jsonData[key] === null || jsonData[key] === undefined || jsonData[key] === '') {
           jsonData[key] = '';
@@ -295,7 +300,7 @@ const RegistrationForm = () => {
     const currentYear = today.getFullYear();
     const nextYear = currentYear + 1;
     
-    if (today.getMonth() >= 8) { // 8 represents September (0-indexed)
+    if (today.getMonth() >= 8) {
       return `${currentYear.toString().slice(-2)}/${nextYear.toString().slice(-2)}`;
     }
     return `${(currentYear - 1).toString().slice(-2)}/${currentYear.toString().slice(-2)}`;
@@ -316,7 +321,7 @@ const RegistrationForm = () => {
 
   const shouldShowNextSchoolYear = () => {
     const today = new Date();
-    return today.getMonth() >= 0 && today.getMonth() < 8; // Show next school year option from January to August
+    return today.getMonth() >= 0 && today.getMonth() < 8;
   };
 
   const getDefaultBirthday = () => {
@@ -330,7 +335,7 @@ const RegistrationForm = () => {
 
     const birthDate = new Date(formData.birthday);
     const [enrollmentStartYear] = formData.enrollmentYear.split('/');
-    const cutoffDate = new Date(parseInt('20' + enrollmentStartYear), 8, 1); // September 1st of the enrollment year
+    const cutoffDate = new Date(parseInt('20' + enrollmentStartYear), 8, 1);
     
     const ageDifference = cutoffDate.getFullYear() - birthDate.getFullYear();
     const monthDifference = cutoffDate.getMonth() - birthDate.getMonth();
@@ -355,18 +360,32 @@ const RegistrationForm = () => {
             shouldShowNextSchoolYear={shouldShowNextSchoolYear}
             getDefaultBirthday={getDefaultBirthday}
             isOver20ForSchoolYear={isOver20ForSchoolYear}
+          />
+        );
+      case 3:
+        if (formData.studentType === 'International Student') {
+          return (
+            <InternationalStudentDocuments
+              ref={internationalStudentDocumentsRef}
+              formData={formData}
+              handleChange={handleChange}
             />
           );
-        case 3:
-          if (formData.studentType === 'International Student') {
-            return (
-              <InternationalStudentDocuments
-                ref={internationalStudentDocumentsRef}
-                formData={formData}
-                handleChange={handleChange}
-              />
-            );
-          }
+        }
+        return (
+          <CourseSelection 
+            ref={courseSelectionRef}
+            formData={formData} 
+            handleChange={handleChange}
+            calculateAge={calculateAge}
+            courses={courses}
+            diplomaDates={diplomaDates}
+            loading={loading}
+            error={error}
+          />
+        );
+      case 4:
+        if (formData.studentType === 'International Student') {
           return (
             <CourseSelection 
               ref={courseSelectionRef}
@@ -379,111 +398,97 @@ const RegistrationForm = () => {
               error={error}
             />
           );
-        case 4:
-          if (formData.studentType === 'International Student') {
-            return (
-              <CourseSelection 
-                ref={courseSelectionRef}
-                formData={formData} 
-                handleChange={handleChange}
-                calculateAge={calculateAge}
-                courses={courses}
-                diplomaDates={diplomaDates}
-                loading={loading}
-                error={error}
-              />
-            );
-          }
+        }
+        return <SurveyComponent ref={surveyComponentRef} formData={formData} handleChange={handleChange} />;
+      case 5:
+        if (formData.studentType === 'International Student') {
           return <SurveyComponent ref={surveyComponentRef} formData={formData} handleChange={handleChange} />;
-        case 5:
-          if (formData.studentType === 'International Student') {
-            return <SurveyComponent ref={surveyComponentRef} formData={formData} handleChange={handleChange} />;
-          }
-          if (['Non-Primary', 'Home Education', 'Summer School'].includes(formData.studentType)) {
-            return <GrantEligibleStudentInfo formData={formData} onPaymentSuccess={handlePaymentSuccess} />;
-          } else if (formData.studentType === 'Adult Student') {
-            return <AdultStudentInfo formData={formData} onPaymentSuccess={handlePaymentSuccess} />;
-          }
-          return null;
-        case 6:
-          if (formData.studentType === 'International Student') {
-            return <InternationalStudentInfo formData={formData} onPaymentSuccess={handlePaymentSuccess} />;
-          }
-          return null;
-        default:
-          return null;
-      }
-    };
-  
-    const isLastStep = () => {
-      if (formData.studentType === 'International Student') {
-        return currentStep === 6;
-      }
-      if (['Non-Primary', 'Home Education', 'Summer School', 'Adult Student'].includes(formData.studentType)) {
-        return currentStep === 5;
-      }
-      return currentStep === 4;
-    };
-  
-    if (isSubmitted) {
-      return <ConfirmationPage />;
+        }
+        if (['Non-Primary', 'Home Education', 'Summer School'].includes(formData.studentType)) {
+          return <GrantEligibleStudentInfo formData={formData} onPaymentSuccess={handlePaymentSuccess} />;
+        } else if (formData.studentType === 'Adult Student') {
+          return <AdultStudentInfo formData={formData} onPaymentSuccess={handlePaymentSuccess} />;
+        }
+        return null;
+      case 6:
+        if (formData.studentType === 'International Student') {
+          return <InternationalStudentInfo formData={formData} onPaymentSuccess={handlePaymentSuccess} />;
+        }
+        return null;
+      default:
+        return null;
     }
-  
-    if (loading) {
-      return <div>Loading course information...</div>;
+  };
+
+  const isLastStep = () => {
+    if (formData.studentType === 'International Student') {
+      return currentStep === 6;
     }
-  
-    if (error) {
-      return <div>Error: {error}</div>;
+    if (['Non-Primary', 'Home Education', 'Summer School', 'Adult Student'].includes(formData.studentType)) {
+      return currentStep === 5;
     }
-  
-    return (
-      <div className="page-container">
-        <div className="logo-container">
-          <img
-            src="https://cdn.prod.website-files.com/62f2cd1feafac51b7859878b/63000729c32fa7acc3f6ad95_iSpring%20Logo-p-500.png"
-            alt="RTD Academy Logo"
-            className="form-logo"
-          />
+    return currentStep === 4;
+  };
+
+  if (isSubmitted) {
+    return <ConfirmationPage />;
+  }
+
+  if (loading) {
+    return <div>Loading course information...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
+
+  return (
+    <div className="page-container">
+      <div className="logo-container">
+        <img
+          src="https://cdn.prod.website-files.com/62f2cd1feafac51b7859878b/63000729c32fa7acc3f6ad95_iSpring%20Logo-p-500.png"
+          alt="RTD Academy Logo"
+          className="form-logo"
+        />
+      </div>
+      <div className="form-container">
+        <div className="form-header">
+          <h1 className="form-title">Register with RTD Academy</h1>
+          <p className="form-subtitle">
+            Start your next high school math course today. Math 10c to 31 | CTS
+            Coding
+          </p>
         </div>
-        <div className="form-container">
-          <div className="form-header">
-            <h1 className="form-title">Register with RTD Academy</h1>
-            <p className="form-subtitle">
-              Start your next high school math course today. Math 10c to 31 | CTS
-              Coding
-            </p>
-          </div>
-  
-          <div className="form-content">
-            <form onSubmit={handleSubmit}>
-              {renderStep()}
-  
-              <div className="form-navigation">
-                {currentStep > 1 && (
-                  <button type="button" onClick={prevStep} className="form-button secondary">
-                    Previous
-                  </button>
-                )}
-                {!isLastStep() && (
-                  <button type="button" onClick={nextStep} className="form-button primary">
-                    Next
-                  </button>
-                )}
-                {isLastStep() && !['Non-Primary', 'Home Education', 'Summer School', 'Adult Student', 'International Student'].includes(formData.studentType) && (
-                  <button type="submit" className="form-button primary">
-                    Submit Registration
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-          <div className="form-footer">
-            <p>RTD Academy © 2024</p>
-          </div>
+
+        <div className="form-content">
+          <form onSubmit={handleSubmit}>
+            {renderStep()}
+
+            <div className="form-navigation">
+              {currentStep > 1 && (
+                <button type="button" onClick={prevStep} className="form-button secondary">
+                  Previous
+                </button>
+              )}
+              {!isLastStep() && (
+                <button type="button" onClick={nextStep} className="form-button primary">
+                  Next
+                </button>
+              )}
+              {isLastStep() && !['Non-Primary', 'Home Education', 'Summer School', 'Adult Student', 'International Student'].includes(formData.studentType) && (
+                <button type="submit" className="form-button primary">
+                  Submit Registration
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+        <div className="form-footer">
+          <p>RTD Academy © 2024</p>
         </div>
       </div>
-    );
-  };
-  
-  export default RegistrationForm;
+    </div>
+  );
+};
+
+export default RegistrationForm;
