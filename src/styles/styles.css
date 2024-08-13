@@ -604,7 +604,18 @@ body {
   pointer-events: none;
 }
 
-
+.date-hover-message {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  text-align: center;
+  z-index: 9999;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
 
 .date-input-group:hover .calendar-icon {
   color: var(--primary-color);

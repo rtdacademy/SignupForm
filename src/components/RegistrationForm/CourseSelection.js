@@ -11,6 +11,8 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
   const [showAdditionalNotes, setShowAdditionalNotes] = useState(false);
   const [alreadyWroteDiploma, setAlreadyWroteDiploma] = useState(false);
   const [isCodingOption, setIsCodingOption] = useState(false);
+  const [startDateErrorMessage, setStartDateErrorMessage] = useState('');
+const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('');
 
   useEffect(() => {
     const isDiplomaCourse = ['Math 30-1', 'Math 30-2'].includes(formData.course);
@@ -77,15 +79,26 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
     const today = new Date();
     let minDate = new Date(today);
     let addedDays = 0;
-
+  
     while (addedDays < 2) {
       minDate.setDate(minDate.getDate() + 1);
       if (minDate.getDay() !== 0 && minDate.getDay() !== 6) {
         addedDays++;
       }
     }
-
+  
+    // Reset the time to midnight
+    minDate.setHours(0, 0, 0, 0);
+  
     return minDate;
+  };
+  
+  const compareDates = (date1, date2) => {
+    return (
+      date1.getFullYear() === date2.getFullYear() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getDate() === date2.getDate()
+    );
   };
 
   const getMinCompletionDate = () => {
@@ -120,6 +133,19 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
     }
   };
 
+  const formatDate = (date) => {
+    const d = new Date(date);
+    d.setDate(d.getDate() + 1);  // Add one day
+    let month = '' + (d.getMonth() + 1);
+    let day = '' + d.getDate();
+    const year = d.getFullYear();
+  
+    if (month.length < 2) month = '0' + month;
+    if (day.length < 2) day = '0' + day;
+  
+    return [year, month, day].join('-');
+  };
+  
   const CustomInput = forwardRef(({ value, onClick, label, error, helpText }, ref) => (
     <div className="form-group" onClick={onClick} ref={ref}>
       <div className="date-input-group">
@@ -143,15 +169,7 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
     </div>
   ));
 
-  const filterStartDate = (date) => {
-    const minDate = getMinStartDate();
-    return date >= minDate;
-  };
 
-  const filterCompletionDate = (date) => {
-    const minDate = getMinCompletionDate();
-    return date >= minDate;
-  };
 
   return (
     <section className="form-section">
@@ -221,37 +239,55 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
           )}
 
 <DatePicker
-        selected={formData.startDate ? new Date(formData.startDate) : null}
-        onChange={(date) => handleChange({ target: { name: 'startDate', value: date.toISOString().split('T')[0] } })}
-        minDate={getMinStartDate()}
-        customInput={
-          <CustomInput 
-            label="When do you intend to start the course?" 
-            error={errors.startDate}
-            helpText="Please select a start date at least 2 business days from today. This allows our registrar time to add you to the course. The date you choose will be used to create your initial schedule, but we can adjust this later on as well if needed."
-          />
-        }
-        dateFormat="MMMM d, yyyy"
+  selected={formData.startDate ? new Date(formData.startDate) : null}
+  onChange={(date) => {
+    const minDate = getMinStartDate();
+    if (date >= minDate || compareDates(date, minDate)) {
+      handleChange({ target: { name: 'startDate', value: formatDate(date) } });
+      setStartDateErrorMessage('');
+    } else {
+      setStartDateErrorMessage('You must choose a date that is at least 2 business days from today.');
+    }
+  }}
+  minDate={getMinStartDate()}
+  customInput={
+    <CustomInput 
+      label="When do you intend to start the course?" 
+      error={errors.startDate || startDateErrorMessage}
+      helpText="Please select a start date at least 2 business days from today. This allows our registrar time to add you to the course. The date you choose will be used to create your initial schedule, but we can adjust this later on as well if needed."
+    />
+  }
+  dateFormat="MMMM d, yyyy"
+  onClickOutside={() => setStartDateErrorMessage('')}
+/>
+{startDateErrorMessage && <div className="error-message">{startDateErrorMessage}</div>}
+
+{(!showDiplomaDate || alreadyWroteDiploma) && (
+  <DatePicker
+    selected={formData.completionDate ? new Date(formData.completionDate) : null}
+    onChange={(date) => {
+      if (date >= getMinCompletionDate()) {
+        handleChange({ target: { name: 'completionDate', value: formatDate(date) } });
+        setCompletionDateErrorMessage('');
+      } else {
+        setCompletionDateErrorMessage('You must choose a date that allows at least one month to complete the course.');
+      }
+    }}
+    minDate={getMinCompletionDate()}
+    openToDate={getDefaultCompletionDate()}
+    disabled={!formData.startDate}
+    customInput={
+      <CustomInput 
+        label="When do you intend to complete the course by?" 
+        error={errors.completionDate || completionDateErrorMessage}
+        helpText={`Please select a completion date at least one month after your start date. Most 5-credit courses are typically designed to be completed in 5 months. A date estimate is fine. You can start and complete a course at any time of year.${!formData.startDate ? ' Please select a start date first.' : ''}`}
       />
-
-      {(!showDiplomaDate || alreadyWroteDiploma) && (
-        <DatePicker
-          selected={formData.completionDate ? new Date(formData.completionDate) : null}
-          onChange={(date) => handleChange({ target: { name: 'completionDate', value: date.toISOString().split('T')[0] } })}
-          minDate={getMinCompletionDate()}
-          openToDate={getDefaultCompletionDate()}
-          disabled={!formData.startDate}
-          customInput={
-            <CustomInput 
-              label="When do you intend to complete the course by?" 
-              error={errors.completionDate}
-              helpText={`Please select a completion date at least one month after your start date. Most 5-credit courses are typically designed to be completed in 5 months. A date estimate is fine. You can start and complete a course at any time of year.${!formData.startDate ? ' Please select a start date first.' : ''}`}
-            />
-          }
-          dateFormat="MMMM d, yyyy"
-        />
-      )}
-
+    }
+    dateFormat="MMMM d, yyyy"
+    onClickOutside={() => setCompletionDateErrorMessage('')}
+  />
+)}
+{completionDateErrorMessage && <div className="error-message">{completionDateErrorMessage}</div>}
           <button type="button" onClick={toggleAdditionalNotes} className="btn btn-secondary">
             {showAdditionalNotes ? 'Hide Additional Notes' : 'Include Additional Notes (Optional)'}
           </button>

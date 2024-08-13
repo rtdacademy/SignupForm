@@ -2,6 +2,12 @@ import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'rea
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
+const provinces = [
+  "Alberta", "British Columbia", "Manitoba", "New Brunswick", "Newfoundland and Labrador",
+  "Nova Scotia", "Ontario", "Prince Edward Island", "Quebec", "Saskatchewan", "Northwest Territories",
+  "Nunavut", "Yukon"
+];
+
 const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge, isOver20ForSchoolYear, getCurrentSchoolYear, getNextSchoolYear }, ref) => {
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -12,6 +18,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
   const [availableEnrollmentYears, setAvailableEnrollmentYears] = useState([]);
   const [enrollmentYearMessage, setEnrollmentYearMessage] = useState('');
   const [birthdayPickerOpen, setBirthdayPickerOpen] = useState(false);
+  const [showProvinceDropdown, setShowProvinceDropdown] = useState(false);
 
   const studentTypes = [
     { value: 'Non-Primary', label: 'Non-Primary Student' },
@@ -24,15 +31,21 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
   const questions = [
     {
       id: 'albertaCitizen',
-      text: 'Are you an Alberta citizen or permanent resident?',
+      text: 'Are you a Canadian citizen or permanent resident?',
       options: ['Yes', 'No'],
       next: (answer) => answer === 'Yes' ? 1 : 'International Student'
+    },
+    {
+      id: 'albertaResident',
+      text: 'Are you a resident of Alberta?',
+      options: ['Yes', 'No'],
+      next: (answer) => answer === 'Yes' ? 2 : 'Adult Student'
     },
     {
       id: 'enrolledInSchool',
       text: 'Are you enrolled in another junior high or high school in Alberta?',
       options: ['Yes', 'No'],
-      next: (answer) => answer === 'Yes' ? 2 : 3
+      next: (answer) => answer === 'Yes' ? 3 : 4
     },
     {
       id: 'summerIntentEnrolled',
@@ -44,7 +57,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
       id: 'homeEducation',
       text: 'Is your education parent-directed and part of a Home Education Program?',
       options: ['Yes', 'No'],
-      next: (answer) => answer === 'Yes' ? 4 : 'Adult Student'
+      next: (answer) => answer === 'Yes' ? 5 : 'Adult Student'
     },
     {
       id: 'summerIntentHomeEd',
@@ -58,8 +71,8 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
     'Non-Primary': "Non-Primary Students are school-aged students that have a primary registration at another high school in Alberta. You may take up to 10 credits per school year for free.",
     'Home Education': "Home Education Students are school-aged students whose education is parent-directed and overseen by a school board as part of a Home Education Program. You may take up to 10 credits per school year for free.",
     'Summer School': "Summer School Students are School-aged Alberta students intending to complete their course in July or August. Courses are free for students under 20 before September of the current school year.",
-    'Adult Student': "Adult Students include Canadian citizens and permanent residents who do not qualify for other categories. This includes students under 20 for whom our school does not receive grant funding. Fees are $100 per credit.",
-    'International Student': "International Students include students who ordinarily reside outside of Alberta. Fees are $100 per credit (special introductory rate)."
+    'Adult Student': "Adult Students include Canadian citizens and permanent residents who do not qualify for other categories. This includes students under 20 for whom our school does not receive grant funding, and out-of-province Canadian students. Fees are $100 per credit.",
+    'International Student': "International Students include students who are not Canadian citizens or permanent residents. Fees are $100 per credit (special introductory rate)."
   };
 
   useEffect(() => {
@@ -131,6 +144,26 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
       } else {
         setAgeInfo(`You are currently ${currentAge} years old and considered a school-age student.`);
       }
+    }
+  };
+
+  const handleStudentTypeChange = (e) => {
+    const { value } = e.target;
+    handleChange(e);
+    setJustDetermined(false);
+    setShowProvinceDropdown(value === 'Adult Student');
+    if (value !== 'International Student' && value !== 'Adult Student') {
+      setNoASN(false);
+    }
+  };
+
+  const handleProvinceChange = (e) => {
+    const { value } = e.target;
+    handleChange(e);
+    if (value !== 'Alberta') {
+      setNoASN(true);
+    } else {
+      setNoASN(false);
     }
   };
 
@@ -262,10 +295,14 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
       newErrors.studentType = "Student type is required";
     }
 
+    if (formData.studentType === 'Adult Student' && !formData.province) {
+      newErrors.province = "Province is required for Adult Students.";
+    }
+
     if (formData.studentType && formData.studentType !== 'International Student') {
-      if (!formData.albertaStudentNumber && !noASN) {
+      if (formData.province === 'Alberta' && !formData.albertaStudentNumber && !noASN) {
         newErrors.albertaStudentNumber = "Alberta Student Number is required";
-      } else if (formData.albertaStudentNumber.replace(/\D/g, "").length !== 9) {
+      } else if (formData.albertaStudentNumber && formData.albertaStudentNumber.replace(/\D/g, "").length !== 9) {
         newErrors.albertaStudentNumber = "Alberta Student Number must be 9 digits";
       }
     }
@@ -285,7 +322,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
         value={value || ''}
         readOnly
         className={`form-input ${errors.birthday ? 'is-invalid' : ''}`}
-        placeholder=" "  // Add a space here
+        placeholder=" "
       />
       <label className="form-label">Birthday</label>
       <svg className="calendar-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -297,21 +334,36 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
       {errors.birthday && <div className="error-message">{errors.birthday}</div>}
     </div>
   ));
-
+  
+  const formatDate = (date) => {
+    const d = new Date(date);
+    d.setDate(d.getDate() + 1);  // Add one day
+    let month = '' + (d.getMonth() + 1);
+    let day = '' + d.getDate();
+    const year = d.getFullYear();
+  
+    if (month.length < 2) month = '0' + month;
+    if (day.length < 2) day = '0' + day;
+  
+    return [year, month, day].join('-');
+  };
+  
   const handleBirthdayChange = (date) => {
     handleChange({
       target: {
         name: 'birthday',
-        value: date ? date.toISOString().split('T')[0] : '',
+        value: date ? formatDate(date) : '',
       },
     });
     setBirthdayPickerOpen(false);
   };
-
+  
   const getInitialBirthdayDate = () => {
     const today = new Date();
     return new Date(today.getFullYear() - 16, today.getMonth(), today.getDate());
   };
+  
+
 
   const renderEnrollmentYearSelect = () => {
 
@@ -345,25 +397,24 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
   return (
     <section className="form-section">
       <h2 className="section-title">Student Information</h2>
-      {ageInfo && <p className="age-info">{ageInfo}</p>}
-      <DatePicker
-        selected={formData.birthday ? new Date(formData.birthday) : null}
-        onChange={handleBirthdayChange}
-        customInput={<CustomInput />}
-        open={birthdayPickerOpen}
-        onClickOutside={() => setBirthdayPickerOpen(false)}
-        onInputClick={() => setBirthdayPickerOpen(true)}
-        maxDate={new Date()}
-        showYearDropdown
-        scrollableYearDropdown
-        yearDropdownItemNumber={100}
-        openToDate={getInitialBirthdayDate()}
-        className="custom-datepicker"
-      />
-
       
-
+      <DatePicker
+  selected={formData.birthday ? new Date(formData.birthday) : null}
+  onChange={handleBirthdayChange}
+  customInput={<CustomInput />}
+  open={birthdayPickerOpen}
+  onClickOutside={() => setBirthdayPickerOpen(false)}
+  onInputClick={() => setBirthdayPickerOpen(true)}
+  maxDate={new Date()}
+  showYearDropdown
+  scrollableYearDropdown
+  yearDropdownItemNumber={100}
+  openToDate={getInitialBirthdayDate()}
+  className="custom-datepicker"
+/>
       {renderEnrollmentYearSelect()}
+
+      {ageInfo && <p className="age-info">{ageInfo}</p>}
 
       {formData.birthday && formData.enrollmentYear && (
         <div className="student-type-section">
@@ -389,13 +440,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
                 id="studentType"
                 name="studentType"
                 value={formData.studentType}
-                onChange={(e) => {
-                  handleChange(e);
-                  setJustDetermined(false);
-                  if (e.target.value !== 'International Student') {
-                    setNoASN(false);
-                  }
-                }}
+                onChange={handleStudentTypeChange}
                 required
                 className={`form-select ${errors.studentType ? 'is-invalid' : ''}`}
               >
@@ -408,7 +453,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
               {errors.studentType && <div className="error-message">{errors.studentType}</div>}
             </div>
           )}
-          
+
           {showQuestionnaire && !justDetermined && (
             <div className="questionnaire-container">
               <div className="questionnaire">
@@ -453,11 +498,31 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
         </div>
       )}
 
+      {formData.studentType === 'Adult Student' && (
+        <div className="form-group">
+          <label htmlFor="province">Province</label>
+          <select
+            id="province"
+            name="province"
+            value={formData.province || ''}
+            onChange={handleProvinceChange}
+            required
+            className={`form-select ${errors.province ? 'is-invalid' : ''}`}
+          >
+            <option value="">Select your province</option>
+            {provinces.map(province => (
+              <option key={province} value={province}>{province}</option>
+            ))}
+          </select>
+          {errors.province && <div className="error-message">{errors.province}</div>}
+        </div>
+      )}
+
       {formData.studentType && (
         <div className="asn-section">
           <h3>Alberta Student Number (ASN)</h3>
           {renderASNInstructions()}
-          {formData.studentType === 'International Student' && (
+          {(formData.studentType === 'International Student' || (formData.studentType === 'Adult Student' && formData.province !== 'Alberta')) && (
             <div className="form-group asn-checkbox">
               <input
                 type="checkbox"
@@ -480,7 +545,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
                 onChange={handleASNChange}
                 className={`form-input ${errors.albertaStudentNumber ? 'is-invalid' : ''}`}
                 placeholder=""
-                required={formData.studentType !== 'International Student' || !noASN}
+                required={formData.studentType !== 'International Student' && formData.province === 'Alberta'}
               />
               <label htmlFor="albertaStudentNumber" className="form-label">
                 Alberta Student Number
@@ -492,6 +557,8 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
       )}
     </section>
   );
+
+
 });
 
 export default StudentTypeSelection;
