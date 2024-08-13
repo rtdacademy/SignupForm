@@ -1,4 +1,6 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { courseSharepointIDs } from "./variables";
 
 const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, diplomaDates, loading, error }, ref) => {
@@ -83,7 +85,23 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
       }
     }
 
-    return minDate.toISOString().split('T')[0];
+    return minDate;
+  };
+
+  const getMinCompletionDate = () => {
+    if (!formData.startDate) return null;
+    const startDate = new Date(formData.startDate);
+    const minCompletionDate = new Date(startDate);
+    minCompletionDate.setMonth(minCompletionDate.getMonth() + 1);
+    return minCompletionDate;
+  };
+
+  const getDefaultCompletionDate = () => {
+    if (!formData.startDate) return null;
+    const startDate = new Date(formData.startDate);
+    const defaultCompletionDate = new Date(startDate);
+    defaultCompletionDate.setMonth(defaultCompletionDate.getMonth() + 5);
+    return defaultCompletionDate;
   };
 
   const handleDiplomaMonthChange = (e) => {
@@ -100,6 +118,39 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
       setAlreadyWroteDiploma(false);
       handleChange(e);
     }
+  };
+
+  const CustomInput = forwardRef(({ value, onClick, label, error, helpText }, ref) => (
+    <div className="form-group" onClick={onClick} ref={ref}>
+      <div className="date-input-group">
+        <input
+          type="text"
+          value={value || ''}
+          readOnly
+          className={`form-input ${error ? 'is-invalid' : ''}`}
+          placeholder=" "
+        />
+        <label className="form-label">{label}</label>
+        <svg className="calendar-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+      </div>
+      {helpText && <p className="form-help-text">{helpText}</p>}
+      {error && <div className="error-message">{error}</div>}
+    </div>
+  ));
+
+  const filterStartDate = (date) => {
+    const minDate = getMinStartDate();
+    return date >= minDate;
+  };
+
+  const filterCompletionDate = (date) => {
+    const minDate = getMinCompletionDate();
+    return date >= minDate;
   };
 
   return (
@@ -169,43 +220,37 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
             </div>
           )}
 
-          <div className="form-group">
-            <input
-              type="date"
-              id="startDate"
-              name="startDate"
-              value={formData.startDate || ''}
-              onChange={handleChange}
-              required
-              min={getMinStartDate()}
-              className={`form-input ${errors.startDate ? 'is-invalid' : ''}`}
-            />
-            <label htmlFor="startDate" className="form-label">When do you intend to start the course?</label>
-            <p className="form-help-text">
-              Please select a start date at least 2 business days from today. This allows our registrar time to add you to the course. 
-              The date you choose will be used to create your initial schedule, but we can adjust adjust this later on as well if needed.
-            </p>
-            {errors.startDate && <div className="error-message">{errors.startDate}</div>}
-          </div>
+<DatePicker
+        selected={formData.startDate ? new Date(formData.startDate) : null}
+        onChange={(date) => handleChange({ target: { name: 'startDate', value: date.toISOString().split('T')[0] } })}
+        minDate={getMinStartDate()}
+        customInput={
+          <CustomInput 
+            label="When do you intend to start the course?" 
+            error={errors.startDate}
+            helpText="Please select a start date at least 2 business days from today. This allows our registrar time to add you to the course. The date you choose will be used to create your initial schedule, but we can adjust this later on as well if needed."
+          />
+        }
+        dateFormat="MMMM d, yyyy"
+      />
 
-          {(!showDiplomaDate || alreadyWroteDiploma) && (
-            <div className="form-group">
-              <input
-                type="date"
-                id="completionDate"
-                name="completionDate"
-                value={formData.completionDate || ''}
-                onChange={handleChange}
-                required
-                className={`form-input ${errors.completionDate ? 'is-invalid' : ''}`}
-              />
-              <label htmlFor="completionDate" className="form-label">When do you intend to complete the course by?</label>
-              <p className="form-help-text">
-                A date estimate is fine. You can start and complete a course at any time of year.
-              </p>
-              {errors.completionDate && <div className="error-message">{errors.completionDate}</div>}
-            </div>
-          )}
+      {(!showDiplomaDate || alreadyWroteDiploma) && (
+        <DatePicker
+          selected={formData.completionDate ? new Date(formData.completionDate) : null}
+          onChange={(date) => handleChange({ target: { name: 'completionDate', value: date.toISOString().split('T')[0] } })}
+          minDate={getMinCompletionDate()}
+          openToDate={getDefaultCompletionDate()}
+          disabled={!formData.startDate}
+          customInput={
+            <CustomInput 
+              label="When do you intend to complete the course by?" 
+              error={errors.completionDate}
+              helpText={`Please select a completion date at least one month after your start date. Most 5-credit courses are typically designed to be completed in 5 months. A date estimate is fine. You can start and complete a course at any time of year.${!formData.startDate ? ' Please select a start date first.' : ''}`}
+            />
+          }
+          dateFormat="MMMM d, yyyy"
+        />
+      )}
 
           <button type="button" onClick={toggleAdditionalNotes} className="btn btn-secondary">
             {showAdditionalNotes ? 'Hide Additional Notes' : 'Include Additional Notes (Optional)'}

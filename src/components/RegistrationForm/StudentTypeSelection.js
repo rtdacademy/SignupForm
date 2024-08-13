@@ -1,12 +1,17 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
-const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge, shouldShowNextSchoolYear, getDefaultBirthday, isOver20ForSchoolYear, getCurrentSchoolYear, getNextSchoolYear }, ref) => {
+const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge, isOver20ForSchoolYear, getCurrentSchoolYear, getNextSchoolYear }, ref) => {
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [justDetermined, setJustDetermined] = useState(false);
   const [ageInfo, setAgeInfo] = useState('');
   const [errors, setErrors] = useState({});
-  const [noASN, setNoASN] = useState(false); // New state for the checkbox
+  const [noASN, setNoASN] = useState(false);
+  const [availableEnrollmentYears, setAvailableEnrollmentYears] = useState([]);
+  const [enrollmentYearMessage, setEnrollmentYearMessage] = useState('');
+  const [birthdayPickerOpen, setBirthdayPickerOpen] = useState(false);
 
   const studentTypes = [
     { value: 'Non-Primary', label: 'Non-Primary Student' },
@@ -58,19 +63,54 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
   };
 
   useEffect(() => {
-    if (!formData.birthday) {
+    updateAgeInfo();
+  }, [formData.birthday, formData.enrollmentYear]);
+
+  useEffect(() => {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentSchoolYear = getCurrentSchoolYear();
+    const nextSchoolYear = getNextSchoolYear();
+
+    let availableYears = [];
+    let message = '';
+
+    if (currentMonth === 7) { // August
+      availableYears = [nextSchoolYear];
+      message = `We are no longer taking registrations for the current school year, but you are free to start now. You will be registered as a ${nextSchoolYear} student.`;
       handleChange({
         target: {
-          name: 'birthday',
-          value: getDefaultBirthday()
-        }
+          name: 'enrollmentYear',
+          value: nextSchoolYear,
+        },
+      });
+    } else if (currentMonth >= 8 || currentMonth <= 2) { // September to March
+      availableYears = [currentSchoolYear];
+      message = `Registration is only available for the current school year. Registration for next school year (${nextSchoolYear}) will open in April.`;
+      handleChange({
+        target: {
+          name: 'enrollmentYear',
+          value: currentSchoolYear,
+        },
+      });
+    } else { // April to July
+      availableYears = [currentSchoolYear, nextSchoolYear];
+      message = `Please select either the current school year (${currentSchoolYear}) if you intend to complete the course before September, or select the next school year (${nextSchoolYear}) if you intend to finish beyond September.`;
+    }
+
+    setAvailableEnrollmentYears(availableYears);
+    setEnrollmentYearMessage(message);
+
+    // If the current enrollmentYear is not in the available years, reset it
+    if (!availableYears.includes(formData.enrollmentYear)) {
+      handleChange({
+        target: {
+          name: 'enrollmentYear',
+          value: availableYears[0],
+        },
       });
     }
   }, []);
-
-  useEffect(() => {
-    updateAgeInfo();
-  }, [formData.birthday, formData.enrollmentYear]);
 
   const updateAgeInfo = () => {
     if (formData.birthday && formData.enrollmentYear) {
@@ -238,24 +278,44 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
     validateForm
   }));
 
-  return (
-    <section className="form-section">
-      <h2 className="section-title">Student Information</h2>
-      
-      <div className="form-group">
-        <input
-          type="date"
-          id="birthday"
-          name="birthday"
-          value={formData.birthday}
-          onChange={handleChange}
-          required
-          className={`form-input ${errors.birthday ? 'is-invalid' : ''}`}
-        />
-        <label htmlFor="birthday" className="form-label">Birthday (YYYY-MM-DD)</label>
-        {errors.birthday && <div className="error-message">{errors.birthday}</div>}
-      </div>
+  const CustomInput = forwardRef(({ value, onClick }, ref) => (
+    <div className="form-group date-input-group" onClick={onClick} ref={ref}>
+      <input
+        type="text"
+        value={value || ''}
+        readOnly
+        className={`form-input ${errors.birthday ? 'is-invalid' : ''}`}
+        placeholder=" "  // Add a space here
+      />
+      <label className="form-label">Birthday</label>
+      <svg className="calendar-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+      </svg>
+      {errors.birthday && <div className="error-message">{errors.birthday}</div>}
+    </div>
+  ));
 
+  const handleBirthdayChange = (date) => {
+    handleChange({
+      target: {
+        name: 'birthday',
+        value: date ? date.toISOString().split('T')[0] : '',
+      },
+    });
+    setBirthdayPickerOpen(false);
+  };
+
+  const getInitialBirthdayDate = () => {
+    const today = new Date();
+    return new Date(today.getFullYear() - 16, today.getMonth(), today.getDate());
+  };
+
+  const renderEnrollmentYearSelect = () => {
+
+    return (
       <div className="form-group enrollment-year-group">
         <select
           id="enrollmentYear"
@@ -266,18 +326,44 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
           className={`form-select ${errors.enrollmentYear ? 'is-invalid' : ''}`}
         >
           <option value="">Select enrollment year</option>
-          <option value={getCurrentSchoolYear()}>{`Current School Year (${getCurrentSchoolYear()})`}</option>
-          {shouldShowNextSchoolYear() && (
-            <option value={getNextSchoolYear()}>{`Next School Year (${getNextSchoolYear()})`}</option>
-          )}
+          {availableEnrollmentYears.map((year) => (
+            <option key={year} value={year}>
+              {year === getCurrentSchoolYear()
+                ? `Current School Year (${year})`
+                : `Next School Year (${year})`}
+            </option>
+          ))}
         </select>
-        <small className="form-help-text">
-          The school year starts on September 1st. Please select the school year in which you plan to complete your course.
+        <small className="form-help-text enrollment-year-message">
+          {enrollmentYearMessage}
         </small>
         {errors.enrollmentYear && <div className="error-message">{errors.enrollmentYear}</div>}
       </div>
+    );
+  };
 
+  return (
+    <section className="form-section">
+      <h2 className="section-title">Student Information</h2>
       {ageInfo && <p className="age-info">{ageInfo}</p>}
+      <DatePicker
+        selected={formData.birthday ? new Date(formData.birthday) : null}
+        onChange={handleBirthdayChange}
+        customInput={<CustomInput />}
+        open={birthdayPickerOpen}
+        onClickOutside={() => setBirthdayPickerOpen(false)}
+        onInputClick={() => setBirthdayPickerOpen(true)}
+        maxDate={new Date()}
+        showYearDropdown
+        scrollableYearDropdown
+        yearDropdownItemNumber={100}
+        openToDate={getInitialBirthdayDate()}
+        className="custom-datepicker"
+      />
+
+      
+
+      {renderEnrollmentYearSelect()}
 
       {formData.birthday && formData.enrollmentYear && (
         <div className="student-type-section">

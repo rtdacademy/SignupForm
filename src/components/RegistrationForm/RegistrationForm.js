@@ -8,7 +8,7 @@ import AdultStudentInfo from "./AdultStudentInfo";
 import InternationalStudentInfo from "./InternationalStudentInfo";
 import InternationalStudentDocuments from "./InternationalStudentDocuments";
 import ConfirmationPage from "./ConfirmationPage";
-import { courseSharepointIDs, pricing, courseCredits } from "./variables";
+import { courseSharepointIDs, pricing, courseCredits, refundPeriods } from "./variables";
 import "../../styles/styles.css";
 
 const RegistrationForm = () => {
@@ -146,8 +146,22 @@ const RegistrationForm = () => {
     });
   };
 
+  const calculateRefundDates = (startDate) => {
+    if (!startDate) return { fullRefundDate: null, partialRefundDate: null };
+    
+    const start = new Date(startDate);
+    const fullRefundDate = new Date(start.getTime() + refundPeriods.fullRefundDays * 24 * 60 * 60 * 1000);
+    const partialRefundDate = new Date(start.getTime() + refundPeriods.partialRefundDays * 24 * 60 * 60 * 1000);
+    
+    return {
+      fullRefundDate: fullRefundDate.toISOString().split('T')[0],
+      partialRefundDate: partialRefundDate.toISOString().split('T')[0]
+    };
+  };
+
   const handlePaymentSuccess = (paymentDetails) => {
     console.log("Payment Details: ", paymentDetails);
+    const { fullRefundDate, partialRefundDate } = calculateRefundDates(formData.startDate);
     const combinedData = {
       ...formData,
       orderId: paymentDetails.orderId || paymentDetails.subscriptionID,
@@ -160,14 +174,18 @@ const RegistrationForm = () => {
       subscriptionID: paymentDetails.subscriptionID || '',
       paymentAmount: paymentDetails.amount.value,
       paymentPlanFee: paymentDetails.paymentType === 'subscription' ? pricing.paymentPlanFee : 0,
-      planId: paymentDetails.planId || '', // Add this line to capture the plan ID
+      planId: paymentDetails.planId || '',
+      fullRefundDate,
+      partialRefundDate
     };
-    // Remove the paymentOption field as it's redundant with paymentType
     delete combinedData.paymentOption;
     
     console.log("Combined Data: ", combinedData);
     submitFormData(combinedData);
   };
+
+
+
   const submitFormData = async (data) => {
     const fileToBase64 = (file) => {
       return new Promise((resolve, reject) => {
@@ -299,18 +317,22 @@ const RegistrationForm = () => {
     const today = new Date();
     const currentYear = today.getFullYear();
     const nextYear = currentYear + 1;
-    
-    if (today.getMonth() >= 8) {
+  
+    // September 1st of the current year
+    const septemberFirst = new Date(currentYear, 8, 1);
+  
+    if (today >= septemberFirst) {
       return `${currentYear.toString().slice(-2)}/${nextYear.toString().slice(-2)}`;
     }
     return `${(currentYear - 1).toString().slice(-2)}/${currentYear.toString().slice(-2)}`;
   };
-
+  
   const getNextSchoolYear = () => {
     const [startYear] = getCurrentSchoolYear().split('/');
     const nextStartYear = parseInt(startYear) + 1;
     return `${nextStartYear}/${(nextStartYear + 1).toString().slice(-2)}`;
   };
+  
 
   const calculateAge = (birthday, referenceDate) => {
     const birthDate = new Date(birthday);
@@ -407,12 +429,20 @@ const RegistrationForm = () => {
         if (['Non-Primary', 'Home Education', 'Summer School'].includes(formData.studentType)) {
           return <GrantEligibleStudentInfo formData={formData} onPaymentSuccess={handlePaymentSuccess} />;
         } else if (formData.studentType === 'Adult Student') {
-          return <AdultStudentInfo formData={formData} onPaymentSuccess={handlePaymentSuccess} />;
+          return <AdultStudentInfo 
+            formData={formData} 
+            onPaymentSuccess={handlePaymentSuccess} 
+            calculateRefundDates={calculateRefundDates}
+          />;
         }
         return null;
       case 6:
         if (formData.studentType === 'International Student') {
-          return <InternationalStudentInfo formData={formData} onPaymentSuccess={handlePaymentSuccess} />;
+          return <InternationalStudentInfo 
+            formData={formData} 
+            onPaymentSuccess={handlePaymentSuccess} 
+            calculateRefundDates={calculateRefundDates}
+          />;
         }
         return null;
       default:
@@ -420,6 +450,8 @@ const RegistrationForm = () => {
     }
   };
 
+
+  
   const isLastStep = () => {
     if (formData.studentType === 'International Student') {
       return currentStep === 6;

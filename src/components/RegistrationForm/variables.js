@@ -33,15 +33,21 @@ export const courseCredits = {
 };
 
 export const pricing = {
-  adultStudentPerCredit: 100,
-  internationalStudentPerCredit: 100,
+  adultStudentPerCredit: 120,
+  internationalStudentPerCredit: 120,
   depositAmount: 50,
   codingAdultStudentFlatRate: 300,
   codingInternationalStudentFlatRate: 300,
   codingAdultStudentPartialRefund: 200,
-  codingInternationalStudentPartialRefund: 200,
-  paymentPlanFee: 60, // New field for payment plan fee
-  paypalProcessingFee: 15
+  //codingInternationalStudentPartialRefund: 200,
+  paymentPlanFee: 40, // New field for payment plan fee
+  paypalProcessingFee: 15,
+  partialRefundPercentage: 2/3
+};
+
+export const refundPeriods = {
+  fullRefundDays: 7,  // Number of days for full refund
+  partialRefundDays: 30  // Number of days for partial refund
 };
 
 // Calculate full tuition based on credits and partial refund
@@ -61,37 +67,28 @@ Object.keys(courseCredits).forEach(course => {
 
 // Environment-specific subscription plans
 const sandboxPlans = {
-  "TwoMonthAdultTuition": {
-    planId: "P-52F43221EY787380SM24SZQI",
-    description: "Two Month Adult Tuition: 2 payments of 280.00 CAD each, with the first payment now and the second in one month.",
-    setupFee: "0.00 CAD",
-    price: "280.00 CAD",
-    billingCycle: "Every 1 month",
-    numberOfBillingCycles: 2,
-    studentType: "Adult"
-  },
   "ThreeMonthAdultTuition": {
     planId: "P-55B49397RW297144NM24S25I",
-    description: "Three Month Adult Tuition: 3 payments of 186.67 CAD each, with the first payment now and subsequent payments each month.",
+    description: "Three Month Adult Tuition: 3 payments of 213.33 CAD each, with the first payment now and subsequent payments each month.",
     setupFee: "0.00 CAD",
-    price: "186.67 CAD",
+    price: "213.33 CAD",
     billingCycle: "Every 1 month",
     numberOfBillingCycles: 3,
     studentType: "Adult"
+  },
+  "ThreeMonthInternationalTuition": {
+    planId: "PLACEHOLDER_INTERNATIONAL_THREE_MONTH",
+    description: "Three Month International Tuition: 3 payments of 213.33 CAD each, with the first payment now and subsequent payments each month.",
+    setupFee: "0.00 CAD",
+    price: "213.33 CAD",
+    billingCycle: "Every 1 month",
+    numberOfBillingCycles: 3,
+    studentType: "International"
   }
   // Add other sandbox plans here
 };
 
 const productionPlans = {
-  "TwoMonthAdultTuition": {
-    planId: "YOUR_PRODUCTION_PLAN_ID_HERE",
-    description: "Two Month Adult Tuition: 2 payments of 280.00 CAD each, with the first payment now and the second in one month.",
-    setupFee: "0.00 CAD",
-    price: "280.00 CAD",
-    billingCycle: "Every 1 month",
-    numberOfBillingCycles: 2,
-    studentType: "Adult"
-  },
   "ThreeMonthAdultTuition": {
     planId: "YOUR_PRODUCTION_PLAN_ID_HERE",
     description: "Three Month Adult Tuition: 3 payments of 186.67 CAD each, with the first payment now and subsequent payments each month.",
@@ -100,6 +97,15 @@ const productionPlans = {
     billingCycle: "Every 1 month",
     numberOfBillingCycles: 3,
     studentType: "Adult"
+  },
+  "ThreeMonthInternationalTuition": {
+    planId: "PLACEHOLDER_INTERNATIONAL_THREE_MONTH",
+    description: "Three Month International Tuition: 3 payments of 213.33 CAD each, with the first payment now and subsequent payments each month.",
+    setupFee: "0.00 CAD",
+    price: "213.33 CAD",
+    billingCycle: "Every 1 month",
+    numberOfBillingCycles: 3,
+    studentType: "International"
   }
   // Add other production plans here
 };

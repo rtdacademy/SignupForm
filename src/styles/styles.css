@@ -225,6 +225,7 @@ body {
   color: red;
 }
 
+
 .form-help-text {
   display: block;
   margin-top: 0.5rem;
@@ -448,7 +449,6 @@ body {
   line-height: 1.5;
 }
 
-
 .file-upload-button {
   display: block;
   width: 150px;
@@ -462,7 +462,7 @@ body {
   font-weight: bold;
   text-transform: uppercase;
   margin-top: 0.5rem;
-  margin-bottom: 0.5rem; /* Added margin-bottom for better spacing */
+  margin-bottom: 0.5rem;
 }
 
 .file-upload-button:hover {
@@ -480,11 +480,11 @@ body {
   font-weight: bold;
 }
 
-
-
-
 .form-group {
   position: relative;
+  margin-bottom: 2rem;
+  margin-right: 2rem;
+  padding: 0;
 }
 
 .form-textarea {
@@ -523,6 +523,113 @@ body {
   color: #757575;
 }
 
+
+.react-datepicker-wrapper {
+  width: calc(100% - 2rem); /* Subtract the right margin */
+  max-width: 100%;
+}
+
+.react-datepicker {
+  font-family: "Poppins", Arial, sans-serif;
+  border: 1px solid #e0e0e0;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.react-datepicker__header {
+  background-color: var(--primary-color);
+  border-bottom: none;
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  padding-top: 10px;
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name,
+.react-datepicker__day {
+  color: #333;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.react-datepicker__day:hover {
+  background-color: #f0f0f0;
+}
+
+.react-datepicker__navigation {
+  top: 15px;
+}
+
+.react-datepicker__year-dropdown {
+  width: 50%;
+  left: 25%;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.react-datepicker__year-option {
+  line-height: 30px;
+}
+
+.react-datepicker__year-option:hover {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.react-datepicker__day--disabled {
+  cursor: not-allowed !important;
+}
+
+.date-input-group {
+  position: relative;
+  width: calc(100% - 2rem); /* Subtract the right margin */
+  margin-right: 2rem
+}
+
+.date-input-group .form-input {
+  width: 100%;
+  padding-right: 30px; /* Make room for the icon */
+}
+
+.date-input-group .calendar-icon {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--secondary-color);
+  pointer-events: none;
+}
+
+
+
+.date-input-group:hover .calendar-icon {
+  color: var(--primary-color);
+}
+
+.date-input-group .form-label {
+  position: absolute;
+  left: 0.8rem;
+  top: 0.5rem;
+  color: var(--secondary-color);
+  transition: all 0.3s;
+  pointer-events: none;
+  background-color: transparent;
+  padding: 0 0.25rem;
+}
+
+.date-input-group .form-input:focus ~ .form-label,
+.date-input-group .form-input:not(:placeholder-shown) ~ .form-label {
+  top: -0.75rem;
+  left: 0.55rem;
+  font-size: 0.75rem;
+  background-color: var(--form-background);
+  padding: 0 0.25rem;
+}
+
 .btn {
   padding: 10px 15px;
   margin-bottom: 15px;
@@ -541,8 +648,157 @@ body {
 }
 
 
+.adult-student-info .info-content .grant-student-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.info-card {
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px; /* Add this line to create space between cards */
+}
 
 
+.info-card h3 {
+  color: var(--secondary-color);
+  margin-bottom: 1rem;
+}
+
+.pricing-details, .refund-details {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.pricing-item, .refund-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0; /* Added small vertical padding */
+  margin: 0; /* Remove any default margins */
+}
+
+.pricing-item strong {
+  font-size: 1.1em; /* Slightly larger font for the values */
+}
+
+.info-card h3 {
+  color: var(--secondary-color);
+  margin-bottom: 0.75rem; /* Reduced from 1rem */
+}
+
+.info-card p {
+  margin-bottom: 0.5rem; /* Add some space below paragraphs */
+}
+
+.payment-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.payment-option {
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.payment-option:hover {
+  border-color: var(--primary-color);
+}
+
+.payment-option.selected {
+  border-color: var(--primary-color);
+  background-color: #e6f7f7;
+}
+
+.payment-option input[type="radio"] {
+  display: none;
+}
+
+.payment-option label {
+  cursor: pointer;
+}
+
+.payment-option h4 {
+  margin-bottom: 0.5rem;
+}
+
+.fee-note {
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 0.5rem;
+}
+
+.total-amount {
+  margin-top: 1rem;
+  text-align: right;
+  font-size: 1.2em;
+}
+
+.refund-item {
+  background-color: var(--input-background);
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.refund-note {
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 1rem;
+}
+
+.payment-section {
+  text-align: center;
+}
+
+.diploma-info {
+  margin-top: 2rem;
+}
+
+.info-toggle-button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.3s ease;
+}
+
+.info-toggle-button:hover {
+  background-color: var(--secondary-color);
+}
+
+.diploma-details {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 0.25rem;
+  border: 1px solid #e9ecef;
+}
+
+.diploma-details h4 {
+  color: var(--secondary-color);
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.diploma-details p, .diploma-details li {
+  margin-bottom: 0.5rem;
+}
+
+.diploma-details ol {
+  padding-left: 1.5rem;
+}
+
+/* Media query */
 @media (max-width: 768px) {
   .form-container {
     margin: 1rem;
@@ -578,5 +834,9 @@ body {
   .form-select:focus ~ .form-label,
   .form-select:not(:placeholder-shown) ~ .form-label {
     left: 0.5rem;
+  }
+
+  .payment-options-grid {
+    grid-template-columns: 1fr;
   }
 }

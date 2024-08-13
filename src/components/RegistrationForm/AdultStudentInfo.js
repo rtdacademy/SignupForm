@@ -2,15 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { pricing, courseCredits, subscriptionPlans } from './variables';
 import PayPalPaymentButton from './PayPalPaymentButton';
 
-const AdultStudentInfo = ({ formData, onPaymentSuccess }) => {
+const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) => {
   const [paymentOption, setPaymentOption] = useState('ADULT_FULL_PAYMENT');
   const [availablePaymentOptions, setAvailablePaymentOptions] = useState([]);
+  const [refundDates, setRefundDates] = useState({ fullRefundDate: null, partialRefundDate: null });
 
   useEffect(() => {
     updateAvailablePaymentOptions();
   }, []);
 
+  useEffect(() => {
+    if (formData.startDate) {
+      setRefundDates(calculateRefundDates(formData.startDate));
+    }
+  }, [formData.startDate, calculateRefundDates]);
+
   const formatDate = (dateString) => {
+    if (!dateString) return 'Not available';
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
@@ -21,7 +29,6 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess }) => {
       ...paymentDetails,
       paymentType: paymentOption === 'ADULT_FULL_PAYMENT' ? 'one-time' : 'subscription',
       planId: paymentOption !== 'ADULT_FULL_PAYMENT' ? paymentOption : '',
-    
     });
   };
 
@@ -41,7 +48,16 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess }) => {
   const courseFee = getCourseFee();
   const paymentPlanFee = pricing.paymentPlanFee;
   const paypalFee = pricing.paypalProcessingFee;
-  const refundAmount = Math.round((courseFee * 2 / 3) * 100) / 100; // 2/3 of tuition, rounded to nearest cent
+
+  const getRefundAmount = () => {
+    if (isCodingOption) {
+      return studentType === 'International' ? pricing.codingInternationalStudentPartialRefund : pricing.codingAdultStudentPartialRefund;
+    } else {
+      return pricing[`${studentType.toLowerCase()}StudentPartialRefund_${formData.course}`];
+    }
+  };
+
+  const refundAmount = getRefundAmount();
 
   const plans = [
     {
@@ -75,7 +91,6 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess }) => {
 
   const handlePaymentOptionChange = (option) => {
     setPaymentOption(option);
-    setPaymentDates([]);
   };
 
   const selectedPlan = plans.find(plan => plan.planId === paymentOption);
@@ -89,76 +104,86 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess }) => {
   };
 
   return (
-    <section className="form-section">
+    <section className="form-section adult-student-info">
       <h2 className="section-title">Information for {studentType} Students</h2>
       
       <div className="info-content">
-        <h3>Course Pricing</h3>
-        <p>
-          As a {studentType} student, the cost for the course you selected ({formData.course}) is structured as follows:
-        </p>
-        <ul>
-          {isCodingOption ? (
-            <li>${getCourseFee()} flat rate for the coding option</li>
-          ) : (
-            <>
-              <li>${studentType === 'International' ? pricing.internationalStudentPerCredit : pricing.adultStudentPerCredit} per credit</li>
-              <li>The selected course is {courseCredits[formData.course]} credits, resulting in a base fee of ${courseFee.toFixed(2)}</li>
-            </>
-          )}
-          <li>Payment plan fee (if applicable): ${paymentPlanFee.toFixed(2)}</li>
-        </ul>
-
-        <h3>Payment Options</h3>
-        <p>We offer flexible payment options based on your course duration:</p>
-        <div className="payment-options">
-          {plans.map((plan) => (
-            <div key={plan.planId}>
-              <input
-                type="radio"
-                id={plan.planId}
-                name="paymentOption"
-                value={plan.planId}
-                checked={paymentOption === plan.planId}
-                onChange={() => handlePaymentOptionChange(plan.planId)}
-              />
-              <label htmlFor={plan.planId}>
-                {plan.name}
-                {plan.planId !== 'ADULT_FULL_PAYMENT' && ` (Includes $${paymentPlanFee.toFixed(2)} payment plan fee)`}
-              </label>
-            </div>
-          ))}
+        <div className="info-card course-pricing">
+          <h3>Course Pricing</h3>
+          <p>Your selected course: <strong>{formData.course}</strong></p>
+          <div className="pricing-details">
+            {isCodingOption ? (
+              <p className="pricing-item">Flat rate: <strong>${getCourseFee()}</strong></p>
+            ) : (
+              <>
+                <p className="pricing-item">Price per credit: <strong>${studentType === 'International' ? pricing.internationalStudentPerCredit : pricing.adultStudentPerCredit}</strong></p>
+                <p className="pricing-item">Credits: <strong>{courseCredits[formData.course]}</strong></p>
+                <p className="pricing-item">Base fee: <strong>${courseFee.toFixed(2)}</strong></p>
+              </>
+            )}
+            <p className="pricing-item">Payment plan fee: <strong>${paymentPlanFee.toFixed(2)}</strong> (if applicable)</p>
+          </div>
         </div>
 
-        <h3>Total Amount</h3>
-        <p>Total amount to be paid: ${getTotalAmount().toFixed(2)}</p>
+        <div className="info-card payment-options">
+          <h3>Payment Options</h3>
+      
+          <div className="payment-options-grid">
+            {plans.map((plan) => (
+              <div
+                key={plan.planId}
+                className={`payment-option ${paymentOption === plan.planId ? 'selected' : ''}`}
+                onClick={() => handlePaymentOptionChange(plan.planId)}
+              >
+                <input
+                  type="radio"
+                  id={plan.planId}
+                  name="paymentOption"
+                  value={plan.planId}
+                  checked={paymentOption === plan.planId}
+                  onChange={() => {}}
+                />
+                <label htmlFor={plan.planId}>
+                  <h4>{plan.name}</h4>
+                  <p>{plan.description}</p>
+                  {plan.planId !== 'ADULT_FULL_PAYMENT' && (
+                    <p className="fee-note">Includes ${paymentPlanFee.toFixed(2)} payment plan fee</p>
+                  )}
+                </label>
+              </div>
+            ))}
+          </div>
+          <div className="total-amount">
+            <h4>Total Amount: <span>${getTotalAmount().toFixed(2)}</span></h4>
+          </div>
+        </div>
 
-        <h3>Payment and Enrollment</h3>
-        <p>
-          To secure your spot in the course, the initial payment is required. Once your payment is processed, you will be enrolled and given access to the course materials. Please note that it may take up to 2 business days before you are enrolled in the course and receive your login information.
-        </p>
+        <div className="info-card enrollment-info">
+          <h3>Payment and Enrollment</h3>
+          <p>
+            To secure your spot in the course, the initial payment is required. Once your payment is processed, you will be enrolled and given access to the course materials. Please note that it may take up to 2 business days before you are enrolled in the course and receive your login information.
+          </p>
+        </div>
 
-        <h3>Refund Policy</h3>
-        <p>
-          We offer a flexible refund policy to ensure you're satisfied with your course:
-        </p>
-        <ul>
-          <li><strong>Full Refund (less processing fee):</strong> Available within 1 week of your course start date.
-            <ul>
-              <li>If you request a refund within the first week, you will receive a full refund minus a ${paypalFee} processing fee to cover our PayPal charges.</li>
-              <li>This allows you to explore the course and ensure it meets your needs.</li>
-            </ul>
-          </li>
-          <li><strong>Partial Refund:</strong> If you request a refund after the first week but within 1 month of your scheduled start date, you will receive a refund of ${refundAmount.toFixed(2)} (2/3 of your tuition).</li>
-          <li>To request a refund, you can simply let your instructor know.</li>
-        </ul>
+        <div className="info-card refund-policy">
+          <h3>Refund Policy</h3>
+          <div className="refund-details">
+            <div className="refund-item">
+              <h4>Full Refund</h4>
+              <p>Available until: <br/><strong>{formatDate(refundDates.fullRefundDate)}</strong></p>
+              <p>Full refund minus ${paypalFee} processing fee</p>
+            </div>
+            <div className="refund-item">
+              <h4>Partial Refund</h4>
+              <p>Available until: <br/> <strong>{formatDate(refundDates.partialRefundDate)}</strong></p>
+              <p>Refund amount: <strong>${refundAmount.toFixed(2)}</strong> ({Math.round(pricing.partialRefundPercentage * 100)}% of tuition)</p>
+            </div>
+          </div>
+          <p className="refund-note">To request a refund, please contact your instructor. These dates are based on your selected start date: {formatDate(formData.startDate)}</p>
+        </div>
 
-        <h3>Next Steps</h3>
-        <p>
-          To complete your registration and secure your spot in the course, please submit your payment using the PayPal button below. Once your payment is processed, we will finalize your enrollment and provide you with further instructions to get started.
-        </p>
-
-        <div className="payment-section">
+        <div className="info-card payment-section">
+          <h3>Complete Your Registration</h3>
           <p>Click the PayPal button below to pay for your course and complete your registration:</p>
           <PayPalPaymentButton
             amount={getTotalAmount().toFixed(2)}
@@ -169,7 +194,6 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess }) => {
               initialPayment: selectedPlan.initialPayment,
               installmentAmount: selectedPlan.installmentAmount
             } : null}
-            paymentDates={paymentDates}
             paymentType={paymentOption === 'ADULT_FULL_PAYMENT' ? 'capture' : 'subscription'}
             onSuccess={handlePaymentSuccess}
           />
