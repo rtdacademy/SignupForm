@@ -8,7 +8,7 @@ import AdultStudentInfo from "./AdultStudentInfo";
 import InternationalStudentInfo from "./InternationalStudentInfo";
 import InternationalStudentDocuments from "./InternationalStudentDocuments";
 import ConfirmationPage from "./ConfirmationPage";
-import { courseSharepointIDs, pricing, courseCredits, refundPeriods } from "./variables";
+import { courseSharepointIDs, pricing, courseCredits, refundPeriods } from "../../config/variables";
 import "../../styles/styles.css";
 
 const RegistrationForm = () => {
@@ -50,8 +50,8 @@ const RegistrationForm = () => {
     currentAge: null,
     
     paymentOption: "",
-    paymentAmount: null,
-    paymentPlanFee: null,
+    paymentAmount: "",
+    paymentPlanFee: "",
     paymentType: "",
     subscriptionID: ""
   });
@@ -161,9 +161,10 @@ const RegistrationForm = () => {
 
   const handlePaymentSuccess = (paymentDetails) => {
     console.log("Payment Details: ", paymentDetails);
-    const { fullRefundDate, partialRefundDate } = calculateRefundDates(formData.startDate);
+    
     const combinedData = {
       ...formData,
+      ...paymentDetails,
       orderId: paymentDetails.orderId || paymentDetails.subscriptionID,
       payerId: paymentDetails.payerId,
       payerEmail: paymentDetails.payerEmail,
@@ -172,18 +173,23 @@ const RegistrationForm = () => {
       amount: paymentDetails.amount,
       paymentType: paymentDetails.paymentType,
       subscriptionID: paymentDetails.subscriptionID || '',
-      paymentAmount: paymentDetails.amount.value,
-      paymentPlanFee: paymentDetails.paymentType === 'subscription' ? pricing.paymentPlanFee : 0,
       planId: paymentDetails.planId || '',
-      fullRefundDate,
-      partialRefundDate
+      paymentAmount: paymentDetails.paymentAmount ? paymentDetails.paymentAmount.toString() : '',
+      paymentPlanFee: paymentDetails.paymentPlanFee ? paymentDetails.paymentPlanFee.toString() : '',
+      courseFee: paymentDetails.courseFee ? paymentDetails.courseFee.toString() : '',
+      pricePerCredit: paymentDetails.pricePerCredit ? paymentDetails.pricePerCredit.toString() : '',
+      credits: paymentDetails.credits ? paymentDetails.credits.toString() : '',
+      fullRefundDate: paymentDetails.fullRefundDate || '',
+      partialRefundDate: paymentDetails.partialRefundDate || '',
+      refundAmount: paymentDetails.refundAmount ? paymentDetails.refundAmount.toString() : '',
+      isCodingCourse: paymentDetails.isCodingCourse ? 'true' : 'false'
     };
+  
     delete combinedData.paymentOption;
     
     console.log("Combined Data: ", combinedData);
     submitFormData(combinedData);
   };
-
 
 
   const submitFormData = async (data) => {
@@ -317,8 +323,6 @@ const RegistrationForm = () => {
     const today = new Date();
     const currentYear = today.getFullYear();
     const nextYear = currentYear + 1;
-  
-    // September 1st of the current year
     const septemberFirst = new Date(currentYear, 8, 1);
   
     if (today >= septemberFirst) {
@@ -332,7 +336,6 @@ const RegistrationForm = () => {
     const nextStartYear = parseInt(startYear) + 1;
     return `${nextStartYear}/${(nextStartYear + 1).toString().slice(-2)}`;
   };
-  
 
   const calculateAge = (birthday, referenceDate) => {
     const birthDate = new Date(birthday);
@@ -450,8 +453,6 @@ const RegistrationForm = () => {
     }
   };
 
-
-  
   const isLastStep = () => {
     if (formData.studentType === 'International Student') {
       return currentStep === 6;

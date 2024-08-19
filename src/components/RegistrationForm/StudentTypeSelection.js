@@ -1,4 +1,5 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { studentTypeInfo } from '../../config/variables';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -14,7 +15,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
   const [justDetermined, setJustDetermined] = useState(false);
   const [ageInfo, setAgeInfo] = useState('');
   const [errors, setErrors] = useState({});
-  const [noASN, setNoASN] = useState(false);
+  const [noASN, setNoASN] = useState(formData.noASN === "No ASN");
   const [availableEnrollmentYears, setAvailableEnrollmentYears] = useState([]);
   const [enrollmentYearMessage, setEnrollmentYearMessage] = useState('');
   const [birthdayPickerOpen, setBirthdayPickerOpen] = useState(false);
@@ -67,14 +68,6 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
     }
   ];
 
-  const studentTypeInfo = {
-    'Non-Primary': "Non-Primary Students are school-aged students that have a primary registration at another high school in Alberta. You may take up to 10 credits per school year for free.",
-    'Home Education': "Home Education Students are school-aged students whose education is parent-directed and overseen by a school board as part of a Home Education Program. You may take up to 10 credits per school year for free.",
-    'Summer School': "Summer School Students are School-aged Alberta students intending to complete their course in July or August. Courses are free for students under 20 before September of the current school year.",
-    'Adult Student': "Adult Students include Canadian citizens and permanent residents who do not qualify for other categories. This includes students under 20 for whom our school does not receive grant funding, and out-of-province Canadian students. Fees are $100 per credit.",
-    'International Student': "International Students include students who are not Canadian citizens or permanent residents. Fees are $100 per credit (special introductory rate)."
-  };
-
   useEffect(() => {
     updateAgeInfo();
   }, [formData.birthday, formData.enrollmentYear]);
@@ -123,6 +116,26 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
         },
       });
     }
+
+    // Initialize noASN in formData if it's not already set
+    if (formData.noASN === undefined) {
+      handleChange({
+        target: {
+          name: "noASN",
+          value: ""
+        }
+      });
+    }
+
+    // Initialize province
+    if (!formData.province) {
+      handleChange({
+        target: {
+          name: 'province',
+          value: 'Alberta'
+        }
+      });
+    }
   }, []);
 
   const updateAgeInfo = () => {
@@ -152,8 +165,32 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
     handleChange(e);
     setJustDetermined(false);
     setShowProvinceDropdown(value === 'Adult Student');
+
+    // Update province based on student type
+    if (value === 'International Student') {
+      handleChange({
+        target: {
+          name: 'province',
+          value: 'NA'
+        }
+      });
+    } else if (value !== 'Adult Student') {
+      handleChange({
+        target: {
+          name: 'province',
+          value: 'Alberta'
+        }
+      });
+    }
+
     if (value !== 'International Student' && value !== 'Adult Student') {
       setNoASN(false);
+      handleChange({
+        target: {
+          name: "noASN",
+          value: ""
+        }
+      });
     }
   };
 
@@ -162,8 +199,41 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
     handleChange(e);
     if (value !== 'Alberta') {
       setNoASN(true);
+      handleChange({
+        target: {
+          name: "noASN",
+          value: "No ASN"
+        }
+      });
     } else {
       setNoASN(false);
+      handleChange({
+        target: {
+          name: "noASN",
+          value: ""
+        }
+      });
+    }
+  };
+
+  const handleNoASNChange = (e) => {
+    const isChecked = e.target.checked;
+    setNoASN(isChecked);
+    
+    handleChange({
+      target: {
+        name: "noASN",
+        value: isChecked ? "No ASN" : ""
+      }
+    });
+  
+    if (isChecked) {
+      handleChange({
+        target: {
+          name: "albertaStudentNumber",
+          value: ""
+        }
+      });
     }
   };
 
@@ -326,7 +396,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
       />
       <label className="form-label">Birthday</label>
       <svg className="calendar-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
         <line x1="16" y1="2" x2="16" y2="6"></line>
         <line x1="8" y1="2" x2="8" y2="6"></line>
         <line x1="3" y1="10" x2="21" y2="10"></line>
@@ -337,7 +407,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
   
   const formatDate = (date) => {
     const d = new Date(date);
-    d.setDate(d.getDate() + 1);  // Add one day
+    d.setDate(d.getDate() + 1);
     let month = '' + (d.getMonth() + 1);
     let day = '' + d.getDate();
     const year = d.getFullYear();
@@ -363,10 +433,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
     return new Date(today.getFullYear() - 16, today.getMonth(), today.getDate());
   };
   
-
-
   const renderEnrollmentYearSelect = () => {
-
     return (
       <div className="form-group enrollment-year-group">
         <select
@@ -397,24 +464,22 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
   return (
     <section className="form-section">
       <h2 className="section-title">Student Information</h2>
-      
-      <DatePicker
-  selected={formData.birthday ? new Date(formData.birthday) : null}
-  onChange={handleBirthdayChange}
-  customInput={<CustomInput />}
-  open={birthdayPickerOpen}
-  onClickOutside={() => setBirthdayPickerOpen(false)}
-  onInputClick={() => setBirthdayPickerOpen(true)}
-  maxDate={new Date()}
-  showYearDropdown
-  scrollableYearDropdown
-  yearDropdownItemNumber={100}
-  openToDate={getInitialBirthdayDate()}
-  className="custom-datepicker"
-/>
-      {renderEnrollmentYearSelect()}
-
       {ageInfo && <p className="age-info">{ageInfo}</p>}
+      <DatePicker
+        selected={formData.birthday ? new Date(formData.birthday) : null}
+        onChange={handleBirthdayChange}
+        customInput={<CustomInput />}
+        open={birthdayPickerOpen}
+        onClickOutside={() => setBirthdayPickerOpen(false)}
+        onInputClick={() => setBirthdayPickerOpen(true)}
+        maxDate={new Date()}
+        showYearDropdown
+        scrollableYearDropdown
+        yearDropdownItemNumber={100}
+        openToDate={getInitialBirthdayDate()}
+        className="custom-datepicker"
+      />
+      {renderEnrollmentYearSelect()}
 
       {formData.birthday && formData.enrollmentYear && (
         <div className="student-type-section">
@@ -529,7 +594,7 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
                 id="noASN"
                 name="noASN"
                 checked={noASN}
-                onChange={() => setNoASN(!noASN)}
+                onChange={handleNoASNChange}
                 className="form-checkbox"
               />
               <label htmlFor="noASN" className="form-checkbox-label">I do not have an Alberta Student Number (ASN) yet</label>
@@ -557,8 +622,6 @@ const StudentTypeSelection = forwardRef(({ formData, handleChange, calculateAge,
       )}
     </section>
   );
-
-
 });
 
 export default StudentTypeSelection;

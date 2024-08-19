@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { pricing, courseCredits, subscriptionPlans } from "./variables";
+import { pricing, courseCredits, subscriptionPlans } from "../../config/variables";
+import { diplomaInfo } from "../../config/siteMessages";
 import PayPalPaymentButton from './PayPalPaymentButton';
 
 const InternationalStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) => {
@@ -21,13 +22,29 @@ const InternationalStudentInfo = ({ formData, onPaymentSuccess, calculateRefundD
 
   const handlePaymentSuccess = (paymentDetails) => {
     console.log("Payment successful:", paymentDetails);
-    onPaymentSuccess({
-      ...paymentDetails,
+    
+    const updatedFormData = {
+      ...formData,
       paymentType: paymentOption === 'INTERNATIONAL_FULL_PAYMENT' ? 'one-time' : 'subscription',
       planId: paymentOption !== 'INTERNATIONAL_FULL_PAYMENT' ? paymentOption : '',
+      courseFee: courseFee,
+      pricePerCredit: pricing.internationalStudentPerCredit,
+      credits: courseCredits[formData.course],
+      paymentAmount: getTotalAmount(),
+      paymentPlanFee: paymentOption === 'INTERNATIONAL_FULL_PAYMENT' ? 0 : paymentPlanFee,
+      fullRefundDate: refundDates.fullRefundDate,
+      partialRefundDate: refundDates.partialRefundDate,
+      refundAmount: refundAmount,
+      isCodingCourse: isCodingOption
+    };
+
+    onPaymentSuccess({
+      ...paymentDetails,
+      ...updatedFormData
     });
   };
 
+  
   const toggleDiplomaInfo = () => {
     setShowDiplomaInfo(!showDiplomaInfo);
   };
@@ -57,17 +74,33 @@ const InternationalStudentInfo = ({ formData, onPaymentSuccess, calculateRefundD
 
   const refundAmount = getRefundAmount();
 
-  const plans = [
-    {
-      planId: 'INTERNATIONAL_FULL_PAYMENT',
-      name: 'Full Payment',
-      description: `One-time payment of $${courseFee.toFixed(2)}`,
-      initialPayment: courseFee,
-      remainingPayments: 0,
-      studentType: "International"
-    },
-    ...Object.values(subscriptionPlans).filter(plan => plan.studentType === "International")
-  ];
+  const courseCreditsAmount = courseCredits[formData.course] || 5; // Default to 5 if not found
+
+const plans = [
+  {
+    planId: 'INTERNATIONAL_FULL_PAYMENT',
+    name: 'Full Payment',
+    description: `One-time payment of $${courseFee.toFixed(2)}`,
+    initialPayment: courseFee,
+    remainingPayments: 0,
+    studentType: "International Student",
+    credits: courseCreditsAmount
+  },
+  ...Object.keys(subscriptionPlans)
+    .filter(planKey => 
+      subscriptionPlans[planKey].studentType === 'International Student' &&
+      subscriptionPlans[planKey].credits === courseCreditsAmount
+    )
+    .map(planKey => ({
+      ...subscriptionPlans[planKey],
+      planId: subscriptionPlans[planKey].planId,
+      name: subscriptionPlans[planKey].name, 
+      description: subscriptionPlans[planKey].description, 
+      initialPayment: parseFloat(subscriptionPlans[planKey].setupFee.replace(" CAD", "")),
+      installmentAmount: parseFloat(subscriptionPlans[planKey].price.replace(" CAD", "")),
+      studentType: "International Student"
+    }))
+];
 
   const handlePaymentOptionChange = (option) => {
     setPaymentOption(option);
@@ -84,7 +117,7 @@ const InternationalStudentInfo = ({ formData, onPaymentSuccess, calculateRefundD
   };
 
   return (
-    <section className="form-section adult-student-info">
+    <section className="form-section international-student-info">
       <h2 className="section-title">Information for International Students</h2>
       
       <div className="info-content">
@@ -116,29 +149,7 @@ const InternationalStudentInfo = ({ formData, onPaymentSuccess, calculateRefundD
               {showDiplomaInfo ? 'Hide Diploma Information' : 'Show Diploma Information'}
             </button>
             {showDiplomaInfo && (
-              <div className="diploma-details">
-                <h4>Alberta High School Diploma Requirements</h4>
-                <p>To obtain an Alberta High School Diploma, students must complete specific courses and pass diploma exams, which are standardized tests for key subjects such as Math, English, Sciences, and Social Studies. These exams are mandatory and are typically written in person at designated locations within Alberta.</p>
-
-                <h4>Your Pathway to a Diploma</h4>
-                <ol>
-                  <li>
-                    <strong>Registration and Alberta Student Number (ASN):</strong>
-                    <p>When you enroll in one of our courses, we will create an Alberta Student Number (ASN) for you. The ASN is essential for accessing your educational records and registering for diploma exams. You can manage this through your myPass account, which is the Alberta government's self-service website for students.</p>
-                  </li>
-                  <li>
-                    <strong>Writing Diploma Exams:</strong>
-                    <p>Once you arrive in Alberta, you'll be able to log in to your myPass account and register for the necessary diploma exams. These exams must be written in person at an authorized Alberta high school or another approved exam center.</p>
-                  </li>
-                  <li>
-                    <strong>Special Considerations:</strong>
-                    <p>Alberta Education offers accommodations for students with special needs, including extended time and alternate formats for exams. If you require any special arrangements, please reach out to us or the exam center early to ensure everything is in place.</p>
-                  </li>
-                </ol>
-
-                <h4>Additional Resources</h4>
-                <p>For more detailed information about earning an Alberta High School Diploma as an international student, including specific course requirements and exam schedules, please visit the <a href="https://www.alberta.ca/international-students-studying-alberta" target="_blank" rel="noopener noreferrer">Alberta Education website</a>.</p>
-              </div>
+              <div className="diploma-details" dangerouslySetInnerHTML={{ __html: diplomaInfo.content }} />
             )}
           </div>
         )}
@@ -161,9 +172,9 @@ const InternationalStudentInfo = ({ formData, onPaymentSuccess, calculateRefundD
                   onChange={() => {}}
                 />
                 <label htmlFor={plan.planId}>
-                  <h4>Payment Plan</h4>
+                  <h4>{plan.name}</h4>
                   <p>{plan.description}</p>
-                  {plan.planId !== 'INTERNATIONAL_FULL_PAYMENT' && (
+                  {!plan.name.includes('Full Payment') && (
                     <p className="fee-note">Includes ${paymentPlanFee.toFixed(2)} payment plan fee</p>
                   )}
                 </label>
@@ -213,13 +224,13 @@ const InternationalStudentInfo = ({ formData, onPaymentSuccess, calculateRefundD
           <h3>Complete Your Registration</h3>
           <p>Click the PayPal button below to pay for your course and complete your registration:</p>
           <PayPalPaymentButton
-            amount={getTotalAmount().toFixed(2)}
+            amount={paymentOption === 'INTERNATIONAL_FULL_PAYMENT' ? getTotalAmount().toFixed(2) : '0.00'}
             plan={selectedPlan ? {
               ...selectedPlan,
               courseName: formData.course,
-              studentType: "International",
-              initialPayment: selectedPlan.initialPayment,
-              installmentAmount: selectedPlan.installmentAmount
+              studentType: "International Student",
+              initialPayment: selectedPlan.initialPayment || getTotalAmount(),
+              installmentAmount: selectedPlan.installmentAmount || getTotalAmount()
             } : null}
             paymentType={paymentOption === 'INTERNATIONAL_FULL_PAYMENT' ? 'capture' : 'subscription'}
             onSuccess={handlePaymentSuccess}

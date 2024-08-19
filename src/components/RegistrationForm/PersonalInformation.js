@@ -18,6 +18,26 @@ const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
     setEmailsMatch(e.target.value === formData.studentEmail);
   };
 
+  const validatePhoneNumber = (phoneNumber) => {
+    // Basic length check (adjust minimum length as needed)
+    if (phoneNumber.replace(/\D/g, '').length < 10) {
+      return "Phone number is too short";
+    }
+    return null; // No error
+  };
+
+  const handlePhoneChange = (value, country, e, formattedValue) => {
+    const phoneError = validatePhoneNumber(value);
+    setErrors(prev => ({ ...prev, phoneNumber: phoneError }));
+
+    handleChange({
+      target: {
+        name: "phoneNumber",
+        value: formattedValue,
+      },
+    });
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -26,7 +46,9 @@ const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
     if (!formData.studentEmail) newErrors.studentEmail = "Email is required";
     else if (!validateEmail(formData.studentEmail)) newErrors.studentEmail = "Invalid email format";
     if (formData.studentEmail !== confirmEmail) newErrors.confirmEmail = "Emails do not match";
-    if (!formData.phoneNumber) newErrors.phoneNumber = "Phone number is required";
+    
+    const phoneError = validatePhoneNumber(formData.phoneNumber);
+    if (phoneError) newErrors.phoneNumber = phoneError;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -117,19 +139,16 @@ const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
           <PhoneInput
             country={"ca"}
             value={formData.phoneNumber}
-            onChange={(phone) =>
-              handleChange({
-                target: {
-                  name: "phoneNumber",
-                  value: phone,
-                },
-              })
-            }
+            onChange={handlePhoneChange}
             inputClass={`form-input ${errors.phoneNumber ? 'is-invalid' : ''}`}
             containerClass="phone-input-container"
             buttonClass="phone-input-button"
             onFocus={() => setPhoneInputFocused(true)}
             onBlur={() => setPhoneInputFocused(false)}
+            preferredCountries={["ca"]}
+            priority={{ ca: 0, us: 1 }}
+            enableSearch={true}
+            searchPlaceholder="Search countries"
           />
           <label className="form-label phone-label">Phone Number</label>
         </div>

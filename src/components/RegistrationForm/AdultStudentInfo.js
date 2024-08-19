@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { pricing, courseCredits, subscriptionPlans } from './variables';
+import { pricing, courseCredits, subscriptionPlans } from '../../config/variables';
 import PayPalPaymentButton from './PayPalPaymentButton';
 
 const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) => {
@@ -8,8 +8,10 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
   const [refundDates, setRefundDates] = useState({ fullRefundDate: null, partialRefundDate: null });
 
   useEffect(() => {
+    console.log("Course changed to:", formData.course);
+    console.log("Subscription Plans:", JSON.stringify(subscriptionPlans, null, 2));
     updateAvailablePaymentOptions();
-  }, []);
+  }, [formData.course]);
 
   useEffect(() => {
     if (formData.startDate) {
@@ -25,23 +27,37 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
 
   const handlePaymentSuccess = (paymentDetails) => {
     console.log("Payment successful:", paymentDetails);
-    onPaymentSuccess({
-      ...paymentDetails,
+    
+    const updatedFormData = {
+      ...formData,
       paymentType: paymentOption === 'ADULT_FULL_PAYMENT' ? 'one-time' : 'subscription',
       planId: paymentOption !== 'ADULT_FULL_PAYMENT' ? paymentOption : '',
+      courseFee: courseFee,
+      pricePerCredit: pricing.adultStudentPerCredit,
+      credits: courseCreditsAmount,
+      paymentAmount: getTotalAmount(),
+      paymentPlanFee: paymentOption === 'ADULT_FULL_PAYMENT' ? 0 : paymentPlanFee,
+      fullRefundDate: refundDates.fullRefundDate,
+      partialRefundDate: refundDates.partialRefundDate,
+      refundAmount: refundAmount
+    };
+
+    onPaymentSuccess({
+      ...paymentDetails,
+      ...updatedFormData
     });
   };
 
   const isCodingOption = formData.course === 'Coding';
-  const studentType = formData.studentType === 'International' ? 'International' : 'Adult';
+  const courseCreditsAmount = courseCredits[formData.course] || 5; // Default to 5 if not found
+  console.log("Course credits amount:", courseCreditsAmount);
+
 
   const getCourseFee = () => {
     if (isCodingOption) {
-      return studentType === 'International' ? pricing.codingInternationalStudentFlatRate : pricing.codingAdultStudentFlatRate;
+      return pricing.codingAdultStudentFlatRate;
     } else {
-      const credits = courseCredits[formData.course];
-      const perCreditPrice = studentType === 'International' ? pricing.internationalStudentPerCredit : pricing.adultStudentPerCredit;
-      return credits * perCreditPrice;
+      return courseCreditsAmount * pricing.adultStudentPerCredit;
     }
   };
 
@@ -51,9 +67,9 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
 
   const getRefundAmount = () => {
     if (isCodingOption) {
-      return studentType === 'International' ? pricing.codingInternationalStudentPartialRefund : pricing.codingAdultStudentPartialRefund;
+      return pricing.codingAdultStudentPartialRefund;
     } else {
-      return pricing[`${studentType.toLowerCase()}StudentPartialRefund_${formData.course}`];
+      return pricing[`adultStudentPartialRefund_${formData.course}`];
     }
   };
 
@@ -66,25 +82,38 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
       description: `One-time payment of $${courseFee.toFixed(2)}`,
       initialPayment: courseFee,
       remainingPayments: 0,
-      studentType: "Adult"
+      studentType: 'Adult Student',
+      credits: courseCreditsAmount
     },
     ...Object.keys(subscriptionPlans)
-      .filter(planKey => subscriptionPlans[planKey].studentType === studentType)
+      .filter(planKey => {
+        const plan = subscriptionPlans[planKey];
+        console.log(`Checking plan: ${planKey}`, plan);
+        const isAdultStudent = plan.studentType === 'Adult Student';
+        const hasMatchingCredits = plan.credits === courseCreditsAmount;
+        console.log(`Is Adult Student: ${isAdultStudent}, Has Matching Credits: ${hasMatchingCredits}`);
+        return isAdultStudent && hasMatchingCredits;
+      })
       .map(planKey => ({
         ...subscriptionPlans[planKey],
         planId: subscriptionPlans[planKey].planId,
-        name: subscriptionPlans[planKey].description,
+        name: subscriptionPlans[planKey].name,
+        description: subscriptionPlans[planKey].description,
         initialPayment: parseFloat(subscriptionPlans[planKey].setupFee.replace(" CAD", "")),
         installmentAmount: parseFloat(subscriptionPlans[planKey].price.replace(" CAD", "")),
-        studentType: studentType
+        studentType: 'Adult Student'
       }))
   ];
 
   const updateAvailablePaymentOptions = () => {
+    console.log("Updating available payment options");
+    console.log("All plans:", plans);
     const availableOptions = plans.map(plan => plan.planId);
+    console.log("Available options:", availableOptions);
     setAvailablePaymentOptions(availableOptions);
 
     if (!availableOptions.includes(paymentOption)) {
+      console.log("Resetting payment option to ADULT_FULL_PAYMENT");
       setPaymentOption('ADULT_FULL_PAYMENT');
     }
   };
@@ -105,7 +134,7 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
 
   return (
     <section className="form-section adult-student-info">
-      <h2 className="section-title">Information for {studentType} Students</h2>
+      <h2 className="section-title">Information for Adult Students</h2>
       
       <div className="info-content">
         <div className="info-card course-pricing">
@@ -116,8 +145,8 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
               <p className="pricing-item">Flat rate: <strong>${getCourseFee()}</strong></p>
             ) : (
               <>
-                <p className="pricing-item">Price per credit: <strong>${studentType === 'International' ? pricing.internationalStudentPerCredit : pricing.adultStudentPerCredit}</strong></p>
-                <p className="pricing-item">Credits: <strong>{courseCredits[formData.course]}</strong></p>
+                <p className="pricing-item">Price per credit: <strong>${pricing.adultStudentPerCredit}</strong></p>
+                <p className="pricing-item">Credits: <strong>{courseCreditsAmount}</strong></p>
                 <p className="pricing-item">Base fee: <strong>${courseFee.toFixed(2)}</strong></p>
               </>
             )}
@@ -127,7 +156,7 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
 
         <div className="info-card payment-options">
           <h3>Payment Options</h3>
-      
+
           <div className="payment-options-grid">
             {plans.map((plan) => (
               <div
@@ -146,7 +175,7 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
                 <label htmlFor={plan.planId}>
                   <h4>{plan.name}</h4>
                   <p>{plan.description}</p>
-                  {plan.planId !== 'ADULT_FULL_PAYMENT' && (
+                  {!plan.name.includes('Full Payment') && (
                     <p className="fee-note">Includes ${paymentPlanFee.toFixed(2)} payment plan fee</p>
                   )}
                 </label>
@@ -190,7 +219,7 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
             plan={selectedPlan ? {
               ...selectedPlan,
               courseName: formData.course,
-              studentType: studentType,
+              studentType: 'Adult Student',
               initialPayment: selectedPlan.initialPayment,
               installmentAmount: selectedPlan.installmentAmount
             } : null}

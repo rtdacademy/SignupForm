@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import PayPalPaymentButton from './PayPalPaymentButton';
-import { pricing } from "./variables";
+import { pricing } from "../../config/variables";
 
 const GrantEligibleStudentInfo = ({ formData, onPaymentSuccess }) => {
   const [isCodingCourse, setIsCodingCourse] = useState(false);
@@ -9,18 +9,23 @@ const GrantEligibleStudentInfo = ({ formData, onPaymentSuccess }) => {
     setIsCodingCourse(formData.course === 'Coding');
   }, [formData.course]);
 
+  
   const handlePaymentSuccess = (order) => {
     console.log("Payment successful:", order);
-    onPaymentSuccess(order);
+    onPaymentSuccess({
+      ...order,
+      paymentType: 'deposit'  // set the paymentType
+    });
   };
+
 
   const getStudentTypeMessage = () => {
     switch (formData.studentType) {
       case 'Non-Primary':
       case 'Home Education':
-        return 'As a Non-Primary or Home Education student, you are eligible for 2 free courses per year (September to August). Additionally, you can take 1 free summer school course within the same school year.';
+        return 'As a Non-Primary or Home Education student, you are eligible for 2 free courses per year (September to June). Additionally, you can take 1 free summer school course within the same school year.';
       case 'Summer School':
-        return 'As a Summer School student, you are eligible for 1 free summer school course within the school year (September to August). If you are also a Non-Primary or Home Education student, you may be eligible for 2 additional free courses during the regular school year.';
+        return 'As a Summer School student, you are eligible for 1 free summer school course within the school year. If you are also a Non-Primary or Home Education student, you may be eligible for 2 additional free courses during the regular school year.';
       default:
         return 'You are eligible for grant-supported courses.';
     }

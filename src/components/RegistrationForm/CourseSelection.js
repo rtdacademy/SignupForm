@@ -1,7 +1,10 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import DatePicker from 'react-datepicker';
+import PhoneInput from "react-phone-input-2";
 import 'react-datepicker/dist/react-datepicker.css';
-import { courseSharepointIDs } from "./variables";
+import "react-phone-input-2/lib/style.css";
+import { courseSharepointIDs } from "../../config/variables";
+import { diplomaInfo } from "../../config/siteMessages";
 
 const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, diplomaDates, loading, error }, ref) => {
   const [showDiplomaDate, setShowDiplomaDate] = useState(false);
@@ -12,11 +15,15 @@ const CourseSelection = forwardRef(({ formData, handleChange, calculateAge, dipl
   const [alreadyWroteDiploma, setAlreadyWroteDiploma] = useState(false);
   const [isCodingOption, setIsCodingOption] = useState(false);
   const [startDateErrorMessage, setStartDateErrorMessage] = useState('');
-const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('');
+  const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('');
+  const [showDiplomaInfo, setShowDiplomaInfo] = useState(false);
+  const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
+  const [parentPhoneInputFocused, setParentPhoneInputFocused] = useState(false);
 
   useEffect(() => {
-    const isDiplomaCourse = ['Math 30-1', 'Math 30-2'].includes(formData.course);
-    setShowDiplomaDate(isDiplomaCourse);
+    const isDiploma = ['Math 30-1', 'Math 30-2'].includes(formData.course);
+    setIsDiplomaCourse(isDiploma);
+    setShowDiplomaDate(isDiploma);
     setShowParentInfo(calculateAge(formData.birthday, new Date()) < 18);
 
     const oneMonthFromNow = new Date();
@@ -34,12 +41,18 @@ const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('')
 
     setFilteredDiplomaDates(filtered);
 
-    if (!isDiplomaCourse) {
+    if (!isDiploma) {
       setAlreadyWroteDiploma(false);
     }
 
     setIsCodingOption(formData.course === 'Coding');
   }, [formData.course, formData.birthday, calculateAge, diplomaDates]);
+
+  const validatePhoneNumber = (phoneNumber) => {
+    if (!phoneNumber) return "Phone number is required";
+    if (phoneNumber.replace(/\D/g, '').length < 10) return "Phone number is too short";
+    return null;
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -51,7 +64,8 @@ const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('')
 
     if (showParentInfo) {
       if (!formData.parentName) newErrors.parentName = "Parent name is required";
-      if (!formData.parentPhone) newErrors.parentPhone = "Parent phone number is required";
+      const parentPhoneError = validatePhoneNumber(formData.parentPhone);
+      if (parentPhoneError) newErrors.parentPhone = parentPhoneError;
       if (!formData.parentEmail) newErrors.parentEmail = "Parent email is required";
     }
 
@@ -87,9 +101,7 @@ const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('')
       }
     }
   
-    // Reset the time to midnight
     minDate.setHours(0, 0, 0, 0);
-  
     return minDate;
   };
   
@@ -135,7 +147,7 @@ const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('')
 
   const formatDate = (date) => {
     const d = new Date(date);
-    d.setDate(d.getDate() + 1);  // Add one day
+    d.setDate(d.getDate() + 1);
     let month = '' + (d.getMonth() + 1);
     let day = '' + d.getDate();
     const year = d.getFullYear();
@@ -169,7 +181,21 @@ const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('')
     </div>
   ));
 
+  const toggleDiplomaInfo = () => {
+    setShowDiplomaInfo(!showDiplomaInfo);
+  };
 
+  const handleParentPhoneChange = (value, country, event, formattedValue) => {
+    const phoneError = validatePhoneNumber(value);
+    setErrors(prev => ({ ...prev, parentPhone: phoneError }));
+
+    handleChange({
+      target: {
+        name: "parentPhone",
+        value: formattedValue,
+      },
+    });
+  };
 
   return (
     <section className="form-section">
@@ -198,6 +224,21 @@ const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('')
             <label htmlFor="course" className="form-label">Which course are you registering for?</label>
             {errors.course && <div className="error-message">{errors.course}</div>}
           </div>
+
+          {isDiplomaCourse && formData.studentType === 'International Student' && (
+            <div className="info-card diploma-info">
+              <h3>{diplomaInfo.title}</h3>
+              <button 
+                className="info-toggle-button" 
+                onClick={toggleDiplomaInfo}
+              >
+                {showDiplomaInfo ? 'Hide Diploma Information' : 'Show Diploma Information'}
+              </button>
+              {showDiplomaInfo && (
+                <div className="diploma-details" dangerouslySetInnerHTML={{ __html: diplomaInfo.content }} />
+              )}
+            </div>
+          )}
 
           {showDiplomaDate && (
             <div className="form-group">
@@ -238,56 +279,57 @@ const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('')
             </div>
           )}
 
-<DatePicker
-  selected={formData.startDate ? new Date(formData.startDate) : null}
-  onChange={(date) => {
-    const minDate = getMinStartDate();
-    if (date >= minDate || compareDates(date, minDate)) {
-      handleChange({ target: { name: 'startDate', value: formatDate(date) } });
-      setStartDateErrorMessage('');
-    } else {
-      setStartDateErrorMessage('You must choose a date that is at least 2 business days from today.');
-    }
-  }}
-  minDate={getMinStartDate()}
-  customInput={
-    <CustomInput 
-      label="When do you intend to start the course?" 
-      error={errors.startDate || startDateErrorMessage}
-      helpText="Please select a start date at least 2 business days from today. This allows our registrar time to add you to the course. The date you choose will be used to create your initial schedule, but we can adjust this later on as well if needed."
-    />
-  }
-  dateFormat="MMMM d, yyyy"
-  onClickOutside={() => setStartDateErrorMessage('')}
-/>
-{startDateErrorMessage && <div className="error-message">{startDateErrorMessage}</div>}
+          <DatePicker
+            selected={formData.startDate ? new Date(formData.startDate) : null}
+            onChange={(date) => {
+              const minDate = getMinStartDate();
+              if (date >= minDate || compareDates(date, minDate)) {
+                handleChange({ target: { name: 'startDate', value: formatDate(date) } });
+                setStartDateErrorMessage('');
+              } else {
+                setStartDateErrorMessage('You must choose a date that is at least 2 business days from today.');
+              }
+            }}
+            minDate={getMinStartDate()}
+            customInput={
+              <CustomInput 
+                label="When do you intend to start the course?" 
+                error={errors.startDate || startDateErrorMessage}
+                helpText="Please select a start date at least 2 business days from today. This allows our registrar time to add you to the course. The date you choose will be used to create your initial schedule, but we can adjust this later on as well if needed."
+              />
+            }
+            dateFormat="MMMM d, yyyy"
+            onClickOutside={() => setStartDateErrorMessage('')}
+          />
+          {startDateErrorMessage && <div className="error-message">{startDateErrorMessage}</div>}
 
-{(!showDiplomaDate || alreadyWroteDiploma) && (
-  <DatePicker
-    selected={formData.completionDate ? new Date(formData.completionDate) : null}
-    onChange={(date) => {
-      if (date >= getMinCompletionDate()) {
-        handleChange({ target: { name: 'completionDate', value: formatDate(date) } });
-        setCompletionDateErrorMessage('');
-      } else {
-        setCompletionDateErrorMessage('You must choose a date that allows at least one month to complete the course.');
-      }
-    }}
-    minDate={getMinCompletionDate()}
-    openToDate={getDefaultCompletionDate()}
-    disabled={!formData.startDate}
-    customInput={
-      <CustomInput 
-        label="When do you intend to complete the course by?" 
-        error={errors.completionDate || completionDateErrorMessage}
-        helpText={`Please select a completion date at least one month after your start date. Most 5-credit courses are typically designed to be completed in 5 months. A date estimate is fine. You can start and complete a course at any time of year.${!formData.startDate ? ' Please select a start date first.' : ''}`}
-      />
-    }
-    dateFormat="MMMM d, yyyy"
-    onClickOutside={() => setCompletionDateErrorMessage('')}
-  />
-)}
-{completionDateErrorMessage && <div className="error-message">{completionDateErrorMessage}</div>}
+          {(!showDiplomaDate || alreadyWroteDiploma) && (
+            <DatePicker
+              selected={formData.completionDate ? new Date(formData.completionDate) : null}
+              onChange={(date) => {
+                if (date >= getMinCompletionDate()) {
+                  handleChange({ target: { name: 'completionDate', value: formatDate(date) } });
+                  setCompletionDateErrorMessage('');
+                } else {
+                  setCompletionDateErrorMessage('You must choose a date that allows at least one month to complete the course.');
+                }
+              }}
+              minDate={getMinCompletionDate()}
+              openToDate={getDefaultCompletionDate()}
+              disabled={!formData.startDate}
+              customInput={
+                <CustomInput 
+                  label="When do you intend to complete the course by?" 
+                  error={errors.completionDate || completionDateErrorMessage}
+                  helpText={`Please select a completion date at least one month after your start date. Most 5-credit courses are typically designed to be completed in 5 months. A date estimate is fine. You can start and complete a course at any time of year.${!formData.startDate ? ' Please select a start date first.' : ''}`}
+                />
+              }
+              dateFormat="MMMM d, yyyy"
+              onClickOutside={() => setCompletionDateErrorMessage('')}
+            />
+          )}
+          {completionDateErrorMessage && <div className="error-message">{completionDateErrorMessage}</div>}
+          
           <button type="button" onClick={toggleAdditionalNotes} className="btn btn-secondary">
             {showAdditionalNotes ? 'Hide Additional Notes' : 'Include Additional Notes (Optional)'}
           </button>
@@ -371,17 +413,25 @@ const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('')
               </div>
 
               <div className="form-group">
-                <input
-                  type="tel"
-                  id="parentPhone"
-                  name="parentPhone"
-                  value={formData.parentPhone || ''}
-                  onChange={handleChange}
-                  required
-                  className={`form-input ${errors.parentPhone ? 'is-invalid' : ''}`}
-                  placeholder=""
-                />
-                <label htmlFor="parentPhone" className="form-label">Parent/Guardian Phone #</label>
+                <div
+                  className={`phone-input-wrapper ${
+                    parentPhoneInputFocused || formData.parentPhone ? "focused" : ""
+                  }`}
+                >
+                  <PhoneInput
+                    country={"ca"}
+                    value={formData.parentPhone}
+                    onChange={handleParentPhoneChange}
+                    inputClass={`form-input ${errors.parentPhone ? 'is-invalid' : ''}`}
+                    containerClass="phone-input-container"
+                    buttonClass="phone-input-button"
+                    onFocus={() => setParentPhoneInputFocused(true)}
+                    onBlur={() => setParentPhoneInputFocused(false)}
+                    preferredCountries={["ca"]}
+                    priority={{ ca: 0, us: 1 }}
+                  />
+                  <label className="form-label phone-label">Parent/Guardian Phone #</label>
+                </div>
                 <p className="form-help-text">Will only be used for school related matters</p>
                 {errors.parentPhone && <div className="error-message">{errors.parentPhone}</div>}
               </div>
@@ -399,6 +449,10 @@ const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('')
                 />
                 <label htmlFor="parentEmail" className="form-label">Parent/Guardian Email</label>
                 {errors.parentEmail && <div className="error-message">{errors.parentEmail}</div>}
+                <p className="form-help-text important-message">
+                  Your parent/guardian will receive an email and will need to grant permission for you to join the course. 
+                  Please ensure that the parent email is correct.
+                </p>
               </div>
             </div>
           ) : (
@@ -420,16 +474,25 @@ const [completionDateErrorMessage, setCompletionDateErrorMessage] = useState('')
               </div>
 
               <div className="form-group">
-                <input
-                  type="tel"
-                  id="parentPhone"
-                  name="parentPhone"
-                  value={formData.parentPhone || ''}
-                  onChange={handleChange}
-                  className="form-input"
-                  placeholder=""
-                />
-                <label htmlFor="parentPhone" className="form-label">Parent/Guardian Phone #</label>
+                <div
+                  className={`phone-input-wrapper ${
+                    parentPhoneInputFocused || formData.parentPhone ? "focused" : ""
+                  }`}
+                >
+                  <PhoneInput
+                    country={"ca"}
+                    value={formData.parentPhone}
+                    onChange={handleParentPhoneChange}
+                    inputClass="form-input"
+                    containerClass="phone-input-container"
+                    buttonClass="phone-input-button"
+                    onFocus={() => setParentPhoneInputFocused(true)}
+                    onBlur={() => setParentPhoneInputFocused(false)}
+                    preferredCountries={["ca"]}
+                    priority={{ ca: 0, us: 1 }}
+                  />
+                  <label className="form-label phone-label">Parent/Guardian Phone #</label>
+                </div>
                 <p className="form-help-text">Will only be used for school related matters</p>
               </div>
 
