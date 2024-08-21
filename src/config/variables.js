@@ -29,17 +29,13 @@ export const courseCredits = {
   "Math 30-1": 5,
   "Math 30-3": 5,
   "Math 30-2": 5,
-  "Coding": 0 // Coding is a flat rate, not per credit
+  "Coding": 3
 };
 
 export const pricing = {
   adultStudentPerCredit: 120,
   internationalStudentPerCredit: 120,
   depositAmount: 50,
-  codingAdultStudentFlatRate: 300,
-  codingInternationalStudentFlatRate: 300,
-  codingAdultStudentPartialRefund: 200,
-  //codingInternationalStudentPartialRefund: 200,
   paymentPlanFee: 40, // New field for payment plan fee
   paypalProcessingFee: 15,
   partialRefundPercentage: 2/3
@@ -52,17 +48,15 @@ export const refundPeriods = {
 
 // Calculate full tuition based on credits and partial refund
 Object.keys(courseCredits).forEach(course => {
-  if (course !== "Coding") {
-    const adultFullTuition = courseCredits[course] * pricing.adultStudentPerCredit;
-    const internationalFullTuition = courseCredits[course] * pricing.internationalStudentPerCredit;
+  const adultFullTuition = courseCredits[course] * pricing.adultStudentPerCredit;
+  const internationalFullTuition = courseCredits[course] * pricing.internationalStudentPerCredit;
 
-    pricing[`adultStudentFullTuition_${course}`] = adultFullTuition;
-    pricing[`adultStudentPaymentPlanTuition_${course}`] = adultFullTuition + pricing.paymentPlanFee;
-    pricing[`internationalStudentFullTuition_${course}`] = internationalFullTuition;
-    pricing[`internationalStudentPaymentPlanTuition_${course}`] = internationalFullTuition + pricing.paymentPlanFee;
-    pricing[`adultStudentPartialRefund_${course}`] = Math.round((adultFullTuition * pricing.partialRefundPercentage) * 100) / 100;
-    pricing[`internationalStudentPartialRefund_${course}`] = Math.round((internationalFullTuition * pricing.partialRefundPercentage) * 100) / 100;
-  }
+  pricing[`adultStudentFullTuition_${course}`] = adultFullTuition;
+  pricing[`adultStudentPaymentPlanTuition_${course}`] = adultFullTuition + pricing.paymentPlanFee;
+  pricing[`internationalStudentFullTuition_${course}`] = internationalFullTuition;
+  pricing[`internationalStudentPaymentPlanTuition_${course}`] = internationalFullTuition + pricing.paymentPlanFee;
+  pricing[`adultStudentPartialRefund_${course}`] = Math.round((adultFullTuition * pricing.partialRefundPercentage) * 100) / 100;
+  pricing[`internationalStudentPartialRefund_${course}`] = Math.round((internationalFullTuition * pricing.partialRefundPercentage) * 100) / 100;
 });
 
 // Environment-specific subscription plans

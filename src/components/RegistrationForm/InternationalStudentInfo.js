@@ -29,13 +29,12 @@ const InternationalStudentInfo = ({ formData, onPaymentSuccess, calculateRefundD
       planId: paymentOption !== 'INTERNATIONAL_FULL_PAYMENT' ? paymentOption : '',
       courseFee: courseFee,
       pricePerCredit: pricing.internationalStudentPerCredit,
-      credits: courseCredits[formData.course],
+      credits: courseCreditsAmount,
       paymentAmount: getTotalAmount(),
       paymentPlanFee: paymentOption === 'INTERNATIONAL_FULL_PAYMENT' ? 0 : paymentPlanFee,
       fullRefundDate: refundDates.fullRefundDate,
       partialRefundDate: refundDates.partialRefundDate,
-      refundAmount: refundAmount,
-      isCodingCourse: isCodingOption
+      refundAmount: refundAmount
     };
 
     onPaymentSuccess({
@@ -44,20 +43,14 @@ const InternationalStudentInfo = ({ formData, onPaymentSuccess, calculateRefundD
     });
   };
 
-  
   const toggleDiplomaInfo = () => {
     setShowDiplomaInfo(!showDiplomaInfo);
   };
 
-  const isCodingOption = formData.course === 'Coding';
+  const courseCreditsAmount = courseCredits[formData.course] || 5; // Default to 5 if not found
 
   const getCourseFee = () => {
-    if (isCodingOption) {
-      return pricing.codingInternationalStudentFlatRate;
-    } else {
-      const credits = courseCredits[formData.course];
-      return credits * pricing.internationalStudentPerCredit;
-    }
+    return courseCreditsAmount * pricing.internationalStudentPerCredit;
   };
 
   const courseFee = getCourseFee();
@@ -65,42 +58,37 @@ const InternationalStudentInfo = ({ formData, onPaymentSuccess, calculateRefundD
   const paypalFee = pricing.paypalProcessingFee;
 
   const getRefundAmount = () => {
-    if (isCodingOption) {
-      return pricing.codingInternationalStudentPartialRefund;
-    } else {
-      return pricing[`internationalStudentPartialRefund_${formData.course}`];
-    }
+    const refundKey = `${formData.studentType.toLowerCase().replace(' ', '')}StudentPartialRefund_${formData.course}`;
+    return pricing[refundKey] || 0; // Return 0 if the refund amount is not defined
   };
 
   const refundAmount = getRefundAmount();
 
-  const courseCreditsAmount = courseCredits[formData.course] || 5; // Default to 5 if not found
-
-const plans = [
-  {
-    planId: 'INTERNATIONAL_FULL_PAYMENT',
-    name: 'Full Payment',
-    description: `One-time payment of $${courseFee.toFixed(2)}`,
-    initialPayment: courseFee,
-    remainingPayments: 0,
-    studentType: "International Student",
-    credits: courseCreditsAmount
-  },
-  ...Object.keys(subscriptionPlans)
-    .filter(planKey => 
-      subscriptionPlans[planKey].studentType === 'International Student' &&
-      subscriptionPlans[planKey].credits === courseCreditsAmount
-    )
-    .map(planKey => ({
-      ...subscriptionPlans[planKey],
-      planId: subscriptionPlans[planKey].planId,
-      name: subscriptionPlans[planKey].name, 
-      description: subscriptionPlans[planKey].description, 
-      initialPayment: parseFloat(subscriptionPlans[planKey].setupFee.replace(" CAD", "")),
-      installmentAmount: parseFloat(subscriptionPlans[planKey].price.replace(" CAD", "")),
-      studentType: "International Student"
-    }))
-];
+  const plans = [
+    {
+      planId: 'INTERNATIONAL_FULL_PAYMENT',
+      name: 'Full Payment',
+      description: `One-time payment of $${courseFee.toFixed(2)}`,
+      initialPayment: courseFee,
+      remainingPayments: 0,
+      studentType: "International Student",
+      credits: courseCreditsAmount
+    },
+    ...Object.keys(subscriptionPlans)
+      .filter(planKey => 
+        subscriptionPlans[planKey].studentType === 'International Student' &&
+        subscriptionPlans[planKey].credits === courseCreditsAmount
+      )
+      .map(planKey => ({
+        ...subscriptionPlans[planKey],
+        planId: subscriptionPlans[planKey].planId,
+        name: subscriptionPlans[planKey].name, 
+        description: subscriptionPlans[planKey].description, 
+        initialPayment: parseFloat(subscriptionPlans[planKey].setupFee.replace(" CAD", "")),
+        installmentAmount: parseFloat(subscriptionPlans[planKey].price.replace(" CAD", "")),
+        studentType: "International Student"
+      }))
+  ];
 
   const handlePaymentOptionChange = (option) => {
     setPaymentOption(option);
@@ -125,15 +113,9 @@ const plans = [
           <h3>Course Pricing</h3>
           <p>Your selected course: <strong>{formData.course}</strong></p>
           <div className="pricing-details">
-            {isCodingOption ? (
-              <p className="pricing-item">Flat rate: <strong>${courseFee}</strong></p>
-            ) : (
-              <>
-                <p className="pricing-item">Price per credit: <strong>${pricing.internationalStudentPerCredit}</strong></p>
-                <p className="pricing-item">Credits: <strong>{courseCredits[formData.course]}</strong></p>
-                <p className="pricing-item">Base fee: <strong>${courseFee.toFixed(2)}</strong></p>
-              </>
-            )}
+            <p className="pricing-item">Price per credit: <strong>${pricing.internationalStudentPerCredit}</strong></p>
+            <p className="pricing-item">Credits: <strong>{courseCreditsAmount}</strong></p>
+            <p className="pricing-item">Base fee: <strong>${courseFee.toFixed(2)}</strong></p>
             <p className="pricing-item">Payment plan fee: <strong>${paymentPlanFee.toFixed(2)}</strong> (if applicable)</p>
           </div>
           <p className="note"><strong>Note:</strong> This is a promotional rate and is subject to change in the near future. We encourage you to take advantage of this offer while it lasts.</p>
@@ -193,7 +175,7 @@ const plans = [
             <li>Once payment is received, you will be enrolled and given access to the course materials.</li>
             <li>Please allow up to 2 business days for enrollment completion and login information.</li>
             <li>You will be added to the Alberta Education PASI system, and an Alberta Student Number will be generated for you.</li>
-            <li>This student student number allows you to access your MyPass account and view your official transcript.</li>
+            <li>This student number allows you to access your MyPass account and view your official transcript.</li>
             <li>The same transcript is accessible to Alberta Universities.</li>
           </ul>
         </div>
@@ -212,10 +194,14 @@ const plans = [
               <p>Full refund minus ${paypalFee} processing fee</p>
             </div>
             <div className="refund-item">
-              <h4>Partial Refund</h4>
-              <p>Available until: <br/><strong>{formatDate(refundDates.partialRefundDate)}</strong></p>
-              <p>Refund amount: <strong>${refundAmount.toFixed(2)}</strong> ({Math.round(pricing.partialRefundPercentage * 100)}% of tuition)</p>
-            </div>
+  <h4>Partial Refund</h4>
+  <p>Available until: <br/><strong>{formatDate(refundDates.partialRefundDate)}</strong></p>
+  {refundAmount > 0 ? (
+    <p>Refund amount: <strong>${refundAmount.toFixed(2)}</strong> ({Math.round(pricing.partialRefundPercentage * 100)}% of tuition)</p>
+  ) : (
+    <p>No partial refund available for this course.</p>
+  )}
+</div>
           </div>
           <p className="refund-note">To request a refund, please contact your instructor. These dates are based on your selected start date: {formatDate(formData.startDate)}</p>
         </div>

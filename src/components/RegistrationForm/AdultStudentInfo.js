@@ -48,17 +48,11 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
     });
   };
 
-  const isCodingOption = formData.course === 'Coding';
   const courseCreditsAmount = courseCredits[formData.course] || 5; // Default to 5 if not found
   console.log("Course credits amount:", courseCreditsAmount);
 
-
   const getCourseFee = () => {
-    if (isCodingOption) {
-      return pricing.codingAdultStudentFlatRate;
-    } else {
-      return courseCreditsAmount * pricing.adultStudentPerCredit;
-    }
+    return courseCreditsAmount * pricing.adultStudentPerCredit;
   };
 
   const courseFee = getCourseFee();
@@ -66,11 +60,8 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
   const paypalFee = pricing.paypalProcessingFee;
 
   const getRefundAmount = () => {
-    if (isCodingOption) {
-      return pricing.codingAdultStudentPartialRefund;
-    } else {
-      return pricing[`adultStudentPartialRefund_${formData.course}`];
-    }
+    const refundKey = `${formData.studentType.toLowerCase().replace(' ', '')}StudentPartialRefund_${formData.course}`;
+    return pricing[refundKey] || 0; // Return 0 if the refund amount is not defined
   };
 
   const refundAmount = getRefundAmount();
@@ -141,15 +132,9 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
           <h3>Course Pricing</h3>
           <p>Your selected course: <strong>{formData.course}</strong></p>
           <div className="pricing-details">
-            {isCodingOption ? (
-              <p className="pricing-item">Flat rate: <strong>${getCourseFee()}</strong></p>
-            ) : (
-              <>
-                <p className="pricing-item">Price per credit: <strong>${pricing.adultStudentPerCredit}</strong></p>
-                <p className="pricing-item">Credits: <strong>{courseCreditsAmount}</strong></p>
-                <p className="pricing-item">Base fee: <strong>${courseFee.toFixed(2)}</strong></p>
-              </>
-            )}
+            <p className="pricing-item">Price per credit: <strong>${pricing.adultStudentPerCredit}</strong></p>
+            <p className="pricing-item">Credits: <strong>{courseCreditsAmount}</strong></p>
+            <p className="pricing-item">Base fee: <strong>${courseFee.toFixed(2)}</strong></p>
             <p className="pricing-item">Payment plan fee: <strong>${paymentPlanFee.toFixed(2)}</strong> (if applicable)</p>
           </div>
         </div>
@@ -203,10 +188,14 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
               <p>Full refund minus ${paypalFee} processing fee</p>
             </div>
             <div className="refund-item">
-              <h4>Partial Refund</h4>
-              <p>Available until: <br/> <strong>{formatDate(refundDates.partialRefundDate)}</strong></p>
-              <p>Refund amount: <strong>${refundAmount.toFixed(2)}</strong> ({Math.round(pricing.partialRefundPercentage * 100)}% of tuition)</p>
-            </div>
+  <h4>Partial Refund</h4>
+  <p>Available until: <br/><strong>{formatDate(refundDates.partialRefundDate)}</strong></p>
+  {refundAmount > 0 ? (
+    <p>Refund amount: <strong>${refundAmount.toFixed(2)}</strong> ({Math.round(pricing.partialRefundPercentage * 100)}% of tuition)</p>
+  ) : (
+    <p>No partial refund available for this course.</p>
+  )}
+</div>
           </div>
           <p className="refund-note">To request a refund, please contact your instructor. These dates are based on your selected start date: {formatDate(formData.startDate)}</p>
         </div>
