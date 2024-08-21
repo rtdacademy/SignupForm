@@ -80,6 +80,10 @@ const RegistrationForm = () => {
     }
   }, [formData.birthday, formData.enrollmentYear]);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentStep]);
+
   const fetchDiplomaDates = async () => {
     try {
       const response = await fetch('https://prod2-06.canadacentral.logic.azure.com:443/workflows/2d90721bda75420e9134adfbfe71e696/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=n6XpSgP3DPD_LFLGsvb3q8k45EoKP2p0oiahYW3sKfk', {
@@ -190,7 +194,6 @@ const RegistrationForm = () => {
     console.log("Combined Data: ", combinedData);
     submitFormData(combinedData);
   };
-
 
   const submitFormData = async (data) => {
     const fileToBase64 = (file) => {
@@ -314,10 +317,14 @@ const RegistrationForm = () => {
   const nextStep = () => {
     if (validateStep()) {
       setCurrentStep(prevStep => prevStep + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  const prevStep = () => setCurrentStep(prevStep => prevStep - 1);
+  const prevStep = () => {
+    setCurrentStep(prevStep => prevStep - 1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const getCurrentSchoolYear = () => {
     const today = new Date();

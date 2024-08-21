@@ -34,9 +34,9 @@ const InternationalStudentInfo = ({ formData, onPaymentSuccess, calculateRefundD
       paymentPlanFee: paymentOption === 'INTERNATIONAL_FULL_PAYMENT' ? 0 : paymentPlanFee,
       fullRefundDate: refundDates.fullRefundDate,
       partialRefundDate: refundDates.partialRefundDate,
-      refundAmount: refundAmount
+      refundAmount: getRefundAmount() // Use the function here
     };
-
+  
     onPaymentSuccess({
       ...paymentDetails,
       ...updatedFormData
@@ -58,8 +58,8 @@ const InternationalStudentInfo = ({ formData, onPaymentSuccess, calculateRefundD
   const paypalFee = pricing.paypalProcessingFee;
 
   const getRefundAmount = () => {
-    const refundKey = `${formData.studentType.toLowerCase().replace(' ', '')}StudentPartialRefund_${formData.course}`;
-    return pricing[refundKey] || 0; // Return 0 if the refund amount is not defined
+    const refundKey = `internationalStudentPartialRefund_${formData.course}`;
+    return pricing[refundKey] || 0;
   };
 
   const refundAmount = getRefundAmount();

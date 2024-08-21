@@ -39,15 +39,16 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
       paymentPlanFee: paymentOption === 'ADULT_FULL_PAYMENT' ? 0 : paymentPlanFee,
       fullRefundDate: refundDates.fullRefundDate,
       partialRefundDate: refundDates.partialRefundDate,
-      refundAmount: refundAmount
+      refundAmount: getRefundAmount() // Use the function here
     };
-
+  
     onPaymentSuccess({
       ...paymentDetails,
       ...updatedFormData
     });
   };
 
+  
   const courseCreditsAmount = courseCredits[formData.course] || 5; // Default to 5 if not found
   console.log("Course credits amount:", courseCreditsAmount);
 
@@ -60,8 +61,8 @@ const AdultStudentInfo = ({ formData, onPaymentSuccess, calculateRefundDates }) 
   const paypalFee = pricing.paypalProcessingFee;
 
   const getRefundAmount = () => {
-    const refundKey = `${formData.studentType.toLowerCase().replace(' ', '')}StudentPartialRefund_${formData.course}`;
-    return pricing[refundKey] || 0; // Return 0 if the refund amount is not defined
+    const refundKey = `adultStudentPartialRefund_${formData.course}`;
+    return pricing[refundKey] || 0;
   };
 
   const refundAmount = getRefundAmount();

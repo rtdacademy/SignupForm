@@ -9,7 +9,6 @@ const GrantEligibleStudentInfo = ({ formData, onPaymentSuccess }) => {
     setIsCodingCourse(formData.course === 'Coding');
   }, [formData.course]);
 
-  
   const handlePaymentSuccess = (order) => {
     console.log("Payment successful:", order);
     onPaymentSuccess({
@@ -17,7 +16,6 @@ const GrantEligibleStudentInfo = ({ formData, onPaymentSuccess }) => {
       paymentType: 'deposit'  // set the paymentType
     });
   };
-
 
   const getStudentTypeMessage = () => {
     switch (formData.studentType) {
@@ -54,8 +52,11 @@ const GrantEligibleStudentInfo = ({ formData, onPaymentSuccess }) => {
         <div className="info-card course-participation">
           <h3>Course Participation and Deposit</h3>
           <p>
-            To ensure active participation in the course, we require a ${pricing.depositAmount} deposit to start the course. This deposit is fully refundable
-            upon course completion within 5 months. Here's how it works:
+            To ensure active participation in the course, we require a ${pricing.depositAmount} deposit to start the course. 
+            {isCodingCourse 
+              ? ` This deposit is fully refundable upon completion of the first module of the course. Here's how it works:`
+              : ` This deposit is fully refundable upon course completion within 5 months. Here's how it works:`
+            }
           </p>
           <ul>
             <li>You pay a ${pricing.depositAmount} deposit to begin the course.</li>

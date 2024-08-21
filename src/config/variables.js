@@ -111,7 +111,7 @@ const sandboxPlans = {
 
 const productionPlans = {
   "ThreeMonthAdultTuition": {
-    planId: "YOUR_PRODUCTION_PLAN_ID_HERE",
+    planId: "P-26466898G0759344AM3DBZSQ",
     name: "3-Month Payment Plan",
     description: "3 payments of price: $213.33 CAD each, with the first payment now and subsequent payments each month.",
     setupFee: "0.00 CAD",
@@ -122,7 +122,7 @@ const productionPlans = {
     credits: 5
   },
   "ThreeMonthAdultTuition3Credits": {
-    planId: "P-ADULT3CREDIT_Production", // Replace with actual PayPal sandbox plan ID
+    planId: "P-7RE56263SX886284GM3DB4AY",
     name: "3-Month Payment Plan (3 Credits)",
     description: "3 payments of $133.33 CAD each, with the first payment now and subsequent payments each month.",
     setupFee: "0.00 CAD",
@@ -133,7 +133,7 @@ const productionPlans = {
     credits: 3
   },
   "ThreeMonthInternationalTuition": {
-    planId: "PLACEHOLDER_INTERNATIONAL_THREE_MONTH",
+    planId: "P-90L10029W4647961FM3DB57Y",
     name: "3-Month Payment Plan",
     description: "3 payments of $213.33 CAD each, with the first payment now and subsequent payments each month.",
     setupFee: "0.00 CAD",
@@ -143,8 +143,8 @@ const productionPlans = {
     studentType: "International Student",
     credits: 5
   },
-  "ThreeMonthAdultTuition3Credits": {
-    planId: "P-ADULT3CREDIT_Production", // Replace with actual PayPal sandbox plan ID
+  "ThreeMonthInternationalTuition3Credits": {
+    planId: "P-18U8766234756931RM3DB6WA", 
     name: "3-Month Payment Plan (3 Credits)",
     description: "3 payments of $133.33 CAD each, with the first payment now and subsequent payments each month.",
     setupFee: "0.00 CAD",
