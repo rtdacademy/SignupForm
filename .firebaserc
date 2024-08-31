@@ -3,10 +3,5 @@
     "default": "rtd-academy"
   },
   "targets": {},
-  "etags": {
-    "rtd-academy": {
-      "extensionInstances": {}
-    }
-  },
   "dataconnectEmulatorConfig": {}
 }

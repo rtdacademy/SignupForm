@@ -1,7 +1,8 @@
 {
-  
   "rules": {
-    ".read": false,
-    ".write": false
+    "adminEmails": {
+      ".read": "auth != null && root.child('adminEmails').child(auth.token.email.replace('.', ',')).exists()",
+      ".write": "auth != null && root.child('adminEmails').child(auth.token.email.replace('.', ',')).exists()"
+    }
   }
 }

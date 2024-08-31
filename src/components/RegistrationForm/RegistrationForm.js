@@ -11,7 +11,7 @@ import ConfirmationPage from "./ConfirmationPage";
 import { courseSharepointIDs, pricing, courseCredits, refundPeriods } from "../../config/variables";
 import "../../styles/styles.css";
 
-const RegistrationForm = () => {
+const RegistrationForm = ({ onClose }) => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -483,49 +483,30 @@ const RegistrationForm = () => {
   }
 
   return (
-    <div className="page-container">
-      <div className="logo-container">
-        <img
-          src="https://cdn.prod.website-files.com/62f2cd1feafac51b7859878b/63000729c32fa7acc3f6ad95_iSpring%20Logo-p-500.png"
-          alt="RTD Academy Logo"
-          className="form-logo"
-        />
-      </div>
-      <div className="form-container">
-        <div className="form-header">
-          <h1 className="form-title">Register with RTD Academy</h1>
-          <p className="form-subtitle">
-            Start your next high school math course today. Math 10c to 31 | CTS
-            Coding
-          </p>
-        </div>
-
-        <div className="form-content">
-          <form onSubmit={handleSubmit}>
-            {renderStep()}
-
-            <div className="form-navigation">
-              {currentStep > 1 && (
-                <button type="button" onClick={prevStep} className="form-button secondary">
-                  Previous
-                </button>
-              )}
-              {!isLastStep() && (
-                <button type="button" onClick={nextStep} className="form-button primary">
-                  Next
-                </button>
-              )}
-              {isLastStep() && !['Non-Primary', 'Home Education', 'Summer School', 'Adult Student', 'International Student'].includes(formData.studentType) && (
-                <button type="submit" className="form-button primary">
-                  Submit Registration
-                </button>
-              )}
-            </div>
-          </form>
-        </div>
-        <div className="form-footer">
-          <p>RTD Academy © 2024</p>
-        </div>
+    <div className="modal-registration-form">
+      <button className="close-button" onClick={onClose}>&times;</button>
+      <h2 className="form-title">Register for a New Course</h2>
+      <div className="form-content">
+        <form onSubmit={handleSubmit}>
+          {renderStep()}
+          <div className="form-navigation">
+            {currentStep > 1 && (
+              <button type="button" onClick={prevStep} className="form-button secondary">
+                Previous
+              </button>
+            )}
+            {!isLastStep() && (
+              <button type="button" onClick={nextStep} className="form-button primary">
+                Next
+              </button>
+            )}
+            {isLastStep() && (
+              <button type="submit" className="form-button primary">
+                Submit Registration
+              </button>
+            )}
+          </div>
+        </form>
       </div>
     </div>
   );

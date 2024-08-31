@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { PayPalScriptProvider } from "@paypal/react-paypal-js";
+import { AuthProvider } from './context/AuthContext'; // Import the AuthProvider
 import App from "./App";
 
 const initialOptions = {
@@ -13,8 +14,10 @@ const initialOptions = {
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
-    <PayPalScriptProvider options={initialOptions}>
-      <App />
-    </PayPalScriptProvider>
+    <AuthProvider> {/* Wrap everything with AuthProvider */}
+      <PayPalScriptProvider options={initialOptions}>
+        <App />
+      </PayPalScriptProvider>
+    </AuthProvider>
   </React.StrictMode>
 );

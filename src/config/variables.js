@@ -154,6 +154,21 @@ const productionPlans = {
     studentType: "International Student",
     credits: 3
   },
+  // New test plan
+  /*
+  "TestAdultThreeMonthPlan": {
+    planId: "P-8YM3473233730690VM3DDFYQ",
+    name: "Test 3-Month Payment Plan ($1)",
+    description: "3 payments of $1.00 CAD each, with the first payment now and subsequent payments each month.",
+    setupFee: "0.00 CAD",
+    price: "1.00 CAD",
+    billingCycle: "Every 1 month",
+    numberOfBillingCycles: 3,
+    studentType: "Adult Student",
+    credits: 5  // You can adjust this as needed
+    
+  }, 
+  */
   // Add other production plans here
 };
 

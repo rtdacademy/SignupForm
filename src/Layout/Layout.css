@@ -1,0 +1,86 @@
+/* src/Layout/Layout.css */
+.rtd-layout {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .rtd-layout .rtd-header {
+    background-color: #315369;
+    padding: 1rem 2rem;
+    color: white;
+  }
+  
+  .rtd-layout .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .rtd-layout .branding {
+    display: flex;
+    align-items: baseline;
+  }
+  
+  .rtd-layout .company-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1fa6a7;
+    margin: 0;
+    margin-right: 0.5rem;
+  }
+  
+  .rtd-layout .portal-title {
+    font-size: 1.2rem;
+    font-weight: 400;
+    color: #ffffff;
+    margin: 0;
+  }
+  
+  .rtd-layout .user-actions {
+    display: flex;
+    align-items: center;
+  }
+  
+  .rtd-layout .signout-button {
+    background-color: transparent;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    transition: color 0.3s ease;
+  }
+  
+  .rtd-layout .signout-button:hover {
+    color: #1fa6a7;
+  }
+  
+  .rtd-layout .signout-button svg {
+    margin-right: 0.5rem;
+  }
+  
+  .rtd-layout .rtd-main-content {
+    flex: 1;
+    padding: 2rem;
+  }
+  
+  .rtd-layout .rtd-footer {
+    background-color: #f1f3f5;
+    color: #315369;
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.875rem;
+  }
+  
+  @media (max-width: 768px) {
+    .rtd-layout .header-content {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  
+    .rtd-layout .user-actions {
+      margin-top: 0.5rem;
+    }
+  }

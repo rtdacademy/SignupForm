@@ -809,8 +809,52 @@ body {
   padding-left: 1.5rem;
 }
 
+.modal-registration-form {
+  max-width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.modal-registration-form .form-title {
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+}
+
+.modal-registration-form .form-content {
+  padding: 0;
+}
+
+.modal-registration-form .form-group {
+  margin-right: 0;
+}
+
+.modal-registration-form .form-navigation {
+  position: sticky;
+  bottom: 0;
+  background-color: var(--form-background);
+  padding: 1rem 0;
+  margin-top: 1rem;
+}
+
+.close-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 1.5rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+
 /* Media query */
 @media (max-width: 768px) {
+
+  .modal-registration-form {
+    padding: 0.5rem;
+  }
+
   .form-container {
     margin: 1rem;
     border-radius: 0.5rem;
