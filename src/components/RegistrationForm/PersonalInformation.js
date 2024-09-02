@@ -2,9 +2,7 @@ import React, { useState, forwardRef, useImperativeHandle } from "react";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 
-const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
-  const [confirmEmail, setConfirmEmail] = useState("");
-  const [emailsMatch, setEmailsMatch] = useState(true);
+const PersonalInformation = forwardRef(({ formData, handleChange, userEmail }, ref) => {
   const [phoneInputFocused, setPhoneInputFocused] = useState(false);
   const [errors, setErrors] = useState({});
 
@@ -13,17 +11,11 @@ const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
     return re.test(String(email).toLowerCase());
   };
 
-  const handleConfirmEmailChange = (e) => {
-    setConfirmEmail(e.target.value);
-    setEmailsMatch(e.target.value === formData.studentEmail);
-  };
-
   const validatePhoneNumber = (phoneNumber) => {
-    // Basic length check (adjust minimum length as needed)
     if (phoneNumber.replace(/\D/g, '').length < 10) {
       return "Phone number is too short";
     }
-    return null; // No error
+    return null;
   };
 
   const handlePhoneChange = (value, country, e, formattedValue) => {
@@ -45,7 +37,6 @@ const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
     if (!formData.lastName) newErrors.lastName = "Last name is required";
     if (!formData.studentEmail) newErrors.studentEmail = "Email is required";
     else if (!validateEmail(formData.studentEmail)) newErrors.studentEmail = "Invalid email format";
-    if (formData.studentEmail !== confirmEmail) newErrors.confirmEmail = "Emails do not match";
     
     const phoneError = validatePhoneNumber(formData.phoneNumber);
     if (phoneError) newErrors.phoneNumber = phoneError;
@@ -101,33 +92,20 @@ const PersonalInformation = forwardRef(({ formData, handleChange }, ref) => {
           type="email"
           id="studentEmail"
           name="studentEmail"
-          value={formData.studentEmail}
+          value={userEmail || formData.studentEmail}
           onChange={handleChange}
           required
-          className={`form-input ${errors.studentEmail ? 'is-invalid' : ''}`}
+          readOnly
+          className={`form-input ${errors.studentEmail ? 'is-invalid' : ''} read-only`}
           placeholder=" "
         />
         <label htmlFor="studentEmail" className="form-label">
           Student Email
         </label>
         {errors.studentEmail && <div className="error-message">{errors.studentEmail}</div>}
-      </div>
-
-      <div className="form-group">
-        <input
-          type="email"
-          id="confirmEmail"
-          name="confirmEmail"
-          value={confirmEmail}
-          onChange={handleConfirmEmailChange}
-          required
-          className={`form-input ${errors.confirmEmail ? 'is-invalid' : ''}`}
-          placeholder=" "
-        />
-        <label htmlFor="confirmEmail" className="form-label">
-          Confirm Student Email
-        </label>
-        {errors.confirmEmail && <div className="error-message">{errors.confirmEmail}</div>}
+        <small className="form-help-text email-note">
+          This email address is associated with your account and cannot be changed.
+        </small>
       </div>
 
       <div className="form-group">

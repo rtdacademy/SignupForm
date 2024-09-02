@@ -1,86 +1,162 @@
 /* src/Layout/Layout.css */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
 .rtd-layout {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .rtd-layout .rtd-header {
-    background-color: #315369;
-    padding: 1rem 2rem;
-    color: white;
-  }
-  
-  .rtd-layout .header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .rtd-layout .branding {
-    display: flex;
-    align-items: baseline;
-  }
-  
-  .rtd-layout .company-name {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #1fa6a7;
-    margin: 0;
-    margin-right: 0.5rem;
-  }
-  
-  .rtd-layout .portal-title {
-    font-size: 1.2rem;
-    font-weight: 400;
-    color: #ffffff;
-    margin: 0;
-  }
-  
-  .rtd-layout .user-actions {
-    display: flex;
-    align-items: center;
-  }
-  
-  .rtd-layout .signout-button {
-    background-color: transparent;
-    border: none;
-    color: #ffffff;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    font-size: 0.9rem;
-    transition: color 0.3s ease;
-  }
-  
-  .rtd-layout .signout-button:hover {
-    color: #1fa6a7;
-  }
-  
-  .rtd-layout .signout-button svg {
-    margin-right: 0.5rem;
-  }
-  
-  .rtd-layout .rtd-main-content {
-    flex: 1;
-    padding: 2rem;
-  }
-  
-  .rtd-layout .rtd-footer {
-    background-color: #f1f3f5;
-    color: #315369;
-    text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.rtd-layout > .rtd-header {
+  background-color: #315369;
+  padding: 0 2rem;
+  color: white;
+  height: 60px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.rtd-layout > .rtd-header .header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.rtd-layout > .rtd-header .branding {
+  display: flex;
+  align-items: center;
+}
+
+.rtd-layout > .rtd-header.with-back-button .branding {
+  padding-left: 150px; /* Increased padding when back button is present */
+}
+
+.rtd-layout > .rtd-header .back-button {
+  position: absolute;
+  left: 2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  transition: color 0.3s ease;
+  z-index: 1; /* Ensure the button is clickable */
+}
+
+.rtd-layout > .rtd-header .back-button:hover {
+  color: #1fa6a7;
+}
+
+.rtd-layout > .rtd-header .back-button svg {
+  margin-right: 0.5rem;
+}
+
+.rtd-layout > .rtd-header .company-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1fa6a7;
+  margin: 0;
+  margin-right: 0.5rem;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.rtd-layout > .rtd-header .company-name:hover {
+  color: #ffffff;
+}
+
+.rtd-layout > .rtd-header .portal-title {
+  font-size: 1.2rem;
+  font-weight: 400;
+  color: #ffffff;
+  margin: 0;
+}
+
+.rtd-layout > .rtd-header .user-actions {
+  display: flex;
+  align-items: center;
+}
+
+.rtd-layout > .rtd-header .welcome-message {
+  margin-right: 1rem;
+  color: #ffffff;
+  font-size: 0.9rem;
+}
+
+.rtd-layout > .rtd-header .signout-button {
+  background-color: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  transition: color 0.3s ease;
+}
+
+.rtd-layout > .rtd-header .signout-button:hover {
+  color: #1fa6a7;
+}
+
+.rtd-layout > .rtd-header .signout-button svg {
+  margin-right: 0.5rem;
+}
+
+.rtd-layout > .rtd-main-content {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.rtd-layout > .rtd-footer {
+  background-color: #f1f3f5;
+  color: #315369;
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+  .rtd-layout > .rtd-header {
     padding: 1rem;
-    font-size: 0.875rem;
+    height: auto;
   }
-  
-  @media (max-width: 768px) {
-    .rtd-layout .header-content {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-  
-    .rtd-layout .user-actions {
-      margin-top: 0.5rem;
-    }
+
+  .rtd-layout > .rtd-header .header-content {
+    flex-direction: column;
+    align-items: flex-start;
   }
+
+  .rtd-layout > .rtd-header .branding,
+  .rtd-layout > .rtd-header.with-back-button .branding {
+    padding-left: 0;
+    margin-bottom: 0.5rem;
+  }
+
+  .rtd-layout > .rtd-header .back-button {
+    position: static;
+    transform: none;
+    margin-bottom: 0.5rem;
+  }
+
+  .rtd-layout > .rtd-header .user-actions {
+    margin-top: 0.5rem;
+  }
+
+  .rtd-layout > .rtd-main-content {
+    padding: 1rem;
+  }
+}

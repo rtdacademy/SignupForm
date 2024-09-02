@@ -6,10 +6,11 @@ import Dashboard from "./Dashboard/Dashboard";
 import TeacherDashboard from "./TeacherDashboard/TeacherDashboard";
 import AdminPanel from "./Admin/AdminPanel";
 import RegistrationForm from "./components/RegistrationForm";
+import Layout from "./Layout/Layout";  // Import the Layout component
 import "./styles/styles.css";
 
 function App() {
-  const { user, loading, isSuperAdmin } = useAuth(); // Removed isTeacherEmail
+  const { user, loading, isSuperAdmin } = useAuth();
 
   if (loading) {
     return <div>Loading...</div>;
@@ -22,19 +23,19 @@ function App() {
           <Route path="/login" element={user ? <Navigate to={isSuperAdmin(user.email) ? "/teacher-dashboard" : "/dashboard"} /> : <Login />} />
           <Route 
             path="/dashboard" 
-            element={user ? <Dashboard /> : <Navigate to="/login" />} 
+            element={user ? <Layout><Dashboard /></Layout> : <Navigate to="/login" />} 
           />
           <Route 
             path="/teacher-dashboard" 
-            element={user && isSuperAdmin(user.email) ? <TeacherDashboard /> : <Navigate to="/login" />} 
+            element={user && isSuperAdmin(user.email) ? <Layout><TeacherDashboard /></Layout> : <Navigate to="/login" />} 
           />
           <Route 
             path="/admin-panel" 
-            element={user && isSuperAdmin(user.email) ? <AdminPanel /> : <Navigate to="/login" />} 
+            element={user && isSuperAdmin(user.email) ? <Layout><AdminPanel /></Layout> : <Navigate to="/login" />} 
           />
           <Route 
             path="/register" 
-            element={<RegistrationForm />} 
+            element={user ? <Layout><RegistrationForm /></Layout> : <Navigate to="/login" />} 
           />
           <Route path="/" element={<Navigate to={user ? (isSuperAdmin(user.email) ? "/teacher-dashboard" : "/dashboard") : "/login"} />} />
         </Routes>

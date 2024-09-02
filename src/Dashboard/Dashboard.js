@@ -1,18 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { useNavigate, Link } from 'react-router-dom';
 import { FaBook, FaCalendarAlt, FaChartBar, FaUser, FaPlusCircle } from 'react-icons/fa';
-import Modal from '../components/Modal/Modal';
-import RegistrationForm from '../components/RegistrationForm/RegistrationForm';
 import { useAuth } from '../context/AuthContext';
-import Layout from '../Layout/Layout';
 import '../styles/Dashboard.css';
 
 function Dashboard() {
   const navigate = useNavigate();
   const { user, isTeacherEmail } = useAuth(); 
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -29,19 +25,6 @@ function Dashboard() {
     checkUserRole();
   }, [user, isTeacherEmail, navigate]);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
-
   const apps = [
     { name: 'My Courses', icon: <FaBook />, path: '/courses', description: 'View and manage your enrolled courses' },
     { name: 'Schedule', icon: <FaCalendarAlt />, path: '/schedule', description: 'Check your course schedule and deadlines' },
@@ -50,12 +33,12 @@ function Dashboard() {
   ];
 
   return (
-    <Layout user={user} onLogout={handleLogout}>
+    <div className="dashboard-container">
       <div className="dashboard-top">
         <h2 className="dashboard-title">Student Dashboard</h2>
-        <button className="signup-course-button" onClick={() => setIsModalOpen(true)}>
+        <Link to="/register" className="signup-course-button">
           <FaPlusCircle /> Sign Up for a New Course
-        </button>
+        </Link>
       </div>
       <div className="apps-grid">
         {apps.map((app, index) => (
@@ -67,10 +50,7 @@ function Dashboard() {
           </Link>
         ))}
       </div>
-      <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
-        <RegistrationForm onClose={handleCloseModal} />
-      </Modal>
-    </Layout>
+    </div>
   );
 }
 

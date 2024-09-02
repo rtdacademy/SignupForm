@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { auth } from '../firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { getDatabase, ref, get } from "firebase/database";
 
 const AuthContext = createContext();
@@ -41,11 +41,22 @@ export function AuthProvider({ children }) {
     return await isTeacherEmail(email); // This checks if the email is in adminEmails
   };
 
+  const signOut = async () => {
+    try {
+      await firebaseSignOut(auth);
+      setUser(null); // Clear the user state after signing out
+    } catch (error) {
+      console.error("Error signing out:", error);
+      throw error; // Rethrow the error so it can be caught and handled by the component
+    }
+  };
+
   const value = {
     user,
     loading,
     isTeacherEmail,
-    isSuperAdmin
+    isSuperAdmin,
+    signOut // Add the signOut function to the context value
   };
 
   return (

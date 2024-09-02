@@ -11,11 +11,11 @@ import ConfirmationPage from "./ConfirmationPage";
 import { courseSharepointIDs, pricing, courseCredits, refundPeriods } from "../../config/variables";
 import "../../styles/styles.css";
 
-const RegistrationForm = ({ onClose }) => {
+const RegistrationForm = ({ userEmail }) => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    studentEmail: "",
+    studentEmail: userEmail || "",
     phoneNumber: "",
     albertaStudentNumber: "",
     birthday: "",
@@ -348,76 +348,61 @@ const RegistrationForm = ({ onClose }) => {
     const birthDate = new Date(birthday);
     const ageDifMs = referenceDate - birthDate;
     const ageDate = new Date(ageDifMs);
-    return Math.abs(ageDate.getUTCFullYear() - 1970);
-  };
+    return Math.abs(ageDate.getUTCFullYear() - 1970);};
 
-  const shouldShowNextSchoolYear = () => {
-    const today = new Date();
-    return today.getMonth() >= 0 && today.getMonth() < 8;
-  };
-
-  const getDefaultBirthday = () => {
-    const date = new Date();
-    date.setFullYear(date.getFullYear() - 16);
-    return date.toISOString().split('T')[0];
-  };
-
-  const isOver20ForSchoolYear = () => {
-    if (!formData.birthday || !formData.enrollmentYear) return false;
-
-    const birthDate = new Date(formData.birthday);
-    const [enrollmentStartYear] = formData.enrollmentYear.split('/');
-    const cutoffDate = new Date(parseInt('20' + enrollmentStartYear), 8, 1);
-    
-    const ageDifference = cutoffDate.getFullYear() - birthDate.getFullYear();
-    const monthDifference = cutoffDate.getMonth() - birthDate.getMonth();
-    const dayDifference = cutoffDate.getDate() - birthDate.getDate();
-
-    return ageDifference > 20 || (ageDifference === 20 && (monthDifference > 0 || (monthDifference === 0 && dayDifference >= 0)));
-  };
-
-  const renderStep = () => {
-    switch (currentStep) {
-      case 1:
-        return <PersonalInformation ref={personalInformationRef} formData={formData} handleChange={handleChange} />;
-      case 2:
-        return (
-          <StudentTypeSelection 
-            ref={studentTypeSelectionRef}
-            formData={formData} 
-            handleChange={handleChange}
-            getCurrentSchoolYear={getCurrentSchoolYear}
-            getNextSchoolYear={getNextSchoolYear}
-            calculateAge={calculateAge}
-            shouldShowNextSchoolYear={shouldShowNextSchoolYear}
-            getDefaultBirthday={getDefaultBirthday}
-            isOver20ForSchoolYear={isOver20ForSchoolYear}
-          />
-        );
-      case 3:
-        if (formData.studentType === 'International Student') {
+    const shouldShowNextSchoolYear = () => {
+      const today = new Date();
+      return today.getMonth() >= 0 && today.getMonth() < 8;
+    };
+  
+    const getDefaultBirthday = () => {
+      const date = new Date();
+      date.setFullYear(date.getFullYear() - 16);
+      return date.toISOString().split('T')[0];
+    };
+  
+    const isOver20ForSchoolYear = () => {
+      if (!formData.birthday || !formData.enrollmentYear) return false;
+  
+      const birthDate = new Date(formData.birthday);
+      const [enrollmentStartYear] = formData.enrollmentYear.split('/');
+      const cutoffDate = new Date(parseInt('20' + enrollmentStartYear), 8, 1);
+      
+      const ageDifference = cutoffDate.getFullYear() - birthDate.getFullYear();
+      const monthDifference = cutoffDate.getMonth() - birthDate.getMonth();
+      const dayDifference = cutoffDate.getDate() - birthDate.getDate();
+  
+      return ageDifference > 20 || (ageDifference === 20 && (monthDifference > 0 || (monthDifference === 0 && dayDifference >= 0)));
+    };
+  
+    const renderStep = () => {
+      switch (currentStep) {
+        case 1:
+          return <PersonalInformation ref={personalInformationRef} formData={formData} handleChange={handleChange} userEmail={userEmail} />;
+        case 2:
           return (
-            <InternationalStudentDocuments
-              ref={internationalStudentDocumentsRef}
-              formData={formData}
+            <StudentTypeSelection 
+              ref={studentTypeSelectionRef}
+              formData={formData} 
               handleChange={handleChange}
+              getCurrentSchoolYear={getCurrentSchoolYear}
+              getNextSchoolYear={getNextSchoolYear}
+              calculateAge={calculateAge}
+              shouldShowNextSchoolYear={shouldShowNextSchoolYear}
+              getDefaultBirthday={getDefaultBirthday}
+              isOver20ForSchoolYear={isOver20ForSchoolYear}
             />
           );
-        }
-        return (
-          <CourseSelection 
-            ref={courseSelectionRef}
-            formData={formData} 
-            handleChange={handleChange}
-            calculateAge={calculateAge}
-            courses={courses}
-            diplomaDates={diplomaDates}
-            loading={loading}
-            error={error}
-          />
-        );
-      case 4:
-        if (formData.studentType === 'International Student') {
+        case 3:
+          if (formData.studentType === 'International Student') {
+            return (
+              <InternationalStudentDocuments
+                ref={internationalStudentDocumentsRef}
+                formData={formData}
+                handleChange={handleChange}
+              />
+            );
+          }
           return (
             <CourseSelection 
               ref={courseSelectionRef}
@@ -430,86 +415,101 @@ const RegistrationForm = ({ onClose }) => {
               error={error}
             />
           );
-        }
-        return <SurveyComponent ref={surveyComponentRef} formData={formData} handleChange={handleChange} />;
-      case 5:
-        if (formData.studentType === 'International Student') {
+        case 4:
+          if (formData.studentType === 'International Student') {
+            return (
+              <CourseSelection 
+                ref={courseSelectionRef}
+                formData={formData} 
+                handleChange={handleChange}
+                calculateAge={calculateAge}
+                courses={courses}
+                diplomaDates={diplomaDates}
+                loading={loading}
+                error={error}
+              />
+            );
+          }
           return <SurveyComponent ref={surveyComponentRef} formData={formData} handleChange={handleChange} />;
-        }
-        if (['Non-Primary', 'Home Education', 'Summer School'].includes(formData.studentType)) {
-          return <GrantEligibleStudentInfo formData={formData} onPaymentSuccess={handlePaymentSuccess} />;
-        } else if (formData.studentType === 'Adult Student') {
-          return <AdultStudentInfo 
-            formData={formData} 
-            onPaymentSuccess={handlePaymentSuccess} 
-            calculateRefundDates={calculateRefundDates}
-          />;
-        }
-        return null;
-      case 6:
-        if (formData.studentType === 'International Student') {
-          return <InternationalStudentInfo 
-            formData={formData} 
-            onPaymentSuccess={handlePaymentSuccess} 
-            calculateRefundDates={calculateRefundDates}
-          />;
-        }
-        return null;
-      default:
-        return null;
+        case 5:
+          if (formData.studentType === 'International Student') {
+            return <SurveyComponent ref={surveyComponentRef} formData={formData} handleChange={handleChange} />;
+          }
+          if (['Non-Primary', 'Home Education', 'Summer School'].includes(formData.studentType)) {
+            return <GrantEligibleStudentInfo formData={formData} onPaymentSuccess={handlePaymentSuccess} />;
+          } else if (formData.studentType === 'Adult Student') {
+            return <AdultStudentInfo 
+              formData={formData} 
+              onPaymentSuccess={handlePaymentSuccess} 
+              calculateRefundDates={calculateRefundDates}
+            />;
+          }
+          return null;
+        case 6:
+          if (formData.studentType === 'International Student') {
+            return <InternationalStudentInfo 
+              formData={formData} 
+              onPaymentSuccess={handlePaymentSuccess} 
+              calculateRefundDates={calculateRefundDates}
+            />;
+          }
+          return null;
+        default:
+          return null;
+      }
+    };
+  
+    const isLastStep = () => {
+      if (formData.studentType === 'International Student') {
+        return currentStep === 6;
+      }
+      if (['Non-Primary', 'Home Education', 'Summer School', 'Adult Student'].includes(formData.studentType)) {
+        return currentStep === 5;
+      }
+      return currentStep === 4;
+    };
+  
+    if (isSubmitted) {
+      return <ConfirmationPage />;
     }
-  };
-
-  const isLastStep = () => {
-    if (formData.studentType === 'International Student') {
-      return currentStep === 6;
+  
+    if (loading) {
+      return <div>Loading course information...</div>;
     }
-    if (['Non-Primary', 'Home Education', 'Summer School', 'Adult Student'].includes(formData.studentType)) {
-      return currentStep === 5;
+  
+    if (error) {
+      return <div>Error: {error}</div>;
     }
-    return currentStep === 4;
-  };
-
-  if (isSubmitted) {
-    return <ConfirmationPage />;
-  }
-
-  if (loading) {
-    return <div>Loading course information...</div>;
-  }
-
-  if (error) {
-    return <div>Error: {error}</div>;
-  }
-
-  return (
-    <div className="modal-registration-form">
-      <button className="close-button" onClick={onClose}>&times;</button>
-      <h2 className="form-title">Register for a New Course</h2>
-      <div className="form-content">
-        <form onSubmit={handleSubmit}>
-          {renderStep()}
-          <div className="form-navigation">
-            {currentStep > 1 && (
-              <button type="button" onClick={prevStep} className="form-button secondary">
-                Previous
-              </button>
-            )}
-            {!isLastStep() && (
-              <button type="button" onClick={nextStep} className="form-button primary">
-                Next
-              </button>
-            )}
-            {isLastStep() && (
-              <button type="submit" className="form-button primary">
-                Submit Registration
-              </button>
-            )}
+  
+    return (
+      <div className="registration-form-wrapper">
+        <div className="registration-form-container">
+          <h2 className="form-title">Register for a New Course</h2>
+          <div className="form-content">
+            <form onSubmit={handleSubmit}>
+              {renderStep()}
+              <div className="form-navigation">
+                {currentStep > 1 && (
+                  <button type="button" onClick={prevStep} className="form-button secondary">
+                    Previous
+                  </button>
+                )}
+                {!isLastStep() && (
+                  <button type="button" onClick={nextStep} className="form-button primary">
+                    Next
+                  </button>
+                )}
+                {isLastStep() && (
+                  <button type="submit" className="form-button primary">
+                    Submit Registration
+                  </button>
+                )}
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       </div>
-    </div>
-  );
-};
-
-export default RegistrationForm;
+    );
+  };
+  
+  export default RegistrationForm;
