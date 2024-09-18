@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { auth } from '../firebase';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
-import { getDatabase, ref, get } from "firebase/database";
+import { getDatabase, ref, get, set } from "firebase/database";
 
 const AuthContext = createContext();
 
@@ -14,49 +14,63 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        if (isStaff(currentUser)) {
+          await ensureStaffNode(currentUser);
+        }
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
     return unsubscribe;
   }, []);
 
-  const getSafeEmailPath = (email) => {
-    return email.replace(/\./g, ','); // Replace all '.' with ','
+  const isStaff = (user) => {
+    return user && user.email.endsWith("@rtdacademy.com");
   };
 
-  const isTeacherEmail = async (email) => {
+  const ensureStaffNode = async (user) => {
     const db = getDatabase();
-    try {
-      const snapshot = await get(ref(db, `adminEmails/${getSafeEmailPath(email)}`));
-      return snapshot.exists();  // This only returns true if the email is in adminEmails
-    } catch (error) {
-      console.error("Error checking teacher email:", error);
-      return false;
+    const staffRef = ref(db, `staff/${user.uid}`);
+    const snapshot = await get(staffRef);
+    if (!snapshot.exists()) {
+      // Create the staff node if it doesn't exist
+      await set(staffRef, {
+        email: user.email,
+        displayName: user.displayName || null,
+        firstName: user.firstName || null,
+        lastName: user.lastName || null,
+        photoURL: user.photoURL || null,
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+        provider: user.providerData[0].providerId
+      });
+    } else {
+      // Update last login time if the node already exists
+      await set(ref(db, `staff/${user.uid}/lastLogin`), new Date().toISOString());
     }
-  };
-
-  const isSuperAdmin = async (email) => {
-    return await isTeacherEmail(email); // This checks if the email is in adminEmails
   };
 
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
-      setUser(null); // Clear the user state after signing out
+      setUser(null);
     } catch (error) {
       console.error("Error signing out:", error);
-      throw error; // Rethrow the error so it can be caught and handled by the component
+      throw error;
     }
   };
 
   const value = {
     user,
     loading,
-    isTeacherEmail,
-    isSuperAdmin,
-    signOut // Add the signOut function to the context value
+    isStaff,
+    ensureStaffNode,
+    signOut
   };
 
   return (

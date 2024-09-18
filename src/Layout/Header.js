@@ -1,31 +1,40 @@
 import React from 'react';
-import { FaSignOutAlt, FaArrowLeft } from 'react-icons/fa';
+import { FaSignOutAlt, FaArrowLeft, FaBars } from 'react-icons/fa';
 
-function Header({ user, onLogout, onBackClick, onDashboardClick }) {
+function Header({ user, onLogout, onBackClick, onDashboardClick, onSidebarToggle, showSidebarToggle, portalType }) {
   const getUserDisplayName = () => {
     if (user) {
-      return user.displayName || user.email.split('@')[0] || 'Student';
+      return user.displayName || user.email.split('@')[0] || 'User';
     }
-    return 'Student';
+    return 'User';
   };
 
   return (
-    <header className={`rtd-header ${onBackClick ? 'with-back-button' : ''}`}>
-      <div className="header-content">
-        <div className="branding">
+    <header className="bg-primary text-white py-3 shadow-md">
+      <div className="container mx-auto px-4 flex justify-between items-center">
+        <div className="flex items-center space-x-6">
           {onBackClick && (
-            <button onClick={onBackClick} className="back-button">
-              <FaArrowLeft /> Back
+            <button onClick={onBackClick} className="text-highlight hover:text-secondary transition-colors duration-200">
+              <FaArrowLeft className="inline mr-2" /> Back
             </button>
           )}
-          <h1 className="company-name" onClick={onDashboardClick}>RTD Academy</h1>
-          <h2 className="portal-title">Student Portal</h2>
+          {showSidebarToggle && (
+            <button onClick={onSidebarToggle} className="text-highlight hover:text-secondary transition-colors duration-200">
+              <FaBars className="text-xl" />
+            </button>
+          )}
+          <div className="flex items-center space-x-4">
+            <h1 className="text-xl font-bold cursor-pointer text-secondary hover:text-highlight transition-colors duration-200" onClick={onDashboardClick}>RTD Academy</h1>
+            <h2 className="text-sm font-semibold text-primary bg-highlight px-3 py-1 rounded-md">
+              {portalType}
+            </h2>
+          </div>
         </div>
         {user && (
-          <div className="user-actions">
-            <span className="welcome-message">Welcome, {getUserDisplayName()}!</span>
-            <button onClick={onLogout} className="signout-button">
-              <FaSignOutAlt /> Sign Out
+          <div className="flex items-center space-x-6">
+            <span className="hidden sm:inline-block text-highlight">Welcome, {getUserDisplayName()}!</span>
+            <button onClick={onLogout} className="flex items-center space-x-2 bg-tertiary hover:bg-secondary text-white transition-colors duration-200 px-4 py-2 rounded">
+              <FaSignOutAlt /> <span className="hidden sm:inline-block">Sign Out</span>
             </button>
           </div>
         )}
