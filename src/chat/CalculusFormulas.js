@@ -67,6 +67,10 @@ const CalculusFormulas = ({ onInsert }) => {
     );
   };
 
+  const handleInsert = (latex) => {
+    onInsert({ write: latex });
+  };
+
   return (
     <Tabs defaultValue="Basics" className="w-full">
       <TabsList className="flex flex-wrap justify-start mb-4">
@@ -86,7 +90,7 @@ const CalculusFormulas = ({ onInsert }) => {
                 <Card key={index} className="overflow-hidden">
                   <CardContent className="p-2">
                     <Button
-                      onClick={() => onInsert(formula.latex)}
+                      onClick={() => handleInsert(formula.latex)}
                       variant="ghost"
                       className="w-full h-auto py-1 px-1 text-sm"
                       title={formula.tooltip}

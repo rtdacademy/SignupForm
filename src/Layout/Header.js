@@ -1,7 +1,13 @@
 import React from 'react';
 import { FaSignOutAlt, FaArrowLeft, FaBars } from 'react-icons/fa';
+import { useLocation } from 'react-router-dom';
 
-function Header({ user, onLogout, onBackClick, onDashboardClick, onSidebarToggle, showSidebarToggle, portalType }) {
+function Header({ user, onLogout, onBackClick, onDashboardClick, onSidebarToggle, portalType }) {
+  const location = useLocation();
+
+  // Check if the current location is the teacher dashboard
+  const isTeacherDashboard = location.pathname === '/teacher-dashboard';
+
   const getUserDisplayName = () => {
     if (user) {
       return user.displayName || user.email.split('@')[0] || 'User';
@@ -18,7 +24,7 @@ function Header({ user, onLogout, onBackClick, onDashboardClick, onSidebarToggle
               <FaArrowLeft className="inline mr-2" /> Back
             </button>
           )}
-          {showSidebarToggle && (
+          {isTeacherDashboard && (
             <button onClick={onSidebarToggle} className="text-highlight hover:text-secondary transition-colors duration-200">
               <FaBars className="text-xl" />
             </button>

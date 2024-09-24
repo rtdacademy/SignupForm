@@ -1,0 +1,45 @@
+/* TypingAnimation.css */
+
+.typing-animation {
+    display: flex;
+    align-items: center;
+  }
+  
+  .typing-animation span {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 6px; /* Increased spacing between dots */
+    background-color: #3B82F6; /* Tailwind's blue-500 */
+    border-radius: 50%;
+    opacity: 0;
+    animation: dot 1.4s infinite both;
+  }
+  
+  .typing-animation span:last-child {
+    margin-right: 0;
+  }
+  
+  .typing-animation span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+  
+  .typing-animation span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+  
+  @keyframes dot {
+    0% {
+      opacity: 0.3;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 1;
+      transform: translateY(-4px);
+    }
+    100% {
+      opacity: 0.3;
+      transform: translateY(0);
+    }
+  }
+  

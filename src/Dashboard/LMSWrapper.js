@@ -1,14 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FaBook, FaComments, FaCog, FaTimes, FaHome, FaGraduationCap, FaClipboardList, FaRegCalendarCheck } from 'react-icons/fa';
-import { getDatabase, ref, get } from "firebase/database";
+import {
+  FaBook,
+  FaComments,
+  FaCog,
+  FaTimes,
+  FaHome,
+  FaGraduationCap,
+  FaClipboardList,
+  FaRegCalendarCheck,
+  FaBell,
+  FaBars,
+  FaArrowLeft,
+  FaChevronRight,
+  FaChevronLeft,
+} from 'react-icons/fa';
+import { getDatabase, ref, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import ChatApp from '../chat/ChatApp';
+import NotificationsComponent from '../chat/NotificationsComponent';
+import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 const LMSWrapper = () => {
   const [expandedIcon, setExpandedIcon] = useState(null);
   const [courseId, setCourseId] = useState(null);
+  const [courseInfo, setCourseInfo] = useState(null);
+  const [studentCourseInfo, setStudentCourseInfo] = useState(null);
+  const [studentProfile, setStudentProfile] = useState(null);
   const [schedule, setSchedule] = useState(null);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false); // New state for large screen sidebar
+  const [courseTeachers, setCourseTeachers] = useState([]);
+  const [courseSupportStaff, setCourseSupportStaff] = useState([]);
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -18,26 +41,39 @@ const LMSWrapper = () => {
     const cid = searchParams.get('cid');
     setCourseId(cid);
 
-    const fetchSchedule = async () => {
+    const fetchData = async () => {
       if (user && cid) {
         const db = getDatabase();
-        const sanitizedEmail = user.email.replace(/\./g, ',');
-        const courseScheduleRef = ref(db, `students/${sanitizedEmail}/courses/${cid}/Schedule`);
-        
+        const sanitizedEmail = sanitizeEmail(user.email);
+
         try {
-          const snapshot = await get(courseScheduleRef);
-          if (snapshot.exists()) {
-            setSchedule(snapshot.val());
-          } else {
-            console.log("No schedule available for this course");
+          const courseSnapshot = await get(ref(db, `courses/${cid}`));
+          if (courseSnapshot.exists()) {
+            const courseData = courseSnapshot.val();
+            setCourseInfo(courseData);
+            setCourseTeachers(courseData.Teachers || []);
+            setCourseSupportStaff(courseData.SupportStaff || []);
+          }
+
+          const studentCourseSnapshot = await get(ref(db, `students/${sanitizedEmail}/courses/${cid}`));
+          if (studentCourseSnapshot.exists()) {
+            const studentCourseData = studentCourseSnapshot.val();
+            setStudentCourseInfo(studentCourseData);
+            setSchedule(studentCourseData.Schedule);
+          }
+
+          const profileSnapshot = await get(ref(db, `students/${sanitizedEmail}/profile`));
+          if (profileSnapshot.exists()) {
+            const profileData = profileSnapshot.val();
+            setStudentProfile(profileData);
           }
         } catch (error) {
-          console.error("Error fetching course schedule:", error);
+          console.error('Error fetching data:', error);
         }
       }
     };
 
-    fetchSchedule();
+    fetchData();
   }, [location, user, courseId]);
 
   const navItems = [
@@ -48,14 +84,28 @@ const LMSWrapper = () => {
     { icon: <FaComments />, label: 'Messages', content: 'Messaging content goes here' },
     { icon: <FaCog />, label: 'Settings', content: 'Settings content goes here' },
     { icon: <FaRegCalendarCheck />, label: 'Book Time', content: 'booking' },
+    { icon: <FaBell />, label: 'Notifications', content: 'Notifications' },
   ];
 
   const handleIconClick = (label) => {
-    setExpandedIcon(expandedIcon === label ? null : label);
+    setExpandedIcon(label);
+    setIsMobileNavOpen(false);
+  };
+
+  const closeMobileNav = () => {
+    setIsMobileNavOpen(false);
+  };
+
+  const closeExpandedContent = () => {
+    setExpandedIcon(null);
   };
 
   const handleReturnToPortal = () => {
     navigate('/dashboard');
+  };
+
+  const handleChatSelect = (chatId) => {
+    setExpandedIcon('Messages');
   };
 
   const renderExpandedContent = () => {
@@ -90,74 +140,96 @@ const LMSWrapper = () => {
     } else if (expandedIcon === 'Book Time') {
       return (
         <iframe
-          src='https://outlook.office365.com/owa/calendar/RTDBookings@rtdacademy.com/bookings/'
+          src="https://outlook.office365.com/owa/calendar/RTDBookings@rtdacademy.com/bookings/"
           title="Book Time"
           className="w-full h-full border-none"
         />
       );
     } else if (expandedIcon === 'Messages') {
-      return <ChatApp />;
+      return <ChatApp courseInfo={courseInfo} courseTeachers={courseTeachers} courseSupportStaff={courseSupportStaff} />;
+    } else if (expandedIcon === 'Notifications') {
+      return <NotificationsComponent onChatSelect={handleChatSelect} />;
     } else {
-      return (
-        <p className="text-gray-300">{navItems.find((item) => item.label === expandedIcon).content}</p>
-      );
-    }
-  };
-
-  const getSidebarWidth = () => {
-    switch (expandedIcon) {
-      case 'Messages':
-        return 'w-[calc(60vw-3rem)]';
-      case 'Gradebook':
-      case 'Book Time':
-      case 'Schedule':
-        return 'w-[calc(50vw-3rem)]';
-      default:
-        return 'w-64';
+      return <p className="text-gray-300">{navItems.find((item) => item.label === expandedIcon)?.content}</p>;
     }
   };
 
   return (
-    <div className="flex h-screen">
-      <div className="flex h-full">
-        <div className="bg-gray-800 text-white w-12 flex-shrink-0 flex flex-col items-center py-4">
-          {navItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => handleIconClick(item.label)}
-              className={`p-2 mb-4 rounded-full hover:bg-gray-700 transition-colors duration-200 ${
-                expandedIcon === item.label ? 'bg-gray-700' : ''
-              }`}
-              title={item.label}
-            >
-              {item.icon}
+    <div className="flex h-screen overflow-hidden">
+      {/* Mobile menu button */}
+      {!expandedIcon && (
+        <button
+          className="sm:hidden fixed top-4 left-4 z-50 bg-gray-800 text-white p-2 rounded-md"
+          onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+        >
+          <FaBars />
+        </button>
+      )}
+
+      {/* Navigation sidebar */}
+      <div
+        className={`fixed inset-y-0 left-0 z-40 bg-gray-800 text-white transform transition-transform duration-300 ease-in-out ${
+          isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'
+        } sm:relative sm:translate-x-0 sm:w-${isSidebarExpanded ? '64' : '20'}`}
+      >
+        <div className="h-full flex flex-col">
+          <div className="flex-shrink-0 p-4 flex justify-between items-center">
+            <button className="sm:hidden text-white" onClick={closeMobileNav}>
+              <FaTimes />
             </button>
-          ))}
-        </div>
-        {expandedIcon && (
-          <div className={`bg-gray-700 text-white flex flex-col ${getSidebarWidth()}`}>
-            <div className="flex justify-between items-center p-4">
-              <h3 className="text-lg font-semibold">{expandedIcon}</h3>
+            <button
+              className="hidden sm:block text-white"
+              onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
+            >
+              {isSidebarExpanded ? <FaChevronLeft /> : <FaChevronRight />}
+            </button>
+          </div>
+          <div className="flex-grow overflow-y-auto">
+            {navItems.map((item) => (
               <button
-                onClick={() => setExpandedIcon(null)}
-                className="text-gray-300 hover:text-white transition-colors duration-200"
-                title="Close"
+                key={item.label}
+                onClick={() => handleIconClick(item.label)}
+                className={`w-full text-left p-4 hover:bg-gray-700 transition-colors duration-200 flex items-center ${
+                  expandedIcon === item.label ? 'bg-gray-700' : ''
+                }`}
               >
-                <FaTimes />
+                <span className="inline-block align-middle mr-2">{item.icon}</span>
+                {isSidebarExpanded && <span className="inline-block align-middle">{item.label}</span>}
               </button>
-            </div>
-            <div className="flex-grow overflow-hidden">
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Main content area */}
+      <div className="flex-grow flex overflow-hidden">
+        {/* Expanded content */}
+        {expandedIcon && (
+          <div className="fixed inset-0 bg-gray-700 text-white z-50 overflow-y-auto sm:static sm:inset-auto sm:w-1/2">
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">{expandedIcon}</h3>
+                <button
+                  onClick={closeExpandedContent}
+                  className="text-white hover:text-gray-300 transition-colors duration-200"
+                  aria-label="Close expanded content"
+                >
+                  <FaArrowLeft size={24} />
+                </button>
+              </div>
               {renderExpandedContent()}
             </div>
           </div>
         )}
-      </div>
-      <div className="flex-grow">
-        <iframe
-          src={`https://edge.rtdacademy.com/course/course.php?folder=0&cid=${courseId}`}
-          title="RTD Academy LMS"
-          className="w-full h-full border-none"
-        />
+
+        {/* iframe content */}
+        <div className={`flex-grow ${expandedIcon ? 'hidden sm:block' : 'block'}`}>
+          <iframe
+            src={`https://edge.rtdlearning.com/course/course.php?folder=0&cid=${courseId}`}
+            title="RTD Academy LMS"
+            className="w-full h-full border-none"
+          />
+        </div>
       </div>
     </div>
   );

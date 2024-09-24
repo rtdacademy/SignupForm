@@ -1,9 +1,12 @@
+// src/Layout.js
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Header from './Header';
 import Footer from './Footer';
 import { useAuth } from '../context/AuthContext';
-import { getDatabase, ref, get, query, orderByChild, equalTo } from "firebase/database";
+import { getDatabase, ref, get } from "firebase/database";
+import { sanitizeEmail } from '../utils/sanitizeEmail'; // Import sanitizeEmail utility
 
 function Layout({ children }) {
   const { user, signOut, isStaff } = useAuth();
@@ -16,7 +19,7 @@ function Layout({ children }) {
     const fetchStudentData = async () => {
       if (user && !isStaff(user)) {
         const db = getDatabase();
-        const sanitizedEmail = user.email.replace(/\./g, ',');
+        const sanitizedEmail = sanitizeEmail(user.email); // Use sanitizeEmail utility
         const studentRef = ref(db, `students/${sanitizedEmail}`);
         
         try {

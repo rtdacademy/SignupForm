@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { addStyles, EditableMathField } from 'react-mathquill';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
@@ -30,20 +30,41 @@ const MathModal = ({ isOpen, onClose, onInsert, initialLatex }) => {
   const [selectedCourse, setSelectedCourse] = useState('30-1');
   const mathFieldRef = useRef(null);
 
+  useEffect(() => {
+    if (isOpen && mathFieldRef.current) {
+      // Use setTimeout to ensure the modal is fully rendered before focusing
+      setTimeout(() => {
+        mathFieldRef.current.focus();
+      }, 0);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    // Reset mathLatex when the modal is opened
+    if (isOpen) {
+      setMathLatex('');
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleInsert = () => {
     onInsert(mathLatex);
+    setMathLatex(''); // Clear the MathQuill input
     onClose();
   };
 
-  const insertLatex = (latex) => {
+  const insertLatex = (button) => {
     if (mathFieldRef.current) {
-      mathFieldRef.current.write(latex);
+      if (button.cmd) {
+        mathFieldRef.current.cmd(button.cmd);
+      } else if (button.write) {
+        mathFieldRef.current.write(button.write);
+      }
       mathFieldRef.current.focus();
     }
   };
-
+  
   const renderLatex = (latex) => {
     return (
       <span
@@ -82,7 +103,7 @@ const MathModal = ({ isOpen, onClose, onInsert, initialLatex }) => {
       {buttons.map((button) => (
         <Button
           key={button.tooltip}
-          onClick={() => insertLatex(button.write)}
+          onClick={() => insertLatex(button)}
           variant="ghost"
           className="h-auto py-2 hover:bg-gray-100 transition-colors duration-200"
           title={button.tooltip}
@@ -110,8 +131,8 @@ const MathModal = ({ isOpen, onClose, onInsert, initialLatex }) => {
               <Tabs defaultValue="basic" className="w-full">
                 <TabsList className="grid w-full grid-cols-5 mb-4">
                   <TabsTrigger value="basic">Basic Math</TabsTrigger>
-                  <TabsTrigger value="logical">Logical</TabsTrigger>
                   <TabsTrigger value="inequality">Inequalities</TabsTrigger>
+                  <TabsTrigger value="logical">Logical</TabsTrigger>
                   <TabsTrigger value="probability">Probability</TabsTrigger>
                   <TabsTrigger value="calculus">Calculus</TabsTrigger>
                 </TabsList>
@@ -136,7 +157,7 @@ const MathModal = ({ isOpen, onClose, onInsert, initialLatex }) => {
                     </TabsTrigger>
                   ))}
                 </TabsList>
-             <TabsContent value="10-3">
+                <TabsContent value="10-3">
                   <Math10_3Formulas onInsert={insertLatex} />
                 </TabsContent>
                 <TabsContent value="10C">
@@ -151,7 +172,7 @@ const MathModal = ({ isOpen, onClose, onInsert, initialLatex }) => {
                 <TabsContent value="20-1">
                   <Math20_1Formulas onInsert={insertLatex} />
                 </TabsContent>
-               <TabsContent value="30-3">
+                <TabsContent value="30-3">
                   <Math30_3Formulas onInsert={insertLatex} />
                 </TabsContent> 
                 <TabsContent value="30-2">
