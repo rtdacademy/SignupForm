@@ -1,10 +1,12 @@
-// src/StudentManagement/StudentManagement.js
-
 import React, { useState, useEffect } from 'react';
 import { getDatabase, ref, get, child } from 'firebase/database';
 import FilterPanel from './FilterPanel';
 import StudentList from './StudentList';
 import StudentDetail from './StudentDetail';
+import { Input } from "../components/ui/input";
+import { ScrollArea } from "../components/ui/scroll-area";
+import { Card, CardContent } from "../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 
 function StudentManagement() {
   const [studentSummaries, setStudentSummaries] = useState([]);
@@ -12,6 +14,7 @@ function StudentManagement() {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [availableFilters, setAvailableFilters] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('list');
 
   useEffect(() => {
     // Define available filters explicitly
@@ -59,6 +62,7 @@ function StudentManagement() {
 
   const handleStudentSelect = (student) => {
     setSelectedStudent(student);
+    setActiveTab('detail');
   };
 
   const handleSearchChange = (e) => {
@@ -66,48 +70,53 @@ function StudentManagement() {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Sticky Filter Panel */}
-      <div className="sticky top-0 bg-white shadow z-10 p-4">
-        <FilterPanel
-          filters={filters}
-          onFilterChange={handleFilterChange}
-          studentSummaries={studentSummaries}
-          availableFilters={availableFilters}
-        />
-      </div>
-
-      {/* Main Content Below Filters */}
-      <div className="flex flex-1 mt-4">
-        {/* Student List */}
-        <div className="w-full md:w-1/3 p-2 overflow-auto">
-          <div className="mb-4">
-            <input
-              type="text"
-              placeholder="Search students..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-              className="w-full px-3 py-2 border rounded"
-            />
-          </div>
-          <StudentList
-            studentSummaries={studentSummaries}
+    <Card className="h-full flex flex-col">
+      <CardContent className="p-4 flex-grow flex flex-col">
+        <div className="mb-4">
+          <FilterPanel
             filters={filters}
-            onStudentSelect={handleStudentSelect}
-            searchTerm={searchTerm}
+            onFilterChange={handleFilterChange}
+            studentSummaries={studentSummaries}
+            availableFilters={availableFilters}
           />
         </div>
 
-        {/* Student Detail */}
-        <div className="w-full md:w-2/3 p-2 overflow-auto">
-          {selectedStudent ? (
-            <StudentDetail studentSummary={selectedStudent} />
-          ) : (
-            <div className="text-center text-gray-500">Select a student to view details</div>
-          )}
+        <div className="mb-4">
+          <Input
+            type="text"
+            placeholder="Search students..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+          />
         </div>
-      </div>
-    </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-grow flex flex-col">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="list">Student List</TabsTrigger>
+            <TabsTrigger value="detail">Student Detail</TabsTrigger>
+          </TabsList>
+          <TabsContent value="list" className="flex-grow">
+            <ScrollArea className="h-[calc(100vh-300px)]">
+              <StudentList
+                studentSummaries={studentSummaries}
+                filters={filters}
+                onStudentSelect={handleStudentSelect}
+                searchTerm={searchTerm}
+              />
+            </ScrollArea>
+          </TabsContent>
+          <TabsContent value="detail" className="flex-grow">
+            <ScrollArea className="h-[calc(100vh-300px)]">
+              {selectedStudent ? (
+                <StudentDetail studentSummary={selectedStudent} />
+              ) : (
+                <div className="text-center text-muted-foreground">Select a student to view details</div>
+              )}
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 }
 

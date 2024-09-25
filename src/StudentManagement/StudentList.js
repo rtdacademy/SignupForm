@@ -1,24 +1,26 @@
-// src/StudentManagement/StudentList.js
-
 import React, { useState } from 'react';
 import { FixedSizeList as List } from 'react-window';
+import Select from 'react-select';
+import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { ScrollArea } from "../components/ui/scroll-area";
+import { ArrowUpDown } from 'lucide-react';
 
 function StudentList({ studentSummaries, filters, onStudentSelect, searchTerm }) {
   const [sortKey, setSortKey] = useState('lastName');
   const [sortOrder, setSortOrder] = useState('asc');
 
-  // Apply filters
+  // Apply filters and search
   const filteredStudents = studentSummaries.filter((student) => {
-    // Apply filters
     const matchesFilters = Object.keys(filters).every((filterKey) => {
-      if (filters[filterKey].length === 0) return true; // No filter applied for this key
+      if (filters[filterKey].length === 0) return true;
       const studentValue = String(student[filterKey]).toLowerCase();
       return filters[filterKey].some(
         (filterValue) => String(filterValue).toLowerCase() === studentValue
       );
     });
 
-    // Apply search term
     const matchesSearch =
       student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -41,117 +43,90 @@ function StudentList({ studentSummaries, filters, onStudentSelect, searchTerm })
   const Row = ({ index, style }) => {
     const student = sortedStudents[index];
     return (
-      <li
-        key={`${student.studentId}_${student.courseId}`}
-        className="border p-4 rounded-md hover:bg-gray-100 cursor-pointer mb-2"
-        onClick={() => onStudentSelect(student)}
-        style={style}
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-bold text-lg">
-              {student.firstName} {student.lastName}
-            </h4>
-            <p className="text-sm text-gray-600">{student.StudentEmail}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm">
-              <span className="font-semibold">Status:</span>{' '}
-              <span
-                className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
-                  student.Status_Value === 'Behind'
-                    ? 'bg-red-200 text-red-800'
-                    : 'bg-green-200 text-green-800'
-                }`}
-              >
+      <Card className="mb-2" style={style}>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+            <div>
+              <h4 className="font-bold text-lg">
+                {student.firstName} {student.lastName}
+              </h4>
+              <p className="text-sm text-muted-foreground">{student.StudentEmail}</p>
+            </div>
+            <div className="mt-2 sm:mt-0 text-right">
+              <Badge variant={student.Status_Value === 'Behind' ? "destructive" : "success"}>
                 {student.Status_Value}
-              </span>
-            </p>
-            <p className="text-sm">
-              <span className="font-semibold">Last Week Status:</span> {student.StatusCompare}
-            </p>
-            <p className="text-sm">
-              <span className="font-semibold">Status Streak Count:</span> {student.StatusStreakCount}
-            </p>
-            <p className="text-sm">
-              <span className="font-semibold">Course:</span> {student.Course_Value}
-            </p>
-            <p className="text-sm">
-              <span className="font-semibold">Current Mark:</span> {student.CurrentMark}%
-            </p>
-            <p className="text-sm">
-              <span className="font-semibold">School Year:</span> {student.School_x0020_Year_Value}
-            </p>
-            <p className="text-sm">
-              <span className="font-semibold">Student Type:</span> {student.StudentType_Value}
-            </p>
-            <p className="text-sm">
-              <span className="font-semibold">Diploma Month:</span> {student.DiplomaMonthChoices_Value}
-            </p>
-            <p className="text-sm flex items-center">
-              <span className="font-semibold mr-2">Active:</span>
-              <input
-                type="checkbox"
-                checked={student.ActiveFutureArchived_Value === 'Active'}
-                readOnly
-              />
-            </p>
+              </Badge>
+              <p className="text-sm mt-1">
+                <span className="font-semibold">Last Week:</span> {student.StatusCompare}
+              </p>
+              <p className="text-sm">
+                <span className="font-semibold">Streak:</span> {student.StatusStreakCount}
+              </p>
+            </div>
           </div>
-        </div>
-      </li>
+          <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+            <p><span className="font-semibold">Course:</span> {student.Course_Value}</p>
+            <p><span className="font-semibold">Mark:</span> {student.CurrentMark}%</p>
+            <p><span className="font-semibold">Year:</span> {student.School_x0020_Year_Value}</p>
+            <p><span className="font-semibold">Type:</span> {student.StudentType_Value}</p>
+          </div>
+          <Button 
+            variant="outline" 
+            className="mt-4 w-full"
+            onClick={() => onStudentSelect(student)}
+          >
+            View Details
+          </Button>
+        </CardContent>
+      </Card>
     );
   };
 
-  // Define sort options with display labels
   const sortOptions = [
-    { key: 'lastName', label: 'Last Name' },
-    { key: 'firstName', label: 'First Name' },
-    { key: 'Status_Value', label: 'Status' },
-    { key: 'Course_Value', label: 'Course' },
-    { key: 'CurrentMark', label: 'Current Mark' },
-    { key: 'School_x0020_Year_Value', label: 'School Year' },
-    { key: 'StudentType_Value', label: 'Student Type' },
-    { key: 'DiplomaMonthChoices_Value', label: 'Diploma Month' },
-    // Add more options as needed
+    { value: 'lastName', label: 'Last Name' },
+    { value: 'firstName', label: 'First Name' },
+    { value: 'Status_Value', label: 'Status' },
+    { value: 'Course_Value', label: 'Course' },
+    { value: 'CurrentMark', label: 'Current Mark' },
+    { value: 'School_x0020_Year_Value', label: 'School Year' },
+    { value: 'StudentType_Value', label: 'Student Type' },
+    { value: 'DiplomaMonthChoices_Value', label: 'Diploma Month' },
   ];
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-4">Students</h3>
+      <h3 className="text-2xl font-semibold mb-4">Students</h3>
 
-      {/* Sort Controls */}
-      <div className="flex items-center mb-4">
-        <label className="mr-2">Sort by:</label>
-        <select
-          value={sortKey}
-          onChange={(e) => setSortKey(e.target.value)}
-          className="mr-2 px-2 py-1 border rounded"
-        >
-          {sortOptions.map((option) => (
-            <option key={option.key} value={option.key}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <button
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0 sm:space-x-2">
+        <Select
+          options={sortOptions}
+          value={sortOptions.find(option => option.value === sortKey)}
+          onChange={(selectedOption) => setSortKey(selectedOption.value)}
+          className="w-full sm:w-[180px]"
+        />
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-          className="text-blue-500 hover:underline"
         >
           {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-        </button>
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
       </div>
 
       {sortedStudents.length > 0 ? (
-        <List
-          height={600} // Adjust based on your layout
-          itemCount={sortedStudents.length}
-          itemSize={250} // Adjust based on the height of your student card
-          width={'100%'}
-        >
-          {Row}
-        </List>
+        <ScrollArea className="h-[calc(100vh-250px)]">
+          <List
+            height={window.innerHeight - 250}
+            itemCount={sortedStudents.length}
+            itemSize={200}
+            width={'100%'}
+          >
+            {Row}
+          </List>
+        </ScrollArea>
       ) : (
-        <p>No students match the selected filters.</p>
+        <p className="text-center text-muted-foreground">No students match the selected filters.</p>
       )}
     </div>
   );
