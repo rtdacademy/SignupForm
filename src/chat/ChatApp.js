@@ -1,5 +1,4 @@
-// ChatApp.jsx
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Send,
   ChevronDown,
@@ -7,6 +6,8 @@ import {
   MessageSquare,
   UserPlus,
   Loader,
+  LogOut,    // Imported the LogOut icon for Leave Chat button
+  X,     
 } from 'lucide-react';
 import 'katex/dist/katex.min.css';
 import { BlockMath } from 'react-katex';
@@ -15,19 +16,21 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import ChatParticipantSearch from './ChatParticipantSearch';
 import ChatListModal from './ChatListModal';
+import AddChatParticipantDialog from './AddChatParticipantDialog';
 import { useAuth } from '../context/AuthContext';
 import {
   getDatabase,
   ref,
   push,
-  onChildAdded,
   set,
   get,
   serverTimestamp,
   update,
   onValue,
   off,
+  remove, // Imported remove for removing user from chat
 } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions'; // Imported Firebase Functions
 import { sanitizeEmail, compareEmails } from '../utils/sanitizeEmail';
 import TypingIndicator from './TypingIndicator';
 
@@ -39,38 +42,51 @@ try {
   console.warn('DOMPurify not available. HTML sanitization will be limited.');
 }
 
-const ParticipantInfo = ({ email, isStaff }) => {
+// ParticipantInfo Component
+const ParticipantInfo = React.memo(({ email, isStaff }) => {
   const [details, setDetails] = useState(null);
 
   useEffect(() => {
     const loadDetails = async () => {
       const db = getDatabase();
-      const sanitizedEmail = sanitizeEmail(email);
-      const studentRef = ref(db, `students/${sanitizedEmail}/profile`);
-      const studentSnapshot = await get(studentRef);
+      const sanitizedEmail = sanitizeEmail(email).toLowerCase();
 
-      if (studentSnapshot.exists()) {
-        const profile = studentSnapshot.val();
-        setDetails({
-          firstName: profile.firstName || '',
-          lastName: profile.lastName || '',
-        });
-      } else {
-        const staffRef = ref(db, `staff/${sanitizedEmail}`);
-        const staffSnapshot = await get(staffRef);
+      try {
+        // Attempt to fetch student profile
+        const studentRef = ref(db, `students/${sanitizedEmail}/profile`);
+        const studentSnapshot = await get(studentRef);
 
-        if (staffSnapshot.exists()) {
-          const profile = staffSnapshot.val();
+        if (studentSnapshot.exists()) {
+          const profile = studentSnapshot.val();
           setDetails({
             firstName: profile.firstName || '',
             lastName: profile.lastName || '',
           });
         } else {
-          setDetails({
-            firstName: email.split('@')[0], // Use the part before @ as the name
-            lastName: '',
-          });
+          // If not a student, attempt to fetch staff profile
+          const staffRef = ref(db, `staff/${sanitizedEmail}`);
+          const staffSnapshot = await get(staffRef);
+
+          if (staffSnapshot.exists()) {
+            const profile = staffSnapshot.val();
+            setDetails({
+              firstName: profile.firstName || '',
+              lastName: profile.lastName || '',
+            });
+          } else {
+            // Fallback to using the email prefix as the name
+            setDetails({
+              firstName: email.split('@')[0],
+              lastName: '',
+            });
+          }
         }
+      } catch (error) {
+        console.error('Error loading participant details:', error);
+        setDetails({
+          firstName: email.split('@')[0],
+          lastName: '',
+        });
       }
     };
 
@@ -84,18 +100,26 @@ const ParticipantInfo = ({ email, isStaff }) => {
       <p>
         <strong>Name:</strong> {details.firstName} {details.lastName}
       </p>
-      {isStaff && (
-        <p>
-          <strong>Email:</strong> {email}
-        </p>
-      )}
+      {/* Removed email display as per the requirement */}
     </div>
   );
-};
+});
 
+// ChatApp Component
+const ChatApp = React.memo(({
+  courseInfo = null,
+  courseTeachers = [],
+  courseSupportStaff = [],
+  initialParticipants = []
+}) => {
+  console.log("ChatApp rendering", { courseInfo, courseTeachers, courseSupportStaff, initialParticipants });
+  
+  // Memoize default values
+  const courseTeachersMemo = useMemo(() => courseTeachers || [], [courseTeachers]);
+  const courseSupportStaffMemo = useMemo(() => courseSupportStaff || [], [courseSupportStaff]);
+  const initialParticipantsMemo = useMemo(() => initialParticipants || [], [initialParticipants]);
 
-
-const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
+  // State Variables
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [showMathModal, setShowMathModal] = useState(false);
@@ -109,52 +133,96 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
   const [error, setError] = useState(null);
   const [participantNames, setParticipantNames] = useState({});
   const [typingStatus, setTypingStatus] = useState({});
+  const [selectedParticipants, setSelectedParticipants] = useState([]);
+  const [showAddParticipantDialog, setShowAddParticipantDialog] = useState(false);
+  const [isChatCreated, setIsChatCreated] = useState(false); // Added state variable
+
+  // Refs
   const messagesEndRef = useRef(null);
   const quillRef = useRef(null);
   const headerRef = useRef(null);
   const footerRef = useRef(null);
   const typingTimerRef = useRef(null);
-  const { user, isStaff } = useAuth();
-  const userIsStaff = isStaff(user);  // Determine if the current user is staff
+  const chatInitializedRef = useRef(false);
+  const initialParticipantsRef = useRef(initialParticipants);
 
-  const scrollToBottom = () => {
+  // Auth Context
+  const { user, isStaff: userIsStaff } = useAuth();
+
+  // State to control participant search visibility
+  const [showParticipantSearch, setShowParticipantSearch] = useState(true); // Added state variable
+
+  // Initialize participants from initialParticipants prop
+  useEffect(() => {
+    console.log("ChatApp: Effect running, initialParticipants:", initialParticipantsRef.current);
+    if (initialParticipantsRef.current.length > 0 && !chatInitializedRef.current) {
+      const sanitizedParticipants = initialParticipantsRef.current.map((p) => ({
+        email: sanitizeEmail(p.email).toLowerCase(),
+        displayName: p.displayName || '',
+      }));
+      setParticipants(sanitizedParticipants);
+      setShowParticipantSearch(false);
+      chatInitializedRef.current = true;
+      setIsChatCreated(true); // Assuming initial chat is created
+      console.log("ChatApp: Participants set", sanitizedParticipants);
+    } else if (!chatInitializedRef.current) {
+      setShowParticipantSearch(true);
+      console.log("ChatApp: Showing participant search");
+    }
+  }, []);
+
+  // Scroll to bottom when messages change
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
   useEffect(scrollToBottom, [messages]);
 
+  // Fetch participant names
   useEffect(() => {
     const fetchParticipantNames = async () => {
       const db = getDatabase();
       const names = {};
 
-      for (const email of participants) {
-        const sanitizedEmail = sanitizeEmail(email);
-        const studentRef = ref(db, `students/${sanitizedEmail}/profile`);
-        const studentSnapshot = await get(studentRef);
+      for (const participant of participants) {
+        const email = participant.email;
+        const sanitizedEmail = sanitizeEmail(email).toLowerCase();
+        try {
+          // Attempt to fetch student profile
+          const studentRef = ref(db, `students/${sanitizedEmail}/profile`);
+          const studentSnapshot = await get(studentRef);
 
-        if (studentSnapshot.exists()) {
-          const profile = studentSnapshot.val();
-          names[email] = {
-            firstName: profile.firstName || '',
-            lastName: profile.lastName || '',
-          };
-        } else {
-          const staffRef = ref(db, `staff/${sanitizedEmail}`);
-          const staffSnapshot = await get(staffRef);
-
-          if (staffSnapshot.exists()) {
-            const profile = staffSnapshot.val();
+          if (studentSnapshot.exists()) {
+            const profile = studentSnapshot.val();
             names[email] = {
               firstName: profile.firstName || '',
               lastName: profile.lastName || '',
             };
           } else {
-            names[email] = {
-              firstName: email.replace(',', '.'),
-              lastName: '',
-            };
+            // If not a student, attempt to fetch staff profile
+            const staffRef = ref(db, `staff/${sanitizedEmail}`);
+            const staffSnapshot = await get(staffRef);
+
+            if (staffSnapshot.exists()) {
+              const profile = staffSnapshot.val();
+              names[email] = {
+                firstName: profile.firstName || '',
+                lastName: profile.lastName || '',
+              };
+            } else {
+              // Fallback to using the email prefix as the name
+              names[email] = {
+                firstName: email.split('@')[0],
+                lastName: '',
+              };
+            }
           }
+        } catch (error) {
+          console.error('Error fetching participant name:', error);
+          names[email] = {
+            firstName: email.split('@')[0],
+            lastName: '',
+          };
         }
       }
 
@@ -168,8 +236,10 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
     }
   }, [participants]);
 
+  // Initialize Chat Function
   const initializeChat = useCallback(
     async (chatParticipants, chatId, newChat = false) => {
+      console.log("ChatApp: Initializing chat", { chatParticipants, chatId, newChat });
       setIsLoading(true);
       setError(null);
       try {
@@ -178,8 +248,9 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
         setShowSearch(false);
         setShowParticipantInfo(false);
         setIsNewChat(newChat);
+        setShowParticipantSearch(false);
 
-        let participantEmails = [];
+        let participantEmails = chatParticipants;
         if (chatId) {
           const db = getDatabase();
           const chatRef = ref(db, `chats/${chatId}`);
@@ -187,12 +258,17 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
 
           if (chatSnapshot.exists()) {
             const chatData = chatSnapshot.val();
-            participantEmails = chatData.participants;
+            // Assume chatData.participants is array of emails
+            participantEmails = chatData.participants.map(email => ({
+              email: sanitizeEmail(email).toLowerCase(),
+              displayName: '', // Will be fetched later
+            }));
           }
-        } else {
-          participantEmails = chatParticipants;
         }
         setParticipants(participantEmails);
+        chatInitializedRef.current = true;
+        setIsChatCreated(!!chatId); // Set to true if chatId exists
+        console.log("ChatApp: Chat initialized with participants", participantEmails);
       } catch (error) {
         console.error('Error initializing chat:', error);
         setError('Failed to initialize chat. Please try again.');
@@ -203,91 +279,121 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
     []
   );
 
-  const handleParticipantsSelect = (selectedParticipants) => {
-    const sanitizedEmails = selectedParticipants.map(
-      (participant) => participant.email
-    );
-    setParticipants(sanitizedEmails);
-    setShowChatListModal(true);
-    setShowParticipantInfo(false);
-    setShowSearch(false);
-  };
-
-  const toggleParticipantInfo = () => {
-    setShowParticipantInfo(!showParticipantInfo);
-  };
-
-  const handleChatSelect = ({ isNew, chatId, participants }) => {
-    setShowChatListModal(false);
-    if (isNew) {
-      initializeChat(participants, null, true);
-    } else {
-      initializeChat(participants, chatId, false);
-      loadChat(chatId);
-    }
-  };
-
-  const loadChat = async (chatId) => {
+  // Load Existing Chat Function
+  const loadExistingChat = useCallback(async (chatId, chatParticipants) => {
+    console.log("Loading existing chat:", chatId);
     setIsLoading(true);
     setError(null);
     try {
       const db = getDatabase();
-      const messagesRef = ref(db, `chats/${chatId}/messages`);
-      const snapshot = await get(messagesRef);
-      if (snapshot.exists()) {
-        const messagesData = snapshot.val();
-        const messagesList = Object.values(messagesData);
-        setMessages(messagesList);
+      const chatRef = ref(db, `chats/${chatId}`);
+      const chatSnapshot = await get(chatRef);
+
+      if (chatSnapshot.exists()) {
+        const chatData = chatSnapshot.val();
+        setCurrentChatId(chatId);
+        setParticipants(chatData.participants.map(email => ({
+          email: sanitizeEmail(email).toLowerCase(),
+          displayName: chatParticipants.find(p => p.email === email)?.displayName || email,
+        })));
+        const messageArray = chatData.messages ? Object.entries(chatData.messages).map(([id, message]) => ({
+          id,
+          ...message,
+          timestamp: message.timestamp || Date.now(),
+        })) : [];
+        messageArray.sort((a, b) => a.timestamp - b.timestamp);
+        setMessages(messageArray);
+        setIsNewChat(false);
+        setShowParticipantSearch(false);
+        chatInitializedRef.current = true;
+        setIsChatCreated(true); // Set to true when existing chat is loaded
+        console.log("ChatApp: Existing chat loaded", { participants: chatData.participants, messageCount: messageArray.length });
+      } else {
+        setError('Chat not found');
       }
     } catch (error) {
-      console.error('Error loading chat:', error);
-      setError('Failed to load chat messages. Please try again.');
+      console.error('Error loading existing chat:', error);
+      setError('Failed to load chat. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const createNotification = async (
+  // Create Notification Function
+  const createNotification = useCallback(async (
     participantEmail,
     chatId,
-    firstMessagePreview
+    messagePreview
   ) => {
     const db = getDatabase();
     const notificationRef = ref(
       db,
-      `students/${participantEmail}/notifications`
+      `students/${sanitizeEmail(participantEmail).toLowerCase()}/notifications`
     );
     await push(notificationRef, {
       type: 'new_chat',
-      message: `New chat from ${
-        user.displayName || user.email
-      }: "${firstMessagePreview}"`,
+      message: `New message from ${user.displayName || user.email}: "${messagePreview}"`,
       chatId: chatId,
       timestamp: serverTimestamp(),
       read: false,
     });
-  };
+  }, [user.displayName, user.email]);
 
-  const handleSendMessage = async () => {
-    if (
-      inputMessage.trim() !== '' &&
-      participants.length > 0 &&
-      user
-    ) {
+  // Handle Chat Selection
+  const handleChatSelect = useCallback(({ isNew, chatId, participants: selectedParticipants }) => {
+    console.log("ChatApp: Chat selected", { isNew, chatId, selectedParticipants });
+    setShowChatListModal(false);
+    if (isNew) {
+      const currentUserEmail = sanitizeEmail(user.email).toLowerCase();
+      const allParticipants = [
+        ...new Set([...selectedParticipants.map(p => sanitizeEmail(p.email).toLowerCase()), currentUserEmail])
+      ].filter(email => email);
+      const participantObjects = allParticipants.map(email => ({
+        email,
+        displayName: selectedParticipants.find(p => p.email === email)?.displayName || email,
+      }));
+      console.log("ChatApp: Initializing new chat with participants", participantObjects);
+      initializeChat(participantObjects, null, true);
+    } else {
+      loadExistingChat(chatId, selectedParticipants);
+    }
+  }, [user.email, initializeChat, loadExistingChat]);
+
+  // Handle Participants Selection
+  const handleParticipantsSelect = useCallback((selectedParticipants) => {
+    console.log("ChatApp: Participants selected", selectedParticipants);
+    const participantObjects = selectedParticipants.map(p => ({
+      email: p.email,
+      displayName: p.displayName || '',
+    }));
+    setParticipants(participantObjects);
+    setShowChatListModal(true);
+    setShowParticipantInfo(false);
+    setShowParticipantSearch(false);
+    setIsNewChat(true);
+    console.log("ChatApp: Participants set", participantObjects);
+  }, []);
+
+  // Toggle Participant Info Visibility
+  const toggleParticipantInfo = useCallback(() => {
+    setShowParticipantInfo(prev => !prev);
+  }, []);
+
+  // Handle Send Message Function
+  const handleSendMessage = useCallback(async () => {
+    if (inputMessage.trim() !== '' && participants.length > 0 && user) {
       setIsLoading(true);
       setError(null);
       const db = getDatabase();
       let chatId = currentChatId;
       let chatRef;
 
-      const currentUserEmail = sanitizeEmail(user.email);
+      const currentUserEmail = sanitizeEmail(user.email).toLowerCase();
 
       const newMessage = {
         text: inputMessage,
         sender: currentUserEmail,
-        senderName: participantNames[currentUserEmail]
-          ? `${participantNames[currentUserEmail].firstName} ${participantNames[currentUserEmail].lastName}`
-          : user.displayName || user.email,
+        senderName: user.displayName || user.email,
         timestamp: serverTimestamp(),
       };
 
@@ -296,7 +402,7 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
           chatRef = push(ref(db, 'chats'));
           chatId = chatRef.key;
 
-          let allParticipants = [...participants];
+          let allParticipants = participants.map(p => p.email);
           if (!allParticipants.includes(currentUserEmail)) {
             allParticipants.push(currentUserEmail);
           }
@@ -306,13 +412,22 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
             createdAt: serverTimestamp(),
             lastMessage: inputMessage,
             lastMessageTimestamp: serverTimestamp(),
+            firstMessage: inputMessage,
           };
 
           await set(chatRef, newChatData);
-          console.log('New chat created with ID:', chatId);
+          console.log('New chat created with ID:', chatId, 'Participants:', allParticipants);
 
+          // Add chat to all participants' profiles in userChats
           for (const participantEmail of allParticipants) {
-            if (!compareEmails(participantEmail, user.email)) {
+            const userChatRef = ref(db, `userChats/${participantEmail}/${chatId}`);
+            await set(userChatRef, {
+              timestamp: serverTimestamp(),
+              lastMessage: inputMessage,
+              firstMessage: inputMessage,
+            });
+
+            if (participantEmail !== currentUserEmail) {
               await createNotification(
                 participantEmail,
                 chatId,
@@ -322,10 +437,22 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
           }
 
           setCurrentChatId(chatId);
+          setIsChatCreated(true); // Set this to true when a new chat is created
+        } else {
+          // Update userChats for all participants with the new last message
+          for (const participantEmail of participants.map(p => p.email)) {
+            const userChatRef = ref(db, `userChats/${participantEmail}/${chatId}`);
+            await update(userChatRef, {
+              timestamp: serverTimestamp(),
+              lastMessage: inputMessage,
+            });
+          }
         }
 
+        // Send message
         await push(ref(db, `chats/${chatId}/messages`), newMessage);
 
+        // Update chat last message
         await update(ref(db, `chats/${chatId}`), {
           lastMessage: inputMessage,
           lastMessageTimestamp: serverTimestamp(),
@@ -334,6 +461,7 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
         setInputMessage('');
         quillRef.current.getEditor().setText('');
         setIsNewChat(false);
+        setIsChatCreated(true); // Ensure this is set to true after sending any message
       } catch (error) {
         console.error('Error handling message:', error);
         setError('Failed to send message. Please try again.');
@@ -341,8 +469,9 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
         setIsLoading(false);
       }
     }
-  };
+  }, [inputMessage, participants, user, currentChatId, createNotification]);
 
+  // Listen to Chat and Messages Updates
   useEffect(() => {
     if (participants.length > 0 && user && currentChatId) {
       const db = getDatabase();
@@ -353,8 +482,9 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
         if (snapshot.exists()) {
           const chatData = snapshot.val();
           if (chatData && chatData.participants) {
-            const chatParticipants = chatData.participants;
-            const sanitizedUserEmail = sanitizeEmail(user.email);
+            const chatParticipants = chatData.participants.map(email =>
+              sanitizeEmail(email).toLowerCase()
+            );
 
             const isUserInChat = chatParticipants.some((email) =>
               compareEmails(email, user.email)
@@ -363,22 +493,31 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
             if (!isUserInChat) {
               console.error('Current user is not a participant in this chat');
               setError('You are not a participant in this chat.');
+              setIsChatCreated(false); // Update chat created status
               return;
+            } else {
+              setIsChatCreated(true); // Chat exists and user is a participant
             }
           } else {
             console.error('Chat data is missing or incomplete');
             setError('Chat data is missing or incomplete.');
+            setIsChatCreated(false); // Update chat created status
             return;
           }
         } else {
           console.log('Chat does not exist yet');
+          setIsChatCreated(false); // Set this to false when the chat doesn't exist
         }
       });
 
       const messagesUnsubscribe = onValue(messagesRef, (snapshot) => {
         if (snapshot.exists()) {
           const messagesData = snapshot.val();
-          const messagesList = Object.values(messagesData);
+          const messagesList = Object.entries(messagesData).map(([id, message]) => ({
+            id,
+            ...message,
+            timestamp: message.timestamp || Date.now(),
+          })).sort((a, b) => a.timestamp - b.timestamp);
           setMessages(messagesList);
         } else {
           setMessages([]);
@@ -392,6 +531,7 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
     }
   }, [participants, user, currentChatId]);
 
+  // Listen to Typing Status
   useEffect(() => {
     if (currentChatId && user) {
       const db = getDatabase();
@@ -413,13 +553,14 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
     }
   }, [currentChatId, user]);
 
+  // Update Typing Status
   const updateTypingStatus = useCallback(
     (isTyping) => {
       if (currentChatId && user) {
         const db = getDatabase();
         const userTypingStatusRef = ref(
           db,
-          `chats/${currentChatId}/typingStatus/${sanitizeEmail(user.email)}`
+          `chats/${currentChatId}/typingStatus/${sanitizeEmail(user.email).toLowerCase()}`
         );
         set(userTypingStatusRef, isTyping);
       }
@@ -427,7 +568,8 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
     [currentChatId, user]
   );
 
-  const handleInputChange = (value) => {
+  // Handle Input Change
+  const handleInputChange = useCallback((value) => {
     setInputMessage(value);
 
     clearTimeout(typingTimerRef.current);
@@ -436,13 +578,14 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
     typingTimerRef.current = setTimeout(() => {
       updateTypingStatus(false);
     }, 2000);
-  };
+  }, [updateTypingStatus]);
 
-  const renderTypingIndicator = () => {
+  // Render Typing Indicator
+  const renderTypingIndicator = useMemo(() => {
     const typingUsers = Object.entries(typingStatus)
       .filter(
         ([email, status]) =>
-          status && email !== sanitizeEmail(user.email)
+          status && email !== sanitizeEmail(user.email).toLowerCase()
       )
       .map(
         ([email]) =>
@@ -452,25 +595,26 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
       );
 
     return <TypingIndicator typingUsers={typingUsers} />;
-  };
+  }, [typingStatus, user.email, participantNames]);
 
-  const handleInsertMath = (latex) => {
+  // Handle Insert Math
+  const handleInsertMath = useCallback((latex) => {
     const latexCode = `$$${latex}$$`;
     const editor = quillRef.current.getEditor();
     const range = editor.getSelection(true);
     editor.insertText(range.index, latexCode);
-  };
+  }, []);
 
-  const sanitizeHtml = (html) => {
+  // Sanitize HTML
+  const sanitizeHtml = useMemo(() => (html) => {
     if (DOMPurify) {
       return DOMPurify.sanitize(html, { ALLOW_UNKNOWN_PROTOCOLS: true });
     }
-    return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-      ''
-    );
-  };
+    return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  }, []);
 
-  const renderMessageContent = (text) => {
+  // Render Message Content
+  const renderMessageContent = useMemo(() => (text) => {
     const cleanHtml = sanitizeHtml(text);
     const parts = cleanHtml.split(/(\$\$.*?\$\$)/g);
     return parts.map((part, index) => {
@@ -487,115 +631,198 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
         );
       }
     });
-  };
+  }, [sanitizeHtml]);
 
-  const renderParticipantNames = () => {
+  // Render Participant Names - Updated to show only display names
+  const renderParticipantNames = useMemo(() => {
     return participants
-      .filter((email) => !compareEmails(email, user.email))
-      .map((email) => {
-        const name = participantNames[email];
+      .filter((participant) => !compareEmails(participant.email, user.email))
+      .map((participant) => {
+        const name = participantNames[participant.email];
         if (name) {
-          const { firstName, lastName } = name;
-          return `${firstName} ${
-            lastName ? lastName.charAt(0) + '.' : ''
-          }`.trim();
+          return `${name.firstName} ${name.lastName}`.trim();
         }
-        return email.replace(',', '.');
+        return participant.displayName || participant.email.split('@')[0];
       })
       .join(', ');
-  };
+  }, [participants, user.email, participantNames]);
 
-  const modules = {
+  // ReactQuill Modules
+  const modules = useMemo(() => ({
     toolbar: [
       ['bold', 'italic', 'underline', 'strike'],
       [{ list: 'ordered' }, { list: 'bullet' }],
       ['link'],
       ['clean'],
     ],
-  };
+  }), []);
 
-  return (
-    <div className="flex flex-col h-full bg-white text-gray-800">
+  // Handle Add Participant
+  const handleAddParticipant = useCallback(async (newParticipant) => {
+    if (currentChatId) {
+      setIsLoading(true);
+      setError(null);
+      const db = getDatabase();
+      const chatRef = ref(db, `chats/${currentChatId}`);
+      
+      try {
+        const chatSnapshot = await get(chatRef);
+        if (chatSnapshot.exists()) {
+          const chatData = chatSnapshot.val();
+          const updatedParticipants = [...chatData.participants, newParticipant.email];
+          
+          // Update the chat with the new participant
+          await update(chatRef, { participants: updatedParticipants });
+          
+          // Add the chat to the new participant's userChats
+          const userChatRef = ref(db, `userChats/${sanitizeEmail(newParticipant.email).toLowerCase()}/${currentChatId}`);
+          await set(userChatRef, {
+            timestamp: serverTimestamp(),
+            lastMessage: chatData.lastMessage || '',
+            firstMessage: chatData.firstMessage || '',
+          });
+          
+          // Update local state
+          setParticipants(prevParticipants => [...prevParticipants, newParticipant]);
+          
+          // Send a message from the current user about the new participant
+          const newParticipantMessage = {
+            text: `${newParticipant.firstName} ${newParticipant.lastName} has been added to the chat.`,
+            sender: sanitizeEmail(user.email).toLowerCase(),
+            timestamp: serverTimestamp(),
+          };
+          await push(ref(db, `chats/${currentChatId}/messages`), newParticipantMessage);
+
+          console.log(`Participant ${newParticipant.email} added to chat ${currentChatId}`);
+        }
+      } catch (error) {
+        console.error("Error adding participant:", error);
+        setError("Failed to add participant. Please try again.");
+      } finally {
+        setIsLoading(false);
+        setShowAddParticipantDialog(false);
+      }
+    }
+  }, [currentChatId, user.email]);
+
+  // Handle clearing the chat
+  const handleClearChat = useCallback(() => {
+    setMessages([]);
+    setParticipants([]);
+    setCurrentChatId(null);
+    setIsNewChat(true);
+    setIsChatCreated(false);
+    setShowParticipantSearch(true);
+    setShowParticipantInfo(false);
+    setInputMessage('');
+    if (quillRef.current) {
+      quillRef.current.getEditor().setText('');
+    }
+  }, []);
+
+  // Handle removing the user from the chat using Firebase Cloud Function
+  const removeUserFromChat = useCallback(async () => {
+    if (!currentChatId || !user) return;
+
+    try {
+      const functions = getFunctions();
+      const removeUserFromChatFunction = httpsCallable(functions, 'removeUserFromChat');
+      await removeUserFromChatFunction({ chatId: currentChatId });
+
+      // Clear the current chat and return to participant search
+      handleClearChat();
+    } catch (error) {
+      console.error('Error removing user from chat:', error);
+      setError('Failed to leave the chat. Please try again.');
+    }
+  }, [currentChatId, user, handleClearChat]);
+
+  // Chat Interface Component
+  const ChatInterface = useMemo(() => (
+    <>
       {/* Header Section */}
       <div ref={headerRef} className="border-b border-gray-200 flex-shrink-0">
-        {showSearch ? (
-          <div className="p-4">
-            <ChatParticipantSearch
-              onParticipantsSelect={handleParticipantsSelect}
-              courseInfo={courseInfo}
-              courseTeachers={courseTeachers}
-              courseSupportStaff={courseSupportStaff}
-            />
-          </div>
-        ) : (
-          participants.length > 0 && (
-            <div>
-              <div
-                className="flex justify-between items-center bg-blue-100 p-2 cursor-pointer"
-                onClick={toggleParticipantInfo}
-              >
+        {participants.length > 0 && (
+          <div className="bg-blue-100 p-2">
+            <div
+              className="flex justify-between items-center cursor-pointer"
+              onClick={toggleParticipantInfo}
+            >
+              <div className="flex items-center">
+                {/* Clear Chat Button - Moved to the left */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClearChat();
+                  }}
+                  className="mr-2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                  title="Clear Chat"
+                  aria-label="Clear Chat"
+                >
+                  <X size={20} />
+                </button>
                 <span className="font-medium">
-                  Chatting with: {renderParticipantNames()}
+                  Chatting with: {renderParticipantNames}
                 </span>
-                <div className="flex items-center">
+              </div>
+              <div className="flex items-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowChatListModal(true);
+                  }}
+                  className="ml-2 text-blue-500 hover:text-blue-700 focus:outline-none"
+                  title="Select Chat"
+                  aria-label="Select Chat"
+                >
+                  <MessageSquare size={20} />
+                </button>
+                {isChatCreated && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setShowChatListModal(true);
+                      setShowAddParticipantDialog(true);
                     }}
                     className="ml-2 text-blue-500 hover:text-blue-700 focus:outline-none"
-                    title="Select Chat"
-                    aria-label="Select Chat"
-                  >
-                    <MessageSquare size={20} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCurrentChatId(null);
-                      setMessages([]);
-                      setShowSearch(true);
-                      setIsNewChat(false);
-                    }}
-                    className="ml-2 text-blue-500 hover:text-blue-700 focus:outline-none"
-                    title="Change Participants"
-                    aria-label="Change Participants"
+                    title="Add Participant"
+                    aria-label="Add Participant"
                   >
                     <UserPlus size={20} />
                   </button>
-                  {showParticipantInfo ? (
-                    <ChevronUp size={20} className="ml-2" aria-hidden="true" />
-                  ) : (
-                    <ChevronDown size={20} className="ml-2" aria-hidden="true" />
-                  )}
-                </div>
+                )}
+                {/* Leave Chat Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeUserFromChat();
+                  }}
+                  className="ml-2 text-red-500 hover:text-red-700 focus:outline-none"
+                  title="Leave Chat"
+                  aria-label="Leave Chat"
+                >
+                  <LogOut size={20} />
+                </button>
+                {showParticipantInfo ? (
+                  <ChevronUp size={20} className="ml-2" aria-hidden="true" />
+                ) : (
+                  <ChevronDown size={20} className="ml-2" aria-hidden="true" />
+                )}
               </div>
-              {showParticipantInfo && (
-                <div className="bg-blue-50 p-2 text-sm">
-                  {participants
-                    .filter((email) => !compareEmails(email, user.email))
-                    .map((email, index) => (
-                      <ParticipantInfo
-                        key={index}
-                        email={email}
-                        isStaff={userIsStaff} 
-                      />
-                    ))}
-                </div>
-              )}
-              <button
-                className="w-full text-left p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                onClick={() => {
-                  setCurrentChatId(null);
-                  setMessages([]);
-                  setShowSearch(true);
-                  setIsNewChat(false);
-                }}
-              >
-                Change Participants
-              </button>
             </div>
-          )
+            {showParticipantInfo && (
+              <div className="mt-2 text-sm">
+                {participants
+                  .filter((participant) => !compareEmails(participant.email, user.email))
+                  .map((participant) => (
+                    <ParticipantInfo
+                      key={participant.email}
+                      email={participant.email}
+                      isStaff={userIsStaff}
+                    />
+                  ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -618,14 +845,14 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
         {isNewChat && messages.length === 0 && (
           <div className="text-center text-gray-500 italic">
             <p>
-              You are starting a new chat with {renderParticipantNames()} and they
+              You are starting a new chat with {renderParticipantNames} and they
               will receive a notification.
             </p>
           </div>
         )}
-        {messages.map((message, index) => (
+        {messages.map((message) => (
           <div
-            key={index}
+            key={message.id || `${message.sender}-${message.timestamp}`}
             className={`flex ${
               compareEmails(message.sender, user.email)
                 ? 'justify-end'
@@ -646,15 +873,12 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
             </div>
           </div>
         ))}
-        {renderTypingIndicator()}
+        {renderTypingIndicator}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Footer Section */}
-      <div
-        ref={footerRef}
-        className="p-4 bg-gray-100 border-t border-gray-200 flex-shrink-0"
-      >
+      <div ref={footerRef} className="p-4 bg-gray-100 border-t border-gray-200">
         <ReactQuill
           ref={quillRef}
           value={inputMessage}
@@ -687,6 +911,61 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
           </button>
         </div>
       </div>
+    </>
+  ), [
+    participants,
+    messages,
+    isLoading,
+    error,
+    isNewChat,
+    renderParticipantNames,
+    renderTypingIndicator,
+    renderMessageContent,
+    handleSendMessage,
+    handleInputChange,
+    showParticipantInfo,
+    toggleParticipantInfo,
+    userIsStaff,
+    isChatCreated, // Added dependency
+    handleClearChat, // Added dependency
+    removeUserFromChat, // Added dependency
+  ]);
+
+  // Handle Start New Chat
+  const handleStartNewChat = useCallback((participants) => {
+    console.log("Starting new chat with:", participants);
+    initializeChat(participants, null, true);
+    setShowParticipantSearch(false);
+  }, [initializeChat]);
+
+  // Handle Open Chat List
+  const handleOpenChatList = useCallback((participants) => {
+    setSelectedParticipants(participants);
+    setShowChatListModal(true);
+    setShowParticipantSearch(false);
+  }, []);
+
+  return (
+    <div className="flex flex-col h-full bg-white text-gray-800">
+      {showParticipantSearch ? (
+        <div className="p-4 border-b border-gray-200">
+          <ChatParticipantSearch
+            onStartNewChat={(participants) => {
+              handleStartNewChat(participants);
+            }}
+            onOpenChatList={(participants) => {
+              handleOpenChatList(participants);
+            }}
+            courseInfo={courseInfo}
+            courseTeachers={courseTeachersMemo}
+            courseSupportStaff={courseSupportStaffMemo}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-col h-full">
+          {participants.length > 0 && ChatInterface}
+        </div>
+      )}
 
       {/* Math Modal */}
       <MathModal
@@ -699,13 +978,22 @@ const ChatApp = ({ courseInfo, courseTeachers, courseSupportStaff }) => {
       {/* Chat List Modal */}
       {showChatListModal && (
         <ChatListModal
-          participants={participants}
+          participants={selectedParticipants}
           onChatSelect={handleChatSelect}
           onClose={() => setShowChatListModal(false)}
         />
       )}
+
+      {/* Add Chat Participant Dialog */}
+      <AddChatParticipantDialog
+        isOpen={showAddParticipantDialog}
+        onClose={() => setShowAddParticipantDialog(false)}
+        onAddParticipant={handleAddParticipant}
+        currentParticipants={participants.map(p => p.email)}
+        courseInfo={courseInfo}
+      />
     </div>
   );
-};
+});
 
 export default ChatApp;

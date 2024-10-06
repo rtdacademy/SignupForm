@@ -56,6 +56,91 @@ function formatASN(asn) {
   return cleanASN.length === 9 ? `${cleanASN.substr(0,4)}-${cleanASN.substr(4,4)}-${cleanASN.substr(8)}` : cleanASN;
 }
 
+
+
+/**
+ * Cloud Function: updateGradebookData
+ * 
+ * Receives gradebook data from a PHP program and updates the Firebase Realtime Database.
+ */
+exports.updateGradebookData = functions.https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+
+    if (req.method === 'OPTIONS') {
+        res.set('Access-Control-Allow-Methods', 'POST');
+        res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+        res.set('Access-Control-Max-Age', '3600');
+        return res.status(204).send('');
+    }
+
+    if (req.method !== 'POST') {
+        return res.status(405).send('Method Not Allowed');
+    }
+
+    // Check for the Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${API_KEY}`) {
+        return res.status(401).send('Invalid or missing API key');
+    }
+
+    try {
+        const data = req.body;
+        console.log('Received gradebook data:', JSON.stringify(data));
+
+        // Validate required fields
+        if (!data.studentEmail || !data.LMSStudentID || !data.LMSCourseID || !data.SharePointStudentID) {
+            return res.status(400).send('studentEmail, LMSStudentID, LMSCourseID, and SharePointStudentID are required');
+        }
+
+        const sanitizedEmail = sanitizeEmail(data.studentEmail);
+        const db = admin.database();
+        const studentRef = db.ref(`students/${sanitizedEmail}`);
+        const courseRef = studentRef.child(`courses/${data.LMSCourseID}`);
+        const gradebookRef = courseRef.child('jsonGradebook');
+
+        // Prepare the new gradebook data
+        const newGradebookData = {
+            LMSStudentID: data.LMSStudentID,
+            SharePointStudentID: data.SharePointStudentID,
+            headers: data.headers,
+            student: data.student,
+            lastChecked: admin.database.ServerValue.TIMESTAMP
+        };
+
+        // Get the current gradebook data
+        const currentGradebookSnapshot = await gradebookRef.once('value');
+        const currentGradebookData = currentGradebookSnapshot.val();
+
+        // Function to compare gradebook data (excluding lastChecked and lastUpdated fields)
+        const isGradebookChanged = (current, newData) => {
+            const currentCopy = { ...current };
+            const newCopy = { ...newData };
+            delete currentCopy.lastChecked;
+            delete currentCopy.lastUpdated;
+            delete newCopy.lastChecked;
+            return JSON.stringify(currentCopy) !== JSON.stringify(newCopy);
+        };
+
+        if (!currentGradebookData || isGradebookChanged(currentGradebookData, newGradebookData)) {
+            // Update the entire gradebook if it's new or has any changes
+            newGradebookData.lastUpdated = admin.database.ServerValue.TIMESTAMP;
+            await gradebookRef.set(newGradebookData);
+            res.status(200).send(`Gradebook data for student ${sanitizedEmail} in course ${data.LMSCourseID} updated successfully`);
+        } else {
+            // No changes, just update the lastChecked timestamp
+            await gradebookRef.update({ lastChecked: admin.database.ServerValue.TIMESTAMP });
+            res.status(200).send(`No changes detected for student ${sanitizedEmail} in course ${data.LMSCourseID}`);
+        }
+    } catch (error) {
+        console.error('Error updating gradebook data:', error);
+        res.status(500).send('Internal Server Error: ' + error.message);
+    }
+});
+
+
+
+
+
 /**
  * Cloud Function: updateStudentData
  * 
@@ -154,86 +239,106 @@ exports.updateStudentData = functions.https.onRequest(async (req, res) => {
     }
 });
 
+
+
 /**
  * Cloud Function: updateCourseInfo
  * 
  * Updates or adds course information based on LMSCourseID.
- */
+
 exports.updateCourseInfo = functions.https.onRequest(async (req, res) => {
-    res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Origin', '*');
 
-    if (req.method === 'OPTIONS') {
-        res.set('Access-Control-Allow-Methods', 'POST');
-        res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-        res.set('Access-Control-Max-Age', '3600');
-        return res.status(204).send('');
-    }
+  if (req.method === 'OPTIONS') {
+      res.set('Access-Control-Allow-Methods', 'POST');
+      res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+      res.set('Access-Control-Max-Age', '3600');
+      return res.status(204).send('');
+  }
 
-    if (req.method !== 'POST') {
-        return res.status(405).send('Method Not Allowed');
-    }
+  if (req.method !== 'POST') {
+      return res.status(405).send('Method Not Allowed');
+  }
 
-    // Check for the Authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || authHeader !== `Bearer ${API_KEY}`) {
-        return res.status(401).send('Invalid or missing API key');
-    }
+  // Check for the Authorization header
+  const authHeader = req.headers.authorization;
+  if (!authHeader || authHeader !== `Bearer ${API_KEY}`) {
+      return res.status(401).send('Invalid or missing API key');
+  }
 
-    try {
-        const data = req.body;
-        console.log('Received course data:', JSON.stringify(data));
+  try {
+      const data = req.body;
+      console.log('Received course data:', JSON.stringify(data));
 
-        // Validate required fields
-        if (!data.LMSCourseID || !data.VersionNumber) {
-            return res.status(400).send('LMSCourseID and VersionNumber are required');
-        }
+      // Validate required fields
+      if (!data.LMSCourseID || !data.VersionNumber) {
+          return res.status(400).send('LMSCourseID and VersionNumber are required');
+      }
 
-        const db = admin.database();
-        const courseRef = db.ref(`courses/${sanitizeEmail(data.LMSCourseID)}`); // Ensure LMSCourseID is sanitized
+      // Ensure LMSCourseID is a string
+      let lmsCourseId = data.LMSCourseID;
+      if (typeof lmsCourseId !== 'string') {
+          console.log(`LMSCourseID is not a string. Type: ${typeof lmsCourseId}, Value: ${lmsCourseId}`);
+          lmsCourseId = String(lmsCourseId);
+      }
 
-        // Check if the course already exists and compare version numbers
-        const snapshot = await courseRef.once('value');
-        const existingData = snapshot.val();
+      const db = admin.database();
+      const courseRef = db.ref(`courses/${sanitizeEmail(lmsCourseId)}`);
 
-        if (existingData && existingData.VersionNumber === data.VersionNumber) {
-            return res.status(200).send(`Course data for LMSCourseID ${data.LMSCourseID} is already up to date.`);
-        }
+      // Check if the course already exists and compare version numbers
+      const snapshot = await courseRef.once('value');
+      const existingData = snapshot.val();
 
-        // Process and store the data
-        const courseData = {};
+      if (existingData && existingData.VersionNumber === data.VersionNumber) {
+          return res.status(200).send(`Course data for LMSCourseID ${lmsCourseId} is already up to date.`);
+      }
 
-        for (const [key, value] of Object.entries(data)) {
-            if (typeof value === 'object' && value !== null) {
-                if ('Value' in value) {
-                    // Handle fields like Active, DiplomaCourse, CourseType
-                    courseData[key] = value.Value;
-                } else if (key.startsWith('Unit')) {
-                    // Handle Unit fields
-                    if (!courseData.Units) courseData.Units = {};
-                    courseData.Units[key] = value;
-                } else {
-                    // For other object fields, store them as is
-                    courseData[key] = value;
-                }
-            } else {
-                // For simple fields, store them directly
-                courseData[key] = value;
-            }
-        }
+      // Process and store the data
+      const courseData = {};
 
-        // Ensure LMSCourseID is included in the courseData
-        courseData.LMSCourseID = data.LMSCourseID.toLowerCase();
+      for (const [key, value] of Object.entries(data)) {
+          if (typeof value === 'object' && value !== null) {
+              if ('Value' in value) {
+                  // Handle fields like Active, DiplomaCourse, CourseType
+                  courseData[key] = value.Value;
+              } else if (key.startsWith('Unit')) {
+                  // Handle Unit fields
+                  if (!courseData.units) courseData.units = [];
+                  courseData.units.push({
+                      name: key,
+                      content: value,
+                      sequence: parseInt(key.replace('Unit', ''))
+                  });
+              } else {
+                  // For other object fields, store them as is
+                  courseData[key] = value;
+              }
+          } else {
+              // For simple fields, store them directly
+              courseData[key] = value;
+          }
+      }
 
-        // Set the data in the database
-        await courseRef.set(courseData);
+      // Ensure LMSCourseID is included in the courseData
+      courseData.LMSCourseID = lmsCourseId.toLowerCase();
 
-        res.status(200).send(`Course data for LMSCourseID ${data.LMSCourseID} updated successfully`);
-    } catch (error) {
-        console.error('Error updating course data:', error);
-        res.status(500).send('Internal Server Error: ' + error.message);
-    }
+      // Sort units by sequence
+      if (courseData.units) {
+          courseData.units.sort((a, b) => a.sequence - b.sequence);
+      }
+
+      console.log('Processed course data:', JSON.stringify(courseData));
+
+      // Set the data in the database
+      await courseRef.set(courseData);
+
+      res.status(200).send(`Course data for LMSCourseID ${lmsCourseId} updated successfully`);
+  } catch (error) {
+      console.error('Error updating course data:', error);
+      res.status(500).send('Internal Server Error: ' + error.message);
+  }
 });
-
+ */
 /**
  * Cloud Function: updatePaymentInfo
  * 
@@ -397,187 +502,333 @@ exports.deleteStudentsNode = functions.https.onRequest(async (req, res) => {
  */
 
 
+// Safe to Remove
+exports.restructureCourseData = functions.runWith({
+    timeoutSeconds: 540, // 9 minutes
+    memory: '1GB'
+}).https.onRequest(async (req, res) => {
+    // Set CORS headers
+    res.set('Access-Control-Allow-Origin', '*');
 
-
-exports.updateStudentCourseSummaries = functions.database
-  .ref('/students/{studentId}')
-  .onWrite(async (change, context) => {
-    const studentId = context.params.studentId;
-    const afterData = change.after.val(); // Data after the change
-
-    if (!afterData) {
-      // Student was deleted, remove their summaries
-      await admin.database().ref('studentCourseSummaries').orderByChild('studentId').equalTo(studentId).once('value', async (snapshot) => {
-        if (snapshot.exists()) {
-          const updates = {};
-          snapshot.forEach((child) => {
-            updates[child.key] = null;
-          });
-          await admin.database().ref('studentCourseSummaries').update(updates);
-        }
-      });
-      return null;
+    // Handle preflight OPTIONS request
+    if (req.method === 'OPTIONS') {
+        res.set('Access-Control-Allow-Methods', 'POST, GET');
+        res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.set('Access-Control-Max-Age', '3600');
+        return res.status(204).send('');
     }
 
-    const summaries = {};
+    // Only allow POST method
+    if (req.method !== 'POST') {
+        return res.status(405).send('Method Not Allowed');
+    }
 
-    if (afterData && afterData.courses) {
-      for (const [courseId, courseData] of Object.entries(afterData.courses)) {
-        const summaryKey = `${studentId}_${courseId}`;
+    // Check for the Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${API_KEY}`) {
+        return res.status(401).send('Invalid or missing API key');
+    }
 
-        // Flatten profile properties
-        const profileData = afterData.profile || {};
-        const flattenedProfile = flattenAndTruncate(profileData);
+    try {
+        console.log('Starting restructuring of course data.');
 
-        // Flatten course properties
-        const flattenedCourse = flattenAndTruncate(courseData);
+        const coursesRef = admin.database().ref('courses');
 
-        // Combine profile and course data
-        const summary = {
-          studentId: studentId,
-          courseId: courseId,
-          ...flattenedProfile,
-          ...flattenedCourse,
+        let processedCount = 0;
+        let skippedCount = 0;
+        let lastCourseKey = null;
+
+        while (true) {
+            let query = coursesRef.orderByKey().limitToFirst(BATCH_SIZE);
+            if (lastCourseKey) {
+                query = query.startAfter(lastCourseKey);
+            }
+
+            const snapshot = await query.once('value');
+            const coursesData = snapshot.val();
+
+            if (!coursesData) {
+                break; // No more courses to process
+            }
+
+            const updates = {};
+
+            for (const [courseId, courseData] of Object.entries(coursesData)) {
+                try {
+                    const restructuredCourse = restructureCourse(courseData);
+                    if (restructuredCourse) {
+                        updates[courseId] = restructuredCourse;
+                        processedCount++;
+                    } else {
+                        console.log(`Skipped course ${courseId} due to incompatible structure.`);
+                        skippedCount++;
+                    }
+                } catch (error) {
+                    console.error(`Error processing course ${courseId}:`, error);
+                    skippedCount++;
+                }
+
+                lastCourseKey = courseId;
+            }
+
+            // Update the courses node with the restructured data
+            if (Object.keys(updates).length > 0) {
+                await coursesRef.update(updates);
+            }
+
+            console.log(`Processed ${processedCount} courses, skipped ${skippedCount} courses.`);
+        }
+
+        console.log('Restructuring of course data completed.');
+        res.status(200).send(`Course data restructured successfully. Processed ${processedCount} courses, skipped ${skippedCount} courses.`);
+    } catch (error) {
+        console.error('Error restructuring course data:', error);
+        res.status(500).send('An error occurred while restructuring course data: ' + error.message);
+    }
+});
+
+function restructureCourse(courseData) {
+    if (!courseData) {
+        return null; // Skip if course data is missing
+    }
+
+    // Clone the course data to avoid modifying the original
+    const restructuredCourse = { ...courseData };
+
+    // Remove the 'Unit_x0020_Names' property
+    delete restructuredCourse['Unit_x0020_Names'];
+
+    // Initialize the units array
+    restructuredCourse.units = [];
+
+    // Collect all unit keys that match 'Unit_x0020_1', 'Unit2', etc.
+    const unitKeys = Object.keys(courseData).filter(key => key.match(/^Unit(_x0020_)?\d+$/));
+
+    // Sort the unit keys based on the unit number
+    unitKeys.sort((a, b) => {
+        const aNum = parseInt(a.replace('Unit_x0020_', '').replace('Unit', ''), 10) || 0;
+        const bNum = parseInt(b.replace('Unit_x0020_', '').replace('Unit', ''), 10) || 0;
+        return aNum - bNum;
+    });
+
+    // Process each unit
+    unitKeys.forEach((unitKey, index) => {
+        const unitContent = courseData[unitKey];
+        if (!unitContent) return; // Skip if no content
+
+        // Split the unit content into items
+        const unitItems = unitContent.split(',').map(item => item.trim()).filter(item => item);
+
+        const unitNumber = parseInt(unitKey.replace('Unit_x0020_', '').replace('Unit', ''), 10) || (index + 1);
+        const unitName = `Unit ${unitNumber}`;
+
+        const unit = {
+            name: unitName,
+            sequence: unitNumber,
+            items: []
         };
 
-        summaries[summaryKey] = summary;
-      }
-    }
+        let itemSequence = 1;
 
-    // Update the studentCourseSummaries node
-    await admin.database().ref('studentCourseSummaries').update(summaries);
+        unitItems.forEach(item => {
+            if (item.startsWith('L') || item.startsWith('A') || item.startsWith('E')) {
+                let itemType = '';
+                let multiplier = 1;
 
-    return null;
-  });
+                if (item.startsWith('L')) {
+                    itemType = 'lesson';
+                    multiplier = 1;
+                } else if (item.startsWith('A')) {
+                    itemType = 'assignment';
+                    multiplier = 1.5;
+                } else if (item.startsWith('E')) {
+                    itemType = 'exam';
+                    multiplier = 2;
+                }
 
-function flattenAndTruncate(obj, parentKey = '', result = {}) {
-  for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      const value = obj[key];
-      const newKey = parentKey ? `${parentKey}_${key}` : key;
-      if (typeof value === 'object' && value !== null) {
-        flattenAndTruncate(value, newKey, result);
-      } else {
-        if (typeof value === 'string') {
-          result[newKey] = value.substring(0, 50);
-        } else {
-          result[newKey] = value;
+                unit.items.push({
+                    title: item,
+                    type: itemType,
+                    sequence: itemSequence++,
+                    multiplier: multiplier
+                });
+            }
+            // Ignore items that don't start with L, A, or E
+        });
+
+        // Only add the unit if it has items
+        if (unit.items.length > 0) {
+            restructuredCourse.units.push(unit);
         }
-      }
-    }
-  }
-  return result;
+
+        // Remove the old unit property from the course data
+        delete restructuredCourse[unitKey];
+    });
+
+    return restructuredCourse;
 }
 
 
 
-// one time function 
-exports.initializeStudentCourseSummaries = functions.runWith({
+exports.cleanItemTitles = functions.runWith({
     timeoutSeconds: 540, // 9 minutes
     memory: '1GB'
-  }).https.onRequest(async (req, res) => {
+}).https.onRequest(async (req, res) => {
     // Set CORS headers
     res.set('Access-Control-Allow-Origin', '*');
-  
+
     // Handle preflight OPTIONS request
     if (req.method === 'OPTIONS') {
-      res.set('Access-Control-Allow-Methods', 'POST, GET');
-      res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      res.set('Access-Control-Max-Age', '3600');
-      return res.status(204).send('');
+        res.set('Access-Control-Allow-Methods', 'POST, GET');
+        res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.set('Access-Control-Max-Age', '3600');
+        return res.status(204).send('');
     }
-  
+
     // Only allow POST method
     if (req.method !== 'POST') {
-      return res.status(405).send('Method Not Allowed');
+        return res.status(405).send('Method Not Allowed');
     }
-  
+
     // Check for the Authorization header
     const authHeader = req.headers.authorization;
     if (!authHeader || authHeader !== `Bearer ${API_KEY}`) {
-      return res.status(401).send('Invalid or missing API key');
+        return res.status(401).send('Invalid or missing API key');
     }
+
+    try {
+        console.log('Starting item title cleanup.');
+
+        const coursesRef = admin.database().ref('courses');
+
+        let processedCount = 0;
+        let skippedCount = 0;
+        let lastCourseKey = null;
+
+        while (true) {
+            let query = coursesRef.orderByKey().limitToFirst(BATCH_SIZE);
+            if (lastCourseKey) {
+                query = query.startAfter(lastCourseKey);
+            }
+
+            const snapshot = await query.once('value');
+            const coursesData = snapshot.val();
+
+            if (!coursesData) {
+                break; // No more courses to process
+            }
+
+            const updates = {};
+
+            for (const [courseId, courseData] of Object.entries(coursesData)) {
+                try {
+                    const updatedCourse = updateItemTitles(courseData);
+                    if (updatedCourse) {
+                        updates[courseId] = updatedCourse;
+                        processedCount++;
+                    } else {
+                        console.log(`Skipped course ${courseId} due to incompatible structure.`);
+                        skippedCount++;
+                    }
+                } catch (error) {
+                    console.error(`Error processing course ${courseId}:`, error);
+                    skippedCount++;
+                }
+
+                lastCourseKey = courseId;
+            }
+
+            // Update the courses node with the updated data
+            if (Object.keys(updates).length > 0) {
+                await coursesRef.update(updates);
+            }
+
+            console.log(`Processed ${processedCount} courses, skipped ${skippedCount} courses.`);
+        }
+
+        console.log('Item title cleanup completed.');
+        res.status(200).send(`Item titles cleaned successfully. Processed ${processedCount} courses, skipped ${skippedCount} courses.`);
+    } catch (error) {
+        console.error('Error cleaning item titles:', error);
+        res.status(500).send('An error occurred while cleaning item titles: ' + error.message);
+    }
+});
+
+function updateItemTitles(courseData) {
+    if (!courseData || !Array.isArray(courseData.units)) {
+        return null; // Skip if course data is missing or units are not an array
+    }
+
+    // Clone the course data to avoid modifying the original
+    const updatedCourse = { ...courseData };
+
+    updatedCourse.units = courseData.units.map(unit => {
+        if (unit.items && Array.isArray(unit.items)) {
+            const updatedItems = unit.items.map(item => {
+                const updatedItem = { ...item };
+                updatedItem.title = cleanTitle(item.title);
+                return updatedItem;
+            });
+            return {
+                ...unit,
+                items: updatedItems
+            };
+        } else {
+            return unit;
+        }
+    });
+
+    return updatedCourse;
+}
+
+function cleanTitle(title) {
+    if (!title) return title;
+
+    // Remove leading 'L - ', 'A - ', 'E - ' or 'L', 'A', 'E' followed by ' - '
+    return title.replace(/^[LAE]\s*-\s*/i, '');
+}
+
+
+
+
+///  Chat Functions
+
+exports.removeUserFromChat = functions.https.onCall(async (data, context) => {
+    // Ensure the user is authenticated
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to remove from chat.');
+    }
+  
+    const { chatId } = data;
+    const userEmail = context.auth.token.email.toLowerCase();
+    const userDisplayName = context.auth.token.name || userEmail;
+  
+    const db = admin.database();
   
     try {
-      console.log('Starting initialization of student course summaries.');
+      // Add a system message about the user leaving
+      await db.ref(`chats/${chatId}/messages`).push({
+        text: `${userDisplayName} has left the chat.`,
+        sender: 'system',
+        timestamp: admin.database.ServerValue.TIMESTAMP,
+      });
   
-      const studentsRef = admin.database().ref('students');
-      const summariesRef = admin.database().ref('studentCourseSummaries');
-  
-      let processedCount = 0;
-      let lastStudentKey = null;
-  
-      while (true) {
-        let query = studentsRef.orderByKey().limitToFirst(BATCH_SIZE);
-        if (lastStudentKey) {
-          query = query.startAfter(lastStudentKey);
-        }
-  
-        const snapshot = await query.once('value');
-        const studentsData = snapshot.val();
-  
-        if (!studentsData) {
-          break; // No more students to process
-        }
-  
-        const summaries = {};
-  
-        for (const [studentId, studentData] of Object.entries(studentsData)) {
-          if (studentData && studentData.courses) {
-            for (const [courseId, courseData] of Object.entries(studentData.courses)) {
-              const summaryKey = `${studentId}_${courseId}`;
-  
-              // Flatten profile properties
-              const profileData = studentData.profile || {};
-              const flattenedProfile = flattenAndTruncate(profileData);
-  
-              // Flatten course properties
-              const flattenedCourse = flattenAndTruncate(courseData);
-  
-              // Combine profile and course data
-              const summary = {
-                studentId: studentId,
-                courseId: courseId,
-                ...flattenedProfile,
-                ...flattenedCourse,
-              };
-  
-              summaries[summaryKey] = summary;
-            }
-          }
-          lastStudentKey = studentId;
-          processedCount++;
-        }
-  
-        // Update the studentCourseSummaries node with the batch
-        await summariesRef.update(summaries);
-  
-        console.log(`Processed ${processedCount} students.`);
+      // Update the chat's participants list
+      const chatSnapshot = await db.ref(`chats/${chatId}`).once('value');
+      if (chatSnapshot.exists()) {
+        const chatData = chatSnapshot.val();
+        const updatedParticipants = chatData.participants.filter(
+          (email) => email.toLowerCase() !== userEmail
+        );
+        await db.ref(`chats/${chatId}`).update({ participants: updatedParticipants });
       }
   
-      console.log('Student course summaries initialized successfully.');
-      res.status(200).send(`Student course summaries initialized successfully. Processed ${processedCount} students.`);
+      // Remove the chat from the user's userChats
+      await db.ref(`userChats/${userEmail.replace('.', ',')}/${chatId}`).remove();
+  
+      return { success: true };
     } catch (error) {
-      console.error('Error initializing student course summaries:', error);
-      res.status(500).send('An error occurred while initializing student course summaries: ' + error.message);
+      console.error('Error removing user from chat:', error);
+      throw new functions.https.HttpsError('internal', 'Failed to remove user from chat.');
     }
   });
-  
-  function flattenAndTruncate(obj, parentKey = '', result = {}) {
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        const value = obj[key];
-        const newKey = parentKey ? `${parentKey}_${key}` : key;
-        if (typeof value === 'object' && value !== null) {
-          flattenAndTruncate(value, newKey, result);
-        } else {
-          if (typeof value === 'string') {
-            result[newKey] = value.substring(0, 50);
-          } else {
-            result[newKey] = value;
-          }
-        }
-      }
-    }
-    return result;
-  }

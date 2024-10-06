@@ -1,3 +1,4 @@
+// ChatListModal.jsx
 import React, { useState, useEffect } from 'react';
 import { getDatabase, ref, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
@@ -18,82 +19,154 @@ const ChatListModal = ({ participants, onChatSelect, onClose }) => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const db = getDatabase();
+  const [userSanitizedEmail, setUserSanitizedEmail] = useState('');
+
+  // Helper function to extract email from studentCourseSummaries key
+  const extractEmail = (key) => {
+    const lastUnderscoreIndex = key.lastIndexOf('_');
+    return key.substring(0, lastUnderscoreIndex);
+  };
 
   useEffect(() => {
     const fetchChats = async () => {
+      console.log("ChatListModal: Fetching chats", { participants });
       setLoading(true);
-      const chatsRef = ref(db, 'chats');
-      const snapshot = await get(chatsRef);
 
-      if (snapshot.exists()) {
-        const allChats = snapshot.val();
-        const sanitizedUserEmail = sanitizeEmail(user.email);
-        const participantEmails = participants; // Participants are already sanitized strings
+      try {
+        // Fetch current user's sanitized email
+        const userRef = ref(db, `users/${user.uid}/sanitizedEmail`);
+        const userSnapshot = await get(userRef);
+        const fetchedUserSanitizedEmail = userSnapshot.val();
 
-        const relevantChats = Object.entries(allChats)
-          .filter(([_, chatData]) => {
-            if (!chatData || !Array.isArray(chatData.participants)) {
-              return false;
-            }
-            // Check if all selected participants (including the current user) are in the chat
-            const allParticipantsPresent = [sanitizedUserEmail, ...participantEmails].every(email =>
-              chatData.participants.includes(email)
-            );
-            // Check if the chat has exactly the same number of participants as selected (plus the current user)
-            const correctParticipantCount = chatData.participants.length === participantEmails.length + 1;
-            return allParticipantsPresent && correctParticipantCount;
-          })
-          .map(([chatId, chatData]) => ({
-            id: chatId,
-            participants: chatData.participants,
-            lastMessage: chatData.lastMessage || '',
-            timestamp: chatData.lastMessageTimestamp || Date.now(),
-          }));
+        if (!fetchedUserSanitizedEmail) {
+          console.error("User's sanitized email not found");
+          setLoading(false);
+          return;
+        }
 
-        // Fetch participant details for each chat
-        const chatsWithDetails = await Promise.all(relevantChats.map(async (chat) => {
-          const participantDetails = await Promise.all(chat.participants.map(async (email) => {
-            const studentRef = ref(db, `students/${email}`);
-            const studentSnapshot = await get(studentRef);
-            if (studentSnapshot.exists()) {
-              const userData = studentSnapshot.val();
-              return {
-                email: email.replace(',', '.'), // Desanitize email for display
-                displayName: `${userData.profile?.firstName || ''} ${userData.profile?.lastName || ''}`.trim(),
-                course: Object.values(userData.courses || {})[0]?.Course?.Value || '',
-                isStaff: false
+        setUserSanitizedEmail(fetchedUserSanitizedEmail);
+
+       // Process participant keys
+const participantKeys = participants.map(p => {
+  if (typeof p === 'string') {
+    // If p is already a string (email), use it directly
+    return sanitizeEmail(p).toLowerCase();
+  } else if (p.id && typeof p.id === 'string') {
+    // If p has an id property that's a string, process it
+    return p.id.includes('_') ? extractEmail(p.id) : sanitizeEmail(p.id).toLowerCase();
+  } else if (p.email && typeof p.email === 'string') {
+    // If p has an email property, use that
+    return sanitizeEmail(p.email).toLowerCase();
+  } else {
+    console.warn('Unexpected participant format:', p);
+    return null; // or some default value
+  }
+}).filter(Boolean); // Remove any null values
+
+console.log("Processed participant keys:", participantKeys);
+
+        // Include the current user's sanitized email
+        const allParticipantKeys = [...new Set([...participantKeys, fetchedUserSanitizedEmail])];
+
+        console.log("Fetching chats for participants:", allParticipantKeys);
+
+        // Fetch chats for all participants
+        const chatPromises = allParticipantKeys.map(async (participantKey) => {
+          const userChatsRef = ref(db, `userChats/${participantKey}`);
+          const userChatsSnapshot = await get(userChatsRef);
+          return userChatsSnapshot.val() || {};
+        });
+
+        const participantChats = await Promise.all(chatPromises);
+
+        if (participantChats.length === 0) {
+          setChats([]);
+          setLoading(false);
+          return;
+        }
+
+        // Find common chat IDs
+        const commonChatIds = Object.keys(participantChats[0]).filter(chatId =>
+          participantChats.every(userChats => userChats.hasOwnProperty(chatId))
+        );
+
+        if (commonChatIds.length === 0) {
+          setChats([]);
+          setLoading(false);
+          return;
+        }
+
+        // Fetch chat details for common chats
+        const chatDetailsPromises = commonChatIds.map(async (chatId) => {
+          const chatRef = ref(db, `chats/${chatId}`);
+          const chatSnapshot = await get(chatRef);
+          const chatData = chatSnapshot.val();
+
+          if (chatData) {
+            const participantDetails = await Promise.all(chatData.participants.map(async (email) => {
+              let userRef = ref(db, `staff/${email}`);
+              let userSnapshot = await get(userRef);
+              
+              if (!userSnapshot.exists()) {
+                userRef = ref(db, `students/${email}/profile`);
+                userSnapshot = await get(userRef);
+              }
+
+              if (userSnapshot.exists()) {
+                const userData = userSnapshot.val();
+                const isStaff = email.includes('@rtdacademy.com');
+                return {
+                  email: email,
+                  displayName: isStaff 
+                    ? userData.displayName 
+                    : `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
+                  type: isStaff ? 'staff' : 'student',
+                  isStaff
+                };
+              }
+              return { 
+                email: email, 
+                displayName: email, 
+                type: 'unknown', 
+                isStaff: false 
               };
-            }
+            }));
 
-            // If not a student, check staff
-            const staffRef = ref(db, `staff/${email}`);
-            const staffSnapshot = await get(staffRef);
-            if (staffSnapshot.exists()) {
-              const staffData = staffSnapshot.val();
-              return {
-                email: staffData.email || email.replace(',', '.'), // Desanitize email for display
-                displayName: staffData.displayName || `${email.replace(',', '.')}`,
-                isStaff: true
-              };
-            }
+            // Fetch the userChat data for the current user to get firstMessage
+            const userChatRef = ref(db, `userChats/${fetchedUserSanitizedEmail}/${chatId}`);
+            const userChatSnapshot = await get(userChatRef);
+            const userChatData = userChatSnapshot.val();
 
-            // Fallback if not found
-            return { email: email.replace(',', '.'), displayName: email.replace(',', '.'), isStaff: false };
-          }));
-          return { ...chat, participantDetails };
-        }));
+            return {
+              id: chatId,
+              participants: chatData.participants,
+              participantDetails,
+              lastMessage: chatData.lastMessage || '',
+              firstMessage: userChatData?.firstMessage || '', // Add firstMessage
+              timestamp: chatData.lastMessageTimestamp || Date.now(),
+            };
+          }
+          return null;
+        });
 
+        const chatsWithDetails = (await Promise.all(chatDetailsPromises)).filter(Boolean);
         setChats(chatsWithDetails);
+        console.log("ChatListModal: Chats fetched", chatsWithDetails);
+      } catch (error) {
+        console.error("Error fetching chats:", error);
       }
 
       setLoading(false);
     };
 
     fetchChats();
-  }, [db, user.email, participants]);
+  }, [db, user.uid, participants]);
 
+  // Updated handleNewChat function to pass full participant objects
   const handleNewChat = () => {
-    onChatSelect({ isNew: true, participants });
+    console.log("ChatListModal: Starting new chat", participants);
+    // Participants are already processed, so we don't need to process them again
+    onChatSelect({ isNew: true, participants: participants });
   };
 
   const sanitizeHtml = (html) => {
@@ -125,11 +198,11 @@ const ChatListModal = ({ participants, onChatSelect, onClose }) => {
 
   const renderParticipants = (participantDetails) => {
     return participantDetails
-      .filter(p => p.email !== user.email)
+      .filter(p => p.email !== userSanitizedEmail)
       .map((p, index) => (
         <div key={index} className="text-xs text-gray-600">
           {p.displayName}
-          {!p.isStaff && p.course && ` (${p.course})`}
+          {p.type === 'student' && p.course && ` (${p.course})`}
         </div>
       ));
   };
@@ -150,13 +223,21 @@ const ChatListModal = ({ participants, onChatSelect, onClose }) => {
                   <li
                     key={chat.id}
                     className="cursor-pointer p-2 hover:bg-gray-100 border-b border-gray-200 last:border-b-0"
-                    onClick={() => onChatSelect({ isNew: false, chatId: chat.id, participants: chat.participants })}
+                    onClick={() => {
+                      console.log("ChatListModal: Existing chat selected", chat);
+                      // Updated to pass participantDetails instead of just emails
+                      onChatSelect({ 
+                        isNew: false, 
+                        chatId: chat.id, 
+                        participants: chat.participantDetails 
+                      });
+                    }}
                   >
                     <div className="text-sm font-medium text-gray-900 mb-1">
                       {renderParticipants(chat.participantDetails)}
                     </div>
                     <div className="text-sm text-gray-600 mb-1">
-                      {renderMessageContent(chat.lastMessage)}
+                      {renderMessageContent(chat.firstMessage)} {/* Use firstMessage here */}
                     </div>
                     <p className="text-xs text-gray-500">
                       {new Date(chat.timestamp).toLocaleString()}

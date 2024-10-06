@@ -1,11 +1,21 @@
+// ChatParticipantSearch.jsx
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Search, X, User, UserCog, ChevronDown, ChevronUp } from 'lucide-react';
-import { getDatabase, ref, get } from 'firebase/database';
+import { getDatabase, ref, query, orderByChild, startAt, endAt, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import Select from 'react-select';
 
-export default function ChatParticipantSearch({ onParticipantsSelect, courseInfo, courseTeachers, courseSupportStaff }) {
+// Helper function to safely lowercase and sanitize email
+const safeEmailProcess = (email) => {
+  if (typeof email !== 'string') {
+    console.warn('Invalid email:', email);
+    return '';
+  }
+  return sanitizeEmail(email.toLowerCase());
+};
+
+export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, courseInfo, courseTeachers, courseSupportStaff }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedParticipants, setSelectedParticipants] = useState([]);
@@ -21,10 +31,11 @@ export default function ChatParticipantSearch({ onParticipantsSelect, courseInfo
   const [selectedUserType, setSelectedUserType] = useState({ value: 'all', label: 'All Users' });
   const [courseStaffDetails, setCourseStaffDetails] = useState({});
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
-  
+  const [courseStaff, setCourseStaff] = useState([]);
+
   const { user } = useAuth();
   const isStaff = user && /@rtdacademy\.com$/i.test(user.email); // Case-insensitive check
-  
+
   const db = getDatabase();
   const searchInputRef = useRef(null);
   const searchResultsRef = useRef(null);
@@ -85,10 +96,11 @@ export default function ChatParticipantSearch({ onParticipantsSelect, courseInfo
                 isActive: courseData.ActiveFutureArchived?.Value === 'Active'
               }));
 
+            const email = studentData.profile.email || childSnapshot.key;
             studentsList.push({
               id: childSnapshot.key,
               displayName: `${studentData.profile.firstName || ''} ${studentData.profile.lastName || ''}`.trim(),
-              email: childSnapshot.key.replace(',', '.').toLowerCase(), // Ensure lowercase for consistency
+              email: safeEmailProcess(email),
               asn: isStaff ? (studentData.profile.asn || '') : '',
               PrimaryID: isStaff ? (studentData.profile.PrimaryID || '') : '',
               courses: studentCourses,
@@ -103,10 +115,11 @@ export default function ChatParticipantSearch({ onParticipantsSelect, courseInfo
         const staffList = [];
         staffSnapshot.forEach((childSnapshot) => {
           const staffData = childSnapshot.val();
+          const email = staffData.email || childSnapshot.key;
           staffList.push({
             id: childSnapshot.key,
-            displayName: staffData.displayName,
-            email: staffData.email.toLowerCase(), // Ensure lowercase for consistency
+            displayName: staffData.displayName || email,
+            email: safeEmailProcess(email),
             firstName: staffData.firstName,
             lastName: staffData.lastName,
             type: 'staff'
@@ -128,7 +141,7 @@ export default function ChatParticipantSearch({ onParticipantsSelect, courseInfo
       const staffDetails = {};
 
       for (const email of staffEmails) {
-        const sanitizedEmail = sanitizeEmail(email).toLowerCase(); // Ensure lowercase
+        const sanitizedEmail = safeEmailProcess(email);
         const staffRef = ref(db, `staff/${sanitizedEmail}`);
         const staffSnapshot = await get(staffRef);
         if (staffSnapshot.exists()) {
@@ -142,43 +155,135 @@ export default function ChatParticipantSearch({ onParticipantsSelect, courseInfo
     fetchStaffDetails();
   }, [db, courseTeachers, courseSupportStaff]);
 
-  const filterParticipants = useCallback(() => {
+  useEffect(() => {
+    const fetchCourseStaff = async () => {
+      if (selectedCourses.length === 1) {
+        const courseRef = ref(db, `courses/${selectedCourses[0].value}`);
+        const courseSnapshot = await get(courseRef);
+        if (courseSnapshot.exists()) {
+          const courseData = courseSnapshot.val();
+          const staffEmails = [...(courseData.Teachers || []), ...(courseData.SupportStaff || [])];
+          const staffDetails = await Promise.all(staffEmails.map(async (email) => {
+            const sanitizedEmail = safeEmailProcess(email);
+            const staffRef = ref(db, `staff/${sanitizedEmail}`);
+            const staffSnapshot = await get(staffRef);
+            if (staffSnapshot.exists()) {
+              const staffData = staffSnapshot.val();
+              return {
+                id: sanitizedEmail,
+                displayName: staffData.displayName,
+                email: sanitizedEmail, // Already sanitized and lowercased
+                firstName: staffData.firstName,
+                lastName: staffData.lastName,
+                type: 'staff'
+              };
+            }
+            return null;
+          }));
+          setCourseStaff(staffDetails.filter(Boolean));
+        }
+      } else {
+        setCourseStaff([]);
+      }
+    };
+
+    fetchCourseStaff();
+  }, [db, selectedCourses]);
+
+  const searchParticipants = useCallback(async () => {
     setIsSearching(true);
     let results = [];
 
-    // Filter staff
-    if (selectedUserType.value === 'all' || selectedUserType.value === 'staff') {
-      const filteredStaff = allStaff.filter(staff => 
-        staff.email !== user.email.toLowerCase() && // Case-insensitive comparison
-        (matchesSearchTerm(staff.displayName, searchTerm) ||
-         matchesSearchTerm(staff.email, searchTerm))
-      );
-      console.log('Filtered Staff:', filteredStaff); // Debugging log
-      results = results.concat(filteredStaff);
+    try {
+      // Search staff
+      if (selectedUserType.value === 'all' || selectedUserType.value === 'staff') {
+        if (selectedCourses.length === 1) {
+          // Use course-specific staff
+          results = courseStaff.filter(staff => 
+            matchesSearchTerm(staff.displayName, searchTerm) ||
+            matchesSearchTerm(staff.email, searchTerm)
+          );
+        } else {
+          // Search all staff
+          const staffRef = ref(db, 'staff');
+          const staffSnapshot = await get(staffRef);
+          staffSnapshot.forEach((childSnapshot) => {
+            const staffData = childSnapshot.val();
+            if (matchesSearchTerm(staffData.displayName, searchTerm) ||
+                matchesSearchTerm(staffData.email, searchTerm)) {
+              results.push({
+                id: childSnapshot.key,
+                displayName: staffData.displayName,
+                email: safeEmailProcess(staffData.email), // Already sanitized and lowercased
+                firstName: staffData.firstName,
+                lastName: staffData.lastName,
+                type: 'staff'
+              });
+            }
+          });
+        }
+      }
+
+      // Search students
+      if (selectedUserType.value === 'all' || selectedUserType.value === 'student') {
+        const summariesRef = ref(db, 'studentCourseSummaries');
+        let studentQuery;
+
+        if (selectedCourses.length === 1) {
+          studentQuery = query(
+            summariesRef, 
+            orderByChild('Course_Value'), 
+            startAt(selectedCourses[0].label), 
+            endAt(selectedCourses[0].label + '\uf8ff')
+          );
+        } else {
+          // When no course is selected or searching all courses
+          studentQuery = summariesRef; // Query all students
+        }
+
+        const studentSnapshot = await get(studentQuery);
+        studentSnapshot.forEach((childSnapshot) => {
+          const studentData = childSnapshot.val();
+          const isActive = !showOnlyActive || studentData.ActiveFutureArchived_Value === 'Active';
+          if (isActive && 
+              (searchTerm === '' || // Include all students if search term is empty
+               matchesSearchTerm(studentData.firstName, searchTerm) ||
+               matchesSearchTerm(studentData.lastName, searchTerm) ||
+               matchesSearchTerm(studentData.StudentEmail, searchTerm))) {
+            results.push({
+              id: childSnapshot.key,
+              displayName: `${studentData.firstName} ${studentData.lastName}`,
+              email: safeEmailProcess(studentData.StudentEmail),
+              asn: isStaff ? (studentData.asn || '') : '',
+              Course_Value: studentData.Course_Value,
+              type: 'student'
+            });
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error searching participants:", error);
     }
 
-    // Filter students
-    if (selectedUserType.value === 'all' || selectedUserType.value === 'student') {
-      const filteredStudents = allStudents.filter(student => {
-        const isInSelectedCourses = selectedCourses.length === 0 || 
-          student.courses.some(course => selectedCourses.some(sc => sc.value === course.id));
-        const isActive = !showOnlyActive || student.courses.some(course => course.isActive);
-        const matchesSearch = !searchTerm || 
-          matchesSearchTerm(student.displayName, searchTerm) || 
-          matchesSearchTerm(student.email, searchTerm);
-        return student.email !== user.email.toLowerCase() && isInSelectedCourses && isActive && matchesSearch;
-      });
-      console.log('Filtered Students:', filteredStudents); // Debugging log
-      results = results.concat(filteredStudents);
-    }
-
-    console.log('Combined Results:', results); // Debugging log
-
-    setSearchResults(results);
+    setSearchResults(results.filter(r => r.email !== safeEmailProcess(user.email)));
     setStudentCount(results.filter(r => r.type === 'student').length);
     setStaffCount(results.filter(r => r.type === 'staff').length);
     setIsSearching(false);
-  }, [user.email, allStudents, allStaff, selectedCourses, searchTerm, showOnlyActive, selectedUserType]);
+  }, [db, searchTerm, selectedCourses, showOnlyActive, selectedUserType, user.email, isStaff, courseStaff]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (searchTerm || selectedCourses.length > 0) {
+        searchParticipants();
+        setShowResults(true);
+      } else {
+        setSearchResults([]);
+        setShowResults(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchParticipants, searchTerm, selectedCourses]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -198,36 +303,37 @@ export default function ChatParticipantSearch({ onParticipantsSelect, courseInfo
     };
   }, []);
 
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      filterParticipants();
-      setShowResults(true);
-    }, 300);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [filterParticipants, searchTerm, selectedCourses, showOnlyActive, selectedUserType]);
-
   const handleParticipantSelect = (participant) => {
-    if (!selectedParticipants.some(p => p.email === participant.email)) {
-      setSelectedParticipants([...selectedParticipants, participant]);
+    const safeEmail = safeEmailProcess(participant.email);
+    if (!selectedParticipants.some(p => p.email === safeEmail)) {
+      const isStaffParticipant = safeEmail.includes('@rtdacademy.com');
+      setSelectedParticipants([...selectedParticipants, { ...participant, email: safeEmail, isStaff: isStaffParticipant }]);
     }
   };
 
   const handleRemoveParticipant = (participantToRemove) => {
-    setSelectedParticipants(selectedParticipants.filter(p => p.email !== participantToRemove.email));
+    setSelectedParticipants(selectedParticipants.filter(p => safeEmailProcess(p.email) !== safeEmailProcess(participantToRemove.email)));
   };
 
-  const handleDoneSelecting = () => {
-    const formattedParticipants = selectedParticipants.map(participant => ({
-      ...participant,
-      email: sanitizeEmail(participant.email) // Sanitize email for database key
-    }));
-    onParticipantsSelect(formattedParticipants);
-  };
+  // Added handleStartNewChat to initiate a new chat
+  const handleStartNewChat = useCallback(() => {
+    if (selectedParticipants.length > 0) {
+      onStartNewChat(selectedParticipants);
+    }
+  }, [selectedParticipants, onStartNewChat]);
+
+  // Added handleOpenChatList to open existing chat list
+  const handleOpenChatList = useCallback(() => {
+    if (selectedParticipants.length > 0) {
+      onOpenChatList(selectedParticipants);
+    }
+  }, [selectedParticipants, onOpenChatList]);
+
+  // Remove the old handleDoneSelecting function if it exists
 
   const handleClearSearch = () => {
     setSearchTerm('');
-    filterParticipants();
+    searchParticipants();
   };
 
   const renderActiveCourses = (activeCourses) => {
@@ -255,8 +361,7 @@ export default function ChatParticipantSearch({ onParticipantsSelect, courseInfo
               {isStaff && participant.asn && (
                 <div className="text-xs text-gray-500">ASN: {participant.asn}</div>
               )}
-              <div className="text-xs text-gray-500">Active Courses:</div>
-              {renderActiveCourses(participant.courses)}
+              <div className="text-xs text-gray-500">Course: {participant.Course_Value}</div>
             </>
           )}
         </div>
@@ -292,21 +397,22 @@ export default function ChatParticipantSearch({ onParticipantsSelect, courseInfo
         <h3 className="text-sm font-semibold mb-2">Course Staff:</h3>
         <ul className="bg-white border rounded-md shadow-lg">
           {courseTeachers && courseTeachers.map((teacherEmail, index) => {
+            const sanitizedEmail = safeEmailProcess(teacherEmail);
             const teacherDetails = courseStaffDetails[teacherEmail] || {};
             return (
               <li
                 key={`teacher-${index}`}
                 className="p-2 hover:bg-gray-100 cursor-pointer"
                 onClick={() => handleParticipantSelect({ 
-                  email: teacherEmail.toLowerCase(), // Ensure lowercase
-                  displayName: teacherDetails.displayName || teacherEmail, 
+                  email: sanitizedEmail,
+                  displayName: teacherDetails.displayName || sanitizedEmail, 
                   type: 'staff' 
                 })}
               >
                 <div className="flex items-center">
                   <UserCog size={16} className="mr-2 text-blue-500" />
                   <div>
-                    <div className="font-semibold">{teacherDetails.displayName || teacherEmail}</div>
+                    <div className="font-semibold">{teacherDetails.displayName || sanitizedEmail}</div>
                     <div className="text-xs text-gray-500">Teacher</div>
                   </div>
                 </div>
@@ -314,21 +420,22 @@ export default function ChatParticipantSearch({ onParticipantsSelect, courseInfo
             );
           })}
           {courseSupportStaff && courseSupportStaff.map((staffEmail, index) => {
+            const sanitizedEmail = safeEmailProcess(staffEmail);
             const staffDetails = courseStaffDetails[staffEmail] || {};
             return (
               <li
                 key={`support-${index}`}
                 className="p-2 hover:bg-gray-100 cursor-pointer"
                 onClick={() => handleParticipantSelect({ 
-                  email: staffEmail.toLowerCase(), // Ensure lowercase
-                  displayName: staffDetails.displayName || staffEmail, 
+                  email: sanitizedEmail,
+                  displayName: staffDetails.displayName || sanitizedEmail, 
                   type: 'staff' 
                 })}
               >
                 <div className="flex items-center">
                   <UserCog size={16} className="mr-2 text-blue-500" />
                   <div>
-                    <div className="font-semibold">{staffDetails.displayName || staffEmail}</div>
+                    <div className="font-semibold">{staffDetails.displayName || sanitizedEmail}</div>
                     <div className="text-xs text-gray-500">Support Staff</div>
                   </div>
                 </div>
@@ -449,15 +556,21 @@ export default function ChatParticipantSearch({ onParticipantsSelect, courseInfo
         <div className="mt-4">
           <h3 className="text-sm font-semibold mb-2">Selected Participants:</h3>
           {renderParticipantList()}
+          <div className="mt-4 flex space-x-2">
+            <button
+              onClick={handleStartNewChat}
+              className="flex-1 bg-blue-500 text-white rounded-md p-2 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150 ease-in-out"
+            >
+              Start New Chat
+            </button>
+            <button
+              onClick={handleOpenChatList}
+              className="flex-1 bg-green-500 text-white rounded-md p-2 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 transition duration-150 ease-in-out"
+            >
+              Select Existing Chat
+            </button>
+          </div>
         </div>
-      )}
-      {selectedParticipants.length > 0 && (
-        <button
-          onClick={handleDoneSelecting}
-          className="mt-4 bg-blue-500 text-white rounded-md p-2 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150 ease-in-out w-full"
-        >
-          Start Chat
-        </button>
       )}
     </div>
   );

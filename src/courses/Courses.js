@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { getDatabase, ref, onValue, update } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { FaEdit, FaSave, FaExclamationTriangle, FaTimes } from 'react-icons/fa';
+import { FaEdit, FaExclamationTriangle } from 'react-icons/fa';
 import Modal from 'react-modal';
 import Select from 'react-select';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import CourseUnitsEditor from './CourseUnitsEditor';
 
 Modal.setAppElement('#root');
 
@@ -18,7 +19,6 @@ function Courses() {
   const [isEditing, setIsEditing] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const [staffMembers, setStaffMembers] = useState([]);
-  const [originalCourseData, setOriginalCourseData] = useState({});
 
   const activeOptions = [
     { value: 'Current', label: 'Current' },
@@ -53,6 +53,9 @@ function Courses() {
       const data = snapshot.val();
       if (data) {
         setCourses(data);
+        if (selectedCourseId) {
+          setCourseData(data[selectedCourseId]);
+        }
       } else {
         setCourses({});
       }
@@ -74,7 +77,7 @@ function Courses() {
         setStaffMembers([]);
       }
     });
-  }, [user, isStaff, navigate]);
+  }, [user, isStaff, navigate, selectedCourseId]);
 
   const handleCourseSelect = (courseId) => {
     setSelectedCourseId(courseId);
@@ -84,24 +87,72 @@ function Courses() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setCourseData((prevData) => ({
-      ...prevData,
+    const updatedData = {
+      ...courseData,
       [name]: value,
-    }));
+    };
+    setCourseData(updatedData);
+
+    // Update database directly
+    const db = getDatabase();
+    const courseRef = ref(db, `courses/${selectedCourseId}`);
+    update(courseRef, { [name]: value })
+      .catch((error) => {
+        console.error('Error updating course:', error);
+        alert('An error occurred while updating the course.');
+      });
   };
 
   const handleSelectChange = (selectedOption, { name }) => {
-    setCourseData((prevData) => ({
-      ...prevData,
+    const updatedData = {
+      ...courseData,
       [name]: selectedOption.value,
-    }));
+    };
+    setCourseData(updatedData);
+
+    // Update database directly
+    const db = getDatabase();
+    const courseRef = ref(db, `courses/${selectedCourseId}`);
+    update(courseRef, { [name]: selectedOption.value })
+      .catch((error) => {
+        console.error('Error updating course:', error);
+        alert('An error occurred while updating the course.');
+      });
   };
 
   const handleMultiSelectChange = (selectedOptions, { name }) => {
-    setCourseData((prevData) => ({
-      ...prevData,
-      [name]: selectedOptions.map(option => option.value),
-    }));
+    const values = selectedOptions.map(option => option.value);
+    const updatedData = {
+      ...courseData,
+      [name]: values,
+    };
+    setCourseData(updatedData);
+
+    // Update database directly
+    const db = getDatabase();
+    const courseRef = ref(db, `courses/${selectedCourseId}`);
+    update(courseRef, { [name]: values })
+      .catch((error) => {
+        console.error('Error updating course:', error);
+        alert('An error occurred while updating the course.');
+      });
+  };
+
+  const handleUnitsChange = (newUnits) => {
+    const updatedData = {
+      ...courseData,
+      units: newUnits,
+    };
+    setCourseData(updatedData);
+
+    // Update database directly
+    const db = getDatabase();
+    const courseRef = ref(db, `courses/${selectedCourseId}`);
+    update(courseRef, { units: newUnits })
+      .catch((error) => {
+        console.error('Error updating course:', error);
+        alert('An error occurred while updating the course.');
+      });
   };
 
   const handleEditClick = () => {
@@ -111,53 +162,10 @@ function Courses() {
   const confirmEdit = () => {
     setShowWarning(false);
     setIsEditing(true);
-    setOriginalCourseData(courseData);
   };
 
   const cancelEdit = () => {
     setShowWarning(false);
-    setIsEditing(false);
-    setCourseData(originalCourseData);
-  };
-
-  const handleCancelEdit = () => {
-    setCourseData(originalCourseData);
-    setIsEditing(false);
-  };
-
-  const handleSave = () => {
-    const db = getDatabase();
-    const courseRef = ref(db, `courses/${selectedCourseId}`);
-    update(courseRef, courseData)
-      .then(() => {
-        alert('Course updated successfully.');
-        setIsEditing(false);
-      })
-      .catch((error) => {
-        console.error('Error updating course:', error);
-        alert('An error occurred while updating the course.');
-      });
-  };
-
-  const handleAddUnit = () => {
-    const unitFields = Object.keys(courseData)
-      .filter((key) => key.startsWith('Unit') && !isNaN(key.replace('Unit', '')))
-      .sort((a, b) => {
-        const numA = parseInt(a.replace('Unit', ''), 10);
-        const numB = parseInt(b.replace('Unit', ''), 10);
-        return numA - numB;
-      });
-    const newUnitNumber = unitFields.length + 1;
-    const newUnitKey = `Unit${newUnitNumber}`;
-    setCourseData((prevData) => ({
-      ...prevData,
-      [newUnitKey]: '',
-    }));
-  };
-
-  const handleDeleteUnit = (unitKey) => {
-    const { [unitKey]: _, ...rest } = courseData;
-    setCourseData(rest);
   };
 
   const inputClass = `mt-1 block w-full p-2 border ${
@@ -190,7 +198,7 @@ function Courses() {
           <div>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">
-                Editing Course: {courses[selectedCourseId].Title || selectedCourseId}
+                Course: {courses[selectedCourseId].Title || selectedCourseId}
               </h2>
               <div className="flex items-center space-x-2">
                 {!isEditing && (
@@ -201,25 +209,9 @@ function Courses() {
                     <FaEdit className="mr-1" /> Edit Course
                   </button>
                 )}
-                {isEditing && (
-                  <>
-                    <button
-                      onClick={handleSave}
-                      className="flex items-center px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition duration-200 text-sm"
-                    >
-                      <FaSave className="mr-1" /> Save Changes
-                    </button>
-                    <button
-                      onClick={handleCancelEdit}
-                      className="flex items-center px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 transition duration-200 text-sm"
-                    >
-                      <FaTimes className="mr-1" /> Cancel
-                    </button>
-                  </>
-                )}
               </div>
             </div>
-            <form className="space-y-4">
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
               {/* Course Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700">
@@ -397,46 +389,12 @@ function Courses() {
                 />
               </div>
 
-              {/* Units */}
-              <h3 className="text-lg font-bold mt-6">Units</h3>
-              {Object.keys(courseData)
-                .filter((key) => key.startsWith('Unit') && !isNaN(key.replace('Unit', '')))
-                .sort((a, b) => {
-                  const numA = parseInt(a.replace('Unit', ''), 10);
-                  const numB = parseInt(b.replace('Unit', ''), 10);
-                  return numA - numB;
-                })
-                .map((unitKey, index) => (
-                  <div key={unitKey}>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Unit {index + 1}
-                    </label>
-                    <textarea
-                      name={unitKey}
-                      value={courseData[unitKey] || ''}
-                      onChange={handleInputChange}
-                      disabled={!isEditing}
-                      className={inputClass}
-                      rows={3}
-                    />
-                  {isEditing && (
-                      <button
-                        onClick={() => handleDeleteUnit(unitKey)}
-                        className="mt-1 px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition duration-200 text-sm"
-                      >
-                        Delete Unit
-                      </button>
-                    )}
-                  </div>
-                ))}
-              {isEditing && (
-                <button
-                  onClick={handleAddUnit}
-                  className="mt-4 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition duration-200 text-sm"
-                >
-                  Add New Unit
-                </button>
-              )}
+              {/* Course Units Editor */}
+              <CourseUnitsEditor
+                units={courseData.units || []}
+                onUnitsChange={handleUnitsChange}
+                isEditing={isEditing}
+              />
             </form>
           </div>
         ) : (
@@ -456,8 +414,8 @@ function Courses() {
           <FaExclamationTriangle className="text-yellow-500 text-4xl mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">Warning</h2>
           <p className="mb-4">
-            Editing course data can affect students' access and progress. Are you sure you want to
-            proceed?
+            Editing course data can affect students' access and progress. Changes made cannot be undone.
+            Are you sure you want to proceed?
           </p>
           <div className="flex justify-center space-x-4">
             <button

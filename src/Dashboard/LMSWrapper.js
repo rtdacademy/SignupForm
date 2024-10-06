@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// LMSWrapper.jsx
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   FaBook,
@@ -29,33 +30,38 @@ const LMSWrapper = () => {
   const [studentProfile, setStudentProfile] = useState(null);
   const [schedule, setSchedule] = useState(null);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false); // New state for large screen sidebar
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [courseTeachers, setCourseTeachers] = useState([]);
   const [courseSupportStaff, setCourseSupportStaff] = useState([]);
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // Create a stable empty array reference
+  const emptyArray = useMemo(() => [], []);
+
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const cid = searchParams.get('cid');
     setCourseId(cid);
+  }, [location]);
 
+  useEffect(() => {
     const fetchData = async () => {
-      if (user && cid) {
+      if (user && courseId) {
         const db = getDatabase();
         const sanitizedEmail = sanitizeEmail(user.email);
 
         try {
-          const courseSnapshot = await get(ref(db, `courses/${cid}`));
+          const courseSnapshot = await get(ref(db, `courses/${courseId}`));
           if (courseSnapshot.exists()) {
             const courseData = courseSnapshot.val();
             setCourseInfo(courseData);
-            setCourseTeachers(courseData.Teachers || []);
-            setCourseSupportStaff(courseData.SupportStaff || []);
+            setCourseTeachers(courseData.Teachers || emptyArray);
+            setCourseSupportStaff(courseData.SupportStaff || emptyArray);
           }
 
-          const studentCourseSnapshot = await get(ref(db, `students/${sanitizedEmail}/courses/${cid}`));
+          const studentCourseSnapshot = await get(ref(db, `students/${sanitizedEmail}/courses/${courseId}`));
           if (studentCourseSnapshot.exists()) {
             const studentCourseData = studentCourseSnapshot.val();
             setStudentCourseInfo(studentCourseData);
@@ -74,9 +80,9 @@ const LMSWrapper = () => {
     };
 
     fetchData();
-  }, [location, user, courseId]);
+  }, [user, courseId, emptyArray]);
 
-  const navItems = [
+  const navItems = useMemo(() => [
     { icon: <FaHome />, label: 'Portal', content: 'Back to Student Portal' },
     { icon: <FaBook />, label: 'Courses', content: 'Course content goes here' },
     { icon: <FaGraduationCap />, label: 'Gradebook', content: 'gradebook' },
@@ -85,30 +91,40 @@ const LMSWrapper = () => {
     { icon: <FaCog />, label: 'Settings', content: 'Settings content goes here' },
     { icon: <FaRegCalendarCheck />, label: 'Book Time', content: 'booking' },
     { icon: <FaBell />, label: 'Notifications', content: 'Notifications' },
-  ];
+  ], []);
 
-  const handleIconClick = (label) => {
+  const handleIconClick = useCallback((label) => {
     setExpandedIcon(label);
     setIsMobileNavOpen(false);
-  };
+  }, []);
 
-  const closeMobileNav = () => {
+  const closeMobileNav = useCallback(() => {
     setIsMobileNavOpen(false);
-  };
+  }, []);
 
-  const closeExpandedContent = () => {
+  const closeExpandedContent = useCallback(() => {
     setExpandedIcon(null);
-  };
+  }, []);
 
-  const handleReturnToPortal = () => {
+  const handleReturnToPortal = useCallback(() => {
     navigate('/dashboard');
-  };
+  }, [navigate]);
 
-  const handleChatSelect = (chatId) => {
+  const handleChatSelect = useCallback((chatId) => {
     setExpandedIcon('Messages');
-  };
+  }, []);
 
-  const renderExpandedContent = () => {
+  // Memoize the ChatApp component
+  const MemoizedChatApp = useMemo(() => (
+    <ChatApp 
+      courseInfo={courseInfo} 
+      courseTeachers={courseTeachers} 
+      courseSupportStaff={courseSupportStaff} 
+      initialParticipants={studentCourseInfo?.participants || []}
+    />
+  ), [courseInfo, courseTeachers, courseSupportStaff, studentCourseInfo]);
+
+  const renderExpandedContent = useCallback(() => {
     if (expandedIcon === 'Portal') {
       return (
         <button
@@ -146,13 +162,13 @@ const LMSWrapper = () => {
         />
       );
     } else if (expandedIcon === 'Messages') {
-      return <ChatApp courseInfo={courseInfo} courseTeachers={courseTeachers} courseSupportStaff={courseSupportStaff} />;
+      return MemoizedChatApp;
     } else if (expandedIcon === 'Notifications') {
       return <NotificationsComponent onChatSelect={handleChatSelect} />;
     } else {
       return <p className="text-gray-300">{navItems.find((item) => item.label === expandedIcon)?.content}</p>;
     }
-  };
+  }, [expandedIcon, courseId, schedule, MemoizedChatApp, handleChatSelect, handleReturnToPortal, navItems]);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -235,4 +251,4 @@ const LMSWrapper = () => {
   );
 };
 
-export default LMSWrapper;
+export default React.memo(LMSWrapper);
