@@ -81,6 +81,8 @@ const AddChatParticipantDialog = ({ isOpen, onClose, onAddParticipant, currentPa
   }, [db, courseInfo]);
 
   const searchParticipants = useCallback(async () => {
+    if (!isOpen) return;
+
     setIsSearching(true);
     let results = [];
 
@@ -139,30 +141,38 @@ const AddChatParticipantDialog = ({ isOpen, onClose, onAddParticipant, currentPa
           }
         });
       }
+
+      results = results.filter(r => !currentParticipants.includes(safeEmailProcess(r.email)));
+      setSearchResults(results);
+      setStudentCount(results.filter(r => r.type === 'student').length);
+      setStaffCount(results.filter(r => r.type === 'staff').length);
+      setShowResults(true);
     } catch (error) {
       console.error("Error searching participants:", error);
+    } finally {
+      setIsSearching(false);
     }
-
-    results = results.filter(r => !currentParticipants.includes(safeEmailProcess(r.email)));
-    setSearchResults(results);
-    setStudentCount(results.filter(r => r.type === 'student').length);
-    setStaffCount(results.filter(r => r.type === 'staff').length);
-    setIsSearching(false);
-  }, [db, searchTerm, selectedCourses, showOnlyActive, selectedUserType, isStaff, currentParticipants]);
+  }, [isOpen, db, searchTerm, selectedCourses, showOnlyActive, selectedUserType, isStaff, currentParticipants]);
 
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      if (searchTerm || selectedCourses.length > 0) {
-        searchParticipants();
-        setShowResults(true);
-      } else {
-        setSearchResults([]);
-        setShowResults(false);
-      }
-    }, 300);
+    if (isOpen) {
+      // Reset search state when dialog opens
+      setSearchTerm('');
+      setSearchResults([]);
+      setShowResults(false);
+      setIsSearching(false);
+    }
+  }, [isOpen]);
 
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchParticipants, searchTerm, selectedCourses]);
+  useEffect(() => {
+    if (isOpen && (searchTerm || selectedCourses.length > 0)) {
+      const delayDebounceFn = setTimeout(() => {
+        searchParticipants();
+      }, 300);
+
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [isOpen, searchTerm, selectedCourses, searchParticipants]);
 
   const handleClearSearch = () => {
     setSearchTerm('');

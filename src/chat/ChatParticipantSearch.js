@@ -15,7 +15,9 @@ const safeEmailProcess = (email) => {
   return sanitizeEmail(email.toLowerCase());
 };
 
-export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, courseInfo, courseTeachers, courseSupportStaff }) {
+// Helper functions and component setup remain unchanged
+
+function ChatParticipantSearch({ onStartNewChat, onOpenChatList, courseInfo, courseTeachers, courseSupportStaff }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [selectedParticipants, setSelectedParticipants] = useState([]);
@@ -329,18 +331,18 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
     }
   }, [selectedParticipants, onOpenChatList]);
 
-  // Remove the old handleDoneSelecting function if it exists
-
   const handleClearSearch = () => {
     setSearchTerm('');
     searchParticipants();
   };
 
+  // Updated rendering functions with improved color contrast
+
   const renderActiveCourses = (activeCourses) => {
     if (!activeCourses || activeCourses.length === 0) return null;
 
     return activeCourses.map((course) => (
-      <div key={course.id} className="text-xs text-gray-500">
+      <div key={course.id} className="text-xs text-gray-600 dark:text-gray-300">
         {course.name}
       </div>
     )).slice(0, 3); // Limit to 3 courses
@@ -348,20 +350,21 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
 
   const renderParticipantInfo = (participant) => {
     const IconComponent = participant.type === 'staff' ? UserCog : User;
+    const iconColor = participant.type === 'staff' ? 'text-primary' : 'text-secondary';
     return (
       <div className="flex items-center">
-        <IconComponent size={16} className={`mr-2 ${participant.type === 'staff' ? 'text-blue-500' : 'text-green-500'}`} />
+        <IconComponent size={16} className={`mr-2 ${iconColor}`} />
         <div>
-          <div className="font-semibold">{participant.displayName}</div>
-          <div className="text-xs text-gray-500">
+          <div className="font-semibold text-gray-800 dark:text-gray-100">{participant.displayName}</div>
+          <div className="text-xs text-gray-600 dark:text-gray-300">
             {participant.type === 'staff' ? 'Staff' : 'Student'}
           </div>
           {participant.type === 'student' && (
             <>
               {isStaff && participant.asn && (
-                <div className="text-xs text-gray-500">ASN: {participant.asn}</div>
+                <div className="text-xs text-gray-600 dark:text-gray-300">ASN: {participant.asn}</div>
               )}
-              <div className="text-xs text-gray-500">Course: {participant.Course_Value}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-300">Course: {participant.Course_Value}</div>
             </>
           )}
         </div>
@@ -373,11 +376,11 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
     return (
       <div className="flex flex-wrap gap-2">
         {selectedParticipants.map((participant) => (
-          <div key={participant.email} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center">
+          <div key={participant.email} className="bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 px-2 py-1 rounded-full flex items-center">
             <span className="text-sm">{participant.displayName}</span>
             <button
               onClick={() => handleRemoveParticipant(participant)}
-              className="ml-2 text-blue-600 hover:text-blue-800 focus:outline-none"
+              className="ml-2 text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 focus:outline-none"
             >
               <X size={16} />
             </button>
@@ -394,15 +397,15 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
 
     return (
       <div className="mb-4">
-        <h3 className="text-sm font-semibold mb-2">Course Staff:</h3>
-        <ul className="bg-white border rounded-md shadow-lg">
+        <h3 className="text-sm font-semibold mb-2 text-gray-800 dark:text-gray-200">Course Staff:</h3>
+        <ul className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg">
           {courseTeachers && courseTeachers.map((teacherEmail, index) => {
             const sanitizedEmail = safeEmailProcess(teacherEmail);
             const teacherDetails = courseStaffDetails[teacherEmail] || {};
             return (
               <li
                 key={`teacher-${index}`}
-                className="p-2 hover:bg-gray-100 cursor-pointer"
+                className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
                 onClick={() => handleParticipantSelect({ 
                   email: sanitizedEmail,
                   displayName: teacherDetails.displayName || sanitizedEmail, 
@@ -410,10 +413,10 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
                 })}
               >
                 <div className="flex items-center">
-                  <UserCog size={16} className="mr-2 text-blue-500" />
+                  <UserCog size={16} className="mr-2 text-primary dark:text-primary-light" />
                   <div>
-                    <div className="font-semibold">{teacherDetails.displayName || sanitizedEmail}</div>
-                    <div className="text-xs text-gray-500">Teacher</div>
+                    <div className="font-semibold text-gray-800 dark:text-gray-200">{teacherDetails.displayName || sanitizedEmail}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300">Teacher</div>
                   </div>
                 </div>
               </li>
@@ -425,7 +428,7 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
             return (
               <li
                 key={`support-${index}`}
-                className="p-2 hover:bg-gray-100 cursor-pointer"
+                className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
                 onClick={() => handleParticipantSelect({ 
                   email: sanitizedEmail,
                   displayName: staffDetails.displayName || sanitizedEmail, 
@@ -433,10 +436,10 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
                 })}
               >
                 <div className="flex items-center">
-                  <UserCog size={16} className="mr-2 text-blue-500" />
+                  <UserCog size={16} className="mr-2 text-primary dark:text-primary-light" />
                   <div>
-                    <div className="font-semibold">{staffDetails.displayName || sanitizedEmail}</div>
-                    <div className="text-xs text-gray-500">Support Staff</div>
+                    <div className="font-semibold text-gray-800 dark:text-gray-200">{staffDetails.displayName || sanitizedEmail}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-300">Support Staff</div>
                   </div>
                 </div>
               </li>
@@ -459,6 +462,34 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
             isMulti
             className="react-select-container"
             classNamePrefix="react-select"
+            styles={{
+              control: (baseStyles) => ({
+                ...baseStyles,
+                backgroundColor: 'white',
+                borderColor: '#d1d5db',
+              }),
+              option: (baseStyles, state) => ({
+                ...baseStyles,
+                backgroundColor: state.isFocused ? '#e5e7eb' : 'white',
+                color: '#1f2937',
+              }),
+              multiValue: (baseStyles) => ({
+                ...baseStyles,
+                backgroundColor: '#e5e7eb',
+              }),
+              multiValueLabel: (baseStyles) => ({
+                ...baseStyles,
+                color: '#1f2937',
+              }),
+              multiValueRemove: (baseStyles) => ({
+                ...baseStyles,
+                color: '#1f2937',
+                ':hover': {
+                  backgroundColor: '#d1d5db',
+                  color: '#1f2937',
+                },
+              }),
+            }}
           />
         </div>
         <div className="flex-grow min-w-[200px]">
@@ -469,18 +500,30 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
             placeholder="Select User Type"
             className="react-select-container"
             classNamePrefix="react-select"
+            styles={{
+              control: (baseStyles) => ({
+                ...baseStyles,
+                backgroundColor: 'white',
+                borderColor: '#d1d5db',
+              }),
+              option: (baseStyles, state) => ({
+                ...baseStyles,
+                backgroundColor: state.isFocused ? '#e5e7eb' : 'white',
+                color: '#1f2937',
+              }),
+            }}
           />
         </div>
       </div>
-      <div className="flex items-center">
+      <div className="flex items-center mt-2">
         <input
           type="checkbox"
           id="showOnlyActive"
           checked={showOnlyActive}
           onChange={(e) => setShowOnlyActive(e.target.checked)}
-          className="mr-2"
+          className="mr-2 h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
         />
-        <label htmlFor="showOnlyActive" className="text-sm text-gray-700 whitespace-nowrap">
+        <label htmlFor="showOnlyActive" className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
           Active only
         </label>
       </div>
@@ -493,8 +536,8 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
         {renderCourseStaff()}
         {!isStaff && (
           <button
-            onClick={() => setShowAdvancedSearch(prev => !prev)} // Toggle the state
-            className="mt-2 bg-gray-200 text-gray-700 rounded-full px-4 py-1 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 transition duration-150 ease-in-out flex items-center justify-center"
+            onClick={() => setShowAdvancedSearch(prev => !prev)}
+            className="mt-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-full px-4 py-1 hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-500 transition duration-150 ease-in-out flex items-center justify-center"
           >
             {showAdvancedSearch ? 'Hide Other Participants' : 'Find Other Participants'} 
             {showAdvancedSearch ? <ChevronUp className="inline ml-2" size={16} /> : <ChevronDown className="inline ml-2" size={16} />}
@@ -503,21 +546,21 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
         {(isStaff || showAdvancedSearch) && (
           <>
             {renderAdvancedSearchOptions()}
-            <div className="relative">
+            <div className="relative mt-2">
               <input
                 ref={searchInputRef}
                 type="text"
-                className="w-full p-2 pl-10 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="w-full p-2 pl-10 pr-10 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-light dark:text-white dark:bg-gray-800 text-gray-800"
                 placeholder="Search for participants..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onFocus={() => setShowResults(true)}
               />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400" size={20} />
               {searchTerm && (
                 <button
                   onClick={handleClearSearch}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 >
                   <X size={20} />
                 </button>
@@ -525,21 +568,21 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
             </div>
             <div className="flex-grow">
               {isSearching && (
-                <div className="mt-2 text-center text-gray-500">Searching...</div>
+                <div className="mt-2 text-center text-gray-600 dark:text-gray-300">Searching...</div>
               )}
               {showResults && !isSearching && (
                 <>
-                  <div className="mt-2 text-sm text-gray-600">
+                  <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                     Showing {studentCount} student{studentCount !== 1 ? 's' : ''} and {staffCount} staff member{staffCount !== 1 ? 's' : ''}
                   </div>
-                  <ul ref={searchResultsRef} className="mt-2 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  <ul ref={searchResultsRef} className="mt-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     {searchResults.map((participant) => (
                       <li
-                        key={participant.id || participant.email} // Use email as key if id is not present
-                        className="p-2 hover:bg-gray-100 cursor-pointer"
+                        key={participant.id || participant.email}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
                         onClick={() => {
                           handleParticipantSelect(participant);
-                          setShowResults(false); // Close the search results list after selection
+                          setShowResults(false);
                         }}
                       >
                         {renderParticipantInfo(participant)}
@@ -554,18 +597,18 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
       </div>
       {selectedParticipants.length > 0 && (
         <div className="mt-4">
-          <h3 className="text-sm font-semibold mb-2">Selected Participants:</h3>
+          <h3 className="text-sm font-semibold mb-2 text-gray-800 dark:text-gray-200">Selected Participants:</h3>
           {renderParticipantList()}
           <div className="mt-4 flex space-x-2">
             <button
               onClick={handleStartNewChat}
-              className="flex-1 bg-blue-500 text-white rounded-md p-2 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150 ease-in-out"
+              className="flex-1 bg-primary text-white dark:text-gray-100 rounded-md p-2 hover:bg-primary-dark dark:hover:bg-primary-light focus:outline-none focus:ring-2 focus:ring-primary transition duration-150 ease-in-out"
             >
               Start New Chat
             </button>
             <button
               onClick={handleOpenChatList}
-              className="flex-1 bg-green-500 text-white rounded-md p-2 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 transition duration-150 ease-in-out"
+              className="flex-1 bg-secondary text-white dark:text-gray-100 rounded-md p-2 hover:bg-secondary-dark dark:hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-secondary transition duration-150 ease-in-out"
             >
               Select Existing Chat
             </button>
@@ -575,3 +618,5 @@ export default function ChatParticipantSearch({ onStartNewChat, onOpenChatList, 
     </div>
   );
 }
+
+export default ChatParticipantSearch;

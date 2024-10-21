@@ -1,7 +1,7 @@
 import * as React from "react"
 import { cn } from "../../lib/utils"
 
-const buttonVariants = ({ variant = "default", size = "default" }) => {
+const buttonVariants = ({ variant = "default", size = "default" } = {}) => {
   const variantClasses = {
     default: "bg-primary text-primary-foreground hover:bg-primary/90",
     outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",

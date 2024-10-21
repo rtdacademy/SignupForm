@@ -16,13 +16,14 @@ import {
   FaChevronRight,
   FaChevronLeft,
 } from 'react-icons/fa';
-import { getDatabase, ref, get } from 'firebase/database';
+import { getDatabase, ref, get, onValue } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import ChatApp from '../chat/ChatApp';
-import NotificationsComponent from '../chat/NotificationsComponent';
+import Notifications from '../Notifications/Notifications';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 const LMSWrapper = () => {
+  // Existing state variables
   const [expandedIcon, setExpandedIcon] = useState(null);
   const [courseId, setCourseId] = useState(null);
   const [courseInfo, setCourseInfo] = useState(null);
@@ -33,6 +34,8 @@ const LMSWrapper = () => {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [courseTeachers, setCourseTeachers] = useState([]);
   const [courseSupportStaff, setCourseSupportStaff] = useState([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0); // New state variable
+
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -61,7 +64,9 @@ const LMSWrapper = () => {
             setCourseSupportStaff(courseData.SupportStaff || emptyArray);
           }
 
-          const studentCourseSnapshot = await get(ref(db, `students/${sanitizedEmail}/courses/${courseId}`));
+          const studentCourseSnapshot = await get(
+            ref(db, `students/${sanitizedEmail}/courses/${courseId}`)
+          );
           if (studentCourseSnapshot.exists()) {
             const studentCourseData = studentCourseSnapshot.val();
             setStudentCourseInfo(studentCourseData);
@@ -82,16 +87,42 @@ const LMSWrapper = () => {
     fetchData();
   }, [user, courseId, emptyArray]);
 
-  const navItems = useMemo(() => [
-    { icon: <FaHome />, label: 'Portal', content: 'Back to Student Portal' },
-    { icon: <FaBook />, label: 'Courses', content: 'Course content goes here' },
-    { icon: <FaGraduationCap />, label: 'Gradebook', content: 'gradebook' },
-    { icon: <FaClipboardList />, label: 'Schedule', content: 'Schedule content goes here' },
-    { icon: <FaComments />, label: 'Messages', content: 'Messaging content goes here' },
-    { icon: <FaCog />, label: 'Settings', content: 'Settings content goes here' },
-    { icon: <FaRegCalendarCheck />, label: 'Book Time', content: 'booking' },
-    { icon: <FaBell />, label: 'Notifications', content: 'Notifications' },
-  ], []);
+  // New useEffect for fetching unread notifications count
+  useEffect(() => {
+    if (!user) return;
+
+    const db = getDatabase();
+    const sanitizedEmail = sanitizeEmail(user.email);
+    const notificationsRef = ref(db, `notifications/${sanitizedEmail}`);
+
+    const unsubscribe = onValue(notificationsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const notificationsData = snapshot.val();
+        const unreadCount = Object.values(notificationsData).filter(
+          (notification) => !notification.read
+        ).length;
+        setUnreadNotificationsCount(unreadCount);
+      } else {
+        setUnreadNotificationsCount(0);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const navItems = useMemo(
+    () => [
+      { icon: <FaHome />, label: 'Portal', content: 'Back to Student Portal' },
+      { icon: <FaBook />, label: 'Courses', content: 'Course content goes here' },
+      { icon: <FaGraduationCap />, label: 'Gradebook', content: 'Gradebook' },
+      { icon: <FaClipboardList />, label: 'Schedule', content: 'Schedule content goes here' },
+      { icon: <FaComments />, label: 'Messages', content: 'Messaging content goes here' },
+      { icon: <FaCog />, label: 'Settings', content: 'Settings content goes here' },
+      { icon: <FaRegCalendarCheck />, label: 'Book Time', content: 'Booking' },
+      { icon: <FaBell />, label: 'Notifications', content: 'Notifications' },
+    ],
+    []
+  );
 
   const handleIconClick = useCallback((label) => {
     setExpandedIcon(label);
@@ -115,14 +146,17 @@ const LMSWrapper = () => {
   }, []);
 
   // Memoize the ChatApp component
-  const MemoizedChatApp = useMemo(() => (
-    <ChatApp 
-      courseInfo={courseInfo} 
-      courseTeachers={courseTeachers} 
-      courseSupportStaff={courseSupportStaff} 
-      initialParticipants={studentCourseInfo?.participants || []}
-    />
-  ), [courseInfo, courseTeachers, courseSupportStaff, studentCourseInfo]);
+  const MemoizedChatApp = useMemo(
+    () => (
+      <ChatApp
+        courseInfo={courseInfo}
+        courseTeachers={courseTeachers}
+        courseSupportStaff={courseSupportStaff}
+        initialParticipants={studentCourseInfo?.participants || []}
+      />
+    ),
+    [courseInfo, courseTeachers, courseSupportStaff, studentCourseInfo]
+  );
 
   const renderExpandedContent = useCallback(() => {
     if (expandedIcon === 'Portal') {
@@ -164,11 +198,23 @@ const LMSWrapper = () => {
     } else if (expandedIcon === 'Messages') {
       return MemoizedChatApp;
     } else if (expandedIcon === 'Notifications') {
-      return <NotificationsComponent onChatSelect={handleChatSelect} />;
+      return <Notifications onChatSelect={handleChatSelect} />;
     } else {
-      return <p className="text-gray-300">{navItems.find((item) => item.label === expandedIcon)?.content}</p>;
+      return (
+        <p className="text-gray-300">
+          {navItems.find((item) => item.label === expandedIcon)?.content}
+        </p>
+      );
     }
-  }, [expandedIcon, courseId, schedule, MemoizedChatApp, handleChatSelect, handleReturnToPortal, navItems]);
+  }, [
+    expandedIcon,
+    courseId,
+    schedule,
+    MemoizedChatApp,
+    handleChatSelect,
+    handleReturnToPortal,
+    navItems,
+  ]);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -186,7 +232,9 @@ const LMSWrapper = () => {
       <div
         className={`fixed inset-y-0 left-0 z-40 bg-gray-800 text-white transform transition-transform duration-300 ease-in-out ${
           isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'
-        } sm:relative sm:translate-x-0 sm:w-${isSidebarExpanded ? '64' : '20'}`}
+        } sm:relative sm:translate-x-0 ${
+          isSidebarExpanded ? 'sm:w-64' : 'sm:w-20'
+        }`}
       >
         <div className="h-full flex flex-col">
           <div className="flex-shrink-0 p-4 flex justify-between items-center">
@@ -210,7 +258,14 @@ const LMSWrapper = () => {
                 }`}
               >
                 <span className="inline-block align-middle mr-2">{item.icon}</span>
-                {isSidebarExpanded && <span className="inline-block align-middle">{item.label}</span>}
+                {isSidebarExpanded && (
+                  <span className="inline-block align-middle">{item.label}</span>
+                )}
+                {item.label === 'Notifications' && unreadNotificationsCount > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                    {unreadNotificationsCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>

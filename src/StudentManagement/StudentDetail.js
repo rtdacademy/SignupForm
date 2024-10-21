@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getDatabase, ref, onValue, off, update, get, set } from 'firebase/database';
+import { getDatabase, ref, onValue, off, update, get } from 'firebase/database';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
-import { Sheet, SheetContent, SheetTrigger } from "../components/ui/sheet";
-import { Edit2, Trash2, ExternalLink, Calendar } from 'lucide-react';
-import { Textarea } from '../components/ui/textarea';
+import { Sheet, SheetContent } from "../components/ui/sheet";
+import { Edit2, ExternalLink, Calendar } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
-import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import StudentDetailsSheet from './StudentDetailsSheet';
 import ScheduleMaker from '../Schedule/ScheduleMaker'; 
 import StudentNotes from './StudentNotes';
+import SchedCombined from '../Schedule/schedCombined';
 
 // Function to generate a color based on initials
 const getColorFromInitials = (initials) => {
@@ -37,12 +37,14 @@ function StudentDetail({ studentSummary }) {
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [notes, setNotes] = useState([]);
   const { user } = useAuth();
-  const [visibleSections, setVisibleSections] = useState(['notes', 'gradebook', 'schedule']);
+  const [visibleSections, setVisibleSections] = useState(['notes']);
   const [changedFields, setChangedFields] = useState({});
   const [assignedStaff, setAssignedStaff] = useState([]);
   const [courseId, setCourseId] = useState(null);
   const [courseTitle, setCourseTitle] = useState('');
   const prevDataRef = useRef();
+  const [hasJsonGradebookSchedule, setHasJsonGradebookSchedule] = useState(false);
+  const [jsonGradebookSchedule, setJsonGradebookSchedule] = useState(null);
 
   useEffect(() => {
     if (!studentSummary) {
@@ -50,6 +52,8 @@ function StudentDetail({ studentSummary }) {
       setNotes([]);
       setCourseId(null);
       setCourseTitle('');
+      setHasJsonGradebookSchedule(false);
+      setJsonGradebookSchedule(null);
       return;
     }
 
@@ -63,11 +67,13 @@ function StudentDetail({ studentSummary }) {
         const data = snapshot.val();
         setStudentData(data);
 
-        const courseIds = Object.keys(data.courses || {});
-        if (courseIds.length > 0) {
-          const selectedCourseId = courseIds[0];
+        // Use the CourseID from studentSummary
+        const selectedCourseId = studentSummary.CourseID;
+
+        if (data.courses && data.courses[selectedCourseId]) {
           setCourseId(selectedCourseId);
 
+          // Fetch courseTitle
           const courseTitleRef = ref(db, `courses/${selectedCourseId}/Title`);
           try {
             const courseSnapshot = await get(courseTitleRef);
@@ -79,6 +85,26 @@ function StudentDetail({ studentSummary }) {
           } catch (error) {
             console.error('Error fetching course title:', error);
             setCourseTitle('Unknown Course');
+          }
+
+          // Check for jsonGradebookSchedule
+          const jsonGradebookScheduleRef = ref(db, `students/${sanitizedEmail}/courses/${selectedCourseId}/jsonGradebookSchedule`);
+          try {
+            const scheduleSnapshot = await get(jsonGradebookScheduleRef);
+            if (scheduleSnapshot.exists()) {
+              setHasJsonGradebookSchedule(true);
+              setJsonGradebookSchedule(scheduleSnapshot.val());
+              setVisibleSections(['notes', 'progress']);
+            } else {
+              setHasJsonGradebookSchedule(false);
+              setJsonGradebookSchedule(null);
+              setVisibleSections(['notes', 'gradebook', 'schedule']);
+            }
+          } catch (error) {
+            console.error('Error fetching jsonGradebookSchedule:', error);
+            setHasJsonGradebookSchedule(false);
+            setJsonGradebookSchedule(null);
+            setVisibleSections(['notes', 'gradebook', 'schedule']);
           }
 
           // Handle jsonStudentNotes
@@ -103,22 +129,9 @@ function StudentDetail({ studentSummary }) {
           } else {
             setNotes(courseData.jsonStudentNotes);
           }
-        } else {
-          setCourseId(null);
-          setCourseTitle('');
-          setNotes([]);
-        }
 
-        if (prevDataRef.current) {
-          const changed = findChangedFields(prevDataRef.current, data);
-          setChangedFields(changed);
-        }
-        prevDataRef.current = data;
-
-        // Fetch assigned staff
-        if (courseIds.length > 0) {
-          const courseIdToFetch = courseIds[0];
-          const courseRef = ref(db, `courses/${courseIdToFetch}`);
+          // Fetch assigned staff
+          const courseRef = ref(db, `courses/${selectedCourseId}`);
           try {
             const courseSnapshot = await get(courseRef);
             if (courseSnapshot.exists()) {
@@ -142,7 +155,18 @@ function StudentDetail({ studentSummary }) {
             console.error('Error fetching assigned staff:', error);
             setAssignedStaff([]);
           }
+        } else {
+          console.error(`Course ID ${selectedCourseId} not found for student ${sanitizedEmail}`);
+          setCourseId(null);
+          setCourseTitle('');
+          setNotes([]);
         }
+
+        if (prevDataRef.current) {
+          const changed = findChangedFields(prevDataRef.current, data);
+          setChangedFields(changed);
+        }
+        prevDataRef.current = data;
       } else {
         console.log('No student data available');
         setStudentData(null);
@@ -244,14 +268,14 @@ function StudentDetail({ studentSummary }) {
             </p>
           </div>
           <Button 
-            variant="primary" 
-            size="sm" 
-            onClick={() => setIsScheduleDialogOpen(true)}
-            className="hidden sm:flex items-center"
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            Schedule Maker
-          </Button>
+  variant="default" 
+  size="sm" 
+  onClick={() => setIsScheduleDialogOpen(true)}
+  className="hidden sm:flex items-center bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors"
+>
+  <Calendar className="h-4 w-4 mr-2" />
+  Schedule Maker
+</Button>
         </div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
           {/* Assigned Staff Avatars */}
@@ -296,19 +320,30 @@ function StudentDetail({ studentSummary }) {
             >
               Notes
             </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="gradebook" 
-              className="px-4 py-2 rounded-full data-[state=on]:bg-white data-[state=on]:text-[#40b3b3] text-white transition-colors"
-            >
-              Gradebook
-            </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="schedule" 
-              className="px-4 py-2 rounded-full data-[state=on]:bg-white data-[state=on]:text-[#40b3b3] text-white transition-colors"
-            >
-              Schedule
-            </ToggleGroupItem>
-            <ToggleGroupItem 
+            {hasJsonGradebookSchedule ? (
+              <ToggleGroupItem 
+                value="progress" 
+                className="px-4 py-2 rounded-full data-[state=on]:bg-white data-[state=on]:text-[#40b3b3] text-white transition-colors"
+              >
+                Progress
+              </ToggleGroupItem>
+            ) : (
+              <>
+                <ToggleGroupItem 
+                  value="gradebook" 
+                  className="px-4 py-2 rounded-full data-[state=on]:bg-white data-[state=on]:text-[#40b3b3] text-white transition-colors"
+                >
+                  Gradebook
+                </ToggleGroupItem>
+                <ToggleGroupItem 
+                  value="schedule" 
+                  className="px-4 py-2 rounded-full data-[state=on]:bg-white data-[state=on]:text-[#40b3b3] text-white transition-colors"
+                >
+                  Schedule
+                </ToggleGroupItem>
+              </>
+            )}
+           <ToggleGroupItem 
               value="more-info" 
               className="px-4 py-2 rounded-full data-[state=on]:bg-white data-[state=on]:text-[#40b3b3] text-white transition-colors"
             >
@@ -320,15 +355,15 @@ function StudentDetail({ studentSummary }) {
 
       {/* Schedule Maker Button for Mobile */}
       <div className="flex sm:hidden mb-4">
-        <Button 
-          variant="primary" 
-          size="sm" 
-          onClick={() => setIsScheduleDialogOpen(true)}
-          className="w-full flex items-center justify-center"
-        >
-          <Calendar className="h-4 w-4 mr-2" />
-          Schedule Maker
-        </Button>
+      <Button 
+  variant="default" 
+  size="sm" 
+  onClick={() => setIsScheduleDialogOpen(true)}
+  className="w-full flex items-center justify-center bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors"
+>
+  <Calendar className="h-4 w-4 mr-2" />
+  Schedule Maker
+</Button>
       </div>
 
       {/* Content Sections */}
@@ -343,129 +378,142 @@ function StudentDetail({ studentSummary }) {
                   studentEmail={studentSummary.StudentEmail}
                   courseId={courseId}
                   initialNotes={notes}
-                  onNotesUpdate={(updatedNotes) => {setNotes(updatedNotes);
+                  onNotesUpdate={(updatedNotes) => {
+                    setNotes(updatedNotes);
                     console.log('Notes updated:', updatedNotes);
                   }}
                 />
-                </CardContent>
-              </Card>
-            </div>
-          )}
-  
-          {/* Gradebook and Schedule Sections */}
-          <div className={`flex flex-col sm:flex-row flex-1 overflow-hidden space-y-4 sm:space-y-0 sm:space-x-4`}>
-            {/* Gradebook Section */}
-            {visibleSections.includes('gradebook') && (
-              <Card className="flex-1 bg-white shadow-md overflow-auto">
-                <CardContent className="p-4 h-full">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-semibold text-[#1fa6a7]">
-                      Gradebook
-                      {changedFields[`courses.${courseId}.GradebookHTML`] && (
-                        <span className="ml-2 text-yellow-500">●</span>
-                      )}
-                    </h4>
-                    {courseData.LinkToStudentInLMS && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => window.open(courseData.LinkToStudentInLMS, '_blank')}
-                        className="text-[#1fa6a7]"
-                      >
-                        <ExternalLink className="h-4 w-4 mr-1" />
-                        View in LMS
-                      </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )
+        }
+
+        {/* Gradebook and Schedule Sections */}
+        <div className={`flex flex-col sm:flex-row flex-1 overflow-hidden space-y-4 sm:space-y-0 sm:space-x-4`}>
+          {/* Gradebook Section */}
+          {!hasJsonGradebookSchedule && visibleSections.includes('gradebook') && (
+            <Card className="flex-1 bg-white shadow-md overflow-auto">
+              <CardContent className="p-4 h-full">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-semibold text-[#1fa6a7]">
+                    Gradebook
+                    {changedFields[`courses.${courseId}.GradebookHTML`] && (
+                      <span className="ml-2 text-yellow-500">●</span>
                     )}
-                  </div>
-                  {courseData.GradebookHTML ? (
-                    renderHTML(courseData.GradebookHTML)
-                  ) : (
-                    <p>No Gradebook available.</p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-  
-            {/* Schedule Section */}
-            {visibleSections.includes('schedule') && (
-              <Card className="flex-1 bg-white shadow-md overflow-auto">
-                <CardContent className="p-4 h-full">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-semibold text-[#1fa6a7]">
-                      Schedule
-                      {changedFields[`courses.${courseId}.Schedule`] && (
-                        <span className="ml-2 text-yellow-500">●</span>
-                      )}
-                    </h4>
+                  </h4>
+                  {courseData.LinkToStudentInLMS && (
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      onClick={() => setIsScheduleDialogOpen(true)}
-                      className="flex items-center"
+                      onClick={() => window.open(courseData.LinkToStudentInLMS, '_blank')}
+                      className="text-[#1fa6a7]"
                     >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Schedule Maker
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      View in LMS
                     </Button>
-                  </div>
-                  {courseData.Schedule ? (
-                    renderHTML(courseData.Schedule)
-                  ) : (
-                    <p>No Schedule available.</p>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+                {courseData.GradebookHTML ? (
+                  renderHTML(courseData.GradebookHTML)
+                ) : (
+                  <p>No Gradebook available.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Schedule Section */}
+          {!hasJsonGradebookSchedule && visibleSections.includes('schedule') && (
+            <Card className="flex-1 bg-white shadow-md overflow-auto">
+              <CardContent className="p-4 h-full">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-semibold text-[#1fa6a7]">
+                    Schedule
+                    {changedFields[`courses.${courseId}.Schedule`] && (
+                      <span className="ml-2 text-yellow-500">●</span>
+                    )}
+                  </h4>
+                  <Button
+  variant="outline"
+  size="sm"
+  onClick={() => setIsScheduleDialogOpen(true)}
+  className="flex items-center bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors"
+>
+  <Calendar className="h-4 w-4 mr-2" />
+  Schedule Maker
+</Button>
+                </div>
+                {courseData.Schedule ? (
+                  renderHTML(courseData.Schedule)
+                ) : (
+                  <p>No Schedule available.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Progress Section */}
+          {hasJsonGradebookSchedule && visibleSections.includes('progress') && (
+            <Card className="flex-1 bg-white shadow-md overflow-auto">
+              <CardContent className="p-4 h-full">
+                <h4 className="font-semibold mb-2 text-[#1fa6a7]">Progress</h4>
+                <SchedCombined jsonGradebookSchedule={jsonGradebookSchedule} />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {/* StudentDetailsSheet */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="right" className="w-full md:w-2/3 bg-gray-50">
+          <StudentDetailsSheet 
+            studentData={studentData}
+            courseData={courseData}
+            changedFields={changedFields}
+            courseId={courseId}
+            studentKey={sanitizeEmail(studentSummary.StudentEmail)}
+            onUpdate={() => {
+              // Refresh your data here if needed
+            }}
+            onClose={() => setIsSheetOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* Schedule Maker Dialog */}
+      <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
+        <DialogContent className="max-w-6xl w-full h-[90vh] overflow-auto bg-gray-50">
+          <DialogHeader>
+            <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4">
+              <DialogTitle className="flex items-center">
+                <Calendar className="h-6 w-6 mr-2" />
+                Schedule Maker
+              </DialogTitle>
+              <div className="text-sm text-gray-700 text-center sm:text-left">
+                <p><strong>Student:</strong> {studentData.profile.firstName} {studentData.profile.lastName}</p>
+                <p><strong>Course:</strong> {courseTitle}</p>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="h-full overflow-auto p-4 flex flex-col">
+            {courseId ? (
+              <div className="flex-1">
+                <ScheduleMaker 
+                  studentKey={sanitizeEmail(studentSummary.StudentEmail)} 
+                  courseId={courseId} 
+                  onClose={() => setIsScheduleDialogOpen(false)}
+                />
+              </div>
+            ) : (
+              <p className="text-gray-600">No course selected.</p>
             )}
           </div>
-        </div>
-  
-        {/* StudentDetailsSheet */}
-        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-          <SheetContent side="right" className="w-full md:w-2/3 bg-gray-50">
-            <StudentDetailsSheet 
-              studentData={studentData}
-              courseData={courseData}
-              changedFields={changedFields}
-              courseId={courseId}
-              studentKey={sanitizeEmail(studentSummary.StudentEmail)}
-              onUpdate={() => {
-                // Refresh your data here if needed
-              }}
-              onClose={() => setIsSheetOpen(false)}
-            />
-          </SheetContent>
-        </Sheet>
-  
-        {/* Schedule Maker Dialog */}
-        <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
-          <DialogContent className="max-w-6xl w-full h-[90vh] overflow-auto bg-gray-50">
-            <DialogHeader>
-              <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-4">
-                <DialogTitle className="flex items-center">
-                  <Calendar className="h-6 w-6 mr-2" />
-                  Schedule Maker
-                </DialogTitle>
-                <div className="text-sm text-gray-700 text-center sm:text-left">
-                  <p><strong>Student:</strong> {studentData.profile.firstName} {studentData.profile.lastName}</p>
-                  <p><strong>Course:</strong> {courseTitle}</p>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="h-full overflow-auto p-4 flex flex-col">
-              {courseId ? (
-                <div className="flex-1">
-                  <ScheduleMaker 
-                    studentKey={sanitizeEmail(studentSummary.StudentEmail)} 
-                    courseId={courseId} 
-                  />
-                </div>
-              ) : (
-                <p className="text-gray-600">No course selected.</p>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
-  
-  export default StudentDetail;
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+export default StudentDetail;

@@ -2,29 +2,25 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { ScrollArea } from "../components/ui/scroll-area";
-import { Badge } from "../components/ui/badge";
-import { SheetHeader, SheetTitle } from "../components/ui/sheet";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { getDatabase, ref, update } from 'firebase/database';
 import { 
-  STATUS_OPTIONS, 
+  // STATUS_OPTIONS, // Removed since Status dropdown is no longer needed
   getSchoolYearOptions,
   STUDENT_TYPE_OPTIONS, 
   ACTIVE_FUTURE_ARCHIVED_OPTIONS,
   getStatusColor,
-  getSchoolYearColor,
-  getStudentTypeColor,
-  getActiveFutureArchivedColor
 } from '../config/DropdownOptions';
+import { SheetHeader, SheetTitle } from "../components/ui/sheet"; // Ensure these are imported
 
 function StudentDetailsSheet({ studentData, courseData, changedFields, courseId, studentKey, onUpdate, onClose }) {
   const [editedData, setEditedData] = useState({});
   const schoolYearOptions = useMemo(() => getSchoolYearOptions(), []);
 
   const handleInputChange = (field, value) => {
-    setEditedData(prev => ({ ...prev, [field]: value }));
+    setEditedData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = async () => {
@@ -32,10 +28,13 @@ function StudentDetailsSheet({ studentData, courseData, changedFields, courseId,
     const updates = {};
 
     Object.entries(editedData).forEach(([field, value]) => {
-      if (['Status_Value', 'School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value'].includes(field)) {
-        updates[`students/${studentKey}/courses/${courseId}/${field.replace('_Value', '')}/Value`] = value;
+      if (['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value'].includes(field)) {
+        const fieldName = field.replace('_Value', '');
+        updates[`students/${studentKey}/courses/${courseId}/${fieldName}/Value`] = value;
       } else if (field === 'ParentPermission_x003f_') {
         updates[`students/${studentKey}/profile/ParentPermission_x003f_/Value`] = value;
+      } else if (field === 'Parent_x002f_Guardian') {
+        updates[`students/${studentKey}/profile/Parent_x002f_Guardian`] = value;
       } else {
         updates[`students/${studentKey}/profile/${field}`] = value;
       }
@@ -52,12 +51,27 @@ function StudentDetailsSheet({ studentData, courseData, changedFields, courseId,
   };
 
   const renderEditableField = (label, field, options) => {
-    const value = editedData[field] !== undefined ? editedData[field] : (
-      field === 'ParentPermission_x003f_' ? 
-        studentData.profile?.ParentPermission_x003f_?.Value : 
-        (courseData[field] || studentData.profile[field])
-    );
-    
+    let value;
+
+    if (editedData[field] !== undefined) {
+      value = editedData[field];
+    } else {
+      if (['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value'].includes(field)) {
+        const fieldName = field.replace('_Value', '');
+        value = courseData[fieldName]?.Value || '';
+      } else if (field === 'ParentPermission_x003f_') {
+        value = studentData.profile?.ParentPermission_x003f_?.Value || '';
+      } else if (field === 'Parent_x002f_Guardian') {
+        value = studentData.profile?.Parent_x002f_Guardian || '';
+      } else {
+        // Handle other fields
+        value = studentData.profile?.[field] || courseData[field] || '';
+        if (value && typeof value === 'object' && 'Value' in value) {
+          value = value.Value;
+        }
+      }
+    }
+
     if (options) {
       return (
         <div className="space-y-1">
@@ -105,10 +119,14 @@ function StudentDetailsSheet({ studentData, courseData, changedFields, courseId,
           <ScrollArea className="h-[calc(100vh-200px)]">
             <Card className="bg-[#f0f4f7]">
               <CardContent className="p-4 space-y-4">
-                {renderEditableField("Status", "Status_Value", STATUS_OPTIONS)}
+                {/* Removed the Status dropdown */}
+                {/* {renderEditableField("Status", "Status_Value", STATUS_OPTIONS)} */}
+                
                 <p className="text-sm">
                   <span className="font-semibold">Last Week Status:</span>{' '}
-                  <span style={{ color: getStatusColor(courseData.StatusCompare) }}>{courseData.StatusCompare}</span>
+                  <span style={{ color: getStatusColor(courseData.StatusCompare) }}>
+                    {courseData.StatusCompare}
+                  </span>
                 </p>
                 <p className="text-sm">
                   <span className="font-semibold">Course:</span>{' '}
@@ -137,7 +155,7 @@ function StudentDetailsSheet({ studentData, courseData, changedFields, courseId,
                 {renderEditableField("Parent Email", "ParentEmail")}
                 {renderEditableField("Parent Permission", "ParentPermission_x003f_", [
                   { value: "Yes", color: "#10B981" },
-                  { value: "No", color: "#EF4444" }
+                  { value: "No", color: "#EF4444" },
                 ])}
                 {renderEditableField("Parent Phone", "ParentPhone_x0023_")}
                 {renderEditableField("Parent/Guardian", "Parent_x002f_Guardian")}

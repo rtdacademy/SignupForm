@@ -16,6 +16,8 @@ function StudentList({
   courseInfo,
   courseTeachers,
   courseSupportStaff,
+  teacherCategories,
+  user_email_key,
 }) {
   const [sortKey, setSortKey] = useState('lastName');
   const [sortOrder, setSortOrder] = useState('asc');
@@ -114,6 +116,8 @@ function StudentList({
                 courseInfo={courseInfo}
                 courseTeachers={courseTeachers}
                 courseSupportStaff={courseSupportStaff}
+                teacherCategories={teacherCategories}
+                user_email_key={user_email_key}
               />
             </div>
           )}

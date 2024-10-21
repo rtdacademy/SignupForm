@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLayout } from '../context/LayoutContext';
 import { Sheet, SheetContent, SheetTrigger } from "../components/ui/sheet";
-import { Button } from "../components/ui/button";
 import { ScrollArea } from "../components/ui/scroll-area";
+import { Button } from "../components/ui/button";
 import {
   Users,
   BookOpen,
@@ -16,8 +16,8 @@ import {
   Grid,
   Link,
   DollarSign,
-  Calendar,
   CalendarPlus,
+  Bell,
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import AdminPanel from '../Admin/AdminPanel';
@@ -25,9 +25,11 @@ import Courses from '../courses/Courses';
 import StudentManagement from '../StudentManagement/StudentManagement';
 import ExternalLinks from '../ExternalLinks/ExternalLinks';
 import ContractorInvoiceSummary from '../Admin/ContractorInvoiceSummary';
-import ScheduleMaker from '../Schedule/ScheduleMaker';
 import IcsUpload from '../Schedule/IcsUpload';
-import { getDatabase, ref, get } from 'firebase/database';
+import Notifications from '../Notifications/Notifications';
+import { getDatabase, ref, get, onValue } from 'firebase/database';
+import { sanitizeEmail } from '../utils/sanitizeEmail';
+import NavItemWithIndicator from '../Notifications/NavItemWithIndicator';
 
 function TeacherDashboard() {
   const { user, isStaff } = useAuth();
@@ -36,6 +38,7 @@ function TeacherDashboard() {
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [invoicesData, setInvoicesData] = useState({});
+  const [unreadChatsCount, setUnreadChatsCount] = useState(0);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -56,8 +59,31 @@ function TeacherDashboard() {
     fetchInvoices();
   }, []);
 
-  // Memoize the ChatApp component to prevent unnecessary re-renders
-  const memoizedChatApp = useMemo(() => <ChatApp />, []);
+  useEffect(() => {
+    if (!user) return;
+
+    const db = getDatabase();
+    const sanitizedEmail = sanitizeEmail(user.email);
+    const notificationsRef = ref(db, `notifications/${sanitizedEmail}`);
+
+    const unsubscribe = onValue(notificationsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const notificationsData = snapshot.val();
+        const unreadCount = Object.values(notificationsData).filter(
+          (notification) => !notification.read && notification.type === 'new_message'
+        ).length;
+        setUnreadChatsCount(unreadCount);
+      } else {
+        setUnreadChatsCount(0);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const memoizedChatApp = useMemo(() => {
+    return <ChatApp />;
+  }, []);
 
   if (!user || !isStaff(user)) {
     return <div className="p-4">Access Denied. This page is only for staff members.</div>;
@@ -66,15 +92,28 @@ function TeacherDashboard() {
   const navItems = [
     { icon: Grid, label: 'React Dashboard', key: 'react-dashboard' },
     { icon: Layout, label: 'PowerApps Dashboard', key: 'powerapps-dashboard' },
-    { icon: Users, label: 'Students', key: 'students' },
+    { 
+      icon: Bell, 
+      label: 'Notifications', 
+      key: 'notifications', 
+      showIndicator: unreadChatsCount > 0,
+      indicatorCount: unreadChatsCount
+    },
+    { icon: MessageSquare, label: 'Chats', key: 'chat' },
+    // Removed the Schedule Builder navigation item
     { icon: BookOpen, label: 'Courses', key: 'courses' },
-    { icon: BarChart2, label: 'Reports', key: 'reports' },
-    { icon: MessageSquare, label: 'Chat', key: 'chat' },
-    { icon: Link, label: 'External Links', key: 'external-links' },
-    { icon: DollarSign, label: 'Finance', key: 'finance' },
-    { icon: Settings, label: 'Admin Panel', key: 'admin' },
-    { icon: Calendar, label: 'Schedule Builder', key: 'schedule-builder' },
-    { icon: CalendarPlus, label: 'Calendar Creator', key: 'calendar-creator' },
+    { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
+    { icon: Link, label: 'Links', key: 'external-links' },
+    { 
+      icon: Settings, 
+      label: 'Admin', 
+      key: 'admin', 
+      subItems: [
+        { icon: DollarSign, label: 'Finance', key: 'finance' },
+        { icon: BarChart2, label: 'Reports', key: 'reports' },
+        { icon: DollarSign, label: 'Contractor Invoices', key: 'contractor-invoices' },
+      ]
+    },
   ];
 
   const handleNavItemClick = (key) => {
@@ -114,10 +153,12 @@ function TeacherDashboard() {
         return <ExternalLinks />;
       case 'finance':
         return <ContractorInvoiceSummary invoicesData={invoicesData} />;
-      case 'schedule-builder':
-        return <ScheduleMaker />;
       case 'calendar-creator':
         return <IcsUpload />;
+      case 'notifications':
+        return <Notifications />;
+      case 'contractor-invoices':
+        return <ContractorInvoiceSummary invoicesData={invoicesData} />;
       default:
         return null;
     }
@@ -128,7 +169,7 @@ function TeacherDashboard() {
       {!isFullScreen && (
         <aside
           className={`flex-shrink-0 border-r border-border transition-all duration-300 ${
-            isSidebarExpanded ? 'w-64' : 'w-16'
+            isSidebarExpanded ? 'w-64' : 'w-15'
           }`}
         >
           <div className="flex flex-col h-full">
@@ -136,7 +177,7 @@ function TeacherDashboard() {
               variant="ghost"
               size="icon"
               onClick={toggleSidebar}
-              className="self-end m-2"
+              className="self-end m-2 hover:bg-accent hover:text-accent-foreground"
             >
               {isSidebarExpanded ? (
                 <ChevronLeft className="h-4 w-4" />
@@ -147,15 +188,27 @@ function TeacherDashboard() {
             <ScrollArea className="flex-grow">
               <nav className="space-y-2 p-2">
                 {navItems.map((item) => (
-                  <Button
-                    key={item.key}
-                    variant={activeSection === item.key ? 'secondary' : 'ghost'}
-                    className={`w-full justify-start ${isSidebarExpanded ? '' : 'px-2'}`}
-                    onClick={() => handleNavItemClick(item.key)}
-                  >
-                    <item.icon className={`h-4 w-4 ${isSidebarExpanded ? 'mr-2' : ''}`} />
-                    {isSidebarExpanded && <span>{item.label}</span>}
-                  </Button>
+                  <div key={item.key}>
+                    <NavItemWithIndicator
+                      item={item}
+                      isActive={activeSection === item.key}
+                      isExpanded={isSidebarExpanded}
+                      onClick={() => handleNavItemClick(item.key)}
+                    />
+                    {item.subItems && isSidebarExpanded && (
+                      <div className="ml-6 mt-1 space-y-1">
+                        {item.subItems.map((subItem) => (
+                          <NavItemWithIndicator
+                            key={subItem.key}
+                            item={subItem}
+                            isActive={activeSection === subItem.key}
+                            isExpanded={isSidebarExpanded}
+                            onClick={() => handleNavItemClick(subItem.key)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </nav>
             </ScrollArea>
@@ -175,7 +228,7 @@ function TeacherDashboard() {
             <Button
               variant="outline"
               size="icon"
-              className="fixed top-4 left-4 lg:hidden z-50"
+              className="fixed top-4 left-4 lg:hidden z-50 hover:bg-accent hover:text-accent-foreground"
             >
               <Users className="h-4 w-4" />
             </Button>
@@ -183,15 +236,13 @@ function TeacherDashboard() {
           <SheetContent side="left" className="w-[240px] sm:w-[300px]">
             <nav className="space-y-4 py-4">
               {navItems.map((item) => (
-                <Button
+                <NavItemWithIndicator
                   key={item.key}
-                  variant={activeSection === item.key ? 'secondary' : 'ghost'}
-                  className="w-full justify-start"
+                  item={item}
+                  isActive={activeSection === item.key}
+                  isExpanded={true}
                   onClick={() => handleNavItemClick(item.key)}
-                >
-                  <item.icon className="mr-2 h-4 w-4" />
-                  {item.label}
-                </Button>
+                />
               ))}
             </nav>
           </SheetContent>

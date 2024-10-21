@@ -35,7 +35,7 @@ import { Textarea } from "../components/ui/textarea";
 import { Button } from "../components/ui/button";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { useAuth } from '../context/AuthContext';
-import { toast, Toaster } from "sonner"; // Import toast and Toaster from sonner
+import { toast, Toaster } from "sonner";
 
 const locales = {
   'en-US': require('date-fns/locale/en-US'),
@@ -49,13 +49,12 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-const ScheduleMaker = ({ studentKey, courseId }) => {
-  const { user, loading: authLoading } = useAuth(); // Access user from AuthContext
-  const [courses, setCourses] = useState([]);
+const ScheduleMaker = ({ studentKey, courseId, onClose }) => {
+  const { user, loading: authLoading } = useAuth();
   const [calendars, setCalendars] = useState([]);
   const [selectedCourseOption, setSelectedCourseOption] = useState(null);
   const [selectedCalendarOption, setSelectedCalendarOption] = useState(null);
-  const [startDate, setStartDate] = useState(null);
+  const [startDate, setStartDate] = useState(null); // Initial state set to null
   const [endDate, setEndDate] = useState(null);
   const [scheduleJson, setScheduleJson] = useState(null);
   const [courseItems, setCourseItems] = useState([]);
@@ -71,45 +70,50 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [studentEmail, setStudentEmail] = useState('');
-  const [jsonStudentNotes, setJsonStudentNotes] = useState([]); // New state for JSON student notes
-  const [newNoteContent, setNewNoteContent] = useState(''); // New state for adding a new note
-  const [existingSchedule, setExistingSchedule] = useState(null); // New state for existing schedule
-  const [scheduleCreated, setScheduleCreated] = useState(false); // New state to track schedule creation
-  const [isInitialLoad, setIsInitialLoad] = useState(true); // New state to track initial load
+  const [jsonStudentNotes, setJsonStudentNotes] = useState([]);
+  const [newNoteContent, setNewNoteContent] = useState('');
+  const [existingSchedule, setExistingSchedule] = useState(null);
+  const [scheduleCreated, setScheduleCreated] = useState(false);
+  const [isLoadingCourse, setIsLoadingCourse] = useState(true);
 
+  // Fetch course, calendars, student email, and notes
   useEffect(() => {
-    if (authLoading) return; // Wait until auth is loaded
+    if (authLoading) return;
 
     if (!user) {
-      // Handle unauthenticated state if necessary
       console.warn('User is not authenticated.');
       return;
     }
 
+    if (!studentKey || !courseId) {
+      console.warn('studentKey or courseId is missing.');
+      return;
+    }
+
+    console.log('Fetching data with courseId:', courseId); // Debug log
+
     const db = getDatabase();
-    const coursesRef = ref(db, 'courses');
+    const courseRef = ref(db, `courses/${courseId}`);
     const calendarsRef = ref(db, 'calendars/blockOutDates');
     const studentRef = ref(db, `students/${sanitizeEmail(studentKey)}`);
     const notesRef = ref(db, `students/${sanitizeEmail(studentKey)}/courses/${courseId}/jsonStudentNotes`);
-    const scheduleRef = ref(db, `students/${sanitizeEmail(studentKey)}/courses/${courseId}/ScheduleJSON`);
 
-    const unsubscribeCourses = onValue(coursesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const coursesArray = Object.keys(data).map((key) => ({
-          value: key,
-          label: data[key].Title,
-          ...data[key]
-        }));
-        setCourses(coursesArray);
-
-        if (isInitialLoad) {
-          const defaultCourse = coursesArray.find(course => course.value === courseId);
-          if (defaultCourse) {
-            setSelectedCourseOption(defaultCourse);
-          }
-          setIsInitialLoad(false);
-        }
+    // Fetch the specific course
+    const unsubscribeCourse = onValue(courseRef, (snapshot) => {
+      const courseData = snapshot.val();
+      if (courseData) {
+        const course = {
+          value: courseId,
+          label: courseData.Title,
+          ...courseData
+        };
+        console.log('Course loaded:', course.label); // Debug log
+        setSelectedCourseOption(course);
+        setIsLoadingCourse(false);
+      } else {
+        console.error(`Course with ID ${courseId} not found.`);
+        setSelectedCourseOption(null);
+        setIsLoadingCourse(false);
       }
     });
 
@@ -132,7 +136,6 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
       }
     });
 
-    // Fetch jsonStudentNotes
     const unsubscribeNotes = onValue(notesRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -142,41 +145,65 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
       }
     });
 
-    // New onValue listener for the existing schedule
-    const unsubscribeSchedule = onValue(scheduleRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setExistingSchedule(data);
-        setScheduleJson(data);
-        setStartDate(parseISO(data.startDate));
-        setEndDate(parseISO(data.endDate));
-
-        // Find and set the selected course option
-        const course = courses.find(c => c.value === data.courseId);
-        if (course) {
-          setSelectedCourseOption(course);
-        }
-
-        // Set the starting assignment based on the first item in the schedule
-        if (data.units && data.units.length > 0 && data.units[0].items && data.units[0].items.length > 0) {
-          const firstItem = data.units[0].items[0];
-          const startingAssignmentOption = startingAssignmentOptions.find(option => 
-            option.label === firstItem.title
-          );
-          if (startingAssignmentOption) {
-            setSelectedStartingAssignment(startingAssignmentOption);
-          }
-        }
-      }
-    });
-
     return () => {
-      unsubscribeCourses();
+      unsubscribeCourse();
       unsubscribeCalendars();
       unsubscribeNotes();
-      unsubscribeSchedule();
     };
-  }, [studentKey, courseId, user, authLoading, isInitialLoad]);
+  }, [studentKey, courseId, user, authLoading]);
+
+  // Fetch existing schedule data
+  useEffect(() => {
+    if (authLoading || !user || !studentKey || !courseId) return;
+
+    const db = getDatabase();
+    const scheduleJSONRef = ref(db, `students/${sanitizeEmail(studentKey)}/courses/${courseId}/ScheduleJSON`);
+    const scheduleStartDateRef = ref(db, `students/${sanitizeEmail(studentKey)}/courses/${courseId}/ScheduleStartDate`);
+    const scheduleEndDateRef = ref(db, `students/${sanitizeEmail(studentKey)}/courses/${courseId}/ScheduleEndDate`);
+
+    const fetchScheduleData = async () => {
+      try {
+        const scheduleSnapshot = await get(scheduleJSONRef);
+        
+        if (scheduleSnapshot.exists()) {
+          const data = scheduleSnapshot.val();
+          setExistingSchedule(data);
+          setScheduleJson(data);
+          setStartDate(null); // Remove pre-selected start date
+          setEndDate(parseISO(data.endDate));
+
+          if (data.units && data.units.length > 0 && data.units[0].items && data.units[0].items.length > 0) {
+            const firstItem = data.units[0].items[0];
+            const startingAssignmentOption = startingAssignmentOptions.find(option => 
+              option.label === firstItem.title
+            );
+            if (startingAssignmentOption) {
+              setSelectedStartingAssignment(startingAssignmentOption);
+            }
+          }
+        } else {
+          const startDateSnapshot = await get(scheduleStartDateRef);
+          const endDateSnapshot = await get(scheduleEndDateRef);
+          
+          if (startDateSnapshot.exists() && endDateSnapshot.exists()) {
+            const startDateString = startDateSnapshot.val();
+            const endDateString = endDateSnapshot.val();
+            
+            const parsedStartDate = parseISO(startDateString);
+            const parsedEndDate = parseISO(endDateString);
+            
+            setStartDate(null); // Remove pre-selected start date
+            setEndDate(parsedEndDate);
+          }
+          setExistingSchedule(null);
+        }
+      } catch (error) {
+        console.error('Error fetching schedule data:', error);
+      }
+    };
+
+    fetchScheduleData();
+  }, [studentKey, courseId, user, authLoading, startingAssignmentOptions]);
 
   useEffect(() => {
     if (selectedCourseOption) {
@@ -197,7 +224,7 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
       setSelectedStartingAssignment(null);
     }
     setNeedsRecreation(true);
-    setScheduleCreated(false); // Reset scheduleCreated when course changes
+    setScheduleCreated(false);
   }, [selectedCourseOption]);
 
   useEffect(() => {
@@ -228,7 +255,7 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
       setBlockoutDates([]);
     }
     setNeedsRecreation(true);
-    setScheduleCreated(false); // Reset scheduleCreated when calendar changes
+    setScheduleCreated(false);
   }, [selectedCalendarOption]);
 
   const isDateExcluded = (date) => {
@@ -314,8 +341,8 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
   };
 
   const handleCreateSchedule = () => {
-    if (!selectedCourseOption || !startDate || !endDate || selectedStartingAssignment === null) {
-      toast.error("Please select a course, specify start and end dates, and choose a starting assignment.");
+    if (!startDate || !endDate || selectedStartingAssignment === null) {
+      toast.error("Please specify start and end dates, and choose a starting assignment.");
       return;
     }
 
@@ -328,7 +355,7 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
     const allItems = courseItems.slice(startingIndex);
 
     if (allItems.length === 0) {
-      toast.error("No items to schedule for the selected course and starting point.");
+      toast.error("No items to schedule for the selected starting point.");
       return;
     }
 
@@ -351,7 +378,6 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
     );
 
     if (scheduledItems.length === 0) {
-      // Distribution failed due to no available dates or other issues
       return;
     }
 
@@ -381,10 +407,10 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
     setScheduleJson(schedule);
     setNeedsRecreation(false);
     setShowNotes(true);
-    setScheduleCreated(true); // Set scheduleCreated to true
+    setScheduleCreated(true);
 
     toast.success("Schedule created! Please review and click 'Save Schedule and Note' to finalize.", {
-      duration: 5000, // Increased duration for this important message
+      duration: 5000,
     });
   };
 
@@ -422,9 +448,13 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
       set(notesRef, updatedNotes)
     ]).then(() => {
       setJsonStudentNotes(updatedNotes);
-      setNewNoteContent(''); // Clear the input after saving
-      setScheduleCreated(false); // Reset scheduleCreated
+      setNewNoteContent('');
+      setScheduleCreated(false);
       toast.success("Your schedule and note have been saved successfully!");
+      // Close the modal after saving
+      if (onClose) {
+        onClose();
+      }
     }).catch((error) => {
       console.error('Error saving schedule and note:', error);
       toast.error("Failed to save schedule and note. Please try again.");
@@ -437,12 +467,10 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
       return 'Invalid Date';
     }
   
-    // Check for "Legacy Note" case
     if (utcDateString === "Legacy Note") {
       return "Legacy Note";
     }
   
-    // Check if the utcDateString is a valid ISO 8601 date string
     const isoDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
     if (!isoDateRegex.test(utcDateString)) {
       console.warn('Invalid date string format:', utcDateString);
@@ -451,12 +479,9 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
   
     try {
       const date = parseISO(utcDateString);
-      
-      // Check if the parsed date is valid
       if (isNaN(date.getTime())) {
         throw new Error('Invalid date');
       }
-      
       return format(date, 'MMM dd, yyyy');
     } catch (error) {
       console.error('Error formatting date:', error, utcDateString);
@@ -466,11 +491,16 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
 
   const getCalendarEvents = () => {
     if (!scheduleJson) return [];
-
+  
     const events = [];
-
-    scheduleJson.units.forEach(unit => {
-      unit.items.forEach(item => {
+  
+    scheduleJson.units.forEach((unit, unitIndex) => {
+      if (!Array.isArray(unit.items)) {
+        console.warn(`Unit ${unitIndex} items is not an array:`, unit.items);
+        return;
+      }
+  
+      unit.items.forEach((item, itemIndex) => {
         if (item.date) {
           try {
             const startDate = parseISO(item.date);
@@ -484,14 +514,14 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
               details: item,
             });
           } catch (error) {
-            console.error('Error parsing item date:', error, item);
+            console.error(`Error processing item ${itemIndex} in unit ${unitIndex}:`, error, item);
           }
         } else {
-          console.warn('Item is missing date:', item);
+          console.warn(`Item ${itemIndex} in unit ${unitIndex} is missing date:`, item);
         }
       });
     });
-
+  
     return events;
   };
 
@@ -505,12 +535,6 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
     setIsDialogOpen(true);
   };
 
-  const handleCourseChange = (option) => {
-    setSelectedCourseOption(option);
-    setNeedsRecreation(true);
-    setScheduleCreated(false); // Reset scheduleCreated on course change
-  };
-
   const styles = `
     .orange-circle {
       width: 8px;
@@ -522,19 +546,17 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
     }
   `;
 
-  // Handle loading state
   if (authLoading) {
     return <div>Loading...</div>;
   }
 
-  // Optionally, handle unauthenticated state
   if (!user) {
     return <div>Please log in to create and manage schedules.</div>;
   }
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Toaster /> {/* Add Toaster for toast notifications */}
+      <Toaster />
       <div className="flex flex-grow">
         <div className="w-full md:w-1/3 p-4">
           <Card className="p-4">
@@ -543,15 +565,14 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
             </CardHeader>
             <CardContent>
               <div className="mb-4">
-                <Label>Select Course</Label>
-                <Select
-                  value={selectedCourseOption}
-                  onChange={handleCourseChange}
-                  options={courses}
-                  placeholder="Select a course"
-                  isSearchable
-                  className="w-full text-xs"
-                />
+                <Label>Course</Label>
+                {isLoadingCourse ? (
+                  <p>Loading course...</p>
+                ) : selectedCourseOption ? (
+                  <p>{selectedCourseOption.label}</p>
+                ) : (
+                  <p>Course not found</p>
+                )}
               </div>
 
               {selectedCourseOption && (
@@ -562,7 +583,7 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
                     onChange={(option) => {
                       setSelectedStartingAssignment(option);
                       setNeedsRecreation(true);
-                      setScheduleCreated(false); // Reset scheduleCreated on assignment change
+                      setScheduleCreated(false);
                     }}
                     options={startingAssignmentOptions}
                     placeholder="Select starting assignment"
@@ -579,9 +600,8 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
                     selected={startDate}
                     onChange={(date) => {
                       setStartDate(startOfDay(date));
-                      setEndDate(null);
                       setNeedsRecreation(true);
-                      setScheduleCreated(false); // Reset scheduleCreated on date change
+                      setScheduleCreated(false);
                     }}
                     dateFormat="MMM dd, yyyy"
                     placeholderText="Select start date"
@@ -596,7 +616,7 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
                     onChange={(date) => {
                       setEndDate(startOfDay(date));
                       setNeedsRecreation(true);
-                      setScheduleCreated(false); // Reset scheduleCreated on date change
+                      setScheduleCreated(false);
                     }}
                     dateFormat="MMM dd, yyyy"
                     placeholderText="Select end date"
@@ -630,7 +650,7 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
                         onChange={(e) => {
                           setExcludeWeekends(e.target.checked);
                           setNeedsRecreation(true);
-                          setScheduleCreated(false); // Reset scheduleCreated on blockout change
+                          setScheduleCreated(false);
                         }}
                         id="excludeWeekends"
                         className="mr-2"
@@ -645,7 +665,7 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
                         onChange={(option) => {
                           setSelectedCalendarOption(option);
                           setNeedsRecreation(true);
-                          setScheduleCreated(false); // Reset scheduleCreated on blockout change
+                          setScheduleCreated(false);
                         }}
                         options={calendars}
                         placeholder="Select a calendar"
@@ -660,7 +680,7 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
                       setCustomBlockoutDates={(dates) => {
                         setCustomBlockoutDates(dates);
                         setNeedsRecreation(true);
-                        setScheduleCreated(false); // Reset scheduleCreated on custom blockout change
+                        setScheduleCreated(false);
                       }}
                     />
                   </div>
@@ -700,7 +720,7 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
                     value={newNoteContent}
                     onChange={(e) => setNewNoteContent(e.target.value)}
                     className="mb-2"
-                    rows={4} // You can adjust this number to set the initial height
+                    rows={4}
                   />
                   <Button 
                     onClick={saveScheduleAndNote} 
@@ -743,7 +763,6 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
         <div className="w-full md:w-2/3 p-4">
           {scheduleJson && (
             <Card className="p-4">
-              {/* Removed the separate save button from here */}
               <Tabs defaultValue="calendar">
                 <TabsList>
                   <TabsTrigger value="calendar">Calendar View</TabsTrigger>
@@ -776,18 +795,22 @@ const ScheduleMaker = ({ studentKey, courseId }) => {
                   {scheduleJson.units.map((unit, idx) => (
                     <div key={idx} className="mb-4">
                       <h4 className="text-md font-semibold">{unit.name}</h4>
-                      {unit.items.map((item, idx2) => (
-                        <div
-                          key={idx2}
-                          className="pl-4 cursor-pointer hover:bg-gray-100 p-2 rounded"
-                          onClick={() => handleListItemClick(item)}
-                        >
-                          <p>
-                            <strong>{item.title}</strong> ({item.type})<br />
-                            Date: {formatLocalDate(item.date)}
-                          </p>
-                        </div>
-                      ))}
+                      {Array.isArray(unit.items) ? (
+                        unit.items.map((item, idx2) => (
+                          <div
+                            key={idx2}
+                            className="pl-4 cursor-pointer hover:bg-gray-100 p-2 rounded"
+                            onClick={() => handleListItemClick(item)}
+                          >
+                            <p>
+                              <strong>{item.title}</strong> ({item.type})<br />
+                              Date: {formatLocalDate(item.date)}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="pl-4 text-red-500">No items available for this unit</p>
+                      )}
                     </div>
                   ))}
                 </TabsContent>

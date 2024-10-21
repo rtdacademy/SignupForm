@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getDatabase, ref, onValue, update } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -49,7 +49,7 @@ function Courses() {
 
     // Fetch courses
     const coursesRef = ref(db, 'courses');
-    onValue(coursesRef, (snapshot) => {
+    const unsubscribeCourses = onValue(coursesRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         setCourses(data);
@@ -58,12 +58,13 @@ function Courses() {
         }
       } else {
         setCourses({});
+        setCourseData({});
       }
     });
 
     // Fetch staff members
     const staffRef = ref(db, 'staff');
-    onValue(staffRef, (snapshot) => {
+    const unsubscribeStaff = onValue(staffRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         setStaffMembers(
@@ -77,6 +78,12 @@ function Courses() {
         setStaffMembers([]);
       }
     });
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      unsubscribeCourses();
+      unsubscribeStaff();
+    };
   }, [user, isStaff, navigate, selectedCourseId]);
 
   const handleCourseSelect = (courseId) => {
@@ -172,24 +179,71 @@ function Courses() {
     isEditing ? 'border-gray-300' : 'border-gray-200 bg-gray-100'
   } rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm`;
 
+  // Group courses by grade
+  const groupedCourses = useMemo(() => {
+    const groups = {};
+
+    Object.entries(courses).forEach(([courseId, course]) => {
+      const grade = course.grade ? course.grade.trim() : 'Other';
+      if (!grade) {
+        if (!groups['Other']) groups['Other'] = [];
+        groups['Other'].push({ courseId, course });
+      } else {
+        if (!groups[grade]) groups[grade] = [];
+        groups[grade].push({ courseId, course });
+      }
+    });
+
+    // Sort the grades, placing "Other" at the end
+    const sortedGrades = Object.keys(groups).filter(g => g !== 'Other').sort((a, b) => {
+      const numA = parseInt(a, 10);
+      const numB = parseInt(b, 10);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numA - numB;
+      }
+      return a.localeCompare(b);
+    });
+    if (groups['Other']) {
+      sortedGrades.push('Other');
+    }
+
+    const sortedGroups = {};
+    sortedGrades.forEach(grade => {
+      sortedGroups[grade] = groups[grade];
+    });
+
+    return sortedGroups;
+  }, [courses]);
+
   return (
     <div className="flex h-screen">
       {/* Sidebar */}
       <div className="w-1/4 bg-gray-200 p-4 overflow-y-auto">
         <h2 className="text-lg font-bold mb-4">Courses</h2>
-        <ul className="space-y-2">
-          {Object.keys(courses).map((courseId) => (
-            <li
-              key={courseId}
-              className={`p-2 rounded cursor-pointer ${
-                selectedCourseId === courseId ? 'bg-blue-500 text-white' : 'bg-white'
-              }`}
-              onClick={() => handleCourseSelect(courseId)}
-            >
-              {courses[courseId].Title || `Course ID: ${courseId}`}
-            </li>
-          ))}
-        </ul>
+        {Object.keys(groupedCourses).length > 0 ? (
+          <div>
+            {Object.entries(groupedCourses).map(([grade, coursesInGrade]) => (
+              <div key={grade} className="mb-4">
+                <h3 className="text-md font-semibold mb-2">{grade}</h3>
+                <ul className="space-y-1 pl-4">
+                  {coursesInGrade.map(({ courseId, course }) => (
+                    <li
+                      key={courseId}
+                      className={`p-2 rounded cursor-pointer ${
+                        selectedCourseId === courseId ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-100'
+                      }`}
+                      onClick={() => handleCourseSelect(courseId)}
+                    >
+                      {course.Title || `Course ID: ${courseId}`}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p>No courses available.</p>
+        )}
       </div>
 
       {/* Course Details */}
@@ -212,189 +266,182 @@ function Courses() {
               </div>
             </div>
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-              {/* Course Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Course Name
-                </label>
-                <input
-                  type="text"
-                  name="Title"
-                  value={courseData.Title || ''}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className={inputClass}
-                />
-              </div>
-
-              {/* SharePoint ID (ID) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  SharePoint ID
-                </label>
-                <input
-                  type="text"
-                  name="ID"
-                  value={courseData.ID || ''}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className={inputClass}
-                />
-              </div>
-
-              {/* LMS Course ID */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  LMS Course ID
-                </label>
-                <input
-                  type="text"
-                  name="LMSCourseID"
-                  value={courseData.LMSCourseID || ''}
-                  disabled
-                  className={`mt-1 block w-full p-2 border border-gray-200 bg-gray-100 rounded-md shadow-sm text-sm`}
-                />
-              </div>
-
-              {/* Active */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Active
-                </label>
-                <Select
-                  name="Active"
-                  options={activeOptions}
-                  value={activeOptions.find(option => option.value === courseData.Active)}
-                  onChange={handleSelectChange}
-                  isDisabled={!isEditing}
-                  className="mt-1"
-                />
-                {courseData.Active === 'Custom' && (
+              <div className="flex flex-wrap -mx-2">
+                {/* Course Name */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Course Name
+                  </label>
                   <input
                     type="text"
-                    name="ActiveCustom"
-                    value={courseData.ActiveCustom || ''}
+                    name="Title"
+                    value={courseData.Title || ''}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`${inputClass} mt-2`}
-                    placeholder="Enter custom value"
+                    className={inputClass}
                   />
-                )}
-              </div>
+                </div>
 
-              {/* CourseType */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Course Type
-                </label>
-                <Select
-                  name="CourseType"
-                  options={courseTypeOptions}
-                  value={courseTypeOptions.find(option => option.value === courseData.CourseType)}
-                  onChange={handleSelectChange}
-                  isDisabled={!isEditing}
-                  className="mt-1"
-                />
-                {courseData.CourseType === 'Custom' && (
+                {/* LMS Course ID */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    LMS Course ID
+                  </label>
                   <input
                     type="text"
-                    name="CourseTypeCustom"
-                    value={courseData.CourseTypeCustom || ''}
+                    name="LMSCourseID"
+                    value={courseData.LMSCourseID || ''}
+                    disabled
+                    className={`mt-1 block w-full p-2 border border-gray-200 bg-gray-100 rounded-md shadow-sm text-sm`}
+                  />
+                </div>
+
+                {/* Active */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Active
+                  </label>
+                  <Select
+                    name="Active"
+                    options={activeOptions}
+                    value={activeOptions.find(option => option.value === courseData.Active)}
+                    onChange={handleSelectChange}
+                    isDisabled={!isEditing}
+                    className="mt-1"
+                  />
+                  {courseData.Active === 'Custom' && (
+                    <input
+                      type="text"
+                      name="ActiveCustom"
+                      value={courseData.ActiveCustom || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className={`${inputClass} mt-2`}
+                      placeholder="Enter custom value"
+                    />
+                  )}
+                </div>
+
+                {/* CourseType */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Course Type
+                  </label>
+                  <Select
+                    name="CourseType"
+                    options={courseTypeOptions}
+                    value={courseTypeOptions.find(option => option.value === courseData.CourseType)}
+                    onChange={handleSelectChange}
+                    isDisabled={!isEditing}
+                    className="mt-1"
+                  />
+                  {courseData.CourseType === 'Custom' && (
+                    <input
+                      type="text"
+                      name="CourseTypeCustom"
+                      value={courseData.CourseTypeCustom || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className={`${inputClass} mt-2`}
+                      placeholder="Enter custom value"
+                    />
+                  )}
+                </div>
+
+                {/* DiplomaCourse */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Diploma Course
+                  </label>
+                  <Select
+                    name="DiplomaCourse"
+                    options={diplomaCourseOptions}
+                    value={diplomaCourseOptions.find(option => option.value === courseData.DiplomaCourse)}
+                    onChange={handleSelectChange}
+                    isDisabled={!isEditing}
+                    className="mt-1"
+                  />
+                </div>
+
+                {/* NumberGradeBookAssignments */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Number of Gradebook Assignments
+                  </label>
+                  <input
+                    type="number"
+                    name="NumberGradeBookAssignments"
+                    value={courseData.NumberGradeBookAssignments || ''}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`${inputClass} mt-2`}
-                    placeholder="Enter custom value"
+                    className={inputClass}
                   />
-                )}
-              </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This value must match the LMS gradebook in Student View.
+                  </p>
+                </div>
 
-              {/* DiplomaCourse */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Diploma Course
-                </label>
-                <Select
-                  name="DiplomaCourse"
-                  options={diplomaCourseOptions}
-                  value={diplomaCourseOptions.find(option => option.value === courseData.DiplomaCourse)}
-                  onChange={handleSelectChange}
-                  isDisabled={!isEditing}
-                  className="mt-1"
-                />
-              </div>
+                {/* Grade (Newly Added) */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Grade
+                  </label>
+                  <input
+                    type="text" // Change to "number" if grade should be numeric
+                    name="grade"
+                    value={courseData.grade || ''}
+                    onChange={handleInputChange}
+                    disabled={!isEditing}
+                    className={inputClass}
+                    placeholder="Enter grade"
+                  />
+                </div>
 
-              {/* Teachers */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Teachers
-                </label>
-                <Select
-                  isMulti
-                  name="Teachers"
-                  options={staffMembers}
-                  value={staffMembers.filter(staff => 
-                    courseData.Teachers && courseData.Teachers.includes(staff.value)
-                  )}
-                  onChange={handleMultiSelectChange}
-                  isDisabled={!isEditing}
-                  className="mt-1"
-                />
-              </div>
+                {/* Teachers */}
+                <div className="w-full md:w-1/2 lg:w-2/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Teachers
+                  </label>
+                  <Select
+                    isMulti
+                    name="Teachers"
+                    options={staffMembers}
+                    value={staffMembers.filter(staff => 
+                      courseData.Teachers && courseData.Teachers.includes(staff.value)
+                    )}
+                    onChange={handleMultiSelectChange}
+                    isDisabled={!isEditing}
+                    className="mt-1"
+                  />
+                </div>
 
-              {/* Support Staff */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Support Staff
-                </label>
-                <Select
-                  isMulti
-                  name="SupportStaff"
-                  options={staffMembers}
-                  value={staffMembers.filter(staff => 
-                    courseData.SupportStaff && courseData.SupportStaff.includes(staff.value)
-                  )}
-                  onChange={handleMultiSelectChange}
-                  isDisabled={!isEditing}
-                  className="mt-1"
-                />
-              </div>
-
-              {/* NumberGradeBookAssignments */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Number of Gradebook Assignments
-                </label>
-                <input
-                  type="number"
-                  name="NumberGradeBookAssignments"
-                  value={courseData.NumberGradeBookAssignments || ''}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className={inputClass}
-                />
-              </div>
-
-              {/* NumberOfAssignments */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Number of Assignments
-                </label>
-                <input
-                  type="number"
-                  name="NumberOfAssignments"
-                  value={courseData.NumberOfAssignments || ''}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className={inputClass}
-                />
+                {/* Support Staff */}
+                <div className="w-full md:w-1/2 lg:w-2/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Support Staff
+                  </label>
+                  <Select
+                    isMulti
+                    name="SupportStaff"
+                    options={staffMembers}
+                    value={staffMembers.filter(staff => 
+                      courseData.SupportStaff && courseData.SupportStaff.includes(staff.value)
+                    )}
+                    onChange={handleMultiSelectChange}
+                    isDisabled={!isEditing}
+                    className="mt-1"
+                  />
+                </div>
               </div>
 
               {/* Course Units Editor */}
-              <CourseUnitsEditor
-                units={courseData.units || []}
-                onUnitsChange={handleUnitsChange}
-                isEditing={isEditing}
-              />
+              <div className="mt-8">
+                <CourseUnitsEditor
+                  units={courseData.units || []}
+                  onUnitsChange={handleUnitsChange}
+                  isEditing={isEditing}
+                />
+              </div>
             </form>
           </div>
         ) : (

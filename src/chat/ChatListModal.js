@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { format } from 'date-fns'; // Ensure date-fns is installed
 
 // Optionally import DOMPurify if available
 let DOMPurify;
@@ -31,136 +32,157 @@ const ChatListModal = ({ participants, onChatSelect, onClose }) => {
     const fetchChats = async () => {
       console.log("ChatListModal: Fetching chats", { participants });
       setLoading(true);
-
+  
       try {
         // Fetch current user's sanitized email
         const userRef = ref(db, `users/${user.uid}/sanitizedEmail`);
         const userSnapshot = await get(userRef);
         const fetchedUserSanitizedEmail = userSnapshot.val();
-
+  
         if (!fetchedUserSanitizedEmail) {
           console.error("User's sanitized email not found");
           setLoading(false);
           return;
         }
-
+  
         setUserSanitizedEmail(fetchedUserSanitizedEmail);
-
-       // Process participant keys
-const participantKeys = participants.map(p => {
-  if (typeof p === 'string') {
-    // If p is already a string (email), use it directly
-    return sanitizeEmail(p).toLowerCase();
-  } else if (p.id && typeof p.id === 'string') {
-    // If p has an id property that's a string, process it
-    return p.id.includes('_') ? extractEmail(p.id) : sanitizeEmail(p.id).toLowerCase();
-  } else if (p.email && typeof p.email === 'string') {
-    // If p has an email property, use that
-    return sanitizeEmail(p.email).toLowerCase();
-  } else {
-    console.warn('Unexpected participant format:', p);
-    return null; // or some default value
-  }
-}).filter(Boolean); // Remove any null values
-
-console.log("Processed participant keys:", participantKeys);
-
+  
+        // Process participant keys
+        const participantKeys = participants.map((p) => {
+          if (typeof p === 'string') {
+            // If p is already a string (email), use it directly
+            return sanitizeEmail(p).toLowerCase();
+          } else if (p.id && typeof p.id === 'string') {
+            // If p has an id property that's a string, process it
+            return p.id.includes('_') ? extractEmail(p.id) : sanitizeEmail(p.id).toLowerCase();
+          } else if (p.email && typeof p.email === 'string') {
+            // If p has an email property, use that
+            return sanitizeEmail(p.email).toLowerCase();
+          } else {
+            console.warn('Unexpected participant format:', p);
+            return null; // or some default value
+          }
+        }).filter(Boolean); // Remove any null values
+  
+        console.log("Processed participant keys:", participantKeys);
+  
         // Include the current user's sanitized email
         const allParticipantKeys = [...new Set([...participantKeys, fetchedUserSanitizedEmail])];
-
+  
         console.log("Fetching chats for participants:", allParticipantKeys);
-
+  
         // Fetch chats for all participants
         const chatPromises = allParticipantKeys.map(async (participantKey) => {
           const userChatsRef = ref(db, `userChats/${participantKey}`);
           const userChatsSnapshot = await get(userChatsRef);
-          return userChatsSnapshot.val() || {};
+          const userChatsData = userChatsSnapshot.val() || {};
+  
+          // Filter out inactive chats
+          const activeChats = Object.fromEntries(
+            Object.entries(userChatsData).filter(([_, chatData]) => chatData.active !== false)
+          );
+  
+          return activeChats;
         });
-
+  
         const participantChats = await Promise.all(chatPromises);
-
+  
         if (participantChats.length === 0) {
           setChats([]);
           setLoading(false);
           return;
         }
-
+  
         // Find common chat IDs
-        const commonChatIds = Object.keys(participantChats[0]).filter(chatId =>
-          participantChats.every(userChats => userChats.hasOwnProperty(chatId))
+        const commonChatIds = Object.keys(participantChats[0]).filter((chatId) =>
+          participantChats.every((userChats) => userChats.hasOwnProperty(chatId))
         );
-
+  
         if (commonChatIds.length === 0) {
           setChats([]);
           setLoading(false);
           return;
         }
-
+  
         // Fetch chat details for common chats
         const chatDetailsPromises = commonChatIds.map(async (chatId) => {
           const chatRef = ref(db, `chats/${chatId}`);
           const chatSnapshot = await get(chatRef);
           const chatData = chatSnapshot.val();
-
+  
           if (chatData) {
-            const participantDetails = await Promise.all(chatData.participants.map(async (email) => {
-              let userRef = ref(db, `staff/${email}`);
-              let userSnapshot = await get(userRef);
-              
-              if (!userSnapshot.exists()) {
-                userRef = ref(db, `students/${email}/profile`);
-                userSnapshot = await get(userRef);
-              }
-
-              if (userSnapshot.exists()) {
-                const userData = userSnapshot.val();
-                const isStaff = email.includes('@rtdacademy.com');
+            const participantDetails = await Promise.all(
+              chatData.participants.map(async (email) => {
+                let userRef = ref(db, `staff/${email}`);
+                let userSnapshot = await get(userRef);
+  
+                if (!userSnapshot.exists()) {
+                  userRef = ref(db, `students/${email}/profile`);
+                  userSnapshot = await get(userRef);
+                }
+  
+                if (userSnapshot.exists()) {
+                  const userData = userSnapshot.val();
+                  const isStaff = email.includes('@rtdacademy.com');
+                  return {
+                    email: email,
+                    displayName: isStaff
+                      ? userData.displayName
+                      : `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
+                    type: isStaff ? 'staff' : 'student',
+                    isStaff,
+                    course: userData.course || '', // Assuming course information is available
+                  };
+                }
                 return {
                   email: email,
-                  displayName: isStaff 
-                    ? userData.displayName 
-                    : `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
-                  type: isStaff ? 'staff' : 'student',
-                  isStaff
+                  displayName: email,
+                  type: 'unknown',
+                  isStaff: false,
                 };
-              }
-              return { 
-                email: email, 
-                displayName: email, 
-                type: 'unknown', 
-                isStaff: false 
-              };
-            }));
-
+              })
+            );
+  
             // Fetch the userChat data for the current user to get firstMessage
             const userChatRef = ref(db, `userChats/${fetchedUserSanitizedEmail}/${chatId}`);
             const userChatSnapshot = await get(userChatRef);
             const userChatData = userChatSnapshot.val();
-
+  
             return {
               id: chatId,
               participants: chatData.participants,
               participantDetails,
-              lastMessage: chatData.lastMessage || '',
-              firstMessage: userChatData?.firstMessage || '', // Add firstMessage
+              firstMessage: userChatData?.firstMessage || '', // Use firstMessage
               timestamp: chatData.lastMessageTimestamp || Date.now(),
             };
           }
           return null;
         });
-
+  
         const chatsWithDetails = (await Promise.all(chatDetailsPromises)).filter(Boolean);
         setChats(chatsWithDetails);
         console.log("ChatListModal: Chats fetched", chatsWithDetails);
       } catch (error) {
         console.error("Error fetching chats:", error);
       }
-
+  
       setLoading(false);
     };
-
+  
     fetchChats();
   }, [db, user.uid, participants]);
+
+  // Function to truncate message
+  const truncateMessage = (message, maxLength) => {
+    if (!message) return '';
+    if (message.length <= maxLength) return message;
+    return message.substr(0, maxLength) + '...';
+  };
+
+  // Function to format timestamp
+  const formatTimestamp = (timestamp) => {
+    return format(new Date(timestamp), 'EEE, MMM d, yy, h:mm a');
+  };
 
   // Updated handleNewChat function to pass full participant objects
   const handleNewChat = () => {
@@ -237,10 +259,10 @@ console.log("Processed participant keys:", participantKeys);
                       {renderParticipants(chat.participantDetails)}
                     </div>
                     <div className="text-sm text-gray-600 mb-1">
-                      {renderMessageContent(chat.firstMessage)} {/* Use firstMessage here */}
+                      {renderMessageContent(truncateMessage(chat.firstMessage, 50))}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {new Date(chat.timestamp).toLocaleString()}
+                      {formatTimestamp(chat.timestamp)}
                     </p>
                   </li>
                 ))}
