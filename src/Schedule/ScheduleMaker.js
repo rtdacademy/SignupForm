@@ -169,7 +169,7 @@ const ScheduleMaker = ({ studentKey, courseId, onClose }) => {
           const data = scheduleSnapshot.val();
           setExistingSchedule(data);
           setScheduleJson(data);
-          setStartDate(null); // Remove pre-selected start date
+          setStartDate(parseISO(data.startDate)); 
           setEndDate(parseISO(data.endDate));
 
           if (data.units && data.units.length > 0 && data.units[0].items && data.units[0].items.length > 0) {
@@ -192,7 +192,7 @@ const ScheduleMaker = ({ studentKey, courseId, onClose }) => {
             const parsedStartDate = parseISO(startDateString);
             const parsedEndDate = parseISO(endDateString);
             
-            setStartDate(null); // Remove pre-selected start date
+            setStartDate(parsedStartDate);
             setEndDate(parsedEndDate);
           }
           setExistingSchedule(null);
@@ -597,34 +597,38 @@ const ScheduleMaker = ({ studentKey, courseId, onClose }) => {
                 <div className="w-full md:w-1/2 pr-0 md:pr-2 mb-2 md:mb-0">
                   <Label>Start Date</Label>
                   <DatePicker
-                    selected={startDate}
-                    onChange={(date) => {
-                      setStartDate(startOfDay(date));
-                      setNeedsRecreation(true);
-                      setScheduleCreated(false);
-                    }}
-                    dateFormat="MMM dd, yyyy"
-                    placeholderText="Select start date"
-                    className="w-full border border-gray-300 rounded px-2 py-1"
-                    wrapperClassName="w-full"
-                  />
+  selected={startDate}
+  onChange={(date) => {
+    setStartDate(startOfDay(date));
+    setNeedsRecreation(true);
+    setScheduleCreated(false);
+  }}
+  dateFormat="MMM dd, yyyy"
+  placeholderText="Select start date"
+  className="w-full border border-gray-300 rounded px-2 py-1"
+  wrapperClassName="w-full"
+  preventOpenOnFocus={true} // Add this line
+/>
+
                 </div>
                 <div className="w-full md:w-1/2 pl-0 md:pl-2">
                   <Label>End Date</Label>
                   <DatePicker
-                    selected={endDate}
-                    onChange={(date) => {
-                      setEndDate(startOfDay(date));
-                      setNeedsRecreation(true);
-                      setScheduleCreated(false);
-                    }}
-                    dateFormat="MMM dd, yyyy"
-                    placeholderText="Select end date"
-                    minDate={startDate}
-                    className="w-full border border-gray-300 rounded px-2 py-1"
-                    disabled={!startDate}
-                    wrapperClassName="w-full"
-                  />
+  selected={endDate}
+  onChange={(date) => {
+    setEndDate(startOfDay(date));
+    setNeedsRecreation(true);
+    setScheduleCreated(false);
+  }}
+  dateFormat="MMM dd, yyyy"
+  placeholderText="Select end date"
+  minDate={startDate}
+  className="w-full border border-gray-300 rounded px-2 py-1"
+  disabled={!startDate}
+  wrapperClassName="w-full"
+  preventOpenOnFocus={true} // Add this line
+/>
+
                 </div>
               </div>
 

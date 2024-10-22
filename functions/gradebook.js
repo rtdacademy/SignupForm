@@ -599,6 +599,9 @@ function calculateAdherenceMetrics(combinedData) {
     }
   }
 
+  // Increment lastStartedIndex by 1
+  lastStartedIndex++;
+
   // Calculate the difference in assignments
   const lessonsBehind = currentAssignmentIndex - lastStartedIndex;
   const isOnTrack = lastStartedIndex >= currentAssignmentIndex;

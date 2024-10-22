@@ -15,6 +15,7 @@ import {
   FaArrowLeft,
   FaChevronRight,
   FaChevronLeft,
+  FaExclamationTriangle,
 } from 'react-icons/fa';
 import { getDatabase, ref, get, onValue } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
@@ -23,7 +24,6 @@ import Notifications from '../Notifications/Notifications';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 const LMSWrapper = () => {
-  // Existing state variables
   const [expandedIcon, setExpandedIcon] = useState(null);
   const [courseId, setCourseId] = useState(null);
   const [courseInfo, setCourseInfo] = useState(null);
@@ -34,21 +34,72 @@ const LMSWrapper = () => {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [courseTeachers, setCourseTeachers] = useState([]);
   const [courseSupportStaff, setCourseSupportStaff] = useState([]);
-  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0); // New state variable
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [hasMandatoryNotifications, setHasMandatoryNotifications] = useState(false);
+  const [mandatoryNotifications, setMandatoryNotifications] = useState([]);
 
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Create a stable empty array reference
   const emptyArray = useMemo(() => [], []);
 
+  // Course ID from URL
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const cid = searchParams.get('cid');
     setCourseId(cid);
   }, [location]);
 
+  // Fetch notifications and handle mandatory status
+  useEffect(() => {
+    if (!user) return;
+
+    const db = getDatabase();
+    const sanitizedEmail = sanitizeEmail(user.email);
+    const notificationsRef = ref(db, `notifications/${sanitizedEmail}`);
+
+    const unsubscribe = onValue(notificationsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const notificationsData = snapshot.val();
+        
+        // Process notifications
+        const mandatoryNotifs = [];
+        let hasUnreadMandatory = false;
+
+        Object.entries(notificationsData).forEach(([id, notification]) => {
+          // Check for either unread mandatory notifications or any mustRespond notifications
+          if ((!notification.read && notification.mustRead) || notification.mustRespond) {
+            hasUnreadMandatory = true;
+            mandatoryNotifs.push({
+              id,
+              ...notification,
+            });
+          }
+        });
+
+        // Update states
+        setUnreadNotificationsCount(
+          Object.values(notificationsData).filter((n) => !n.read).length
+        );
+        setHasMandatoryNotifications(hasUnreadMandatory);
+        setMandatoryNotifications(mandatoryNotifs);
+
+        // Auto-open notifications if there are mandatory ones
+        if (hasUnreadMandatory && expandedIcon !== 'Notifications') {
+          setExpandedIcon('Notifications');
+        }
+      } else {
+        setUnreadNotificationsCount(0);
+        setHasMandatoryNotifications(false);
+        setMandatoryNotifications([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user, expandedIcon]);
+
+  // Fetch course data
   useEffect(() => {
     const fetchData = async () => {
       if (user && courseId) {
@@ -75,8 +126,7 @@ const LMSWrapper = () => {
 
           const profileSnapshot = await get(ref(db, `students/${sanitizedEmail}/profile`));
           if (profileSnapshot.exists()) {
-            const profileData = profileSnapshot.val();
-            setStudentProfile(profileData);
+            setStudentProfile(profileSnapshot.val());
           }
         } catch (error) {
           console.error('Error fetching data:', error);
@@ -86,29 +136,6 @@ const LMSWrapper = () => {
 
     fetchData();
   }, [user, courseId, emptyArray]);
-
-  // New useEffect for fetching unread notifications count
-  useEffect(() => {
-    if (!user) return;
-
-    const db = getDatabase();
-    const sanitizedEmail = sanitizeEmail(user.email);
-    const notificationsRef = ref(db, `notifications/${sanitizedEmail}`);
-
-    const unsubscribe = onValue(notificationsRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const notificationsData = snapshot.val();
-        const unreadCount = Object.values(notificationsData).filter(
-          (notification) => !notification.read
-        ).length;
-        setUnreadNotificationsCount(unreadCount);
-      } else {
-        setUnreadNotificationsCount(0);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [user]);
 
   const navItems = useMemo(
     () => [
@@ -124,28 +151,77 @@ const LMSWrapper = () => {
     []
   );
 
-  const handleIconClick = useCallback((label) => {
-    setExpandedIcon(label);
-    setIsMobileNavOpen(false);
-  }, []);
+  const handleIconClick = useCallback(
+    (label) => {
+      if (hasMandatoryNotifications && label !== 'Notifications') {
+        // Check if there are any notifications with mustRespond
+        const hasMustRespond = mandatoryNotifications.some(
+          (notification) => notification.mustRespond
+        );
+        
+        if (hasMustRespond) {
+          alert('You have notifications that require a response before proceeding.');
+          return;
+        }
+
+        // Check if there are any unread mandatory notifications
+        const hasUnreadMandatory = mandatoryNotifications.some(
+          (notification) => !notification.read && notification.mustRead
+        );
+
+        if (hasUnreadMandatory) {
+          alert('You have mandatory notifications that need to be read before proceeding.');
+          return;
+        }
+      }
+      setExpandedIcon(label);
+      setIsMobileNavOpen(false);
+    },
+    [hasMandatoryNotifications, mandatoryNotifications]
+  );
 
   const closeMobileNav = useCallback(() => {
     setIsMobileNavOpen(false);
   }, []);
 
   const closeExpandedContent = useCallback(() => {
+    if (expandedIcon === 'Notifications' && hasMandatoryNotifications) {
+      const hasMustRespond = mandatoryNotifications.some(
+        (notification) => notification.mustRespond
+      );
+      const hasUnreadMandatory = mandatoryNotifications.some(
+        (notification) => !notification.read && notification.mustRead
+      );
+
+      if (hasMustRespond || hasUnreadMandatory) {
+        alert('You have mandatory notifications that require your attention before proceeding.');
+        return;
+      }
+    }
     setExpandedIcon(null);
-  }, []);
+  }, [expandedIcon, hasMandatoryNotifications, mandatoryNotifications]);
 
   const handleReturnToPortal = useCallback(() => {
+    if (hasMandatoryNotifications) {
+      const hasMustRespond = mandatoryNotifications.some(
+        (notification) => notification.mustRespond
+      );
+      const hasUnreadMandatory = mandatoryNotifications.some(
+        (notification) => !notification.read && notification.mustRead
+      );
+
+      if (hasMustRespond || hasUnreadMandatory) {
+        alert('You have mandatory notifications that require attention before returning to the portal.');
+        return;
+      }
+    }
     navigate('/dashboard');
-  }, [navigate]);
+  }, [navigate, hasMandatoryNotifications, mandatoryNotifications]);
 
   const handleChatSelect = useCallback((chatId) => {
     setExpandedIcon('Messages');
   }, []);
 
-  // Memoize the ChatApp component
   const MemoizedChatApp = useMemo(
     () => (
       <ChatApp
@@ -163,7 +239,12 @@ const LMSWrapper = () => {
       return (
         <button
           onClick={handleReturnToPortal}
-          className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors duration-200"
+          className={`w-full py-2 px-4 rounded transition-colors duration-200 ${
+            hasMandatoryNotifications
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-blue-500 hover:bg-blue-600 text-white'
+          }`}
+          disabled={hasMandatoryNotifications}
         >
           Back to Student Portal
         </button>
@@ -198,7 +279,13 @@ const LMSWrapper = () => {
     } else if (expandedIcon === 'Messages') {
       return MemoizedChatApp;
     } else if (expandedIcon === 'Notifications') {
-      return <Notifications onChatSelect={handleChatSelect} />;
+      return (
+        <Notifications 
+          onChatSelect={handleChatSelect} 
+          hasMandatoryNotifications={hasMandatoryNotifications}
+          mandatoryNotifications={mandatoryNotifications}
+        />
+      );
     } else {
       return (
         <p className="text-gray-300">
@@ -213,6 +300,8 @@ const LMSWrapper = () => {
     MemoizedChatApp,
     handleChatSelect,
     handleReturnToPortal,
+    hasMandatoryNotifications,
+    mandatoryNotifications,
     navItems,
   ]);
 
@@ -253,18 +342,32 @@ const LMSWrapper = () => {
               <button
                 key={item.label}
                 onClick={() => handleIconClick(item.label)}
-                className={`w-full text-left p-4 hover:bg-gray-700 transition-colors duration-200 flex items-center ${
+                className={`w-full text-left p-4 transition-colors duration-200 flex items-center ${
                   expandedIcon === item.label ? 'bg-gray-700' : ''
+                } ${
+                  hasMandatoryNotifications && item.label !== 'Notifications'
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'hover:bg-gray-700'
                 }`}
+                disabled={hasMandatoryNotifications && item.label !== 'Notifications'}
               >
                 <span className="inline-block align-middle mr-2">{item.icon}</span>
                 {isSidebarExpanded && (
                   <span className="inline-block align-middle">{item.label}</span>
                 )}
-                {item.label === 'Notifications' && unreadNotificationsCount > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                    {unreadNotificationsCount}
-                  </span>
+                {item.label === 'Notifications' && (
+                  <>
+                    {unreadNotificationsCount > 0 && (
+                      <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                        {unreadNotificationsCount}
+                      </span>
+                    )}
+                    {hasMandatoryNotifications && (
+                      <span className="ml-2 text-yellow-400">
+                        <FaExclamationTriangle size={16} />
+                      </span>
+                    )}
+                  </>
                 )}
               </button>
             ))}
@@ -279,11 +382,21 @@ const LMSWrapper = () => {
           <div className="fixed inset-0 bg-gray-700 text-white z-50 overflow-y-auto sm:static sm:inset-auto sm:w-1/2">
             <div className="p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">{expandedIcon}</h3>
+              <h3 className="text-lg font-semibold">{expandedIcon}</h3>
                 <button
                   onClick={closeExpandedContent}
-                  className="text-white hover:text-gray-300 transition-colors duration-200"
+                  className={`text-white transition-colors duration-200 ${
+                    expandedIcon === 'Notifications' && hasMandatoryNotifications
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:text-gray-300'
+                  }`}
                   aria-label="Close expanded content"
+                  disabled={expandedIcon === 'Notifications' && hasMandatoryNotifications}
+                  title={
+                    expandedIcon === 'Notifications' && hasMandatoryNotifications
+                      ? 'You have mandatory notifications that need attention'
+                      : 'Close expanded content'
+                  }
                 >
                   <FaArrowLeft size={24} />
                 </button>

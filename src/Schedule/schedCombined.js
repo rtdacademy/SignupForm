@@ -4,7 +4,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../components/ui/collapsible";
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Flag, UserCircle } from 'lucide-react';
 
 const typeColors = {
   lesson: 'bg-blue-100 text-blue-800',
@@ -27,7 +27,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const ScheduleItem = ({ item, isClosestToToday }) => {
+const ScheduleItem = ({ item, isClosestToToday, isCurrentAssignment, isLastStartedAssignment }) => {
   const [isOpen, setIsOpen] = useState(false);
   const formattedDate = useMemo(() => {
     return format(parseISO(item.date), 'EEE, MMM d, yyyy');
@@ -36,32 +36,59 @@ const ScheduleItem = ({ item, isClosestToToday }) => {
   const percentage = item.gradebookData?.grade?.percentage ?? 'N/A';
 
   return (
-    <Card className={`mb-2 shadow-sm ${isClosestToToday ? 'bg-blue-50' : ''}`}>
+    <Card className={`mb-2 shadow-sm ${isClosestToToday ? 'bg-blue-50' : ''} ${isCurrentAssignment ? 'border-green-500 border-2' : ''} ${isLastStartedAssignment ? 'border-yellow-500 border-2' : ''}`}>
       <CardContent className="p-3">
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <div className="flex justify-between items-center mb-1">
-            <div className="flex-grow">
+        <div className="flex justify-between items-center mb-1">
+          <div className="flex-grow flex items-center">
+            {isCurrentAssignment && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Flag className="mr-2 text-green-500" size={16} />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Current Assignment</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {isLastStartedAssignment && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <UserCircle className="mr-2 text-yellow-500" size={16} />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Last Started Assignment</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <div>
               <h3 className="text-base font-semibold">{item.title}</h3>
               <p className="text-xs text-gray-500">{formattedDate}</p>
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="flex flex-col items-end">
-                <Badge className={`${typeColors[item.type] || 'bg-gray-100 text-gray-800'} text-xs mb-1`}>
-                  {item.type}
-                </Badge>
-                <p className="text-xs font-semibold">
-                  {percentage !== 'N/A' ? `${percentage}%` : 'N/A'}
-                </p>
-              </div>
-              <CollapsibleTrigger asChild>
-                <button className="text-gray-500 hover:text-gray-700">
-                  {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-              </CollapsibleTrigger>
-            </div>
           </div>
+          <div className="flex items-center space-x-2">
+            <div className="flex flex-col items-end">
+              <Badge className={`${typeColors[item.type] || 'bg-gray-100 text-gray-800'} text-xs mb-1`}>
+                {item.type}
+              </Badge>
+              <p className="text-xs font-semibold">
+                {percentage !== 'N/A' ? `${percentage}%` : 'N/A'}
+              </p>
+            </div>
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+          </div>
+        </div>
 
-          <CollapsibleContent className="mt-2">
+        {isOpen && (
+          <div className="mt-2">
             {item.notes && (
               <div
                 className="mb-2 text-xs text-gray-700"
@@ -119,8 +146,8 @@ const ScheduleItem = ({ item, isClosestToToday }) => {
                 )}
               </>
             )}
-          </CollapsibleContent>
-        </Collapsible>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -130,27 +157,19 @@ const SchedCombined = ({ jsonGradebookSchedule }) => {
   const containerRef = useRef(null);
   const itemRefs = useRef([]);
 
-  const sortedItems = useMemo(() => {
-    return jsonGradebookSchedule.units
+  const { sortedItems, currentAssignmentIndex, lastStartedIndex } = useMemo(() => {
+    const sorted = jsonGradebookSchedule.units
       .flatMap(unit => unit.items)
       .sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [jsonGradebookSchedule]);
 
-  const closestToTodayIndex = useMemo(() => {
-    const today = new Date();
-    return sortedItems.reduce((closest, item, index) => {
-      const itemDate = parseISO(item.date);
-      const currentDiff = Math.abs(differenceInDays(today, itemDate));
-      const closestDiff = Math.abs(
-        differenceInDays(today, parseISO(sortedItems[closest].date))
-      );
-      return currentDiff < closestDiff ? index : closest;
-    }, 0);
-  }, [sortedItems]);
+    const { currentAssignmentIndex, lastStartedIndex } = jsonGradebookSchedule.adherenceMetrics;
+
+    return { sortedItems: sorted, currentAssignmentIndex, lastStartedIndex };
+  }, [jsonGradebookSchedule]);
 
   useEffect(() => {
     const scrollToItem = () => {
-      const item = itemRefs.current[closestToTodayIndex];
+      const item = itemRefs.current[currentAssignmentIndex];
       if (item) {
         item.scrollIntoView({
           behavior: 'smooth',
@@ -162,7 +181,7 @@ const SchedCombined = ({ jsonGradebookSchedule }) => {
     const timeoutId = setTimeout(scrollToItem, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [closestToTodayIndex]);
+  }, [currentAssignmentIndex]);
 
   return (
     <div ref={containerRef} className="container mx-auto p-4">
@@ -170,7 +189,12 @@ const SchedCombined = ({ jsonGradebookSchedule }) => {
       <div className="space-y-2">
         {sortedItems.map((item, index) => (
           <div key={index} ref={el => (itemRefs.current[index] = el)}>
-            <ScheduleItem item={item} isClosestToToday={index === closestToTodayIndex} />
+            <ScheduleItem
+              item={item}
+              isClosestToToday={index === currentAssignmentIndex}
+              isCurrentAssignment={index === currentAssignmentIndex}
+              isLastStartedAssignment={index === lastStartedIndex}
+            />
           </div>
         ))}
       </div>

@@ -33,6 +33,7 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { sanitizeEmail, compareEmails } from '../utils/sanitizeEmail';
 import TypingIndicator from './TypingIndicator';
+import ParticipantInfo from './ParticipantInfo';  // Adjust path if needed
 
 // Optionally import DOMPurify if available
 let DOMPurify;
@@ -43,91 +44,7 @@ try {
   console.warn('DOMPurify not available. HTML sanitization will be limited.');
 }
 
-// ParticipantInfo Component
-const ParticipantInfo = React.memo(({ email, isStaff }) => {
-  const [details, setDetails] = useState(null);
 
-  useEffect(() => {
-    console.log(`ParticipantInfo: Loading details for email: ${email}`);
-    const loadDetails = async () => {
-      const db = getDatabase();
-      const sanitizedEmail = sanitizeEmail(email).toLowerCase();
-
-      try {
-        // Attempt to fetch student profile
-        const studentRef = ref(db, `students/${sanitizedEmail}/profile`);
-        const studentSnapshot = await get(studentRef);
-        console.log(
-          `ParticipantInfo: Fetched student profile for ${sanitizedEmail}:`,
-          studentSnapshot.exists()
-        );
-
-        if (studentSnapshot.exists()) {
-          const profile = studentSnapshot.val();
-          setDetails({
-            firstName: profile.firstName || '',
-            lastName: profile.lastName || '',
-          });
-          console.log(
-            `ParticipantInfo: Student details set for ${sanitizedEmail}:`,
-            profile
-          );
-        } else {
-          // If not a student, attempt to fetch staff profile
-          const staffRef = ref(db, `staff/${sanitizedEmail}`);
-          const staffSnapshot = await get(staffRef);
-          console.log(
-            `ParticipantInfo: Fetched staff profile for ${sanitizedEmail}:`,
-            staffSnapshot.exists()
-          );
-
-          if (staffSnapshot.exists()) {
-            const profile = staffSnapshot.val();
-            setDetails({
-              firstName: profile.firstName || '',
-              lastName: profile.lastName || '',
-            });
-            console.log(
-              `ParticipantInfo: Staff details set for ${sanitizedEmail}:`,
-              profile
-            );
-          } else {
-            // Fallback to using the email prefix as the name
-            setDetails({
-              firstName: email.split('@')[0],
-              lastName: '',
-            });
-            console.log(
-              `ParticipantInfo: Fallback name set for ${email.split('@')[0]}`
-            );
-          }
-        }
-      } catch (error) {
-        console.error(`ParticipantInfo: Error loading details for ${email}:`, error);
-        setDetails({
-          firstName: email.split('@')[0],
-          lastName: '',
-        });
-      }
-    };
-
-    loadDetails();
-  }, [email]);
-
-  if (!details) {
-    console.log(`ParticipantInfo: Details not loaded yet for ${email}`);
-    return <p>Loading...</p>;
-  }
-
-  return (
-    <div className="mb-2">
-      <p>
-        <strong>Name:</strong> {details.firstName} {details.lastName}
-      </p>
-      {/* Removed email display as per the requirement */}
-    </div>
-  );
-});
 
 // Helper function to fetch participant names
 const getParticipantNames = async (participants) => {
@@ -204,7 +121,8 @@ const ChatApp = ({
   courseTeachers = [],
   courseSupportStaff = [],
   initialParticipants = [],
-  mode = 'full', // New prop to determine the mode: 'full' or 'popup'
+  mode = 'full', 
+  existingChatId = null,
 }) => {
   console.log('ChatApp rendered with props:', {
     courseInfo,
@@ -260,6 +178,76 @@ const ChatApp = ({
 
   // State to control participant search visibility
   const [showParticipantSearch, setShowParticipantSearch] = useState(true);
+
+  // Load Existing Chat Function
+  const loadExistingChat = useCallback(
+    async (chatId, chatParticipants) => {
+      console.log("ChatApp: loadExistingChat called with chatId:", chatId);
+      setIsLoading(true);
+      setError(null);
+  
+      try {
+        const db = getDatabase();
+        const chatRef = ref(db, `chats/${chatId}`);
+        const chatSnapshot = await get(chatRef);
+  
+        if (chatSnapshot.exists()) {
+          const chatData = chatSnapshot.val();
+          setCurrentChatId(chatId);
+          
+          // First set the initial participants passed from the notification
+          if (chatParticipants && chatParticipants.length > 0) {
+            setParticipants(chatParticipants);
+          } 
+          // Fallback to chat data participants if no participants were passed
+          else if (chatData.participants) {
+            const participantObjects = chatData.participants.map(email => ({
+              email: sanitizeEmail(email).toLowerCase(),
+              displayName: email
+            }));
+            setParticipants(participantObjects);
+          }
+          
+          const messageArray = chatData.messages
+            ? Object.entries(chatData.messages).map(([id, message]) => ({
+                id,
+                ...message,
+                timestamp: message.timestamp || Date.now(),
+              }))
+            : [];
+          messageArray.sort((a, b) => a.timestamp - b.timestamp);
+          setMessages(messageArray);
+          
+          setIsNewChat(false);
+          setShowParticipantSearch(false);
+          setIsChatCreated(true);
+          
+          // Mark the notification as read and reset unreadCount
+          const notificationRef = ref(
+            db,
+            `notifications/${sanitizeEmail(user.email)}/${chatId}`
+          );
+          const notificationSnapshot = await get(notificationRef);
+          
+          if (notificationSnapshot.exists()) {
+            await update(notificationRef, {
+              read: true,
+              unreadCount: 0,
+            });
+          }
+        } else {
+          console.error('ChatApp: Chat not found');
+          setError('Chat not found');
+        }
+      } catch (error) {
+        console.error('ChatApp: Error loading existing chat:', error);
+        setError('Failed to load chat. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user] 
+  );
 
   // Initialize Chat Function
   const initializeChat = useCallback(
@@ -323,16 +311,16 @@ const ChatApp = ({
 
   // Initialize chat with initialParticipants using useEffect with dependency
   useEffect(() => {
-    if (
-      !chatInitializedRef.current &&
-      initialParticipants &&
-      initialParticipants.length > 0
-    ) {
+    if (existingChatId && !chatInitializedRef.current) {
+      console.log('ChatApp: Initializing existing chat with ID:', existingChatId);
+      loadExistingChat(existingChatId, initialParticipants);
+      chatInitializedRef.current = true;
+    } else if (!chatInitializedRef.current && initialParticipants && initialParticipants.length > 0) {
       console.log('ChatApp: Initializing chat with participants:', initialParticipants);
       initializeChat(initialParticipants, null, true);
       chatInitializedRef.current = true;
     }
-  }, [initialParticipants, initializeChat]);
+  }, [existingChatId, initialParticipants, loadExistingChat, initializeChat]);
 
   useEffect(() => {
     console.log('ChatApp: useEffect - Participants changed:', participants);
@@ -373,94 +361,6 @@ const ChatApp = ({
 
     fetchParticipantNamesEffect();
   }, [participants]);
-
-  // Load Existing Chat Function
-  const loadExistingChat = useCallback(
-    async (chatId, chatParticipants) => {
-      console.log("ChatApp: loadExistingChat called with chatId:", chatId);
-      setIsLoading(true);
-      setError(null);
-      console.log('ChatApp: Loading state set to true');
-
-      try {
-        const db = getDatabase();
-        const userEmail = sanitizeEmail(user.email).toLowerCase();
-        const userChatRef = ref(db, `userChats/${userEmail}/${chatId}`);
-        const userChatSnapshot = await get(userChatRef);
-        console.log(
-          `ChatApp: Fetched userChat data for ${userEmail} and chatId ${chatId}:`,
-          userChatSnapshot.exists()
-        );
-
-        // Skip loading if chat is marked as inactive for the user
-        if (!userChatSnapshot.exists() || userChatSnapshot.val().active === false) {
-          console.error('ChatApp: This chat is inactive for the current user.');
-          setError('This chat is inactive for you.');
-          setIsLoading(false);
-          return;
-        }
-
-        const chatRef = ref(db, `chats/${chatId}`);
-        const chatSnapshot = await get(chatRef);
-        console.log(`ChatApp: Fetched chat data for chatId ${chatId}:`, chatSnapshot.exists());
-
-        if (chatSnapshot.exists()) {
-          const chatData = chatSnapshot.val();
-          setCurrentChatId(chatId);
-          console.log(`ChatApp: Current chat ID set to: ${chatId}`);
-          setParticipants(
-            chatData.participants.map((email) => ({
-              email: sanitizeEmail(email).toLowerCase(),
-              displayName: chatParticipants.find((p) => p.email === email)?.displayName || email,
-            }))
-          );
-          console.log('ChatApp: Participants set from existing chat:', chatData.participants);
-
-          const messageArray = chatData.messages
-            ? Object.entries(chatData.messages).map(([id, message]) => ({
-                id,
-                ...message,
-                timestamp: message.timestamp || Date.now(),
-              }))
-            : [];
-          messageArray.sort((a, b) => a.timestamp - b.timestamp);
-          setMessages(messageArray);
-          console.log(`ChatApp: Loaded ${messageArray.length} messages from chatId ${chatId}`);
-          setIsNewChat(false);
-          setShowParticipantSearch(false);
-          chatInitializedRef.current = true;
-          setIsChatCreated(true); // Set to true when existing chat is loaded
-          console.log('ChatApp: Existing chat loaded and isChatCreated set to true');
-
-          // Mark the notification as read and reset unreadCount
-          const notificationRef = ref(db, `notifications/${userEmail}/${chatId}`);
-          const notificationSnapshot = await get(notificationRef);
-          console.log(
-            `ChatApp: Fetched notification for ${userEmail} and chatId ${chatId}:`,
-            notificationSnapshot.exists()
-          );
-
-          if (notificationSnapshot.exists()) {
-            await update(notificationRef, {
-              read: true,
-              unreadCount: 0,
-            });
-            console.log('ChatApp: Notification marked as read for chat:', chatId);
-          }
-        } else {
-          console.error('ChatApp: Chat not found');
-          setError('Chat not found');
-        }
-      } catch (error) {
-        console.error('ChatApp: Error loading existing chat:', error);
-        setError('Failed to load chat. Please try again.');
-      } finally {
-        setIsLoading(false);
-        console.log('ChatApp: Loading state set to false');
-      }
-    },
-    [user]
-  );
 
   // Create Notification Function
   const createNotification = useCallback(
@@ -535,9 +435,9 @@ const ChatApp = ({
       const db = getDatabase();
       let chatId = currentChatId;
       let chatRef;
-
+  
       const currentUserEmail = sanitizeEmail(user.email).toLowerCase();
-
+  
       const newMessage = {
         text: inputMessage,
         sender: currentUserEmail,
@@ -545,19 +445,19 @@ const ChatApp = ({
         timestamp: serverTimestamp(),
       };
       console.log('ChatApp: New message object created:', newMessage);
-
+  
       try {
         if (!chatId) {
           chatRef = push(ref(db, 'chats'));
           chatId = chatRef.key;
           console.log('ChatApp: New chat created with ID:', chatId);
-
+  
           let allParticipants = participants.map((p) => p.email);
           if (!allParticipants.includes(currentUserEmail)) {
             allParticipants.push(currentUserEmail);
           }
           console.log('ChatApp: All participants for new chat:', allParticipants);
-
+  
           const newChatData = {
             participants: allParticipants,
             createdAt: serverTimestamp(),
@@ -565,10 +465,10 @@ const ChatApp = ({
             lastMessageTimestamp: serverTimestamp(),
             firstMessage: inputMessage,
           };
-
+  
           await set(chatRef, newChatData);
           console.log('ChatApp: New chat data set in database:', newChatData);
-
+  
           // Add chat to all participants' profiles in userChats
           for (const participantEmail of allParticipants) {
             const userChatRef = ref(db, `userChats/${participantEmail}/${chatId}`);
@@ -579,9 +479,9 @@ const ChatApp = ({
             });
             console.log(`ChatApp: Chat ${chatId} added to userChats for ${participantEmail}`);
           }
-
+  
           setCurrentChatId(chatId);
-          setIsChatCreated(true); // Set this to true when a new chat is created
+          setIsChatCreated(true);
           console.log(`ChatApp: Current chat ID updated to ${chatId} and isChatCreated set to true`);
         } else {
           // Update userChats for all participants with the new last message
@@ -594,11 +494,26 @@ const ChatApp = ({
             console.log(`ChatApp: Updated userChats for ${participantEmail} with new message`);
           }
         }
-
+  
         // Send message
         await push(ref(db, `chats/${chatId}/messages`), newMessage);
         console.log(`ChatApp: Message pushed to chat ${chatId}`);
-
+  
+        // Check and update mustRespond in current user's notification
+        const notificationRef = ref(db, `notifications/${currentUserEmail}/${chatId}`);
+        const notificationSnapshot = await get(notificationRef);
+        
+        if (notificationSnapshot.exists()) {
+          const notificationData = notificationSnapshot.val();
+          if (notificationData.mustRespond !== undefined) {
+            await update(notificationRef, {
+              mustRespond: false,
+              lastResponseTime: serverTimestamp()
+            });
+            console.log(`ChatApp: Updated mustRespond to false for notification ${chatId}`);
+          }
+        }
+  
         setInputMessage('');
         console.log('ChatApp: Input message cleared');
         if (quillRef.current) {
@@ -606,7 +521,7 @@ const ChatApp = ({
           console.log('ChatApp: Quill editor text cleared');
         }
         setIsNewChat(false);
-        setIsChatCreated(true); // Ensure this is set to true after sending any message
+        setIsChatCreated(true);
         console.log('ChatApp: isNewChat set to false and isChatCreated set to true');
       } catch (error) {
         console.error('ChatApp: Error handling message:', error);
@@ -1047,18 +962,20 @@ const ChatApp = ({
               </div>
             </div>
             {showParticipantInfo && (
-              <div className="mt-2 text-sm">
-                {participants
-                  .filter((participant) => !compareEmails(participant.email, user.email))
-                  .map((participant) => (
-                    <ParticipantInfo
-                      key={participant.email}
-                      email={participant.email}
-                      isStaff={userIsStaff}
-                    />
-                  ))}
-              </div>
-            )}
+  <div className="mt-2 text-sm">
+    {participants
+      .filter((participant) => !compareEmails(participant.email, user.email))
+      .map((participant) => (
+        <ParticipantInfo
+          key={participant.email}
+          email={participant.email}
+          isStaff={userIsStaff}
+          chatId={currentChatId}  // Add this prop
+          onError={setError}      // Add this prop
+        />
+      ))}
+  </div>
+)}
           </div>
         )}
       </div>

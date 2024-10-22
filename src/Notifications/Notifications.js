@@ -1,8 +1,16 @@
-// Notifications.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { getDatabase, ref, get, update, onValue } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
-import { Loader, Eye, EyeOff, MessageSquare, User, UserCheck } from 'lucide-react';
+import { 
+  Loader, 
+  Eye, 
+  EyeOff, 
+  MessageSquare, 
+  User, 
+  UserCheck,
+  BookOpen,
+  MessageCircle
+} from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import ChatApp from '../chat/ChatApp';
@@ -39,7 +47,10 @@ const Notifications = () => {
             id: key,
             ...value,
           }))
-          .filter((notification) => !notification.read);
+          .filter((notification) => {
+            // Keep unread notifications OR notifications that have mustRespond set to true
+            return !notification.read || notification.mustRespond === true;
+          });
         setNotifications(notificationsList);
       } else {
         setNotifications([]);
@@ -80,14 +91,33 @@ const Notifications = () => {
   const markAsRead = useCallback(
     async (notificationId) => {
       if (!user) return;
-
+  
       try {
         const notificationRef = ref(db, `notifications/${sanitizedEmail}/${notificationId}`);
-        await update(notificationRef, {
-          read: true,
-          unreadCount: 0,
-        });
-        console.log(`Notification ${notificationId} marked as read.`);
+        const notificationSnapshot = await get(notificationRef);
+        
+        if (notificationSnapshot.exists()) {
+          const notificationData = notificationSnapshot.val();
+          
+          // Only mark as read if there's no mustRespond requirement
+          // or if both mustRead and mustRespond are false
+          if (!notificationData.mustRespond) {
+            await update(notificationRef, {
+              read: true,
+              unreadCount: 0,
+              // Only update mustRead flag if it exists and there's no mustRespond
+              ...(notificationData.mustRead !== undefined && { mustRead: false })
+            });
+            console.log(`Notification ${notificationId} marked as read.`);
+          } else {
+            // If mustRespond is true, only update the mustRead flag
+            if (notificationData.mustRead) {
+              await update(notificationRef, {
+                mustRead: false
+              });
+            }
+          }
+        }
       } catch (error) {
         console.error('Error marking notification as read:', error);
       }
@@ -106,17 +136,39 @@ const Notifications = () => {
     setSelectedNotification(notification);
     setIsChatOpen(true);
     markAsRead(notification.id);
-
+  
     try {
       const chatRef = ref(db, `chats/${notification.chatId}`);
       const chatSnapshot = await get(chatRef);
       if (chatSnapshot.exists()) {
         const chatData = chatSnapshot.val();
         if (chatData.participants) {
-          setChatParticipants(chatData.participants.map(email => ({
-            email: email,
-            displayName: email // You might want to fetch actual display names if available
-          })));
+          const participantDetails = await Promise.all(
+            chatData.participants.map(async (email) => {
+              let userRef = ref(db, `staff/${email}`);
+              let userSnapshot = await get(userRef);
+  
+              if (!userSnapshot.exists()) {
+                userRef = ref(db, `students/${email}/profile`);
+                userSnapshot = await get(userRef);
+              }
+  
+              if (userSnapshot.exists()) {
+                const userData = userSnapshot.val();
+                const isStaff = email.includes('@rtdacademy.com');
+                return {
+                  email: email,
+                  displayName: isStaff
+                    ? userData.displayName
+                    : `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
+                  type: isStaff ? 'staff' : 'student',
+                  isStaff,
+                };
+              }
+              return { email: email, displayName: email, type: 'unknown', isStaff: false };
+            })
+          );
+          setChatParticipants(participantDetails);
         }
       }
     } catch (error) {
@@ -130,6 +182,26 @@ const Notifications = () => {
     setSelectedChatId(null);
     setSelectedNotification(null);
     setChatParticipants([]);
+  };
+
+  // Render status indicators
+  const renderStatusIndicators = (notification) => {
+    return (
+      <div className="flex gap-2 items-center">
+        {Boolean(notification.mustRead) && (
+          <div className="flex items-center text-red-500" title="Must Read">
+            <BookOpen size={16} />
+            <span className="text-xs ml-1">Must Read</span>
+          </div>
+        )}
+        {Boolean(notification.mustRespond) && (
+          <div className="flex items-center text-red-500" title="Must Respond">
+            <MessageCircle size={16} />
+            <span className="text-xs ml-1">Must Respond</span>
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Render loading state
@@ -152,7 +224,7 @@ const Notifications = () => {
             <li
               key={notification.id}
               className={`p-5 border rounded-lg transition-all duration-300 cursor-pointer ${
-                notification.read ? 'bg-neutral-200' : 'bg-highlight shadow-md'
+                notification.read && !notification.mustRespond ? 'bg-neutral-200' : 'bg-highlight shadow-md'
               }`}
               onClick={() => handleNotificationClick(notification)}
             >
@@ -182,6 +254,12 @@ const Notifications = () => {
                   {notification.read ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
+              {/* Status Indicators */}
+              {(Boolean(notification.mustRead) || Boolean(notification.mustRespond)) && (
+                <div className="mb-3">
+                  {renderStatusIndicators(notification)}
+                </div>
+              )}
               <div className="flex flex-wrap gap-3 mt-3">
                 <span className="px-3 py-1 text-xs font-semibold text-primary bg-secondary bg-opacity-20 rounded-full shadow-sm">
                   From: {notification.senderName}
