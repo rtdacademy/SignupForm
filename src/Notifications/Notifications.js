@@ -280,26 +280,26 @@ const Notifications = () => {
 
       {/* Chat Modal */}
       <Dialog open={isChatOpen} onOpenChange={handleCloseChatModal}>
-        <DialogContent className="max-w-[90vw] max-h-[90vh] w-[1000px] h-[800px]">
-          <DialogHeader>
-            <DialogTitle>
-              Chat with {selectedNotification?.senderName}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="h-full overflow-hidden">
-            {selectedChatId && (
-              <ChatApp
-                mode="popup"
-                courseInfo={null}
-                courseTeachers={[]}
-                courseSupportStaff={[]}
-                initialParticipants={chatParticipants}
-                existingChatId={selectedChatId}
-              />
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+  <DialogContent className="max-w-[90vw] w-[1000px] h-[95vh] max-h-[900px] p-4 flex flex-col">
+    <DialogHeader className="mb-0 bg-white py-0">
+      <DialogTitle>
+        Messaging
+      </DialogTitle>
+    </DialogHeader>
+    <div className="flex-grow overflow-hidden rounded-lg border border-gray-200">
+      {selectedChatId && (
+        <ChatApp
+          mode="popup"
+          courseInfo={null}
+          courseTeachers={[]}
+          courseSupportStaff={[]}
+          initialParticipants={chatParticipants}
+          existingChatId={selectedChatId}
+        />
+      )}
+    </div>
+  </DialogContent>
+</Dialog>
     </div>
   );
 };

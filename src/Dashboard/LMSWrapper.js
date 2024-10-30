@@ -1,4 +1,3 @@
-// LMSWrapper.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -17,7 +16,7 @@ import {
   FaChevronLeft,
   FaExclamationTriangle,
 } from 'react-icons/fa';
-import { getDatabase, ref, get, onValue } from 'firebase/database';
+import { getDatabase, ref, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import ChatApp from '../chat/ChatApp';
 import Notifications from '../Notifications/Notifications';
@@ -26,116 +25,76 @@ import { sanitizeEmail } from '../utils/sanitizeEmail';
 const LMSWrapper = () => {
   const [expandedIcon, setExpandedIcon] = useState(null);
   const [courseId, setCourseId] = useState(null);
-  const [courseInfo, setCourseInfo] = useState(null);
-  const [studentCourseInfo, setStudentCourseInfo] = useState(null);
-  const [studentProfile, setStudentProfile] = useState(null);
-  const [schedule, setSchedule] = useState(null);
+  const [userEmailKey, setUserEmailKey] = useState(null);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [courseTitle, setCourseTitle] = useState('');
   const [courseTeachers, setCourseTeachers] = useState([]);
   const [courseSupportStaff, setCourseSupportStaff] = useState([]);
-  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
-  const [hasMandatoryNotifications, setHasMandatoryNotifications] = useState(false);
-  const [mandatoryNotifications, setMandatoryNotifications] = useState([]);
+  const [allowStudentChats, setAllowStudentChats] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const emptyArray = useMemo(() => [], []);
-
-  // Course ID from URL
+  // Set courseId from URL
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const cid = searchParams.get('cid');
     setCourseId(cid);
   }, [location]);
 
-  // Fetch notifications and handle mandatory status
+  // Set userEmailKey when user is available
   useEffect(() => {
-    if (!user) return;
-
-    const db = getDatabase();
-    const sanitizedEmail = sanitizeEmail(user.email);
-    const notificationsRef = ref(db, `notifications/${sanitizedEmail}`);
-
-    const unsubscribe = onValue(notificationsRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const notificationsData = snapshot.val();
-        
-        // Process notifications
-        const mandatoryNotifs = [];
-        let hasUnreadMandatory = false;
-
-        Object.entries(notificationsData).forEach(([id, notification]) => {
-          // Check for either unread mandatory notifications or any mustRespond notifications
-          if ((!notification.read && notification.mustRead) || notification.mustRespond) {
-            hasUnreadMandatory = true;
-            mandatoryNotifs.push({
-              id,
-              ...notification,
-            });
-          }
-        });
-
-        // Update states
-        setUnreadNotificationsCount(
-          Object.values(notificationsData).filter((n) => !n.read).length
-        );
-        setHasMandatoryNotifications(hasUnreadMandatory);
-        setMandatoryNotifications(mandatoryNotifs);
-
-        // Auto-open notifications if there are mandatory ones
-        if (hasUnreadMandatory && expandedIcon !== 'Notifications') {
-          setExpandedIcon('Notifications');
-        }
-      } else {
-        setUnreadNotificationsCount(0);
-        setHasMandatoryNotifications(false);
-        setMandatoryNotifications([]);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [user, expandedIcon]);
+    if (user) {
+      const emailKey = sanitizeEmail(user.email);
+      setUserEmailKey(emailKey);
+      console.log('Core identifiers:', {
+        userEmailKey: emailKey,
+        courseId
+      });
+    }
+  }, [user, courseId]);
 
   // Fetch course data
   useEffect(() => {
-    const fetchData = async () => {
-      if (user && courseId) {
-        const db = getDatabase();
-        const sanitizedEmail = sanitizeEmail(user.email);
+    const fetchCourseData = async () => {
+      if (!courseId) return;
 
-        try {
-          const courseSnapshot = await get(ref(db, `courses/${courseId}`));
-          if (courseSnapshot.exists()) {
-            const courseData = courseSnapshot.val();
-            setCourseInfo(courseData);
-            setCourseTeachers(courseData.Teachers || emptyArray);
-            setCourseSupportStaff(courseData.SupportStaff || emptyArray);
-          }
+      const db = getDatabase();
+      const courseRef = ref(db, `courses/${courseId}`);
 
-          const studentCourseSnapshot = await get(
-            ref(db, `students/${sanitizedEmail}/courses/${courseId}`)
-          );
-          if (studentCourseSnapshot.exists()) {
-            const studentCourseData = studentCourseSnapshot.val();
-            setStudentCourseInfo(studentCourseData);
-            setSchedule(studentCourseData.Schedule);
-          }
+      try {
+        const snapshot = await get(courseRef);
+        if (snapshot.exists()) {
+          const courseData = snapshot.val();
+          
+          // Set course title
+          setCourseTitle(courseData.Title || '');
+          
+          // Set teachers (ensure it's always an array)
+          setCourseTeachers(courseData.Teachers || []);
+          
+          // Set support staff (ensure it's always an array)
+          setCourseSupportStaff(courseData.SupportStaff || []);
 
-          const profileSnapshot = await get(ref(db, `students/${sanitizedEmail}/profile`));
-          if (profileSnapshot.exists()) {
-            setStudentProfile(profileSnapshot.val());
-          }
-        } catch (error) {
-          console.error('Error fetching data:', error);
+          // Set allowStudentChats (default to false if not set)
+          setAllowStudentChats(courseData.allowStudentChats || false);
+
+          console.log('Course Data Loaded:', {
+            title: courseData.Title,
+            teachers: courseData.Teachers,
+            supportStaff: courseData.SupportStaff,
+            allowStudentChats: courseData.allowStudentChats
+          });
         }
+      } catch (error) {
+        console.error('Error fetching course data:', error);
       }
     };
 
-    fetchData();
-  }, [user, courseId, emptyArray]);
+    fetchCourseData();
+  }, [courseId]);
 
   const navItems = useMemo(
     () => [
@@ -151,103 +110,60 @@ const LMSWrapper = () => {
     []
   );
 
-  const handleIconClick = useCallback(
-    (label) => {
-      if (hasMandatoryNotifications && label !== 'Notifications') {
-        // Check if there are any notifications with mustRespond
-        const hasMustRespond = mandatoryNotifications.some(
-          (notification) => notification.mustRespond
-        );
-        
-        if (hasMustRespond) {
-          alert('You have notifications that require a response before proceeding.');
-          return;
-        }
-
-        // Check if there are any unread mandatory notifications
-        const hasUnreadMandatory = mandatoryNotifications.some(
-          (notification) => !notification.read && notification.mustRead
-        );
-
-        if (hasUnreadMandatory) {
-          alert('You have mandatory notifications that need to be read before proceeding.');
-          return;
-        }
-      }
-      setExpandedIcon(label);
-      setIsMobileNavOpen(false);
-    },
-    [hasMandatoryNotifications, mandatoryNotifications]
-  );
+  const handleIconClick = useCallback((label) => {
+    setExpandedIcon(label);
+    setIsMobileNavOpen(false);
+  }, []);
 
   const closeMobileNav = useCallback(() => {
     setIsMobileNavOpen(false);
   }, []);
 
   const closeExpandedContent = useCallback(() => {
-    if (expandedIcon === 'Notifications' && hasMandatoryNotifications) {
-      const hasMustRespond = mandatoryNotifications.some(
-        (notification) => notification.mustRespond
-      );
-      const hasUnreadMandatory = mandatoryNotifications.some(
-        (notification) => !notification.read && notification.mustRead
-      );
-
-      if (hasMustRespond || hasUnreadMandatory) {
-        alert('You have mandatory notifications that require your attention before proceeding.');
-        return;
-      }
-    }
     setExpandedIcon(null);
-  }, [expandedIcon, hasMandatoryNotifications, mandatoryNotifications]);
-
-  const handleReturnToPortal = useCallback(() => {
-    if (hasMandatoryNotifications) {
-      const hasMustRespond = mandatoryNotifications.some(
-        (notification) => notification.mustRespond
-      );
-      const hasUnreadMandatory = mandatoryNotifications.some(
-        (notification) => !notification.read && notification.mustRead
-      );
-
-      if (hasMustRespond || hasUnreadMandatory) {
-        alert('You have mandatory notifications that require attention before returning to the portal.');
-        return;
-      }
-    }
-    navigate('/dashboard');
-  }, [navigate, hasMandatoryNotifications, mandatoryNotifications]);
-
-  const handleChatSelect = useCallback((chatId) => {
-    setExpandedIcon('Messages');
   }, []);
 
-  const MemoizedChatApp = useMemo(
-    () => (
-      <ChatApp
-        courseInfo={courseInfo}
-        courseTeachers={courseTeachers}
-        courseSupportStaff={courseSupportStaff}
-        initialParticipants={studentCourseInfo?.participants || []}
-      />
-    ),
-    [courseInfo, courseTeachers, courseSupportStaff, studentCourseInfo]
-  );
+  const handleReturnToPortal = useCallback(() => {
+    navigate('/dashboard');
+  }, [navigate]);
+
+  const handleChatSelect = useCallback(() => {
+    setExpandedIcon('Messages');
+  }, []);
 
   const renderExpandedContent = useCallback(() => {
     if (expandedIcon === 'Portal') {
       return (
-        <button
-          onClick={handleReturnToPortal}
-          className={`w-full py-2 px-4 rounded transition-colors duration-200 ${
-            hasMandatoryNotifications
-              ? 'bg-gray-400 cursor-not-allowed'
-              : 'bg-blue-500 hover:bg-blue-600 text-white'
-          }`}
-          disabled={hasMandatoryNotifications}
-        >
-          Back to Student Portal
-        </button>
+        <div className="h-full flex items-center justify-center">
+          <button
+            onClick={handleReturnToPortal}
+            className="py-2 px-4 rounded transition-colors duration-200 bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            Back to Student Portal
+          </button>
+        </div>
+      );
+    } else if (expandedIcon === 'Messages') {
+      return (
+        <div className="h-full flex flex-col overflow-hidden">
+          <ChatApp 
+            userEmailKey={userEmailKey} 
+            courseId={courseId}
+            courseTitle={courseTitle}
+            courseTeachers={courseTeachers}
+            courseSupportStaff={courseSupportStaff}
+            allowStudentChats={allowStudentChats}
+          />
+        </div>
+      );
+    } else if (expandedIcon === 'Notifications') {
+      return (
+        <div className="h-full flex flex-col overflow-hidden">
+          <Notifications 
+            userEmailKey={userEmailKey}
+            onChatSelect={handleChatSelect}
+          />
+        </div>
       );
     } else if (expandedIcon === 'Gradebook') {
       return (
@@ -257,33 +173,12 @@ const LMSWrapper = () => {
           className="w-full h-full border-none"
         />
       );
-    } else if (expandedIcon === 'Schedule') {
-      return (
-        <div>
-          <h4 className="text-lg font-semibold mb-2">Course Schedule</h4>
-          {schedule ? (
-            <div dangerouslySetInnerHTML={{ __html: schedule }} />
-          ) : (
-            <p>No schedule available for this course.</p>
-          )}
-        </div>
-      );
     } else if (expandedIcon === 'Book Time') {
       return (
         <iframe
           src="https://outlook.office365.com/owa/calendar/RTDBookings@rtdacademy.com/bookings/"
           title="Book Time"
           className="w-full h-full border-none"
-        />
-      );
-    } else if (expandedIcon === 'Messages') {
-      return MemoizedChatApp;
-    } else if (expandedIcon === 'Notifications') {
-      return (
-        <Notifications 
-          onChatSelect={handleChatSelect} 
-          hasMandatoryNotifications={hasMandatoryNotifications}
-          mandatoryNotifications={mandatoryNotifications}
         />
       );
     } else {
@@ -296,12 +191,13 @@ const LMSWrapper = () => {
   }, [
     expandedIcon,
     courseId,
-    schedule,
-    MemoizedChatApp,
+    courseTitle,
+    courseTeachers,
+    courseSupportStaff,
+    allowStudentChats,
+    userEmailKey,
     handleChatSelect,
     handleReturnToPortal,
-    hasMandatoryNotifications,
-    mandatoryNotifications,
     navItems,
   ]);
 
@@ -344,30 +240,11 @@ const LMSWrapper = () => {
                 onClick={() => handleIconClick(item.label)}
                 className={`w-full text-left p-4 transition-colors duration-200 flex items-center ${
                   expandedIcon === item.label ? 'bg-gray-700' : ''
-                } ${
-                  hasMandatoryNotifications && item.label !== 'Notifications'
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'hover:bg-gray-700'
-                }`}
-                disabled={hasMandatoryNotifications && item.label !== 'Notifications'}
+                } hover:bg-gray-700`}
               >
                 <span className="inline-block align-middle mr-2">{item.icon}</span>
                 {isSidebarExpanded && (
                   <span className="inline-block align-middle">{item.label}</span>
-                )}
-                {item.label === 'Notifications' && (
-                  <>
-                    {unreadNotificationsCount > 0 && (
-                      <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                        {unreadNotificationsCount}
-                      </span>
-                    )}
-                    {hasMandatoryNotifications && (
-                      <span className="ml-2 text-yellow-400">
-                        <FaExclamationTriangle size={16} />
-                      </span>
-                    )}
-                  </>
                 )}
               </button>
             ))}
@@ -379,28 +256,23 @@ const LMSWrapper = () => {
       <div className="flex-grow flex overflow-hidden">
         {/* Expanded content */}
         {expandedIcon && (
-          <div className="fixed inset-0 bg-gray-700 text-white z-50 overflow-y-auto sm:static sm:inset-auto sm:w-1/2">
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">{expandedIcon}</h3>
+          <div className="fixed inset-0 bg-gray-700 text-white z-50 flex flex-col sm:static sm:inset-auto sm:w-1/2">
+            <div className="p-4 border-b border-gray-600">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">
+                  {expandedIcon === 'Messages' ? `${expandedIcon} - ${courseTitle}` : expandedIcon}
+                </h3>
                 <button
                   onClick={closeExpandedContent}
-                  className={`text-white transition-colors duration-200 ${
-                    expandedIcon === 'Notifications' && hasMandatoryNotifications
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:text-gray-300'
-                  }`}
+                  className="text-white transition-colors duration-200 hover:text-gray-300"
                   aria-label="Close expanded content"
-                  disabled={expandedIcon === 'Notifications' && hasMandatoryNotifications}
-                  title={
-                    expandedIcon === 'Notifications' && hasMandatoryNotifications
-                      ? 'You have mandatory notifications that need attention'
-                      : 'Close expanded content'
-                  }
                 >
                   <FaArrowLeft size={24} />
                 </button>
               </div>
+            </div>
+            {/* Content wrapper with flex-grow and overflow handling */}
+            <div className="flex-grow overflow-hidden">
               {renderExpandedContent()}
             </div>
           </div>

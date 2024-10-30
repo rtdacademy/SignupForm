@@ -640,9 +640,9 @@ const StudentCard = React.memo(({
 
       {/* Chat Dialog */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
-        <DialogContent className="max-w-[90vw] w-[1000px] h-[80vh] max-h-[800px] p-4 flex flex-col">
-          <DialogHeader className="mb-4 bg-white">
-            <DialogTitle>
+        <DialogContent className="max-w-[90vw] w-[1000px] h-[95vh] max-h-[900px] p-4 flex flex-col">
+        <DialogHeader className="mb-0 bg-white py-0">
+          <DialogTitle> 
               Messaging
             </DialogTitle>
           </DialogHeader>

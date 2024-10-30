@@ -28,6 +28,7 @@ exports.updatePaymentInfo = paymentFunctions.updatePaymentInfo;
 
 exports.removeUserFromChat = chatFunctions.removeUserFromChat;
 exports.sendChatNotification = chatFunctions.sendChatNotification;
+exports.sendChatMessage = chatFunctions.sendChatMessage;
 
 exports.deleteCategoryForStudents = categoryFunctions.deleteCategoryForStudents;
 

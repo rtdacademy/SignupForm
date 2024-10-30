@@ -1,13 +1,11 @@
-// ChatListModal.jsx
 import React, { useState, useEffect } from 'react';
 import { getDatabase, ref, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
-import { sanitizeEmail } from '../utils/sanitizeEmail';
-import { format } from 'date-fns'; // Ensure date-fns is installed
+import { sanitizeEmail, compareEmails } from '../utils/sanitizeEmail';
+import { format } from 'date-fns';
 
-// Optionally import DOMPurify if available
 let DOMPurify;
 try {
   DOMPurify = require('dompurify');
@@ -30,7 +28,7 @@ const ChatListModal = ({ participants, onChatSelect, onClose }) => {
 
   useEffect(() => {
     const fetchChats = async () => {
-      console.log("ChatListModal: Fetching chats", { participants });
+      console.log("ChatListModal: Fetching chats with participants:", participants);
       setLoading(true);
   
       try {
@@ -47,129 +45,139 @@ const ChatListModal = ({ participants, onChatSelect, onClose }) => {
   
         setUserSanitizedEmail(fetchedUserSanitizedEmail);
   
-        // Process participant keys
-        const participantKeys = participants.map((p) => {
-          if (typeof p === 'string') {
-            // If p is already a string (email), use it directly
-            return sanitizeEmail(p).toLowerCase();
-          } else if (p.id && typeof p.id === 'string') {
-            // If p has an id property that's a string, process it
-            return p.id.includes('_') ? extractEmail(p.id) : sanitizeEmail(p.id).toLowerCase();
-          } else if (p.email && typeof p.email === 'string') {
-            // If p has an email property, use that
-            return sanitizeEmail(p.email).toLowerCase();
-          } else {
-            console.warn('Unexpected participant format:', p);
-            return null; // or some default value
+        // Process and sanitize participant emails
+        const participantSanitizedEmails = participants.map((participant) => {
+          console.log("Processing participant:", participant);
+          if (typeof participant === 'string') {
+            return sanitizeEmail(participant);
+          } else if (participant?.email) {
+            return sanitizeEmail(participant.email);
+          } else if (participant?.id) {
+            return sanitizeEmail(participant.id.includes('_') ? extractEmail(participant.id) : participant.id);
           }
-        }).filter(Boolean); // Remove any null values
+          console.warn('Unexpected participant format:', participant);
+          return null;
+        }).filter(Boolean);
   
-        console.log("Processed participant keys:", participantKeys);
+        console.log("Processed sanitized participant emails:", participantSanitizedEmails);
+  
+        if (participantSanitizedEmails.length === 0) {
+          console.warn("No valid participant emails to filter chats");
+          setLoading(false);
+          return;
+        }
   
         // Include the current user's sanitized email
-        const allParticipantKeys = [...new Set([...participantKeys, fetchedUserSanitizedEmail])];
+        const allParticipantEmails = [...new Set([...participantSanitizedEmails, fetchedUserSanitizedEmail])];
+        console.log("All participant emails (including current user):", allParticipantEmails);
   
-        console.log("Fetching chats for participants:", allParticipantKeys);
+        // Fetch chats for the current user
+        const userChatsRef = ref(db, `userChats/${fetchedUserSanitizedEmail}`);
+        const userChatsSnapshot = await get(userChatsRef);
+        const userChatsData = userChatsSnapshot.val() || {};
   
-        // Fetch chats for all participants
-        const chatPromises = allParticipantKeys.map(async (participantKey) => {
-          const userChatsRef = ref(db, `userChats/${participantKey}`);
-          const userChatsSnapshot = await get(userChatsRef);
-          const userChatsData = userChatsSnapshot.val() || {};
+        // Get active chats
+        const activeChats = Object.entries(userChatsData)
+          .filter(([_, chatData]) => chatData.active !== false)
+          .map(([chatId, chatData]) => ({ chatId, ...chatData }));
   
-          // Filter out inactive chats
-          const activeChats = Object.fromEntries(
-            Object.entries(userChatsData).filter(([_, chatData]) => chatData.active !== false)
-          );
+        console.log("Active chats found:", activeChats.length);
   
-          return activeChats;
-        });
-  
-        const participantChats = await Promise.all(chatPromises);
-  
-        if (participantChats.length === 0) {
-          setChats([]);
-          setLoading(false);
-          return;
-        }
-  
-        // Find common chat IDs
-        const commonChatIds = Object.keys(participantChats[0]).filter((chatId) =>
-          participantChats.every((userChats) => userChats.hasOwnProperty(chatId))
-        );
-  
-        if (commonChatIds.length === 0) {
-          setChats([]);
-          setLoading(false);
-          return;
-        }
-  
-        // Fetch chat details for common chats
-        const chatDetailsPromises = commonChatIds.map(async (chatId) => {
+        // Fetch and filter chat details
+        const chatDetailsPromises = activeChats.map(async ({ chatId }) => {
           const chatRef = ref(db, `chats/${chatId}`);
           const chatSnapshot = await get(chatRef);
           const chatData = chatSnapshot.val();
   
-          if (chatData) {
-            const participantDetails = await Promise.all(
-              chatData.participants.map(async (email) => {
-                let userRef = ref(db, `staff/${email}`);
-                let userSnapshot = await get(userRef);
-  
-                if (!userSnapshot.exists()) {
-                  userRef = ref(db, `students/${email}/profile`);
-                  userSnapshot = await get(userRef);
-                }
-  
-                if (userSnapshot.exists()) {
-                  const userData = userSnapshot.val();
-                  const isStaff = email.includes('@rtdacademy.com');
-                  return {
-                    email: email,
-                    displayName: isStaff
-                      ? userData.displayName
-                      : `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
-                    type: isStaff ? 'staff' : 'student',
-                    isStaff,
-                    course: userData.course || '', // Assuming course information is available
-                  };
-                }
-                return {
-                  email: email,
-                  displayName: email,
-                  type: 'unknown',
-                  isStaff: false,
-                };
-              })
-            );
-  
-            // Fetch the userChat data for the current user to get firstMessage
-            const userChatRef = ref(db, `userChats/${fetchedUserSanitizedEmail}/${chatId}`);
-            const userChatSnapshot = await get(userChatRef);
-            const userChatData = userChatSnapshot.val();
-  
-            return {
-              id: chatId,
-              participants: chatData.participants,
-              participantDetails,
-              firstMessage: userChatData?.firstMessage || '', // Use firstMessage
-              timestamp: chatData.lastMessageTimestamp || Date.now(),
-            };
+          if (!chatData) {
+            console.log(`Chat ${chatId} not found`);
+            return null;
           }
-          return null;
+  
+          // Check if chat includes all required participants
+          const chatParticipants = chatData.participants.map(sanitizeEmail);
+          const hasAllParticipants = participantSanitizedEmails.every(email => {
+            const included = chatParticipants.includes(email);
+            console.log(`Checking participant ${email} in chat ${chatId}: ${included}`);
+            return included;
+          });
+  
+          if (!hasAllParticipants) {
+            console.log(`Chat ${chatId} filtered out - missing some participants`);
+            return null;
+          }
+  
+          // Fetch participant details
+          const participantDetails = await Promise.all(
+            chatData.participants.map(async (email) => {
+              const sanitizedEmail = sanitizeEmail(email);
+              let userRef = ref(db, `staff/${sanitizedEmail}`);
+              let userSnapshot = await get(userRef);
+  
+              if (!userSnapshot.exists()) {
+                userRef = ref(db, `students/${sanitizedEmail}/profile`);
+                userSnapshot = await get(userRef);
+              }
+  
+              if (userSnapshot.exists()) {
+                const userData = userSnapshot.val();
+                const isStaff = email.includes('@rtdacademy.com');
+                return {
+                  email: sanitizedEmail,
+                  displayName: isStaff
+                    ? userData.displayName
+                    : `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
+                  type: isStaff ? 'staff' : 'student',
+                  isStaff,
+                  course: userData.course || '',
+                };
+              }
+  
+              return {
+                email: sanitizedEmail,
+                displayName: email,
+                type: 'unknown',
+                isStaff: false,
+              };
+            })
+          );
+  
+          // Get the first message from userChats data
+          const firstMessage = userChatsData[chatId]?.firstMessage || '';
+          const timestamp = chatData.lastMessageTimestamp || Date.now();
+  
+          return {
+            id: chatId,
+            participants: chatData.participants,
+            participantDetails,
+            firstMessage,
+            timestamp,
+          };
         });
   
-        const chatsWithDetails = (await Promise.all(chatDetailsPromises)).filter(Boolean);
+        const chatsWithDetails = (await Promise.all(chatDetailsPromises))
+          .filter(Boolean)
+          .sort((a, b) => b.timestamp - a.timestamp);
+  
+        console.log("Final filtered chats:", chatsWithDetails);
         setChats(chatsWithDetails);
-        console.log("ChatListModal: Chats fetched", chatsWithDetails);
+  
       } catch (error) {
         console.error("Error fetching chats:", error);
+        setChats([]);
+      } finally {
+        setLoading(false);
       }
-  
-      setLoading(false);
     };
   
-    fetchChats();
+    // Only run the effect if we have participants
+    if (participants && participants.length > 0) {
+      fetchChats();
+    } else {
+      console.log("ChatListModal: No participants provided");
+      setChats([]);
+      setLoading(false);
+    }
   }, [db, user.uid, participants]);
 
   // Function to truncate message

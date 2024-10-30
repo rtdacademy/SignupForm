@@ -3,6 +3,7 @@ import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 import { getFunctions } from 'firebase/functions';
 import { getAnalytics } from "firebase/analytics";
+import { getVertexAI } from "@firebase/vertexai";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDjx3BINgvUwR1CHE80yX1gCBXYl5OMCqs",
@@ -22,5 +23,8 @@ export const microsoftProvider = new OAuthProvider('microsoft.com');
 export const database = getDatabase(app);
 export const functions = getFunctions(app);
 export const analytics = getAnalytics(app);
+
+// Initialize Vertex AI
+export const vertexAI = getVertexAI(app);
 
 export default app;

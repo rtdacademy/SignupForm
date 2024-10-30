@@ -2,8 +2,21 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BookOpen, MessageCircle } from 'lucide-react';
 import { getDatabase, ref, get, set } from 'firebase/database';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { useAuth } from '../context/AuthContext';
 
-const ParticipantInfo = React.memo(({ email, isStaff, chatId, onError }) => {
+const ParticipantInfo = React.memo(({ email, chatId, onError }) => {
+  // Get current user's staff status from AuthContext
+  const { user, isStaff } = useAuth();
+
+  // Determine if current user is staff
+  const currentUserIsStaff = isStaff(user);
+
+  console.log('ParticipantInfo - Auth Context Values:', {
+    user: user?.email,
+    currentUserIsStaff,
+    isStaffType: typeof currentUserIsStaff
+  });
+
   const [details, setDetails] = useState(null);
   const [mustRead, setMustRead] = useState(false);
   const [mustRespond, setMustRespond] = useState(false);
@@ -70,7 +83,7 @@ const ParticipantInfo = React.memo(({ email, isStaff, chatId, onError }) => {
         if (chatId) {
           const notificationRef = ref(db, `notifications/${sanitizedEmail}/${chatId}`);
           const notificationSnapshot = await get(notificationRef);
-          
+
           if (notificationSnapshot.exists()) {
             const data = notificationSnapshot.val();
             setMustRead(!!data.mustRead);
@@ -95,7 +108,19 @@ const ParticipantInfo = React.memo(({ email, isStaff, chatId, onError }) => {
   }, [email, chatId, onError]);
 
   const handleToggleStatus = useCallback(async (type) => {
-    if (!isStaff || !chatId) return;
+    console.log('ParticipantInfo - handleToggleStatus called with:', {
+      type,
+      currentUserIsStaff,
+      chatId
+    });
+
+    if (!currentUserIsStaff || !chatId) {
+      console.log('ParticipantInfo - Toggle status blocked:', {
+        isStaff: currentUserIsStaff,
+        hasChatId: !!chatId
+      });
+      return;
+    }
 
     const isRead = type === 'read';
     const setUpdating = isRead ? setIsUpdatingRead : setIsUpdatingRespond;
@@ -104,16 +129,16 @@ const ParticipantInfo = React.memo(({ email, isStaff, chatId, onError }) => {
 
     setUpdating(true);
     console.log(`ParticipantInfo: Toggling ${type} status for ${email}`);
-    
+
     const db = getDatabase();
     const sanitizedEmail = sanitizeEmail(email).toLowerCase();
-    
+
     try {
       const notificationRef = ref(
         db,
         `notifications/${sanitizedEmail}/${chatId}/${isRead ? 'mustRead' : 'mustRespond'}`
       );
-      
+
       await set(notificationRef, !currentValue);
       setValue(!currentValue);
       console.log(
@@ -125,19 +150,26 @@ const ParticipantInfo = React.memo(({ email, isStaff, chatId, onError }) => {
     } finally {
       setUpdating(false);
     }
-  }, [chatId, isStaff, mustRead, mustRespond, email, onError]);
+  }, [chatId, currentUserIsStaff, mustRead, mustRespond, email, onError]);
 
   if (!details) {
     console.log(`ParticipantInfo: Details not loaded yet for ${email}`);
     return <p>Loading...</p>;
   }
 
+  // Log render condition values
+  console.log('ParticipantInfo - Render conditions:', {
+    currentUserIsStaff,
+    chatId,
+    showButtons: currentUserIsStaff && chatId
+  });
+
   return (
     <div className="mb-2 flex items-center justify-between">
       <p>
         <strong>Name:</strong> {details.firstName} {details.lastName}
       </p>
-      {isStaff && chatId && (
+      {currentUserIsStaff && chatId && (
         <div className="flex items-center gap-2">
           <button
             onClick={() => handleToggleStatus('read')}

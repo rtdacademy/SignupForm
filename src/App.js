@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { LayoutProvider } from './context/LayoutContext';
+
 import Login from './Dashboard/Login';
 import Dashboard from './Dashboard/Dashboard';
 import RegistrationForm from './components/RegistrationForm';
@@ -14,6 +15,8 @@ import MultiActionAuthHandler from './MultiActionAuthHandler';
 import ContractorInvoiceForm from './PublicForms/ContractorInvoiceForm';
 import ScheduleMaker from './Schedule/ScheduleMaker'; 
 import IcsUpload from './Schedule/IcsUpload'; 
+import GeminiChat from './AI/GeminiChat';
+import app from './firebase'; 
 import './styles/styles.css';
 import 'katex/dist/katex.min.css';
 
@@ -25,6 +28,7 @@ function App() {
   }
 
   return (
+    
     <LayoutProvider>
     <Router>
       <div className="App">
@@ -67,10 +71,20 @@ function App() {
           <Route path="/ics-upload" element={
             user && isStaff(user) ? <Layout><IcsUpload /></Layout> : <Navigate to="/staff-login" />
           } />
+
+           {/* Gemini Chat route - using the imported app instance */}
+           <Route path="/ai-chat" element={
+              user ? (
+                <Layout>
+                  <GeminiChat firebaseApp={app} />
+                </Layout>
+              ) : <Navigate to="/login" />
+            } />
         </Routes>
       </div>
     </Router>
     </LayoutProvider>
+    
   );
 }
 

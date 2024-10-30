@@ -18,6 +18,7 @@ import {
   DollarSign,
   CalendarPlus,
   Bell,
+  Menu
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import AdminPanel from '../Admin/AdminPanel';
@@ -39,6 +40,7 @@ function TeacherDashboard() {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [invoicesData, setInvoicesData] = useState({});
   const [unreadChatsCount, setUnreadChatsCount] = useState(0);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -85,10 +87,6 @@ function TeacherDashboard() {
     return <ChatApp />;
   }, []);
 
-  if (!user || !isStaff(user)) {
-    return <div className="p-4">Access Denied. This page is only for staff members.</div>;
-  }
-
   const navItems = [
     { icon: Grid, label: 'React Dashboard', key: 'react-dashboard' },
     { icon: Layout, label: 'PowerApps Dashboard', key: 'powerapps-dashboard' },
@@ -100,7 +98,6 @@ function TeacherDashboard() {
       indicatorCount: unreadChatsCount
     },
     { icon: MessageSquare, label: 'Chats', key: 'chat' },
-    // Removed the Schedule Builder navigation item
     { icon: BookOpen, label: 'Courses', key: 'courses' },
     { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
     { icon: Link, label: 'Links', key: 'external-links' },
@@ -129,6 +126,40 @@ function TeacherDashboard() {
   const toggleSidebar = () => {
     setIsSidebarExpanded(!isSidebarExpanded);
   };
+
+  const navContent = (isExpanded = true, inSheet = false) => (
+    <nav className={`space-y-${inSheet ? '4 py-4' : '2 p-2'}`}>
+      {navItems.map((item) => (
+        <div key={item.key}>
+          <NavItemWithIndicator
+            item={item}
+            isActive={activeSection === item.key}
+            isExpanded={isExpanded}
+            onClick={() => {
+              handleNavItemClick(item.key);
+              if (inSheet) setIsSheetOpen(false);
+            }}
+          />
+          {item.subItems && isExpanded && (
+            <div className="ml-6 mt-1 space-y-1">
+              {item.subItems.map((subItem) => (
+                <NavItemWithIndicator
+                  key={subItem.key}
+                  item={subItem}
+                  isActive={activeSection === subItem.key}
+                  isExpanded={isExpanded}
+                  onClick={() => {
+                    handleNavItemClick(subItem.key);
+                    if (inSheet) setIsSheetOpen(false);
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </nav>
+  );
 
   const renderContent = () => {
     switch (activeSection) {
@@ -164,11 +195,15 @@ function TeacherDashboard() {
     }
   };
 
+  if (!user || !isStaff(user)) {
+    return <div className="p-4">Access Denied. This page is only for staff members.</div>;
+  }
+
   return (
     <div className="flex h-full">
       {!isFullScreen && (
         <aside
-          className={`flex-shrink-0 border-r border-border transition-all duration-300 ${
+          className={`hidden lg:flex flex-shrink-0 border-r border-border transition-all duration-300 ${
             isSidebarExpanded ? 'w-64' : 'w-15'
           }`}
         >
@@ -186,31 +221,7 @@ function TeacherDashboard() {
               )}
             </Button>
             <ScrollArea className="flex-grow">
-              <nav className="space-y-2 p-2">
-                {navItems.map((item) => (
-                  <div key={item.key}>
-                    <NavItemWithIndicator
-                      item={item}
-                      isActive={activeSection === item.key}
-                      isExpanded={isSidebarExpanded}
-                      onClick={() => handleNavItemClick(item.key)}
-                    />
-                    {item.subItems && isSidebarExpanded && (
-                      <div className="ml-6 mt-1 space-y-1">
-                        {item.subItems.map((subItem) => (
-                          <NavItemWithIndicator
-                            key={subItem.key}
-                            item={subItem}
-                            isActive={activeSection === subItem.key}
-                            isExpanded={isSidebarExpanded}
-                            onClick={() => handleNavItemClick(subItem.key)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </nav>
+              {navContent(isSidebarExpanded)}
             </ScrollArea>
           </div>
         </aside>
@@ -223,31 +234,22 @@ function TeacherDashboard() {
       </div>
 
       {!isFullScreen && (
-        <Sheet>
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetTrigger asChild>
             <Button
               variant="outline"
               size="icon"
-              className="fixed top-4 left-4 lg:hidden z-50 hover:bg-accent hover:text-accent-foreground"
+              className="fixed top-1 left-1 lg:hidden z-50 hover:bg-accent hover:text-accent-foreground"
             >
-              <Users className="h-4 w-4" />
+              <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-[240px] sm:w-[300px]">
-            <nav className="space-y-4 py-4">
-              {navItems.map((item) => (
-                <NavItemWithIndicator
-                  key={item.key}
-                  item={item}
-                  isActive={activeSection === item.key}
-                  isExpanded={true}
-                  onClick={() => handleNavItemClick(item.key)}
-                />
-              ))}
-            </nav>
+            {navContent(true, true)}
           </SheetContent>
         </Sheet>
       )}
+
     </div>
   );
 }

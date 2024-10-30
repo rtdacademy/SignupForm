@@ -4,68 +4,50 @@
  
 @layer base {
   :root {
+    /* Original color variables */
     --background: 0 0% 100%;
     --foreground: 222.2 47.4% 11.2%;
- 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
- 
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 47.4% 11.2%;
- 
     --card: 0 0% 100%;
     --card-foreground: 222.2 47.4% 11.2%;
- 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
- 
     --primary: 222.2 47.4% 11.2%;
     --primary-foreground: 210 40% 98%;
- 
     --secondary: 204 36% 30%;
     --secondary-foreground: 222.2 47.4% 11.2%;
- 
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
- 
     --destructive: 0 100% 50%;
     --destructive-foreground: 210 40% 98%;
- 
     --ring: 215 20.2% 65.1%;
- 
     --radius: 0.5rem;
   }
  
   .dark {
+    /* Original dark mode variables */
     --background: 224 71% 4%;
     --foreground: 213 31% 91%;
- 
     --muted: 223 47% 11%;
     --muted-foreground: 215.4 16.3% 56.9%;
- 
     --popover: 224 71% 4%;
     --popover-foreground: 215 20.2% 65.1%;
- 
     --card: 224 71% 4%;
     --card-foreground: 213 31% 91%;
- 
     --border: 216 34% 17%;
     --input: 216 34% 17%;
- 
     --primary: 210 40% 98%;
     --primary-foreground: 222.2 47.4% 1.2%;
- 
     --secondary: 222.2 47.4% 11.2%;
     --secondary-foreground: 210 40% 98%;
- 
     --accent: 216 34% 17%;
     --accent-foreground: 210 40% 98%;
- 
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
- 
     --ring: 216 34% 17%;
- 
     --radius: 0.5rem;
   }
 }
@@ -78,4 +60,296 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+}
+
+/* Enhanced responsive styles for chat component */
+@layer components {
+  .chat-container {
+    @apply flex flex-col h-full;
+  }
+
+  .chat-messages {
+    @apply flex-1 overflow-y-auto;
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.gray.300') theme('colors.gray.100');
+  }
+
+  .chat-input {
+    @apply w-full resize-none;
+  }
+
+  /* Responsive message bubbles */
+  .message-bubble {
+    @apply rounded-lg px-4 py-2 max-w-[80%];
+  }
+
+  /* Custom scrollbar styling */
+  .chat-messages::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  .chat-messages::-webkit-scrollbar-track {
+    @apply bg-gray-100;
+  }
+
+  .chat-messages::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .chat-container {
+    font-size: theme('fontSize.chat-sm');
+  }
+  
+  .message-bubble {
+    @apply px-2 py-1 max-w-[85%];
+  }
+
+  .chat-input {
+    min-height: theme('spacing.input-xs');
+  }
+
+  .ql-editor {
+    min-height: 60px !important;
+    font-size: 14px !important;
+    padding: 8px !important;
+  }
+
+  .ql-toolbar {
+    padding: 4px !important;
+  }
+
+  .chat-messages {
+    min-height: theme('minHeight.chat-sm');
+  }
+}
+
+/* Medium screens */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .chat-container {
+    font-size: theme('fontSize.chat-base');
+  }
+
+  .chat-input {
+    min-height: theme('spacing.input-sm');
+  }
+
+  .chat-messages {
+    min-height: theme('minHeight.chat-md');
+  }
+}
+
+/* Large screens */
+@media (min-width: 1025px) {
+  .chat-container {
+    font-size: theme('fontSize.chat-base');
+  }
+
+  .chat-input {
+    min-height: theme('spacing.input-md');
+  }
+
+  .chat-messages {
+    min-height: theme('minHeight.chat-lg');
+  }
+}
+
+/* ReactQuill specific styles */
+
+
+
+
+.ql-editor {
+  @apply min-h-[50px] text-base;
+  
+}
+
+.ql-toolbar {
+  @apply border-0 border-b border-gray-200 rounded-t-lg shadow-sm bg-white;
+}
+
+/* Add this to also style the container/editor part */
+.ql-container {
+  @apply rounded-b-lg shadow-sm bg-white;
+}
+
+/* If you want to combine them in a single container */
+.quill {
+  @apply rounded-lg shadow-sm;
+}
+
+/* Custom styling for math content */
+.katex-display {
+  @apply my-4 overflow-x-auto overflow-y-hidden;
+}
+
+
+@media (max-width: 640px) {
+  .ql-editor {
+    min-height: 50px !important;
+    font-size: 14px !important;
+    padding: 8px !important;
+  }
+  .ql-toolbar {
+    padding: 4px !important;
+  }
+  .message-content {
+    font-size: 14px;
+  }
+}
+@media (min-width: 641px) {
+  .ql-editor {
+    min-height: 50px !important;
+    font-size: 14px !important;
+    padding: 12px !important;
+  }
+  .ql-toolbar {
+    padding: 4px !important;
+  }
+  .message-content {
+    font-size: 14px;
+  }
+}
+
+.messages-scroll-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages-scroll-container::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+
+
+/* Enhanced accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+/* Add this to your CSS file */
+.react-datepicker {
+  @apply bg-background border-border shadow-lg rounded-md !important;
+  font-family: inherit;
+}
+
+.react-datepicker__header {
+  @apply bg-muted border-border !important;
+}
+
+.react-datepicker__current-month {
+  @apply text-foreground font-medium !important;
+}
+
+.react-datepicker__day-name {
+  @apply text-muted-foreground !important;
+}
+
+.react-datepicker__day {
+  @apply text-foreground hover:bg-accent hover:text-accent-foreground rounded-md !important;
+}
+
+.react-datepicker__day--selected {
+  @apply bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground !important;
+}
+
+.react-datepicker__day--keyboard-selected {
+  @apply bg-accent text-accent-foreground !important;
+}
+
+.react-datepicker__day--outside-month {
+  @apply text-muted-foreground opacity-50 !important;
+}
+
+.react-datepicker__navigation-icon::before {
+  @apply border-foreground opacity-50 !important;
+}
+
+.react-datepicker__input-container input {
+  @apply w-full border-input bg-background hover:bg-accent/50 px-2 py-1 rounded-md text-sm !important;
+}
+
+.react-datepicker__input-container input:focus {
+  @apply outline-none ring-2 ring-ring ring-offset-2 !important;
+}
+
+.react-datepicker__day--in-range {
+  @apply bg-accent text-accent-foreground !important;
+}
+
+.react-datepicker__day--disabled {
+  @apply text-muted-foreground opacity-50 hover:bg-transparent cursor-not-allowed !important;
+}
+
+/* Dark mode support */
+.dark .react-datepicker {
+  @apply bg-popover border-border !important;
+}
+
+.dark .react-datepicker__header {
+  @apply bg-muted border-border !important;
+}
+
+.dark .react-datepicker__current-month,
+.dark .react-datepicker__day {
+  @apply text-popover-foreground !important;
+}
+
+.dark .react-datepicker__day-name {
+  @apply text-muted-foreground !important;
+}
+
+.dark .react-datepicker__day--selected {
+  @apply bg-primary text-primary-foreground !important;
+}
+
+.dark .react-datepicker__day--keyboard-selected {
+  @apply bg-accent text-accent-foreground !important;
+}
+
+.dark .react-datepicker__input-container input {
+  @apply bg-background text-foreground border-input !important;
+}
+
+
+
+.phone-input-container {
+  width: 100%;
+}
+
+.phone-input-container .form-control {
+  width: 100% !important;
+  height: 38px !important;
+}
+
+.phone-input-button {
+  background: transparent !important;
+  border: none !important;
+  border-right: 1px solid #e2e8f0 !important;
+}
+
+.phone-input-container.focused {
+  border-color: #2563eb;
+}
+
+.dialog-content {
+  position: relative;
+  z-index: 50;
+}
+
+/* Ensure the dialog overlay doesn't block the place picker dropdown */
+.dialog-overlay {
+  z-index: 49;
 }
