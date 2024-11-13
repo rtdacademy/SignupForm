@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import _ from 'lodash';
 
-// Validation Utilities
 const ValidationFeedback = ({ isValid, message, showIcon = true }) => {
   if (!message) return null;
-  
+
   return (
     <div className="flex items-center gap-2 mt-1">
       {showIcon && (
@@ -21,8 +21,56 @@ const ValidationFeedback = ({ isValid, message, showIcon = true }) => {
   );
 };
 
-// Validation Rules
 const validationRules = {
+  firstName: {
+    validate: (value) => {
+      if (!value) return "First name is required";
+      if (value.length < 2) return "First name must be at least 2 characters";
+      if (!/^[a-zA-Z\s-']+$/.test(value)) return "First name can only contain letters, spaces, hyphens and apostrophes";
+      return null;
+    },
+    format: (value) => {
+      return value?.split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ') || '';
+    },
+    successMessage: "Valid first name"
+  },
+
+  lastName: {
+    validate: (value) => {
+      if (!value) return "Last name is required"; 
+      if (value.length < 2) return "Last name must be at least 2 characters";
+      if (!/^[a-zA-Z\s-']+$/.test(value)) return "Last name can only contain letters, spaces, hyphens and apostrophes";
+      return null;
+    },
+    format: (value) => {
+      return value?.split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ') || '';
+    },
+    successMessage: "Valid last name"
+  },
+
+  preferredFirstName: {
+    validate: (value, options) => {
+      // Only validate if usePreferredFirstName is true
+      if (!options?.conditionalValidation?.preferredFirstName?.()) {
+        return null;
+      }
+      if (!value) return "Preferred first name is required";
+      if (value.length < 2) return "Preferred first name must be at least 2 characters";
+      if (!/^[a-zA-Z\s-']+$/.test(value)) return "Preferred first name can only contain letters, spaces, hyphens and apostrophes";
+      return null;
+    },
+    format: (value) => {
+      return value?.split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ') || '';
+    },
+    successMessage: "Valid preferred first name"
+  },
+
   email: {
     validate: (value) => {
       if (!value) return "Email is required";
@@ -91,13 +139,32 @@ const validationRules = {
     successMessage: "Enrollment year selected"
   },
 
-  // Add parent field validations
-  parentName: {
-    validate: (value) => {
-      if (!value) return "Parent name is required";
+  parentFirstName: {
+    validate: (value, options) => {
+      if (options?.conditionalValidation?.parentFirstName?.() && !value) {
+        return 'Parent first name is required';
+      }
+      if (value && value.length < 2) {
+        return 'Parent first name must be at least 2 characters';
+      }
       return null;
     },
-    successMessage: "Parent name provided"
+    format: (value) => value ? value.trim() : '',
+    successMessage: 'Valid parent first name'
+  },
+  
+  parentLastName: {
+    validate: (value, options) => {
+      if (options?.conditionalValidation?.parentLastName?.() && !value) {
+        return 'Parent last name is required';
+      }
+      if (value && value.length < 2) {
+        return 'Parent last name must be at least 2 characters';
+      }
+      return null;
+    },
+    format: (value) => value ? value.trim() : '',
+    successMessage: 'Valid parent last name'
   },
 
   parentPhone: {
@@ -121,28 +188,110 @@ const validationRules = {
   }
 };
 
-// Custom Hook for Form Validation
 const useFormValidation = (initialData, rules, options = {}) => {
   const [formData, setFormData] = useState(initialData);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [isValid, setIsValid] = useState(false);
   const [completionPercentage, setCompletionPercentage] = useState(0);
+  const [initialized, setInitialized] = useState(false);
 
-  const validateField = (name, value) => {
+  // Add readOnlyFields to options type
+  const { readOnlyFields = {}, conditionalValidation = {} } = options;
+
+  // Initialize touched state for fields with values
+  useEffect(() => {
+    if (!initialized) {
+      const initialTouched = {};
+      let hasInitialValues = false;
+
+      Object.keys(initialData).forEach(fieldName => {
+        // Mark read-only fields as touched and valid
+        if (readOnlyFields[fieldName]) {
+          initialTouched[fieldName] = true;
+          hasInitialValues = true;
+        }
+        // Mark fields with initial values as touched
+        else if (initialData[fieldName] && rules[fieldName]) {
+          initialTouched[fieldName] = true;
+          hasInitialValues = true;
+        }
+      });
+
+      if (hasInitialValues) {
+        setTouched(prev => ({
+          ...prev,
+          ...initialTouched
+        }));
+      }
+
+      setInitialized(true);
+    }
+  }, [initialData, rules, initialized, readOnlyFields]);
+
+  // Define validateField with read-only check
+  const validateField = useCallback((name, value) => {
+    // If the field is readonly and has a value, consider it valid
+    if (readOnlyFields[name] && value) {
+      return null;
+    }
+    
     if (!rules[name]) return null;
-    return rules[name].validate(value);
-  };
+    
+    // Skip validation for optional fields that are empty
+    if (!value && !rules[name].required) {
+      return null;
+    }
+    
+    try {
+      return rules[name].validate(value, { conditionalValidation });
+    } catch (error) {
+      console.error(`Validation error for field ${name}:`, error);
+      return `Validation error: ${error.message}`;
+    }
+  }, [rules, readOnlyFields, conditionalValidation]);
 
+  // Format field value if formatter exists
+  const formatField = useCallback((name, value) => {
+    // Skip formatting for read-only fields
+    if (readOnlyFields[name]) return value;
+
+    if (rules[name]?.format) {
+      try {
+        return rules[name].format(value);
+      } catch (error) {
+        console.error(`Formatting error for field ${name}:`, error);
+        return value;
+      }
+    }
+    return value;
+  }, [rules, readOnlyFields]);
+
+  // Enhanced validation logic with read-only field handling
   const validateForm = useCallback(() => {
     const newErrors = {};
     let validCount = 0;
     let totalFields = 0;
 
     Object.keys(rules).forEach(fieldName => {
-      if (!options.conditionalValidation?.[fieldName] || options.conditionalValidation[fieldName]()) {
+      // Skip validation for read-only fields
+      if (readOnlyFields[fieldName]) {
+        if (formData[fieldName]) {
+          validCount++;
+        }
         totalFields++;
-        const error = validateField(fieldName, formData[fieldName]);
+        return;
+      }
+
+      // Check if field should be validated based on conditional validation
+      const shouldValidate = !conditionalValidation[fieldName] || 
+                            conditionalValidation[fieldName]();
+
+      if (shouldValidate) {
+        totalFields++;
+        const formattedValue = formatField(fieldName, formData[fieldName]);
+        const error = validateField(fieldName, formattedValue);
+
         if (error) {
           newErrors[fieldName] = error;
         } else {
@@ -151,39 +300,84 @@ const useFormValidation = (initialData, rules, options = {}) => {
       }
     });
 
-    setErrors(newErrors);
     const percentage = totalFields > 0 ? (validCount / totalFields) * 100 : 0;
+    const newIsValid = Object.keys(newErrors).length === 0;
+
+    setErrors(prevErrors => {
+      if (!_.isEqual(newErrors, prevErrors)) {
+        return newErrors;
+      }
+      return prevErrors;
+    });
+
+    setIsValid(newIsValid);
     setCompletionPercentage(Math.round(percentage));
-    setIsValid(Object.keys(newErrors).length === 0);
 
     return newErrors;
-  }, [formData, rules, options]);
+  }, [formData, rules, readOnlyFields, conditionalValidation, validateField, formatField]);
 
+  // Validate on mount and when dependencies change
   useEffect(() => {
-    validateForm();
-  }, [formData, validateForm]);
+    const timeoutId = setTimeout(() => {
+      validateForm();
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [validateForm, formData, conditionalValidation]);
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    const newValue = type === 'checkbox' ? checked : value;
+  // Handle field blur events
+  const handleBlur = useCallback((name) => {
+    // Don't mark read-only fields as touched
+    if (!readOnlyFields[name]) {
+      setTouched(prev => ({
+        ...prev,
+        [name]: true
+      }));
+    }
+  }, [readOnlyFields]);
 
-    setFormData(prev => ({
-      ...prev,
-      [name]: newValue
-    }));
+  // Update formData when initialData changes
+  useEffect(() => {
+    const formattedData = {};
+    Object.keys(initialData).forEach(fieldName => {
+      formattedData[fieldName] = formatField(fieldName, initialData[fieldName]);
+    });
+    setFormData(formattedData);
+  }, [initialData, formatField]);
 
-    setTouched(prev => ({
-      ...prev,
-      [name]: true
-    }));
-  };
+  // Get validation status for a specific field
+  const getFieldStatus = useCallback((fieldName) => {
+    // Read-only fields are always valid if they have a value
+    if (readOnlyFields[fieldName]) {
+      return {
+        isValid: formData[fieldName] ? true : false,
+        message: formData[fieldName] ? rules[fieldName]?.successMessage : null
+      };
+    }
 
-  const handleBlur = (name) => {
-    setTouched(prev => ({
-      ...prev,
-      [name]: true
-    }));
-  };
+    const isFieldTouched = touched[fieldName];
+    const fieldError = errors[fieldName];
+    const shouldValidate = !conditionalValidation[fieldName] || 
+                          conditionalValidation[fieldName]();
+
+    if (!shouldValidate) {
+      return null;
+    }
+
+    return {
+      isValid: isFieldTouched && !fieldError,
+      message: isFieldTouched ? (fieldError || rules[fieldName]?.successMessage) : null
+    };
+  }, [touched, errors, conditionalValidation, rules, readOnlyFields, formData]);
+
+  // Reset form to initial state
+  const resetForm = useCallback(() => {
+    setFormData(initialData);
+    setErrors({});
+    setTouched({});
+    setIsValid(false);
+    setCompletionPercentage(0);
+    setInitialized(false);
+  }, [initialData]);
 
   return {
     formData,
@@ -192,10 +386,12 @@ const useFormValidation = (initialData, rules, options = {}) => {
     touched,
     isValid,
     completionPercentage,
-    handleChange,
     handleBlur,
     validateForm,
-    validateField
+    validateField,
+    formatField,
+    getFieldStatus,
+    resetForm
   };
 };
 

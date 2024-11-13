@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 50">
+  <defs>
+    <!-- Text gradient -->
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#2563eb" /> <!-- blue-600 -->
+      <stop offset="100%" style="stop-color:#9333ea" /> <!-- purple-600 -->
+    </linearGradient>
+    
+    <!-- Light source glow -->
+    <radialGradient id="glowGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#60A5FA" stop-opacity="1"/>
+      <stop offset="60%" style="stop-color:#60A5FA" stop-opacity="0.3"/>
+      <stop offset="100%" style="stop-color:#60A5FA" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Rays gradient -->
+    <linearGradient id="rayGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#60A5FA" stop-opacity="0.8"/>
+      <stop offset="100%" style="stop-color:#60A5FA" stop-opacity="0.1"/>
+    </linearGradient>
+    
+    <!-- Light rays filter -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1"/>
+    </filter>
+
+    <!-- Text glow filter -->
+    <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur"/>
+      <feFlood flood-color="#60A5FA" flood-opacity="0.5" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="shadow"/>
+      <feMerge>
+        <feMergeNode in="shadow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Enhanced Light rays emanating down -->
+  <g>
+    <!-- Using paths filled with gradient instead of strokes -->
+    <path d="M15,15 L10,35 L20,35 Z" fill="url(#rayGradient)" opacity="0.6"/>
+    <path d="M15,15 L20,35 L35,35 Z" fill="url(#rayGradient)" opacity="0.6"/>
+    <path d="M15,15 L35,35 L50,35 Z" fill="url(#rayGradient)" opacity="0.6"/>
+    <path d="M15,15 L50,35 L65,35 Z" fill="url(#rayGradient)" opacity="0.6"/>
+    <path d="M15,15 L65,35 L85,35 Z" fill="url(#rayGradient)" opacity="0.5"/>
+    <path d="M15,15 L85,35 L105,35 Z" fill="url(#rayGradient)" opacity="0.4"/>
+    <path d="M15,15 L105,35 L125,35 Z" fill="url(#rayGradient)" opacity="0.4"/>
+  </g>
+
+  <!-- Light source -->
+  <g transform="translate(15, 15)">
+    <!-- Base glow -->
+    <circle cx="0" cy="0" r="8" fill="url(#glowGradient)"/>
+    
+    <!-- Central bright point -->
+    <circle cx="0" cy="0" r="2" fill="#FFFFFF" filter="url(#glow)"/>
+    
+    <!-- Light rays -->
+    <g transform="rotate(0)">
+      <path d="M0,-3 L0,-8" stroke="#FFFFFF" stroke-width="0.5" stroke-opacity="0.8"/>
+      <path d="M0,3 L0,8" stroke="#FFFFFF" stroke-width="0.5" stroke-opacity="0.8"/>
+      <path d="M-3,0 L-8,0" stroke="#FFFFFF" stroke-width="0.5" stroke-opacity="0.8"/>
+      <path d="M3,0 L8,0" stroke="#FFFFFF" stroke-width="0.5" stroke-opacity="0.8"/>
+    </g>
+    <g transform="rotate(45)">
+      <path d="M0,-3 L0,-8" stroke="#FFFFFF" stroke-width="0.5" stroke-opacity="0.6"/>
+      <path d="M0,3 L0,8" stroke="#FFFFFF" stroke-width="0.5" stroke-opacity="0.6"/>
+      <path d="M-3,0 L-8,0" stroke="#FFFFFF" stroke-width="0.5" stroke-opacity="0.6"/>
+      <path d="M3,0 L8,0" stroke="#FFFFFF" stroke-width="0.5" stroke-opacity="0.6"/>
+    </g>
+  </g>
+
+  <!-- YourWay text -->
+  <text 
+    x="10" 
+    y="35" 
+    font-family="Inter, system-ui, sans-serif" 
+    font-size="32" 
+    font-weight="700" 
+    fill="url(#textGradient)"
+    filter="url(#textGlow)"
+  >YourWay</text>
+</svg>

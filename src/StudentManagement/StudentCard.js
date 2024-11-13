@@ -31,6 +31,9 @@ import {
 // Import useAuth from AuthContext
 import { useAuth } from '../context/AuthContext';
 
+// Import Checkbox
+import { Checkbox } from "../components/ui/checkbox";
+
 // Map icon names to icon components
 const iconMap = {
   'circle': Circle,
@@ -101,10 +104,19 @@ const StudentCard = React.memo(({
   selectedStudentId, 
   onStudentSelect, 
   teacherCategories,
-  user_email_key
+  user_email_key,
+  isSelected, // New prop
+  onSelectionChange, // New prop
+  isPartOfMultiSelect, // New prop
+  onBulkStatusChange, // New prop
+  onBulkCategoryChange, // New prop
+  onBulkAutoStatusToggle, // New prop
 }) => {
-  const isSelected = student.id === selectedStudentId;
-  const bgColor = isSelected ? 'bg-blue-100' : index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+  const bgColor = selectedStudentId === student.id 
+  ? 'bg-blue-100' 
+  : index % 2 === 0 
+    ? 'bg-white' 
+    : 'bg-gray-50';
   const initials = `${student.firstName[0]}${student.lastName[0]}`;
   const avatarColor = getColorFromInitials(initials);
 
@@ -196,10 +208,15 @@ const StudentCard = React.memo(({
         autoStatus: newAutoStatus,
       });
 
+      // If this is part of a multi-select, update other selected students
+      if (isPartOfMultiSelect) {
+        onBulkStatusChange(newStatus, student.id);
+      }
+
     } catch (error) {
       console.error("Error updating status:", error);
     }
-  }, [student.id, statusValue, user]);
+  }, [student.id, statusValue, user, isPartOfMultiSelect, onBulkStatusChange]);
 
   const handleAutoStatusToggle = useCallback(async () => {
     if (!getStatusAllowsAutoStatus(statusValue)) return;
@@ -214,10 +231,53 @@ const StudentCard = React.memo(({
       const newAutoStatus = !autoStatus;
       await set(autoStatusRef, newAutoStatus);
       setAutoStatus(newAutoStatus);
+
+      // If this is part of a multi-select, update other selected students
+      if (isPartOfMultiSelect) {
+        onBulkAutoStatusToggle(newAutoStatus, student.id);
+      }
     } catch (error) {
       console.error("Error updating auto status:", error);
     }
-  }, [student.id, autoStatus, statusValue]);
+  }, [student.id, autoStatus, statusValue, isPartOfMultiSelect, onBulkAutoStatusToggle]);
+
+  const handleCategoryChange = useCallback(async (categoryId, teacherEmailKey) => {
+    const db = getDatabase();
+    const lastUnderscoreIndex = student.id.lastIndexOf('_');
+    const studentKey = student.id.slice(0, lastUnderscoreIndex);
+    const courseId = student.id.slice(lastUnderscoreIndex + 1);
+    const categoryRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}/${categoryId}`);
+
+    try {
+      await set(categoryRef, true);
+      
+      // If this is part of a multi-select, update other selected students
+      if (isPartOfMultiSelect) {
+        onBulkCategoryChange(categoryId, teacherEmailKey, student.id, true);
+      }
+    } catch (error) {
+      console.error("Error adding category:", error);
+    }
+  }, [student.id, isPartOfMultiSelect, onBulkCategoryChange]);
+
+  const handleRemoveCategory = useCallback(async (categoryId, teacherEmailKey) => {
+    const db = getDatabase();
+    const lastUnderscoreIndex = student.id.lastIndexOf('_');
+    const studentKey = student.id.slice(0, lastUnderscoreIndex);
+    const courseId = student.id.slice(lastUnderscoreIndex + 1);
+    const categoryRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}/${categoryId}`);
+
+    try {
+      await set(categoryRef, null);
+      
+      // If this is part of a multi-select, update other selected students
+      if (isPartOfMultiSelect) {
+        onBulkCategoryChange(categoryId, teacherEmailKey, student.id, false);
+      }
+    } catch (error) {
+      console.error("Error removing category:", error);
+    }
+  }, [student.id, isPartOfMultiSelect, onBulkCategoryChange]);
 
   const groupedTeacherCategories = useMemo(() => {
     if (!teacherCategories || typeof teacherCategories !== 'object') {
@@ -330,35 +390,6 @@ const StudentCard = React.memo(({
 
   const isAutoStatusAllowed = useMemo(() => getStatusAllowsAutoStatus(statusValue), [statusValue]);
 
-  const handleCategoryChange = useCallback(async (categoryId, teacherEmailKey) => {
-    const db = getDatabase();
-    const lastUnderscoreIndex = student.id.lastIndexOf('_');
-    const studentKey = student.id.slice(0, lastUnderscoreIndex);
-    const courseId = student.id.slice(lastUnderscoreIndex + 1);
-    const categoryRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}/${categoryId}`);
-
-    try {
-      await set(categoryRef, true);
-    } catch (error) {
-      console.error("Error adding category:", error);
-    }
-  }, [student.id]);
-
-  const handleRemoveCategory = useCallback(async (categoryId, teacherEmailKey) => {
-    const db = getDatabase();
-    const lastUnderscoreIndex = student.id.lastIndexOf('_');
-    const studentKey = student.id.slice(0, lastUnderscoreIndex);
-    const courseId = student.id.slice(lastUnderscoreIndex + 1);
-    const categoryRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}/${categoryId}`);
-
-    try {
-      await set(categoryRef, null);
-    } catch (error) {
-      console.error("Error removing category:", error);
-    }
-  }, [student.id]);
-
-  // Handle opening the status history dialog
   const handleOpenStatusHistory = useCallback(async () => {
     setIsStatusHistoryOpen(true);
     setLoadingStatusHistory(true);
@@ -415,43 +446,59 @@ const StudentCard = React.memo(({
         className={`cursor-pointer transition-shadow duration-200 ${bgColor} hover:shadow-md mb-3`}
         onClick={handleCardClick}
       >
-        <CardHeader className="p-3 pb-2">
-          <div className="flex items-start space-x-3">
-            <Avatar className="w-10 h-10">
-              <AvatarFallback 
-                className="text-sm font-medium" 
-                style={{ backgroundColor: avatarColor, color: '#FFFFFF' }}
-              >
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <CardTitle className="text-base font-medium truncate">
-                {student.firstName} {student.lastName}
-              </CardTitle>
-              <p className="text-xs text-gray-500 truncate">{student.StudentEmail}</p>
-            </div>
-            {isSelected && <CheckCircle className="w-5 h-5 text-blue-500" />}
-          </div>
-        </CardHeader>
+        
+
+<CardHeader className="p-3 pb-2">
+  <div className="flex items-start space-x-3">
+    <div 
+      className="flex items-center" 
+      onClick={(e) => {
+        e.stopPropagation();
+      }}
+    >
+      <Checkbox
+        checked={isSelected}
+        onCheckedChange={onSelectionChange}
+        aria-label={`Select ${student.firstName} ${student.lastName}`}
+      />
+    </div>
+    <Avatar className="w-10 h-10">
+      <AvatarFallback 
+        className="text-sm font-medium" 
+        style={{ backgroundColor: avatarColor, color: '#FFFFFF' }}
+      >
+        {initials}
+      </AvatarFallback>
+    </Avatar>
+    <div className="min-w-0 flex-1">
+      <CardTitle className="text-base font-medium truncate">
+        {student.firstName} {student.lastName}
+      </CardTitle>
+      <p className="text-xs text-gray-500 truncate">{student.StudentEmail}</p>
+    </div>
+    {selectedStudentId === student.id && !isSelected && (
+      <CheckCircle className="w-5 h-5 text-blue-500" />
+    )}
+  </div>
+</CardHeader>
         <CardContent className="p-3 pt-2">
-         {/* Course, Grade, and Progress on the same line */}
-<div className="flex items-center text-xs mb-2">
-  <span className="flex-grow">{student.Course_Value}</span>
-  {student.grade !== undefined && student.grade !== null && (
-    <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
-      Gr. {formatGrade(student.grade)}
-      {getGradeColorAndIcon(student.grade).icon}
-    </span>
-  )}
-  {student.adherenceMetrics && formatLessons(student.adherenceMetrics.lessonsBehind) && (
-    <span className="text-xs font-bold flex items-center">
-      {formatLessons(student.adherenceMetrics.lessonsBehind).value}
-      {formatLessons(student.adherenceMetrics.lessonsBehind).icon}
-    </span>
-  )}
-</div>
-          
+          {/* Course, Grade, and Progress on the same line */}
+          <div className="flex items-center text-xs mb-2">
+            <span className="flex-grow">{student.Course_Value}</span>
+            {student.grade !== undefined && student.grade !== null && (
+              <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
+                Gr. {formatGrade(student.grade)}
+                {getGradeColorAndIcon(student.grade).icon}
+              </span>
+            )}
+            {student.adherenceMetrics && formatLessons(student.adherenceMetrics.lessonsBehind) && (
+              <span className="text-xs font-bold flex items-center">
+                {formatLessons(student.adherenceMetrics.lessonsBehind).value}
+                {formatLessons(student.adherenceMetrics.lessonsBehind).icon}
+              </span>
+            )}
+          </div>
+              
           {/* Status Dropdown, Last Week Status, and Auto Status Toggle */}
           <div className="flex items-center space-x-2 mb-2">
             <div className="flex-grow">
@@ -641,8 +688,8 @@ const StudentCard = React.memo(({
       {/* Chat Dialog */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
         <DialogContent className="max-w-[90vw] w-[1000px] h-[95vh] max-h-[900px] p-4 flex flex-col">
-        <DialogHeader className="mb-0 bg-white py-0">
-          <DialogTitle> 
+          <DialogHeader className="mb-0 bg-white py-0">
+            <DialogTitle> 
               Messaging
             </DialogTitle>
           </DialogHeader>

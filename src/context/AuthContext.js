@@ -3,6 +3,7 @@ import { auth } from '../firebase';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { getDatabase, ref, get, set } from "firebase/database";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const AuthContext = createContext();
 
@@ -15,14 +16,55 @@ export function AuthProvider({ children }) {
   const [user_email_key, setUserEmailKey] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isStaffUser, setIsStaffUser] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // Helper function to check if user is staff
+  // Define all public routes
+  const publicRoutes = [
+    '/login',
+    '/staff-login',
+    '/reset-password',
+    '/signup',
+    '/auth-action-handler',
+    '/contractor-invoice',
+    '/adult-students',
+    '/your-way'
+  ];
+
+  // Helper function to check if current route is public
+  const isPublicRoute = (path) => {
+    // First check exact matches
+    if (publicRoutes.some(route => path.toLowerCase() === route.toLowerCase())) {
+      return true;
+    }
+
+    // Then check if it's a student portal route
+    if (path.toLowerCase().startsWith('/student-portal/')) {
+      // This regex will match the pattern /student-portal/{userId}/{accessKey}
+      const studentPortalPattern = /^\/student-portal\/[^/]+\/[^/]+$/i;
+      return studentPortalPattern.test(path);
+    }
+
+    return false;
+  };
+
   const checkIsStaff = (user) => {
     return user && user.email.endsWith("@rtdacademy.com");
   };
 
-  // Function to ensure user data exists in the database
   const ensureUserNode = async (user, emailKey) => {
+    // Only require email verification for regular users
+    if (!user.emailVerified) {
+      console.log("Skipping user data creation - email not verified");
+      await signOut();
+      navigate('/login', { 
+        state: { 
+          message: "Please verify your email before signing in. Check your inbox for a verification link." 
+        } 
+      });
+      return false;
+    }
+
     const db = getDatabase();
     const userRef = ref(db, `users/${user.uid}`);
     
@@ -30,16 +72,11 @@ export function AuthProvider({ children }) {
       const snapshot = await get(userRef);
       
       if (!snapshot.exists()) {
-        // Create new user data
         const userData = {
           uid: user.uid,
           email: user.email,
           sanitizedEmail: emailKey,
-          displayName: user.displayName || null,
-          firstName: user.displayName ? user.displayName.split(' ')[0] : null,
-          lastName: user.displayName ? user.displayName.split(' ').slice(1).join(' ') : null,
-          photoURL: user.photoURL || null,
-          type: 'student', // Default type for non-staff users
+          type: 'student',
           createdAt: Date.now(),
           lastLogin: Date.now(),
           provider: user.providerData[0].providerId,
@@ -48,21 +85,28 @@ export function AuthProvider({ children }) {
         
         await set(userRef, userData);
         
-        // If it's a new user, also create their notifications node
         const notificationsRef = ref(db, `notifications/${emailKey}`);
         await set(notificationsRef, {});
         
       } else {
-        // Update last login time and other relevant fields
         await set(userRef, {
           ...snapshot.val(),
           lastLogin: Date.now(),
-          emailVerified: user.emailVerified,
-          photoURL: user.photoURL || snapshot.val().photoURL,
-          displayName: user.displayName || snapshot.val().displayName
+          emailVerified: user.emailVerified
         });
       }
+      return true;
     } catch (error) {
+      if (error.message?.includes('PERMISSION_DENIED')) {
+        console.log("User does not have permission yet - email verification may be pending");
+        await signOut();
+        navigate('/login', { 
+          state: { 
+            message: "Please verify your email before signing in. Check your inbox for a verification link." 
+          } 
+        });
+        return false;
+      }
       console.error("Error ensuring user data:", error);
       throw error;
     }
@@ -77,10 +121,6 @@ export function AuthProvider({ children }) {
       if (!snapshot.exists()) {
         await set(staffRef, {
           email: user.email,
-          displayName: user.displayName || null,
-          firstName: user.displayName ? user.displayName.split(' ')[0] : null,
-          lastName: user.displayName ? user.displayName.split(' ').slice(1).join(' ') : null,
-          photoURL: user.photoURL || null,
           createdAt: Date.now(),
           lastLogin: Date.now(),
           provider: user.providerData[0].providerId
@@ -88,6 +128,7 @@ export function AuthProvider({ children }) {
       } else {
         await set(ref(db, `staff/${emailKey}/lastLogin`), Date.now());
       }
+      return true;
     } catch (error) {
       console.error("Error ensuring staff data:", error);
       throw error;
@@ -95,50 +136,93 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
         if (currentUser) {
-          setUser(currentUser);
           const emailKey = sanitizeEmail(currentUser.email);
-          setUserEmailKey(emailKey);
-          
-          // Set staff status
           const staffStatus = checkIsStaff(currentUser);
-          setIsStaffUser(staffStatus);
           
+          let dataCreated = false;
           if (staffStatus) {
-            await ensureStaffNode(currentUser, emailKey);
+            // Staff users don't need email verification
+            dataCreated = await ensureStaffNode(currentUser, emailKey);
+            if (dataCreated && isMounted) {
+              setUser(currentUser);
+              setUserEmailKey(emailKey);
+              setIsStaffUser(true);
+              
+              // Redirect staff to teacher dashboard if on login page
+              if (location.pathname.toLowerCase() === '/staff-login') {
+                navigate('/teacher-dashboard');
+              }
+            }
           } else {
-            await ensureUserNode(currentUser, emailKey);
+            // Regular users need email verification
+            dataCreated = await ensureUserNode(currentUser, emailKey);
+            if (dataCreated && isMounted) {
+              setUser(currentUser);
+              setUserEmailKey(emailKey);
+              setIsStaffUser(false);
+              
+              // Redirect students to dashboard if on login page
+              if (location.pathname.toLowerCase() === '/login') {
+                navigate('/dashboard');
+              }
+            }
           }
         } else {
+          if (isMounted) {
+            setUser(null);
+            setUserEmailKey(null);
+            setIsStaffUser(false);
+
+            // Only redirect if not on a public route
+            const currentPath = location.pathname.toLowerCase();
+            if (!isPublicRoute(currentPath)) {
+              if (currentPath.includes('teacher') || currentPath === '/courses') {
+                navigate('/staff-login');
+              } else {
+                navigate('/login');
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error in auth state change:", error);
+        if (isMounted) {
           setUser(null);
           setUserEmailKey(null);
           setIsStaffUser(false);
         }
-      } catch (error) {
-        console.error("Error in auth state change:", error);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     });
 
-    return unsubscribe;
-  }, []);
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [navigate, location.pathname]);
 
   const signOut = async () => {
     try {
+      const wasStaff = isStaffUser;
       await firebaseSignOut(auth);
       setUser(null);
       setUserEmailKey(null);
       setIsStaffUser(false);
+      navigate(wasStaff ? '/staff-login' : '/login');
     } catch (error) {
       console.error("Error signing out:", error);
       throw error;
     }
   };
 
-  // For backwards compatibility, keep isStaff as a function
   const isStaff = (user) => {
     return checkIsStaff(user);
   };

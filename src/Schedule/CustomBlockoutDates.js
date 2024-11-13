@@ -1,27 +1,52 @@
-// src/Schedule/CustomBlockoutDates.js
-
 import React, { useState } from 'react';
 import DatePicker from 'react-datepicker';
 import { format as formatDate } from 'date-fns';
 import { Label } from '../components/ui/label';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Calendar, Info } from 'lucide-react';
 import 'react-datepicker/dist/react-datepicker.css';
 
+// Custom Calendar Container component
+const CalendarContainer = ({ className, children }) => {
+  return (
+    <div className="space-y-2">
+      <div className="p-3 bg-blue-50 border-b border-blue-100 rounded-t">
+        <div className="flex items-start gap-2">
+          <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+          <div className="space-y-1">
+            <p className="text-sm text-blue-700 font-medium">
+              How to select break dates:
+            </p>
+            <ol className="text-sm text-blue-600 list-decimal pl-4 space-y-0.5">
+              <li>Click a start date</li>
+              <li>Click an end date to complete the range</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+      <div className={className}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
 const CustomBlockoutDates = ({ customBlockoutDates, setCustomBlockoutDates }) => {
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
+  const [dateRange, setDateRange] = useState([null, null]);
+  const [startDate, endDate] = dateRange;
 
   const addDateRange = (start, end) => {
+    if (!start || !end) return;
+    
     if (end < start) {
-      alert('End date cannot be before start date.');
+      toast.error('End date cannot be before start date.');
       return;
     }
+    
     setCustomBlockoutDates([
       ...customBlockoutDates,
       { startDate: start, endDate: end },
     ]);
-    setStartDate(null);
-    setEndDate(null);
+    setDateRange([null, null]); // Reset the date range after adding
   };
 
   const removeDateRange = (index) => {
@@ -32,52 +57,57 @@ const CustomBlockoutDates = ({ customBlockoutDates, setCustomBlockoutDates }) =>
 
   return (
     <div className="mb-4">
-      <Label>Custom Blockout Dates</Label>
-      <div className="flex items-center mb-2 space-x-2">
-        <DatePicker
-          selected={startDate}
-          onChange={(date) => {
-            setStartDate(date);
-            setEndDate(null); // Reset end date when start date changes
-          }}
-          dateFormat="MMM dd, yyyy"
-          placeholderText="Start Date"
-          className="w-full border border-gray-300 rounded px-2 py-1"
-        />
-        {startDate && (
+      <div className="space-y-2">
+        <div className="flex-1">
           <DatePicker
-            selected={endDate}
-            onChange={(date) => {
-              setEndDate(date);
-              if (startDate && date) {
-                addDateRange(startDate, date);
+            selectsRange={true}
+            startDate={startDate}
+            endDate={endDate}
+            onChange={(update) => {
+              setDateRange(update);
+              // If both dates are selected, automatically add the range
+              if (update[0] && update[1]) {
+                addDateRange(update[0], update[1]);
               }
             }}
             dateFormat="MMM dd, yyyy"
-            placeholderText="End Date"
-            minDate={startDate}
-            className="w-full border border-gray-300 rounded px-2 py-1"
+            placeholderText="Select break dates"
+            className="w-full border border-gray-300 rounded px-2 py-2"
+            withPortal
+           
+            calendarContainer={CalendarContainer}
           />
+        </div>
+        
+        {/* Show helper message when only start date is selected */}
+        {startDate && !endDate && (
+          <div className="flex items-center gap-2 text-sm text-blue-600">
+            <Info className="h-4 w-4" />
+            <span>Now click an end date to complete your break period</span>
+          </div>
         )}
       </div>
+
       {customBlockoutDates.length > 0 && (
-        <div className="mt-2">
-          <ul className="space-y-1">
+        <div className="mt-4">
+          <ul className="space-y-2">
             {customBlockoutDates.map((range, index) => (
               <li
                 key={index}
-                className="flex items-center justify-between bg-gray-100 p-2 rounded"
+                className="flex items-center justify-between p-2 bg-white rounded-lg border border-gray-200 shadow-sm"
               >
-                <span>
-                  {formatDate(range.startDate, 'MMM dd, yyyy')} to{' '}
-                  {formatDate(range.endDate, 'MMM dd, yyyy')}
+                <span className="flex items-center">
+                  <Calendar className="h-4 w-4 text-gray-500 mr-2" />
+                  <span className="text-sm">
+                    {formatDate(range.startDate, 'MMM dd, yyyy')} - {formatDate(range.endDate, 'MMM dd, yyyy')}
+                  </span>
                 </span>
                 <button
                   onClick={() => removeDateRange(index)}
-                  className="text-red-500"
-                  title="Remove Date Range"
+                  className="text-gray-400 hover:text-red-500 transition-colors"
+                  title="Remove Break Period"
                 >
-                  <Trash2 size={20} />
+                  <Trash2 size={18} />
                 </button>
               </li>
             ))}

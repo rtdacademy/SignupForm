@@ -2,6 +2,18 @@
   "projects": {
     "default": "rtd-academy"
   },
-  "targets": {},
+  "targets": {
+    "rtd-academy": {
+      "hosting": {
+        "main": [
+          "rtd-academy"
+        ],
+        "second-site": [
+          "edbotz"
+        ]
+      }
+    }
+  },
+  "etags": {},
   "dataconnectEmulatorConfig": {}
 }

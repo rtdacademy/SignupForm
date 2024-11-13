@@ -1,0 +1,144 @@
+import React from 'react';
+import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Loader2 } from "lucide-react";
+import { getDatabase, ref, get } from 'firebase/database';
+import { useAuth } from '../context/AuthContext';
+import { useEffect, useState } from 'react';
+
+const ReviewSection = ({ title, items }) => (
+  <div className="space-y-3">
+    <h3 className="font-semibold text-lg">{title}</h3>
+    <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+      {items.map(([label, value]) => value && (
+        <div key={label} className="space-y-1">
+          <dt className="text-sm font-medium text-gray-500">{label}</dt>
+          <dd className="text-sm">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  </div>
+);
+
+const StudentRegistrationReview = ({ onBack }) => {
+  const { user } = useAuth();
+  const uid = user?.uid;
+  const [registrationData, setRegistrationData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchRegistrationData = async () => {
+      if (!uid) {
+        setError('User not authenticated');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const db = getDatabase();
+        const regRef = ref(db, `users/${uid}/pendingRegistration`);
+        const snapshot = await get(regRef);
+
+        if (snapshot.exists()) {
+          setRegistrationData(snapshot.val());
+        } else {
+          setError('No registration data found');
+        }
+      } catch (err) {
+        console.error('Error fetching registration data:', err);
+        setError('Failed to load registration data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRegistrationData();
+  }, [uid]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center text-red-600 p-8">
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  if (!registrationData?.formData) {
+    return null;
+  }
+
+  const { formData } = registrationData;
+
+  const personalInfo = [
+    ['Name', `${formData.firstName} ${formData.lastName}`],
+    ['Email', user.email],
+    ['Phone', formData.phoneNumber],
+    ['Birthday', formData.birthday],
+    ['Age', formData.age ? `${formData.age} years old` : ''],
+    ['Alberta Student Number', formData.albertaStudentNumber],
+    ['Current School', formData.currentSchool],
+    ['School Address', formData.schoolAddress?.fullAddress]
+  ];
+
+  const parentInfo = [
+    ['Parent First Name', formData.parentFirstName],
+    ['Parent Last Name', formData.parentLastName],
+    ['Parent Phone', formData.parentPhone],
+    ['Parent Email', formData.parentEmail]
+  ];
+
+  const courseInfo = [
+    ['Student Type', formData.studentType],
+    ['School Year', formData.enrollmentYear],
+    ['Course', formData.courseName],
+    ['Start Date', formData.startDate],
+    ['End Date', formData.endDate],
+    ['Diploma Date', formData.diplomaMonth?.displayDate]
+  ];
+
+  return (
+    <div className="space-y-8">
+      <div className="text-center space-y-2">
+        <h2 className="text-2xl font-bold">Review Your Registration</h2>
+        <p className="text-gray-600">Please review your information before submitting</p>
+      </div>
+
+      <Card>
+        <CardContent className="space-y-6 pt-6">
+          <ReviewSection title="Personal Information" items={personalInfo} />
+          {formData.parentFirstName && (
+            <ReviewSection title="Parent/Guardian Information" items={parentInfo} />
+          )}
+          <ReviewSection title="Course Information" items={courseInfo} />
+          
+          {formData.additionalInformation && (
+            <div className="space-y-3">
+              <h3 className="font-semibold text-lg">Additional Information</h3>
+              <p className="text-sm whitespace-pre-wrap">{formData.additionalInformation}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end gap-4">
+        <Button
+          variant="outline"
+          onClick={onBack}
+        >
+          Back to Edit
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default StudentRegistrationReview;

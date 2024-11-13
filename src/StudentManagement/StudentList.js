@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { Button } from "../components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Checkbox } from "../components/ui/checkbox";
 import StudentCard from './StudentCard';
 import { ChevronUp, ChevronDown, SortAsc } from 'lucide-react';
 
@@ -18,6 +19,8 @@ function StudentList({
   courseSupportStaff,
   teacherCategories,
   user_email_key,
+  selectedStudents,
+  onSelectedStudentsChange,
 }) {
   const [sortKey, setSortKey] = useState('lastName');
   const [sortOrder, setSortOrder] = useState('asc');
@@ -66,15 +69,64 @@ function StudentList({
     { value: 'DiplomaMonthChoices_Value', label: 'Diploma Month' },
   ];
 
+  const handleSelectAll = (checked) => {
+    console.log('Select all:', checked);
+    if (checked) {
+      const newSelected = new Set(sortedStudents.map(student => student.id));
+      onSelectedStudentsChange(newSelected);
+    } else {
+      onSelectedStudentsChange(new Set());
+    }
+  };
+
+  const handleStudentSelect = (studentId, checked) => {
+    console.log('Select student:', studentId, checked);
+    const newSelected = new Set(selectedStudents);
+    if (checked) {
+      newSelected.add(studentId);
+    } else {
+      newSelected.delete(studentId);
+    }
+    onSelectedStudentsChange(newSelected);
+  };
+
+  const handleCardClick = (student) => {
+    // Only trigger onStudentSelect if no checkboxes are selected
+    if (selectedStudents.size === 0) {
+      onStudentSelect(student);
+    }
+  };
+
+  const isAllSelected = sortedStudents.length > 0 && 
+    sortedStudents.every(student => selectedStudents.has(student.id));
+  const isSomeSelected = selectedStudents.size > 0 && !isAllSelected;
+
+  console.log('StudentList render:', {
+    selectedStudentsSize: selectedStudents.size,
+    isAllSelected,
+    isSomeSelected
+  });
+
   return (
     <div className="flex flex-col h-full">
       {/* Header Section */}
       <div className="flex-shrink-0 mb-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0">
-          <h3 className="text-lg font-medium text-gray-700 flex items-center">
-            Students 
-            <span className="ml-2 text-sm font-normal text-gray-500">({sortedStudents.length})</span>
-          </h3>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              checked={isAllSelected}
+              indeterminate={isSomeSelected}
+              onCheckedChange={handleSelectAll}
+              aria-label="Select all students"
+            />
+            <h3 className="text-lg font-medium text-gray-700 flex items-center">
+              Students
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                ({sortedStudents.length})
+                {selectedStudents.size > 0 && ` • ${selectedStudents.size} selected`}
+              </span>
+            </h3>
+          </div>
           <div className="flex items-center space-x-2">
             <Select value={sortKey} onValueChange={setSortKey}>
               <SelectTrigger className="w-[140px] h-8 text-xs bg-white border-gray-200 text-gray-600">
@@ -99,6 +151,20 @@ function StudentList({
             </Button>
           </div>
         </div>
+
+        {selectedStudents.size > 0 && (
+          <div className="mt-2 flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onSelectedStudentsChange(new Set())}
+              className="text-xs"
+            >
+              Clear Selection
+            </Button>
+            {/* Add your bulk action buttons here */}
+          </div>
+        )}
       </div>
 
       {/* Student List Section */}
@@ -112,7 +178,9 @@ function StudentList({
                 student={sortedStudents[index]}
                 index={index}
                 selectedStudentId={selectedStudentId}
-                onStudentSelect={onStudentSelect}
+                onStudentSelect={() => handleCardClick(sortedStudents[index])}
+                isSelected={selectedStudents.has(sortedStudents[index].id)}
+                onSelectionChange={(checked) => handleStudentSelect(sortedStudents[index].id, checked)}
                 courseInfo={courseInfo}
                 courseTeachers={courseTeachers}
                 courseSupportStaff={courseSupportStaff}

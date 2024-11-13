@@ -18,16 +18,21 @@ import {
   DollarSign,
   CalendarPlus,
   Bell,
-  Menu
+  Menu,
+  Bot,
+  Mail,
+  Handshake
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
-import AdminPanel from '../Admin/AdminPanel';
 import Courses from '../courses/Courses';
 import StudentManagement from '../StudentManagement/StudentManagement';
 import ExternalLinks from '../ExternalLinks/ExternalLinks';
 import ContractorInvoiceSummary from '../Admin/ContractorInvoiceSummary';
 import IcsUpload from '../Schedule/IcsUpload';
 import Notifications from '../Notifications/Notifications';
+import AIChatApp from '../AI/AIChatApp';
+import EmailComponent from '../email/EmailComponent';
+import PricingComponent from '../config/PricingComponent'; 
 import { getDatabase, ref, get, onValue } from 'firebase/database';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import NavItemWithIndicator from '../Notifications/NavItemWithIndicator';
@@ -87,6 +92,10 @@ function TeacherDashboard() {
     return <ChatApp />;
   }, []);
 
+  const memoizedAIChatApp = useMemo(() => {
+    return <AIChatApp />;
+  }, []);
+
   const navItems = [
     { icon: Grid, label: 'React Dashboard', key: 'react-dashboard' },
     { icon: Layout, label: 'PowerApps Dashboard', key: 'powerapps-dashboard' },
@@ -98,6 +107,8 @@ function TeacherDashboard() {
       indicatorCount: unreadChatsCount
     },
     { icon: MessageSquare, label: 'Chats', key: 'chat' },
+    { icon: Bot, label: 'AI Chat', key: 'ai-chat' },
+    { icon: Mail, label: 'Email', key: 'email' },
     { icon: BookOpen, label: 'Courses', key: 'courses' },
     { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
     { icon: Link, label: 'Links', key: 'external-links' },
@@ -106,9 +117,9 @@ function TeacherDashboard() {
       label: 'Admin', 
       key: 'admin', 
       subItems: [
-        { icon: DollarSign, label: 'Finance', key: 'finance' },
+        { icon: DollarSign, label: 'Pricing', key: 'pricing' }, // New pricing menu item
         { icon: BarChart2, label: 'Reports', key: 'reports' },
-        { icon: DollarSign, label: 'Contractor Invoices', key: 'contractor-invoices' },
+        { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' }
       ]
     },
   ];
@@ -116,7 +127,7 @@ function TeacherDashboard() {
   const handleNavItemClick = (key) => {
     setActiveSection(activeSection === key ? null : key);
     setIsFullScreen(false);
-    setIsChatExpanded(key === 'chat');
+    setIsChatExpanded(key === 'chat' || key === 'ai-chat');
   };
 
   const toggleFullScreen = () => {
@@ -165,8 +176,9 @@ function TeacherDashboard() {
     switch (activeSection) {
       case 'chat':
         return memoizedChatApp;
-      case 'admin':
-        return <AdminPanel setActiveSection={setActiveSection} />;
+      case 'ai-chat':
+        return memoizedAIChatApp;
+    
       case 'courses':
         return <Courses />;
       case 'students':
@@ -182,14 +194,16 @@ function TeacherDashboard() {
         );
       case 'external-links':
         return <ExternalLinks />;
-      case 'finance':
-        return <ContractorInvoiceSummary invoicesData={invoicesData} />;
       case 'calendar-creator':
         return <IcsUpload />;
       case 'notifications':
         return <Notifications />;
       case 'contractor-invoices':
         return <ContractorInvoiceSummary invoicesData={invoicesData} />;
+      case 'pricing':
+        return <PricingComponent />;
+      case 'email':
+        return <EmailComponent />;
       default:
         return null;
     }
@@ -249,7 +263,6 @@ function TeacherDashboard() {
           </SheetContent>
         </Sheet>
       )}
-
     </div>
   );
 }

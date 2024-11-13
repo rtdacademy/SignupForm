@@ -269,10 +269,15 @@ const updateGradebookData = functions.https.onRequest(async (req, res) => {
     const studentRef = db.ref(`students/${sanitizedEmail}`);
     const courseRef = studentRef.child(`courses/${data.LMSCourseID}`);
     const gradebookRef = courseRef.child('jsonGradebook');
+    const sectionRef = courseRef.child('section');
+    const globalSectionsRef = db.ref('courses/sections');
 
     // Process and transform the gradebook data
     const processedData = processGradebookData(data);
     const transformedData = transformGradebookData(processedData.headers, processedData.student);
+
+    // Extract section from student info
+    const studentSection = processedData.student.info[2] || '';
 
     // Prepare the new gradebook data
     const newGradebookData = {
@@ -282,20 +287,67 @@ const updateGradebookData = functions.https.onRequest(async (req, res) => {
       lastChecked: admin.database.ServerValue.TIMESTAMP
     };
 
-    // Get the current gradebook data
-    const currentGradebookSnapshot = await gradebookRef.once('value');
+    // Get the current gradebook data, section, and global sections
+    const [currentGradebookSnapshot, currentSectionSnapshot, globalSectionsSnapshot] = await Promise.all([
+      gradebookRef.once('value'),
+      sectionRef.once('value'),
+      globalSectionsRef.once('value')
+    ]);
+    
     const currentGradebookData = currentGradebookSnapshot.val();
+    const currentSection = currentSectionSnapshot.val();
+    const globalSections = globalSectionsSnapshot.val() || {};
 
+    // Track if we need to make any updates
+    let updates = {};
+    let globalSectionUpdates = {};
+    let changesMade = false;
+
+    // Check if gradebook data has changed
     if (!currentGradebookData || isGradebookChanged(currentGradebookData, newGradebookData)) {
-      // Update the entire gradebook if it's new or has any changes
       newGradebookData.lastUpdated = admin.database.ServerValue.TIMESTAMP;
-      await gradebookRef.set(newGradebookData);
-      res.status(200).send(`Gradebook data for student ${sanitizedEmail} in course ${data.LMSCourseID} updated successfully`);
+      updates['jsonGradebook'] = newGradebookData;
+      changesMade = true;
     } else {
-      // No changes, just update the lastChecked timestamp
-      await gradebookRef.update({ lastChecked: admin.database.ServerValue.TIMESTAMP });
-      res.status(200).send(`No changes detected for student ${sanitizedEmail} in course ${data.LMSCourseID}`);
+      // No changes to gradebook, just update the lastChecked timestamp
+      updates['jsonGradebook/lastChecked'] = admin.database.ServerValue.TIMESTAMP;
     }
+
+    // Check if section has changed and needs to be updated in student's course data
+    if (studentSection && studentSection !== currentSection) {
+      updates['section'] = studentSection;
+      changesMade = true;
+
+      // Check if section needs to be added to global sections
+      if (studentSection && !globalSections[studentSection]) {
+        console.log(`Adding new section ${studentSection} to global sections`);
+        globalSectionUpdates[studentSection] = true;
+      }
+    }
+
+    // Apply updates if there are any changes
+    const updatePromises = [];
+
+    if (Object.keys(updates).length > 0) {
+      updatePromises.push(courseRef.update(updates));
+    }
+
+    if (Object.keys(globalSectionUpdates).length > 0) {
+      updatePromises.push(globalSectionsRef.update(globalSectionUpdates));
+    }
+
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
+      
+      const message = changesMade 
+        ? `Data updated successfully for student ${sanitizedEmail} in course ${data.LMSCourseID}`
+        : `No significant changes detected for student ${sanitizedEmail} in course ${data.LMSCourseID}`;
+      
+      res.status(200).send(message);
+    } else {
+      res.status(200).send(`No changes required for student ${sanitizedEmail} in course ${data.LMSCourseID}`);
+    }
+
   } catch (error) {
     console.error('Error updating gradebook data:', error);
     
@@ -305,7 +357,7 @@ const updateGradebookData = functions.https.onRequest(async (req, res) => {
       timestamp: admin.database.ServerValue.TIMESTAMP,
       error: error.message,
       stack: error.stack,
-      studentId: sanitizeEmail(req.body.studentEmail),
+      studentId: req.body.studentEmail ? sanitizeEmail(req.body.studentEmail) : null,
       courseId: req.body.LMSCourseID,
       jsonGradebookSnapshot: req.body
     };

@@ -59,8 +59,9 @@ export const COURSE_OPTIONS = [
 ];
 
 export const ACTIVE_FUTURE_ARCHIVED_OPTIONS = [
-  { value: "Active", color: "#10B981" },    // Green
-  { value: "Archived", color: "#6B7280" }   // Gray
+  { value: "Active", color: "#10B981" },     // Green
+  { value: "Registration", color: "#3B82F6" }, // Blue
+  { value: "Archived", color: "#6B7280" }    // Gray
 ];
 
 export const PASI_OPTIONS = [

@@ -16,6 +16,7 @@ function MultiActionAuthHandler() {
     const actionMode = urlParams.get('mode');
     const actionCode = urlParams.get('oobCode');
 
+    console.log("URL Parameters:", { mode: actionMode, hasCode: !!actionCode });
     setMode(actionMode);
 
     if (actionCode) {
@@ -27,68 +28,83 @@ function MultiActionAuthHandler() {
 
   const handleAuthAction = async (mode, actionCode) => {
     const auth = getAuth();
+    console.log("Handling auth action:", { mode, auth: !!auth });
 
     try {
       switch (mode) {
         case 'verifyEmail':
-          await applyActionCode(auth, actionCode);
-          setStatus('Email verified successfully!');
-          setTimeout(() => navigate('/login'), 3000);
-          break;
-        case 'resetPassword':
-          await verifyPasswordResetCode(auth, actionCode);
-          const email = await verifyPasswordResetCode(auth, actionCode);
-          const methods = await fetchSignInMethodsForEmail(auth, email);
-          setSignInMethods(methods);
-          if (methods.includes('password')) {
-            setStatus('Password reset code verified. Please enter a new password.');
-          } else {
-            setStatus('This account uses external authentication (Google or Microsoft). You cannot reset its password here.');
+          console.log("Starting email verification process");
+          
+          try {
+            // Apply the verification code first
+            const result = await applyActionCode(auth, actionCode);
+            console.log("Action code applied successfully:", result);
+            
+            // After successful verification, set status and redirect
+            setStatus('Email verified successfully! You can now sign in.');
+            console.log("Verification complete, redirecting to login");
+            setTimeout(() => {
+              navigate('/login', { 
+                state: { 
+                  message: 'Email verified successfully! You can now sign in.' 
+                }
+              });
+            }, 3000);
+          } catch (verificationError) {
+            console.error("Email verification error:", verificationError);
+            throw verificationError; // Re-throw to be caught by outer catch block
           }
           break;
+
+        case 'resetPassword':
+          console.log("Starting password reset verification");
+          try {
+            const email = await verifyPasswordResetCode(auth, actionCode);
+            console.log("Reset code verified for email:", email);
+            
+            const methods = await fetchSignInMethodsForEmail(auth, email);
+            console.log("Available sign-in methods:", methods);
+            setSignInMethods(methods);
+            
+            if (methods.includes('password')) {
+              setStatus('Password reset code verified. Please enter a new password.');
+            } else {
+              setStatus('This account uses external authentication (Google or Microsoft). You cannot reset its password here.');
+            }
+          } catch (resetError) {
+            console.error("Password reset verification error:", resetError);
+            throw resetError;
+          }
+          break;
+
         default:
+          console.log("Invalid action mode:", mode);
           setStatus('Invalid action mode.');
       }
     } catch (error) {
-      console.error("Error processing auth action", error);
-      setStatus('Action processing failed. Please try again.');
-    }
-  };
-
-  const validatePassword = (password) => {
-    const minLength = 7;
-    const hasNumber = /\d/.test(password);
-    const hasSymbol = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-
-    if (password.length < minLength) {
-      return 'Password must be at least 7 characters long.';
-    }
-    if (!hasNumber) {
-      return 'Password must include at least one number.';
-    }
-    if (!hasSymbol) {
-      return 'Password must include at least one symbol.';
-    }
-    return null;
-  };
-
-  const handlePasswordReset = async () => {
-    const passwordValidationError = validatePassword(newPassword);
-    if (passwordValidationError) {
-      setPasswordError(passwordValidationError);
-      return;
-    }
-
-    const auth = getAuth();
-    const actionCode = new URLSearchParams(location.search).get('oobCode');
-
-    try {
-      await confirmPasswordReset(auth, actionCode, newPassword);
-      setStatus('Password has been reset successfully!');
-      setTimeout(() => navigate('/login'), 3000);
-    } catch (error) {
-      console.error("Error resetting password", error);
-      setStatus('Password reset failed. Please try again.');
+      console.error("Error processing auth action:", {
+        code: error.code,
+        message: error.message,
+        stack: error.stack,
+        mode,
+      });
+      
+      switch (error.code) {
+        case 'auth/invalid-action-code':
+          setStatus('The verification link has expired or already been used. Please request a new one.');
+          break;
+        case 'auth/user-disabled':
+          setStatus('This account has been disabled. Please contact support.');
+          break;
+        case 'auth/user-not-found':
+          setStatus('Account not found. Please sign up first.');
+          break;
+        case 'auth/invalid-email':
+          setStatus('Invalid email address. Please check the link and try again.');
+          break;
+        default:
+          setStatus(`Action processing failed: ${error.message}. Please try again or contact support.`);
+      }
     }
   };
 

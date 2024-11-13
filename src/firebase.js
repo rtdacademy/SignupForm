@@ -3,7 +3,7 @@ import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 import { getFunctions } from 'firebase/functions';
 import { getAnalytics } from "firebase/analytics";
-import { getVertexAI } from "@firebase/vertexai";
+import { getVertexAI } from "firebase/vertexai";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDjx3BINgvUwR1CHE80yX1gCBXYl5OMCqs",

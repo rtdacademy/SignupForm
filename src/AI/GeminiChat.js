@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { Loader2 } from 'lucide-react';
-import { getGenerativeModel, getVertexAI } from "@firebase/vertexai";
+import { getVertexAI, getGenerativeModel } from "firebase/vertexai";
 
 const GeminiChat = ({ firebaseApp }) => {
   const [prompt, setPrompt] = useState('');

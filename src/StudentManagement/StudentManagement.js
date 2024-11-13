@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import FilterPanel from './FilterPanel';
 import StudentList from './StudentList';
 import StudentDetail from './StudentDetail';
+import StudentMessaging from './StudentMessaging';
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { ChevronLeft } from "lucide-react";
@@ -46,34 +47,35 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
   const [showStudentDetail, setShowStudentDetail] = useState(false);
   const [teacherCategories, setTeacherCategories] = useState({});
   const [teacherNames, setTeacherNames] = useState({});
+  const [selectedStudents, setSelectedStudents] = useState(new Set()); // Add this state
 
   const { user_email_key } = useAuth();
 
   // Handle window resize to update isMobile state
   useEffect(() => {
-    console.log('useEffect - Window resize listener added');
+    //console.log('useEffect - Window resize listener added');
     const handleResize = () => {
-      console.log('Window resized, updating isMobile state');
+     // console.log('Window resized, updating isMobile state');
       setIsMobile(window.innerWidth < 768);
     };
 
     window.addEventListener('resize', handleResize);
     return () => {
-      console.log('useEffect cleanup - Window resize listener removed');
+     // console.log('useEffect cleanup - Window resize listener removed');
       window.removeEventListener('resize', handleResize);
     };
   }, []);
 
   // Fetch student summaries from Firebase
   useEffect(() => {
-    console.log('useEffect - Firebase listeners added for student summaries');
+    //console.log('useEffect - Firebase listeners added for student summaries');
 
     const db = getDatabase();
     const studentSummariesRef = ref(db, 'studentCourseSummaries');
 
     // Define the event handlers
     const handleChildAdded = (snapshot) => {
-      console.log('Child added:', snapshot.key);
+     // console.log('Child added:', snapshot.key);
       const key = snapshot.key;
       const data = snapshot.val();
       const student = { ...data, id: key };
@@ -82,7 +84,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
     };
 
     const handleChildChanged = (snapshot) => {
-      console.log('Child changed:', snapshot.key);
+     // console.log('Child changed:', snapshot.key);
       const key = snapshot.key;
       const data = snapshot.val();
       const updatedStudent = { ...data, id: key };
@@ -93,7 +95,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
     };
 
     const handleChildRemoved = (snapshot) => {
-      console.log('Child removed:', snapshot.key);
+     // console.log('Child removed:', snapshot.key);
       const key = snapshot.key;
 
       setStudentSummaries((prevSummaries) =>
@@ -108,7 +110,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
 
     // Cleanup function
     return () => {
-      console.log('useEffect cleanup - Firebase listeners removed');
+     // console.log('useEffect cleanup - Firebase listeners removed');
       unsubscribeChildAdded();
       unsubscribeChildChanged();
       unsubscribeChildRemoved();
@@ -119,7 +121,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
   useEffect(() => {
     if (!user_email_key) return;
 
-    console.log('useEffect - Fetching teacher categories for:', user_email_key);
+    //console.log('useEffect - Fetching teacher categories for:', user_email_key);
 
     const db = getDatabase();
     const categoriesRef = ref(db, `teacherCategories`);
@@ -135,10 +137,10 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
             .map(([id, category]) => ({ id, teacherEmailKey, ...category }));
           allCategories[teacherEmailKey] = categoryList;
         });
-        console.log('Fetched teacher categories:', allCategories);
+       // console.log('Fetched teacher categories:', allCategories);
         setTeacherCategories(allCategories);
       } else {
-        console.log('No teacher categories found.');
+        //console.log('No teacher categories found.');
         setTeacherCategories({});
       }
     };
@@ -174,14 +176,14 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
 
   // Handle filter changes
   const handleFilterChange = useCallback((newFilters) => {
-    console.log('Filters changed:', newFilters);
+  //  console.log('Filters changed:', newFilters);
     setFilters(newFilters);
   }, []);
 
   // Handle student selection
   const handleStudentSelect = useCallback(
     (student) => {
-      console.log('Student selected:', student);
+      //console.log('Student selected:', student);
       setSelectedStudent(student);
       if (isMobile) {
         setShowStudentDetail(true);
@@ -192,14 +194,24 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
 
   // Handle search term changes
   const handleSearchChange = useCallback((value) => {
-    console.log('Search term changed:', value);
+   // console.log('Search term changed:', value);
     setSearchTerm(value);
   }, []);
 
   // Handle back navigation on mobile
   const handleBackToList = useCallback(() => {
-    console.log('Back to student list');
+   // console.log('Back to student list');
     setShowStudentDetail(false);
+  }, []);
+
+  // Add this handler
+  const handleSelectedStudentsChange = useCallback((newSelectedStudents) => {
+    setSelectedStudents(newSelectedStudents);
+  }, []);
+
+  // Add this handler
+  const handleCloseMessaging = useCallback(() => {
+    setSelectedStudents(new Set());
   }, []);
 
   // Memoize student summaries and available filters
@@ -240,7 +252,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
 
   // Render student list
   const renderStudentList = useCallback(() => {
-    console.log('Rendering student list');
+   // console.log('Rendering student list');
     return (
       <Card className="h-full bg-white shadow-md">
         <CardContent className="h-full p-2 overflow-hidden">
@@ -253,6 +265,8 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
             isMobile={isMobile}
             teacherCategories={teacherCategories}
             user_email_key={user_email_key}
+            onSelectedStudentsChange={handleSelectedStudentsChange} // Added prop
+            selectedStudents={selectedStudents} // Added prop
           />
         </CardContent>
       </Card>
@@ -266,11 +280,13 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
     isMobile,
     teacherCategories,
     user_email_key,
+    handleSelectedStudentsChange,
+    selectedStudents,
   ]);
 
   // Render student detail
   const renderStudentDetail = useCallback(() => {
-    console.log('Rendering student detail');
+   // console.log('Rendering student detail');
     return (
       <Card className="h-full bg-white shadow-md">
         <CardContent className="h-full p-4 overflow-auto">
@@ -320,7 +336,16 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
                   <ChevronLeft className="mr-2 h-4 w-4" /> Back to List
                 </Button>
                 <div className="h-full overflow-auto">
-                  {renderStudentDetail()}
+                  {selectedStudents.size > 0 ? (
+                    <StudentMessaging
+                      selectedStudents={Array.from(selectedStudents).map(id => 
+                        studentSummaries.find(s => s.id === id)
+                      ).filter(Boolean)}
+                      onClose={handleCloseMessaging}
+                    />
+                  ) : (
+                    renderStudentDetail()
+                  )}
                 </div>
               </motion.div>
             ) : (
@@ -338,19 +363,19 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
         ) : (
           <div className="flex h-full space-x-4">
             <div className="w-96 h-full overflow-hidden">
-              <StudentList
-                studentSummaries={filteredStudents}
-                filters={filters}
-                onStudentSelect={handleStudentSelect}
-                searchTerm={searchTerm}
-                selectedStudentId={selectedStudent?.id}
-                isMobile={isMobile}
-                teacherCategories={teacherCategories}
-                user_email_key={user_email_key}
-              />
+              {renderStudentList()}
             </div>
             <div className="flex-1 h-full overflow-hidden">
-              {renderStudentDetail()}
+              {selectedStudents.size > 0 ? (
+                <StudentMessaging
+                  selectedStudents={Array.from(selectedStudents).map(id => 
+                    studentSummaries.find(s => s.id === id)
+                  ).filter(Boolean)}
+                  onClose={handleCloseMessaging}
+                />
+              ) : (
+                renderStudentDetail()
+              )}
             </div>
           </div>
         )}

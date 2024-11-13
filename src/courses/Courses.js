@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { getDatabase, ref, onValue, update } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { FaEdit, FaExclamationTriangle, FaPlus, FaTrash } from 'react-icons/fa';
+import { FaEdit, FaExclamationTriangle, FaPlus, FaTrash, FaClock } from 'react-icons/fa';
 import Modal from 'react-modal';
 import Select from 'react-select';
 import { Switch } from '../components/ui/switch';
@@ -31,7 +31,7 @@ const monthOptions = [
   { value: 'November', label: 'November' }
 ];
 
-// Add these helper functions at the top of your file
+// Helper Functions
 const formatDateForDatabase = (localDate) => {
   // Convert local date to UTC timestamp
   // Assume all dates are for midnight Mountain Time (UTC-7)
@@ -57,15 +57,38 @@ const formatDateForDisplay = (dateString) => {
     });
 };
 
+// Time Selection Options
+const timeOptions = Array.from({ length: 12 }, (_, i) => {
+  const hour = i + 1;
+  return { value: hour.toString(), label: hour.toString() };
+});
+
+const minuteOptions = Array.from({ length: 60 }, (_, i) => {
+  const minute = i.toString().padStart(2, '0');
+  return { value: minute, label: minute };
+});
+
+const periodOptions = [
+  { value: 'AM', label: 'AM' },
+  { value: 'PM', label: 'PM' }
+];
+
 function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
   const handleDateChange = (e) => {
     const localDate = e.target.value;
     const { date, displayDate, timezone } = formatDateForDatabase(localDate);
     onChange({
       ...diplomaTime,
-      date,           // UTC timestamp
-      displayDate,    // Local date string
+      date,
+      displayDate,
       timezone
+    });
+  };
+
+  const handleTimeChange = (selected, { name }) => {
+    onChange({
+      ...diplomaTime,
+      [name]: selected.value
     });
   };
 
@@ -80,6 +103,42 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
             onChange={handleDateChange}
             disabled={!isEditing}
           />
+        </div>
+
+        <div className="flex space-x-2">
+          <div className="flex-1">
+            <label className="block text-sm font-medium mb-1">Time</label>
+            <div className="flex space-x-2 items-center">
+              <Select
+                options={timeOptions}
+                value={timeOptions.find(option => option.value === diplomaTime.hour)}
+                onChange={(selected) => handleTimeChange(selected, { name: 'hour' })}
+                isDisabled={!isEditing}
+                className="w-24"
+                classNamePrefix="select"
+                placeholder="Hour"
+              />
+              <span>:</span>
+              <Select
+                options={minuteOptions}
+                value={minuteOptions.find(option => option.value === diplomaTime.minute)}
+                onChange={(selected) => handleTimeChange(selected, { name: 'minute' })}
+                isDisabled={!isEditing}
+                className="w-24"
+                classNamePrefix="select"
+                placeholder="Min"
+              />
+              <Select
+                options={periodOptions}
+                value={periodOptions.find(option => option.value === diplomaTime.period)}
+                onChange={(selected) => handleTimeChange(selected, { name: 'period' })}
+                isDisabled={!isEditing}
+                className="w-24"
+                classNamePrefix="select"
+                placeholder="AM/PM"
+              />
+            </div>
+          </div>
         </div>
 
         <div>
@@ -142,10 +201,13 @@ function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
     
     const newTime = {
       id: `diploma-time-${Date.now()}`,
-      date,           // UTC timestamp
-      displayDate,    // Local date string
+      date,
+      displayDate,
       timezone,
       month: monthOptions[0].value,
+      hour: '9',
+      minute: '00',
+      period: 'AM',
       confirmed: false
     };
 
@@ -639,7 +701,7 @@ function Courses() {
                             type="button" // Prevent form submission
                             disabled={!isEditing}
                           >
-                            Manage Diploma Times
+                            <FaClock className="mr-2" /> Manage Diploma Times
                           </Button>
                         </SheetTrigger>
                         <SheetContent 
@@ -650,7 +712,7 @@ function Courses() {
                           <SheetHeader>
                             <SheetTitle>Diploma Times Management</SheetTitle>
                             <SheetDescription>
-                              Add and manage diploma exam times for this course. Each time can have a specific date, month, and confirmation status.
+                              Add and manage diploma exam times for this course. Each time can have a specific date, time, month, and confirmation status.
                             </SheetDescription>
                           </SheetHeader>
                           <ScrollArea className="h-[calc(100vh-200px)] mt-6">
@@ -685,6 +747,26 @@ function Courses() {
                     This value must match the LMS gradebook in Student View.
                   </p>
                 </div>
+
+                {/* Number of Hours to Complete */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Number of Hours to Complete
+                  </label>
+                  <input
+                    type="number"
+                    name="NumberOfHours"
+                    value={courseData.NumberOfHours || ''}
+                    onChange={handleInputChange}
+                    disabled={!isEditing}
+                    className={inputClass}
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Specify the total number of hours required to complete the course.
+                  </p>
+                </div>
+                {/* End of Number of Hours to Complete */}
 
                 {/* Grade */}
                 <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">

@@ -4,9 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
+import { useMode, MODES } from '../context/ModeContext';
 import {
   ChevronDown, ChevronUp, X, Maximize, Minimize, Search,
-  Star, Flag, Bookmark, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Filter,
+  Star, Flag, Bookmark, Circle, Square, Triangle, BookOpen as BookOpenIcon, 
+  GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, 
+  Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, 
+  MessageCircle, Users, Presentation, FileText, Filter,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import CategoryManager from './CategoryManager';
@@ -19,6 +24,8 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "../components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
+import { UserSquare2, MessageSquare, ClipboardList } from "lucide-react";
 
 const iconMap = {
   'circle': Circle,
@@ -46,6 +53,51 @@ const iconMap = {
   'flag': Flag,
 };
 
+const MODE_CONFIG = {
+  [MODES.TEACHER]: {
+    icon: <UserSquare2 className="h-4 w-4" />,
+    tooltip: "Teacher Mode"
+  },
+
+  [MODES.REGISTRATION]: {
+    icon: <ClipboardList className="h-4 w-4" />,
+    tooltip: "Registration Mode"
+  }
+};
+
+const ModeSelector = ({ currentMode, setCurrentMode }) => (
+  <TooltipProvider>
+    <RadioGroup
+      value={currentMode}
+      onValueChange={setCurrentMode}
+      className="flex flex-col space-y-2"
+    >
+      {Object.entries(MODE_CONFIG).map(([mode, config]) => (
+        <Tooltip key={mode}>
+          <TooltipTrigger asChild>
+            <div className="flex items-center">
+              <RadioGroupItem
+                value={mode}
+                id={mode}
+                className="peer"
+              />
+              <label
+                htmlFor={mode}
+                className="flex items-center justify-center ml-2 p-1.5 rounded-md text-gray-600 peer-data-[state=checked]:text-blue-600"
+              >
+                {config.icon}
+              </label>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>{config.tooltip}</p>
+          </TooltipContent>
+        </Tooltip>
+      ))}
+    </RadioGroup>
+  </TooltipProvider>
+);
+
 const FilterPanel = memo(function FilterPanel({
   filters: propFilters,
   onFilterChange,
@@ -63,6 +115,7 @@ const FilterPanel = memo(function FilterPanel({
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [localFilters, setLocalFilters] = useState({});
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const { currentMode, setCurrentMode } = useMode();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -73,14 +126,11 @@ const FilterPanel = memo(function FilterPanel({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Initialize filters without any presets
   useEffect(() => {
-    const initialFilters = { ...propFilters };
-    if (!initialFilters.ActiveFutureArchived_Value) {
-      initialFilters.ActiveFutureArchived_Value = ['Active'];
-    }
     setLocalFilters((prevFilters) => {
-      if (JSON.stringify(prevFilters) !== JSON.stringify(initialFilters)) {
-        return initialFilters;
+      if (JSON.stringify(prevFilters) !== JSON.stringify(propFilters)) {
+        return propFilters;
       }
       return prevFilters;
     });
@@ -102,26 +152,28 @@ const FilterPanel = memo(function FilterPanel({
           ...new Set(
             studentSummaries
               .map((s) => s[key])
-              .filter((v) => v !== null && v !== undefined && v !== '')
+              // Include empty strings and null values in the filter options
+              .filter((v) => v !== undefined)
+              .map(v => v === null || v === '' ? '(Empty)' : v)
           ),
         ].sort();
-        options[key] = uniqueOptions.map((option) => ({ value: option, label: String(option) }));
+        
+        options[key] = uniqueOptions.map((option) => ({
+          value: option === '(Empty)' ? '' : option,
+          label: option === '(Empty)' ? '(Empty)' : String(option)
+        }));
       }
     });
     return options;
   }, [availableFilters, studentSummaries]);
 
-  // Updated groupedCategories useMemo
   const groupedCategories = useMemo(() => {
-    // Debug: Log teacherCategories
-    console.log('teacherCategories:', teacherCategories);
-
     const grouped = {};
     Object.entries(teacherCategories).forEach(([teacherEmailKey, categories]) => {
       grouped[teacherEmailKey] = categories
         .filter(category => !category.archived)
         .map(category => ({
-          value: category.id,  // Use the id field as the value
+          value: category.id,
           label: category.name,
           color: category.color,
           icon: category.icon,
@@ -130,7 +182,6 @@ const FilterPanel = memo(function FilterPanel({
     return grouped;
   }, [teacherCategories]);
 
-  // Updated handleCategoryChange function
   const handleCategoryChange = useCallback(
     (categoryId, teacherEmailKey) => {
       setLocalFilters((prevFilters) => {
@@ -142,27 +193,22 @@ const FilterPanel = memo(function FilterPanel({
         );
 
         if (existingTeacherIndex > -1) {
-          // Teacher already exists in the filter
           const existingTeacherCategories = prevCategories[existingTeacherIndex][teacherEmailKey];
           if (existingTeacherCategories.includes(categoryId)) {
-            // Remove the category if it's already selected
             updatedCategories = [...prevCategories];
             updatedCategories[existingTeacherIndex] = {
               [teacherEmailKey]: existingTeacherCategories.filter((id) => id !== categoryId)
             };
-            // Remove the teacher if no categories are left
             if (updatedCategories[existingTeacherIndex][teacherEmailKey].length === 0) {
               updatedCategories.splice(existingTeacherIndex, 1);
             }
           } else {
-            // Add the new category
             updatedCategories = [...prevCategories];
             updatedCategories[existingTeacherIndex] = {
               [teacherEmailKey]: [...existingTeacherCategories, categoryId]
             };
           }
         } else {
-          // Add new teacher and category
           updatedCategories = [...prevCategories, { [teacherEmailKey]: [categoryId] }];
         }
 
@@ -170,9 +216,6 @@ const FilterPanel = memo(function FilterPanel({
           ...prevFilters,
           categories: updatedCategories,
         };
-
-        // Debug: Log updated categories
-        console.log('Updated categories:', updatedCategories);
 
         onFilterChange(updatedFilters);
         return updatedFilters;
@@ -193,19 +236,17 @@ const FilterPanel = memo(function FilterPanel({
   }, [onFilterChange]);
 
   const clearFilters = useCallback(() => {
-    setLocalFilters((prevFilters) => {
-      const clearedFilters = Object.keys(prevFilters).reduce(
-        (acc, key) => ({
-          ...acc,
-          [key]: [],
-        }),
-        {}
-      );
-      onFilterChange(clearedFilters);
-      onSearchChange('');
-      return clearedFilters;
-    });
-  }, [onFilterChange, onSearchChange]);
+    const clearedFilters = Object.keys(localFilters).reduce(
+      (acc, key) => ({
+        ...acc,
+        [key]: [],
+      }),
+      {}
+    );
+    setLocalFilters(clearedFilters);
+    onFilterChange(clearedFilters);
+    onSearchChange('');
+  }, [onFilterChange, onSearchChange, localFilters]);
 
   const selectedCategoriesCount = useMemo(() => {
     return (localFilters.categories || []).reduce((sum, teacherCat) => {
@@ -214,32 +255,37 @@ const FilterPanel = memo(function FilterPanel({
     }, 0);
   }, [localFilters.categories]);
 
-  // Debug: Log localFilters before rendering
-  console.log('localFilters:', localFilters);
-
   return (
     <Card className="bg-[#f0f4f7] shadow-md">
-      <CardHeader className="py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0 sm:space-x-4">
-        <CardTitle className="text-lg font-semibold text-[#315369] whitespace-nowrap">Filters</CardTitle>
-        <div className="flex-grow relative w-full sm:w-auto">
-          <Input
-            type="text"
-            placeholder="Search students..."
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-10 pr-10 bg-white w-full h-9"
-          />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          {searchTerm && (
-            <Button variant="ghost" size="sm" onClick={() => onSearchChange('')} className="absolute right-2 top-1/2 transform -translate-y-1/2">
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-        {!isMobile && (
-          <div className="flex items-center space-x-2">
+      <CardHeader className="py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
+        <CardTitle className="text-lg font-semibold text-[#315369] whitespace-nowrap mr-4">
+          Filters
+        </CardTitle>
+        <div className="flex flex-1 items-center space-x-4 w-full">
+          <div className="relative flex-1">
+            <Input
+              type="text"
+              placeholder="Search students..."
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-10 pr-10 bg-white w-full h-9"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            {searchTerm && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onSearchChange('')}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {!isMobile && (
             <div className="flex items-center space-x-2">
-              <div className="relative">
+              <div className="flex items-center space-x-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -254,7 +300,6 @@ const FilterPanel = memo(function FilterPanel({
                       </div>
                     </Button>
                   </DropdownMenuTrigger>
-                  {/* Updated dropdown menu rendering */}
                   <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto">
                     {Object.entries(groupedCategories).map(([teacherEmailKey, categories]) => (
                       <DropdownMenuSub key={teacherEmailKey}>
@@ -276,7 +321,11 @@ const FilterPanel = memo(function FilterPanel({
                                   backgroundColor: isSelected ? `${category.color}20` : 'transparent',
                                 }}
                               >
-                                {iconMap[category.icon] && React.createElement(iconMap[category.icon], { style: { color: category.color }, size: 16, className: 'mr-2' })}
+                                {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                                  style: { color: category.color }, 
+                                  size: 16, 
+                                  className: 'mr-2' 
+                                })}
                                 <span>{category.label}</span>
                               </DropdownMenuItem>
                             );
@@ -286,68 +335,114 @@ const FilterPanel = memo(function FilterPanel({
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                {localFilters.categories && localFilters.categories.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 relative"
+                      >
+                        {selectedCategoriesCount} selected
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto">
+                      {localFilters.categories.map((teacherCat) => {
+                        const teacherEmailKey = Object.keys(teacherCat)[0];
+                        return teacherCat[teacherEmailKey].map((categoryId) => {
+                          const category = groupedCategories[teacherEmailKey]?.find((c) => c.value === categoryId);
+                          if (!category) return null;
+                          return (
+                            <DropdownMenuItem 
+                              key={`${categoryId}-${teacherEmailKey}`} 
+                              className="flex items-center"
+                              onSelect={() => handleCategoryChange(categoryId, teacherEmailKey)}
+                            >
+                              {iconMap[category.icon] && React.createElement(iconMap[category.icon], {
+                                size: 16,
+                                className: 'mr-2',
+                                style: { color: category.color }
+                              })}
+                              {category.label}
+                              <X className="ml-auto h-4 w-4" />
+                            </DropdownMenuItem>
+                          );
+                        });
+                      })}
+                      <DropdownMenuItem onSelect={handleClearAllCategories}>
+                        Clear All
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
-              {localFilters.categories && localFilters.categories.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 relative"
-                    >
-                      {selectedCategoriesCount} selected
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto">
-                    {localFilters.categories.map((teacherCat) => {
-                      const teacherEmailKey = Object.keys(teacherCat)[0];
-                      return teacherCat[teacherEmailKey].map((categoryId) => {
-                        const category = groupedCategories[teacherEmailKey]?.find((c) => c.value === categoryId);
-                        if (!category) return null;
-                        return (
-                          <DropdownMenuItem 
-                            key={`${categoryId}-${teacherEmailKey}`} 
-                            className="flex items-center"
-                            onSelect={() => handleCategoryChange(categoryId, teacherEmailKey)}
-                          >
-                            {iconMap[category.icon] && React.createElement(iconMap[category.icon], { size: 16, className: 'mr-2', style: { color: category.color } })}
-                            {category.label}
-                            <X className="ml-auto h-4 w-4" />
-                          </DropdownMenuItem>
-                        );
-                      });
-                    })}
-                    <DropdownMenuItem onSelect={handleClearAllCategories}>
-                      Clear All
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+
+              <CategoryManager onCategoryChange={() => {}} />
+
+              <div className="border-l border-gray-200 pl-2">
+                <TooltipProvider>
+                  <RadioGroup
+                    value={currentMode}
+                    onValueChange={setCurrentMode}
+                    className="flex items-center space-x-1"
+                  >
+                    {Object.entries(MODE_CONFIG).map(([mode, config]) => (
+                      <Tooltip key={mode}>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center">
+                            <RadioGroupItem
+                              value={mode}
+                              id={mode}
+                              className="peer hidden"
+                            />
+                            <label
+                              htmlFor={mode}
+                              className="flex items-center justify-center p-1.5 rounded-md text-gray-600 hover:bg-gray-100 cursor-pointer
+                                peer-data-[state=checked]:text-blue-600 peer-data-[state=checked]:bg-blue-50"
+                            >
+                              {config.icon}
+                            </label>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p>{config.tooltip}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </RadioGroup>
+                </TooltipProvider>
+              </div>
+
+              {/* Filter Counter Badge */}
+              {(activeFilterCount > 0 || searchTerm) && (
+                <div className="bg-blue-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  {activeFilterCount}
+                </div>
               )}
+
+              {/* Action Buttons */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onFullScreenToggle}
+                className="text-[#315369]"
+                title={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
+              >
+                {isFullScreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-[#315369]">
+                <X className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setIsExpanded(!isExpanded)} className="text-[#315369]">
+                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
             </div>
-            <CategoryManager onCategoryChange={() => {}} />
-            {(activeFilterCount > 0 || searchTerm) && (
-              <div className="bg-blue-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                {activeFilterCount}
-              </div>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onFullScreenToggle}
-              className="text-[#315369]"
-              title={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
-            >
-              {isFullScreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-[#315369]">
-              <X className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => setIsExpanded(!isExpanded)} className="text-[#315369]">
-              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-          </div>
-        )}
+          )}
+        </div>
       </CardHeader>
+
+      {/* Expandable Filter Section */}
       {!isMobile && (
         <AnimatePresence>
           {isExpanded && (
@@ -360,7 +455,7 @@ const FilterPanel = memo(function FilterPanel({
               <CardContent className="px-6 py-2">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {availableFilters.map(({ key, label }) => {
-                    if (key === 'categories') return null; // Skip categories here
+                    if (key === 'categories') return null;
                     return (
                       <div key={key} className="space-y-1">
                         <Label htmlFor={key} className="text-xs font-medium text-[#1fa6a7]">{label}</Label>
@@ -369,7 +464,10 @@ const FilterPanel = memo(function FilterPanel({
                             isMulti
                             name={key}
                             options={filterOptions[key]}
-                            value={filterOptions[key]?.filter(option => (localFilters[key] || []).includes(option.value))}
+                            value={filterOptions[key]?.filter(option => 
+                              (localFilters[key] || []).includes(option.value) ||
+                              ((localFilters[key] || []).includes('') && option.value === '')
+                            )}
                             onChange={(selectedOptions) => {
                               setLocalFilters((prevFilters) => {
                                 const updatedFilters = {
