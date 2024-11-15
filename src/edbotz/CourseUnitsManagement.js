@@ -172,29 +172,47 @@ const EditableInput = ({ value, onSave, className = "" }) => {
 
 // Optimized Rich Text Editor Component
 const EditableRichText = ({ value, onSave, className = "" }) => {
-  const {
-    isEditing,
-    draftValue,
-    setIsEditing,
-    setDraftValue,
-    handleSave
-  } = useEditableContent(value || '', onSave);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftValue, setDraftValue] = useState(value || '');
 
-  // Debounce the save operation for rich text
-  const debouncedSave = debounce(handleSave, 1000);
+  // Simple view mode
+  if (!isEditing) {
+    return (
+      <div className="space-y-2">
+        {/* Content Display */}
+        <div 
+          className={`
+            prose prose-sm max-w-none bg-white rounded
+            prose-p:my-2 prose-p:leading-relaxed
+            prose-ul:list-disc prose-ul:pl-6
+            prose-ol:list-decimal prose-ol:pl-6
+            prose-li:my-1
+            prose-a:text-blue-600 prose-a:underline
+          `}
+          dangerouslySetInnerHTML={{ __html: value || 'No content yet.' }}
+        />
+        
+        {/* Edit Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsEditing(true)}
+          className="mt-2"
+        >
+          <FileEdit className="w-4 h-4 mr-2" />
+          Edit Content
+        </Button>
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    return () => {
-      debouncedSave.cancel();
-    };
-  }, [debouncedSave]);
-
-  return isEditing ? (
-    <div className={className}>
+  // Edit mode
+  return (
+    <div className="space-y-2">
       <ReactQuill
+        theme="snow"
         value={draftValue}
         onChange={setDraftValue}
-        onBlur={debouncedSave}
         modules={{
           toolbar: [
             ['bold', 'italic', 'underline'],
@@ -203,22 +221,31 @@ const EditableRichText = ({ value, onSave, className = "" }) => {
             ['clean']
           ],
         }}
+        className="bg-white border rounded"
       />
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={handleSave}
-        className="mt-2"
-      >
-        Save
-      </Button>
+      <div className="flex gap-2 mt-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            onSave(draftValue);
+            setIsEditing(false);
+          }}
+        >
+          Save Changes
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setDraftValue(value);
+            setIsEditing(false);
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
     </div>
-  ) : (
-    <div 
-      onClick={() => setIsEditing(true)}
-      className={`cursor-text prose prose-sm max-w-none hover:bg-gray-50 rounded p-2 ${className}`}
-      dangerouslySetInnerHTML={{ __html: value || 'Click to add content...' }}
-    />
   );
 };
 
@@ -1152,16 +1179,28 @@ const SortableUnit = ({
         </div>
 
         {(showDescription || isExpanded) && (
-          <div className="pl-8 space-y-4">
-            {showDescription && (
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-600">Unit Description</label>
-                <EditableRichText
-                  value={unit.description}
-                  onSave={handleUpdateDescription}
-                  className="bg-white"
-                />
-              </div>
+  <div className="pl-8 space-y-4">
+    {showDescription && (
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-600">Unit Description</label>
+        <div 
+          onClick={() => setShowDescription(true)}
+          className={`
+            prose prose-sm max-w-none bg-white rounded p-2 
+            prose-p:my-3 prose-p:leading-relaxed
+            prose-ul:my-3 prose-ul:list-disc prose-ul:pl-6 prose-ul:list-outside
+            prose-ol:my-3 prose-ol:list-decimal prose-ol:pl-6 prose-ol:list-outside
+            prose-li:my-1 prose-li:leading-relaxed prose-li:pl-0
+            prose-a:text-blue-600 prose-a:underline hover:prose-a:text-blue-800
+          `}
+        >
+          <EditableRichText
+            value={unit.description}
+            onSave={handleUpdateDescription}
+            className="bg-white"
+          />
+        </div>
+      </div>
             )}
 
             {isExpanded && (

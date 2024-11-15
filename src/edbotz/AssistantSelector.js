@@ -30,7 +30,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
-import { Alert, AlertDescription } from '../components/ui/alert';
+//import { Alert, AlertDescription } from '../components/ui/alert';
 import AIChatApp from './AIChatApp';
 import { getDatabase, ref, push, set } from 'firebase/database';
 import { cn } from '../lib/utils';
@@ -80,33 +80,7 @@ const LESSON_TYPES = {
   }
 };
 
-const WelcomeMessage = ({ onDismiss }) => {
-  return (
-    <Alert className="mb-6 relative bg-blue-50 border-blue-200">
-      <div className="flex items-start gap-3">
-        <Bot className="h-5 w-5 text-blue-600 mt-0.5" />
-        <div className="space-y-2 flex-1">
-          <AlertDescription className="text-sm text-blue-800">
-            Select where you want to test your AI assistants:
-            <ul className="mt-2 space-y-1">
-              <li>• Course-level AI assistants help with general course questions</li>
-              <li>• Unit-level AI assistants understand specific unit concepts</li>
-              <li>• Lesson-level AI assistants have detailed knowledge about individual lessons</li>
-            </ul>
-          </AlertDescription>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 hover:bg-blue-100"
-          onClick={onDismiss}
-        >
-          <X className="h-4 w-4 text-blue-600" />
-        </Button>
-      </div>
-    </Alert>
-  );
-};
+
 
 const BotCountBadge = ({ count, type = 'general', variant = 'secondary' }) => {
   if (count === 0) return null;
@@ -178,7 +152,7 @@ const ContextSelector = ({ courses, onContextSelect, availableAssistants }) => {
 
   return (
     <div className="space-y-4">
-      {showWelcome && <WelcomeMessage onDismiss={() => setShowWelcome(false)} />}
+      
 
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>

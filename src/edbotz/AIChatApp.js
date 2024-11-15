@@ -1,5 +1,19 @@
+// AIChatApp.jsx
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Loader, Bot, PenLine, ArrowDown, X, RotateCcw, Info, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
+import {
+  Send,
+  Loader,
+  Bot,
+  PenLine,
+  ArrowDown,
+  X,
+  RotateCcw,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Sparkles
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import TeX from '@matejmazur/react-katex';
 import 'katex/dist/katex.min.css';
@@ -69,11 +83,11 @@ const enhanceLinks = (htmlContent) => {
   return div.innerHTML;
 };
 
-// Process text function for markdown and LaTeX
+// Process text function for markdown and LaTeX with enhanced math support
 const processText = (text) => {
   if (!text) return null;
-  const normalizedText = text.replace(/\\\\([[\(].*?\\\\[\)\]])/g, '\\$1');
 
+  // Helper to clean math content
   const cleanMathContent = (content) => {
     return content
       .replace(/\\\[/g, '[')
@@ -81,15 +95,33 @@ const processText = (text) => {
       .trim();
   };
 
-  const parts = normalizedText.split(/(\\[\[\(](?:[^[\]()]|\[(?:[^[\]()]|\[[^\]]*\])*\]|\((?:[^[\]()]|\([^)]*\))*\))*[)\]])/g);
+  // Split text into parts, handling all math delimiters
+  const parts = text.split(/((?:\$\$|\$|\\[\[\(])(?:[^$\\]|\\.)*?(?:\$\$|\$|\\[\]\)])|\\[\[\(](?:[^[\]()]|\[(?:[^[\]()]|\[[^\]]*\])*\]|\((?:[^[\]()]|\([^)]*\))*\))*[)\]])/g);
 
   return parts.map((part, index) => {
-    if (part.startsWith('\\[') && part.endsWith('\\]')) {
-      return <TeX key={index} block>{cleanMathContent(part.slice(2, -2))}</TeX>;
+    // Handle block math with $$ or \[...\]
+    if (
+      (part.startsWith('$$') && part.endsWith('$$')) ||
+      (part.startsWith('\\[') && part.endsWith('\\]'))
+    ) {
+      const mathContent = part.startsWith('$$') 
+        ? part.slice(2, -2) 
+        : cleanMathContent(part.slice(2, -2));
+      return <TeX key={index} block>{mathContent}</TeX>;
     }
-    if (part.startsWith('\\(') && part.endsWith('\\)')) {
-      return <TeX key={index}>{cleanMathContent(part.slice(2, -2))}</TeX>;
+    
+    // Handle inline math with $ or \(...\)
+    if (
+      (part.startsWith('$') && part.endsWith('$') && !part.startsWith('$$')) ||
+      (part.startsWith('\\(') && part.endsWith('\\)'))
+    ) {
+      const mathContent = part.startsWith('$')
+        ? part.slice(1, -1)
+        : cleanMathContent(part.slice(2, -2));
+      return <TeX key={index}>{mathContent}</TeX>;
     }
+
+    // Handle regular text with markdown
     if (part.trim()) {
       return (
         <ReactMarkdown 
@@ -165,7 +197,7 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
         <div className={cn(
           "rounded-2xl px-4 py-2",
           isUser 
-            ? "bg-blue-500 text-white rounded-br-none" 
+            ? "bg-blue-500 text-white rounded-br-none [&_.prose]:text-white [&_code]:bg-blue-600 [&_code]:text-white [&_a]:text-white" 
             : "bg-gray-100 text-gray-800 rounded-bl-none"
         )}>
           <div className="prose prose-sm max-w-none">
@@ -259,6 +291,7 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
   const [isMessageVisible, setIsMessageVisible] = useState(true);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
+  const [error, setError] = useState(null);
   
   // Keep assistantKey for component remounting on assistant change
   const [assistantKey, setAssistantKey] = useState(assistant?.id);
@@ -281,14 +314,17 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
     }
   }, []);
 
-  // Now initialize enhanced chat handler after scrollToBottom is defined
+  // Updated destructuring with initializeChat, resetState, isChatReady
   const {
     messages,
     isLoading,
     isStreaming,
-    error,
+    error: chatError,
     handleSendMessage: sendMessage,
-    setMessages
+    setMessages,
+    initializeChat, // Add this
+    resetState,     // Add this
+    isChatReady     // Add this
   } = useEnhancedChatHandler(scrollToBottom);
 
   // Simplified cleanup function
@@ -306,41 +342,56 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
   }, [setMessages]);
 
   // Initialize AI function
+  const CORE_EDUCATIONAL_INSTRUCTIONS = `You are an educational assistant focused on ensuring effective student learning. Your core responsibilities are:
+  1. **Guide Learning**
+     * Break complex topics into digestible steps
+     * Use clear examples and analogies
+     * Adapt to student comprehension levels
+     * Verify understanding before advancing
+  2. **Foster Active Learning**
+     * Guide students to discover answers through targeted questions
+     * Encourage explaining concepts in their own words
+     * Provide hints rather than immediate solutions
+  3. **Support Different Learning Styles**
+     * Offer multiple approaches to explanations
+     * Balance theory with practical examples
+     * Break abstract concepts into concrete steps
+  Use markdown formatting where appropriate to enhance clarity. Format mathematical expressions using $$...$$ for displayed equations and $...$ for inline math.
+  Remember: Your goal is developing understanding, not just providing answers. Maintain a supportive environment where questions and mistakes are welcomed learning opportunities.
+  The instructions below are your specific system message that defines your unique role and capabilities:
+  
+  `;
+  
   const initializeAI = useCallback(async (assistantConfig) => {
     if (!assistantConfig) return;
-    
-    // If there's a first message, display it immediately
-    if (assistantConfig?.firstMessage) {
-      setMessages([{
-        id: Date.now(),
-        sender: 'ai',
-        text: assistantConfig.firstMessage,
-        timestamp: Date.now(),
-      }]);
-    }
     
     setIsInitializing(true);
     
     try {
-      // Implement a simple delay to prevent rapid initialization
+      // Basic delay to prevent rapid initialization
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       const vertexAI = getVertexAI(firebaseApp);
       const modelName = assistantConfig?.model === 'advanced' ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
       
-      // Add request tracking
+      // Request tracking logic
       const now = Date.now();
       const requestKey = `vertex_ai_${modelName}_last_request`;
       const lastRequest = localStorage.getItem(requestKey);
       
       if (lastRequest) {
         const timeSinceLastRequest = now - parseInt(lastRequest);
-        if (timeSinceLastRequest < 2000) { // 2 second minimum delay between initializations
+        if (timeSinceLastRequest < 2000) {
           await new Promise(resolve => setTimeout(resolve, 2000 - timeSinceLastRequest));
         }
       }
       
       localStorage.setItem(requestKey, now.toString());
+  
+      // Combine core instructions with assistant-specific instructions
+      const combinedInstructions = assistantConfig?.instructions
+        ? `${CORE_EDUCATIONAL_INSTRUCTIONS}${assistantConfig.instructions}`
+        : CORE_EDUCATIONAL_INSTRUCTIONS + "You are a helpful AI assistant. Be concise and clear in your responses.";
   
       const geminiModel = getGenerativeModel(vertexAI, {
         model: modelName,
@@ -368,16 +419,15 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
           }
         ],
         systemInstruction: {
-          parts: [{ text: assistantConfig?.instructions || "You are a helpful AI assistant. Be concise and clear in your responses." }]
+          parts: [{ text: combinedInstructions }]
         }
       });
-
+  
       let initialChat;
       try {
         initialChat = await geminiModel.startChat();
       } catch (err) {
         if (err.message.includes('429')) {
-          // If we hit rate limit during initialization, try Gemini Flash as fallback
           console.log('Rate limited, falling back to Gemini Flash');
           const fallbackModel = getGenerativeModel(vertexAI, {
             model: 'gemini-1.5-flash-002',
@@ -405,7 +455,7 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
               }
             ],
             systemInstruction: {
-              parts: [{ text: assistantConfig?.instructions || "You are a helpful AI assistant. Be concise and clear in your responses." }]
+              parts: [{ text: combinedInstructions }]
             }
           });
           initialChat = await fallbackModel.startChat();
@@ -414,35 +464,57 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
         }
       }
   
+      // Set up chat session references before initialization
       chatSessionRef.current = initialChat;
       setChat(initialChat);
       setModel(geminiModel);
+      
+      // Initialize the chat handler
+      await initializeChat(initialChat);
   
+      // Handle first message display and initialization separately
       if (assistantConfig?.firstMessage) {
-        try {
-          await initialChat.sendMessage([{ text: "Hello" }]);
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Delay between messages
-          await initialChat.sendMessage([{ text: assistantConfig.firstMessage }]);
-
-          setMessages([{
-            id: Date.now(),
-            sender: 'ai',
-            text: assistantConfig.firstMessage,
-            timestamp: Date.now(),
-          }]);
-        } catch (err) {
-          console.warn('Error sending initial messages:', err);
-          // Continue even if initial messages fail
-        }
+        // Set the initial message in the UI immediately
+        const initialMessageId = Date.now();
+        setMessages([{
+          id: initialMessageId,
+          sender: 'ai',
+          text: assistantConfig.firstMessage,
+          timestamp: initialMessageId,
+        }]);
+  
+        // Initialize the chat context with a delay
+        const initializeContext = async () => {
+          try {
+            // Ensure chat session is ready
+            if (!chatSessionRef.current) {
+              throw new Error('Chat session not initialized');
+            }
+  
+            // Remove the initial context message since it's now part of the system instructions
+            await new Promise(resolve => setTimeout(resolve, 1000));
+  
+            // Send the actual first message
+            await chatSessionRef.current.sendMessage({
+              contents: [{ role: 'user', parts: [{ text: assistantConfig.firstMessage }] }]
+            });
+          } catch (err) {
+            console.warn('Error initializing chat context:', err);
+            // Don't throw - allow chat to continue even if context init fails
+          }
+        };
+  
+        // Start context initialization with a delay
+        setTimeout(initializeContext, 2000);
       }
   
     } catch (err) {
       console.error('Chat initialization error:', err);
-      // Consider adding user-friendly error feedback here
+      setError('Failed to initialize chat. Please try again.');
     } finally {
       setIsInitializing(false);
     }
-  }, [firebaseApp, setMessages]);
+  }, [firebaseApp, setMessages, initializeChat]);
 
   // Simplified reset handler that directly manages the chat state
   const handleReset = useCallback(async () => {
@@ -459,13 +531,13 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
       await initializeAI(currentAssistant);
     } catch (err) {
       console.error('Reset error:', err);
-      // Add error feedback to user if needed
+      setError('Failed to reset chat. Please try again.');
     } finally {
       setIsResetting(false);
     }
   }, [currentAssistant, cleanup, initializeAI]);
 
-  // Modify the Firebase listener effect
+  // Modify the Firebase listener effect with resetState
   useEffect(() => {
     if (!assistant?.id) return;
 
@@ -479,6 +551,9 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
       }
     };
 
+    // Reset state when changing assistants
+    resetState();
+    
     // Initialize AI for new assistant
     initializeAI(assistant);
 
@@ -496,7 +571,7 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
       unsubscribe();
       cleanup();
     };
-  }, [assistant?.id, assistant?.usage?.ownerId, firebaseApp, cleanup, initializeAI, assistant]);
+  }, [assistant?.id, assistant?.usage?.ownerId, firebaseApp, cleanup, initializeAI, assistant, resetState]);
 
   // Separate effect for initial AI setup and assistant changes
   useEffect(() => {
@@ -534,6 +609,7 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
   const handleSendMessage = useCallback(async () => {
     if (!inputMessage.trim() || !chat) return;
     setInputMessage('');
+    setError(null);
     await sendMessage(inputMessage, chat);
   }, [inputMessage, chat, sendMessage]);
 
@@ -711,4 +787,4 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
   );
 };
 
-export default React.memo(AIChatApp);
+export default React.memo(AIChatApp); 

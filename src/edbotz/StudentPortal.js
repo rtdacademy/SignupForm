@@ -140,7 +140,6 @@ const BotCountBadge = ({ count, type = 'general', variant = 'secondary' }) => {
   );
 };
 
-
 const ContextSelector = ({ courseData, onContextSelect, availableAssistants }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
@@ -337,6 +336,24 @@ const Sidebar = ({ children }) => {
   );
 };
 
+const DescriptionContent = ({ html }) => {
+  if (!html) return null;
+  
+  return (
+    <div 
+      className="prose prose-sm max-w-none mt-2
+        prose-p:my-3 prose-p:leading-relaxed
+        prose-em:text-gray-700 prose-em:font-medium
+        prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
+        prose-a:font-medium prose-a:transition-colors
+        first:prose-p:mt-0 last:prose-p:mb-0
+        prose-ul:my-3 prose-ul:list-disc prose-ul:pl-6
+        prose-li:my-0 prose-li:leading-relaxed"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+};
+
 const StudentPortal = () => {
   const { userId, accessKey } = useParams();
   const [accessConfig, setAccessConfig] = useState(null);
@@ -403,11 +420,16 @@ const StudentPortal = () => {
             if (defaultAssistant) {
               await cleanup();
               setSelectedAssistant(defaultAssistant);
-              setSidebarContext({
+              
+              // Set both sidebar and selected context based on the assistant's type
+              const newContext = {
                 type: defaultAssistant.entityType,
                 data: defaultAssistant.contextData,
                 unitData: defaultAssistant.unitData
-              });
+              };
+              
+              setSidebarContext(newContext);
+              setSelectedContext(newContext);
             }
           }
         } else {
@@ -561,12 +583,7 @@ const StudentPortal = () => {
             <h3 className={`text-lg font-semibold ${LESSON_TYPES[data.type || 'general'].color} mb-2`}>
               {data.title}
             </h3>
-            {data.description && (
-              <div 
-                className="prose prose-sm mt-2"
-                dangerouslySetInnerHTML={{ __html: data.description }}
-              />
-            )}
+            <DescriptionContent html={data.description} />
           </>
         )}
 
@@ -576,12 +593,7 @@ const StudentPortal = () => {
               <Library className="w-5 h-5 text-indigo-600" />
               <h3 className="text-lg font-semibold text-indigo-600">{data.title}</h3>
             </div>
-            {data.description && (
-              <div 
-                className="prose prose-sm mt-2"
-                dangerouslySetInnerHTML={{ __html: data.description }}
-              />
-            )}
+            <DescriptionContent html={data.description} />
           </>
         )}
 
@@ -591,12 +603,7 @@ const StudentPortal = () => {
               <BookOpen className="w-5 h-5 text-blue-600" />
               <h3 className="text-lg font-semibold text-blue-600">{data.title}</h3>
             </div>
-            {data.description && (
-              <div 
-                className="prose prose-sm mt-2"
-                dangerouslySetInnerHTML={{ __html: data.description }}
-              />
-            )}
+            <DescriptionContent html={data.description} />
           </>
         )}
       </div>
@@ -606,7 +613,6 @@ const StudentPortal = () => {
   const renderSidebarContent = () => (
     <div className="space-y-6">
       <div>
-        
         <ContextSelector 
           courseData={courseData}
           onContextSelect={handleContextSelect}

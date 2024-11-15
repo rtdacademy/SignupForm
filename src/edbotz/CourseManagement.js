@@ -76,6 +76,21 @@ const CourseHeader = ({ course, onEditCourse, onDeleteCourse, onManageAI, onDele
   const [showDescription, setShowDescription] = useState(false);
   const isDefaultCourse = course.id === DEFAULT_COURSE.id;
 
+  const descriptionClasses = `
+    pt-4 prose prose-sm max-w-none
+    prose-p:my-3 prose-p:leading-relaxed
+    prose-ul:my-3 prose-ul:list-disc prose-ul:pl-6 prose-ul:list-outside
+    prose-ol:my-3 prose-ol:list-decimal prose-ol:pl-6 prose-ol:list-outside
+    prose-li:my-1 prose-li:leading-relaxed prose-li:pl-2
+    prose-headings:font-semibold prose-headings:text-gray-900
+    prose-a:text-blue-600 prose-a:font-medium prose-a:underline
+    prose-a:decoration-blue-300 hover:prose-a:decoration-blue-500
+    prose-em:text-gray-700 prose-em:font-medium
+  `.trim();
+
+    // Debug logging to see the description content
+    console.log('Course Description HTML:', course.description);
+
   return (
     <div className="space-y-4">
       <div className={`bg-gradient-to-r ${
@@ -131,7 +146,7 @@ const CourseHeader = ({ course, onEditCourse, onDeleteCourse, onManageAI, onDele
             isDefaultCourse ? 'border-purple-100' : 'border-blue-100'
           }`}>
             <div 
-              className="pt-4 prose prose-sm max-w-none" 
+              className={descriptionClasses}
               dangerouslySetInnerHTML={{ __html: course.description }} 
             />
           </div>
@@ -188,12 +203,19 @@ const CourseManagement = () => {
   const modules = {
     toolbar: [
       [{ 'header': [1, 2, false] }],
-      ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+      ['bold', 'italic', 'underline'],
       [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
       ['link'],
       ['clean']
     ],
   };
+
+  const formats = [
+    'header',
+    'bold', 'italic', 'underline',
+    'list', 'bullet', 'indent',
+    'link'
+  ];
 
   useEffect(() => {
     if (!user) return;
@@ -568,9 +590,18 @@ const CourseManagement = () => {
                 <ReactQuill
                   theme="snow"
                   value={courseData.description}
-                  onChange={(content) => setCourseData(prev => ({ ...prev, description: content }))}
+                  onChange={(content) => {
+                    console.log('Quill content:', content); // Debug log
+                    setCourseData(prev => ({ ...prev, description: content }));
+                  }}
                   modules={modules}
-                  className="h-[150px] [&_.ql-toolbar]:border-gray-200 [&_.ql-container]:border-gray-200"
+                  formats={formats}
+                  className="h-[150px] [&_.ql-toolbar]:border-gray-200 [&_.ql-container]:border-gray-200
+                    [&_.ql-editor]:min-h-[100px] [&_.ql-editor]:prose [&_.ql-editor]:prose-sm
+                    [&_.ql-editor_ul]:list-disc [&_.ql-editor_ul]:pl-6
+                    [&_.ql-editor_ol]:list-decimal [&_.ql-editor_ol]:pl-6
+                    [&_.ql-editor_li]:my-0 [&_.ql-editor_li]:leading-relaxed
+                    [&_.ql-editor_p]:my-3 [&_.ql-editor_p]:leading-relaxed"
                 />
               </div>
             </div>

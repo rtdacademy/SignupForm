@@ -189,7 +189,53 @@ const useEditableContent = (initialValue, onSave) => {
   };
 };
 
-// Updated EditableInput component with better affordances
+// Custom ContentDisplay component
+const ContentDisplay = ({ content, type = 'text', label }) => {
+  // Function to render plain text with markdown highlighting
+  const renderMarkdown = (text) => {
+    if (!text) return <span className="text-gray-400">No content yet.</span>;
+    
+    return (
+      <pre className="whitespace-pre-wrap font-mono bg-gray-50 rounded-lg p-4 text-sm text-gray-700 border border-gray-200">
+        {text}
+      </pre>
+    );
+  };
+
+  // Function to render HTML content with proper styling
+  const renderHtml = (html) => {
+    if (!html) return <span className="text-gray-400">No content yet.</span>;
+
+    return (
+      <div 
+        className={`
+          prose prose-sm max-w-none bg-white rounded-lg p-4
+          prose-p:my-2 prose-p:leading-relaxed
+          prose-ul:list-disc prose-ul:pl-6 prose-ul:my-2
+          prose-ol:list-decimal prose-ol:pl-6 prose-ol:my-2
+          prose-li:my-1 prose-li:pl-0
+          prose-a:text-blue-600 prose-a:underline hover:prose-a:text-blue-800
+          border border-gray-200
+        `}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-gray-700">{label}</span>
+        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+          {type === 'html' ? 'Rich Text' : 'Plain Text'}
+        </span>
+      </div>
+      {type === 'html' ? renderHtml(content) : renderMarkdown(content)}
+    </div>
+  );
+};
+
+// EditableInput component with better affordances
 const EditableInput = ({ label, value, onSave, className = "", placeholder = "" }) => {
   const {
     isEditing,
@@ -230,7 +276,7 @@ const EditableInput = ({ label, value, onSave, className = "", placeholder = "" 
   );
 };
 
-// Updated EditableTextarea component
+// EditableTextarea component
 const EditableTextarea = ({ label, value, onSave, className = "", placeholder = "" }) => {
   const {
     isEditing,
@@ -264,7 +310,7 @@ const EditableTextarea = ({ label, value, onSave, className = "", placeholder = 
   );
 };
 
-// Updated EditableRichText component
+// EditableRichText component
 const EditableRichText = ({ label, value, onSave, className = "", placeholder = "" }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [draftValue, setDraftValue] = useState(value || '');
@@ -970,43 +1016,43 @@ const AIAssistantSheet = ({
         className="w-[95vw] sm:w-[1200px] max-w-[95vw] sm:max-w-[1200px] overflow-y-auto bg-gradient-to-br from-white to-gray-50"
       >
         <SheetHeader className="pb-6 border-b">
-    <div className="flex flex-col space-y-2 pr-8">
-      <div className="flex items-start justify-between">
-        <div className="flex flex-col space-y-1">
-          <SheetTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            {isEditingExistingAssistant ? 'Edit AI Assistant' : 'Create AI Assistant'}
-          </SheetTitle>
-          <SheetDescription className="text-gray-600">
-            {isEditingExistingAssistant 
-              ? 'Edit your AI teaching assistant. Changes are saved automatically.'
-              : 'Configure your AI teaching assistant to help your students learn and engage with the material.'}
-          </SheetDescription>
-        </div>
-        {isEditingExistingAssistant && (
-          <Button
-            onClick={() => onPreviewClick?.({
-              id: existingAssistantId,
-              assistantName,
-              messageToStudents,
-              instructions,
-              firstMessage,
-              messageStarters: messageStarters.filter(msg => msg.trim() !== ''),
-              model: selectedModel,
-              usage: {
-                type: currentTypeState,
-                entityId: currentEntityIdState,
-                parentId: currentParentIdState
-              }
-            })}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white flex items-center gap-2"
-          >
-            <Eye className="w-4 h-4" />
-            Preview Assistant
-          </Button>
-        )}
-      </div>
-    </div>
-  </SheetHeader>
+          <div className="flex flex-col space-y-2 pr-8">
+            <div className="flex items-start justify-between">
+              <div className="flex flex-col space-y-1">
+                <SheetTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  {isEditingExistingAssistant ? 'Edit AI Assistant' : 'Create AI Assistant'}
+                </SheetTitle>
+                <SheetDescription className="text-gray-600">
+                  {isEditingExistingAssistant 
+                    ? 'Edit your AI teaching assistant. Changes are saved automatically.'
+                    : 'Configure your AI teaching assistant to help your students learn and engage with the material.'}
+                </SheetDescription>
+              </div>
+              {isEditingExistingAssistant && (
+                <Button
+                  onClick={() => onPreviewClick?.({
+                    id: existingAssistantId,
+                    assistantName,
+                    messageToStudents,
+                    instructions,
+                    firstMessage,
+                    messageStarters: messageStarters.filter(msg => msg.trim() !== ''),
+                    model: selectedModel,
+                    usage: {
+                      type: currentTypeState,
+                      entityId: currentEntityIdState,
+                      parentId: currentParentIdState
+                    }
+                  })}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white flex items-center gap-2"
+                >
+                  <Eye className="w-4 h-4" />
+                  Preview Assistant
+                </Button>
+              )}
+            </div>
+          </div>
+        </SheetHeader>
 
         <div className="space-y-8 py-6">
           {/* Assistant Location */}
@@ -1089,7 +1135,7 @@ const AIAssistantSheet = ({
             description="This name will be displayed to students in the chat interface. Choose a name that reflects the assistant's role and makes students feel comfortable asking questions."
           />
 
-          {/* Message to Students (Rich Text Editor) */}
+          {/* Message to Students (Rich Text) */}
           <EditableRichText
             label="Message to Students"
             value={messageToStudents}
