@@ -163,7 +163,7 @@ function EdBotzApp() {
 function App() {
   // Check if we're running the second site
   const isSecondSite = process.env.REACT_APP_SITE === 'second';
-  
+  console.log('Site Type:', isSecondSite ? 'EdBotz' : 'Main', process.env.REACT_APP_SITE);
   return isSecondSite ? <EdBotzApp /> : <MainApp />;
 }
 

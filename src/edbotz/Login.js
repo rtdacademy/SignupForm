@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { signInWithPopup } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { auth, googleProvider, microsoftProvider, database } from '../firebase';
-import { ref, get, set } from 'firebase/database';
+import { auth, googleProvider, microsoftProvider } from '../firebase';
+import { createOrUpdateUser } from './utils/userSetup';
 import { Loader2 } from 'lucide-react';
 
 // Keep existing component definitions
@@ -51,46 +51,6 @@ const EdBotzLogin = () => {
   const navigate = useNavigate();
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  const createOrUpdateUser = async (user) => {
-    try {
-      const userRef = ref(database, `edbotz/edbotzUsers/${user.uid}`);
-      
-      // Check if user already exists
-      const snapshot = await get(userRef);
-      
-      if (!snapshot.exists()) {
-        // Create new user data
-        const userData = {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName || null,
-          photoURL: user.photoURL || null,
-          phoneNumber: user.phoneNumber || null,
-          providerId: user.providerData[0]?.providerId || null,
-          createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString()
-        };
-
-        await set(userRef, userData);
-        console.log('New user created in edbotz/edbotzUsers');
-      } else {
-        // Update last login for existing user
-        await set(userRef, {
-          ...snapshot.val(),
-          lastLogin: new Date().toISOString(),
-          // Update these fields in case they've changed
-          displayName: user.displayName || snapshot.val().displayName,
-          photoURL: user.photoURL || snapshot.val().photoURL,
-          phoneNumber: user.phoneNumber || snapshot.val().phoneNumber
-        });
-        console.log('Existing user updated in edbotz/edbotzUsers');
-      }
-    } catch (error) {
-      console.error('Error managing user data:', error);
-      throw error;
-    }
-  };
 
   const handleProviderSignIn = async (provider) => {
     setError(null);

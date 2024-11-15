@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Loader, Bot, PenLine, ArrowDown, X, RotateCcw, Info } from 'lucide-react';
+import { Send, Loader, Bot, PenLine, ArrowDown, X, RotateCcw, Info, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import TeX from '@matejmazur/react-katex';
 import 'katex/dist/katex.min.css';
@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { getVertexAI, getGenerativeModel } from 'firebase/vertexai';
 import { getDatabase, ref, onValue, update } from 'firebase/database';
 import { ScrollArea } from "../components/ui/scroll-area";
+import useEnhancedChatHandler from "./components/useEnhancedChatHandler";
 import {
   Card,
   CardContent,
@@ -17,6 +18,42 @@ import {
   CardTitle,
 } from "../components/ui/card";
 import { cn } from "../lib/utils";
+
+// Loading Overlay Component
+const LoadingOverlay = ({ assistantName = 'AI Assistant' }) => {
+  return (
+    <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center space-y-6">
+      <div className="relative">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
+          <Bot className="w-10 h-10 text-white" />
+        </div>
+        <div className="absolute -top-1 -right-1">
+          <Sparkles className="w-6 h-6 text-yellow-400 animate-pulse" />
+        </div>
+      </div>
+      
+      <div className="flex flex-col items-center max-w-sm text-center space-y-2">
+        <h3 className="text-xl font-semibold text-purple-900">
+          Initializing {assistantName}
+        </h3>
+        <p className="text-sm text-purple-600">
+          Please wait while I prepare to help you...
+        </p>
+        <div className="flex space-x-1 mt-2">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-2 h-2 rounded-full bg-purple-600 animate-bounce"
+              style={{
+                animationDelay: `${i * 0.2}s`,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Helper function to enhance links
 const enhanceLinks = (htmlContent) => {
@@ -36,16 +73,16 @@ const enhanceLinks = (htmlContent) => {
 const processText = (text) => {
   if (!text) return null;
   const normalizedText = text.replace(/\\\\([[\(].*?\\\\[\)\]])/g, '\\$1');
-  
+
   const cleanMathContent = (content) => {
     return content
       .replace(/\\\[/g, '[')
       .replace(/\\\]/g, ']')
       .trim();
   };
-  
+
   const parts = normalizedText.split(/(\\[\[\(](?:[^[\]()]|\[(?:[^[\]()]|\[[^\]]*\])*\]|\((?:[^[\]()]|\([^)]*\))*\))*[)\]])/g);
-  
+
   return parts.map((part, index) => {
     if (part.startsWith('\\[') && part.endsWith('\\]')) {
       return <TeX key={index} block>{cleanMathContent(part.slice(2, -2))}</TeX>;
@@ -147,56 +184,166 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
   );
 });
 
+const MessageStarters = ({ starters, onSelect, isLoading, isInitializing }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const containerRef = useRef(null);
+  const [needsExpansion, setNeedsExpansion] = useState(false);
+  
+  useEffect(() => {
+    const checkHeight = () => {
+      if (containerRef.current) {
+        const height = containerRef.current.scrollHeight;
+        setNeedsExpansion(height > 80); // Approximately 2 rows
+      }
+    };
+    
+    checkHeight();
+    window.addEventListener('resize', checkHeight);
+    return () => window.removeEventListener('resize', checkHeight);
+  }, [starters]);
+
+  return (
+    <div className="flex-1">
+      <div
+        ref={containerRef}
+        className={cn(
+          "flex flex-wrap gap-2",
+          !isExpanded && "max-h-[80px] overflow-hidden"
+        )}
+      >
+        {starters.map((starter, index) => (
+          <Button
+            key={index}
+            variant="outline"
+            size="sm"
+            className="whitespace-normal text-left h-auto"
+            onClick={() => onSelect(starter)}
+            disabled={isLoading || isInitializing}
+          >
+            {starter}
+          </Button>
+        ))}
+      </div>
+      
+      {needsExpansion && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {isExpanded ? (
+            <>
+              <ChevronUp className="w-4 h-4 mr-2" />
+              Show Less
+            </>
+          ) : (
+            <>
+              <ChevronDown className="w-4 h-4 mr-2" />
+              Show More
+            </>
+          )}
+        </Button>
+      )}
+    </div>
+  );
+};
+
 const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
   const { user } = useAuth();
-  const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [model, setModel] = useState(null);
   const [chat, setChat] = useState(null);
-  const [isStreaming, setIsStreaming] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [currentAssistant, setCurrentAssistant] = useState(assistant);
   const [isMessageVisible, setIsMessageVisible] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
+  
+  // Keep assistantKey for component remounting on assistant change
+  const [assistantKey, setAssistantKey] = useState(assistant?.id);
 
   const inputRef = useRef(null);
   const scrollAreaRef = useRef(null);
   const abortControllerRef = useRef(null);
   const chatSessionRef = useRef(null);
 
+  // Move scrollToBottom declaration before useEnhancedChatHandler
+  const scrollToBottom = useCallback(() => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTo({
+          top: scrollContainer.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    }
+  }, []);
+
+  // Now initialize enhanced chat handler after scrollToBottom is defined
+  const {
+    messages,
+    isLoading,
+    isStreaming,
+    error,
+    handleSendMessage: sendMessage,
+    setMessages
+  } = useEnhancedChatHandler(scrollToBottom);
+
+  // Simplified cleanup function
   const cleanup = useCallback(async () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-
-    setIsStreaming(false);
-    setIsLoading(false);
-
-    if (chatSessionRef.current) {
-      try {
-        await chatSessionRef.current.endChat();
-      } catch (err) {
-        console.warn('Error ending chat session:', err);
-      }
-      chatSessionRef.current = null;
-    }
-
+  
+    chatSessionRef.current = null;
     setChat(null);
     setModel(null);
     setMessages([]);
-    setError(null);
     setInputMessage('');
-  }, []);
+  }, [setMessages]);
 
+  // Initialize AI function
   const initializeAI = useCallback(async (assistantConfig) => {
     if (!assistantConfig) return;
     
+    // If there's a first message, display it immediately
+    if (assistantConfig?.firstMessage) {
+      setMessages([{
+        id: Date.now(),
+        sender: 'ai',
+        text: assistantConfig.firstMessage,
+        timestamp: Date.now(),
+      }]);
+    }
+    
+    setIsInitializing(true);
+    
     try {
+      // Implement a simple delay to prevent rapid initialization
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       const vertexAI = getVertexAI(firebaseApp);
+      const modelName = assistantConfig?.model === 'advanced' ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
+      
+      // Add request tracking
+      const now = Date.now();
+      const requestKey = `vertex_ai_${modelName}_last_request`;
+      const lastRequest = localStorage.getItem(requestKey);
+      
+      if (lastRequest) {
+        const timeSinceLastRequest = now - parseInt(lastRequest);
+        if (timeSinceLastRequest < 2000) { // 2 second minimum delay between initializations
+          await new Promise(resolve => setTimeout(resolve, 2000 - timeSinceLastRequest));
+        }
+      }
+      
+      localStorage.setItem(requestKey, now.toString());
+  
       const geminiModel = getGenerativeModel(vertexAI, {
-        model: assistantConfig?.model === 'advanced' ? 'gemini-1.5-pro-002' : 'gemini-1.5-flash-002',
+        model: modelName,
         generationConfig: {
           maxOutputTokens: 8192,
           temperature: 0.9,
@@ -224,78 +371,149 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
           parts: [{ text: assistantConfig?.instructions || "You are a helpful AI assistant. Be concise and clear in your responses." }]
         }
       });
+
+      let initialChat;
+      try {
+        initialChat = await geminiModel.startChat();
+      } catch (err) {
+        if (err.message.includes('429')) {
+          // If we hit rate limit during initialization, try Gemini Flash as fallback
+          console.log('Rate limited, falling back to Gemini Flash');
+          const fallbackModel = getGenerativeModel(vertexAI, {
+            model: 'gemini-1.5-flash-002',
+            generationConfig: {
+              maxOutputTokens: 8192,
+              temperature: 0.9,
+              topP: 0.95,
+            },
+            safetySettings: [
+              {
+                'category': 'HARM_CATEGORY_HATE_SPEECH',
+                'threshold': 'BLOCK_LOW_AND_ABOVE',
+              },
+              {
+                'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
+                'threshold': 'BLOCK_LOW_AND_ABOVE',
+              },
+              {
+                'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+                'threshold': 'BLOCK_LOW_AND_ABOVE',
+              },
+              {
+                'category': 'HARM_CATEGORY_HARASSMENT',
+                'threshold': 'BLOCK_LOW_AND_ABOVE',
+              }
+            ],
+            systemInstruction: {
+              parts: [{ text: assistantConfig?.instructions || "You are a helpful AI assistant. Be concise and clear in your responses." }]
+            }
+          });
+          initialChat = await fallbackModel.startChat();
+        } else {
+          throw err;
+        }
+      }
   
-      // Initialize chat without history first
-      const initialChat = await geminiModel.startChat();
       chatSessionRef.current = initialChat;
       setChat(initialChat);
       setModel(geminiModel);
   
-      // If there's a first message, establish the conversation
       if (assistantConfig?.firstMessage) {
-        // Send initial "Hello" message
-        await initialChat.sendMessage([{ text: "Hello" }]);
-        
-        // Send the first message response
-        await initialChat.sendMessage([{ text: assistantConfig.firstMessage }]);
-  
-        // Set the first message in the UI
-        setMessages([{
-          id: Date.now(),
-          sender: 'ai',
-          text: assistantConfig.firstMessage,
-          timestamp: Date.now(),
-        }]);
+        try {
+          await initialChat.sendMessage([{ text: "Hello" }]);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Delay between messages
+          await initialChat.sendMessage([{ text: assistantConfig.firstMessage }]);
+
+          setMessages([{
+            id: Date.now(),
+            sender: 'ai',
+            text: assistantConfig.firstMessage,
+            timestamp: Date.now(),
+          }]);
+        } catch (err) {
+          console.warn('Error sending initial messages:', err);
+          // Continue even if initial messages fail
+        }
       }
   
     } catch (err) {
-      setError('Error initializing AI: ' + err.message);
       console.error('Chat initialization error:', err);
+      // Consider adding user-friendly error feedback here
+    } finally {
+      setIsInitializing(false);
     }
-  }, [firebaseApp]);
+  }, [firebaseApp, setMessages]);
 
-  const handleClose = useCallback(async () => {
-    await cleanup();
-    if (onClose) {
-      onClose();
+  // Simplified reset handler that directly manages the chat state
+  const handleReset = useCallback(async () => {
+    if (!currentAssistant) return;
+
+    try {
+      setIsResetting(true);
+      setIsInitializing(true);
+      
+      // Clean up existing chat session
+      await cleanup();
+      
+      // Initialize new chat session with current assistant config
+      await initializeAI(currentAssistant);
+    } catch (err) {
+      console.error('Reset error:', err);
+      // Add error feedback to user if needed
+    } finally {
+      setIsResetting(false);
     }
-  }, [cleanup, onClose]);
+  }, [currentAssistant, cleanup, initializeAI]);
 
-  // Listen for assistant changes in Firebase
+  // Modify the Firebase listener effect
   useEffect(() => {
-    if (!user?.uid || !assistant?.id) return;
-  
-    // Initial setup
+    if (!assistant?.id) return;
+
+    const handleAssistantUpdate = async (updatedAssistant) => {
+      if (updatedAssistant) {
+        setCurrentAssistant({
+          ...updatedAssistant,
+          id: assistant.id,
+          usage: assistant.usage
+        });
+      }
+    };
+
+    // Initialize AI for new assistant
     initializeAI(assistant);
-  
+
     const db = getDatabase(firebaseApp);
-    const assistantRef = ref(db, `edbotz/assistants/${user.uid}/${assistant.id}`);
-  
+    const assistantRef = ref(db, `edbotz/assistants/${assistant.usage.ownerId}/${assistant.id}`);
+
     const unsubscribe = onValue(assistantRef, (snapshot) => {
       const updatedAssistant = snapshot.val();
       if (updatedAssistant) {
-        setCurrentAssistant(updatedAssistant);
-        // Only reinitialize if resetToggle changed
-        if (assistant.resetToggle !== updatedAssistant.resetToggle) {
-          cleanup();
-          initializeAI(updatedAssistant);
-        }
+        handleAssistantUpdate(updatedAssistant);
       }
     });
-  
-    // Cleanup on unmount
+
     return () => {
       unsubscribe();
       cleanup();
     };
-  }, [user?.uid, assistant?.id, firebaseApp, cleanup, initializeAI]);
+  }, [assistant?.id, assistant?.usage?.ownerId, firebaseApp, cleanup, initializeAI, assistant]);
 
-  const handleScroll = useCallback((event) => {
-    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
-    setShowScrollButton(scrollHeight - scrollTop - clientHeight > 100);
-  }, []);
+  // Separate effect for initial AI setup and assistant changes
+  useEffect(() => {
+    if (!assistant) return;
+    
+    // Reset the chat when the assistant changes
+    if (assistant.id !== assistantKey) {
+      setAssistantKey(assistant.id);
+      handleReset();
+    } else {
+      // Initial setup
+      initializeAI(assistant);
+    }
+  }, [assistant, assistantKey, handleReset, initializeAI]);
 
-  const scrollToBottom = useCallback(() => {
+  // Handle scroll to bottom
+  const scrollToBottomHandler = useCallback(() => {
     if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
@@ -307,65 +525,17 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
     }
   }, []);
 
+  const handleScroll = useCallback((event) => {
+    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+    setShowScrollButton(scrollHeight - scrollTop - clientHeight > 100);
+  }, []);
+
+  // Updated send message handler
   const handleSendMessage = useCallback(async () => {
     if (!inputMessage.trim() || !chat) return;
-
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
-    setIsLoading(true);
-    setIsStreaming(true);
-    setError(null);
-
-    try {
-      const userMessage = {
-        id: Date.now(),
-        sender: 'user',
-        text: inputMessage,
-        timestamp: Date.now(),
-      };
-
-      setMessages(prev => [...prev, userMessage]);
-      setInputMessage('');
-
-      const aiMessageId = Date.now() + 1;
-      setMessages(prev => [...prev, {
-        id: aiMessageId,
-        sender: 'ai',
-        text: '',
-        timestamp: Date.now() + 1,
-      }]);
-
-      const streamResult = await chat.sendMessageStream([{ text: inputMessage }], {
-        signal: abortControllerRef.current.signal,
-      });
-
-      let accumulatedText = '';
-      for await (const chunk of streamResult.stream) {
-        if (abortControllerRef.current?.signal.aborted) break;
-        accumulatedText += chunk.candidates[0].content.parts[0].text;
-        setMessages(prev =>
-          prev.map(msg =>
-            msg.id === aiMessageId ? { ...msg, text: accumulatedText } : msg
-          )
-        );
-        scrollToBottom();
-      }
-    } catch (err) {
-      if (err.name === 'AbortError') {
-        console.log('Streaming aborted');
-      } else {
-        setError('Error: ' + err.message);
-        console.error('Chat error:', err);
-      }
-    } finally {
-      setIsLoading(false);
-      setIsStreaming(false);
-      scrollToBottom();
-    }
-  }, [inputMessage, chat, scrollToBottom]);
+    setInputMessage('');
+    await sendMessage(inputMessage, chat);
+  }, [inputMessage, chat, sendMessage]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -378,87 +548,72 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  const handleReset = useCallback(async () => {
-    if (!user?.uid || !assistant?.id) return;
-
-    try {
-      const db = getDatabase(firebaseApp);
-      const assistantRef = ref(db, `edbotz/assistants/${user.uid}/${assistant.id}`);
-      
-      // Toggle the resetToggle value in Firebase
-      await update(assistantRef, {
-        resetToggle: !currentAssistant.resetToggle
-      });
-      
-    } catch (err) {
-      setError('Error resetting chat: ' + err.message);
-      console.error('Reset error:', err);
-    }
-  }, [user?.uid, assistant?.id, firebaseApp, currentAssistant?.resetToggle]);
-
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       <Card className="flex flex-col h-full border-0 rounded-none bg-gradient-to-br from-white to-gray-50">
-      <CardHeader className="flex-shrink-0 border-b bg-gradient-to-br from-purple-50 to-indigo-50 py-3">
-  <div className="space-y-3">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
-          <Bot className="w-6 h-6 text-white" />
-        </div>
-        <CardTitle className="text-lg text-purple-900">
-          {currentAssistant?.assistantName || 'AI Assistant'}
-        </CardTitle>
-      </div>
-      
-      <div className="flex items-center gap-2">
-        {assistant?.messageToStudents && !isMessageVisible && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsMessageVisible(true)}
-            className="flex items-center gap-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-          >
-            <Info className="w-4 h-4" />
-            <span className="hidden sm:inline">Show Message</span>
-          </Button>
-        )}
-        {assistant?.messageToStudents && isMessageVisible && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsMessageVisible(false)}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleReset}
-          disabled={isLoading || isStreaming}
-          className="hover:bg-purple-100 text-purple-600"
-          title="Reset Chat"
-        >
-          <RotateCcw className="w-5 h-5" />
-        </Button>
-      </div>
-    </div>
-    
-    {assistant?.messageToStudents && isMessageVisible && (
-      <div className="relative message-enter message-enter-active">
-        <div 
-          className="text-sm text-purple-700 prose prose-sm max-w-none [&_a]:text-blue-600 [&_a]:font-bold [&_a]:underline [&_a]:decoration-blue-600 transition-all duration-300"
-          dangerouslySetInnerHTML={{ 
-            __html: enhanceLinks(assistant.messageToStudents) 
-          }} 
-        />
-      </div>
-    )}
-  </div>
-</CardHeader>
-
+        <CardHeader className="flex-shrink-0 border-b bg-gradient-to-br from-purple-50 to-indigo-50 py-3">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center">
+                  <Bot className="w-6 h-6 text-white" />
+                </div>
+                <CardTitle className="text-lg text-purple-900">
+                  {currentAssistant?.assistantName || 'AI Assistant'}
+                </CardTitle>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {assistant?.messageToStudents && !isMessageVisible && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsMessageVisible(true)}
+                    className="flex items-center gap-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                  >
+                    <Info className="w-4 h-4" />
+                    <span className="hidden sm:inline">Show Message</span>
+                  </Button>
+                )}
+                {assistant?.messageToStudents && isMessageVisible && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsMessageVisible(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleReset}
+                  disabled={isLoading || isStreaming || isResetting}
+                  className="hover:bg-purple-100 text-purple-600"
+                  title="Reset Chat"
+                >
+                  <RotateCcw className={cn(
+                    "w-5 h-5",
+                    isResetting && "animate-spin"
+                  )} />
+                </Button>
+              </div>
+            </div>
+            
+            {assistant?.messageToStudents && isMessageVisible && (
+              <div className="relative message-enter message-enter-active">
+                <div 
+                  className="text-sm text-purple-700 prose prose-sm max-w-none [&_a]:text-blue-600 [&_a]:font-bold [&_a]:underline [&_a]:decoration-blue-600 transition-all duration-300"
+                  dangerouslySetInnerHTML={{ 
+                    __html: enhanceLinks(assistant.messageToStudents) 
+                  }} 
+                />
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        
         <div className="flex-1 min-h-0">
           <ScrollArea 
             ref={scrollAreaRef}
@@ -492,50 +647,45 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type your message... (Press Enter to send)"
+              placeholder={isInitializing ? "AI Assistant is initializing..." : "Type your message... (Press Enter to send)"}
               className="min-h-[80px] resize-none"
-              disabled={isLoading}
+              disabled={isLoading || isInitializing}
             />
 
-            <div className="flex justify-between gap-2">
-              {currentAssistant?.messageStarters && currentAssistant.messageStarters.length > 0 && (
-                <ScrollArea className="w-full max-w-[70%]" orientation="horizontal">
-                  <div className="flex gap-2">
-                    {currentAssistant.messageStarters.map((starter, index) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        className="whitespace-nowrap"
-                        onClick={() => setInputMessage(starter)}
-                        disabled={isLoading}
-                      >
-                        {starter}
-                      </Button>
-                    ))}
-                  </div>
-                </ScrollArea>
-              )}
-
-              <div className="flex gap-2 ml-auto">
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!inputMessage.trim() || isLoading}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader className="w-4 h-4 mr-2 animate-spin" />
-                      {isStreaming ? 'Processing...' : 'Loading...'}
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Send
-                    </>
-                  )}
-                </Button>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                {currentAssistant?.messageStarters && currentAssistant.messageStarters.length > 0 && (
+                  <MessageStarters
+                    starters={currentAssistant.messageStarters}
+                    onSelect={setInputMessage}
+                    isLoading={isLoading}
+                    isInitializing={isInitializing}
+                  />
+                )}
               </div>
+
+              <Button
+                onClick={handleSendMessage}
+                disabled={!inputMessage.trim() || isLoading || isInitializing}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shrink-0"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader className="w-4 h-4 mr-2 animate-spin" />
+                    {isStreaming ? 'Processing...' : 'Loading...'}
+                  </>
+                ) : isInitializing ? (
+                  <>
+                    <Loader className="w-4 h-4 mr-2 animate-spin" />
+                    Initializing...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Send
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </CardFooter>
@@ -550,9 +700,15 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
             <ArrowDown className="w-4 h-4" />
           </Button>
         )}
+
+        {(isInitializing || isResetting) && (
+          <LoadingOverlay 
+            assistantName={currentAssistant?.assistantName || 'AI Assistant'} 
+          />
+        )}
       </Card>
     </div>
   );
 };
 
-export default AIChatApp;
+export default React.memo(AIChatApp);

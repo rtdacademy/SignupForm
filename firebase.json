@@ -16,18 +16,23 @@
   "hosting": [
     {
       "target": "main",
-      "public": "public",
+      "public": "build",
       "ignore": [
         "firebase.json",
         "**/.*",
-        "**/node_modules/**"
+        "**/node_modules/**",
+        "*.html.bak",
+        "index.main.html",
+        "index.second.html"
       ],
       "rewrites": [
         {
           "source": "**",
           "destination": "/index.html"
         }
-      ]
+      ],
+      "cleanUrls": true,
+      "trailingSlash": false
     },
     {
       "target": "second-site",
@@ -35,14 +40,19 @@
       "ignore": [
         "firebase.json",
         "**/.*",
-        "**/node_modules/**"
+        "**/node_modules/**",
+        "*.html.bak",
+        "index.main.html",
+        "index.second.html"
       ],
       "rewrites": [
         {
           "source": "**",
           "destination": "/index.html"
         }
-      ]
+      ],
+      "cleanUrls": true,
+      "trailingSlash": false
     }
   ],
   "emulators": {

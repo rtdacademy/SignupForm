@@ -954,14 +954,8 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
           )}
 
           {/* Form Header */}
-          <div>
-            <h3 className="text-lg font-medium">Non-Primary Student Registration</h3>
-            <p className="text-sm text-muted-foreground">
-              Please provide your information as a non-primary student
-            </p>
-          </div>
 
-          {/* Account Info Alert */}
+          {/* 
           <Alert className="bg-blue-50 border-blue-200">
             <InfoIcon className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-sm text-blue-700">
@@ -969,7 +963,7 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
               If this is not your account, please log out and sign in with your correct account.
             </AlertDescription>
           </Alert>
-
+ */}
           {/* Profile Information Card */}
           <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
             <CardHeader>

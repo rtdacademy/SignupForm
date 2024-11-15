@@ -15,7 +15,6 @@ const initialOptions = {
   vault: true,
 };
 
-// Determine which site to render based on the environment variable
 const isSecondSite = process.env.REACT_APP_SITE === 'second';
 
 const root = ReactDOM.createRoot(document.getElementById("root"));

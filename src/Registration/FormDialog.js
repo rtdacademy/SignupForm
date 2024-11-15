@@ -191,7 +191,8 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
           "StudentPhone": registrationData.formData.phoneNumber || '',
           "asn": registrationData.formData.albertaStudentNumber || '',
           "firstName": registrationData.formData.firstName || '',
-          "preferredFirstName": registrationData.formData.preferredFirstName || '',
+          // Set preferredFirstName to firstName if it's empty, null, or undefined
+          "preferredFirstName": registrationData.formData.preferredFirstName || registrationData.formData.firstName || '',
           "lastName": registrationData.formData.lastName || '',
           "originalEmail": user.email
         };
@@ -350,7 +351,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
       case 'Summer School':
         return <div>Summer School Form Coming Soon...</div>;
       case 'International Student':
-        return <div>International Student Form Coming Soon...</div>;
+        return <div>International Student Form Coming Soon. Please email stan@rtdacademy.com to see how you can register as an international student.</div>;
       default:
         return null;
     }

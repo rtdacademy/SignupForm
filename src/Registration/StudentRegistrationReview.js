@@ -77,17 +77,31 @@ const StudentRegistrationReview = ({ onBack }) => {
   }
 
   const { formData } = registrationData;
+  const isAdultStudent = formData.studentType === 'Adult Student';
+
+  // Create name display that handles preferred names for both student types
+  const nameDisplay = formData.preferredFirstName && formData.preferredFirstName !== formData.firstName
+    ? `${formData.firstName} ${formData.lastName} (Preferred: ${formData.preferredFirstName})`
+    : `${formData.firstName} ${formData.lastName}`;
 
   const personalInfo = [
-    ['Name', `${formData.firstName} ${formData.lastName}`],
+    ['Name', nameDisplay],
     ['Email', user.email],
     ['Phone', formData.phoneNumber],
     ['Birthday', formData.birthday],
     ['Age', formData.age ? `${formData.age} years old` : ''],
     ['Alberta Student Number', formData.albertaStudentNumber],
-    ['Current School', formData.currentSchool],
-    ['School Address', formData.schoolAddress?.fullAddress]
+    // Only include school information for non-primary students
+    ...(!isAdultStudent ? [
+      ['Current School', formData.currentSchool],
+      ['School Address', formData.schoolAddress?.fullAddress]
+    ] : [])
   ];
+
+  // Handle parent information differently based on student type
+  const shouldShowParentInfo = isAdultStudent 
+    ? Boolean(formData.parentFirstName) // Only show if provided for adult students
+    : true; // Always show for non-primary students
 
   const parentInfo = [
     ['Parent First Name', formData.parentFirstName],
@@ -98,11 +112,13 @@ const StudentRegistrationReview = ({ onBack }) => {
 
   const courseInfo = [
     ['Student Type', formData.studentType],
-    ['School Year', formData.enrollmentYear],
+    // Only include enrollment year for non-primary students
+    ...(!isAdultStudent ? [['School Year', formData.enrollmentYear]] : []),
     ['Course', formData.courseName],
     ['Start Date', formData.startDate],
     ['End Date', formData.endDate],
-    ['Diploma Date', formData.diplomaMonth?.displayDate]
+    // Only show diploma date if it exists
+    ...(formData.diplomaMonth?.displayDate ? [['Diploma Date', formData.diplomaMonth.displayDate]] : [])
   ];
 
   return (
@@ -115,9 +131,14 @@ const StudentRegistrationReview = ({ onBack }) => {
       <Card>
         <CardContent className="space-y-6 pt-6">
           <ReviewSection title="Personal Information" items={personalInfo} />
-          {formData.parentFirstName && (
-            <ReviewSection title="Parent/Guardian Information" items={parentInfo} />
+          
+          {shouldShowParentInfo && (
+            <ReviewSection 
+              title={isAdultStudent ? "Parent/Guardian Information (Optional)" : "Parent/Guardian Information"} 
+              items={parentInfo} 
+            />
           )}
+          
           <ReviewSection title="Course Information" items={courseInfo} />
           
           {formData.additionalInformation && (

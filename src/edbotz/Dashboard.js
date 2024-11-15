@@ -3,7 +3,6 @@ import {
   PlusCircle,
   BookOpen,
   Bot,
-  Users,
   ArrowRight,
   ArrowLeft,
   MessageSquare,
@@ -20,42 +19,14 @@ import {
   CardTitle,
 } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import { Separator } from '../components/ui/separator';
 import { useAuth } from '../context/AuthContext';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import CourseManagement from './CourseManagement';
 import AIAssistantSheet from './AIAssistantSheet';
-import AIChatApp from './AIChatApp';
 import AssistantSelector from './AssistantSelector';
 import LinkGenerator from './LinkGenerator';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuPortal,
-} from '../components/ui/dropdown-menu';
 
-// FeatureCard component
+// FeatureCard component with improved mobile styling
 const FeatureCard = ({ icon: Icon, title, description, action, onClick }) => (
   <Card className="hover:shadow-lg transition-shadow duration-300">
     <CardHeader>
@@ -81,39 +52,44 @@ const FeatureCard = ({ icon: Icon, title, description, action, onClick }) => (
   </Card>
 );
 
-// WelcomeSection component
-const WelcomeSection = () => (
-  <div className="mb-12 text-center md:text-left">
-    <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-      Welcome to EdBotz
-    </h1>
-    <p className="text-gray-600 max-w-2xl">
-      Create personalized AI teaching assistants for your courses. Enhance your students' learning
-      experience with intelligent, always-available help tailored to your curriculum.
-    </p>
-  </div>
-);
-
-// StatsSection component
-const StatsSection = () => (
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-    {[
-      { label: 'Active Courses', value: '0', icon: BookOpen },
-      { label: 'AI Assistants', value: '0', icon: Bot },
-      { label: 'Student Interactions', value: '0', icon: Users },
-    ].map((stat, index) => (
-      <Card key={index} className="bg-gradient-to-br from-gray-50 to-gray-100">
-        <CardContent className="pt-6">
+// Updated TopSection component
+const TopSection = ({ courseCount, assistantCount }) => (
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
+    <div className="text-center lg:text-left">
+      <h1 className="text-3xl lg:text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+        Welcome to EdBotz
+      </h1>
+      <p className="text-gray-600">
+        Create personalized AI teaching assistants for your courses. Enhance your students' learning
+        experience with intelligent, always-available help tailored to your curriculum.
+      </p>
+    </div>
+    
+    <div className="grid grid-cols-2 gap-4 py-6 lg:py-8">
+      <Card className="bg-gradient-to-br from-gray-50 to-gray-100">
+        <CardContent className="p-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">{stat.label}</p>
-              <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-sm font-medium text-gray-500">Active Courses</p>
+              <p className="text-xl lg:text-2xl font-bold text-gray-900">{courseCount}</p>
             </div>
-            <stat.icon className="w-8 h-8 text-blue-600 opacity-50" />
+            <BookOpen className="w-5 h-5 lg:w-6 lg:h-6 text-blue-600 opacity-50" />
           </div>
         </CardContent>
       </Card>
-    ))}
+
+      <Card className="bg-gradient-to-br from-gray-50 to-gray-100">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-500">AI Assistants</p>
+              <p className="text-xl lg:text-2xl font-bold text-gray-900">{assistantCount}</p>
+            </div>
+            <Bot className="w-5 h-5 lg:w-6 lg:h-6 text-blue-600 opacity-50" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   </div>
 );
 
@@ -124,6 +100,8 @@ const Dashboard = () => {
   const [showAISheet, setShowAISheet] = useState(false);
   const [assistants, setAssistants] = useState([]);
   const [selectedAssistant, setSelectedAssistant] = useState(null);
+  const [courseCount, setCourseCount] = useState(0);
+  const [assistantCount, setAssistantCount] = useState(0);
   const [currentAIContext, setCurrentAIContext] = useState({
     type: null,
     entityId: null,
@@ -133,71 +111,7 @@ const Dashboard = () => {
   const [courses, setCourses] = useState({});
   const [showLinkGenerator, setShowLinkGenerator] = useState(false);
 
-  // Fetch courses
-  useEffect(() => {
-    if (!user?.uid) return;
-
-    const db = getDatabase();
-    const coursesRef = ref(db, `edbotz/courses/${user.uid}`);
-
-    const unsubscribe = onValue(coursesRef, (snapshot) => {
-      const data = snapshot.val() || {};
-      const normalizedCourses = {};
-
-      Object.entries(data).forEach(([courseId, course]) => {
-        const units = course.units || [];
-        const processedUnits = Array.isArray(units)
-          ? units.filter((unit) => unit && typeof unit === 'object')
-          : [];
-
-        if (courseId === 'courseless-assistants') {
-          normalizedCourses[courseId] = {
-            id: courseId,
-            title: 'Global Assistants',
-            units: processedUnits,
-            assistants: course.assistants || {},
-          };
-        } else {
-          normalizedCourses[courseId] = {
-            ...course,
-            id: courseId,
-            units: processedUnits,
-            assistants: course.assistants || {},
-          };
-        }
-      });
-
-      setCourses(normalizedCourses);
-    });
-
-    return () => unsubscribe();
-  }, [user?.uid]);
-
-  // Fetch assistants
-  useEffect(() => {
-    if (!user?.uid) return;
-
-    const db = getDatabase();
-    const assistantsRef = ref(db, `edbotz/assistants/${user.uid}`);
-
-    const unsubscribe = onValue(assistantsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const assistantsArray = Object.entries(data).map(
-          ([id, assistant]) => ({
-            id,
-            ...assistant,
-          })
-        );
-        setAssistants(assistantsArray);
-      } else {
-        setAssistants([]);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
+  // Function declarations first
   const handleCreateAssistant = () => {
     setCurrentAIContext({
       type: 'course',
@@ -237,7 +151,7 @@ const Dashboard = () => {
     // Assuming AssistantSelector handles the preview, no separate dialog needed
   };
 
-  // Features array
+  // Features array moved after function declarations
   const features = [
     {
       icon: BookOpen,
@@ -262,6 +176,64 @@ const Dashboard = () => {
     },
   ];
 
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const db = getDatabase();
+    const coursesRef = ref(db, `edbotz/courses/${user.uid}`);
+
+    const unsubscribe = onValue(coursesRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      const normalizedCourses = {};
+      let count = 0;
+
+      Object.entries(data).forEach(([courseId, course]) => {
+        if (courseId !== 'courseless-assistants') {
+          count++;
+        }
+
+        const units = course.units || [];
+        const processedUnits = Array.isArray(units)
+          ? units.filter((unit) => unit && typeof unit === 'object')
+          : [];
+
+        normalizedCourses[courseId] = {
+          ...(courseId === 'courseless-assistants' 
+            ? { title: 'Global Assistants' }
+            : course),
+          id: courseId,
+          units: processedUnits,
+          assistants: course.assistants || {},
+        };
+      });
+
+      setCourseCount(count);
+      setCourses(normalizedCourses);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const db = getDatabase();
+    const assistantsRef = ref(db, `edbotz/assistants/${user.uid}`);
+
+    const unsubscribe = onValue(assistantsRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      const assistantsArray = Object.entries(data).map(([id, assistant]) => ({
+        id,
+        ...assistant,
+      }));
+      
+      setAssistants(assistantsArray);
+      setAssistantCount(assistantsArray.length);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
   if (activeComponent === 'courses') {
     return (
       <div className="relative">
@@ -279,54 +251,31 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      <WelcomeSection />
-      <StatsSection />
-
-      {/* Features and Guide Section */}
+    <div className="space-y-6 lg:space-y-8 animate-fadeIn px-4 lg:px-8">
+      <TopSection courseCount={courseCount} assistantCount={assistantCount} />
+      
+      {/* Features Section */}
       <div className="space-y-6">
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
           {features.map((feature, index) => (
             <FeatureCard key={index} {...feature} />
           ))}
         </div>
-
-        {/* Getting Started Guide */}
-        <Card className="bg-gradient-to-r from-blue-500/5 to-purple-500/5 border-none">
-          <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold mb-2">
-                  Getting Started Guide
-                </h3>
-                <p className="text-gray-600">
-                  New to EdBotz? Learn how to create your first AI teaching assistant and
-                  integrate it into your course material in just a few minutes.
-                </p>
-              </div>
-              <button className="inline-flex items-center px-4 py-2 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors duration-200">
-                View Guide
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </button>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Chat Section */}
-      <div className="mt-8">
+      <div className="mb-8">
         <Card className="border-t border-gray-200">
-          <CardHeader>
+          <CardHeader className="p-4 lg:p-6">
             <CardTitle className="text-xl font-semibold">
               AI Teaching Assistants
             </CardTitle>
             <p className="text-sm text-gray-500">
-              Interact with your AI assistants or create new ones for your courses
+              Test your assistants here
             </p>
           </CardHeader>
-          <CardContent>
-            <div className="h-[500px] w-full">
+          <CardContent className="p-4 lg:p-6">
+            <div className="h-[600px] lg:h-[700px] w-full">
               <AssistantSelector
                 assistants={assistants}
                 courses={courses}
@@ -334,13 +283,14 @@ const Dashboard = () => {
                 onAssistantSelect={setSelectedAssistant}
                 onEditAssistant={handleEditAssistant}
                 firebaseApp={window.firebaseApp}
+                userId={user?.uid} 
               />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Link Generator */}
+      {/* Dialogs and sheets */}
       <LinkGenerator 
         open={showLinkGenerator}
         onOpenChange={setShowLinkGenerator}
@@ -349,7 +299,6 @@ const Dashboard = () => {
         userId={user?.uid}
       />
 
-      {/* AI Assistant Sheet */}
       {showAISheet && (
         <AIAssistantSheet
           open={showAISheet}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { getDatabase, ref, get } from 'firebase/database';
 import { 
@@ -28,12 +28,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuPortal,
 } from '../components/ui/dropdown-menu';
 import AIChatApp from './AIChatApp';
+import { Alert, AlertDescription } from '../components/ui/alert';
 
 const LESSON_TYPES = {
   general: {
@@ -80,198 +77,236 @@ const LESSON_TYPES = {
   }
 };
 
-const processAssistants = (assistantsData, course) => {
-  const processedAssistants = [];
-
-  // Process course-level assistants
-  Object.entries(assistantsData).forEach(([id, assistant]) => {
-    if (course.assistants?.[id] === true) {
-      processedAssistants.push({
-        id,
-        ...assistant,
-        entityType: 'course',
-        contextData: course,
-        usage: {
-          type: 'course',
-          entityId: course.id
-        }
-      });
-    }
-  });
-
-  // Process unit and lesson level assistants
-  course.units?.forEach(unit => {
-    // Unit-level assistants
-    Object.entries(unit.assistants || {}).forEach(([id, isEnabled]) => {
-      if (isEnabled === true && assistantsData[id]) {
-        processedAssistants.push({
-          id,
-          ...assistantsData[id],
-          entityType: 'unit',
-          contextData: unit,
-          usage: {
-            type: 'unit',
-            entityId: unit.id,
-            parentId: course.id
-          }
-        });
-      }
-    });
-
-    // Lesson-level assistants
-    unit.lessons?.forEach(lesson => {
-      Object.entries(lesson.assistants || {}).forEach(([id, isEnabled]) => {
-        if (isEnabled === true && assistantsData[id]) {
-          processedAssistants.push({
-            id,
-            ...assistantsData[id],
-            entityType: 'lesson',
-            contextData: lesson,
-            unitData: unit,
-            usage: {
-              type: 'lesson',
-              entityId: lesson.id,
-              parentId: course.id
-            }
-          });
-        }
-      });
-    });
-  });
-
-  return processedAssistants;
+const WelcomeMessage = ({ onDismiss }) => {
+  return (
+    <Alert className="mb-6 relative bg-blue-50 border-blue-200">
+      <div className="flex items-start gap-3">
+        <Bot className="h-5 w-5 text-blue-600 mt-0.5" />
+        <div className="space-y-2 flex-1">
+          <AlertDescription className="text-sm text-blue-800">
+            Select where you want help:
+            <ul className="mt-2 space-y-1">
+              <li>• Course-level AI can help with general course questions</li>
+              <li>• Unit-level AI understands specific unit concepts</li>
+              <li>• Lesson-level AI has detailed knowledge about individual lessons</li>
+            </ul>
+          </AlertDescription>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 hover:bg-blue-100"
+          onClick={onDismiss}
+        >
+          <X className="h-4 w-4 text-blue-600" />
+        </Button>
+      </div>
+    </Alert>
+  );
 };
 
-const AssistantSelector = ({ 
-  selectedAssistant, 
-  availableAssistants, 
-  courseData, 
-  onAssistantSelect, 
-  isMobile = false 
-}) => {
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+const BotCountBadge = ({ count, type = 'general', variant = 'secondary' }) => {
+  if (count === 0) return null;
+  
+  // Get the color based on type
+  const getColor = () => {
+    switch (type) {
+      case 'course':
+        return 'text-blue-600';
+      case 'unit':
+        return 'text-indigo-600';
+      default:
+        return LESSON_TYPES[type || 'general'].color;
+    }
+  };
 
-  // Only render dropdown content when dropdown is open to prevent duplicate rendering
-  const renderDropdownContent = () => (
-    <DropdownMenuContent className="w-[300px]" align="start">
-      <DropdownMenuLabel>Select Assistant</DropdownMenuLabel>
-      <DropdownMenuSeparator />
-
-      {/* Course-level assistants */}
-      {availableAssistants
-        .filter(a => a.entityType === 'course')
-        .map(assistant => (
-          <DropdownMenuItem
-            key={assistant.id}
-            onSelect={() => {
-              onAssistantSelect(assistant);
-              setIsDropdownOpen(false);
-            }}
-          >
-            <BookOpen className="w-4 h-4 mr-2 text-blue-600" />
-            {assistant.assistantName}
-          </DropdownMenuItem>
-        ))}
-
-      {/* Group assistants by unit */}
-      {courseData?.units?.map(unit => {
-        const unitAssistants = availableAssistants.filter(
-          a => a.entityType === 'unit' && a.contextData?.id === unit.id
-        );
-        const lessonAssistants = availableAssistants.filter(
-          a => a.entityType === 'lesson' && a.contextData?.id === unit.id
-        );
-
-        if (!unitAssistants.length && !lessonAssistants.length) return null;
-
-        return (
-          <DropdownMenuSub key={unit.id}>
-            <DropdownMenuSubTrigger>
-              <Library className="w-4 h-4 mr-2 text-indigo-600" />
-              {unit.title}
-            </DropdownMenuSubTrigger>
-            <DropdownMenuPortal>
-              <DropdownMenuSubContent>
-                {unitAssistants.map(assistant => (
-                  <DropdownMenuItem
-                    key={assistant.id}
-                    onSelect={() => {
-                      onAssistantSelect(assistant);
-                      setIsDropdownOpen(false);
-                    }}
-                  >
-                    <Bot className="w-4 h-4 mr-2 text-indigo-600" />
-                    {assistant.assistantName}
-                  </DropdownMenuItem>
-                ))}
-
-                {unit.lessons?.map(lesson => {
-                  const lessonAssistants = availableAssistants.filter(
-                    a => a.entityType === 'lesson' && a.contextData?.id === lesson.id
-                  );
-
-                  if (!lessonAssistants.length) return null;
-
-                  return (
-                    <DropdownMenuSub key={lesson.id}>
-                      <DropdownMenuSubTrigger>
-                        <div className="flex items-center gap-2">
-                          <GraduationCap className={`w-4 h-4 ${LESSON_TYPES[lesson.type || 'general'].color}`} />
-                          <span>{lesson.title}</span>
-                          <Badge className={LESSON_TYPES[lesson.type || 'general'].badge}>
-                            {LESSON_TYPES[lesson.type || 'general'].label}
-                          </Badge>
-                        </div>
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuPortal>
-                        <DropdownMenuSubContent>
-                          {lessonAssistants.map(assistant => (
-                            <DropdownMenuItem
-                              key={assistant.id}
-                              onSelect={() => {
-                                onAssistantSelect(assistant);
-                                setIsDropdownOpen(false);
-                              }}
-                            >
-                              <Bot className={`w-4 h-4 mr-2 ${LESSON_TYPES[lesson.type || 'general'].color}`} />
-                              {assistant.assistantName}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuPortal>
-                    </DropdownMenuSub>
-                  );
-                })}
-              </DropdownMenuSubContent>
-            </DropdownMenuPortal>
-          </DropdownMenuSub>
-        );
-      })}
-    </DropdownMenuContent>
-  );
+  const getBgColor = () => {
+    switch (type) {
+      case 'course':
+        return 'bg-blue-50';
+      case 'unit':
+        return 'bg-indigo-50';
+      default:
+        return LESSON_TYPES[type || 'general'].bgColor;
+    }
+  };
 
   return (
-    <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="w-full justify-between"
-          role="combobox"
-          aria-expanded={isDropdownOpen}
-        >
-          {selectedAssistant ? (
-            <div className="flex items-center gap-2">
-              <Bot className="w-4 h-4 text-purple-600" />
-              {selectedAssistant.assistantName}
+    <div className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full ${getBgColor()}`}>
+      {[...Array(count)].map((_, i) => (
+        <Bot key={i} className={`w-3.5 h-3.5 ${getColor()}`} />
+      ))}
+    </div>
+  );
+};
+
+
+const ContextSelector = ({ courseData, onContextSelect, availableAssistants }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+
+  // Count assistants at each level
+  const getCounts = () => {
+    const counts = {
+      course: availableAssistants.filter(a => a.entityType === 'course').length,
+      units: {},
+      lessons: {}
+    };
+
+    courseData.units?.forEach(unit => {
+      counts.units[unit.id] = availableAssistants.filter(
+        a => a.entityType === 'unit' && a.contextData?.id === unit.id
+      ).length;
+
+      unit.lessons?.forEach(lesson => {
+        counts.lessons[lesson.id] = availableAssistants.filter(
+          a => a.entityType === 'lesson' && a.contextData?.id === lesson.id
+        ).length;
+      });
+    });
+
+    return counts;
+  };
+
+  const counts = getCounts();
+
+  return (
+    <div className="space-y-4">
+      {showWelcome && (
+        <WelcomeMessage onDismiss={() => setShowWelcome(false)} />
+      )}
+      
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            className="w-full justify-between"
+            role="combobox"
+            aria-expanded={isOpen}
+          >
+            <span>Select Location</span>
+            <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-[300px]" align="start">
+          <DropdownMenuLabel>Select Location</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          
+          {/* Course Option */}
+          <DropdownMenuItem
+            onClick={() => {
+              onContextSelect({ type: 'course', data: courseData });
+              setIsOpen(false);
+            }}
+          >
+            <div className="flex items-center w-full">
+              <BookOpen className="w-4 h-4 text-blue-600 mr-2" />
+              <span className="flex-1">{courseData.title}</span>
+              <BotCountBadge count={counts.course} type="course" />
             </div>
-          ) : (
-            'Select an assistant'
-          )}
-          <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </DropdownMenuItem>
+
+          {/* Units and Lessons */}
+          {courseData.units?.map(unit => (
+            <React.Fragment key={unit.id}>
+              <DropdownMenuItem
+                onClick={() => {
+                  onContextSelect({ type: 'unit', data: unit });
+                  setIsOpen(false);
+                }}
+              >
+                <div className="flex items-center w-full">
+                  <Library className="w-4 h-4 text-indigo-600 mr-2" />
+                  <span className="flex-1">{unit.title}</span>
+                  <BotCountBadge count={counts.units[unit.id]} type="unit" />
+                </div>
+              </DropdownMenuItem>
+              
+              {unit.lessons?.map(lesson => (
+                <DropdownMenuItem
+                  key={lesson.id}
+                  className="pl-6"
+                  onClick={() => {
+                    onContextSelect({ 
+                      type: 'lesson', 
+                      data: lesson,
+                      unitData: unit
+                    });
+                    setIsOpen(false);
+                  }}
+                >
+                  <div className="flex items-center w-full">
+                    <GraduationCap className={`w-4 h-4 mr-2 ${LESSON_TYPES[lesson.type || 'general'].color}`} />
+                    <span className="flex-1">{lesson.title}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge className={LESSON_TYPES[lesson.type || 'general'].badge}>
+                        {LESSON_TYPES[lesson.type || 'general'].label}
+                      </Badge>
+                      <BotCountBadge count={counts.lessons[lesson.id]} type={lesson.type || 'general'} />
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+            </React.Fragment>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+};
+
+const AssistantList = ({ context, availableAssistants, onAssistantSelect }) => {
+  const filteredAssistants = availableAssistants.filter(assistant => {
+    if (context.type === 'course') {
+      return assistant.entityType === 'course';
+    } else if (context.type === 'unit') {
+      return assistant.entityType === 'unit' && 
+             assistant.contextData?.id === context.data.id;
+    } else if (context.type === 'lesson') {
+      return assistant.entityType === 'lesson' && 
+             assistant.contextData?.id === context.data.id;
+    }
+    return false;
+  });
+
+  if (filteredAssistants.length === 0) {
+    return (
+      <div className="text-center text-gray-500 py-4">
+        <Bot className="w-8 h-8 mx-auto mb-2 opacity-50" />
+        <p>No assistants available at this level</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      {filteredAssistants.map((assistant) => (
+        <Button
+          key={assistant.id}
+          variant="outline"
+          className={`w-full p-4 h-auto flex items-center gap-3 hover:bg-gray-50 group ${
+            context.type === 'lesson'
+              ? LESSON_TYPES[context.data.type || 'general'].bgColor
+              : 'bg-white'
+          }`}
+          onClick={() => onAssistantSelect(assistant)}
+        >
+          <Bot className={`w-6 h-6 ${
+            context.type === 'lesson'
+              ? LESSON_TYPES[context.data.type || 'general'].color
+              : context.type === 'unit'
+              ? 'text-indigo-600'
+              : 'text-blue-600'
+          } group-hover:scale-110 transition-transform`} />
+          <div className="flex-1 text-left">
+            <h3 className="font-medium">{assistant.assistantName}</h3>
+            {assistant.description && (
+              <p className="text-sm text-gray-500 mt-1">{assistant.description}</p>
+            )}
+          </div>
         </Button>
-      </DropdownMenuTrigger>
-      {isDropdownOpen && renderDropdownContent()}
-    </DropdownMenu>
+      ))}
+    </div>
   );
 };
 
@@ -309,15 +344,23 @@ const StudentPortal = () => {
   const [availableAssistants, setAvailableAssistants] = useState([]);
   const [selectedAssistant, setSelectedAssistant] = useState(null);
   const [selectedContext, setSelectedContext] = useState(null);
+  const [sidebarContext, setSidebarContext] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Add cleanup function
+  const cleanup = useCallback(() => {
+    // Reset states related to the current assistant
+    setSelectedAssistant(null);
+    setSelectedContext(null);
+  }, []);
 
   useEffect(() => {
     const fetchAccess = async () => {
       try {
         const db = getDatabase();
         
+        // Fetch access configuration
         const accessRef = ref(db, `edbotz/studentAccess/${userId}/${accessKey}`);
         const accessSnapshot = await get(accessRef);
         
@@ -328,91 +371,175 @@ const StudentPortal = () => {
         const accessData = accessSnapshot.val();
         setAccessConfig(accessData);
 
-        let course = null;
-        let shouldLoadFullCourse = !accessData.isGlobalAssistant;
-        
-        // Load course data if we should show the full course
-        if (shouldLoadFullCourse && (accessData.type === 'course' || accessData.parentId)) {
-          const courseId = accessData.type === 'course' ? accessData.entityId : accessData.parentId;
-          const courseRef = ref(db, `edbotz/courses/${userId}/${courseId}`);
-          const courseSnapshot = await get(courseRef);
-          
-          if (courseSnapshot.exists()) {
-            course = { ...courseSnapshot.val(), id: courseId };
-            setCourseData(course);
-          } else {
-            throw new Error('Course not found');
-          }
-        }
-        
-        // Load assistants
+        // Fetch all assistants for the course owner
         const assistantsRef = ref(db, `edbotz/assistants/${userId}`);
         const assistantsSnapshot = await get(assistantsRef);
         
+        let assistantsData = {};
         if (assistantsSnapshot.exists()) {
-          const assistantsData = assistantsSnapshot.val();
-          let allowedAssistants = [];
-
-          if (course) {
-            // Load all course assistants
-            allowedAssistants = processAssistants(assistantsData, course);
-          } else if (accessData.isGlobalAssistant) {
-            // Load only the specific global assistant
-            const assistant = assistantsData[accessData.entityId];
-            if (assistant) {
-              allowedAssistants = [{
-                id: accessData.entityId,
-                ...assistant,
-                entityType: 'assistant'
-              }];
+          assistantsData = assistantsSnapshot.val();
+        }
+        
+        // If this is a course-specific access
+        if (accessData.parentId) {
+          // Fetch course data
+          const courseRef = ref(db, `edbotz/courses/${userId}/${accessData.parentId}`);
+          const courseSnapshot = await get(courseRef);
+          
+          if (courseSnapshot.exists()) {
+            const courseDataFetched = {
+              ...courseSnapshot.val(),
+              id: accessData.parentId
+            };
+            
+            setCourseData(courseDataFetched);
+            
+            // Process and set available assistants
+            const processedAssistants = processAssistants(assistantsData, courseDataFetched);
+            setAvailableAssistants(processedAssistants);
+            
+            // Set the selected assistant based on access configuration
+            const defaultAssistant = processedAssistants.find(a => a.id === accessData.entityId);
+            if (defaultAssistant) {
+              await cleanup();
+              setSelectedAssistant(defaultAssistant);
+              setSidebarContext({
+                type: defaultAssistant.entityType,
+                data: defaultAssistant.contextData,
+                unitData: defaultAssistant.unitData
+              });
             }
           }
-          
-          setAvailableAssistants(allowedAssistants);
-          
-          // Set default assistant based on access configuration
-          if (accessData.defaultAssistant && allowedAssistants.length > 0) {
-            const defaultAssistant = allowedAssistants.find(a => a.id === accessData.defaultAssistant);
-            if (defaultAssistant) {
-              setSelectedAssistant(defaultAssistant);
-              updateContextFromAssistant(defaultAssistant);
-            }
-          } else if (allowedAssistants.length > 0) {
-            // Fall back to first assistant if no default specified
-            setSelectedAssistant(allowedAssistants[0]);
-            updateContextFromAssistant(allowedAssistants[0]);
+        } else {
+          // For global assistant access
+          const assistantData = assistantsData[accessData.entityId];
+          if (assistantData) {
+            const enhancedAssistant = {
+              ...assistantData,
+              id: accessData.entityId,
+              usage: {
+                ownerId: userId,
+                type: accessData.type,
+                entityId: accessData.entityId
+              }
+            };
+            await cleanup();
+            setSelectedAssistant(enhancedAssistant);
+            setAvailableAssistants([enhancedAssistant]);
           }
         }
         
-        setLoading(false);
       } catch (err) {
         console.error('Error fetching access:', err);
         setError(err.message);
+      } finally {
         setLoading(false);
       }
     };
 
     fetchAccess();
-  }, [userId, accessKey]);
+  }, [userId, accessKey, cleanup]);
 
-  const updateContextFromAssistant = (assistant) => {
-    if (!assistant) {
-      setSelectedContext(null);
-      return;
+  // Update the process assistants function to handle empty or invalid data
+  const processAssistants = (assistantsData, course) => {
+    const processedAssistants = [];
+    
+    if (!assistantsData || !course) return processedAssistants;
+
+    // Process course-level assistants
+    if (course.assistants) {
+      Object.entries(course.assistants).forEach(([id, isEnabled]) => {
+        if (isEnabled && assistantsData[id]) {
+          processedAssistants.push({
+            id,
+            ...assistantsData[id],
+            entityType: 'course',
+            contextData: course,
+            usage: {
+              type: 'course',
+              entityId: course.id,
+              ownerId: course.ownerId
+            }
+          });
+        }
+      });
     }
 
-    setSelectedContext({
-      type: assistant.entityType,
-      data: assistant.contextData,
-      unitData: assistant.unitData
+    // Process unit and lesson level assistants
+    course.units?.forEach(unit => {
+      // Unit-level assistants
+      if (unit.assistants) {
+        Object.entries(unit.assistants).forEach(([id, isEnabled]) => {
+          if (isEnabled && assistantsData[id]) {
+            processedAssistants.push({
+              id,
+              ...assistantsData[id],
+              entityType: 'unit',
+              contextData: unit,
+              usage: {
+                type: 'unit',
+                entityId: unit.id,
+                parentId: course.id,
+                ownerId: course.ownerId
+              }
+            });
+          }
+        });
+      }
+
+      // Lesson-level assistants
+      unit.lessons?.forEach(lesson => {
+        if (lesson.assistants) {
+          Object.entries(lesson.assistants).forEach(([id, isEnabled]) => {
+            if (isEnabled && assistantsData[id]) {
+              processedAssistants.push({
+                id,
+                ...assistantsData[id],
+                entityType: 'lesson',
+                contextData: lesson,
+                unitData: unit,
+                usage: {
+                  type: 'lesson',
+                  entityId: lesson.id,
+                  parentId: course.id,
+                  ownerId: course.ownerId
+                }
+              });
+            }
+          });
+        }
+      });
     });
+
+    return processedAssistants;
   };
 
-  const handleAssistantSelect = (assistant) => {
-    setSelectedAssistant(assistant);
-    updateContextFromAssistant(assistant);
-    setIsSidebarOpen(false); // Close mobile sidebar after selection
+  const handleContextSelect = (context) => {
+    setSidebarContext(context);
+    setSelectedContext(context);
+    setSelectedAssistant(null);
   };
+
+  const handleAssistantSelect = useCallback(async (assistant) => {
+    // Clean up current assistant before switching
+    await cleanup();
+    
+    // Update selected assistant with proper metadata
+    const enhancedAssistant = {
+      ...assistant,
+      usage: {
+        ...assistant.usage,
+        ownerId: userId // Ensure we have the owner ID
+      }
+    };
+    
+    setSelectedAssistant(enhancedAssistant);
+    setSelectedContext({
+      type: enhancedAssistant.entityType,
+      data: enhancedAssistant.contextData,
+      unitData: enhancedAssistant.unitData
+    });
+  }, [cleanup, userId]);
 
   const renderContextPanel = () => {
     if (!selectedContext || !selectedContext.data) return null;
@@ -477,21 +604,29 @@ const StudentPortal = () => {
   };
 
   const renderSidebarContent = () => (
-    <div className="space-y-4">
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Select Assistant</h2>
-        <AssistantSelector
-          selectedAssistant={selectedAssistant}
-          availableAssistants={availableAssistants}
+    <div className="space-y-6">
+      <div>
+        
+        <ContextSelector 
           courseData={courseData}
-          onAssistantSelect={handleAssistantSelect}
+          onContextSelect={handleContextSelect}
+          availableAssistants={availableAssistants}
         />
       </div>
-      {selectedContext && (
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold">Assistant Location</h2>
+
+      {sidebarContext && (
+        <>
           {renderContextPanel()}
-        </div>
+          
+          <div>
+            <h2 className="text-lg font-semibold mb-3">Available Assistants</h2>
+            <AssistantList
+              context={sidebarContext}
+              availableAssistants={availableAssistants}
+              onAssistantSelect={handleAssistantSelect}
+            />
+          </div>
+        </>
       )}
     </div>
   );
@@ -535,23 +670,9 @@ const StudentPortal = () => {
               </div>
 
               {/* Mobile Sidebar */}
-              <div className="lg:hidden fixed top-4 left-4 z-50">
-                <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
-                  <SheetTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      {isSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="left" className="w-[300px] sm:w-[400px]">
-                    <SheetHeader>
-                      <SheetTitle>Course Navigation</SheetTitle>
-                    </SheetHeader>
-                    <div className="py-4">
-                      {renderSidebarContent()}
-                    </div>
-                  </SheetContent>
-                </Sheet>
-              </div>
+              <Sidebar>
+                {renderSidebarContent()}
+              </Sidebar>
             </>
           )}
 
@@ -560,6 +681,7 @@ const StudentPortal = () => {
             <div className="h-full bg-white">
               {selectedAssistant ? (
                 <AIChatApp
+                  key={selectedAssistant.id} // Add key to force remount
                   assistant={selectedAssistant}
                   mode="embedded"
                   firebaseApp={window.firebaseApp}
@@ -570,7 +692,7 @@ const StudentPortal = () => {
                     <Bot className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>
                       {availableAssistants.length > 0 
-                        ? "Select an assistant to start chatting" 
+                        ? "Select a location and assistant to start chatting" 
                         : "No assistants available for this content."}
                     </p>
                   </div>
