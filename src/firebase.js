@@ -1,9 +1,11 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp } from '@firebase/app';
 import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 import { getFunctions } from 'firebase/functions';
 import { getAnalytics } from "firebase/analytics";
 import { getVertexAI } from "firebase/vertexai";
+import { getFirestore } from '@firebase/firestore';
+import { getStripePayments } from '@invertase/firestore-stripe-payments';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDjx3BINgvUwR1CHE80yX1gCBXYl5OMCqs",
@@ -23,8 +25,16 @@ export const microsoftProvider = new OAuthProvider('microsoft.com');
 export const database = getDatabase(app);
 export const functions = getFunctions(app);
 export const analytics = getAnalytics(app);
-
-// Initialize Vertex AI
+export const firestore = getFirestore(app);
 export const vertexAI = getVertexAI(app);
+
+// Initialize Stripe Payments
+export const payments = getStripePayments(app, {
+  productsCollection: 'products',
+  customersCollection: 'customers',
+  firebase: {
+    firestore: firestore
+  }
+});
 
 export default app;

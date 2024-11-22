@@ -54,6 +54,12 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        customGreen: {
+          dark: "#008B8B",  
+          light: "#E0FFFF", 
+          medium: "#20B2AA", 
+          hover: "#007575"
+        },
       },
       // Enhanced spacing for responsive layouts
       spacing: {

@@ -16,6 +16,7 @@ const chatFunctions = require('./chat');
 const categoryFunctions = require('./categories');
 const summaryFunctions = require('./summaries');
 const emailFunctions = require('./email');
+const stripeModule = require('./stripe');
 
 // Export the functions
 exports.updateGradebookData = gradebookFunctions.updateGradebookData;
@@ -36,6 +37,7 @@ exports.deleteCategoryForStudents = categoryFunctions.deleteCategoryForStudents;
 exports.updateStudentCourseSummary = summaryFunctions.updateStudentCourseSummary;
 exports.syncProfileToCourseSummaries = summaryFunctions.syncProfileToCourseSummaries;
 
-
 exports.sendEmail = emailFunctions.sendEmail;
 exports.sendBulkEmails = emailFunctions.sendBulkEmails;
+
+exports.handleStripeWebhook = stripeModule.handleStripeWebhook;

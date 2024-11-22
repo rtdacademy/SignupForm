@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import _ from 'lodash';
 
@@ -177,27 +177,40 @@ const validationRules = {
     successMessage: "Valid parent phone number"
   },
 
+  // In your validation rules
   parentEmail: {
-    validate: (value) => {
-      if (!value) return "Parent email is required";
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(value)) return "Please enter a valid email address";
+    validate: (value, options) => {
+      // Only required for under 18
+      if (options?.conditionalValidation?.parentEmail?.() && !value) {
+        return "Parent email is required";
+      }
+      // Validate format if any value is provided, regardless of age
+      if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        return "Please enter a valid email address";
+      }
       return null;
     },
     successMessage: "Valid parent email address"
-  }
+   }
 };
 
 const useFormValidation = (initialData, rules, options = {}) => {
+  // Destructure options with defaults
+  const { readOnlyFields = {}, conditionalValidation = {} } = options;
+
+  // Memoize options to prevent unnecessary re-renders
+  const memoizedOptions = useMemo(() => ({
+    readOnlyFields,
+    conditionalValidation
+  }), [readOnlyFields, conditionalValidation]);
+
+  // Core state
   const [formData, setFormData] = useState(initialData);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [isValid, setIsValid] = useState(false);
   const [completionPercentage, setCompletionPercentage] = useState(0);
   const [initialized, setInitialized] = useState(false);
-
-  // Add readOnlyFields to options type
-  const { readOnlyFields = {}, conditionalValidation = {} } = options;
 
   // Initialize touched state for fields with values
   useEffect(() => {
@@ -227,34 +240,14 @@ const useFormValidation = (initialData, rules, options = {}) => {
 
       setInitialized(true);
     }
-  }, [initialData, rules, initialized, readOnlyFields]);
+  }, [initialData, rules, readOnlyFields, initialized]);
 
-  // Define validateField with read-only check
-  const validateField = useCallback((name, value) => {
-    // If the field is readonly and has a value, consider it valid
-    if (readOnlyFields[name] && value) {
-      return null;
-    }
-    
-    if (!rules[name]) return null;
-    
-    // Skip validation for optional fields that are empty
-    if (!value && !rules[name].required) {
-      return null;
-    }
-    
-    try {
-      return rules[name].validate(value, { conditionalValidation });
-    } catch (error) {
-      console.error(`Validation error for field ${name}:`, error);
-      return `Validation error: ${error.message}`;
-    }
-  }, [rules, readOnlyFields, conditionalValidation]);
-
-  // Format field value if formatter exists
+  // Memoize format field function
   const formatField = useCallback((name, value) => {
     // Skip formatting for read-only fields
-    if (readOnlyFields[name]) return value;
+    if (memoizedOptions.readOnlyFields[name]) {
+      return value;
+    }
 
     if (rules[name]?.format) {
       try {
@@ -265,9 +258,33 @@ const useFormValidation = (initialData, rules, options = {}) => {
       }
     }
     return value;
-  }, [rules, readOnlyFields]);
+  }, [rules, memoizedOptions.readOnlyFields]);
 
-  // Enhanced validation logic with read-only field handling
+  // Memoize validate field function
+  const validateField = useCallback((name, value) => {
+    // If the field is readonly and has a value, consider it valid
+    if (memoizedOptions.readOnlyFields[name] && value) {
+      return null;
+    }
+
+    if (!rules[name]) {
+      return null;
+    }
+
+    // Skip validation for optional fields that are empty
+    if (!value && !rules[name].required) {
+      return null;
+    }
+
+    try {
+      return rules[name].validate(value, { conditionalValidation: memoizedOptions.conditionalValidation });
+    } catch (error) {
+      console.error(`Validation error for field ${name}:`, error);
+      return `Validation error: ${error.message}`;
+    }
+  }, [rules, memoizedOptions]);
+
+  // Memoize form validation function
   const validateForm = useCallback(() => {
     const newErrors = {};
     let validCount = 0;
@@ -275,7 +292,7 @@ const useFormValidation = (initialData, rules, options = {}) => {
 
     Object.keys(rules).forEach(fieldName => {
       // Skip validation for read-only fields
-      if (readOnlyFields[fieldName]) {
+      if (memoizedOptions.readOnlyFields[fieldName]) {
         if (formData[fieldName]) {
           validCount++;
         }
@@ -284,8 +301,8 @@ const useFormValidation = (initialData, rules, options = {}) => {
       }
 
       // Check if field should be validated based on conditional validation
-      const shouldValidate = !conditionalValidation[fieldName] || 
-                            conditionalValidation[fieldName]();
+      const shouldValidate = !memoizedOptions.conditionalValidation[fieldName] || 
+                            memoizedOptions.conditionalValidation[fieldName]();
 
       if (shouldValidate) {
         totalFields++;
@@ -303,6 +320,7 @@ const useFormValidation = (initialData, rules, options = {}) => {
     const percentage = totalFields > 0 ? (validCount / totalFields) * 100 : 0;
     const newIsValid = Object.keys(newErrors).length === 0;
 
+    // Batch state updates
     setErrors(prevErrors => {
       if (!_.isEqual(newErrors, prevErrors)) {
         return newErrors;
@@ -314,26 +332,30 @@ const useFormValidation = (initialData, rules, options = {}) => {
     setCompletionPercentage(Math.round(percentage));
 
     return newErrors;
-  }, [formData, rules, readOnlyFields, conditionalValidation, validateField, formatField]);
+  }, [formData, rules, memoizedOptions, formatField, validateField]);
 
-  // Validate on mount and when dependencies change
+  // Debounced validation effect
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
+    const debouncedValidation = _.debounce(() => {
       validateForm();
-    }, 0);
-    return () => clearTimeout(timeoutId);
-  }, [validateForm, formData, conditionalValidation]);
+    }, 300);
 
-  // Handle field blur events
+    debouncedValidation();
+
+    return () => {
+      debouncedValidation.cancel();
+    };
+  }, [validateForm]);
+
+  // Handle field blur
   const handleBlur = useCallback((name) => {
-    // Don't mark read-only fields as touched
-    if (!readOnlyFields[name]) {
+    if (!memoizedOptions.readOnlyFields[name]) {
       setTouched(prev => ({
         ...prev,
         [name]: true
       }));
     }
-  }, [readOnlyFields]);
+  }, [memoizedOptions.readOnlyFields]);
 
   // Update formData when initialData changes
   useEffect(() => {
@@ -344,10 +366,10 @@ const useFormValidation = (initialData, rules, options = {}) => {
     setFormData(formattedData);
   }, [initialData, formatField]);
 
-  // Get validation status for a specific field
+  // Memoize field status getter
   const getFieldStatus = useCallback((fieldName) => {
     // Read-only fields are always valid if they have a value
-    if (readOnlyFields[fieldName]) {
+    if (memoizedOptions.readOnlyFields[fieldName]) {
       return {
         isValid: formData[fieldName] ? true : false,
         message: formData[fieldName] ? rules[fieldName]?.successMessage : null
@@ -356,8 +378,8 @@ const useFormValidation = (initialData, rules, options = {}) => {
 
     const isFieldTouched = touched[fieldName];
     const fieldError = errors[fieldName];
-    const shouldValidate = !conditionalValidation[fieldName] || 
-                          conditionalValidation[fieldName]();
+    const shouldValidate = !memoizedOptions.conditionalValidation[fieldName] || 
+                          memoizedOptions.conditionalValidation[fieldName]();
 
     if (!shouldValidate) {
       return null;
@@ -367,9 +389,9 @@ const useFormValidation = (initialData, rules, options = {}) => {
       isValid: isFieldTouched && !fieldError,
       message: isFieldTouched ? (fieldError || rules[fieldName]?.successMessage) : null
     };
-  }, [touched, errors, conditionalValidation, rules, readOnlyFields, formData]);
+  }, [touched, errors, memoizedOptions, rules, formData]);
 
-  // Reset form to initial state
+  // Reset form function
   const resetForm = useCallback(() => {
     setFormData(initialData);
     setErrors({});

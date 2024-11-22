@@ -6,6 +6,13 @@ import { getDatabase, ref, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState } from 'react';
 
+// Utility function to determine if school selection should be shown
+const shouldShowSchoolSelection = (studentType) => {
+  return studentType === 'Non-Primary' || 
+         studentType === 'Home Education' || 
+         studentType === 'Summer School';
+};
+
 const ReviewSection = ({ title, items }) => (
   <div className="space-y-3">
     <h3 className="font-semibold text-lg">{title}</h3>
@@ -91,9 +98,9 @@ const StudentRegistrationReview = ({ onBack }) => {
     ['Birthday', formData.birthday],
     ['Age', formData.age ? `${formData.age} years old` : ''],
     ['Alberta Student Number', formData.albertaStudentNumber],
-    // Only include school information for non-primary students
-    ...(!isAdultStudent ? [
-      ['Current School', formData.currentSchool],
+    // Show school information for appropriate student types
+    ...(shouldShowSchoolSelection(formData.studentType) ? [
+      ['Current School', formData.schoolAddress?.name || formData.currentSchool],
       ['School Address', formData.schoolAddress?.fullAddress]
     ] : [])
   ];
@@ -112,8 +119,7 @@ const StudentRegistrationReview = ({ onBack }) => {
 
   const courseInfo = [
     ['Student Type', formData.studentType],
-    // Only include enrollment year for non-primary students
-    ...(!isAdultStudent ? [['School Year', formData.enrollmentYear]] : []),
+    ['School Year', formData.enrollmentYear],
     ['Course', formData.courseName],
     ['Start Date', formData.startDate],
     ['End Date', formData.endDate],
@@ -123,11 +129,6 @@ const StudentRegistrationReview = ({ onBack }) => {
 
   return (
     <div className="space-y-8">
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">Review Your Registration</h2>
-        <p className="text-gray-600">Please review your information before submitting</p>
-      </div>
-
       <Card>
         <CardContent className="space-y-6 pt-6">
           <ReviewSection title="Personal Information" items={personalInfo} />
@@ -149,15 +150,6 @@ const StudentRegistrationReview = ({ onBack }) => {
           )}
         </CardContent>
       </Card>
-
-      <div className="flex justify-end gap-4">
-        <Button
-          variant="outline"
-          onClick={onBack}
-        >
-          Back to Edit
-        </Button>
-      </div>
     </div>
   );
 };

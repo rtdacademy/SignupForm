@@ -97,6 +97,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
         const pendingRegRef = ref(db, `users/${uid}/pendingRegistration`);
         await set(pendingRegRef, {
           ...existingRegistration,
+          studentType: selectedStudentType,
           currentStep: 'form',
           lastUpdated: new Date().toISOString()
         });
@@ -165,40 +166,51 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
       if (snapshot.exists()) {
         const registrationData = snapshot.val();
         const studentEmailKey = user_email_key;
-
-        // Build the 'profile' data with conditional parent info for adult students
+  
+        // Validate courseId
+        const courseId = registrationData.formData.courseId;
+        if (!courseId) {
+          throw new Error('Course ID is required');
+        }
+  
+        // Ensure courseId is a valid number
+        const numericCourseId = Number(courseId);
+        if (isNaN(numericCourseId)) {
+          throw new Error('Invalid Course ID format');
+        }
+  
+        // Check if course already exists
+        const existingCourseRef = ref(db, `students/${studentEmailKey}/courses/${numericCourseId}`);
+        const existingCourseSnapshot = await get(existingCourseRef);
+        
+        if (existingCourseSnapshot.exists()) {
+          throw new Error('You are already registered for this course');
+        }
+  
+        // Build the 'profile' data
         const profileData = {
           "LastSync": new Date().toISOString(),
-          "ParentEmail": selectedStudentType === 'Adult Student' && !registrationData.formData.includeParentInfo 
-            ? '' 
-            : registrationData.formData.parentEmail || '',
+          "ParentEmail": registrationData.formData.parentEmail || '',
           "ParentPermission_x003f_": {
-            "Id": selectedStudentType === 'Adult Student' ? 1 : 2,
-            "Value": selectedStudentType === 'Adult Student' ? "Not Required" : "No Approval Yet"
+            "Id": registrationData.formData.age >= 18 ? 1 : 2,
+            "Value": registrationData.formData.age >= 18 ? "Not Required" : "No Approval Yet"
           },
-          "ParentPhone_x0023_": selectedStudentType === 'Adult Student' && !registrationData.formData.includeParentInfo 
-            ? '' 
-            : registrationData.formData.parentPhone || '',
-          "ParentFirstName": selectedStudentType === 'Adult Student' && !registrationData.formData.includeParentInfo 
-            ? '' 
-            : registrationData.formData.parentFirstName || '',
-          "ParentLastName": selectedStudentType === 'Adult Student' && !registrationData.formData.includeParentInfo 
-            ? '' 
-            : registrationData.formData.parentLastName || '',
+          "ParentPhone_x0023_": registrationData.formData.parentPhone || '',
+          "ParentFirstName": registrationData.formData.parentFirstName || '',
+          "ParentLastName": registrationData.formData.parentLastName || '',
+          "preferredFirstName": registrationData.formData.preferredFirstName || registrationData.formData.firstName,
           "age": registrationData.formData.age || '',
           "birthday": registrationData.formData.birthday || '',
           "StudentEmail": user.email,
           "StudentPhone": registrationData.formData.phoneNumber || '',
           "asn": registrationData.formData.albertaStudentNumber || '',
           "firstName": registrationData.formData.firstName || '',
-          // Set preferredFirstName to firstName if it's empty, null, or undefined
-          "preferredFirstName": registrationData.formData.preferredFirstName || registrationData.formData.firstName || '',
           "lastName": registrationData.formData.lastName || '',
-          "originalEmail": user.email
+          "originalEmail": user.email,
+          "uid": uid
         };
   
         // Build the 'courses' data with adult-specific adjustments
-        const courseId = registrationData.formData.courseId;
         const courseData = {
           "inOldSharePoint": false,
           "ActiveFutureArchived": {
@@ -206,10 +218,10 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
             "Value": "Registration"
           },
           "Course": {
-            "Id": Number(courseId),
+            "Id": numericCourseId,
             "Value": registrationData.formData.courseName || ''
           },
-          "CourseID": Number(courseId),
+          "CourseID": numericCourseId,
           "Created": new Date().toISOString(),
           "ScheduleStartDate": registrationData.formData.startDate || '',
           "ScheduleEndDate": registrationData.formData.endDate || '',
@@ -222,22 +234,21 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
             "Value": "Newly Enrolled"
           },
           "Over18_x003f_": {
-            "Id": selectedStudentType === 'Adult Student' ? 1 : (registrationData.formData.age >= 18 ? 1 : 2),
+            "Id": registrationData.studentType === 'Adult Student' ? 1 : (registrationData.formData.age >= 18 ? 1 : 2),
             "Value": registrationData.formData.age >= 18 ? "Yes" : "No"
           },
           "PASI": {
             "Id": 1,
             "Value": "No"
           },
-          // Only include school-related fields for non-adult students
-          ...(selectedStudentType !== 'Adult Student' && {
+          "School_x0020_Year": {
+            "Id": 1,
+            "Value": registrationData.formData.enrollmentYear || ''
+          },
+          ...(registrationData.studentType !== 'Adult Student' && {
             "primarySchoolName": registrationData.formData.schoolAddress?.name || '',
             "primarySchoolAddress": registrationData.formData.schoolAddress?.fullAddress || '',
-            "primarySchoolPlaceId": registrationData.formData.schoolAddress?.placeId || '',
-            "School_x0020_Year": {
-              "Id": 1,
-              "Value": registrationData.formData.enrollmentYear || ''
-            }
+            "primarySchoolPlaceId": registrationData.formData.schoolAddress?.placeId || ''
           }),
           "jsonStudentNotes": [
             {
@@ -254,30 +265,38 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
           ]
         };
   
-        // Write to 'students/student_email_key/profile'
+        // Write data using separate set operations
         const studentProfileRef = ref(db, `students/${studentEmailKey}/profile`);
-        await set(studentProfileRef, profileData);
+        const studentCourseRef = ref(db, `students/${studentEmailKey}/courses/${numericCourseId}`);
   
-        // Write to 'students/student_email_key/courses/${courseId}'
-        const studentCourseRef = ref(db, `students/${studentEmailKey}/courses/${courseId}`);
-        await set(studentCourseRef, courseData);
+        // Use Promise.all to perform both writes atomically
+        await Promise.all([
+          set(studentProfileRef, profileData),
+          set(studentCourseRef, courseData)
+        ]);
   
         // Remove the pendingRegistration node
         await remove(pendingRegRef);
   
+        // Reset all form state
+        setCurrentStep('type-selection');
+        setSelectedStudentType('');
+        setIsFormValid(false);
+        setFormData(null);
+        setExistingRegistration(null);
+  
         // Close the dialog
         onOpenChange(false);
       } else {
-        setError('Registration data not found');
+        throw new Error('Registration data not found');
       }
     } catch (error) {
       console.error('Error submitting registration:', error);
-      setError('Failed to submit registration. Please try again.');
+      setError(error.message || 'Failed to submit registration. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
-  
 
   const handleClose = () => {
     if (existingRegistration && currentStep !== 'type-selection') {
@@ -311,11 +330,15 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
 
     switch (selectedStudentType) {
       case 'Non-Primary':
+      case 'Home Education':
+      case 'Adult Student':
+      case 'Summer School':
         return (
           <NonPrimaryStudentForm 
             ref={formRef}
             initialData={formData}
             onValidationChange={setIsFormValid}
+            studentType={selectedStudentType}
             onSave={async (data) => {
               const db = getDatabase();
               const pendingRegRef = ref(db, `users/${uid}/pendingRegistration`);
@@ -328,28 +351,6 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
             }}
           />
         );
-      case 'Adult Student':
-        return (
-          <AdultStudentForm 
-            ref={formRef}
-            initialData={formData}
-            onValidationChange={setIsFormValid}
-            onSave={async (data) => {
-              const db = getDatabase();
-              const pendingRegRef = ref(db, `users/${uid}/pendingRegistration`);
-              await set(pendingRegRef, {
-                studentType: selectedStudentType,
-                currentStep: 'form',
-                formData: data,
-                lastUpdated: new Date().toISOString()
-              });
-            }}
-          />
-        );
-      case 'Home Education':
-        return <div>Home Education Form Coming Soon...</div>;
-      case 'Summer School':
-        return <div>Summer School Form Coming Soon...</div>;
       case 'International Student':
         return <div>International Student Form Coming Soon. Please email stan@rtdacademy.com to see how you can register as an international student.</div>;
       default:
@@ -359,7 +360,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
 
   const renderFooterButtons = () => {
     return (
-      <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
+      <div className="flex justify-end gap-2">
         {currentStep !== 'type-selection' && (
           <Button 
             variant="outline" 
@@ -415,13 +416,13 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
         <DialogPrimitive.Content
           className={cn(
             "fixed left-[50%] top-[50%] z-[102] grid w-[90vw] max-w-[1000px] max-h-[90vh]",
-            "translate-x-[-50%] translate-y-[-50%] rounded-lg bg-white p-6 shadow-lg",
+            "translate-x-[-50%] translate-y-[-50%] rounded-lg bg-white shadow-lg",
             "duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out",
             "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
             "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
             "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%]",
             "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
-            "overflow-hidden"
+            "flex flex-col" // Added flex column
           )}
         >
           {loading ? (
@@ -429,51 +430,57 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           ) : (
-            <>
-              {existingRegistration && currentStep === 'type-selection' && (
-                <Alert className="mb-6 bg-blue-50 border-blue-200">
-                  <AlertDescription className="text-sm text-blue-700">
-                    You have an incomplete registration from{' '}
-                    {new Date(existingRegistration.lastUpdated).toLocaleString()}.
-                    Click 'Proceed' to continue where you left off.
-                  </AlertDescription>
-                </Alert>
-              )}
+            <div className="flex flex-col h-full max-h-[90vh]"> {/* Wrapper div with flex */}
+              {/* Header Section */}
+              <div className="p-6 pb-0">
+                {existingRegistration && currentStep === 'type-selection' && (
+                  <Alert className="mb-6 bg-blue-50 border-blue-200">
+                    <AlertDescription className="text-sm text-blue-700">
+                      You have an incomplete registration from{' '}
+                      {new Date(existingRegistration.lastUpdated).toLocaleString()}.
+                      Click 'Proceed' to continue where you left off.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
-              <div className="mb-6">
-                <DialogPrimitive.Title className="text-2xl font-semibold">
-                  {currentStep === 'type-selection'
-                    ? 'Student Information Form'
-                    : currentStep === 'form'
-                    ? `${selectedStudentType} Student Registration`
-                    : 'Review Registration'}
-                </DialogPrimitive.Title>
-                <DialogPrimitive.Description className="text-gray-600">
-                  {currentStep === 'type-selection'
-                    ? 'Please determine your student type'
-                    : currentStep === 'form'
-                    ? 'Please fill out your registration information'
-                    : 'Please review your information before submitting'}
-                </DialogPrimitive.Description>
+                <div className="mb-6">
+                  <DialogPrimitive.Title className="text-2xl font-semibold">
+                    {currentStep === 'type-selection'
+                      ? 'Student Information Form'
+                      : currentStep === 'form'
+                      ? selectedStudentType === 'Home Education'
+                        ? 'Home Education Student Registration'
+                        : `${selectedStudentType} Student Registration`
+                      : 'Review Registration'}
+                  </DialogPrimitive.Title>
+                  <DialogPrimitive.Description className="text-gray-600">
+                    {currentStep === 'type-selection'
+                      ? 'Please determine your student type'
+                      : currentStep === 'form'
+                      ? 'Please fill out your registration information'
+                      : 'Please review your information before submitting'}
+                  </DialogPrimitive.Description>
+                </div>
               </div>
 
-              <div className={cn(
-                "overflow-y-auto",
-                "max-h-[calc(90vh-200px)] py-6"
-              )}>
+              {/* Content Section - Scrollable */}
+              <div className="flex-1 overflow-y-auto px-6">
                 {renderContent()}
               </div>
 
-              {renderFooterButtons()}
+              {/* Footer Section - Always Visible */}
+              <div className="p-6 pt-4 mt-auto border-t bg-white">
+                {renderFooterButtons()}
 
-              {error && (
-                <Alert className="mt-4 bg-red-50 border-red-200">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
-                  <AlertDescription className="text-sm text-red-700">
-                    {error}
-                  </AlertDescription>
-                </Alert>
-              )}
+                {error && (
+                  <Alert className="mt-4 bg-red-50 border-red-200">
+                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-sm text-red-700">
+                      {error}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
 
               {!loading && (
                 <DialogPrimitive.Close 
@@ -484,7 +491,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
                   <span className="sr-only">Close</span>
                 </DialogPrimitive.Close>
               )}
-            </>
+            </div>
           )}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

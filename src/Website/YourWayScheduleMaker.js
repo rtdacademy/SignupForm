@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, forwardRef } from 'react';
-import { getDatabase, ref, get } from 'firebase/database';
+import { getDatabase, ref, get, set } from 'firebase/database';
+import { useAuth } from '../context/AuthContext'; // Add this import
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import {
@@ -49,7 +50,7 @@ import { Label } from '../components/ui/label';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Button } from "../components/ui/button";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { ChevronDown, ChevronRight, AlertTriangle, InfoIcon, CalendarIcon } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle, InfoIcon, CalendarIcon, Clock, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
 import CustomBlockoutDates from '../Schedule/CustomBlockoutDates';
 
@@ -67,35 +68,80 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+// Calculate expected time for each type
+const calculateExpectedTimes = (course, totalHours) => {
+  const items = course.units.flatMap(unit => unit.items);
+  const examCount = items.filter(item => item.type?.toLowerCase() === 'exam').length;
+  const assignmentCount = items.filter(item => item.type?.toLowerCase() === 'assignment').length;
+  const lessonCount = items.filter(item => item.type?.toLowerCase() === 'lesson').length;
+
+  // Calculate total hours taken by exams and assignments
+  const examHours = examCount * 2; // 2 hours per exam
+  const assignmentHours = assignmentCount * 1; // 1 hour per assignment
+
+  // Calculate remaining hours for lessons
+  const remainingHours = Math.max(0, totalHours - examHours - assignmentHours);
+  const lessonHours = lessonCount > 0 ? remainingHours / lessonCount : 0;
+
+  return {
+    exam: 2 * 60, // 2 hours in minutes
+    assignment: 1 * 60, // 1 hour in minutes
+    lesson: Math.round(lessonHours * 60), // Convert to minutes
+  };
+};
+
+// Get expected time for a specific item
+const getExpectedTime = (item, expectedTimes) => {
+  const type = item.type?.toLowerCase();
+  return expectedTimes[type] || 0;
+};
+
+// Format minutes as hours and minutes
+const formatTime = (minutes) => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) return `${mins}m`;
+  return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
+};
+
 // Format diploma date for display
 const formatDiplomaDate = (diplomaTime) => {
   // Format the time in 12-hour format
   const hour = diplomaTime.hour % 12 || 12;
   const minute = diplomaTime.minute.toString().padStart(2, '0');
   const period = diplomaTime.period || (diplomaTime.hour >= 12 ? 'PM' : 'AM');
-  
+
   // Format the date, showing just the date without redundant month
   const date = format(parseISO(diplomaTime.displayDate), 'MMM d');
-  
+
   return `${date} at ${hour}:${minute} ${period}`;
 };
 
 // Calculate hours per week
 const calculateHoursPerWeek = (startDate, endDate, totalHours) => {
   if (!startDate || !endDate || !totalHours) return null;
-  
+
   const start = new Date(startDate);
   const end = new Date(endDate);
   const diffTime = Math.abs(end - start);
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   const diffWeeks = diffDays / 7;
-  
+
   const hoursPerWeek = totalHours / diffWeeks;
   return hoursPerWeek.toFixed(1);
 };
 
-// Add new helper function to calculate minutes
-const calculateItemMinutes = (totalMinutes, totalMultiplier, itemMultiplier) => {
+// Modify the calculateItemMinutes function to handle different types
+const calculateItemMinutes = (totalMinutes, totalMultiplier, itemMultiplier, itemType) => {
+  // For assignments and exams, return fixed durations
+  if (itemType?.toLowerCase() === 'assignment') {
+    return 60; // 1 hour in minutes
+  }
+  if (itemType?.toLowerCase() === 'exam') {
+    return 120; // 2 hours in minutes
+  }
+
+  // For lessons and other types, calculate based on multiplier
   const minutesPerUnit = totalMinutes / totalMultiplier;
   return Math.round(minutesPerUnit * (itemMultiplier || 1));
 };
@@ -136,27 +182,49 @@ const getEventColor = (type) => {
   }
 };
 
-// Function to get display name for event types
-const getTypeDisplayName = (type) => {
-  const typeMap = {
-    'lesson': 'Lessons',
-    'assignment': 'Assignments',
-    'exam': 'Exams'
-  };
-  return typeMap[type.toLowerCase()] || type;
-};
-
-// Event Component for Calendar
+// Update the EventComponent to show times differently based on type
 const EventComponent = ({ event }) => {
+  const type = event.type?.toLowerCase();
   const minutes = event.details.estimatedMinutes;
-  const timeDisplay = minutes >= 60 
-    ? `${Math.floor(minutes / 60)}h ${minutes % 60}m`
-    : `${minutes}m`;
-  
+
+  // Don't show time for info type
+  if (type === 'info') {
+    return (
+      <div className="text-xs">
+        <div>{event.title}</div>
+      </div>
+    );
+  }
+
+  // For assignments and exams, show fixed time
+  if (type === 'assignment' || type === 'exam') {
+    const timeDisplay = type === 'assignment' ? '1h' : '2h';
+    return (
+      <div className="text-xs">
+        <div>{event.title}</div>
+        <div className="opacity-75">{timeDisplay}</div>
+      </div>
+    );
+  }
+
+  // For lessons, show both expected and available time
+  if (type === 'lesson') {
+    const timeDisplay = minutes >= 60 
+      ? `${Math.floor(minutes / 60)}h ${minutes % 60}m`
+      : `${minutes}m`;
+
+    return (
+      <div className="text-xs">
+        <div>{event.title}</div>
+        <div className="opacity-75">Available: {timeDisplay}</div>
+      </div>
+    );
+  }
+
+  // Default fallback
   return (
     <div className="text-xs">
       <div>{event.title}</div>
-      <div className="opacity-75">{timeDisplay}</div>
     </div>
   );
 };
@@ -169,10 +237,6 @@ const CustomToolbar = (toolbar) => {
 
   const goToNext = () => {
     toolbar.onNavigate('NEXT');
-  };
-
-  const goToCurrent = () => {
-    toolbar.onNavigate('TODAY');
   };
 
   const label = () => {
@@ -230,13 +294,22 @@ const FeatureCard = forwardRef(({ title, customHeader, children, className = '' 
   </Card>
 ));
 
-const YourWayScheduleMaker = () => {
-  const [courses, setCourses] = useState({});
+const YourWayScheduleMaker = ({
+  courseId = null,
+  defaultStartDate = null,
+  defaultEndDate = null,
+  onScheduleSaved = () => {},
+}) => {
+  // Add auth context
+  const { user_email_key } = useAuth();
+  
+  const [startDate, setStartDate] = useState(defaultStartDate);
+  const [endDate, setEndDate] = useState(defaultEndDate);
   const [selectedCourse, setSelectedCourse] = useState(null);
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
+  const [courses, setCourses] = useState({});
+
   const [excludeWeekends, setExcludeWeekends] = useState(false);
-  const [showBreakOptions, setShowBreakOptions] = useState(false); // renamed from showBlockoutOptions
+  const [showBreakOptions, setShowBreakOptions] = useState(false);
   const [scheduleData, setScheduleData] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -249,78 +322,186 @@ const YourWayScheduleMaker = () => {
   const [selectedDiplomaDate, setSelectedDiplomaDate] = useState(null);
   const [alreadyWroteDiploma, setAlreadyWroteDiploma] = useState(false);
 
-  // Add new state for custom blockout dates
+  // Custom blockout dates and other states
   const [customBlockoutDates, setCustomBlockoutDates] = useState([]);
-
-  // Add state for the show more dialog
   const [showMoreEvents, setShowMoreEvents] = useState(null);
   const [showMoreDate, setShowMoreDate] = useState(null);
-
-  // New refs for scrolling
   const scheduleRef = useRef(null);
+  const [currentCalendarDate, setCurrentCalendarDate] = useState(startDate || new Date());
+
+  // New state for schedule creation
+  const [scheduleCreated, setScheduleCreated] = useState(false);
 
   useEffect(() => {
-    const fetchCourses = async () => {
-      const db = getDatabase();
-      const coursesRef = ref(db, 'courses');
-      
-      try {
-        const snapshot = await get(coursesRef);
-        if (snapshot.exists()) {
-          const coursesData = snapshot.val();
-          const validCourses = Object.entries(coursesData)
-            .filter(([id, course]) => {
-              return id !== 'sections' && 
-                     course?.Active === 'Current' &&
-                     course?.Title &&
-                     course?.units;
-            })
-            .reduce((acc, [id, course]) => {
-              const grade = course.grade || 'Other';
-              if (!acc[grade]) {
-                acc[grade] = [];
-              }
-              acc[grade].push({
-                id,
-                ...course,
-              });
-              return acc;
-            }, {});
+    if (defaultStartDate) {
+      setStartDate(defaultStartDate);
+    }
+    if (defaultEndDate) {
+      setEndDate(defaultEndDate);
+    }
+  }, [defaultStartDate, defaultEndDate]);
 
-          Object.keys(validCourses).forEach(grade => {
-            validCourses[grade].sort((a, b) => {
-              if (a.Title && b.Title) {
-                return a.Title.localeCompare(b.Title);
-              }
-              return 0;
+  useEffect(() => {
+    if (courseId) {
+      // Fetch the course data based on courseId
+      const fetchCourseById = async (id) => {
+        const db = getDatabase();
+        const courseRef = ref(db, `courses/${id}`);
+        try {
+          const snapshot = await get(courseRef);
+          if (snapshot.exists()) {
+            const courseData = snapshot.val();
+            setSelectedCourse({
+              id,
+              ...courseData,
             });
-          });
-          
-          const sortedCourses = Object.keys(validCourses)
-            .sort((a, b) => {
-              if (a === 'Other') return 1;
-              if (b === 'Other') return -1;
-              return parseInt(a) - parseInt(b);
-            })
-            .reduce((obj, key) => {
-              obj[key] = validCourses[key];
-              return obj;
-            }, {});
 
-          setCourses(sortedCourses);
+            // Handle diploma course, course hours, etc.
+            handleCourseData(courseData, id);
+          } else {
+            console.error("Course not found");
+            toast.error("Course not found");
+          }
+        } catch (error) {
+          console.error("Error fetching course:", error);
+          toast.error("Failed to load course");
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Error fetching courses:', error);
-        toast.error('Failed to load courses');
-      } finally {
-        setLoading(false);
+      };
+      fetchCourseById(courseId);
+    } else {
+      // If no courseId is provided, fetch all courses for selection
+      fetchAllCourses();
+    }
+  }, [courseId]);
+
+  // Function to fetch all courses for selection
+  const fetchAllCourses = async () => {
+    const db = getDatabase();
+    const coursesRef = ref(db, "courses");
+
+    try {
+      const snapshot = await get(coursesRef);
+      if (snapshot.exists()) {
+        const coursesData = snapshot.val();
+        const validCourses = Object.entries(coursesData)
+          .filter(([id, course]) => {
+            return (
+              id !== "sections" &&
+              course?.Active === "Current" &&
+              course?.Title &&
+              course?.units
+            );
+          })
+          .reduce((acc, [id, course]) => {
+            const grade = course.grade || "Other";
+            if (!acc[grade]) {
+              acc[grade] = [];
+            }
+            acc[grade].push({
+              id,
+              ...course,
+            });
+            return acc;
+          }, {});
+
+        Object.keys(validCourses).forEach((grade) => {
+          validCourses[grade].sort((a, b) => {
+            if (a.Title && b.Title) {
+              return a.Title.localeCompare(b.Title);
+            }
+            return 0;
+          });
+        });
+
+        const sortedCourses = Object.keys(validCourses)
+          .sort((a, b) => {
+            if (a === "Other") return 1;
+            if (b === "Other") return -1;
+            return parseInt(a) - parseInt(b);
+          })
+          .reduce((obj, key) => {
+            obj[key] = validCourses[key];
+            return obj;
+          }, {});
+
+        setCourses(sortedCourses);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+      toast.error("Failed to load courses");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchCourses();
-  }, []);
+  // Function to handle course data after selection or fetching
+  const handleCourseData = async (courseData, id) => {
+    const isDiploma = courseData.DiplomaCourse === "Yes";
+    setIsDiplomaCourse(isDiploma);
 
-  // Get minimum start date (2 days from now)
+    if (isDiploma && courseData.diplomaTimes) {
+      const diplomaTimesArray = Array.isArray(courseData.diplomaTimes)
+        ? courseData.diplomaTimes
+        : Object.values(courseData.diplomaTimes);
+
+      // Filter for future dates and sort
+      const validDates = diplomaTimesArray
+        .filter((item) => new Date(item.displayDate) > new Date())
+        .sort((a, b) => new Date(a.displayDate) - new Date(b.displayDate));
+
+      setDiplomaDates(validDates);
+    }
+
+    // Fetch course hours
+    if (courseData.NumberOfHours) {
+      setCourseHours(courseData.NumberOfHours);
+    }
+  };
+
+  // Handle course selection from dropdown
+  const handleCourseSelect = async (course) => {
+    // Reset all dependent fields when course changes
+    setStartDate(null);
+    setEndDate(null);
+    setSelectedDiplomaDate(null);
+    setAlreadyWroteDiploma(false);
+    setIsDiplomaCourse(false);
+    setDiplomaDates([]);
+    setSelectedCourse(course);
+
+    // Fetch and handle course data
+    try {
+      const db = getDatabase();
+      const courseRef = ref(db, `courses/${course.id}`);
+      const snapshot = await get(courseRef);
+
+      if (snapshot.exists()) {
+        const courseData = snapshot.val();
+        await handleCourseData(courseData, course.id);
+      }
+    } catch (error) {
+      console.error('Error fetching course details:', error);
+      toast.error('Failed to load course details');
+    }
+  };
+
+  useEffect(() => {
+    if (selectedCourse) {
+      const expectedTimes = calculateExpectedTimes(selectedCourse, courseHours);
+      // You can set expectedTimes to state or use it directly where needed
+    }
+  }, [selectedCourse, courseHours]);
+
+  // Update this state whenever scheduleData changes
+  useEffect(() => {
+    if (scheduleData?.startDate) {
+      setCurrentCalendarDate(parseISO(scheduleData.startDate));
+    }
+  }, [scheduleData]);
+
+  // Calculate minimum start date (2 days from now)
   const minStartDate = startOfDay(addDays(new Date(), 2));
   
   // Calculate default end date preview (5 months from start)
@@ -358,50 +539,6 @@ const YourWayScheduleMaker = () => {
       return;
     }
     setEndDate(date);
-  };
-
-  const handleCourseSelect = async (course) => {
-    // Reset all dependent fields when course changes
-    setStartDate(null);
-    setEndDate(null);
-    setSelectedDiplomaDate(null);
-    setAlreadyWroteDiploma(false);
-    setIsDiplomaCourse(false);
-    setDiplomaDates([]);
-    setSelectedCourse(course);
-    
-    try {
-      const db = getDatabase();
-      const courseRef = ref(db, `courses/${course.id}`);
-      const snapshot = await get(courseRef);
-
-      if (snapshot.exists()) {
-        const courseData = snapshot.val();
-        const isDiploma = courseData.DiplomaCourse === "Yes";
-        setIsDiplomaCourse(isDiploma);
-
-        if (isDiploma && courseData.diplomaTimes) {
-          const diplomaTimesArray = Array.isArray(courseData.diplomaTimes)
-            ? courseData.diplomaTimes
-            : Object.values(courseData.diplomaTimes);
-
-          // Filter for future dates and sort
-          const validDates = diplomaTimesArray
-            .filter(item => new Date(item.displayDate) > new Date())
-            .sort((a, b) => new Date(a.displayDate) - new Date(b.displayDate));
-
-          setDiplomaDates(validDates);
-        }
-
-        // Fetch course hours
-        if (courseData.NumberOfHours) {
-          setCourseHours(courseData.NumberOfHours);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching course details:', error);
-      toast.error('Failed to load course details');
-    }
   };
 
   // Determine if diploma date selection is allowed
@@ -450,6 +587,7 @@ const YourWayScheduleMaker = () => {
     }
   };
 
+  // Updated distributeItemsAcrossDates function for YourWayScheduleMaker.js
   const distributeItemsAcrossDates = (items, startDate, endDate) => {
     let currentDate = startOfDay(startDate);
     const endDateTime = startOfDay(endDate);
@@ -469,49 +607,50 @@ const YourWayScheduleMaker = () => {
 
     const totalDays = availableDates.length;
     const allItems = items.flatMap(unit => unit.items);
-    const totalMultiplier = allItems.reduce((sum, item) => sum + (item.multiplier || 1), 0);
+    const totalMultiplier = allItems.reduce((sum, item) => {
+      const type = item.type?.toLowerCase();
+      if (type === 'exam') return sum + 4;
+      if (type === 'assignment') return sum + 2;
+      return sum + (item.multiplier || 1);
+    }, 0);
+
     let scheduledItems = [];
     let accumulatedMultiplier = 0;
-
-    // Calculate total course minutes
     const totalMinutes = courseHours * 60;
 
     allItems.forEach((item) => {
-      accumulatedMultiplier += item.multiplier || 1;
+      const type = item.type?.toLowerCase();
+      
+      if (type === 'exam') {
+        accumulatedMultiplier += 4;
+      } else if (type === 'assignment') {
+        accumulatedMultiplier += 2;
+      } else {
+        accumulatedMultiplier += (item.multiplier || 1);
+      }
+      
       const idealDayIndex = Math.floor((accumulatedMultiplier / totalMultiplier) * (totalDays - 1));
       const scheduledDate = availableDates[Math.min(idealDayIndex, totalDays - 1)];
 
-      // Calculate minutes for this item
-      const estimatedMinutes = calculateItemMinutes(totalMinutes, totalMultiplier, item.multiplier);
+      const estimatedMinutes = calculateItemMinutes(
+        totalMinutes, 
+        totalMultiplier, 
+        item.multiplier,
+        type
+      );
 
+      // Keep all original item data and add our schedule-specific fields
       scheduledItems.push({
-        ...item,
+        ...item, // Preserves gradebookIndex, sequence, multiplier, etc.
         date: scheduledDate.toISOString(),
-        estimatedMinutes, // Added estimatedMinutes
+        estimatedMinutes,
       });
     });
 
     return scheduledItems;
   };
 
-  // Calculate type distribution for the combined section
-  const typeDistribution = selectedCourse && courseHours ? selectedCourse.units.flatMap(unit => unit.items).reduce((acc, item) => {
-    const type = item.type || 'Other';
-    const minutes = calculateItemMinutes(courseHours * 60, selectedCourse.units.flatMap(u => u.items).reduce((sum, i) => sum + (i.multiplier || 1), 0), item.multiplier);
-    
-    if (!acc[type]) {
-      acc[type] = { count: 0, totalMinutes: 0 };
-    }
-    
-    acc[type].count++;
-    acc[type].totalMinutes += minutes;
-    
-    return acc;
-  }, {}) : {};
-
-  // Function to handle smooth scrolling with a delay
   const scrollToSchedule = () => {
-    // Add a small delay to ensure the DOM has updated
     setTimeout(() => {
       if (scheduleRef.current) {
         scheduleRef.current.scrollIntoView({ 
@@ -519,9 +658,15 @@ const YourWayScheduleMaker = () => {
           block: 'start'
         });
       }
-    }, 100); // 100ms delay should be sufficient
+    }, 100);
   };
 
+  // Function to encode the email for Firebase path
+  const encodeEmailForPath = (email) => {
+    return email ? email.replace(/[.#$\[\]]/g, ',') : null;
+  };
+
+  // Updated handleCreateSchedule function
   const handleCreateSchedule = () => {
     if (!selectedCourse || !startDate || !endDate) {
       toast.error("Please select a course and specify start and end dates");
@@ -533,6 +678,7 @@ const YourWayScheduleMaker = () => {
       return;
     }
 
+    // Schedule all course items
     const scheduledItems = distributeItemsAcrossDates(
       selectedCourse.units,
       startDate,
@@ -541,6 +687,7 @@ const YourWayScheduleMaker = () => {
 
     if (scheduledItems.length === 0) return;
 
+    // Map scheduled items back to their original units while preserving unit structure
     const scheduledUnits = selectedCourse.units.map(unit => ({
       ...unit,
       items: unit.items.map(item => {
@@ -548,20 +695,68 @@ const YourWayScheduleMaker = () => {
           scheduled => scheduled.title === item.title
         );
         return scheduledItem || item;
-      })
-    }));
+      }).filter(item => item.date) // Ensure only scheduled items are included
+    })).filter(unit => unit.items.length > 0);
 
-    setScheduleData({
+    // Add Schedule Information unit at the start
+    scheduledUnits.unshift({
+      name: "Schedule Information",
+      items: [{
+        date: startDate.toISOString(),
+        multiplier: 0,
+        sequence: 0,
+        title: "Schedule Created",
+        type: "info"
+      }]
+    });
+
+    // Create final schedule structure
+    const schedule = {
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
       courseId: selectedCourse.id,
       courseTitle: selectedCourse.Title,
       units: scheduledUnits,
-    });
+    };
 
-    // Trigger scroll after schedule data is set
+    setScheduleData(schedule);
+    setScheduleCreated(true);
     scrollToSchedule();
   };
+
+  // Function to save the schedule
+  const handleSaveSchedule = async () => {
+    if (!scheduleData || !courseId || !user_email_key) {
+      toast.error("Cannot save schedule. Missing required data.");
+      return;
+    }
+  
+    const db = getDatabase();
+    const encodedEmail = encodeEmailForPath(user_email_key);
+    
+    if (!encodedEmail) {
+      toast.error("Invalid user email");
+      return;
+    }
+  
+    const basePath = `students/${encodedEmail}/courses/${courseId}`;
+  
+    try {
+      // Update ScheduleStartDate and ScheduleEndDate
+      await Promise.all([
+        set(ref(db, `${basePath}/ScheduleStartDate`), scheduleData.startDate),
+        set(ref(db, `${basePath}/ScheduleEndDate`), scheduleData.endDate),
+        set(ref(db, `${basePath}/ScheduleJSON`), scheduleData),
+      ]);
+  
+      toast.success("Schedule saved successfully!");
+      onScheduleSaved(scheduleData);
+    } catch (error) {
+      console.error("Error saving schedule:", error);
+      toast.error("Failed to save schedule. Please try again.");
+    }
+  };
+  
 
   const getCalendarEvents = () => {
     if (!scheduleData) return [];
@@ -596,9 +791,6 @@ const YourWayScheduleMaker = () => {
           cursor: 'pointer',
           transition: 'opacity 0.2s ease',
           boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-          ':hover': {
-            opacity: 0.9
-          }
         }
       };
     },
@@ -688,9 +880,78 @@ const YourWayScheduleMaker = () => {
     </div>
   );
 
+  // Update the Dialog content
+  const dialogContent = (
+    <DialogDescription>
+      {selectedEvent && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <div><strong>Type:</strong> {selectedEvent.type}</div>
+            <div><strong>Date:</strong> {format(parseISO(selectedEvent.date), 'MMM dd, yyyy')}</div>
+            
+            {selectedEvent.type?.toLowerCase() !== 'info' && (
+              <div className="mt-4">
+                {selectedEvent.type?.toLowerCase() === 'lesson' ? (
+                  <div className="flex items-center space-x-2">
+                    <CalendarClock className="h-4 w-4 text-green-500" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-600">Time Available</div>
+                      <div className="text-green-600">
+                        {selectedEvent.estimatedMinutes >= 60 
+                          ? `${Math.floor(selectedEvent.estimatedMinutes / 60)}h ${selectedEvent.estimatedMinutes % 60}m`
+                          : `${selectedEvent.estimatedMinutes}m`}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <Clock className="h-4 w-4 text-blue-500" />
+                    <div>
+                      <div className="text-sm font-medium text-gray-600">Expected Time</div>
+                      <div className="text-blue-600">
+                        {selectedEvent.type?.toLowerCase() === 'assignment' ? '1 hour' : '2 hours'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {selectedEvent.type === 'exam' && (
+            <Alert className="bg-blue-50 border-blue-200">
+              <AlertDescription className="text-blue-700">
+                This exam will take 2 hours to complete. While this date appears in your schedule, you are not required to write the exam specifically on this day. You'll have access to a variety of available dates and times to choose from through our online booking system.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {selectedEvent.type === 'lesson' && (
+            <Alert className="bg-green-50 border-green-200">
+              <AlertDescription className="text-green-700">
+                You have {selectedEvent.estimatedMinutes >= 60 
+                  ? `${Math.floor(selectedEvent.estimatedMinutes / 60)}h ${selectedEvent.estimatedMinutes % 60}m`
+                  : `${selectedEvent.estimatedMinutes}m`} 
+                allocated in your schedule for this lesson. This timing allows you to work at your own pace while staying On Track with your course progress.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {selectedEvent.type === 'assignment' && (
+            <Alert className="bg-purple-50 border-purple-200">
+              <AlertDescription className="text-purple-700">
+                This assignment will take approximately 1 hour to complete. You can work on it at your own pace within your scheduled timeframe.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
+    </DialogDescription>
+  );
+
   return (
     <div className="flex flex-col space-y-8 p-4">
-      <FeatureCard 
+      <FeatureCard
         className="bg-gradient-to-br from-muted to-background"
         customHeader={
           <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-purple-50 rounded-t-lg">
@@ -713,39 +974,50 @@ const YourWayScheduleMaker = () => {
       >
         <div className="space-y-4 pt-6">
           {/* Course Selection */}
-          <div>
-            <Label>Select Course</Label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-between mt-1"
-                >
-                  {selectedCourse ? selectedCourse.Title : "Select a course..."}
-                  <ChevronDown className="h-4 w-4 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                {Object.entries(courses).map(([grade, gradeCourses]) => (
-                  <DropdownMenuSub key={grade}>
-                    <DropdownMenuSubTrigger>
-                      Grade {grade}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      {gradeCourses.map((course) => (
-                        <DropdownMenuItem
-                          key={course.id}
-                          onSelect={() => handleCourseSelect(course)}
-                        >
-                          {course.Title}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          {courseId ? (
+            // When courseId is provided, display the selected course and lock it
+            <div>
+              <Label>Selected Course</Label>
+              <p className="text-lg font-semibold">
+                {selectedCourse ? selectedCourse.Title : "Loading..."}
+              </p>
+            </div>
+          ) : (
+            // When courseId is null, show the course selection dropdown and allow changing
+            <div>
+              <Label>Select Course</Label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between mt-1"
+                  >
+                    {selectedCourse ? selectedCourse.Title : "Select a course..."}
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                  {Object.entries(courses).map(([grade, gradeCourses]) => (
+                    <DropdownMenuSub key={grade}>
+                      <DropdownMenuSubTrigger>
+                        Grade {grade}
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {gradeCourses.map((course) => (
+                          <DropdownMenuItem
+                            key={course.id}
+                            onSelect={() => handleCourseSelect(course)}
+                          >
+                            {course.Title}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
 
           {/* Diploma Section */}
           {diplomaSelectSection}
@@ -785,6 +1057,7 @@ const YourWayScheduleMaker = () => {
                 withPortal
                 monthsShown={1}
                 openToDate={startDate ? getDefaultEndDate(startDate) : null}
+                preventOpenOnFocus={true}
               />
               {/* Updated end date message logic */}
               {isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate ? (
@@ -832,34 +1105,6 @@ const YourWayScheduleMaker = () => {
                       </p>
                     </div>
                   )}
-                </div>
-              </div>
-
-              {/* Time Distribution - stays the same but moved inside the condition */}
-              <div className="p-6 bg-gradient-to-br from-slate-50 to-white rounded-lg border border-slate-200 shadow-sm">
-                <h5 className="font-semibold text-lg mb-3">Estimated Time Distribution</h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(typeDistribution).map(([type, data]) => {
-                    const hours = Math.floor(data.totalMinutes / 60);
-                    const minutes = data.totalMinutes % 60;
-                    const colors = getEventColor(type);
-                    
-                    return (
-                      <div
-                        key={type}
-                        className="p-3 rounded-md"
-                        style={{
-                          background: colors.background,
-                          color: colors.color
-                        }}
-                      >
-                        <div className="font-medium">{getTypeDisplayName(type)}</div>
-                        <div className="text-sm">
-                          {data.count} {data.count === 1 ? 'item' : 'items'} • {hours}h {minutes}m total
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
             </div>
@@ -957,6 +1202,8 @@ const YourWayScheduleMaker = () => {
                   endAccessor="end"
                   views={['month']}
                   defaultView="month"
+                  date={currentCalendarDate}
+                  onNavigate={setCurrentCalendarDate}
                   onSelectEvent={handleEventSelect}
                   onShowMore={(events, date) => {
                     setShowMoreEvents(events);
@@ -996,8 +1243,8 @@ const YourWayScheduleMaker = () => {
                               setShowMoreDate(null);
                             }}
                           >
-                            <p className="font-medium">{event.title}</p>
-                            <p className="text-sm opacity-75">{event.type}</p>
+                            <div className="font-medium">{event.title}</div>
+                            <div className="text-sm opacity-75">{event.type}</div>
                           </div>
                         );
                       })}
@@ -1026,10 +1273,10 @@ const YourWayScheduleMaker = () => {
                           }}
                           onClick={() => handleEventSelect({ details: item })}
                         >
-                          <p className="font-medium">{item.title}</p>
-                          <p className="text-sm opacity-75">
+                          <div className="font-medium">{item.title}</div>
+                          <div className="text-sm opacity-75">
                             {format(parseISO(item.date), 'MMM dd, yyyy')} - {item.type}
-                          </p>
+                          </div>
                         </div>
                       );
                     })}
@@ -1038,6 +1285,21 @@ const YourWayScheduleMaker = () => {
               </ScrollArea>
             </TabsContent>
           </Tabs>
+
+          {/* Add the Save Schedule button */}
+          {courseId && (
+            <div className="flex justify-end space-x-4 mt-4">
+              <Button variant="outline" onClick={() => {
+                setScheduleData(null);
+                setScheduleCreated(false);
+              }}>
+                Back
+              </Button>
+              <Button onClick={handleSaveSchedule}>
+                Save Schedule
+              </Button>
+            </div>
+          )}
         </FeatureCard>
       )}
 
@@ -1047,50 +1309,7 @@ const YourWayScheduleMaker = () => {
           <DialogHeader>
             <DialogTitle>{selectedEvent?.title}</DialogTitle>
           </DialogHeader>
-          <DialogDescription>
-            {selectedEvent && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <p><strong>Type:</strong> {selectedEvent.type}</p>
-                  <p><strong>Date:</strong> {format(parseISO(selectedEvent.date), 'MMM dd, yyyy')}</p>
-                  {selectedEvent.type !== 'exam' && (
-                    <p>
-                      <strong>Estimated Time:</strong>{' '}
-                      {selectedEvent.estimatedMinutes >= 60 
-                        ? `${Math.floor(selectedEvent.estimatedMinutes / 60)}h ${selectedEvent.estimatedMinutes % 60}m`
-                        : `${selectedEvent.estimatedMinutes}m`
-                      }
-                    </p>
-                  )}
-                </div>
-
-                {/* Conditional messages based on type */}
-                {selectedEvent.type === 'exam' && (
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <AlertDescription className="text-blue-700">
-                      This exam is a 3-hour assessment that you can complete from home. While this date appears in your schedule, you are not required to write the exam specifically on this day. You'll have access to a variety of available dates and times to choose from through our online booking system. The exam is conducted via secure video supervision to maintain academic integrity.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {selectedEvent.type === 'lesson' && (
-                  <Alert className="bg-green-50 border-green-200">
-                    <AlertDescription className="text-green-700">
-                      While this date is not a hard deadline, maintaining this general pace will help you stay On Track with your course progress.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {selectedEvent.type === 'assignment' && (
-                  <Alert className="bg-purple-50 border-purple-200">
-                    <AlertDescription className="text-purple-700">
-                      These assignments can be completed from home at your own pace. While the date shown is not a strict deadline, staying close to this schedule will help you maintain steady progress through your course.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            )}
-          </DialogDescription>
+          {dialogContent}
         </DialogContent>
       </Dialog>
     </div>

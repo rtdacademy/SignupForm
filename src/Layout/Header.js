@@ -2,9 +2,24 @@ import React from 'react';
 import { FaSignOutAlt, FaArrowLeft } from 'react-icons/fa';
 import { useLocation } from 'react-router-dom';
 
+const RTDLogo = () => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 75 75" 
+    className="h-10 w-10"
+    role="img"
+    aria-label="RTD Academy Logo"
+  >
+    <g transform="translate(10, 25)">
+      <polygon points="40 0 46.5 12 53 24 40 24 27 24 33.5 12 40 0" fill="#008B8B"/>
+      <polygon points="53 24 59.5 36 66 48 53 48 40 48 46.5 36 53 24" fill="#E0FFFF"/>
+      <polygon points="27 24 33.5 36 40 48 27 48 14 48 20.5 36 27 24" fill="#20B2AA"/>
+    </g>
+  </svg>
+);
+
 function Header({ user, onLogout, onBackClick, onDashboardClick, portalType }) {
   const location = useLocation();
-  const isTeacherDashboard = location.pathname === '/teacher-dashboard';
 
   const getUserDisplayName = () => {
     if (user) {
@@ -14,51 +29,51 @@ function Header({ user, onLogout, onBackClick, onDashboardClick, portalType }) {
   };
 
   return (
-    <header className="bg-primary text-white py-2 shadow-md">
-      <div className="container mx-auto px-3 flex justify-between items-center h-8">
-        {/* Left section with title */}
-        <div className="flex items-center justify-end lg:justify-start w-2/3 lg:w-1/3">
-          <div className="hidden lg:block mr-3">
+    <header className="bg-gray-800 border-b border-gray-700">
+      <div className="container mx-auto px-4">
+        <div className="h-16 flex justify-between items-center">
+          {/* Left section */}
+          <div className="flex items-center space-x-6">
             {onBackClick && (
               <button 
                 onClick={onBackClick} 
-                className="text-highlight hover:text-secondary transition-colors duration-200 text-sm"
+                className="text-gray-300 hover:text-white transition-colors duration-200"
               >
-                <FaArrowLeft className="inline mr-1 text-xs" /> Back
+                <FaArrowLeft className="text-sm" />
               </button>
             )}
-          </div>
-          <div className="flex items-center whitespace-nowrap">
-            <h1 
-              className="text-base font-bold cursor-pointer hover:text-highlight transition-colors duration-200 mr-2"
+            <div 
+              className="flex items-center space-x-3 cursor-pointer group"
               onClick={onDashboardClick}
             >
-              RTD Academy
-            </h1>
-            <h2 className="text-xs font-semibold text-primary bg-highlight px-2 py-0.5 rounded">
-              {portalType}
-            </h2>
+              <RTDLogo />
+              <div className="flex flex-col">
+                <h1 className="text-white text-lg font-semibold group-hover:text-gray-200 transition-colors duration-200">
+                  RTD Academy
+                </h1>
+                <div className="text-xs font-medium text-gray-300">
+                  {portalType}
+                </div>
+              </div>
+            </div>
           </div>
+
+          {/* Right section */}
+          {user && (
+            <div className="flex items-center space-x-6">
+              <span className="text-gray-300 text-sm hidden lg:inline">
+                Welcome, {getUserDisplayName()}
+              </span>
+              <button 
+                onClick={onLogout} 
+                className="flex items-center space-x-2 text-gray-300 hover:text-white text-sm transition-colors duration-200"
+              >
+                <FaSignOutAlt /> 
+                <span className="hidden lg:inline">Sign Out</span>
+              </button>
+            </div>
+          )}
         </div>
-
-        {/* Empty middle section - hidden on mobile */}
-        <div className="hidden lg:block w-1/3" />
-
-        {/* Right section */}
-        {user && (
-          <div className="flex items-center justify-end space-x-3 w-1/3">
-            <span className="hidden lg:inline-block text-highlight text-sm">
-              Welcome, {getUserDisplayName()}!
-            </span>
-            <button 
-              onClick={onLogout} 
-              className="flex items-center space-x-1 bg-tertiary hover:bg-secondary text-white transition-colors duration-200 px-2 py-1 rounded text-sm"
-            >
-              <FaSignOutAlt className="text-xs" /> 
-              <span className="hidden lg:inline-block">Sign Out</span>
-            </button>
-          </div>
-        )}
       </div>
     </header>
   );

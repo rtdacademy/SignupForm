@@ -29,6 +29,7 @@ import DatePicker from 'react-datepicker';
 import "react-phone-input-2/lib/style.css";
 import "react-datepicker/dist/react-datepicker.css";
 import SchoolAddressPicker from '../components/SchoolAddressPicker';
+import HomeSchoolSelector from '../components/HomeSchoolSelector'; // Import HomeSchoolSelector
 import CapitalizedInput from '../components/CapitalizedInput';
 import { getDatabase, ref as databaseRef, get, set } from 'firebase/database';
 import {
@@ -123,6 +124,24 @@ const formatDiplomaDate = (dateObj) => {
   return `${dateObj.month} ${date.getUTCFullYear()} (${dateObj.displayDate})`;
 };
 
+// === Utility Functions for Student Types ===
+
+const shouldShowSchoolSelection = (studentType) => {
+  return studentType === 'Non-Primary' || studentType === 'Home Education' || studentType === 'Summer School';
+};
+
+const isHomeEducation = (studentType) => {
+  return studentType === 'Home Education';
+};
+
+
+// === Summer Date Checker ===
+const isDateInSummer = (date) => {
+  if (!date) return false;
+  const month = new Date(date).getMonth();
+  return month === 6 || month === 7; // July (6) or August (7)
+};
+
 // === DiplomaMonthSelector Component ===
 const DiplomaMonthSelector = ({ dates, selectedDate, onChange, error }) => {
   return (
@@ -162,7 +181,12 @@ const DiplomaMonthSelector = ({ dates, selectedDate, onChange, error }) => {
   );
 };
 
-const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onSave }, ref) => {
+const NonPrimaryStudentForm = forwardRef(({ 
+  onValidationChange, 
+  initialData, 
+  onSave, 
+  studentType  // Add this prop
+}, ref) => {
   const { user, user_email_key } = useAuth();
   const uid = user?.uid; // Extract uid from user
   const [profileData, setProfileData] = useState(null);
@@ -172,12 +196,57 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
 
   const [usePreferredFirstName, setUsePreferredFirstName] = useState(false);
 
+  const getCurrentSchoolYear = () => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    const startYear = currentMonth >= 8 ? currentYear : currentYear - 1;
+    
+    // Convert to YY/YY format
+    const startYY = startYear.toString().slice(-2);
+    const endYY = (startYear + 1).toString().slice(-2);
+    
+    console.log('Current School Year:', `${startYY}/${endYY}`);
+    return `${startYY}/${endYY}`;
+  };
+  
+  const getNextSchoolYear = () => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    const startYear = currentMonth >= 8 ? currentYear + 1 : currentYear;
+    
+    // Convert to YY/YY format
+    const startYY = startYear.toString().slice(-2);
+    const endYY = (startYear + 1).toString().slice(-2);
+    
+    console.log('Next School Year:', `${startYY}/${endYY}`);
+    return `${startYY}/${endYY}`;
+  };
+
   const getInitialFormData = () => {
     if (initialData) {
+      console.log('Using initial data:', initialData);
       return initialData;
     }
-
-    return {
+  
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    let defaultEnrollmentYear;
+  
+    console.log('Current month:', currentMonth);
+  
+    if (currentMonth === 7) { // August
+      defaultEnrollmentYear = getNextSchoolYear();
+      console.log('August - setting to next school year:', defaultEnrollmentYear);
+    } else if (currentMonth >= 8 || currentMonth <= 2) { // September to March
+      defaultEnrollmentYear = getCurrentSchoolYear();
+      console.log('Sept-March - setting to current school year:', defaultEnrollmentYear);
+    }
+  
+    console.log('Default enrollment year:', defaultEnrollmentYear);
+  
+    const formData = {
       firstName: validationRules.firstName.format(user?.displayName?.split(' ')[0] || ''),
       lastName: validationRules.lastName.format(user?.displayName?.split(' ').slice(1).join(' ') || ''),
       preferredFirstName: '', 
@@ -185,7 +254,7 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
       currentSchool: '',
       schoolAddress: null,
       birthday: '',
-      enrollmentYear: '',
+      enrollmentYear: defaultEnrollmentYear || '',
       albertaStudentNumber: '',
       courseId: '',
       courseName: '',
@@ -197,9 +266,11 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
       endDate: '',
       additionalInformation: '',
       diplomaMonth: null,
-      studentType: 'Non-Primary',
+      studentType: studentType || 'Non-Primary', // Initialize with studentType prop
       age: null
     };
+    console.log('Initial form data:', formData);
+    return formData;
   };
 
   const [formData, setFormData] = useState(getInitialFormData());
@@ -220,7 +291,8 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
   const [dateErrors, setDateErrors] = useState({
     startDate: '',
     endDate: '',
-    diplomaDate: ''
+    diplomaDate: '',
+    summerNotice: '' // Add this
   });
 
   // New state for enrolled courses with their statuses
@@ -286,7 +358,7 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
   }, [profileData]);
 
   // Initialize form validation
-  const options = useMemo(() => ({
+  const validationOptions = useMemo(() => ({
     conditionalValidation: {
       parentFirstName: () => !user18OrOlder,
       parentLastName: () => !user18OrOlder,
@@ -308,7 +380,7 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
     isValid,
     handleBlur,
     validateForm
-  } = useFormValidation(formData, rules, options); 
+  } = useFormValidation(formData, rules, validationOptions); 
 
   // Memoize validateForm ref to prevent it from causing infinite updates
   const validateFormRef = useRef(validateForm);
@@ -338,38 +410,27 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
     }
   };
 
-  // Debounced save to Firebase
-  const debouncedSave = useCallback(
-    _.debounce(async (newData) => {
-      await saveToPendingRegistration(newData);
-    }, 1000),
-    []
-  );
+
 
   // Handle form field changes with functional updates
   const handleFormChange = useCallback((e) => {
     const { name, value } = e.target;
 
-    setFormData(prevData => {
-      const newFormData = {
-        ...prevData,
+    setFormData(prev => {
+      const newData = {
+        ...prev,
         [name]: value
       };
 
-      debouncedSave(newFormData);
-
-      return newFormData;
+     
+      
+      return newData;
     });
 
     handleBlur(name);
-  }, [handleBlur, debouncedSave]);
+  }, [handleBlur]);
 
-  // Add cleanup for debouncedSave
-  useEffect(() => {
-    return () => {
-      debouncedSave.cancel();
-    };
-  }, [debouncedSave]);
+  
 
   // Handle date changes
   const handleDateChange = (date) => {
@@ -421,6 +482,17 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
       return;
     }
 
+    // Summer school validation
+    if (studentType === 'Summer School') {
+      if (!isDateInSummer(date)) {
+        setDateErrors(prev => ({
+          ...prev,
+          endDate: 'Summer school courses must end in July or August'
+        }));
+        return;
+      }
+    }
+
     // Update the end date
     handleFormChange({
       target: {
@@ -430,7 +502,20 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
     });
     setDateErrors(prev => ({ ...prev, endDate: '' }));
 
-    // Fetch course hours if we have both dates and a course selected
+    // Add summer school notification for regular students
+    if ((studentType === 'Non-Primary' || studentType === 'Home Education') && isDateInSummer(date)) {
+      setDateErrors(prev => ({
+        ...prev,
+        summerNotice: 'Since you selected an end date in July or August, this will be considered a summer school registration.'
+      }));
+    } else {
+      setDateErrors(prev => ({
+        ...prev,
+        summerNotice: ''
+      }));
+    }
+
+    // Rest of your existing code...
     if (formData.courseId && formData.startDate) {
       try {
         const db = getDatabase();
@@ -475,7 +560,7 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
   // Update validation status
   useEffect(() => {
     onValidationChange(isValid && isEligible && validateDates());
-  }, [isValid, isEligible, onValidationChange, dateErrors]);
+  }, [isValid, isEligible, onValidationChange]);
 
   // Fetch courses from Firebase
   useEffect(() => {
@@ -567,12 +652,18 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
     const currentSchoolYear = getCurrentSchoolYear();
     const nextSchoolYear = getNextSchoolYear();
 
+    console.log('Enrollment year effect - current month:', currentMonth);
+  console.log('Current school year:', currentSchoolYear);
+  console.log('Next school year:', nextSchoolYear);
+
     let availableYears = [];
     let message = '';
 
     if (currentMonth === 7) { // August
       availableYears = [nextSchoolYear];
       message = `We are no longer taking registrations for the current school year, but you are free to start now. You will be registered as a ${nextSchoolYear} student.`;
+
+      console.log('Setting enrollment year to:', nextSchoolYear);
       handleFormChange({
         target: {
           name: 'enrollmentYear',
@@ -582,6 +673,8 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
     } else if (currentMonth >= 8 || currentMonth <= 2) { // September to March
       availableYears = [currentSchoolYear];
       message = `Registration is only available for the current school year. Registration for next school year (${nextSchoolYear}) will open in April.`;
+
+      console.log('Setting enrollment year to:', currentSchoolYear);
       handleFormChange({
         target: {
           name: 'enrollmentYear',
@@ -593,6 +686,7 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
       message = `Please select either the current school year (${currentSchoolYear}) if you intend to complete the course before September, or select the next school year (${nextSchoolYear}) if you intend to finish beyond September.`;
     }
 
+    console.log('Available years:', availableYears);
     setAvailableEnrollmentYears(availableYears);
     setEnrollmentYearMessage(message);
   }, [handleFormChange]);
@@ -679,30 +773,38 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
 
   // Update age-related information and eligibility
   const updateAgeInfo = () => {
-    if (formData.birthday && formData.enrollmentYear) {
-      const [enrollmentStartYear] = formData.enrollmentYear.split('/');
-      const lastSeptember = new Date(parseInt('20' + enrollmentStartYear, 10) - 1, 8, 1); // September 1st of the previous year
-      const nextSeptember = new Date(parseInt('20' + enrollmentStartYear, 10), 8, 1); // September 1st of the enrollment start year
-      const today = new Date();
-      const currentAge = calculateAge(formData.birthday, today);
-      const ageLastSeptember = calculateAge(formData.birthday, lastSeptember);
-      const ageNextSeptember = calculateAge(formData.birthday, nextSeptember);
-
-      if (ageLastSeptember >= 20) {
-        setAgeInfo(`You are currently ${currentAge} years old. You are over 20 and not considered a school-age student.`);
-        setIsEligible(false);
-      } else if (currentAge >= 20 || ageNextSeptember >= 20) {
-        setAgeInfo(`You are currently ${currentAge} years old. You are a school-age student for the current school year, but will not be for the next school year.`);
-        setIsEligible(false);
-      } else if (currentAge > 18) {
-        setAgeInfo(`You are currently ${currentAge} years old. You are considered a school-age student for both the current and next school year.`);
-        setIsEligible(true);
-      } else {
-        setAgeInfo(`You are currently ${currentAge} years old and considered a school-age student.`);
-        setIsEligible(true);
-      }
-    } else {
+    if (!formData.birthday || !formData.enrollmentYear) {
       setAgeInfo('');
+      setIsEligible(true);
+      return;
+    }
+  
+    // If it's an adult student, don't show age messaging
+    if (studentType === 'Adult Student') {
+      setAgeInfo('');
+      setIsEligible(true);
+      return;
+    }
+  
+    const [enrollmentStartYear] = formData.enrollmentYear.split('/');
+    const lastSeptember = new Date(parseInt('20' + enrollmentStartYear, 10) - 1, 8, 1);
+    const nextSeptember = new Date(parseInt('20' + enrollmentStartYear, 10), 8, 1);
+    const today = new Date();
+    const currentAge = calculateAge(formData.birthday, today);
+    const ageLastSeptember = calculateAge(formData.birthday, lastSeptember);
+    const ageNextSeptember = calculateAge(formData.birthday, nextSeptember);
+  
+    if (ageLastSeptember >= 20) {
+      setAgeInfo(`You are currently ${currentAge} years old. You are over 20 and not considered a school-age student.`);
+      setIsEligible(false);
+    } else if (currentAge >= 20 || ageNextSeptember >= 20) {
+      setAgeInfo(`You are currently ${currentAge} years old. You are a school-age student for the current school year, but will not be for the next school year.`);
+      setIsEligible(false);
+    } else if (currentAge > 18) {
+      setAgeInfo(`You are currently ${currentAge} years old. You are considered a school-age student for both the current and next school year.`);
+      setIsEligible(true);
+    } else {
+      setAgeInfo(`You are currently ${currentAge} years old and considered a school-age student.`);
       setIsEligible(true);
     }
   };
@@ -769,34 +871,42 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
   };
 
   // Validate date fields
-  const validateDates = () => {
+  const validateDates = useCallback(() => {
     let valid = true;
-    const newDateErrors = { ...dateErrors };
+    const newDateErrors = {};
 
     if (!formData.startDate) {
       newDateErrors.startDate = 'Start date is required';
       valid = false;
-    } else {
-      newDateErrors.startDate = '';
     }
 
     if (!formData.endDate) {
       newDateErrors.endDate = 'End date is required';
       valid = false;
-    } else {
-      newDateErrors.endDate = '';
     }
 
     if (isDiplomaCourse && !alreadyWroteDiploma && !selectedDiplomaDate) {
       newDateErrors.diplomaDate = 'Diploma date is required';
       valid = false;
-    } else {
-      newDateErrors.diplomaDate = '';
     }
 
     setDateErrors(newDateErrors);
     return valid;
-  };
+  }, [formData.startDate, formData.endDate, isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate]);
+
+
+  useEffect(() => {
+    const debouncedValidation = _.debounce(() => {
+      const isFormValid = isValid && 
+                         isEligible && 
+                         validateDates() && 
+                         formData.courseId; 
+      onValidationChange(isFormValid);
+    }, 300);
+  
+    debouncedValidation();
+    return () => debouncedValidation.cancel();
+  }, [isValid, isEligible, validateDates, onValidationChange, formData.courseId]);
 
   // Determine if end date should be readonly
   const isEndDateReadOnly = isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate;
@@ -804,45 +914,27 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
   // Function to get initial birthday date for DatePicker
   const getInitialBirthdayDate = () => {
     const today = new Date();
-    return new Date(today.getUTCFullYear() - 16, today.getUTCMonth(), today.getUTCDate());
+    return new Date(
+      today.getFullYear() - 18,
+      today.getMonth(),
+      today.getDate()
+    );
   };
 
-  // Function to get current school year
-  const getCurrentSchoolYear = () => {
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
-    const startYear = currentMonth >= 8 ? currentYear : currentYear - 1;
-    return `${startYear.toString().slice(-2)}/${(startYear + 1).toString().slice(-2)}`;
-  };
 
-  // Function to get next school year
-  const getNextSchoolYear = () => {
-    const [startYear] = getCurrentSchoolYear().split('/');
-    const nextStartYear = parseInt(startYear, 10) + 1;
-    return `${nextStartYear}/${nextStartYear + 1}`;
-  };
 
   // Handle course selection changes
   const handleCourseChange = async (e) => {
     const { value } = e.target;
-
     const selectedCourse = courses.find(course => course.id === value);
-
+  
     setFormData(prev => ({
       ...prev,
       courseId: value,
       courseName: selectedCourse ? selectedCourse.title : ''
     }));
-
-    // Remove fetching course hours from here
-
-    // Save to pending registration immediately after course change
-    debouncedSave({
-      ...formData,
-      courseId: value,
-      courseName: selectedCourse ? selectedCourse.title : ''
-    });
+  
+    handleBlur('courseId'); // Add this to mark the field as touched
   };
 
   // Calculate hours per week based on start date, end date, and total hours
@@ -864,20 +956,28 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
     updateAgeInfo();
   }, [formData.birthday, formData.enrollmentYear]);
 
-  // Update preferredFirstName when usePreferredFirstName or firstName changes
-  useEffect(() => {
-    if (!usePreferredFirstName) {
-      setFormData(prevData => ({
-        ...prevData,
-        preferredFirstName: prevData.firstName
-      }));
-    }
-  }, [usePreferredFirstName, formData.firstName]);
+// Update preferredFirstName when usePreferredFirstName or firstName changes
+useEffect(() => {
+  if (profileData?.preferredFirstName) {
+    // If there's a preferred name in the profile, use it and show the checkbox
+    setUsePreferredFirstName(true);
+    setFormData(prevData => ({
+      ...prevData,
+      preferredFirstName: profileData.preferredFirstName
+    }));
+  } else if (!usePreferredFirstName) {
+    // If checkbox is unchecked and no preferred name in profile, use firstName
+    setFormData(prevData => ({
+      ...prevData,
+      preferredFirstName: prevData.firstName
+    }));
+  }
+}, [usePreferredFirstName, formData.firstName, profileData]);
 
   // Update validation status
   useEffect(() => {
     onValidationChange(isValid && isEligible && validateDates());
-  }, [isValid, isEligible, onValidationChange, dateErrors]);
+  }, [isValid, isEligible, onValidationChange]);
 
   // Handle form submission and data retrieval
   useImperativeHandle(ref, () => ({
@@ -885,11 +985,7 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
       const formErrors = validateForm();
       if (Object.keys(formErrors).length === 0 && isEligible && validateDates()) {
         try {
-          // Save final form data
-          await saveToPendingRegistration({
-            ...formData,
-            status: 'complete'
-          });
+          await saveToPendingRegistration(formData);
           return true;
         } catch (err) {
           console.error("Form submission error:", err);
@@ -953,17 +1049,6 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
             </Alert>
           )}
 
-          {/* Form Header */}
-
-          {/* 
-          <Alert className="bg-blue-50 border-blue-200">
-            <InfoIcon className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-sm text-blue-700">
-              You are registering with the following account information. You may edit your name if needed.
-              If this is not your account, please log out and sign in with your correct account.
-            </AlertDescription>
-          </Alert>
- */}
           {/* Profile Information Card */}
           <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
             <CardHeader>
@@ -1102,19 +1187,18 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
                     Birthday <span className="text-red-500">*</span>
                   </label>
                   <DatePicker
-                    selected={formData.birthday ? utcToLocal(formData.birthday) : null}
-                    onChange={handleDateChange}
-                    customInput={<CustomDateInput />}
-                    maxDate={new Date()}
-                    showYearDropdown
-                    scrollableYearDropdown
-                    yearDropdownItemNumber={100}
-                    openToDate={getInitialBirthdayDate()}
-                    className={`w-full p-2 border rounded-md ${
-                      touched.birthday && errors.birthday ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    onBlur={() => handleBlur('birthday')}
-                  />
+  selected={formData.birthday ? utcToLocal(formData.birthday) : null}
+  onChange={handleDateChange}
+  maxDate={new Date()}
+  showYearDropdown
+  scrollableYearDropdown
+  yearDropdownItemNumber={100}
+  openToDate={getInitialBirthdayDate()}
+  className={`w-full p-2 border rounded-md ${
+    touched.birthday && errors.birthday ? 'border-red-500' : 'border-gray-300'
+  }`}
+  onBlur={() => handleBlur('birthday')}
+/>
                   <ValidationFeedback
                     isValid={touched.birthday && !errors.birthday}
                     message={
@@ -1167,185 +1251,198 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
                 </div>
               )}
 
-              {/* School Selection Section */}
-              <div className="space-y-2">
-                <div className="mb-2">
-                  <label className="text-sm font-medium">
-                    Current School <span className="text-red-500">*</span>
-                  </label>
-                  <p className="text-sm text-gray-600">
-                    Start typing the name of your school, and then select it from the list
-                  </p>
+              {/* School/Home Education Selection Section */}
+              {shouldShowSchoolSelection(studentType) && (
+                <div className="space-y-2">
+                  <div className="mb-2">
+                    <label className="text-sm font-medium">
+                      {isHomeEducation(studentType) ? 'Home Education Provider' : (studentType === 'Summer School' ? 'Summer School Provider' : 'Current School')} <span className="text-red-500">*</span>
+                    </label>
+                    <p className="text-sm text-gray-600">
+                      {isHomeEducation(studentType)
+                        ? 'Search for your home education provider'
+                        : (studentType === 'Summer School'
+                          ? 'Search for your summer school provider'
+                          : 'Start typing the name of your school, and then select it from the list')}
+                    </p>
+                  </div>
+
+                  {isHomeEducation(studentType) ? (
+                    <HomeSchoolSelector
+                      onAddressSelect={(addressDetails) => {
+                        if (addressDetails) {
+                          setFormData(prev => ({
+                            ...prev,
+                            currentSchool: addressDetails.name,
+                            schoolAddress: {
+                              name: addressDetails.name,
+                              streetAddress: addressDetails.streetAddress,
+                              city: addressDetails.city,
+                              province: addressDetails.province,
+                              placeId: addressDetails.placeId,
+                              fullAddress: addressDetails.fullAddress,
+                              location: addressDetails.location
+                            }
+                          }));
+                        
+                        } else {
+                          setFormData(prev => ({
+                            ...prev,
+                            currentSchool: '',
+                            schoolAddress: null
+                          }));
+                          
+                        }
+                      }}
+                    />
+                  ) : (
+                    <SchoolAddressPicker
+                      onAddressSelect={(addressDetails) => {
+                        if (addressDetails) {
+                          setFormData(prev => ({
+                            ...prev,
+                            currentSchool: addressDetails.name,
+                            schoolAddress: {
+                              name: addressDetails.name,
+                              streetAddress: addressDetails.streetAddress,
+                              city: addressDetails.city,
+                              province: addressDetails.province,
+                              placeId: addressDetails.placeId,
+                              fullAddress: addressDetails.fullAddress,
+                              location: addressDetails.location
+                            }
+                          }));
+
+                          // Save to pending registration immediately after school address selection
+                         
+                        } else {
+                          setFormData(prev => ({
+                            ...prev,
+                            currentSchool: '',
+                            schoolAddress: null
+                          }));
+
+                          
+                        }
+                      }}
+                      required
+                    />
+                  )}
+                  {touched.schoolAddress && errors.schoolAddress && (
+                    <ValidationFeedback
+                      isValid={false}
+                      message={errors.schoolAddress}
+                    />
+                  )}
                 </div>
-
-                <SchoolAddressPicker
-                  onAddressSelect={(addressDetails) => {
-                    if (addressDetails) {
-                      setFormData(prev => ({
-                        ...prev,
-                        currentSchool: addressDetails.name,
-                        schoolAddress: {
-                          name: addressDetails.name,
-                          streetAddress: addressDetails.streetAddress,
-                          city: addressDetails.city,
-                          province: addressDetails.province,
-                          placeId: addressDetails.placeId,
-                          fullAddress: addressDetails.fullAddress,
-                          location: addressDetails.location
-                        }
-                      }));
-
-                      // Save to pending registration immediately after school address selection
-                      debouncedSave({
-                        ...formData,
-                        currentSchool: addressDetails.name,
-                        schoolAddress: {
-                          name: addressDetails.name,
-                          streetAddress: addressDetails.streetAddress,
-                          city: addressDetails.city,
-                          province: addressDetails.province,
-                          placeId: addressDetails.placeId,
-                          fullAddress: addressDetails.fullAddress,
-                          location: addressDetails.location
-                        }
-                      });
-                    } else {
-                      setFormData(prev => ({
-                        ...prev,
-                        currentSchool: '',
-                        schoolAddress: null
-                      }));
-
-                      // Save to pending registration immediately after school address deselection
-                      debouncedSave({
-                        ...formData,
-                        currentSchool: '',
-                        schoolAddress: null
-                      });
-                    }
-                  }}
-                  required
-                />
-                {touched.schoolAddress && errors.schoolAddress && (
-                  <ValidationFeedback
-                    isValid={false}
-                    message={errors.schoolAddress}
-                  />
-                )}
-              </div>
+              )}
 
               {/* Parent Information Section */}
               {user18OrOlder ? (
-                <div className="space-y-6">
-                  <h4 className="text-md font-medium">Parent/Guardian Information (Optional)</h4>
-                  <p className="text-sm text-gray-600">
-                    As you are 18 or older, parent/guardian information is optional.
-                  </p>
+  <div className="space-y-6">
+    <h4 className="text-md font-medium">Parent/Guardian Information (Optional)</h4>
+    <p className="text-sm text-gray-600">
+      As you are 18 or older, parent/guardian information is optional.
+    </p>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    {readOnlyFields.parentFirstName ? (
-                      renderReadOnlyField('parentFirstName', formData.parentFirstName, 'Parent First Name')
-                    ) : (
-                      <CapitalizedInput
-                        label="Parent First Name"
-                        name="parentFirstName"
-                        value={formData.parentFirstName}
-                        onChange={handleFormChange}
-                        onBlur={() => handleBlur('parentFirstName')}
-                        error={touched.parentFirstName && errors.parentFirstName}
-                        touched={touched.parentFirstName}
-                        successMessage={touched.parentFirstName && !errors.parentFirstName ? validationRules.parentFirstName.successMessage : null}
-                      />
-                    )}
+    <div className="grid grid-cols-2 gap-4">
+      {readOnlyFields.parentFirstName ? (
+        renderReadOnlyField('parentFirstName', formData.parentFirstName, 'Parent First Name')
+      ) : (
+        <CapitalizedInput
+          label="Parent First Name"
+          name="parentFirstName"
+          value={formData.parentFirstName}
+          onChange={handleFormChange}
+          onBlur={() => handleBlur('parentFirstName')}
+          error={touched.parentFirstName && errors.parentFirstName}
+          touched={touched.parentFirstName}
+          required={false}
+          successMessage={touched.parentFirstName && !errors.parentFirstName ? validationRules.parentFirstName.successMessage : null}
+        />
+      )}
 
-                    {readOnlyFields.parentLastName ? (
-                      renderReadOnlyField('parentLastName', formData.parentLastName, 'Parent Last Name')
-                    ) : (
-                      <CapitalizedInput
-                        label="Parent Last Name"
-                        name="parentLastName"
-                        value={formData.parentLastName}
-                        onChange={handleFormChange}
-                        onBlur={() => handleBlur('parentLastName')}
-                        error={touched.parentLastName && errors.parentLastName}
-                        touched={touched.parentLastName}
-                        successMessage={touched.parentLastName && !errors.parentLastName ? validationRules.parentLastName.successMessage : null}
-                      />
-                    )}
-                  </div>
+      {readOnlyFields.parentLastName ? (
+        renderReadOnlyField('parentLastName', formData.parentLastName, 'Parent Last Name')
+      ) : (
+        <CapitalizedInput
+          label="Parent Last Name"
+          name="parentLastName"
+          value={formData.parentLastName}
+          onChange={handleFormChange}
+          onBlur={() => handleBlur('parentLastName')}
+          error={touched.parentLastName && errors.parentLastName}
+          touched={touched.parentLastName}
+          required={false}
+          successMessage={touched.parentLastName && !errors.parentLastName ? validationRules.parentLastName.successMessage : null}
+        />
+      )}
+    </div>
 
-                  {readOnlyFields.parentPhone ? (
-                    renderReadOnlyField('parentPhone', formData.parentPhone, 'Parent Phone Number')
-                  ) : (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">
-                        Parent Phone Number
-                      </label>
-                      <PhoneInput
-                        country={"ca"}
-                        value={formData.parentPhone}
-                        onChange={(value, country, e, formattedValue) => {
-                          handleFormChange({
-                            target: {
-                              name: 'parentPhone',
-                              value: formattedValue
-                            }
-                          });
-                        }}
-                        onBlur={() => handleBlur('parentPhone')}
-                        inputClass={`w-full p-2 border rounded-md ${
-                          touched.parentPhone && errors.parentPhone ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        containerClass="phone-input-container"
-                        buttonClass="phone-input-button"
-                        preferredCountries={["ca"]}
-                        priority={{ ca: 0, us: 1 }}
-                      />
-                      <ValidationFeedback
-                        isValid={touched.parentPhone && !errors.parentPhone}
-                        message={
-                          touched.parentPhone
-                            ? errors.parentPhone || validationRules.parentPhone.successMessage
-                            : null
-                        }
-                      />
-                    </div>
-                  )}
+    {readOnlyFields.parentPhone ? (
+      renderReadOnlyField('parentPhone', formData.parentPhone, 'Parent Phone Number')
+    ) : (
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Parent Phone Number</label>
+        <PhoneInput
+          country={"ca"}
+          value={formData.parentPhone}
+          onChange={(value, country, e, formattedValue) => {
+            handleFormChange({
+              target: {
+                name: 'parentPhone',
+                value: formattedValue
+              }
+            });
+          }}
+          onBlur={() => handleBlur('parentPhone')}
+          inputClass={`w-full p-2 border rounded-md ${
+            touched.parentPhone && errors.parentPhone ? 'border-red-500' : 'border-gray-300'
+          }`}
+          containerClass="phone-input-container"
+          buttonClass="phone-input-button"
+          preferredCountries={["ca"]}
+          priority={{ ca: 0, us: 1 }}
+        />
+        <ValidationFeedback
+          isValid={touched.parentPhone && !errors.parentPhone}
+          message={
+            touched.parentPhone
+              ? errors.parentPhone || validationRules.parentPhone.successMessage
+              : null
+          }
+        />
+      </div>
+    )}
 
-                  {readOnlyFields.parentEmail ? (
-                    renderReadOnlyField('parentEmail', formData.parentEmail, 'Parent Email')
-                  ) : (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">
-                        Parent Email
-                      </label>
-                      <input
-                        type="email"
-                        id="parentEmail"
-                        name="parentEmail"
-                        value={formData.parentEmail}
-                        onChange={handleFormChange}
-                        onBlur={() => handleBlur('parentEmail')}
-                        className={`w-full p-2 border rounded-md ${
-                          touched.parentEmail && errors.parentEmail ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                      />
-                      <ValidationFeedback
-                        isValid={touched.parentEmail && !errors.parentEmail}
-                        message={
-                          touched.parentEmail
-                            ? errors.parentEmail || validationRules.parentEmail.successMessage
-                            : null
-                        }
-                      />
-                      <p className="text-sm text-gray-500">
-                        Your parent/guardian will receive an email and will need to grant permission for you to join the course.
-                        Please ensure that the parent email is correct.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
+    {readOnlyFields.parentEmail ? (
+      renderReadOnlyField('parentEmail', formData.parentEmail, 'Parent Email')
+    ) : (
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Parent Email</label>
+        <input
+          type="email"
+          id="parentEmail"
+          name="parentEmail"
+          value={formData.parentEmail}
+          onChange={handleFormChange}
+          onBlur={() => handleBlur('parentEmail')}
+          className={`w-full p-2 border rounded-md ${
+            touched.parentEmail && errors.parentEmail ? 'border-red-500' : 'border-gray-300'
+          }`}
+        />
+        <ValidationFeedback
+          isValid={touched.parentEmail && !errors.parentEmail}
+          message={
+            touched.parentEmail
+              ? errors.parentEmail || validationRules.parentEmail.successMessage
+              : null
+          }
+        />
+      </div>
+    )}
+  </div>
+) : (
                 <div className="space-y-6">
                   <h4 className="text-md font-medium">Parent/Guardian Information (Required)</h4>
                   <p className="text-sm text-gray-600">
@@ -1469,40 +1566,43 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
               <h3 className="text-md font-semibold">Course Information</h3>
             </CardHeader>
             <CardContent className="grid gap-6">
-              {/* Enrollment Year */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Enrollment Year <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="enrollmentYear"
-                  value={formData.enrollmentYear}
-                  onChange={handleFormChange}
-                  onBlur={() => handleBlur('enrollmentYear')}
-                  className={`w-full p-2 border rounded-md ${
-                    touched.enrollmentYear && errors.enrollmentYear ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  required
-                >
-                  <option value="">Select enrollment year</option>
-                  {availableEnrollmentYears.map((year) => (
-                    <option key={year} value={year}>
-                      {year === getCurrentSchoolYear()
-                        ? `Current School Year (${year})`
-                        : `Next School Year (${year})`}
-                    </option>
-                  ))}
-                </select>
-                <ValidationFeedback
-                  isValid={touched.enrollmentYear && !errors.enrollmentYear}
-                  message={
-                    touched.enrollmentYear
-                      ? errors.enrollmentYear || validationRules.enrollmentYear.successMessage
-                      : null
-                  }
-                />
-                <p className="text-sm text-gray-500">{enrollmentYearMessage}</p>
-              </div>
+
+              
+             {/* Enrollment Year */}
+<div className="space-y-2">
+  <label className="text-sm font-medium">
+    Enrollment Year <span className="text-red-500">*</span>
+  </label>
+  <select
+    name="enrollmentYear"
+    value={formData.enrollmentYear}
+    onChange={handleFormChange}
+    onBlur={() => handleBlur('enrollmentYear')}
+    className={`w-full p-2 border rounded-md ${
+      touched.enrollmentYear && errors.enrollmentYear ? 'border-red-500' : 'border-gray-300'
+    }`}
+    required
+  >
+    <option value="">Select enrollment year</option>
+    {availableEnrollmentYears.map((year) => (
+      <option key={year} value={year}>
+        {year === getCurrentSchoolYear()
+          ? `Current School Year (${year})`
+          : `Next School Year (${year})`}
+      </option>
+    ))}
+  </select>
+  <ValidationFeedback
+    isValid={touched.enrollmentYear && !errors.enrollmentYear}
+    message={
+      touched.enrollmentYear
+        ? errors.enrollmentYear || validationRules.enrollmentYear.successMessage
+        : null
+    }
+  />
+  <p className="text-sm text-gray-500">{enrollmentYearMessage}</p>
+</div>
+
 
               {/* Course Selection */}
               <div className="space-y-2">
@@ -1624,21 +1724,22 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
                     error={dateErrors.startDate}
                   />
 
-                  <DatePickerWithInfo
-                    label="Completion Date"
-                    selected={formData.endDate}
-                    onChange={handleEndDateChange}
-                    minDate={getMinEndDate(formData.startDate)}
-                    maxDate={getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)}
-                    disabled={!formData.startDate}
-                    readOnly={isEndDateReadOnly}
-                    helpText={
-                      isDiplomaCourse && !alreadyWroteDiploma
-                        ? "Automatically set to your diploma exam date"
-                        : "Recommended 5 months for course completion"
-                    }
-                    error={dateErrors.endDate}
-                  />
+<DatePickerWithInfo
+  label="Completion Date"
+  selected={formData.endDate}
+  onChange={handleEndDateChange}
+  minDate={getMinEndDate(formData.startDate)}
+  maxDate={getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)}
+  disabled={!formData.startDate}
+  readOnly={isEndDateReadOnly}
+  helpText={
+    isDiplomaCourse && !alreadyWroteDiploma
+      ? "Automatically set to your diploma exam date"
+      : "Recommended 5 months for course completion"
+  }
+  error={dateErrors.endDate}
+  studentType={studentType}
+/>
                 </div>
 
                 {!formData.startDate && (
@@ -1713,15 +1814,15 @@ const NonPrimaryStudentForm = forwardRef(({ onValidationChange, initialData, onS
           </Card>
 
           {/* Eligibility Alert */}
-          {!isEligible && (
-            <Alert className="bg-red-50 border-red-200">
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-              <AlertDescription className="text-sm text-red-700">
-                You are not eligible to continue with the registration because you are over 20 years old.
-                Please choose a different birthday or select 'Cancel' and register as an Adult Student.
-              </AlertDescription>
-            </Alert>
-          )}
+          {!isEligible && studentType !== 'Adult Student' && (
+  <Alert className="bg-red-50 border-red-200">
+    <AlertTriangle className="h-4 w-4 text-red-600" />
+    <AlertDescription className="text-sm text-red-700">
+      You are not eligible to continue with the registration because you are over 20 years old.
+      Please choose a different birthday or select 'Cancel' and register as an Adult Student.
+    </AlertDescription>
+  </Alert>
+)}
         </>
       )}
     </div>
@@ -1742,9 +1843,68 @@ const DatePickerWithInfo = ({
   maxDate,
   helpText,
   error,
+  notice,
   disabled = false,
-  readOnly = false
+  readOnly = false,
+  studentType
 }) => {
+  // Function to get excluded date intervals based on student type
+  const getExcludedIntervals = () => {
+    const currentYear = new Date().getFullYear();
+    const nextYear = currentYear + 1;
+    
+    if (studentType === 'Summer School') {
+      // Summer School students can ONLY select July and August
+      return [
+        // Exclude January to June
+        {
+          start: new Date(currentYear, 0, 1),
+          end: new Date(currentYear, 5, 30)
+        },
+        // Exclude September to December
+        {
+          start: new Date(currentYear, 8, 1),
+          end: new Date(currentYear, 11, 31)
+        },
+        // Exclude next year's non-summer months
+        {
+          start: new Date(nextYear, 0, 1),
+          end: new Date(nextYear, 5, 30)
+        },
+        {
+          start: new Date(nextYear, 8, 1),
+          end: new Date(nextYear, 11, 31)
+        }
+      ];
+    } else if (studentType === 'Non-Primary' || studentType === 'Home Education') {
+      // Non-Primary and Home Ed students can't select July and August
+      return [
+        // Exclude July and August of current year
+        {
+          start: new Date(currentYear, 6, 1),
+          end: new Date(currentYear, 7, 31)
+        },
+        // Exclude July and August of next year
+        {
+          start: new Date(nextYear, 6, 1),
+          end: new Date(nextYear, 7, 31)
+        }
+      ];
+    }
+    
+    return []; // No restrictions for other student types
+  };
+
+  // Get appropriate warning message based on student type
+  const getWarningMessage = () => {
+    if (studentType === 'Summer School') {
+      return "Note: Available completion dates are limited to July and August. If you need to complete the course outside of summer months, you can go back and select a different student type.";
+    } else if (studentType === 'Non-Primary' || studentType === 'Home Education') {
+      return "Note: If you plan to complete this course during July or August, you can go back and select 'Summer School' as your student type.";
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
@@ -1771,6 +1931,7 @@ const DatePickerWithInfo = ({
         maxDate={maxDate}
         disabled={disabled}
         readOnly={readOnly}
+        excludeDateIntervals={getExcludedIntervals()}
         customInput={
           <CustomDateInput
             disabled={disabled}
@@ -1788,6 +1949,18 @@ const DatePickerWithInfo = ({
           <span className="text-sm text-red-500">{error}</span>
         </div>
       )}
+      {notice && (
+        <div className="flex items-center gap-2 mt-1">
+          <InfoIcon className="h-4 w-4 text-blue-500" />
+          <span className="text-sm text-blue-700">{notice}</span>
+        </div>
+      )}
+     {getWarningMessage() && (
+  <div className="flex items-start gap-2 mt-1">
+    <InfoIcon className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+    <span className="text-sm text-gray-500">{getWarningMessage()}</span>
+  </div>
+)}
     </div>
   );
 };

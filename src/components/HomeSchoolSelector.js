@@ -3,7 +3,7 @@ import GooglePlacesAutocomplete, { geocodeByPlaceId } from 'react-google-places-
 import { Button } from "./ui/button";
 import { X } from "lucide-react";
 
-const SchoolAddressPicker = ({ onAddressSelect }) => {
+const HomeSchoolSelector = ({ onAddressSelect }) => {
   const [selectedPlace, setSelectedPlace] = useState(null);
 
   const handleSelect = async (selection) => {
@@ -12,19 +12,9 @@ const SchoolAddressPicker = ({ onAddressSelect }) => {
       if (results?.[0]) {
         const place = results[0];
         
-        // Check if the address is in Alberta
-        const isInAlberta = place.address_components.some(component => 
-          component.short_name === 'AB' && component.types.includes('administrative_area_level_1')
-        );
-
-        if (!isInAlberta) {
-          console.error('Selected location is not in Alberta');
-          return;
-        }
-        
         // Format the address details
         const addressDetails = {
-          name: selection.label.split(',')[0], // Get just the school name
+          name: selection.label.split(',')[0], // Get organization name
           streetAddress: place.formatted_address.split(',')[0],
           city: place.formatted_address.split(',')[1]?.trim() || '',
           province: 'AB', // Hardcoded for Alberta
@@ -60,7 +50,7 @@ const SchoolAddressPicker = ({ onAddressSelect }) => {
               value: { place_id: selectedPlace.placeId } 
             } : null,
             onChange: handleSelect,
-            placeholder: 'Search for your school in Alberta',
+            placeholder: 'Search for your home education provider',
             classNames: {
               control: () => 'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
               menu: () => 'absolute z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
@@ -72,7 +62,7 @@ const SchoolAddressPicker = ({ onAddressSelect }) => {
             }
           }}
           autocompletionRequest={{
-            types: ['school'],
+            types: ['establishment'], // Allow any establishment type
             componentRestrictions: { country: 'ca' }
           }}
         />
@@ -92,7 +82,7 @@ const SchoolAddressPicker = ({ onAddressSelect }) => {
         <div className="rounded-md border border-input bg-muted p-4 space-y-2">
           <div className="flex justify-between items-start">
             <div>
-              <h4 className="font-medium text-sm">Selected School</h4>
+              <h4 className="font-medium text-sm">Selected Home Education Provider</h4>
               <p className="text-sm text-muted-foreground">{selectedPlace.name}</p>
             </div>
           </div>
@@ -110,4 +100,4 @@ const SchoolAddressPicker = ({ onAddressSelect }) => {
   );
 };
 
-export default SchoolAddressPicker;
+export default HomeSchoolSelector;

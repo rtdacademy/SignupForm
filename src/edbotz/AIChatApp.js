@@ -112,9 +112,9 @@ const processText = (text) => {
     
     // Handle inline math with $ or \(...\)
     if (
-      (part.startsWith('$') && part.endsWith('$') && !part.startsWith('$$')) ||
-      (part.startsWith('\\(') && part.endsWith('\\)'))
-    ) {
+      
+      (part.startsWith('\\(') && part.endsWith('\\)')
+    )) {
       const mathContent = part.startsWith('$')
         ? part.slice(1, -1)
         : cleanMathContent(part.slice(2, -2));
@@ -131,23 +131,46 @@ const processText = (text) => {
             p: ({children}) => <span>{children}</span>,
             code: ({node, inline, className, children, ...props}) => {
               const match = /language-(\w+)/.exec(className || '');
+              
+              // Clean the code content by removing backticks for inline code
+              const codeContent = String(children).replace(/^`|`$/g, '');
+              
               return !inline && match ? (
                 <div className="relative group">
-                  <pre className={`bg-gray-50 p-4 rounded-lg border ${className}`}>
-                    <code className={className} {...props}>{children}</code>
+                  <pre className={cn(
+                    "my-4 overflow-x-auto",
+                    "bg-gray-900 text-gray-50",
+                    "p-4 rounded-lg border border-gray-800",
+                    "shadow-lg",
+                    className
+                  )}>
+                    <div className="flex items-center justify-between mb-2 text-gray-400 text-xs">
+                      <span className="font-medium">{match[1]}</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 px-2 text-gray-400 hover:text-gray-100 hover:bg-gray-800"
+                        onClick={() => navigator.clipboard.writeText(codeContent)}
+                      >
+                        <span className="mr-2">Copy</span>
+                        <PenLine className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <code 
+                      className={cn(
+                        "font-mono text-sm leading-relaxed",
+                        "block w-full",
+                        className
+                      )} 
+                      {...props}
+                    >
+                      {codeContent}
+                    </code>
                   </pre>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => navigator.clipboard.writeText(children.toString())}
-                  >
-                    Copy
-                  </Button>
                 </div>
               ) : (
-                <code className="bg-gray-50 px-1.5 py-0.5 rounded-md font-mono text-sm" {...props}>
-                  {children}
+                <code className="px-1.5 py-0.5 text-purple-600 bg-purple-50 rounded-md font-mono text-sm" {...props}>
+                  {codeContent}
                 </code>
               );
             },
@@ -197,10 +220,13 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
         <div className={cn(
           "rounded-2xl px-4 py-2",
           isUser 
-            ? "bg-blue-500 text-white rounded-br-none [&_.prose]:text-white [&_code]:bg-blue-600 [&_code]:text-white [&_a]:text-white" 
+            ? "bg-blue-500 text-white rounded-br-none" 
             : "bg-gray-100 text-gray-800 rounded-bl-none"
         )}>
-          <div className="prose prose-sm max-w-none">
+          <div className={cn(
+            "prose prose-sm max-w-none",
+            isUser && "[&_*]:text-white [&_code]:bg-blue-400 [&_code]:text-white"
+          )}>
             {processText(message.text)}
             {message.sender === 'ai' && isStreaming && (
               <span className="inline-block w-1.5 h-4 ml-1 bg-current animate-pulse" />
@@ -342,57 +368,33 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
   }, [setMessages]);
 
   // Initialize AI function
-  const CORE_EDUCATIONAL_INSTRUCTIONS = `You are an educational assistant focused on ensuring effective student learning. Your core responsibilities are:
-  1. **Guide Learning**
-     * Break complex topics into digestible steps
-     * Use clear examples and analogies
-     * Adapt to student comprehension levels
-     * Verify understanding before advancing
-  2. **Foster Active Learning**
-     * Guide students to discover answers through targeted questions
-     * Encourage explaining concepts in their own words
-     * Provide hints rather than immediate solutions
-  3. **Support Different Learning Styles**
-     * Offer multiple approaches to explanations
-     * Balance theory with practical examples
-     * Break abstract concepts into concrete steps
-  Use markdown formatting where appropriate to enhance clarity. Format mathematical expressions using $$...$$ for displayed equations and $...$ for inline math.
-  Remember: Your goal is developing understanding, not just providing answers. Maintain a supportive environment where questions and mistakes are welcomed learning opportunities.
-  The instructions below are your specific system message that defines your unique role and capabilities:
-  
-  `;
-  
   const initializeAI = useCallback(async (assistantConfig) => {
     if (!assistantConfig) return;
-    
+  
     setIsInitializing(true);
-    
+  
     try {
       // Basic delay to prevent rapid initialization
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+  
       const vertexAI = getVertexAI(firebaseApp);
       const modelName = assistantConfig?.model === 'advanced' ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
-      
-      // Request tracking logic
+  
+      // Request tracking logic to handle rate limiting
       const now = Date.now();
       const requestKey = `vertex_ai_${modelName}_last_request`;
       const lastRequest = localStorage.getItem(requestKey);
-      
+  
       if (lastRequest) {
-        const timeSinceLastRequest = now - parseInt(lastRequest);
+        const timeSinceLastRequest = now - parseInt(lastRequest, 10);
         if (timeSinceLastRequest < 2000) {
           await new Promise(resolve => setTimeout(resolve, 2000 - timeSinceLastRequest));
         }
       }
-      
+  
       localStorage.setItem(requestKey, now.toString());
   
-      // Combine core instructions with assistant-specific instructions
-      const combinedInstructions = assistantConfig?.instructions
-        ? `${CORE_EDUCATIONAL_INSTRUCTIONS}${assistantConfig.instructions}`
-        : CORE_EDUCATIONAL_INSTRUCTIONS + "You are a helpful AI assistant. Be concise and clear in your responses.";
-  
+      // Initialize the generative model with appropriate settings
       const geminiModel = getGenerativeModel(vertexAI, {
         model: modelName,
         generationConfig: {
@@ -402,33 +404,49 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
         },
         safetySettings: [
           {
-            'category': 'HARM_CATEGORY_HATE_SPEECH',
-            'threshold': 'BLOCK_LOW_AND_ABOVE',
+            category: 'HARM_CATEGORY_HATE_SPEECH',
+            threshold: 'BLOCK_LOW_AND_ABOVE',
           },
           {
-            'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
-            'threshold': 'BLOCK_LOW_AND_ABOVE',
+            category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+            threshold: 'BLOCK_LOW_AND_ABOVE',
           },
           {
-            'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-            'threshold': 'BLOCK_LOW_AND_ABOVE',
+            category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+            threshold: 'BLOCK_LOW_AND_ABOVE',
           },
           {
-            'category': 'HARM_CATEGORY_HARASSMENT',
-            'threshold': 'BLOCK_LOW_AND_ABOVE',
-          }
+            category: 'HARM_CATEGORY_HARASSMENT',
+            threshold: 'BLOCK_LOW_AND_ABOVE',
+          },
         ],
         systemInstruction: {
-          parts: [{ text: combinedInstructions }]
-        }
+          parts: [{ text: assistantConfig?.instructions || "You are a helpful AI assistant. Be concise and clear in your responses." }],
+        },
       });
-  
+
       let initialChat;
       try {
-        initialChat = await geminiModel.startChat();
+        // Include the assistant's first message in the chat history
+        const history = assistantConfig?.firstMessage
+          ? [
+            {
+              role: 'user',
+              parts: [{ text: 'Hello' }],
+            },
+              {
+                role: 'model',
+                parts: [{ text: assistantConfig.firstMessage }],
+              },
+            ]
+          : [];
+
+        initialChat = await geminiModel.startChat({ history });
       } catch (err) {
         if (err.message.includes('429')) {
           console.log('Rate limited, falling back to Gemini Flash');
+
+          // Fallback to a different model if rate limited
           const fallbackModel = getGenerativeModel(vertexAI, {
             model: 'gemini-1.5-flash-002',
             generationConfig: {
@@ -438,76 +456,63 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
             },
             safetySettings: [
               {
-                'category': 'HARM_CATEGORY_HATE_SPEECH',
-                'threshold': 'BLOCK_LOW_AND_ABOVE',
+                category: 'HARM_CATEGORY_HATE_SPEECH',
+                threshold: 'BLOCK_LOW_AND_ABOVE',
               },
               {
-                'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
-                'threshold': 'BLOCK_LOW_AND_ABOVE',
+                category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+                threshold: 'BLOCK_LOW_AND_ABOVE',
               },
               {
-                'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-                'threshold': 'BLOCK_LOW_AND_ABOVE',
+                category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+                threshold: 'BLOCK_LOW_AND_ABOVE',
               },
               {
-                'category': 'HARM_CATEGORY_HARASSMENT',
-                'threshold': 'BLOCK_LOW_AND_ABOVE',
-              }
+                category: 'HARM_CATEGORY_HARASSMENT',
+                threshold: 'BLOCK_LOW_AND_ABOVE',
+              },
             ],
             systemInstruction: {
-              parts: [{ text: combinedInstructions }]
-            }
+              parts: [{ text: assistantConfig?.instructions || "You are a helpful AI assistant. Be concise and clear in your responses." }],
+            },
           });
-          initialChat = await fallbackModel.startChat();
+
+          // Include the assistant's first message in the chat history
+          const history = assistantConfig?.firstMessage
+            ? [
+                {
+                  role: 'model',
+                  parts: [{ text: assistantConfig.firstMessage }],
+                },
+              ]
+            : [];
+
+          initialChat = await fallbackModel.startChat({ history });
         } else {
           throw err;
         }
       }
-  
+
       // Set up chat session references before initialization
       chatSessionRef.current = initialChat;
       setChat(initialChat);
       setModel(geminiModel);
-      
-      // Initialize the chat handler
+
+      // Initialize the chat handler with the new chat session
       await initializeChat(initialChat);
-  
-      // Handle first message display and initialization separately
+
+      // Display the assistant's first message in the UI
       if (assistantConfig?.firstMessage) {
-        // Set the initial message in the UI immediately
         const initialMessageId = Date.now();
-        setMessages([{
-          id: initialMessageId,
-          sender: 'ai',
-          text: assistantConfig.firstMessage,
-          timestamp: initialMessageId,
-        }]);
-  
-        // Initialize the chat context with a delay
-        const initializeContext = async () => {
-          try {
-            // Ensure chat session is ready
-            if (!chatSessionRef.current) {
-              throw new Error('Chat session not initialized');
-            }
-  
-            // Remove the initial context message since it's now part of the system instructions
-            await new Promise(resolve => setTimeout(resolve, 1000));
-  
-            // Send the actual first message
-            await chatSessionRef.current.sendMessage({
-              contents: [{ role: 'user', parts: [{ text: assistantConfig.firstMessage }] }]
-            });
-          } catch (err) {
-            console.warn('Error initializing chat context:', err);
-            // Don't throw - allow chat to continue even if context init fails
-          }
-        };
-  
-        // Start context initialization with a delay
-        setTimeout(initializeContext, 2000);
+        setMessages([
+          {
+            id: initialMessageId,
+            sender: 'ai',
+            text: assistantConfig.firstMessage,
+            timestamp: initialMessageId,
+          },
+        ]);
       }
-  
     } catch (err) {
       console.error('Chat initialization error:', err);
       setError('Failed to initialize chat. Please try again.');
@@ -607,11 +612,14 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
 
   // Updated send message handler
   const handleSendMessage = useCallback(async () => {
-    if (!inputMessage.trim() || !chat) return;
-    setInputMessage('');
+    if (!inputMessage.trim()) return;
     setError(null);
-    await sendMessage(inputMessage, chat);
-  }, [inputMessage, chat, sendMessage]);
+  
+    const messageToSend = inputMessage;
+    setInputMessage('');
+  
+    await sendMessage(messageToSend);
+  }, [inputMessage, sendMessage]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -787,4 +795,4 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
   );
 };
 
-export default React.memo(AIChatApp); 
+export default React.memo(AIChatApp);

@@ -5,7 +5,6 @@ import { useAuth } from './context/AuthContext';
 // Main site imports
 import Login from './Dashboard/Login';
 import Dashboard from './Dashboard/Dashboard';
-import RegistrationForm from './components/RegistrationForm';
 import Layout from './Layout/Layout';
 import StaffLogin from './Admin/StaffLogin';
 import TeacherDashboard from './TeacherDashboard/TeacherDashboard';
@@ -19,6 +18,8 @@ import YourWayScheduleMaker from './Website/YourWayScheduleMaker';
 import IcsUpload from './Schedule/IcsUpload'; 
 import GeminiChat from './AI/GeminiChat';
 import app from './firebase'; 
+import PaymentResult from './Dashboard/PaymentResult';
+import CancelledPayment from './Dashboard/CancelledPayment';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -63,12 +64,11 @@ function MainApp() {
             isStaff(user) ? <Navigate to="/teacher-dashboard" /> : <Navigate to="/dashboard" />
           ) : <Login />
         } />
-        <Route path="/dashboard" element={
-          user && !isStaff(user) ? <Layout><Dashboard /></Layout> : <Navigate to="/login" />
-        } />
-        <Route path="/register" element={
-          user && !isStaff(user) ? <Layout><RegistrationForm /></Layout> : <Navigate to="/login" />
-        } />
+      <Route 
+  path="/dashboard" 
+  element={user && !isStaff(user) ? <Dashboard /> : <Navigate to="/login" />} 
+/>
+      
         <Route path="/" element={
           user ? (
             isStaff(user) ? <Navigate to="/teacher-dashboard" /> : <Navigate to="/dashboard" />
@@ -80,6 +80,15 @@ function MainApp() {
         <Route path="/teacher-dashboard" element={
           user && isStaff(user) ? <Layout><TeacherDashboard /></Layout> : <Navigate to="/staff-login" />
         } />
+
+        <Route path="/payment/result" element={
+          user ? <PaymentResult /> : <Navigate to="/login" />
+        } />
+
+        <Route path="/payment/cancelled" element={
+          user ? <CancelledPayment /> : <Navigate to="/login" />
+        } />
+
         <Route path="/course" element={
           user && !isStaff(user) ? <LMSWrapper /> : <Navigate to="/login" />
         } />

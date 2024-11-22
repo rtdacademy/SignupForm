@@ -93,9 +93,9 @@ const Layout = React.memo(({ children }) => {
   }), [user, handleLogout, showBackButton, handleBackClick, handleDashboardClick, handleSidebarToggle, isStaff, handleFullScreenToggle]);
 
   return (
-    <div className={`flex flex-col h-screen bg-gray-100 ${isFullScreen ? 'overflow-hidden' : ''}`}>
+    <div className={`flex flex-col h-screen bg-white ${isFullScreen ? 'overflow-hidden' : ''}`}>
       {!isFullScreen && <Header {...headerProps} />}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden bg-gray-50">
         {childrenWithProps}
       </main>
     </div>

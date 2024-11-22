@@ -14,6 +14,7 @@ const useEnhancedChatHandler = (scrollToBottom, initialMessage = null) => {
 
   // Reset state when chat changes
   const resetState = useCallback(() => {
+    console.log('Resetting state');
     setMessages([]);
     setIsLoading(false);
     setIsStreaming(false);
@@ -28,14 +29,19 @@ const useEnhancedChatHandler = (scrollToBottom, initialMessage = null) => {
 
   // Initialize chat session
   const initializeChat = useCallback(async (chat) => {
-    if (!chat) return;
-    
+    if (!chat) {
+      console.warn('No chat session provided to initializeChat');
+      return;
+    }
+
+    console.log('Initializing chat session');
     resetState();
     currentChatRef.current = chat;
     setIsChatReady(true);
 
     // Add initial message if provided
     if (initialMessage) {
+      console.log('Setting initial message:', initialMessage);
       setMessages([{
         id: Date.now(),
         sender: 'ai',
@@ -47,13 +53,21 @@ const useEnhancedChatHandler = (scrollToBottom, initialMessage = null) => {
 
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  const handleSendMessage = useCallback(async (inputMessage, chat) => {
-    if (!inputMessage.trim() || !chat || !isChatReady) return;
-
-    // Ensure we're using the most recent chat instance
-    if (chat !== currentChatRef.current) {
-      console.warn('Chat instance mismatch - reinitializing');
-      await initializeChat(chat);
+  const handleSendMessage = useCallback(async (inputMessage) => {
+   console.log('handleSendMessage called with:', inputMessage);
+    const chatSession = currentChatRef.current;
+   //console.log('Current chat session:', chatSession);
+    if (!inputMessage.trim()) {
+      console.warn('Input message is empty or whitespace');
+      return;
+    }
+    if (!chatSession) {
+      console.error('No chat session available');
+      return;
+    }
+    if (!isChatReady) {
+      console.warn('Chat is not ready');
+      return;
     }
 
     if (abortControllerRef.current) {
@@ -84,16 +98,20 @@ const useEnhancedChatHandler = (scrollToBottom, initialMessage = null) => {
 
     const attemptStream = async (retryCount = 0) => {
       try {
-        const streamResult = await chat.sendMessageStream([{ text: inputMessage }], {
+        console.log('Sending message to AI:', inputMessage);
+        const streamResult = await chatSession.sendMessageStream(inputMessage, {
           signal: abortControllerRef.current.signal,
         });
 
         let accumulatedText = '';
         for await (const chunk of streamResult.stream) {
-          if (abortControllerRef.current?.signal.aborted) break;
-          
-          // Safe access of chunk properties
-          const text = chunk?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (abortControllerRef.current?.signal.aborted) {
+            console.log('Streaming aborted');
+            break;
+          }
+
+          const text = chunk.text();
+         console.log('Received chunk text:', text);
           if (text) {
             accumulatedText += text;
             setMessages(prev =>
@@ -128,11 +146,11 @@ const useEnhancedChatHandler = (scrollToBottom, initialMessage = null) => {
     } catch (err) {
       console.error('Chat error:', err);
       setError(`Failed to send message. Please try again in a few moments.`);
-      
+
       setMessages(prev =>
         prev.map(msg =>
-          msg.id === aiMessageId 
-            ? { ...msg, text: "I apologize, but I'm experiencing technical difficulties. Please try again in a few minutes." } 
+          msg.id === aiMessageId
+            ? { ...msg, text: "I apologize, but I'm experiencing technical difficulties. Please try again in a few minutes." }
             : msg
         )
       );
@@ -141,11 +159,12 @@ const useEnhancedChatHandler = (scrollToBottom, initialMessage = null) => {
       setIsStreaming(false);
       scrollToBottom();
     }
-  }, [scrollToBottom, isChatReady, initializeChat]);
+  }, [scrollToBottom, isChatReady]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      console.log('Cleaning up on unmount');
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -162,7 +181,7 @@ const useEnhancedChatHandler = (scrollToBottom, initialMessage = null) => {
     setMessages,
     initializeChat,
     resetState,
-    isChatReady
+    isChatReady,
   };
 };
 

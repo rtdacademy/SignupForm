@@ -1,109 +1,87 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useCallback, useMemo } from 'react';
+import CryptoJS from 'crypto-js';
 import {
-  FaBook,
-  FaComments,
-  FaCog,
-  FaTimes,
-  FaHome,
-  FaGraduationCap,
   FaClipboardList,
   FaRegCalendarCheck,
   FaBell,
   FaBars,
-  FaArrowLeft,
+  FaTimes,
   FaChevronRight,
   FaChevronLeft,
-  FaExclamationTriangle,
+  FaArrowLeft,
 } from 'react-icons/fa';
-import { getDatabase, ref, get } from 'firebase/database';
-import { useAuth } from '../context/AuthContext';
 import ChatApp from '../chat/ChatApp';
 import Notifications from '../Notifications/Notifications';
-import { sanitizeEmail } from '../utils/sanitizeEmail';
 
-const LMSWrapper = () => {
+const LMSWrapper = ({ 
+  userEmailKey, 
+  courseId, 
+  courseData,
+  onReturn
+}) => {
   const [expandedIcon, setExpandedIcon] = useState(null);
-  const [courseId, setCourseId] = useState(null);
-  const [userEmailKey, setUserEmailKey] = useState(null);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
-  const [courseTitle, setCourseTitle] = useState('');
-  const [courseTeachers, setCourseTeachers] = useState([]);
-  const [courseSupportStaff, setCourseSupportStaff] = useState([]);
-  const [allowStudentChats, setAllowStudentChats] = useState(false);
 
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { user } = useAuth();
+  // Extract course data from courseDetails
+  const courseTitle = courseData.Course?.Value || courseData.courseDetails?.Title || '';
+  const courseTeachers = courseData.courseDetails?.Teachers || [];
+  const courseSupportStaff = courseData.courseDetails?.SupportStaff || [];
+  const allowStudentChats = courseData.courseDetails?.allowStudentChats || false;
 
-  // Set courseId from URL
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const cid = searchParams.get('cid');
-    setCourseId(cid);
-  }, [location]);
-
-  // Set userEmailKey when user is available
-  useEffect(() => {
-    if (user) {
-      const emailKey = sanitizeEmail(user.email);
-      setUserEmailKey(emailKey);
-      console.log('Core identifiers:', {
-        userEmailKey: emailKey,
-        courseId
-      });
+  // Generate encrypted SSO token
+  const generateSSOToken = useCallback(() => {
+    const ENCRYPTION_KEY = process.env.REACT_APP_ENCRYPTION_KEY;
+    
+    if (!ENCRYPTION_KEY || !userEmailKey) {
+      console.warn('Missing required SSO parameters');
+      return '';
     }
-  }, [user, courseId]);
 
-  // Fetch course data
-  useEffect(() => {
-    const fetchCourseData = async () => {
-      if (!courseId) return;
-
-      const db = getDatabase();
-      const courseRef = ref(db, `courses/${courseId}`);
-
-      try {
-        const snapshot = await get(courseRef);
-        if (snapshot.exists()) {
-          const courseData = snapshot.val();
-          
-          // Set course title
-          setCourseTitle(courseData.Title || '');
-          
-          // Set teachers (ensure it's always an array)
-          setCourseTeachers(courseData.Teachers || []);
-          
-          // Set support staff (ensure it's always an array)
-          setCourseSupportStaff(courseData.SupportStaff || []);
-
-          // Set allowStudentChats (default to false if not set)
-          setAllowStudentChats(courseData.allowStudentChats || false);
-
-          console.log('Course Data Loaded:', {
-            title: courseData.Title,
-            teachers: courseData.Teachers,
-            supportStaff: courseData.SupportStaff,
-            allowStudentChats: courseData.allowStudentChats
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching course data:', error);
-      }
+    const payload = {
+      studentEmail: userEmailKey,
+      timestamp: Date.now(),
+      nonce: Math.random().toString(36).substring(7)
     };
 
-    fetchCourseData();
-  }, [courseId]);
+    console.log('SSO Payload before encryption:', payload);
+
+    try {
+      const payloadString = JSON.stringify(payload);
+      const encryptedPayload = CryptoJS.AES.encrypt(
+        payloadString,
+        ENCRYPTION_KEY
+      ).toString();
+
+      console.log('Encrypted SSO token:', encryptedPayload);
+      return encodeURIComponent(encryptedPayload);
+    } catch (error) {
+      console.error('SSO token generation failed:', error);
+      return '';
+    }
+  }, [userEmailKey]);
+
+  // Generate the LMS URL with SSO token
+  const getLMSUrl = useCallback(() => {
+    const baseUrl = 'https://edge.rtdacademy.com/course/course.php';
+    const ssoToken = generateSSOToken();
+    
+    const params = new URLSearchParams({
+      folder: '0',
+      cid: courseId,
+      view: 'iframe'
+    });
+
+    if (ssoToken) {
+      params.append('ssoToken', ssoToken);
+    }
+
+    return `${baseUrl}?${params.toString()}`;
+  }, [courseId, generateSSOToken]);
 
   const navItems = useMemo(
     () => [
-      { icon: <FaHome />, label: 'Portal', content: 'Back to Student Portal' },
-      { icon: <FaBook />, label: 'Courses', content: 'Course content goes here' },
-      { icon: <FaGraduationCap />, label: 'Gradebook', content: 'Gradebook' },
       { icon: <FaClipboardList />, label: 'Schedule', content: 'Schedule content goes here' },
-      { icon: <FaComments />, label: 'Messages', content: 'Messaging content goes here' },
-      { icon: <FaCog />, label: 'Settings', content: 'Settings content goes here' },
       { icon: <FaRegCalendarCheck />, label: 'Book Time', content: 'Booking' },
       { icon: <FaBell />, label: 'Notifications', content: 'Notifications' },
     ],
@@ -123,40 +101,12 @@ const LMSWrapper = () => {
     setExpandedIcon(null);
   }, []);
 
-  const handleReturnToPortal = useCallback(() => {
-    navigate('/dashboard');
-  }, [navigate]);
-
   const handleChatSelect = useCallback(() => {
     setExpandedIcon('Messages');
   }, []);
 
   const renderExpandedContent = useCallback(() => {
-    if (expandedIcon === 'Portal') {
-      return (
-        <div className="h-full flex items-center justify-center">
-          <button
-            onClick={handleReturnToPortal}
-            className="py-2 px-4 rounded transition-colors duration-200 bg-blue-500 hover:bg-blue-600 text-white"
-          >
-            Back to Student Portal
-          </button>
-        </div>
-      );
-    } else if (expandedIcon === 'Messages') {
-      return (
-        <div className="h-full flex flex-col overflow-hidden">
-          <ChatApp 
-            userEmailKey={userEmailKey} 
-            courseId={courseId}
-            courseTitle={courseTitle}
-            courseTeachers={courseTeachers}
-            courseSupportStaff={courseSupportStaff}
-            allowStudentChats={allowStudentChats}
-          />
-        </div>
-      );
-    } else if (expandedIcon === 'Notifications') {
+    if (expandedIcon === 'Notifications') {
       return (
         <div className="h-full flex flex-col overflow-hidden">
           <Notifications 
@@ -164,14 +114,6 @@ const LMSWrapper = () => {
             onChatSelect={handleChatSelect}
           />
         </div>
-      );
-    } else if (expandedIcon === 'Gradebook') {
-      return (
-        <iframe
-          src={`https://edge.rtdacademy.com/course/gradebook.php?cid=${courseId}`}
-          title="Gradebook"
-          className="w-full h-full border-none"
-        />
       );
     } else if (expandedIcon === 'Book Time') {
       return (
@@ -183,7 +125,7 @@ const LMSWrapper = () => {
       );
     } else {
       return (
-        <p className="text-gray-300">
+        <p className="text-gray-600">
           {navItems.find((item) => item.label === expandedIcon)?.content}
         </p>
       );
@@ -197,16 +139,15 @@ const LMSWrapper = () => {
     allowStudentChats,
     userEmailKey,
     handleChatSelect,
-    handleReturnToPortal,
     navItems,
   ]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Mobile menu button */}
       {!expandedIcon && (
         <button
-          className="sm:hidden fixed top-4 left-4 z-50 bg-gray-800 text-white p-2 rounded-md"
+          className="sm:hidden fixed top-4 left-4 z-50 bg-white text-gray-700 p-2 rounded-md shadow-lg"
           onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
         >
           <FaBars />
@@ -215,19 +156,19 @@ const LMSWrapper = () => {
 
       {/* Navigation sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-40 bg-gray-800 text-white transform transition-transform duration-300 ease-in-out ${
-          isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'
-        } sm:relative sm:translate-x-0 ${
-          isSidebarExpanded ? 'sm:w-64' : 'sm:w-20'
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 bg-white shadow-lg transform transition-transform duration-300 ease-in-out 
+        ${isMobileNavOpen ? 'translate-x-0' : '-translate-x-full'} 
+        sm:relative sm:translate-x-0 
+        ${isSidebarExpanded ? 'sm:w-64' : 'sm:w-20'}
+        border-r border-gray-100`}
       >
         <div className="h-full flex flex-col">
-          <div className="flex-shrink-0 p-4 flex justify-between items-center">
-            <button className="sm:hidden text-white" onClick={closeMobileNav}>
+          <div className="flex-shrink-0 p-4 flex justify-between items-center border-b border-gray-100">
+            <button className="sm:hidden text-gray-600" onClick={closeMobileNav}>
               <FaTimes />
             </button>
             <button
-              className="hidden sm:block text-white"
+              className="hidden sm:block text-gray-600 hover:text-gray-800 transition-colors duration-200"
               onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
             >
               {isSidebarExpanded ? <FaChevronLeft /> : <FaChevronRight />}
@@ -238,9 +179,11 @@ const LMSWrapper = () => {
               <button
                 key={item.label}
                 onClick={() => handleIconClick(item.label)}
-                className={`w-full text-left p-4 transition-colors duration-200 flex items-center ${
-                  expandedIcon === item.label ? 'bg-gray-700' : ''
-                } hover:bg-gray-700`}
+                className={`w-full text-left p-4 transition-all duration-200 flex items-center
+                  ${expandedIcon === item.label 
+                    ? 'bg-gray-100 text-gray-900 border-r-4 border-blue-500 font-medium' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
               >
                 <span className="inline-block align-middle mr-2">{item.icon}</span>
                 {isSidebarExpanded && (
@@ -256,22 +199,21 @@ const LMSWrapper = () => {
       <div className="flex-grow flex overflow-hidden">
         {/* Expanded content */}
         {expandedIcon && (
-          <div className="fixed inset-0 bg-gray-700 text-white z-50 flex flex-col sm:static sm:inset-auto sm:w-1/2">
-            <div className="p-4 border-b border-gray-600">
+          <div className="fixed inset-0 bg-white z-50 flex flex-col sm:static sm:inset-auto sm:w-1/2 shadow-lg">
+            <div className="p-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">
-                  {expandedIcon === 'Messages' ? `${expandedIcon} - ${courseTitle}` : expandedIcon}
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {expandedIcon}
                 </h3>
                 <button
                   onClick={closeExpandedContent}
-                  className="text-white transition-colors duration-200 hover:text-gray-300"
+                  className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
                   aria-label="Close expanded content"
                 >
                   <FaArrowLeft size={24} />
                 </button>
               </div>
             </div>
-            {/* Content wrapper with flex-grow and overflow handling */}
             <div className="flex-grow overflow-hidden">
               {renderExpandedContent()}
             </div>
@@ -281,7 +223,7 @@ const LMSWrapper = () => {
         {/* iframe content */}
         <div className={`flex-grow ${expandedIcon ? 'hidden sm:block' : 'block'}`}>
           <iframe
-            src={`https://edge.rtdlearning.com/course/course.php?folder=0&cid=${courseId}`}
+            src={getLMSUrl()}
             title="RTD Academy LMS"
             className="w-full h-full border-none"
           />
