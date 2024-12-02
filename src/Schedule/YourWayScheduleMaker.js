@@ -52,7 +52,7 @@ import { Button } from "../components/ui/button";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { ChevronDown, ChevronRight, AlertTriangle, InfoIcon, CalendarIcon, Clock, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
-import CustomBlockoutDates from '../Schedule/CustomBlockoutDates';
+import CustomBlockoutDates from './CustomBlockoutDates';
 
 // Define locales for date-fns
 const locales = {
@@ -742,20 +742,22 @@ const YourWayScheduleMaker = ({
     const basePath = `students/${encodedEmail}/courses/${courseId}`;
   
     try {
-      // Update ScheduleStartDate and ScheduleEndDate
+      // Only update ScheduleStartDate and ScheduleEndDate
       await Promise.all([
         set(ref(db, `${basePath}/ScheduleStartDate`), scheduleData.startDate),
         set(ref(db, `${basePath}/ScheduleEndDate`), scheduleData.endDate),
-        set(ref(db, `${basePath}/ScheduleJSON`), scheduleData),
+        // Remove the line below to prevent overwriting ScheduleJSON
+        // set(ref(db, `${basePath}/ScheduleJSON`), scheduleData),
       ]);
   
       toast.success("Schedule saved successfully!");
-      onScheduleSaved(scheduleData);
+      onScheduleSaved(scheduleData); // This will call handleScheduleSaved
     } catch (error) {
       console.error("Error saving schedule:", error);
       toast.error("Failed to save schedule. Please try again.");
     }
   };
+  
   
 
   const getCalendarEvents = () => {
@@ -775,8 +777,8 @@ const YourWayScheduleMaker = ({
 
   // Updated calendar styles with softer grid and better spacing
   const calendarStyles = {
-    style: { height: 500 },
-    className: "rounded-lg shadow-sm p-2",
+    style: { height: '100%', minHeight: 500 },
+  className: "rounded-lg shadow-sm p-2 w-full", 
     eventPropGetter: (event) => {
       const colors = getEventColor(event.type);
       return {
@@ -1194,65 +1196,96 @@ const YourWayScheduleMaker = ({
             </TabsList>
 
             <TabsContent value="calendar">
-              <>
-                <Calendar
-                  localizer={localizer}
-                  events={getCalendarEvents()}
-                  startAccessor="start"
-                  endAccessor="end"
-                  views={['month']}
-                  defaultView="month"
-                  date={currentCalendarDate}
-                  onNavigate={setCurrentCalendarDate}
-                  onSelectEvent={handleEventSelect}
-                  onShowMore={(events, date) => {
-                    setShowMoreEvents(events);
-                    setShowMoreDate(date);
-                  }}
-                  {...calendarStyles}
-                />
+ <>
+   <div style={{ height: 'calc(100vh - 400px)' }} className="w-full">
+     <Calendar
+       localizer={localizer}
+       events={getCalendarEvents()}
+       startAccessor="start"
+       endAccessor="end"
+       views={['month']}
+       defaultView="month"
+       date={currentCalendarDate}
+       onNavigate={setCurrentCalendarDate}
+       onSelectEvent={handleEventSelect}
+       onShowMore={(events, date) => {
+         setShowMoreEvents(events);
+         setShowMoreDate(date);
+       }}
+       style={{ height: '100%', width: '100%' }}
+       className="rounded-lg shadow-sm p-2"
+       eventPropGetter={(event) => {
+         const colors = getEventColor(event.type);
+         return {
+           style: {
+             background: colors.background,
+             color: colors.color,
+             border: 'none',
+             padding: '2px 5px',
+             fontSize: '0.75rem',
+             borderRadius: '2px',
+             fontWeight: 500,
+             cursor: 'pointer',
+             transition: 'opacity 0.2s ease',
+             boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+           }
+         };
+       }}
+       dayPropGetter={date => ({
+         className: `
+           ${isWeekend(date) ? 'bg-slate-50/50' : 'bg-white'}
+           hover:bg-blue-50/50 
+           transition-colors
+         `
+       })}
+       popup={true}
+       components={{
+         event: EventComponent,
+         toolbar: CustomToolbar
+       }}
+     />
+   </div>
 
-                {/* Add Dialog for showing more events */}
-                <Dialog 
-                  open={showMoreEvents !== null} 
-                  onOpenChange={() => {
-                    setShowMoreEvents(null);
-                    setShowMoreDate(null);
-                  }}
-                >
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>
-                        Events for {showMoreDate ? format(showMoreDate, 'MMMM d, yyyy') : ''}
-                      </DialogTitle>
-                    </DialogHeader>
-                    <ScrollArea className="max-h-[60vh]">
-                      {showMoreEvents?.map((event, index) => {
-                        const colors = getEventColor(event.type);
-                        return (
-                          <div
-                            key={index}
-                            className="mb-2 p-2 rounded cursor-pointer hover:opacity-90"
-                            style={{
-                              background: colors.background,
-                              color: colors.color
-                            }}
-                            onClick={() => {
-                              handleEventSelect(event);
-                              setShowMoreEvents(null);
-                              setShowMoreDate(null);
-                            }}
-                          >
-                            <div className="font-medium">{event.title}</div>
-                            <div className="text-sm opacity-75">{event.type}</div>
-                          </div>
-                        );
-                      })}
-                    </ScrollArea>
-                  </DialogContent>
-                </Dialog>
-              </>
-            </TabsContent>
+   <Dialog 
+     open={showMoreEvents !== null} 
+     onOpenChange={() => {
+       setShowMoreEvents(null);
+       setShowMoreDate(null);
+     }}
+   >
+     <DialogContent className="max-w-md">
+       <DialogHeader>
+         <DialogTitle>
+           Events for {showMoreDate ? format(showMoreDate, 'MMMM d, yyyy') : ''}
+         </DialogTitle>
+       </DialogHeader>
+       <ScrollArea className="max-h-[60vh]">
+         {showMoreEvents?.map((event, index) => {
+           const colors = getEventColor(event.type);
+           return (
+             <div
+               key={index}
+               className="mb-2 p-2 rounded cursor-pointer hover:opacity-90"
+               style={{
+                 background: colors.background,
+                 color: colors.color
+               }}
+               onClick={() => {
+                 handleEventSelect(event);
+                 setShowMoreEvents(null);
+                 setShowMoreDate(null);
+               }}
+             >
+               <div className="font-medium">{event.title}</div>
+               <div className="text-sm opacity-75">{event.type}</div>
+             </div>
+           );
+         })}
+       </ScrollArea>
+     </DialogContent>
+   </Dialog>
+ </>
+</TabsContent>
 
             <TabsContent value="list">
               <ScrollArea className="h-[500px]">

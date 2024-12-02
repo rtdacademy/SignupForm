@@ -32,6 +32,10 @@ import SchoolAddressPicker from '../components/SchoolAddressPicker';
 import HomeSchoolSelector from '../components/HomeSchoolSelector'; // Import HomeSchoolSelector
 import CapitalizedInput from '../components/CapitalizedInput';
 import { getDatabase, ref as databaseRef, get, set } from 'firebase/database';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import InternationalDocuments from './InternationalDocuments';
+import Select from 'react-select';
+import countryList from 'react-select-country-list';
 import {
   ValidationFeedback,
   validationRules,
@@ -193,6 +197,16 @@ const NonPrimaryStudentForm = forwardRef(({
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [hasASN, setHasASN] = useState(true);
+
+ 
+const countryOptions = useMemo(() => countryList().getData(), []);
+
+  const [documentUrls, setDocumentUrls] = useState({
+    passport: '',
+    additionalID: '',
+    residencyProof: ''
+  });
 
   const [usePreferredFirstName, setUsePreferredFirstName] = useState(false);
 
@@ -267,8 +281,17 @@ const NonPrimaryStudentForm = forwardRef(({
       additionalInformation: '',
       diplomaMonth: null,
       studentType: studentType || 'Non-Primary', // Initialize with studentType prop
-      age: null
+      age: null,
+      country: '', 
+      documents: {
+        passport: '',
+        additionalID: '',
+        residencyProof: ''
+      }
     };
+
+
+   
     console.log('Initial form data:', formData);
     return formData;
   };
@@ -301,7 +324,14 @@ const NonPrimaryStudentForm = forwardRef(({
   // New state for course hours
   const [courseHours, setCourseHours] = useState(null);
 
-  // === New Modifications Start ===
+  useEffect(() => {
+    if (studentType !== 'International Student') {
+      setHasASN(true); // Non-international students are expected to have ASN
+    } else {
+      setHasASN(true); // International students may or may not have ASN
+    }
+  }, [studentType]);
+  
 
   // Fetch profile data
   useEffect(() => {
@@ -328,7 +358,20 @@ const NonPrimaryStudentForm = forwardRef(({
             parentLastName: snapshot.val().ParentLastName || prev.parentLastName,
             parentPhone: snapshot.val().ParentPhone_x0023_ || prev.parentPhone,
             parentEmail: snapshot.val().ParentEmail || prev.parentEmail,
+            country: snapshot.val().internationalDocuments?.countryOfOrigin || prev.country,
           }));
+
+// Set document URLs if they exist
+if (snapshot.val().internationalDocuments) {
+  setDocumentUrls(prev => ({
+    ...prev,
+    passport: snapshot.val().internationalDocuments.passport || '',
+    additionalID: snapshot.val().internationalDocuments.additionalID || '',
+    residencyProof: snapshot.val().internationalDocuments.residencyProof || ''
+  }));
+}
+
+
         }
       } catch (err) {
         console.error('Error fetching profile data:', err);
@@ -339,6 +382,8 @@ const NonPrimaryStudentForm = forwardRef(({
 
     fetchProfileData();
   }, [user_email_key]);
+
+  
 
   // Determine which fields should be read-only
   const readOnlyFields = useMemo(() => {
@@ -353,7 +398,10 @@ const NonPrimaryStudentForm = forwardRef(({
       parentFirstName: !!profileData.ParentFirstName,
       parentLastName: !!profileData.ParentLastName,
       parentPhone: !!profileData.ParentPhone_x0023_,
-      parentEmail: !!profileData.ParentEmail
+      parentEmail: !!profileData.ParentEmail,
+      country: !!profileData.internationalDocuments?.countryOfOrigin,
+      documents: !!(profileData.internationalDocuments?.passport && 
+                   profileData.internationalDocuments?.additionalID)
     };
   }, [profileData]);
 
@@ -364,10 +412,19 @@ const NonPrimaryStudentForm = forwardRef(({
       parentLastName: () => !user18OrOlder,
       parentPhone: () => !user18OrOlder,
       parentEmail: () => !user18OrOlder,
-      preferredFirstName: () => usePreferredFirstName
+      preferredFirstName: () => usePreferredFirstName,
+      country: () => studentType === 'International Student',
+      documents: () => studentType === 'International Student',
+      albertaStudentNumber: () => {
+        if (studentType === 'International Student' && !hasASN) {
+          return false; // Do not validate ASN
+        }
+        return true; // Validate ASN
+      },
     },
-    readOnlyFields
-  }), [user18OrOlder, usePreferredFirstName, readOnlyFields]);
+    readOnlyFields,
+    formData // Pass the entire formData to the validation
+  }), [user18OrOlder, usePreferredFirstName, readOnlyFields, studentType, formData, hasASN]);
 
   const rules = useMemo(() => ({
     ...validationRules,
@@ -430,7 +487,36 @@ const NonPrimaryStudentForm = forwardRef(({
     handleBlur(name);
   }, [handleBlur]);
 
+
+  const handleCountryChange = (selectedOption) => {
+    handleFormChange({
+      target: {
+        name: 'country',
+        value: selectedOption.value
+      }
+    });
+  };
+
   
+  const handleDocumentUpload = (type, url) => {
+    setDocumentUrls(prev => ({
+      ...prev,
+      [type]: url
+    }));
+    
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        documents: {
+          ...prev.documents,
+          [type]: url
+        }
+      };
+      handleBlur('documents'); // Trigger validation for documents
+      return newData;
+    });
+  };
+
 
   // Handle date changes
   const handleDateChange = (date) => {
@@ -812,19 +898,27 @@ const NonPrimaryStudentForm = forwardRef(({
   // Handle Alberta Student Number (ASN) changes with formatting
   const handleASNChange = (e) => {
     const { value } = e.target;
+    
+    // Format the ASN as it's typed
     let formattedValue = value.replace(/\D/g, "").slice(0, 9);
+    
+    // Apply ####-####-# format
     if (formattedValue.length > 4) {
       formattedValue = `${formattedValue.slice(0, 4)}-${formattedValue.slice(4)}`;
     }
     if (formattedValue.length > 9) {
       formattedValue = `${formattedValue.slice(0, 9)}-${formattedValue.slice(9)}`;
     }
+    
     handleFormChange({
       target: {
         name: "albertaStudentNumber",
         value: formattedValue,
       },
     });
+    
+    // Mark as touched to trigger validation feedback
+    handleBlur('albertaStudentNumber');
   };
 
   // Handle diploma date changes
@@ -897,16 +991,26 @@ const NonPrimaryStudentForm = forwardRef(({
 
   useEffect(() => {
     const debouncedValidation = _.debounce(() => {
+      // Replace the old phone validation logic with the simpler version
+      const isPhoneValid = readOnlyFields.phoneNumber || (formData.phoneNumber && formData.phoneNumber.length > 0);
+      
       const isFormValid = isValid && 
                          isEligible && 
                          validateDates() && 
-                         formData.courseId; 
+                         formData.courseId &&
+                         isPhoneValid &&
+                         (studentType !== 'International Student' || 
+                          readOnlyFields.country || 
+                          (formData.country && 
+                           formData.documents?.passport && 
+                           formData.documents?.additionalID));
       onValidationChange(isFormValid);
     }, 300);
   
     debouncedValidation();
     return () => debouncedValidation.cancel();
-  }, [isValid, isEligible, validateDates, onValidationChange, formData.courseId]);
+  }, [isValid, isEligible, validateDates, onValidationChange, formData.courseId, 
+      studentType, formData.country, formData.documents, readOnlyFields, formData.phoneNumber]);
 
   // Determine if end date should be readonly
   const isEndDateReadOnly = isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate;
@@ -985,6 +1089,30 @@ useEffect(() => {
       const formErrors = validateForm();
       if (Object.keys(formErrors).length === 0 && isEligible && validateDates()) {
         try {
+          // Check phone number
+          const phoneNumber = formData.phoneNumber?.replace(/\D/g, '');
+          if (!readOnlyFields.phoneNumber && (!phoneNumber || phoneNumber.length < 10)) {
+            setError('Please enter a valid phone number');
+            return false;
+          }
+          
+          // International student validation
+          if (studentType === 'International Student' && 
+              !readOnlyFields.country && 
+              !readOnlyFields.documents) {
+            const errors = [];
+            if (!formData.country) {
+              errors.push('Please select your country of origin');
+            }
+            if (!formData.documents?.passport || !formData.documents?.additionalID) {
+              errors.push('Please upload all required documents (Passport and Additional ID)');
+            }
+            if (errors.length > 0) {
+              setError(errors.join('. '));
+              return false;
+            }
+          }
+          
           await saveToPendingRegistration(formData);
           return true;
         } catch (err) {
@@ -1133,46 +1261,53 @@ useEffect(() => {
                 />
               </div>
 
-              {/* Phone Field */}
-              {readOnlyFields.phoneNumber ? (
-                renderReadOnlyField('phoneNumber', formData.phoneNumber, 'Phone Number')
-              ) : (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    Phone Number <span className="text-red-500">*</span>
-                  </label>
-                  <PhoneInput
-                    country={"ca"}
-                    value={formData.phoneNumber}
-                    onChange={(value, country, e, formattedValue) => {
-                      handleFormChange({
-                        target: {
-                          name: 'phoneNumber',
-                          value: formattedValue
-                        }
-                      });
-                    }}
-                    onBlur={() => handleBlur('phoneNumber')}
-                    inputClass={`w-full p-2 border rounded-md ${
-                      touched.phoneNumber && errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    containerClass="phone-input-container"
-                    buttonClass="phone-input-button"
-                    preferredCountries={["ca"]}
-                    priority={{ ca: 0, us: 1 }}
-                    required
-                  />
-                  <ValidationFeedback
-                    isValid={touched.phoneNumber && !errors.phoneNumber}
-                    message={
-                      touched.phoneNumber
-                        ? errors.phoneNumber || validationRules.phoneNumber.successMessage
-                        : null
-                    }
-                  />
-                </div>
-              )}
-
+             {/* Phone Field */}
+{readOnlyFields.phoneNumber ? (
+  renderReadOnlyField('phoneNumber', formData.phoneNumber, 'Phone Number')
+) : (
+  <div className="space-y-2">
+    <label className="text-sm font-medium">
+      Phone Number <span className="text-red-500">*</span>
+    </label>
+    <PhoneInput
+      country={studentType === 'International Student' ? undefined : "ca"}
+      value={formData.phoneNumber}
+      onChange={(value, country, e, formattedValue) => {
+        handleFormChange({
+          target: {
+            name: 'phoneNumber',
+            value: formattedValue
+          }
+        });
+      }}
+      onBlur={() => handleBlur('phoneNumber')}
+      inputClass={`w-full p-2 border rounded-md ${
+        touched.phoneNumber && errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
+      }`}
+      containerClass="phone-input-container"
+      buttonClass="phone-input-button"
+      preferredCountries={studentType === 'International Student' ? [] : ["ca"]}
+      priority={studentType === 'International Student' ? {} : { ca: 0, us: 1 }}
+      enableSearch={studentType === 'International Student'}
+      searchPlaceholder="Search country..."
+      autoFormat={true}
+      required
+    />
+    <ValidationFeedback
+      isValid={touched.phoneNumber && !errors.phoneNumber}
+      message={
+        touched.phoneNumber
+          ? errors.phoneNumber || validationRules.phoneNumber.successMessage
+          : null
+      }
+    />
+    {studentType === 'International Student' && (
+      <p className="text-sm text-gray-500">
+        Please select your country code and enter your phone number
+      </p>
+    )}
+  </div>
+)}
               {/* Birthday Section */}
               {readOnlyFields.birthday ? (
                 renderReadOnlyField('birthday', formData.birthday, 'Birthday')
@@ -1211,45 +1346,115 @@ useEffect(() => {
               )}
 
               {/* Alberta Student Number (ASN) Section */}
-              {readOnlyFields.albertaStudentNumber ? (
-                renderReadOnlyField('albertaStudentNumber', formData.albertaStudentNumber, 'Alberta Student Number (ASN)')
-              ) : (
-                <div className="space-y-2">
-                  <h4 className="text-md font-medium">Alberta Student Number (ASN)</h4>
-                  <p className="text-sm text-gray-600">
-                    Any student that has taken a course in Alberta has an ASN.{' '}
-                    <a
-                      href="https://learnerregistry.ae.alberta.ca/Home/StartLookup"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      Click here to easily find yours
-                    </a>.
-                  </p>
-                  <input
-                    type="text"
-                    id="albertaStudentNumber"
-                    name="albertaStudentNumber"
-                    value={formData.albertaStudentNumber}
-                    onChange={handleASNChange}
-                    onBlur={() => handleBlur('albertaStudentNumber')}
-                    className={`w-full p-2 border rounded-md ${
-                      touched.albertaStudentNumber && errors.albertaStudentNumber ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Enter your ASN"
-                    required
-                  />
-                  <ValidationFeedback
-                    isValid={touched.albertaStudentNumber && !errors.albertaStudentNumber}
-                    message={
-                      touched.albertaStudentNumber
-                        ? errors.albertaStudentNumber || validationRules.albertaStudentNumber.successMessage
-                        : null
-                    }
-                  />
-                </div>
-              )}
+{readOnlyFields.albertaStudentNumber ? (
+  renderReadOnlyField('albertaStudentNumber', formData.albertaStudentNumber, 'Alberta Student Number (ASN)')
+) : (
+  <div className="space-y-2">
+    <h4 className="text-md font-medium">
+      Alberta Student Number (ASN)
+      {(!studentType === 'International Student' || hasASN) && <span className="text-red-500">*</span>}
+    </h4>
+
+    {/* Display different messages based on student type */}
+    {studentType === 'International Student' ? (
+      <p className="text-sm text-gray-600">
+        If you have previously studied in Alberta, you may have an ASN.{' '}
+        <a
+          href="https://learnerregistry.ae.alberta.ca/Home/StartLookup"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800"
+        >
+          Click here to check
+        </a>. If you do not have an ASN, please check the box below.
+      </p>
+    ) : (
+      <p className="text-sm text-gray-600">
+        Any student that has taken a course in Alberta has an ASN.{' '}
+        <a
+          href="https://learnerregistry.ae.alberta.ca/Home/StartLookup"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:text-blue-800"
+        >
+          Click here to easily find yours
+        </a>.
+      </p>
+    )}
+
+    {/* Checkbox for international students to indicate they don't have an ASN */}
+    {studentType === 'International Student' && (
+      <div className="flex items-center space-x-2 mt-2">
+        <input
+          type="checkbox"
+          id="noASN"
+          checked={!hasASN}
+          onChange={(e) => {
+            setHasASN(!e.target.checked);
+            if (e.target.checked) {
+              // Clear ASN value when they indicate they don't have one
+              handleFormChange({
+                target: {
+                  name: 'albertaStudentNumber',
+                  value: ''
+                }
+              });
+            }
+            handleBlur('albertaStudentNumber');
+          }}
+        />
+        <label htmlFor="noASN" className="text-sm">
+          I do not have an Alberta Student Number (ASN)
+        </label>
+      </div>
+    )}
+
+    {/* Show ASN input only if the student has an ASN */}
+    {hasASN && (
+      <>
+        <input
+          type="text"
+          id="albertaStudentNumber"
+          name="albertaStudentNumber"
+          value={formData.albertaStudentNumber}
+          onChange={handleASNChange}
+          onBlur={() => handleBlur('albertaStudentNumber')}
+          className={`w-full p-2 border rounded-md ${
+            touched.albertaStudentNumber && errors.albertaStudentNumber 
+              ? 'border-red-500 focus:ring-red-500' 
+              : 'border-gray-300 focus:ring-blue-500'
+          }`}
+          placeholder="####-####-#"
+          maxLength={11} // Account for the two hyphens
+        />
+        <ValidationFeedback
+          isValid={touched.albertaStudentNumber && !errors.albertaStudentNumber}
+          message={
+            touched.albertaStudentNumber
+              ? errors.albertaStudentNumber || validationRules.albertaStudentNumber.successMessage
+              : null
+          }
+        />
+      </>
+    )}
+
+    {/* Message to international students who don't have an ASN */}
+    {studentType === 'International Student' && !hasASN && (
+      <Alert className="bg-gray-100 text-gray-700 border-gray-300">
+      <AlertDescription>
+        <strong className="block mb-2">Important Information for International Students</strong>
+        Since you do not currently have an Alberta Student Number (ASN), one will be automatically generated for you when we add you to Alberta's PASI system during enrollment. Once this process is complete, your ASN will appear in your profile.
+        <br />
+        <br />
+        This number is essential for your schooling in Alberta, so please keep it safe for future reference.
+      </AlertDescription>
+    </Alert>
+    
+    
+    )}
+  </div>
+)}
+
 
               {/* School/Home Education Selection Section */}
               {shouldShowSchoolSelection(studentType) && (
@@ -1484,43 +1689,52 @@ useEffect(() => {
                   </div>
 
                   {readOnlyFields.parentPhone ? (
-                    renderReadOnlyField('parentPhone', formData.parentPhone, 'Parent Phone Number')
-                  ) : (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">
-                        Parent Phone Number <span className="text-red-500">*</span>
-                      </label>
-                      <PhoneInput
-                        country={"ca"}
-                        value={formData.parentPhone}
-                        onChange={(value, country, e, formattedValue) => {
-                          handleFormChange({
-                            target: {
-                              name: 'parentPhone',
-                              value: formattedValue
-                            }
-                          });
-                        }}
-                        onBlur={() => handleBlur('parentPhone')}
-                        inputClass={`w-full p-2 border rounded-md ${
-                          touched.parentPhone && errors.parentPhone ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        containerClass="phone-input-container"
-                        buttonClass="phone-input-button"
-                        preferredCountries={["ca"]}
-                        priority={{ ca: 0, us: 1 }}
-                        required
-                      />
-                      <ValidationFeedback
-                        isValid={touched.parentPhone && !errors.parentPhone}
-                        message={
-                          touched.parentPhone
-                            ? errors.parentPhone || validationRules.parentPhone.successMessage
-                            : null
-                        }
-                      />
-                    </div>
-                  )}
+  renderReadOnlyField('parentPhone', formData.parentPhone, 'Parent Phone Number')
+) : (
+  <div className="space-y-2">
+    <label className="text-sm font-medium">
+      Parent Phone Number <span className="text-red-500">*</span>
+    </label>
+    <PhoneInput
+      country={studentType === 'International Student' ? undefined : "ca"}
+      value={formData.parentPhone}
+      onChange={(value, country, e, formattedValue) => {
+        handleFormChange({
+          target: {
+            name: 'parentPhone',
+            value: formattedValue
+          }
+        });
+      }}
+      onBlur={() => handleBlur('parentPhone')}
+      inputClass={`w-full p-2 border rounded-md ${
+        touched.parentPhone && errors.parentPhone ? 'border-red-500' : 'border-gray-300'
+      }`}
+      containerClass="phone-input-container"
+      buttonClass="phone-input-button"
+      preferredCountries={studentType === 'International Student' ? [] : ["ca"]}
+      priority={studentType === 'International Student' ? {} : { ca: 0, us: 1 }}
+      enableSearch={studentType === 'International Student'}
+      searchPlaceholder="Search country..."
+      autoFormat={true}
+      required
+    />
+    <ValidationFeedback
+      isValid={touched.parentPhone && !errors.parentPhone}
+      message={
+        touched.parentPhone
+          ? errors.parentPhone || validationRules.parentPhone.successMessage
+          : null
+      }
+    />
+    {studentType === 'International Student' && (
+      <p className="text-sm text-gray-500">
+        Please select your country code and enter your parent's phone number
+      </p>
+    )}
+  </div>
+)}
+
 
                   {readOnlyFields.parentEmail ? (
                     renderReadOnlyField('parentEmail', formData.parentEmail, 'Parent Email')
@@ -1739,6 +1953,7 @@ useEffect(() => {
   }
   error={dateErrors.endDate}
   studentType={studentType}
+  startDate={formData.startDate} 
 />
                 </div>
 
@@ -1787,6 +2002,58 @@ useEffect(() => {
               </div>
             </CardContent>
           </Card>
+
+
+          {studentType === 'International Student' && (
+  <>
+    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
+      <CardHeader>
+        <h3 className="text-md font-semibold">Country Information</h3>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Country of Origin <span className="text-red-500">*</span>
+          </label>
+          {readOnlyFields.country ? (
+            <input
+              type="text"
+              value={formData.country}
+              className="w-full p-2 border rounded-md bg-gray-50 cursor-not-allowed"
+              readOnly
+            />
+          ) : (
+            <Select
+              options={countryOptions}
+              value={countryOptions.find(option => option.value === formData.country)}
+              onChange={handleCountryChange}
+              className={touched.country && errors.country ? 'border-red-500' : ''}
+              placeholder="Select your country"
+            />
+          )}
+          {readOnlyFields.country && (
+            <p className="text-sm text-gray-500 mt-2">
+              Country of origin cannot be changed as it's already set in your profile
+            </p>
+          )}
+          {touched.country && errors.country && (
+            <ValidationFeedback
+              isValid={false}
+              message={errors.country}
+            />
+          )}
+        </div>
+      </CardContent>
+    </Card>
+    
+    <InternationalDocuments
+      onUploadComplete={handleDocumentUpload}
+      initialDocuments={documentUrls} 
+    />
+  </>
+)}
+
+
 
           {/* Additional Information Card */}
           <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
@@ -1846,27 +2113,33 @@ const DatePickerWithInfo = ({
   notice,
   disabled = false,
   readOnly = false,
-  studentType
+  studentType,
+  startDate 
 }) => {
+  // Function to calculate the default open date (5 months from start date)
+  const getOpenToDate = () => {
+    if (!startDate || label !== 'Completion Date') return null;
+    
+    const openDate = new Date(startDate);
+    openDate.setMonth(openDate.getMonth() + 5);
+    return openDate;
+  };
+
   // Function to get excluded date intervals based on student type
   const getExcludedIntervals = () => {
     const currentYear = new Date().getFullYear();
     const nextYear = currentYear + 1;
     
     if (studentType === 'Summer School') {
-      // Summer School students can ONLY select July and August
       return [
-        // Exclude January to June
         {
           start: new Date(currentYear, 0, 1),
           end: new Date(currentYear, 5, 30)
         },
-        // Exclude September to December
         {
           start: new Date(currentYear, 8, 1),
           end: new Date(currentYear, 11, 31)
         },
-        // Exclude next year's non-summer months
         {
           start: new Date(nextYear, 0, 1),
           end: new Date(nextYear, 5, 30)
@@ -1877,22 +2150,18 @@ const DatePickerWithInfo = ({
         }
       ];
     } else if (studentType === 'Non-Primary' || studentType === 'Home Education') {
-      // Non-Primary and Home Ed students can't select July and August
       return [
-        // Exclude July and August of current year
         {
           start: new Date(currentYear, 6, 1),
           end: new Date(currentYear, 7, 31)
         },
-        // Exclude July and August of next year
         {
           start: new Date(nextYear, 6, 1),
           end: new Date(nextYear, 7, 31)
         }
       ];
     }
-    
-    return []; // No restrictions for other student types
+    return [];
   };
 
   // Get appropriate warning message based on student type
@@ -1932,6 +2201,7 @@ const DatePickerWithInfo = ({
         disabled={disabled}
         readOnly={readOnly}
         excludeDateIntervals={getExcludedIntervals()}
+        openToDate={getOpenToDate()} // Add this line
         customInput={
           <CustomDateInput
             disabled={disabled}
@@ -1955,12 +2225,12 @@ const DatePickerWithInfo = ({
           <span className="text-sm text-blue-700">{notice}</span>
         </div>
       )}
-     {getWarningMessage() && (
-  <div className="flex items-start gap-2 mt-1">
-    <InfoIcon className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-    <span className="text-sm text-gray-500">{getWarningMessage()}</span>
-  </div>
-)}
+      {getWarningMessage() && (
+        <div className="flex items-start gap-2 mt-1">
+          <InfoIcon className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+          <span className="text-sm text-gray-500">{getWarningMessage()}</span>
+        </div>
+      )}
     </div>
   );
 };

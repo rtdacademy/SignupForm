@@ -19,10 +19,14 @@ const sendEmail = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters.');
   }
 
-  const verifiedSender = functions.config().sendgrid.sender;
   const senderEmail = context.auth.token.email;
   const senderName = context.auth.token.name || senderEmail;
   const timestamp = admin.database.ServerValue.TIMESTAMP;
+
+  // Validate sender's email domain
+  if (!senderEmail.endsWith('@rtdacademy.com')) {
+    throw new functions.https.HttpsError('permission-denied', 'Only RTD Academy staff members can send emails.');
+  }
 
   const db = admin.database();
   const recipientKey = sanitizeEmail(to);
@@ -43,7 +47,10 @@ const sendEmail = functions.https.onCall(async (data, context) => {
     // Prepare email message
     const msg = {
       to,
-      from: verifiedSender,
+      from: {
+        email: senderEmail,
+        name: senderName
+      },
       subject,
       text,
       html: html || text
@@ -120,55 +127,36 @@ const sendBulkEmails = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
   }
 
+  const senderEmail = context.auth.token.email;
+  
+  // Validate sender's email domain
+  if (!senderEmail.endsWith('@rtdacademy.com')) {
+    throw new functions.https.HttpsError('permission-denied', 'Only RTD Academy staff members can send emails.');
+  }
+
   const { recipients } = data;
   if (!Array.isArray(recipients) || recipients.length === 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Recipients must be a non-empty array.');
   }
 
-  const verifiedSender = functions.config().sendgrid.sender;
-  const senderEmail = context.auth.token.email;
   const senderName = context.auth.token.name || senderEmail;
   const timestamp = admin.database.ServerValue.TIMESTAMP;
   const db = admin.database();
   const senderKey = sanitizeEmail(senderEmail);
 
   try {
-    // Fetch parent emails for students where ccParent is true
-    const parentEmailsPromises = recipients
-      .filter(recipient => recipient.ccParent)
-      .map(async recipient => {
-        const studentKey = sanitizeEmail(recipient.to);
-        const studentRef = db.ref(`students/${studentKey}/profile/ParentEmail`);
-        const snapshot = await studentRef.once('value');
-        return {
-          studentEmail: recipient.to,
-          parentEmail: snapshot.val()
-        };
-      });
-
-    const parentEmails = await Promise.all(parentEmailsPromises);
-    const parentEmailMap = parentEmails.reduce((acc, { studentEmail, parentEmail }) => {
-      if (parentEmail) {
-        acc[studentEmail] = parentEmail;
-      }
-      return acc;
-    }, {});
-
     // Prepare messages for SendGrid
     const messages = recipients.map(({ to, subject, text, html, ccParent }) => {
       const emailConfig = {
         to,
-        from: verifiedSender,
+        from: {
+          email: senderEmail,
+          name: senderName
+        },
         subject,
         text,
         html: html || text
       };
-
-      // Add CC if parent email exists and ccParent is true
-      const parentEmail = parentEmailMap[to];
-      if (ccParent && parentEmail) {
-        emailConfig.cc = parentEmail;
-      }
 
       return emailConfig;
     });
@@ -176,19 +164,13 @@ const sendBulkEmails = functions.https.onCall(async (data, context) => {
     // Send all emails
     await sgMail.send(messages);
 
-    // Prepare database updates
-    const updates = {};
-    const emailIds = [];
-
-    // Create database entries for each email
-    recipients.forEach(({ to, subject, text, html, ccParent }) => {
-      const newEmailId = db.ref('emails').push().key;
-      emailIds.push(newEmailId);
+    // For each recipient, update the database accordingly
+    await Promise.all(recipients.map(async ({ to, subject, text, html, ccParent, courseId, courseName }) => {
       const recipientKey = sanitizeEmail(to);
-      const parentEmail = parentEmailMap[to];
+      const newEmailId = db.ref('emails').push().key;
 
       // Store email in recipient's history
-      updates[`userEmails/${recipientKey}/${newEmailId}`] = {
+      await db.ref(`userEmails/${recipientKey}/${newEmailId}`).set({
         subject,
         text,
         html: html || text,
@@ -196,22 +178,22 @@ const sendBulkEmails = functions.https.onCall(async (data, context) => {
         sender: senderEmail,
         senderName,
         read: false,
-        ccParent: ccParent && !!parentEmail
-      };
+        ccParent: ccParent
+      });
 
       // Store in sender's sent emails
-      updates[`userEmails/${senderKey}/sent/${newEmailId}`] = {
+      await db.ref(`userEmails/${senderKey}/sent/${newEmailId}`).set({
         to,
         subject,
         text,
         html: html || text,
         timestamp,
         recipient: to,
-        ccParent: ccParent && !!parentEmail
-      };
+        ccParent: ccParent
+      });
 
       // Create notification
-      updates[`notifications/${recipientKey}/${newEmailId}`] = {
+      await db.ref(`notifications/${recipientKey}/${newEmailId}`).set({
         type: 'new_email',
         emailId: newEmailId,
         sender: senderEmail,
@@ -221,16 +203,36 @@ const sendBulkEmails = functions.https.onCall(async (data, context) => {
         timestamp,
         read: false,
         isStaff: senderEmail.includes('@rtdacademy.com'),
-        ccParent: ccParent && !!parentEmail
-      };
-    });
+        ccParent: ccParent
+      });
 
-    // Perform all updates atomically
-    await db.ref().update(updates);
+      // Add note to student's course
+      if (courseId) {
+        const notesRef = db.ref(`students/${recipientKey}/courses/${courseId}/jsonStudentNotes`);
+        await notesRef.transaction((currentNotes) => {
+          const notesArray = Array.isArray(currentNotes) ? currentNotes : [];
+          const newNote = {
+            id: `email-note-${newEmailId}`,
+            content: `Subject: ${subject}\nCourse: ${courseName}\n${ccParent ? '(CC\'d to parent)' : ''}`,
+            timestamp: Date.now(),
+            author: senderName,
+            noteType: '📧',
+            metadata: {
+              type: 'email',
+              emailId: newEmailId,
+              subject: subject,
+              courseId: courseId,
+              senderEmail: senderEmail
+            }
+          };
+          // Prepend the new note to the array
+          return [newNote, ...notesArray];
+        });
+      }
+    }));
 
     return {
       success: true,
-      emailIds,
       timestamp,
       message: `Successfully sent ${recipients.length} emails`
     };
@@ -239,6 +241,8 @@ const sendBulkEmails = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('internal', 'Failed to send bulk emails.');
   }
 });
+
+
 
 module.exports = {
   sendEmail,

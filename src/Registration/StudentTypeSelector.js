@@ -55,16 +55,18 @@ const questions = [
   }
 ];
 
-function StudentTypeSelector({ onStudentTypeSelect }) {
+function StudentTypeSelector({ onStudentTypeSelect, isFormComponent = false }) {
   const { user } = useAuth();
   const uid = user?.uid;
-  const [currentView, setCurrentView] = useState('initial'); // 'initial', 'questionnaire', 'direct-select'
+  const [currentView, setCurrentView] = useState(isFormComponent ? 'initial' : 'questionnaire');
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [justDetermined, setJustDetermined] = useState(false);
   const [selectedType, setSelectedType] = useState('');
   const [error, setError] = useState(null);
 
   const saveToPendingRegistration = async (type) => {
+    if (!isFormComponent) return; // Only save if it's part of the form
+    
     try {
       const db = getDatabase();
       const pendingRegRef = ref(db, `users/${uid}/pendingRegistration`);
@@ -82,7 +84,9 @@ function StudentTypeSelector({ onStudentTypeSelect }) {
   const handleStudentTypeChange = async (value) => {
     try {
       setError(null);
-      await saveToPendingRegistration(value);
+      if (isFormComponent) {
+        await saveToPendingRegistration(value);
+      }
       setSelectedType(value);
       setJustDetermined(true);
       onStudentTypeSelect(value);
@@ -105,11 +109,13 @@ function StudentTypeSelector({ onStudentTypeSelect }) {
   const restartQuestionnaire = async () => {
     try {
       setError(null);
-      const db = getDatabase();
-      const pendingRegRef = ref(db, `users/${uid}/pendingRegistration`);
-      await set(pendingRegRef, null);
+      if (isFormComponent) {
+        const db = getDatabase();
+        const pendingRegRef = ref(db, `users/${uid}/pendingRegistration`);
+        await set(pendingRegRef, null);
+      }
 
-      setCurrentView('initial');
+      setCurrentView(isFormComponent ? 'initial' : 'questionnaire');
       setCurrentQuestion(0);
       setJustDetermined(false);
       setSelectedType('');
@@ -249,9 +255,15 @@ function StudentTypeSelector({ onStudentTypeSelect }) {
         </Alert>
       )}
 
-      {currentView === 'initial' && renderInitialView()}
-      {currentView === 'questionnaire' && renderQuestionnaire()}
-      {currentView === 'direct-select' && renderDirectSelect()}
+      {isFormComponent ? (
+        <>
+          {currentView === 'initial' && renderInitialView()}
+          {currentView === 'questionnaire' && renderQuestionnaire()}
+          {currentView === 'direct-select' && renderDirectSelect()}
+        </>
+      ) : (
+        renderQuestionnaire()
+      )}
     </div>
   );
 }

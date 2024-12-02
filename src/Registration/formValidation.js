@@ -82,24 +82,85 @@ const validationRules = {
   },
   
   phoneNumber: {
-    validate: (value) => {
-      if (!value) return "Phone number is required";
-      const cleanNumber = value.replace(/\D/g, '');
-      if (cleanNumber.length < 10) return "Phone number must be at least 10 digits";
-      return null;
-    },
-    successMessage: "Valid phone number"
-  },
+    validate: (value, options) => {
+      // Skip validation if read-only
+      if (options?.readOnlyFields?.phoneNumber) {
+        return null;
+      }
+      
+      // Required check
+      if (!value || value.trim() === '') {
+        return "Phone number is required";
+      }
 
-  albertaStudentNumber: {
-    validate: (value) => {
-      if (!value) return "Alberta Student Number is required";
-      const cleanASN = value.replace(/\D/g, "");
-      if (cleanASN.length !== 9) return "Alberta Student Number must be exactly 9 digits";
+      // For international numbers, we just need to verify there's content
+      // since the PhoneInput component handles formatting and validation
+      if (value.length < 6) { // Minimum reasonable length for any phone number
+        return "Please enter a complete phone number";
+      }
+      
       return null;
     },
-    successMessage: "Valid ASN number"
+    required: true,
+    successMessage: "Valid phone number"
+},
+
+albertaStudentNumber: {
+  validate: (value, options) => {
+    // Only validate if conditional validation allows it
+    if (!options?.conditionalValidation?.albertaStudentNumber?.()) {
+      return null;
+    }
+    
+    // First check if empty since it's required
+    if (!value || value.trim() === '') {
+      return "Alberta Student Number (ASN) is required";
+    }
+    
+    // Clean the value of any non-digits
+    const cleanASN = value.replace(/\D/g, "");
+    
+    // Validate the length
+    if (cleanASN.length !== 9) {
+      return "Alberta Student Number must be exactly 9 digits";
+    }
+    
+    // Additional validation: check if it's all zeros or invalid pattern
+    if (cleanASN === "000000000") {
+      return "Please enter a valid Alberta Student Number";
+    }
+    
+    // Check if it's a valid numeric value
+    if (!/^\d{9}$/.test(cleanASN)) {
+      return "Alberta Student Number can only contain numbers";
+    }
+    
+    return null;
   },
+  format: (value) => {
+    if (!value) return '';
+    
+    // Remove all non-digits
+    const cleanASN = value.replace(/\D/g, "");
+    
+    // Format as ####-####-# if we have enough digits
+    if (cleanASN.length >= 4) {
+      let formatted = cleanASN.slice(0, 4);
+      if (cleanASN.length >= 8) {
+        formatted += '-' + cleanASN.slice(4, 8);
+        if (cleanASN.length >= 9) {
+          formatted += '-' + cleanASN.slice(8, 9);
+        }
+      }
+      return formatted;
+    }
+    
+    return cleanASN;
+  },
+  required: true,
+  successMessage: "Valid Alberta Student Number"
+},
+
 
   birthday: {
     validate: (value) => {
@@ -168,14 +229,24 @@ const validationRules = {
   },
 
   parentPhone: {
-    validate: (value) => {
-      if (!value) return "Parent phone is required";
-      const cleanNumber = value.replace(/\D/g, '');
-      if (cleanNumber.length < 10) return "Phone number must be at least 10 digits";
+    validate: (value, options) => {
+      // Skip validation if it's not required
+      if (!options?.conditionalValidation?.parentPhone?.()) {
+        return null;
+      }
+
+      if (!value || value.trim() === '') {
+        return "Parent phone is required";
+      }
+
+      if (value.length < 6) {
+        return "Please enter a complete phone number";
+      }
+
       return null;
     },
     successMessage: "Valid parent phone number"
-  },
+},
 
   // In your validation rules
   parentEmail: {
@@ -191,8 +262,53 @@ const validationRules = {
       return null;
     },
     successMessage: "Valid parent email address"
-   }
+   },
+
+   
+   country: {
+    validate: (value, options) => {
+      // Only validate for international students
+      if (options?.formData?.studentType === 'International Student') {
+        // Skip validation if the field is read-only (exists in profile)
+        if (options?.readOnlyFields?.country) {
+          return null;
+        }
+        if (!value) return "Country of origin is required";
+      }
+      return null;
+    },
+    successMessage: "Valid country selection"
+  },
+  
+  documents: {
+    validate: (value, options) => {
+      // Only validate for international students
+      if (options?.formData?.studentType === 'International Student') {
+        // Skip validation if documents are already in profile
+        if (options?.readOnlyFields?.documents) {
+          return null;
+        }
+        
+        if (!value) return "Required documents are missing";
+        
+        // Check required documents
+        if (!value.passport) {
+          return "Passport is required";
+        }
+        if (!value.additionalID) {
+          return "Additional ID document is required";
+        }
+      }
+      return null;
+    },
+    successMessage: "All required documents uploaded"
+  }
+   
 };
+
+
+
+
 
 const useFormValidation = (initialData, rules, options = {}) => {
   // Destructure options with defaults

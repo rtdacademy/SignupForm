@@ -14,12 +14,13 @@ import MultiActionAuthHandler from './MultiActionAuthHandler';
 import ContractorInvoiceForm from './PublicForms/ContractorInvoiceForm';
 import AdultStudentInfo from './Website/AdultStudentInfo';
 import ScheduleMaker from './Schedule/ScheduleMaker'; 
-import YourWayScheduleMaker from './Website/YourWayScheduleMaker';
+import YourWayScheduleMaker from './Schedule/YourWayScheduleMaker';
 import IcsUpload from './Schedule/IcsUpload'; 
 import GeminiChat from './AI/GeminiChat';
 import app from './firebase'; 
 import PaymentResult from './Dashboard/PaymentResult';
 import CancelledPayment from './Dashboard/CancelledPayment';
+import GetStartedNow from './Website/GetStartedNow';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -64,6 +65,10 @@ function MainApp() {
             isStaff(user) ? <Navigate to="/teacher-dashboard" /> : <Navigate to="/dashboard" />
           ) : <Login />
         } />
+
+<Route path="/get-started" element={<GetStartedNow />} />
+
+        
       <Route 
   path="/dashboard" 
   element={user && !isStaff(user) ? <Dashboard /> : <Navigate to="/login" />} 

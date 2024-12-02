@@ -1,20 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import Select from 'react-select';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { useMode, MODES } from '../context/ModeContext';
 import {
-  ChevronDown, ChevronUp, X, Maximize, Minimize, Search,
+  ChevronDown, X, Maximize, Minimize, Search,
   Star, Flag, Bookmark, Circle, Square, Triangle, BookOpen as BookOpenIcon, 
   GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, 
   Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, 
   MessageCircle, Users, Presentation, FileText, Filter,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import CategoryManager from './CategoryManager';
+import AdvancedFilters from './AdvancedFilters';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +23,7 @@ import {
   DropdownMenuSubTrigger,
 } from "../components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
-import { UserSquare2, MessageSquare, ClipboardList } from "lucide-react";
+import { UserSquare2, ClipboardList } from "lucide-react";
 
 const iconMap = {
   'circle': Circle,
@@ -58,7 +56,6 @@ const MODE_CONFIG = {
     icon: <UserSquare2 className="h-4 w-4" />,
     tooltip: "Teacher Mode"
   },
-
   [MODES.REGISTRATION]: {
     icon: <ClipboardList className="h-4 w-4" />,
     tooltip: "Registration Mode"
@@ -67,34 +64,25 @@ const MODE_CONFIG = {
 
 const ModeSelector = ({ currentMode, setCurrentMode }) => (
   <TooltipProvider>
-    <RadioGroup
-      value={currentMode}
-      onValueChange={setCurrentMode}
-      className="flex flex-col space-y-2"
-    >
+    <div className="flex items-center space-x-1">
       {Object.entries(MODE_CONFIG).map(([mode, config]) => (
         <Tooltip key={mode}>
           <TooltipTrigger asChild>
-            <div className="flex items-center">
-              <RadioGroupItem
-                value={mode}
-                id={mode}
-                className="peer"
-              />
-              <label
-                htmlFor={mode}
-                className="flex items-center justify-center ml-2 p-1.5 rounded-md text-gray-600 peer-data-[state=checked]:text-blue-600"
-              >
-                {config.icon}
-              </label>
-            </div>
+            <Button
+              variant={currentMode === mode ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => setCurrentMode(mode)}
+              className="p-1.5"
+            >
+              {config.icon}
+            </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">
+          <TooltipContent side="bottom">
             <p>{config.tooltip}</p>
           </TooltipContent>
         </Tooltip>
       ))}
-    </RadioGroup>
+    </div>
   </TooltipProvider>
 );
 
@@ -111,7 +99,6 @@ const FilterPanel = memo(function FilterPanel({
   teacherNames,
   user_email_key,
 }) {
-  const [isExpanded, setIsExpanded] = useState(true);
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [localFilters, setLocalFilters] = useState({});
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -126,7 +113,6 @@ const FilterPanel = memo(function FilterPanel({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Initialize filters without any presets
   useEffect(() => {
     setLocalFilters((prevFilters) => {
       if (JSON.stringify(prevFilters) !== JSON.stringify(propFilters)) {
@@ -140,7 +126,9 @@ const FilterPanel = memo(function FilterPanel({
     const count = (localFilters.categories || []).reduce((sum, teacherCat) => {
       const categories = Object.values(teacherCat)[0];
       return sum + (categories ? categories.length : 0);
-    }, 0) + (searchTerm ? 1 : 0);
+    }, 0) + 
+    (searchTerm ? 1 : 0) +
+    (localFilters.dateFilters ? Object.keys(localFilters.dateFilters).length : 0);
     setActiveFilterCount(count);
   }, [localFilters, searchTerm]);
 
@@ -152,7 +140,6 @@ const FilterPanel = memo(function FilterPanel({
           ...new Set(
             studentSummaries
               .map((s) => s[key])
-              // Include empty strings and null values in the filter options
               .filter((v) => v !== undefined)
               .map(v => v === null || v === '' ? '(Empty)' : v)
           ),
@@ -239,7 +226,7 @@ const FilterPanel = memo(function FilterPanel({
     const clearedFilters = Object.keys(localFilters).reduce(
       (acc, key) => ({
         ...acc,
-        [key]: [],
+        [key]: key === 'dateFilters' ? {} : [],
       }),
       {}
     );
@@ -285,98 +272,127 @@ const FilterPanel = memo(function FilterPanel({
 
           {!isMobile && (
             <div className="flex items-center space-x-2">
-              <div className="flex items-center space-x-2">
+              {/* Moved and renamed Advanced Filters button */}
+              <AdvancedFilters
+                onFilterChange={(newFilters) => {
+                  setLocalFilters((prevFilters) => {
+                    const updatedFilters = {
+                      ...prevFilters,
+                      ...newFilters
+                    };
+                    onFilterChange(updatedFilters);
+                    return updatedFilters;
+                  });
+                }}
+                currentFilters={localFilters}
+                availableFilters={availableFilters}
+                filterOptions={filterOptions}
+                studentSummaries={studentSummaries}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                >
+                  <div className="flex items-center">
+                    <Filter className="h-4 w-4 mr-1" />
+                    Filters
+                    <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
+                  </div>
+                </Button>
+              </AdvancedFilters>
+
+              {/* Categories Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                  >
+                    <div className="flex items-center">
+                      <Filter className="h-4 w-4 mr-1" />
+                      Categories
+                      <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto">
+                  {Object.entries(groupedCategories).map(([teacherEmailKey, categories]) => (
+                    <DropdownMenuSub key={teacherEmailKey}>
+                      <DropdownMenuSubTrigger>
+                        {teacherNames[teacherEmailKey] || teacherEmailKey}
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="max-h-64 overflow-y-auto">
+                        {categories.map((category) => {
+                          const isSelected = (localFilters.categories || []).some(cat => 
+                            cat[teacherEmailKey] && 
+                            cat[teacherEmailKey].includes(category.value)
+                          );
+                          return (
+                            <DropdownMenuItem
+                              key={category.value}
+                              onSelect={() => handleCategoryChange(category.value, teacherEmailKey)}
+                              className="flex items-center"
+                              style={{
+                                backgroundColor: isSelected ? `${category.color}20` : 'transparent',
+                              }}
+                            >
+                              {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                                style: { color: category.color }, 
+                                size: 16, 
+                                className: 'mr-2' 
+                              })}
+                              <span>{category.label}</span>
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {localFilters.categories && localFilters.categories.length > 0 && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-9"
+                      className="h-9 relative"
                     >
-                      <div className="flex items-center">
-                        <Filter className="h-4 w-4 mr-1" />
-                        Categories
-                        <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
-                      </div>
+                      {selectedCategoriesCount} selected
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto">
-                    {Object.entries(groupedCategories).map(([teacherEmailKey, categories]) => (
-                      <DropdownMenuSub key={teacherEmailKey}>
-                        <DropdownMenuSubTrigger>
-                          {teacherNames[teacherEmailKey] || teacherEmailKey}
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="max-h-64 overflow-y-auto">
-                          {categories.map((category) => {
-                            const isSelected = (localFilters.categories || []).some(cat => 
-                              cat[teacherEmailKey] && 
-                              cat[teacherEmailKey].includes(category.value)
-                            );
-                            return (
-                              <DropdownMenuItem
-                                key={category.value}
-                                onSelect={() => handleCategoryChange(category.value, teacherEmailKey)}
-                                className="flex items-center"
-                                style={{
-                                  backgroundColor: isSelected ? `${category.color}20` : 'transparent',
-                                }}
-                              >
-                                {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
-                                  style: { color: category.color }, 
-                                  size: 16, 
-                                  className: 'mr-2' 
-                                })}
-                                <span>{category.label}</span>
-                              </DropdownMenuItem>
-                            );
-                          })}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                    ))}
+                    {localFilters.categories.map((teacherCat) => {
+                      const teacherEmailKey = Object.keys(teacherCat)[0];
+                      return teacherCat[teacherEmailKey].map((categoryId) => {
+                        const category = groupedCategories[teacherEmailKey]?.find((c) => c.value === categoryId);
+                        if (!category) return null;
+                        return (
+                          <DropdownMenuItem 
+                            key={`${categoryId}-${teacherEmailKey}`} 
+                            className="flex items-center"
+                            onSelect={() => handleCategoryChange(categoryId, teacherEmailKey)}
+                          >
+                            {iconMap[category.icon] && React.createElement(iconMap[category.icon], {
+                              size: 16,
+                              className: 'mr-2',
+                              style: { color: category.color }
+                            })}
+                            {category.label}
+                            <X className="ml-auto h-4 w-4" />
+                          </DropdownMenuItem>
+                        );
+                      });
+                    })}
+                    <DropdownMenuItem onSelect={handleClearAllCategories}>
+                      Clear All
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-
-                {localFilters.categories && localFilters.categories.length > 0 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-9 relative"
-                      >
-                        {selectedCategoriesCount} selected
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto">
-                      {localFilters.categories.map((teacherCat) => {
-                        const teacherEmailKey = Object.keys(teacherCat)[0];
-                        return teacherCat[teacherEmailKey].map((categoryId) => {
-                          const category = groupedCategories[teacherEmailKey]?.find((c) => c.value === categoryId);
-                          if (!category) return null;
-                          return (
-                            <DropdownMenuItem 
-                              key={`${categoryId}-${teacherEmailKey}`} 
-                              className="flex items-center"
-                              onSelect={() => handleCategoryChange(categoryId, teacherEmailKey)}
-                            >
-                              {iconMap[category.icon] && React.createElement(iconMap[category.icon], {
-                                size: 16,
-                                className: 'mr-2',
-                                style: { color: category.color }
-                              })}
-                              {category.label}
-                              <X className="ml-auto h-4 w-4" />
-                            </DropdownMenuItem>
-                          );
-                        });
-                      })}
-                      <DropdownMenuItem onSelect={handleClearAllCategories}>
-                        Clear All
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
+              )}
 
               <CategoryManager onCategoryChange={() => {}} />
 
@@ -431,95 +447,18 @@ const FilterPanel = memo(function FilterPanel({
               >
                 {isFullScreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
               </Button>
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="text-[#315369]">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={clearFilters} 
+                className="text-[#315369]"
+              >
                 <X className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setIsExpanded(!isExpanded)} className="text-[#315369]">
-                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>
             </div>
           )}
         </div>
       </CardHeader>
-
-      {/* Expandable Filter Section */}
-      {!isMobile && (
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <CardContent className="px-6 py-2">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {availableFilters.map(({ key, label }) => {
-                    if (key === 'categories') return null;
-                    return (
-                      <div key={key} className="space-y-1">
-                        <Label htmlFor={key} className="text-xs font-medium text-[#1fa6a7]">{label}</Label>
-                        <div className="relative">
-                          <Select
-                            isMulti
-                            name={key}
-                            options={filterOptions[key]}
-                            value={filterOptions[key]?.filter(option => 
-                              (localFilters[key] || []).includes(option.value) ||
-                              ((localFilters[key] || []).includes('') && option.value === '')
-                            )}
-                            onChange={(selectedOptions) => {
-                              setLocalFilters((prevFilters) => {
-                                const updatedFilters = {
-                                  ...prevFilters,
-                                  [key]: selectedOptions ? selectedOptions.map((option) => option.value) : [],
-                                };
-                                onFilterChange(updatedFilters);
-                                return updatedFilters;
-                              });
-                            }}
-                            styles={{
-                              control: (provided) => ({
-                                ...provided,
-                                backgroundColor: 'white',
-                                borderColor: '#d1d5db',
-                                minHeight: '32px',
-                                height: 'auto',
-                              }),
-                              valueContainer: (provided) => ({ ...provided, padding: '0 6px' }),
-                              input: (provided) => ({ ...provided, margin: '0px' }),
-                              indicatorsContainer: (provided) => ({ ...provided, height: '32px' }),
-                              menu: (provided) => ({ ...provided, backgroundColor: 'white', zIndex: 9999 }),
-                              option: (provided, state) => ({
-                                ...provided,
-                                backgroundColor: state.isSelected ? '#315369' : state.isFocused ? '#f0f4f7' : 'white',
-                                color: state.isSelected ? 'white' : '#315369',
-                              }),
-                              multiValue: (provided) => ({ ...provided, backgroundColor: '#f0f4f7' }),
-                              multiValueLabel: (provided) => ({ ...provided, color: '#315369' }),
-                              multiValueRemove: (provided) => ({
-                                ...provided,
-                                color: '#315369',
-                                '&:hover': { backgroundColor: '#315369', color: 'white' },
-                              }),
-                            }}
-                            className="basic-multi-select"
-                            classNamePrefix="select"
-                            placeholder={`${label}`}
-                          />
-                          {localFilters[key] && localFilters[key].length > 0 && (
-                            <div className="absolute -top-2 -right-2 h-4 w-4 bg-blue-500 rounded-full" />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      )}
     </Card>
   );
 });

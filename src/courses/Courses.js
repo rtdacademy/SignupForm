@@ -1,10 +1,17 @@
 // Courses.js
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { getDatabase, ref, onValue, update } from 'firebase/database';
+import { getDatabase, ref, onValue, update, remove } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { FaEdit, FaExclamationTriangle, FaPlus, FaTrash, FaClock } from 'react-icons/fa';
+import { 
+  FaEdit, 
+  FaExclamationTriangle, 
+  FaPlus, 
+  FaTrash, 
+  FaClock, 
+  FaRegLightbulb 
+} from 'react-icons/fa';
 import Modal from 'react-modal';
 import Select from 'react-select';
 import { Switch } from '../components/ui/switch';
@@ -20,6 +27,8 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import CourseUnitsEditor from './CourseUnitsEditor';
+import AddCourseDialog from './AddCourseDialog';
+import DeleteCourseDialog from './DeleteCourseDialog'; // Ensure this component exists
 
 Modal.setAppElement('#root');
 
@@ -292,6 +301,9 @@ function Courses() {
   const [showWarning, setShowWarning] = useState(false);
   const [staffMembers, setStaffMembers] = useState([]);
 
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedCourseForDeletion, setSelectedCourseForDeletion] = useState(null);
+
   const activeOptions = [
     { value: 'Current', label: 'Current' },
     { value: 'Old', label: 'Old' },
@@ -500,18 +512,29 @@ function Courses() {
   // Group courses by grade
   const groupedCourses = useMemo(() => {
     const groups = {};
-
-    Object.entries(courses).forEach(([courseId, course]) => {
-      const grade = course.grade ? course.grade.trim() : 'Other';
-      if (!grade) {
-        if (!groups['Other']) groups['Other'] = [];
-        groups['Other'].push({ courseId, course });
-      } else {
-        if (!groups[grade]) groups[grade] = [];
-        groups[grade].push({ courseId, course });
-      }
+  
+    Object.entries(courses)
+      .filter(([courseId]) => courseId !== 'sections') // Filter out Sections entry
+      .forEach(([courseId, course]) => {
+        const grade = course.grade ? course.grade.trim() : 'Other';
+        if (!grade) {
+          if (!groups['Other']) groups['Other'] = [];
+          groups['Other'].push({ courseId, course });
+        } else {
+          if (!groups[grade]) groups[grade] = [];
+          groups[grade].push({ courseId, course });
+        }
+      });
+  
+    // Sort courses within each grade by courseId
+    Object.keys(groups).forEach(grade => {
+      groups[grade].sort((a, b) => {
+        const idA = parseInt(a.courseId);
+        const idB = parseInt(b.courseId);
+        return idA - idB;
+      });
     });
-
+  
     // Sort the grades, placing "Other" at the end
     const sortedGrades = Object.keys(groups)
       .filter((g) => g !== 'Other')
@@ -526,20 +549,46 @@ function Courses() {
     if (groups['Other']) {
       sortedGrades.push('Other');
     }
-
+  
     const sortedGroups = {};
     sortedGrades.forEach((grade) => {
       sortedGroups[grade] = groups[grade];
     });
-
+  
     return sortedGroups;
   }, [courses]);
+
+  const handleDeleteCourse = async () => {
+    if (!selectedCourseForDeletion) return;
+  
+    try {
+      const db = getDatabase();
+      const courseRef = ref(db, `courses/${selectedCourseForDeletion.id}`);
+      await remove(courseRef);
+      console.log(`Successfully deleted course: ${selectedCourseForDeletion.title}`);
+  
+      // Handle post-deletion state
+      setDeleteDialogOpen(false);
+      setSelectedCourseForDeletion(null);
+  
+      // Clear selected course data first
+      setSelectedCourseId(null);
+      setCourseData({});
+      
+    } catch (error) {
+      console.error('Error deleting course:', error);
+      alert('An error occurred while deleting the course.');
+    }
+  };
 
   return (
     <div className="flex h-screen">
       {/* Sidebar */}
       <div className="w-1/4 bg-gray-200 p-4 overflow-y-auto">
         <h2 className="text-lg font-bold mb-4">Courses</h2>
+
+        <AddCourseDialog />
+
         {Object.keys(groupedCourses).length > 0 ? (
           <div>
             {Object.entries(groupedCourses).map(([grade, coursesInGrade]) => (
@@ -554,9 +603,33 @@ function Courses() {
                           ? 'bg-blue-500 text-white'
                           : 'bg-white hover:bg-gray-100'
                       }`}
-                      onClick={() => handleCourseSelect(courseId)}
                     >
-                      {course.Title || `Course ID: ${courseId}`}
+                      <div className="flex items-center justify-between">
+                        <div 
+                          className="flex items-center gap-2 flex-1" 
+                          onClick={() => handleCourseSelect(courseId)}
+                        >
+                          {course.modernCourse && (
+                            <FaRegLightbulb 
+                              className={`${selectedCourseId === courseId ? 'text-white' : 'text-yellow-500'}`} 
+                              title="Modern Course"
+                            />
+                          )}
+                          <span>{course.Title || `Course ID: ${courseId}`}</span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteDialogOpen(true);
+                            setSelectedCourseForDeletion({ id: courseId, title: course.Title });
+                          }}
+                          className={`p-1 rounded hover:bg-gray-200 ${
+                            selectedCourseId === courseId ? 'text-white hover:text-red-600' : 'text-gray-500 hover:text-red-600'
+                          }`}
+                        >
+                          <FaTrash size={14} />
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -570,23 +643,31 @@ function Courses() {
 
       {/* Course Details */}
       <div className="w-3/4 p-4 overflow-y-auto">
-        {selectedCourseId ? (
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">
-                Course: {courses[selectedCourseId].Title || selectedCourseId}
-              </h2>
-              <div className="flex items-center space-x-2">
-                {!isEditing && (
-                  <button
-                    onClick={handleEditClick}
-                    className="flex items-center px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200 text-sm"
-                  >
-                    <FaEdit className="mr-1" /> Edit Course
-                  </button>
-                )}
-              </div>
-            </div>
+      {selectedCourseId ? (
+  <div>
+    <div className="flex justify-between items-center mb-4">
+      <div className="flex items-center gap-2">
+        <h2 className="text-xl font-bold">
+          Course: {courses[selectedCourseId]?.Title || selectedCourseId}
+        </h2>
+        {courseData?.modernCourse && (
+          <div className="flex items-center gap-1 text-yellow-500" title="Modern Course">
+            <FaRegLightbulb />
+            <span className="text-sm font-medium">Modern Course</span>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center space-x-2">
+        {!isEditing && (
+          <button
+            onClick={handleEditClick}
+            className="flex items-center px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200 text-sm"
+          >
+            <FaEdit className="mr-1" /> Edit Course
+          </button>
+        )}
+      </div>
+    </div>
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
               <div className="flex flex-wrap -mx-2">
                 {/* Course Name */}
@@ -605,18 +686,20 @@ function Courses() {
                 </div>
 
                 {/* LMS Course ID */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    LMS Course ID
-                  </label>
-                  <input
-                    type="text"
-                    name="LMSCourseID"
-                    value={courseData.LMSCourseID || ''}
-                    disabled
-                    className={`mt-1 block w-full p-2 border border-gray-200 bg-gray-100 rounded-md shadow-sm text-sm`}
-                  />
-                </div>
+                {!courseData.modernCourse && (
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      LMS Course ID
+                    </label>
+                    <input
+                      type="text"
+                      name="LMSCourseID"
+                      value={courseData.LMSCourseID || ''}
+                      disabled
+                      className={`mt-1 block w-full p-2 border border-gray-200 bg-gray-100 rounded-md shadow-sm text-sm`}
+                    />
+                  </div>
+                )}
 
                 {/* Active */}
                 <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
@@ -855,6 +938,22 @@ function Courses() {
           <p>Select a course to view details.</p>
         )}
       </div>
+
+      {/* Delete Course Dialog */}
+      <DeleteCourseDialog
+        isOpen={deleteDialogOpen}
+        setIsOpen={setDeleteDialogOpen}
+        courseId={selectedCourseForDeletion?.id}
+        courseTitle={selectedCourseForDeletion?.title}
+        onDeleteComplete={() => {
+          setSelectedCourseForDeletion(null);
+          if (selectedCourseId === selectedCourseForDeletion?.id) {
+            setSelectedCourseId(null);
+            setCourseData({});
+          }
+        }}
+        onDelete={handleDeleteCourse}
+      />
 
       {/* Warning Modal */}
       <Modal

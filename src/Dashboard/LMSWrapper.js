@@ -10,7 +10,7 @@ import {
   FaChevronLeft,
   FaArrowLeft,
 } from 'react-icons/fa';
-import ChatApp from '../chat/ChatApp';
+
 import Notifications from '../Notifications/Notifications';
 
 const LMSWrapper = ({ 
@@ -72,10 +72,11 @@ const LMSWrapper = ({
       view: 'iframe'
     });
 
+    /*
     if (ssoToken) {
       params.append('ssoToken', ssoToken);
     }
-
+*/
     return `${baseUrl}?${params.toString()}`;
   }, [courseId, generateSSOToken]);
 

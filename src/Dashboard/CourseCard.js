@@ -12,12 +12,15 @@ import {
   FaClock,
   FaEnvelope
 } from 'react-icons/fa';
-import { ChevronRight, AlertCircle } from 'lucide-react';
+import { ChevronRight, AlertCircle, BarChart, AlertTriangle } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import {
   Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
 } from "../components/ui/dialog";
 import {
@@ -28,13 +31,14 @@ import {
 } from "../components/ui/tooltip";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import CourseDetailsDialog from './CourseDetailsDialog';
-import CreateScheduleDialog from './CreateScheduleDialog';
+import YourWayScheduleCreator from '../Schedule/YourWayScheduleCreator';
+import YourWayProgress from '../Schedule/YourWayProgress';
 import PaymentOptionsDialog from './PaymentOptionsDialog';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { getFirestore, collection, query, getDocs, where } from 'firebase/firestore';
+import SchedulePurchaseDialog from './SchedulePurchaseDialog';
 
-// Helper Functions
 const getStatusColor = (status) => {
   switch (status) {
     case 'Active':
@@ -70,15 +74,13 @@ const formatDate = (dateString) => {
 
 const CourseCard = ({ 
   course, 
-  showProgressBar = false,
-  showGradeInfo = false,
-  customActions,
   onGoToCourse,
   className = ''
 }) => {
   const { user } = useAuth();
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [showCreateScheduleDialog, setShowCreateScheduleDialog] = useState(false);
+  const [showProgressDialog, setShowProgressDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState({
     isChecking: true,
@@ -87,6 +89,10 @@ const CourseCard = ({
     paymentName: null
   });
   
+  // New states
+  const [showScheduleConfirmDialog, setShowScheduleConfirmDialog] = useState(false);
+  const [remainingSchedules, setRemainingSchedules] = useState(null);
+
   const courseName = course.Course?.Value || 'Course Name';
   const courseId = course.CourseID || 'N/A';
   const status = course.ActiveFutureArchived?.Value || 'Unknown';
@@ -163,6 +169,17 @@ const CourseCard = ({
     checkPaymentStatus();
   }, [user, courseId, isAdultStudent]);
 
+  // New function to check remaining schedules
+  const checkRemainingSchedules = () => {
+    if (!course?.ScheduleJSON?.remainingSchedules) {
+      // If remainingSchedules doesn't exist, set it to 2
+      setRemainingSchedules(2);
+    } else {
+      setRemainingSchedules(course.ScheduleJSON.remainingSchedules);
+    }
+    setShowScheduleConfirmDialog(true);
+  };
+
   const handleGoToCourse = () => {
     if (!hasSchedule) {
       toast.error("Please create a schedule before accessing the course");
@@ -204,14 +221,14 @@ const CourseCard = ({
       <Alert className="mb-4 bg-purple-50 border-purple-200">
         <AlertCircle className="h-4 w-4 text-purple-500" />
         <AlertDescription className="text-purple-700">
-        <p className="font-medium mb-1">7-Day Trial Period</p>
-        <div className="prose prose-sm prose-purple max-w-none">
-          <p className="text-purple-700 mt-0 mb-0">
-            Once you're added to the course, you'll have 7 days to explore the content before payment is required. 
-            Choose between a one-time payment or three monthly installments.
-          </p>
-        </div>
-      </AlertDescription>
+          <p className="font-medium mb-1">7-Day Trial Period</p>
+          <div className="prose prose-sm prose-purple max-w-none">
+            <p className="text-purple-700 mt-0 mb-0">
+              Once you're added to the course, you'll have 7 days to explore the content before payment is required. 
+              Choose between a one-time payment or three monthly installments.
+            </p>
+          </div>
+        </AlertDescription>
       </Alert>
     );
   };
@@ -229,7 +246,7 @@ const CourseCard = ({
 
     if (paymentStatus.hasValidPayment) {
       const paymentLabel = paymentStatus.paymentType === 'subscription' 
-        ? 'Monthly Installments'  // Changed from "Subscription Payment"
+        ? 'Monthly Installments'
         : 'One-time Payment';
 
       return (
@@ -258,6 +275,75 @@ const CourseCard = ({
         <FaCreditCard className="mr-2" />
         Make Payment
       </Button>
+    );
+  };
+
+  // Updated renderScheduleButtons function
+  const renderScheduleButtons = () => {
+    return (
+      <>
+        {/* Only show Create Schedule button if no schedule exists */}
+        {!hasSchedule && (
+          <>
+            <Button 
+              className="w-full bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white shadow-sm transition-all duration-200"
+              onClick={checkRemainingSchedules}
+            >
+              <FaCalendarPlus className="mr-2 h-4 w-4" />
+              Create Schedule
+            </Button>
+  
+            {/* Schedule Purchase Dialog */}
+            <SchedulePurchaseDialog 
+  isOpen={showScheduleConfirmDialog}
+  onOpenChange={setShowScheduleConfirmDialog}
+  onProceedToCreation={() => {
+    setShowScheduleConfirmDialog(false);
+    setShowCreateScheduleDialog(true);
+  }}
+/>
+  
+            {/* Create Schedule Dialog */}
+            <Dialog open={showCreateScheduleDialog} onOpenChange={setShowCreateScheduleDialog}>
+              <DialogContent className="max-w-7xl">
+                <DialogHeader>
+                  <DialogTitle>Create Your Course Schedule</DialogTitle>
+                </DialogHeader>
+                <YourWayScheduleCreator 
+                  course={course}
+                  onScheduleSaved={() => {
+                    setRemainingSchedules(prev => Math.max(0, prev - 1));
+                    setShowCreateScheduleDialog(false);
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          </>
+        )}
+  
+        {/* Show Progress button if schedule exists */}
+        {hasSchedule && (
+          <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
+            <DialogTrigger asChild>
+              <Button 
+                className="w-full bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white shadow-sm transition-all duration-200"
+              >
+                <BarChart className="mr-2 h-4 w-4" />
+                Course Progress
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-7xl max-h-[90vh] overflow-auto">
+              <DialogHeader>
+                <DialogTitle>Course Progress</DialogTitle>
+              </DialogHeader>
+              <YourWayProgress 
+                course={course} 
+                schedule={course.ScheduleJSON}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
+      </>
     );
   };
 
@@ -368,21 +454,7 @@ const CourseCard = ({
 
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-2">
-                <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      className="w-full bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white shadow-sm transition-all duration-200"
-                    >
-                      <FaCalendarPlus className="mr-2 h-4 w-4" />
-                      {hasSchedule ? 'View/Edit Schedule' : 'Create Schedule'}
-                    </Button>
-                  </DialogTrigger>
-                  <CreateScheduleDialog
-                    isOpen={showScheduleDialog}
-                    onOpenChange={setShowScheduleDialog}
-                    course={course}
-                  />
-                </Dialog>
+                {renderScheduleButtons()}
 
                 <Button 
                   onClick={handleGoToCourse}

@@ -23,8 +23,8 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
       { key: 'School_x0020_Year_Value', label: 'School Year' },
       { key: 'StudentType_Value', label: 'Student Type' },
       { key: 'DiplomaMonthChoices_Value', label: 'Diploma Month' },
-      { key: 'ActiveFutureArchived_Value', label: 'Active or Archived' },
-      { key: 'categories', label: 'Categories' }, // Added categories filter
+      { key: 'ActiveFutureArchived_Value', label: 'State' },
+      { key: 'categories', label: 'Categories' }
     ],
     []
   );
@@ -224,6 +224,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
       // Apply existing filters
       const matchesFilters = Object.keys(filters).every((filterKey) => {
         if (filterKey === 'categories') return true; // We'll handle categories separately
+        if (filterKey === 'dateFilters') return true; // Handle date filters separately
         if (filters[filterKey].length === 0) return true;
         const studentValue = String(student[filterKey] || '').toLowerCase();
         return filters[filterKey].some(
@@ -239,6 +240,25 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
                student.categories[teacherEmailKey] && 
                categoryIds.some(categoryId => student.categories[teacherEmailKey][categoryId] === true);
       });
+
+      // Apply date filters
+      let matchesDates = true;
+      if (filters.dateFilters && Object.keys(filters.dateFilters).length > 0) {
+        const createdDate = new Date(student.Created);
+        
+        if (filters.dateFilters.after) {
+          matchesDates = createdDate >= new Date(filters.dateFilters.after);
+        }
+        
+        if (matchesDates && filters.dateFilters.before) {
+          matchesDates = createdDate <= new Date(filters.dateFilters.before);
+        }
+        
+        if (matchesDates && filters.dateFilters.between) {
+          const { start, end } = filters.dateFilters.between;
+          matchesDates = createdDate >= new Date(start) && createdDate <= new Date(end);
+        }
+      }
   
       // Apply search
       const matchesSearch =
@@ -246,7 +266,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
         student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.StudentEmail.toLowerCase().includes(searchTerm.toLowerCase());
   
-      return matchesFilters && matchesCategories && matchesSearch;
+      return matchesFilters && matchesCategories && matchesDates && matchesSearch;
     });
   }, [studentSummaries, filters, searchTerm]);
 
@@ -286,15 +306,17 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
 
   // Render student detail
   const renderStudentDetail = useCallback(() => {
-   // console.log('Rendering student detail');
     return (
       <Card className="h-full bg-white shadow-md">
         <CardContent className="h-full p-4 overflow-auto">
-          <StudentDetail studentSummary={selectedStudent} />
+          <StudentDetail 
+            studentSummary={selectedStudent} 
+            isMobile={isMobile}  
+          />
         </CardContent>
       </Card>
     );
-  }, [selectedStudent]);
+  }, [selectedStudent, isMobile]); 
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -362,7 +384,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
           </AnimatePresence>
         ) : (
           <div className="flex h-full space-x-4">
-            <div className="w-96 h-full overflow-hidden">
+            <div className="w-1/3 h-full overflow-hidden"> 
               {renderStudentList()}
             </div>
             <div className="flex-1 h-full overflow-hidden">

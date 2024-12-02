@@ -11,7 +11,7 @@ import {
 } from "../components/ui/collapsible";
 import { Button } from "../components/ui/button";
 import NewUserSignUp from '../Registration/NewUserSignUp';
-import YourWayScheduleMaker from '../Website/YourWayScheduleMaker';
+import YourWayScheduleMaker from '../Schedule/YourWayScheduleMaker';
 
 // Constants for triangle animation
 const TRIANGLE_SIZE = 220; // Size of the triangles

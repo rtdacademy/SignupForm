@@ -5,10 +5,12 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Sheet, SheetContent } from "../components/ui/sheet";
-import { Calendar, Check, X, AlertTriangle } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
+import { Label } from "../components/ui/label";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { useMode, MODES } from '../context/ModeContext';
@@ -16,11 +18,9 @@ import StudentDetailsSheet from './StudentDetailsSheet';
 import ScheduleMaker from '../Schedule/ScheduleMaker';
 import StudentNotes from './StudentNotes';
 import SchedCombined from '../Schedule/schedCombined';
-import GradebookDisplay from '../Schedule/GradebookDisplay';
 import ScheduleDisplay from '../Schedule/ScheduleDisplay';
 import RegistrationInfo from './RegistrationInfo';
 
-// Color generation function
 const getColorFromInitials = (initials) => {
   const colors = [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8',
@@ -34,45 +34,14 @@ const getColorFromInitials = (initials) => {
   return colors[hash % colors.length];
 };
 
-const DataStatusIndicator = ({ label, exists }) => (
-  <div className="flex items-center gap-2">
-    {exists ? 
-      <Check className="h-4 w-4 text-green-500" /> : 
-      <X className="h-4 w-4 text-red-500" />
-    }
-    <span className="text-sm">{label}</span>
-  </div>
-);
-
-const MigrationBanner = ({ scheduleJSON, jsonGradebook }) => (
-  <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-4">
-    <div className="flex items-center gap-2 mb-2">
-      <AlertTriangle className="h-5 w-5 text-yellow-600" />
-      <span className="font-medium text-yellow-800">
-        Incomplete Schedule
-      </span>
-    </div>
-    <div className="grid grid-cols-2 gap-4">
-      <DataStatusIndicator 
-        label="Schedule Available" 
-        exists={Boolean(scheduleJSON)} 
-      />
-      <DataStatusIndicator 
-        label="Gradebook Available" 
-        exists={Boolean(jsonGradebook)} 
-      />
-    </div>
-  </div>
-);
-
-function StudentDetail({ studentSummary }) {
+function StudentDetail({ studentSummary, isMobile }) {
   const [studentData, setStudentData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [notes, setNotes] = useState([]);
   const { user } = useAuth();
-  const [visibleSections, setVisibleSections] = useState(['notes']);
+  const [visibleSections, setVisibleSections] = useState(isMobile ? 'notes' : ['notes']);
   const [changedFields, setChangedFields] = useState({});
   const [assignedStaff, setAssignedStaff] = useState([]);
   const [courseId, setCourseId] = useState(null);
@@ -83,24 +52,38 @@ function StudentDetail({ studentSummary }) {
   const [jsonGradebook, setJsonGradebook] = useState(null);
   const { currentMode } = useMode();
 
-  // Modify the getAvailableTabs function to return tabs in the desired order
+  // New refs and state for dynamic font sizing
+  const nameRef = useRef(null);
+  const containerRef = useRef(null);
+  const [nameFontSize, setNameFontSize] = useState(24); // Starting font size for text-2xl
+
   const getAvailableTabs = () => {
     if (currentMode === MODES.REGISTRATION) {
-      return ['registration', 'notes', 'progress'];
+      return ['registration', 'notes', 'progress', 'schedule', 'gradebook'];
     }
-    return ['notes', 'progress', 'more-info'];
+
+    if (studentData?.courses[courseId]?.jsonGradebookSchedule) {
+      return ['notes', 'progress', 'gradebook', 'more-info'];
+    } else {
+      return ['notes', 'schedule', 'gradebook', 'more-info'];
+    }
   };
 
-  // Update the initial visible sections based on mode
   useEffect(() => {
     if (currentMode === MODES.REGISTRATION) {
-      // In registration mode, show all tabs by default
-      setVisibleSections(['registration', 'notes', 'progress']);
+      setVisibleSections(isMobile ? 'registration' : ['registration', 'notes', 'progress']);
+    } else if (isMobile) {
+      setVisibleSections('notes');
     } else {
-      // In other modes, show notes and progress by default
-      setVisibleSections(['notes', 'progress']);
+      const initialSections = ['notes'];
+      if (studentData?.courses[courseId]?.jsonGradebookSchedule) {
+        initialSections.push('progress');
+      } else {
+        initialSections.push('schedule', 'gradebook');
+      }
+      setVisibleSections(initialSections);
     }
-  }, [currentMode]);
+  }, [currentMode, studentData, courseId, isMobile]);
 
   useEffect(() => {
     if (!studentSummary) {
@@ -124,7 +107,6 @@ function StudentDetail({ studentSummary }) {
           setCourseId(selectedCourseId);
           const courseData = data.courses[selectedCourseId];
 
-          // Fetch course title
           const courseTitleRef = ref(db, `courses/${selectedCourseId}/Title`);
           try {
             const courseSnapshot = await get(courseTitleRef);
@@ -134,12 +116,10 @@ function StudentDetail({ studentSummary }) {
             setCourseTitle('Unknown Course');
           }
 
-          // Set data states
           setJsonGradebookSchedule(courseData.jsonGradebookSchedule || null);
           setScheduleJSON(courseData.ScheduleJSON || null);
           setJsonGradebook(courseData.jsonGradebook || null);
 
-          // Handle notes
           if (!courseData.jsonStudentNotes) {
             const legacyNote = {
               id: 'legacy-note',
@@ -156,7 +136,6 @@ function StudentDetail({ studentSummary }) {
             setNotes(courseData.jsonStudentNotes);
           }
 
-          // Fetch assigned staff
           const staffSnapshot = await get(ref(db, `courses/${selectedCourseId}`));
           if (staffSnapshot.exists()) {
             const courseData = staffSnapshot.val();
@@ -193,22 +172,156 @@ function StudentDetail({ studentSummary }) {
     };
   }, [studentSummary]);
 
-  // Update the handleToggleSection function
+  // Update the font sizing useEffect
+  useEffect(() => {
+    if (!isMobile && nameRef.current && containerRef.current) {
+      const nameContainer = nameRef.current;
+      const container = containerRef.current;
+
+      const adjustNameSize = () => {
+        if (!nameContainer || !container) return;
+        
+        try {
+          const availableWidth = container.offsetWidth - 500; // Reserve space for tabs and badges
+          if (availableWidth <= 0) return; // Don't proceed if width is invalid
+          
+          let currentFontSize = 24; // Starting size (text-2xl)
+          
+          // Reset font size to measure natural width
+          nameContainer.style.fontSize = `${currentFontSize}px`;
+          
+          // If name is too wide, gradually reduce font size
+          while (nameContainer.scrollWidth > availableWidth && currentFontSize > 12) {
+            currentFontSize -= 1;
+            nameContainer.style.fontSize = `${currentFontSize}px`;
+          }
+          
+          setNameFontSize(currentFontSize);
+        } catch (error) {
+          console.error('Error adjusting name size:', error);
+        }
+      };
+
+      // Use ResizeObserver instead of window resize event
+      const resizeObserver = new ResizeObserver((entries) => {
+        // Wait for next frame to ensure DOM is updated
+        requestAnimationFrame(() => {
+          adjustNameSize();
+        });
+      });
+
+      // Start observing the container
+      resizeObserver.observe(container);
+
+      // Initial adjustment
+      adjustNameSize();
+
+      // Cleanup
+      return () => {
+        resizeObserver.disconnect();
+      };
+    }
+  }, [isMobile, studentData, nameRef.current, containerRef.current]);
+
   const handleToggleSection = (value) => {
-    if (currentMode === MODES.REGISTRATION) {
-      // Allow toggling in registration mode, but ensure at least one tab is selected
-      if (value.length > 0) {
-        setVisibleSections(value);
-      }
+    if (isMobile) {
+      // In mobile mode, value will be a single string
+      setVisibleSections(value);
     } else {
-      // In other modes, handle more-info sheet and normal toggling
-      if (value.includes('more-info')) {
-        setIsSheetOpen(true);
-        setVisibleSections(value.filter(v => v !== 'more-info'));
+      // Desktop mode remains the same
+      if (currentMode === MODES.REGISTRATION) {
+        if (value.length > 0) {
+          setVisibleSections(value);
+        }
       } else {
-        setVisibleSections(value);
+        if (value.includes('more-info')) {
+          setIsSheetOpen(true);
+          setVisibleSections(value.filter(v => v !== 'more-info'));
+        } else {
+          setVisibleSections(value);
+        }
       }
     }
+  };
+
+  const renderScheduleContent = () => {
+    const courseData = studentData?.courses[courseId];
+    
+    return (
+      <div className="space-y-4">
+        <Button 
+          variant="default" 
+          size="sm" 
+          onClick={() => setIsScheduleDialogOpen(true)}
+          className="w-full flex items-center justify-center bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors"
+        >
+          <Calendar className="h-4 w-4 mr-2" />
+          Schedule Maker
+        </Button>
+        
+        {courseData?.ScheduleJSON ? (
+          <ScheduleDisplay 
+            scheduleJSON={courseData.ScheduleJSON}
+            readOnly={currentMode === MODES.REGISTRATION}
+          />
+        ) : courseData?.Schedule ? (
+          <div 
+            className="legacy-schedule" 
+            dangerouslySetInnerHTML={{ __html: courseData.Schedule }}
+          />
+        ) : (
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-700">No schedule available in either system</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderProgressContent = () => {
+    const courseData = studentData?.courses[courseId];
+    
+    return (
+      <div className="space-y-4">
+        <Button 
+          variant="default" 
+          size="sm" 
+          onClick={() => setIsScheduleDialogOpen(true)}
+          className="w-full flex items-center justify-center bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors"
+        >
+          <Calendar className="h-4 w-4 mr-2" />
+          Schedule Maker
+        </Button>
+        
+        <SchedCombined 
+          jsonGradebookSchedule={courseData?.jsonGradebookSchedule}
+          readOnly={currentMode === MODES.REGISTRATION}
+        />
+      </div>
+    );
+  };
+
+  const renderGradebookContent = () => {
+    if (!studentSummary?.CourseID || !studentSummary?.LMSStudentID) {
+      return (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-yellow-700">Missing course or student ID information</p>
+        </div>
+      );
+    }
+
+    const gradebookUrl = `https://edge.rtdacademy.com/course/gradebook.php?cid=${studentSummary.CourseID}&stu=${studentSummary.LMSStudentID}`;
+
+    return (
+      <div className="w-full h-full min-h-[500px] relative">
+        <iframe
+          src={gradebookUrl}
+          className="w-full h-full absolute inset-0 border-0"
+          title="Student Gradebook"
+          allow="fullscreen"
+        />
+      </div>
+    );
   };
 
   if (!studentSummary) {
@@ -231,35 +344,43 @@ function StudentDetail({ studentSummary }) {
 
   const availableTabs = getAvailableTabs();
 
+  const isSectionVisible = (sectionName) => {
+    if (isMobile) {
+      return visibleSections === sectionName;
+    }
+    return visibleSections.includes(sectionName);
+  };
+
   return (
     <div className="relative h-full overflow-hidden flex flex-col">
       {/* Header Section */}
-      <div className="flex flex-col space-y-4 mb-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-4 sm:space-y-0">
-          <div className="flex items-center space-x-4 w-full sm:w-auto">
-            <div>
-              <h2 className="text-2xl font-bold text-[#315369]">
-                {studentData?.profile.firstName} {studentData?.profile.lastName}
-              </h2>
-              <p className="text-sm text-gray-500">
-                {studentData?.profile.StudentEmail}
-              </p>
+      <div className={`flex flex-col space-y-4 mb-4 ${isMobile ? 'space-y-2' : ''}`}>
+        {/* Desktop Header Layout */}
+        {!isMobile && (
+          <div ref={containerRef} className="flex items-center w-full gap-4">
+            {/* Tabs - Fixed width and always visible */}
+            <div className="flex-none">
+              <ToggleGroup 
+                type="multiple" 
+                value={visibleSections} 
+                onValueChange={handleToggleSection}
+                className="bg-[#40b3b3] p-1 rounded-full shadow-md"
+              >
+                {getAvailableTabs().map(tab => (
+                  <ToggleGroupItem 
+                    key={tab}
+                    value={tab} 
+                    className="px-4 py-2 rounded-full data-[state=on]:bg-white data-[state=on]:text-[#40b3b3] text-white transition-colors whitespace-nowrap"
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
             </div>
-            {/* Schedule Maker Button - Always enabled */}
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={() => setIsScheduleDialogOpen(true)}
-              className="hidden sm:flex items-center bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors"
-            >
-              <Calendar className="h-4 w-4 mr-2" />
-              Schedule Maker
-            </Button>
-          </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+            {/* Staff Badges - Fixed width */}
             {currentMode !== MODES.REGISTRATION && (
-              <div className="flex -space-x-2 overflow-hidden">
+              <div className="flex-none -space-x-2 overflow-hidden w-32">
                 {assignedStaff.map((staff) => (
                   <TooltipProvider key={staff.email}>
                     <Tooltip>
@@ -284,52 +405,57 @@ function StudentDetail({ studentSummary }) {
               </div>
             )}
 
-            <ToggleGroup 
-              type="multiple" 
-              value={visibleSections} 
-              onValueChange={handleToggleSection}
-              className="bg-[#40b3b3] p-1 rounded-full shadow-md w-full sm:w-auto"
-            >
-              {availableTabs.map(tab => (
-                <ToggleGroupItem 
-                  key={tab}
-                  value={tab} 
-                  className="px-4 py-2 rounded-full data-[state=on]:bg-white data-[state=on]:text-[#40b3b3] text-white transition-colors"
-                >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            {/* Student Name - Flexible width and font size */}
+            <div className="flex-1 min-w-0">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h2 
+                      ref={nameRef}
+                      className="font-bold text-[#315369] truncate"
+                      style={{ fontSize: `${nameFontSize}px` }}
+                    >
+                      {studentData?.profile.firstName} {studentData?.profile.lastName}
+                    </h2>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{studentData?.profile.firstName} {studentData?.profile.lastName}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Only show banner if NOT using combined version and not in REGISTRATION mode */}
-        {!jsonGradebookSchedule &&  (
-          <MigrationBanner 
-            scheduleJSON={scheduleJSON}
-            jsonGradebook={jsonGradebook}
-          />
+        {/* Mobile Layout */}
+        {isMobile && (
+          <RadioGroup
+            value={visibleSections}
+            onValueChange={handleToggleSection}
+            className="grid grid-cols-2 gap-1.5 w-full"
+          >
+            {getAvailableTabs().map(tab => (
+              <div key={tab} className="relative">
+                <RadioGroupItem value={tab} id={tab} className="peer sr-only" />
+                <Label
+                  htmlFor={tab}
+                  className="flex items-center justify-center px-2 py-1.5 w-full rounded-md border border-[#40b3b3] bg-white text-[#40b3b3] cursor-pointer transition-all peer-data-[state=checked]:bg-[#40b3b3] peer-data-[state=checked]:text-white hover:bg-[#40b3b3]/10"
+                >
+                  <span className="text-xs font-medium text-center whitespace-nowrap">
+                    {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
+                  </span>
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
         )}
       </div>
 
-      {/* Mobile Schedule Maker Button - Always enabled */}
-      <div className="flex sm:hidden mb-4">
-        <Button 
-          variant="default" 
-          size="sm" 
-          onClick={() => setIsScheduleDialogOpen(true)}
-          className="w-full flex items-center justify-center bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors"
-        >
-          <Calendar className="h-4 w-4 mr-2" />
-          Schedule Maker
-        </Button>
-      </div>
-
-      {/* Content Sections */}
+      {/* Main Content Sections */}
       <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 h-full overflow-hidden">
         {/* Registration Info Section */}
-        {visibleSections.includes('registration') && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+        {isSectionVisible('registration') && (
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                 <h4 className="font-semibold mb-2 text-[#1fa6a7]">Registration Info</h4>
@@ -344,8 +470,8 @@ function StudentDetail({ studentSummary }) {
         )}
 
         {/* Notes Section */}
-        {visibleSections.includes('notes') && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+        {isSectionVisible('notes') && (
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                 <h4 className="font-semibold mb-2 text-[#1fa6a7]">Notes</h4>
@@ -362,55 +488,43 @@ function StudentDetail({ studentSummary }) {
         )}
 
         {/* Progress Section */}
-        {visibleSections.includes('progress') && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+        {isSectionVisible('progress') && studentData?.courses[courseId]?.jsonGradebookSchedule && (
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                 <h4 className="font-semibold mb-2 text-[#1fa6a7]">Progress</h4>
-                {jsonGradebookSchedule ? (
-                  <SchedCombined 
-                    jsonGradebookSchedule={jsonGradebookSchedule}
-                    readOnly={currentMode === MODES.REGISTRATION}
-                  />
-                ) : (
-                  <div className="space-y-4 flex-1 flex flex-col min-h-0">
-                    {jsonGradebook ? (
-                      <GradebookDisplay 
-                        jsonGradebook={jsonGradebook}
-                        readOnly={currentMode === MODES.REGISTRATION}
-                      />
-                    ) : (
-                      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-yellow-700">No gradebook data available</p>
-                      </div>
-                    )}
-                    {scheduleJSON ? (
-                      <ScheduleDisplay 
-                        scheduleJSON={scheduleJSON}
-                        readOnly={currentMode === MODES.REGISTRATION}
-                      />
-                    ) : (
-                      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-yellow-700">No schedule data available</p>
-                      </div>
-                    )}
-                    {!jsonGradebook && !scheduleJSON && currentMode !== MODES.REGISTRATION && (
-                      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-red-700 font-medium">No progress data available</p>
-                        <p className="text-red-600 text-sm mt-1">
-                          Use the Schedule Maker to create a schedule for this student.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {renderProgressContent()}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Schedule Section */}
+        {isSectionVisible('schedule') && !studentData?.courses[courseId]?.jsonGradebookSchedule && (
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+                <h4 className="font-semibold mb-2 text-[#1fa6a7]">Schedule</h4>
+                {renderScheduleContent()}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Gradebook Section */}
+        {isSectionVisible('gradebook') && (
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+                <h4 className="font-semibold mb-2 text-[#1fa6a7]">Gradebook</h4>
+                {renderGradebookContent()}
               </CardContent>
             </Card>
           </div>
         )}
       </div>
 
-      {/* Sheets and Dialogs */}
+      {/* Additional Sheets and Dialogs */}
       <>
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetContent side="right" className="w-full md:w-2/3 bg-gray-50">
@@ -459,7 +573,6 @@ function StudentDetail({ studentSummary }) {
   );
 }
 
-// Helper function for tracking changed fields
 const findChangedFields = (prevData, newData, path = '') => {
   const changed = {};
   Object.keys(newData).forEach(key => {

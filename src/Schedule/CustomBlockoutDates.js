@@ -73,7 +73,7 @@ const CustomBlockoutDates = ({ customBlockoutDates, setCustomBlockoutDates }) =>
             dateFormat="MMM dd, yyyy"
             placeholderText="Select break dates"
             className="w-full border border-gray-300 rounded px-2 py-2"
-            withPortal
+           
            
             calendarContainer={CalendarContainer}
           />

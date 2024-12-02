@@ -207,10 +207,19 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
           "firstName": registrationData.formData.firstName || '',
           "lastName": registrationData.formData.lastName || '',
           "originalEmail": user.email,
-          "uid": uid
+          "uid": uid,
+          // Add international student information to profile if applicable
+          ...(registrationData.studentType === 'International Student' && {
+            "internationalDocuments": {
+              "passport": registrationData.formData.documents?.passport || '',
+              "additionalID": registrationData.formData.documents?.additionalID || '',
+              "residencyProof": registrationData.formData.documents?.residencyProof || '',
+              "countryOfOrigin": registrationData.formData.country || ''
+            }
+          })
         };
   
-        // Build the 'courses' data with adult-specific adjustments
+        // Build the 'courses' data
         const courseData = {
           "inOldSharePoint": false,
           "ActiveFutureArchived": {
@@ -324,6 +333,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
         <StudentTypeSelector 
           onStudentTypeSelect={handleStudentTypeSelect} 
           selectedType={selectedStudentType}
+          isFormComponent={true} 
         />
       );
     }
@@ -333,6 +343,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
       case 'Home Education':
       case 'Adult Student':
       case 'Summer School':
+        case 'International Student': 
         return (
           <NonPrimaryStudentForm 
             ref={formRef}
@@ -351,8 +362,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
             }}
           />
         );
-      case 'International Student':
-        return <div>International Student Form Coming Soon. Please email stan@rtdacademy.com to see how you can register as an international student.</div>;
+      
       default:
         return null;
     }

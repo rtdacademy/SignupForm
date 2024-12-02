@@ -16,8 +16,15 @@ const transformGradebookData = (headers, studentData) => {
 
   const studentSection = studentData.info[2] || '';
 
-  // Helper function to check if an assignment is an exam
-  const isExam = (name) => name.toLowerCase().includes('exam');
+  // Helper function to check if an assignment is an exam and get its section number
+  const getExamInfo = (name) => {
+    // Modified regex to catch all variations including rewrites and version 2
+    const match = name.match(/Section ([1-3])(?: Exam|\s+Exam|\s+Exam\s+(?:Rewrite|\(Rewrite\)|\(Version 2\)))/i);
+    if (match) {
+      console.log(`Found exam: ${name} - Section ${match[1]}`);  // Debug log
+    }
+    return match ? { isExam: true, sectionNumber: match[1] } : { isExam: false };
+  };
 
   // Status mapping based on grade[3]
   const statusMapping = {
@@ -101,47 +108,57 @@ const transformGradebookData = (headers, studentData) => {
     transformedAssignments.length
   );
 
+  // First filter based on section
+  transformedAssignments = transformedAssignments.filter((assignment) => {
+    return !assignment.section || assignment.section === studentSection;
+  });
+
+  console.log(
+    'Total assignments after section filtering:',
+    transformedAssignments.length
+  );
+
   // Collect exams along with their indices
-  const examsByCategory = {};
+  const examsBySection = {};
   transformedAssignments.forEach((assignment, index) => {
-    if (isExam(assignment.name)) {
-      const categoryId = String(assignment.categoryId); // Ensure consistent type
-      if (!examsByCategory[categoryId]) {
-        examsByCategory[categoryId] = [];
+    const examInfo = getExamInfo(assignment.name);
+    if (examInfo.isExam) {
+      console.log(`Processing exam: ${assignment.name}`);  // Debug log
+      if (!examsBySection[examInfo.sectionNumber]) {
+        examsBySection[examInfo.sectionNumber] = [];
       }
-      examsByCategory[categoryId].push({ assignment, index });
+      examsBySection[examInfo.sectionNumber].push({ 
+        assignment, 
+        index,
+        score: assignment.grade.percentage || 0 
+      });
     }
   });
 
-  console.log('Exams by category:', JSON.stringify(examsByCategory));
+  console.log('Exams by section:', JSON.stringify(examsBySection, null, 2));
 
-  // For each category, keep only the highest-scoring exam
+  // For each section, keep only the highest-scoring exam
   const indicesToRemove = new Set();
 
-  Object.keys(examsByCategory).forEach((categoryId) => {
-    const exams = examsByCategory[categoryId];
+  Object.keys(examsBySection).forEach((sectionNum) => {
+    const exams = examsBySection[sectionNum];
     if (exams.length > 1) {
-      console.log(`Processing category ${categoryId} with ${exams.length} exams`);
+      console.log(`Processing section ${sectionNum} with ${exams.length} exams`);
       const highestScoringExamEntry = exams.reduce((highest, current) => {
-        const highestAssignment = highest.assignment;
-        const currentAssignment = current.assignment;
-
         // If neither exam has a score, keep the first one
-        if (!highestAssignment.started && !currentAssignment.started) {
+        if (!highest.assignment.started && !current.assignment.started) {
           return highest;
         }
         // If only one exam has a score, choose that one
-        if (!highestAssignment.started) return current;
-        if (!currentAssignment.started) return highest;
+        if (!highest.assignment.started) return current;
+        if (!current.assignment.started) return highest;
         // If both have scores, compare percentages
-        return currentAssignment.grade.percentage > highestAssignment.grade.percentage
-          ? current
-          : highest;
+        return current.score > highest.score ? current : highest;
       }, exams[0]);
 
       console.log(
-        `Highest scoring exam for category ${categoryId}:`,
-        JSON.stringify(highestScoringExamEntry.assignment)
+        `Highest scoring exam for section ${sectionNum}:`,
+        JSON.stringify(highestScoringExamEntry.assignment.name)
       );
 
       // Mark all exams except the highest-scoring one for removal
@@ -160,16 +177,6 @@ const transformGradebookData = (headers, studentData) => {
 
   console.log(
     'Total assignments after exam filtering:',
-    transformedAssignments.length
-  );
-
-  // Now filter based on section
-  transformedAssignments = transformedAssignments.filter((assignment) => {
-    return !assignment.section || assignment.section === studentSection;
-  });
-
-  console.log(
-    'Total assignments after section filtering:',
     transformedAssignments.length
   );
 

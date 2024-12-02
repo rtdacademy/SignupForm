@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Calendar, Zap, History, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Calendar, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
-import { getDatabase, ref, set, get, child, push } from 'firebase/database';
+import { getDatabase, ref, set, get, push } from 'firebase/database';
 import { Button } from "../components/ui/button";
 import { Toggle } from "../components/ui/toggle";
 import {
@@ -21,6 +21,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "../components/ui/dropdown-menu";
+import { Badge } from "../components/ui/badge";
 import ChatApp from '../chat/ChatApp';
 
 // Import specific icon components
@@ -33,6 +34,9 @@ import { useAuth } from '../context/AuthContext';
 
 // Import Checkbox
 import { Checkbox } from "../components/ui/checkbox";
+
+// Import StudentDetail component
+import StudentDetail from './StudentDetail';
 
 // Map icon names to icon components
 const iconMap = {
@@ -105,18 +109,19 @@ const StudentCard = React.memo(({
   onStudentSelect, 
   teacherCategories,
   user_email_key,
-  isSelected, // New prop
-  onSelectionChange, // New prop
-  isPartOfMultiSelect, // New prop
-  onBulkStatusChange, // New prop
-  onBulkCategoryChange, // New prop
-  onBulkAutoStatusToggle, // New prop
+  isSelected,
+  onSelectionChange,
+  isPartOfMultiSelect,
+  onBulkStatusChange,
+  onBulkCategoryChange,
+  onBulkAutoStatusToggle,
+  isMobile
 }) => {
   const bgColor = selectedStudentId === student.id 
-  ? 'bg-blue-100' 
-  : index % 2 === 0 
-    ? 'bg-white' 
-    : 'bg-gray-50';
+    ? 'bg-blue-100' 
+    : index % 2 === 0 
+      ? 'bg-white' 
+      : 'bg-gray-50';
   const initials = `${student.firstName[0]}${student.lastName[0]}`;
   const avatarColor = getColorFromInitials(initials);
 
@@ -131,6 +136,9 @@ const StudentCard = React.memo(({
   const [isStatusHistoryOpen, setIsStatusHistoryOpen] = useState(false);
   const [statusHistory, setStatusHistory] = useState([]);
   const [loadingStatusHistory, setLoadingStatusHistory] = useState(false);
+
+  // State variable for expanded view
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Access the logged-in teacher's info
   const { user } = useAuth();
@@ -325,8 +333,11 @@ const StudentCard = React.memo(({
   }, [teacherCategories, student.categories]);
 
   const handleCardClick = useCallback(() => {
-    onStudentSelect(student);
-  }, [onStudentSelect, student]);
+    // Only trigger card click if not in mobile view
+    if (!isMobile) {
+      onStudentSelect(student);
+    }
+  }, [isMobile, onStudentSelect, student]);
 
   const handleSelectClick = useCallback((event) => {
     event.stopPropagation();
@@ -416,21 +427,21 @@ const StudentCard = React.memo(({
     }
   }, [student.id]);
 
-  // New function to determine grade color and icon
+  // Function to determine grade color and icon
   const getGradeColorAndIcon = useCallback((grade) => {
     if (grade < 50) return { color: 'text-red-500', icon: <AlertTriangle className="w-4 h-4" /> };
     if (grade < 70) return { color: 'text-black', icon: null };
     return { color: 'text-green-500', icon: <CheckCircle className="w-4 h-4" /> };
   }, []);
 
-  // function to format grade
+  // Function to format grade
   const formatGrade = useCallback((grade) => {
-    if (grade === undefined || grade === null) return 'N/A';
+    if (grade === undefined || grade === null || grade === 0) return null;
     const roundedGrade = Math.round(grade);
     return `${roundedGrade}%`;
   }, []);
 
-  // New function to format lessons behind/ahead
+  // Function to format lessons behind/ahead
   const formatLessons = useCallback((lessonsBehind) => {
     if (lessonsBehind === undefined || lessonsBehind === null) return null;
     const absValue = Math.abs(lessonsBehind);
@@ -440,16 +451,20 @@ const StudentCard = React.memo(({
     return { value: absValue, icon: <ArrowDown className="w-4 h-4 text-red-500" /> };
   }, []);
 
+  const handleExpandClick = useCallback((e) => {
+    e.stopPropagation(); // Prevent card selection
+    setIsExpanded(true);
+  }, []);
+
   return (
     <>
       <Card
-        className={`cursor-pointer transition-shadow duration-200 ${bgColor} hover:shadow-md mb-3`}
-        onClick={handleCardClick}
-      >
-        
-
-<CardHeader className="p-3 pb-2">
-  <div className="flex items-start space-x-3">
+  className={`transition-shadow duration-200 ${bgColor} hover:shadow-md mb-3 ${!isMobile ? 'cursor-pointer' : ''}`}
+  onClick={handleCardClick}
+>
+      <CardHeader className="p-3 pb-2">
+  {/* First row with checkbox, avatar, name, expand button, and migration badge */}
+  <div className="flex items-start space-x-3 mb-2">
     <div 
       className="flex items-center" 
       onClick={(e) => {
@@ -471,26 +486,60 @@ const StudentCard = React.memo(({
       </AvatarFallback>
     </Avatar>
     <div className="min-w-0 flex-1">
-      <CardTitle className="text-base font-medium truncate">
-        {student.firstName} {student.lastName}
-      </CardTitle>
-      <p className="text-xs text-gray-500 truncate">{student.StudentEmail}</p>
+      <div className="flex items-center justify-between gap-2">
+        <CardTitle className="text-base font-medium truncate">
+          {student.firstName} {student.lastName}
+        </CardTitle>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleExpandClick}
+          aria-label="Expand student details"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </Button>
+      </div>
+      {(!student.hasSchedule || student.inOldSharePoint !== false) && (
+  <div className="mt-1 inline-flex items-center bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap">
+    <AlertCircle className="w-3 h-3 mr-1" />
+    Needs Migration
+  </div>
+)}
     </div>
     {selectedStudentId === student.id && !isSelected && (
       <CheckCircle className="w-5 h-5 text-blue-500" />
+    )}
+  </div>
+
+  {/* Second row for email and student type - full width */}
+  <div className="flex items-center justify-between w-full">
+    <span className="text-xs text-gray-500 truncate">
+      {student.StudentEmail}
+    </span>
+    {student.StudentType_Value && (
+      <Badge 
+        className="bg-blue-50 hover:bg-blue-50 text-blue-700 rounded px-2 py-0 h-5 text-[10px] font-medium border-0"
+      >
+        {student.StudentType_Value}
+      </Badge>
     )}
   </div>
 </CardHeader>
         <CardContent className="p-3 pt-2">
           {/* Course, Grade, and Progress on the same line */}
           <div className="flex items-center text-xs mb-2">
-            <span className="flex-grow">{student.Course_Value}</span>
-            {student.grade !== undefined && student.grade !== null && (
-              <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
-                Gr. {formatGrade(student.grade)}
-                {getGradeColorAndIcon(student.grade).icon}
-              </span>
-            )}
+            <span className="flex-grow flex items-center">
+              {student.Course_Value}
+              
+            </span>
+            {student.grade !== undefined && 
+ student.grade !== null && 
+ student.grade !== 0 && (
+  <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
+    Gr. {formatGrade(student.grade)}
+    {getGradeColorAndIcon(student.grade).icon}
+  </span>
+)}
             {student.adherenceMetrics && formatLessons(student.adherenceMetrics.lessonsBehind) && (
               <span className="text-xs font-bold flex items-center">
                 {formatLessons(student.adherenceMetrics.lessonsBehind).value}
@@ -498,7 +547,7 @@ const StudentCard = React.memo(({
               </span>
             )}
           </div>
-              
+                    
           {/* Status Dropdown, Last Week Status, and Auto Status Toggle */}
           <div className="flex items-center space-x-2 mb-2">
             <div className="flex-grow">
@@ -684,6 +733,21 @@ const StudentCard = React.memo(({
           </div>
         </CardContent>
       </Card>
+
+     
+     {/* Full-screen dialog for expanded view */}
+<Dialog open={isExpanded} onOpenChange={setIsExpanded}>
+  <DialogContent className="max-w-7xl w-[95vw] h-[95vh] p-6 flex flex-col">
+    <DialogHeader className="flex-shrink-0">
+      <DialogTitle>
+        Student Details - {student.firstName} {student.lastName}
+      </DialogTitle>
+    </DialogHeader>
+    <div className="flex-1 overflow-auto mt-4">
+      <StudentDetail studentSummary={student} isMobile={isMobile} />
+    </div>
+  </DialogContent>
+</Dialog>
 
       {/* Chat Dialog */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>

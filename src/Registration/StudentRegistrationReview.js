@@ -1,6 +1,5 @@
 import React from 'react';
 import { Card, CardContent } from "../components/ui/card";
-import { Button } from "../components/ui/button";
 import { Loader2 } from "lucide-react";
 import { getDatabase, ref, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
@@ -8,21 +7,26 @@ import { useEffect, useState } from 'react';
 
 // Utility function to determine if school selection should be shown
 const shouldShowSchoolSelection = (studentType) => {
-  return studentType === 'Non-Primary' || 
-         studentType === 'Home Education' || 
-         studentType === 'Summer School';
+  return (
+    studentType === 'Non-Primary' ||
+    studentType === 'Home Education' ||
+    studentType === 'Summer School'
+  );
 };
 
 const ReviewSection = ({ title, items }) => (
   <div className="space-y-3">
     <h3 className="font-semibold text-lg">{title}</h3>
     <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
-      {items.map(([label, value]) => value && (
-        <div key={label} className="space-y-1">
-          <dt className="text-sm font-medium text-gray-500">{label}</dt>
-          <dd className="text-sm">{value}</dd>
-        </div>
-      ))}
+      {items.map(
+        ([label, value]) =>
+          value && (
+            <div key={label} className="space-y-1">
+              <dt className="text-sm font-medium text-gray-500">{label}</dt>
+              <dd className="text-sm">{value}</dd>
+            </div>
+          )
+      )}
     </dl>
   </div>
 );
@@ -85,11 +89,18 @@ const StudentRegistrationReview = ({ onBack }) => {
 
   const { formData } = registrationData;
   const isAdultStudent = formData.studentType === 'Adult Student';
+  const isInternationalStudent = formData.studentType === 'International Student';
 
   // Create name display that handles preferred names for both student types
-  const nameDisplay = formData.preferredFirstName && formData.preferredFirstName !== formData.firstName
-    ? `${formData.firstName} ${formData.lastName} (Preferred: ${formData.preferredFirstName})`
-    : `${formData.firstName} ${formData.lastName}`;
+  const nameDisplay =
+    formData.preferredFirstName && formData.preferredFirstName !== formData.firstName
+      ? `${formData.firstName} ${formData.lastName} (Preferred: ${formData.preferredFirstName})`
+      : `${formData.firstName} ${formData.lastName}`;
+
+  // Determine ASN display message
+  const asnDisplay = formData.albertaStudentNumber
+    ? formData.albertaStudentNumber
+    : "Will be generated when you are added to Alberta's PASI system";
 
   const personalInfo = [
     ['Name', nameDisplay],
@@ -97,16 +108,18 @@ const StudentRegistrationReview = ({ onBack }) => {
     ['Phone', formData.phoneNumber],
     ['Birthday', formData.birthday],
     ['Age', formData.age ? `${formData.age} years old` : ''],
-    ['Alberta Student Number', formData.albertaStudentNumber],
+    ['Alberta Student Number', asnDisplay],
     // Show school information for appropriate student types
-    ...(shouldShowSchoolSelection(formData.studentType) ? [
-      ['Current School', formData.schoolAddress?.name || formData.currentSchool],
-      ['School Address', formData.schoolAddress?.fullAddress]
-    ] : [])
+    ...(shouldShowSchoolSelection(formData.studentType)
+      ? [
+          ['Current School', formData.schoolAddress?.name || formData.currentSchool],
+          ['School Address', formData.schoolAddress?.fullAddress],
+        ]
+      : []),
   ];
 
   // Handle parent information differently based on student type
-  const shouldShowParentInfo = isAdultStudent 
+  const shouldShowParentInfo = isAdultStudent
     ? Boolean(formData.parentFirstName) // Only show if provided for adult students
     : true; // Always show for non-primary students
 
@@ -114,7 +127,7 @@ const StudentRegistrationReview = ({ onBack }) => {
     ['Parent First Name', formData.parentFirstName],
     ['Parent Last Name', formData.parentLastName],
     ['Parent Phone', formData.parentPhone],
-    ['Parent Email', formData.parentEmail]
+    ['Parent Email', formData.parentEmail],
   ];
 
   const courseInfo = [
@@ -124,24 +137,47 @@ const StudentRegistrationReview = ({ onBack }) => {
     ['Start Date', formData.startDate],
     ['End Date', formData.endDate],
     // Only show diploma date if it exists
-    ...(formData.diplomaMonth?.displayDate ? [['Diploma Date', formData.diplomaMonth.displayDate]] : [])
+    ...(formData.diplomaMonth?.displayDate
+      ? [['Diploma Date', formData.diplomaMonth.displayDate]]
+      : []),
   ];
+
+  // International student information
+  const internationalInfo = isInternationalStudent
+    ? [
+        ['Country of Origin', formData.country],
+        ['Passport', formData.documents?.passport ? 'Uploaded' : 'Not uploaded'],
+        ['Additional ID', formData.documents?.additionalID ? 'Uploaded' : 'Not uploaded'],
+        ['Proof of Residency', formData.documents?.residencyProof ? 'Uploaded' : 'Not required'],
+      ]
+    : [];
 
   return (
     <div className="space-y-8">
       <Card>
         <CardContent className="space-y-6 pt-6">
           <ReviewSection title="Personal Information" items={personalInfo} />
-          
-          {shouldShowParentInfo && (
-            <ReviewSection 
-              title={isAdultStudent ? "Parent/Guardian Information (Optional)" : "Parent/Guardian Information"} 
-              items={parentInfo} 
+
+          {isInternationalStudent && (
+            <ReviewSection
+              title="International Student Information"
+              items={internationalInfo}
             />
           )}
-          
+
+          {shouldShowParentInfo && (
+            <ReviewSection
+              title={
+                isAdultStudent
+                  ? 'Parent/Guardian Information (Optional)'
+                  : 'Parent/Guardian Information'
+              }
+              items={parentInfo}
+            />
+          )}
+
           <ReviewSection title="Course Information" items={courseInfo} />
-          
+
           {formData.additionalInformation && (
             <div className="space-y-3">
               <h3 className="font-semibold text-lg">Additional Information</h3>

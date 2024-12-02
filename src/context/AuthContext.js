@@ -16,6 +16,11 @@ export function AuthProvider({ children }) {
   const [user_email_key, setUserEmailKey] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isStaffUser, setIsStaffUser] = useState(false);
+  
+  // New state for course teachers and staff members
+  const [courseTeachers, setCourseTeachers] = useState({});
+  const [staffMembers, setStaffMembers] = useState({});
+
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -28,7 +33,8 @@ export function AuthProvider({ children }) {
     '/auth-action-handler',
     '/contractor-invoice',
     '/adult-students',
-    '/your-way'
+    '/your-way',
+    '/get-started'  
   ];
 
   // Helper function to check if current route is public
@@ -135,6 +141,63 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Function to fetch all staff members
+  const fetchStaffMembers = async () => {
+    const db = getDatabase();
+    const staffRef = ref(db, 'staff');
+    
+    try {
+      const snapshot = await get(staffRef);
+      if (snapshot.exists()) {
+        const staffData = snapshot.val();
+        setStaffMembers(staffData);
+        return staffData;
+      }
+      return {};
+    } catch (error) {
+      console.error("Error fetching staff members:", error);
+      return {};
+    }
+  };
+
+  // Function to fetch teachers for all courses
+  const fetchCourseTeachers = async () => {
+    const db = getDatabase();
+    const coursesRef = ref(db, 'courses');
+    
+    try {
+      const snapshot = await get(coursesRef);
+      if (snapshot.exists()) {
+        const courses = snapshot.val();
+        const teacherMapping = {};
+
+        // Process each course
+        Object.entries(courses).forEach(([courseId, courseData]) => {
+          if (courseData.Teachers && courseData.Teachers.length > 0) {
+            const primaryTeacherKey = courseData.Teachers[0];
+            teacherMapping[courseId] = primaryTeacherKey;
+          }
+        });
+
+        setCourseTeachers(teacherMapping);
+        return teacherMapping;
+      }
+      return {};
+    } catch (error) {
+      console.error("Error fetching course teachers:", error);
+      return {};
+    }
+  };
+
+  // Function to get teacher info for a specific course
+  const getTeacherForCourse = (courseId) => {
+    const teacherKey = courseTeachers[courseId];
+    if (teacherKey && staffMembers[teacherKey]) {
+      return staffMembers[teacherKey];
+    }
+    return null;
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -149,11 +212,17 @@ export function AuthProvider({ children }) {
             // Staff users don't need email verification
             dataCreated = await ensureStaffNode(currentUser, emailKey);
             if (dataCreated && isMounted) {
+              // Fetch staff and course data after successful login
+              await Promise.all([
+                fetchStaffMembers(),
+                fetchCourseTeachers()
+              ]);
+              
               setUser(currentUser);
               setUserEmailKey(emailKey);
               setIsStaffUser(true);
               
-              // Redirect staff to teacher dashboard if on login page
+              // Redirect staff to teacher dashboard if on staff-login page
               if (location.pathname.toLowerCase() === '/staff-login') {
                 navigate('/teacher-dashboard');
               }
@@ -177,6 +246,8 @@ export function AuthProvider({ children }) {
             setUser(null);
             setUserEmailKey(null);
             setIsStaffUser(false);
+            setCourseTeachers({});
+            setStaffMembers({});
 
             // Only redirect if not on a public route
             const currentPath = location.pathname.toLowerCase();
@@ -195,6 +266,8 @@ export function AuthProvider({ children }) {
           setUser(null);
           setUserEmailKey(null);
           setIsStaffUser(false);
+          setCourseTeachers({});
+          setStaffMembers({});
         }
       } finally {
         if (isMounted) {
@@ -216,6 +289,8 @@ export function AuthProvider({ children }) {
       setUser(null);
       setUserEmailKey(null);
       setIsStaffUser(false);
+      setCourseTeachers({});
+      setStaffMembers({});
       navigate(wasStaff ? '/staff-login' : '/login');
     } catch (error) {
       console.error("Error signing out:", error);
@@ -235,7 +310,10 @@ export function AuthProvider({ children }) {
     isStaffUser,
     ensureStaffNode,
     ensureUserNode,
-    signOut
+    signOut,
+    courseTeachers,
+    staffMembers,
+    getTeacherForCourse
   };
 
   return (

@@ -3,7 +3,7 @@ import { getDatabase, ref, set, get } from 'firebase/database';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { Textarea } from '../components/ui/textarea';
 import { Button } from '../components/ui/button';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Edit2, Trash2, Mail, ChevronDown, ChevronUp } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { useAuth } from '../context/AuthContext';
 import { ScrollArea } from '../components/ui/scroll-area';
@@ -22,6 +22,8 @@ const StudentNotes = ({
   const [editingNote, setEditingNote] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState(null);
+  const [expandedEmails, setExpandedEmails] = useState({});
+  const [emailContents, setEmailContents] = useState({});
   const { user } = useAuth();
 
   useEffect(() => {
@@ -95,7 +97,7 @@ const StudentNotes = ({
 
   const handleNoteContentChange = (content) => {
     setNewNoteContent(content);
-    if (singleNoteMode && onNotesUpdate) {
+    if (singleNoteMode && onNotesUpdate && notes.length > 0) {
       onNotesUpdate([{ ...notes[0], content }]);
     }
   };
@@ -111,6 +113,54 @@ const StudentNotes = ({
       hour: 'numeric', 
       minute: 'numeric' 
     });
+  };
+
+  const toggleEmailView = async (noteId, emailId) => {
+    setExpandedEmails(prev => ({
+      ...prev,
+      [noteId]: !prev[noteId]
+    }));
+
+    // Fetch email content if not already loaded
+    if (!emailContents[emailId] && !expandedEmails[noteId]) {
+      const db = getDatabase();
+      const emailRef = ref(db, `userEmails/${sanitizeEmail(studentEmail)}/${emailId}`);
+      
+      try {
+        const snapshot = await get(emailRef);
+        if (snapshot.exists()) {
+          setEmailContents(prev => ({
+            ...prev,
+            [emailId]: snapshot.val()
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching email:', error);
+      }
+    }
+  };
+
+  const renderEmailContent = (note) => {
+    const email = emailContents[note.metadata.emailId];
+    if (!email) return null;
+
+    return (
+      <div className="mt-2 p-3 bg-white rounded border">
+        <div className="text-sm text-gray-600 mb-2">
+          <strong>From:</strong> {email.senderName} ({email.sender})
+        </div>
+        {email.ccParent && (
+          <div className="text-sm text-gray-600 mb-2">
+            <strong>CC:</strong> Parent
+          </div>
+        )}
+        <div className="text-sm font-medium mb-2">{email.subject}</div>
+        <div 
+          className="text-sm text-gray-700 prose prose-sm max-w-none"
+          dangerouslySetInnerHTML={{ __html: email.html || email.text }}
+        />
+      </div>
+    );
   };
 
   return (
@@ -140,6 +190,7 @@ const StudentNotes = ({
           <div className="space-y-4 pr-4">
             {notes.map((note) => (
               <div key={note.id} className="p-4 bg-gray-100 rounded relative">
+                {/* Regular note controls */}
                 {allowEdit && note.id !== 'legacy-note' && (
                   <div className="absolute top-2 right-2 flex space-x-2">
                     <Button
@@ -163,10 +214,38 @@ const StudentNotes = ({
                     </Button>
                   </div>
                 )}
+                
+                {/* Note content */}
                 <p className="text-sm font-semibold">
                   {note.noteType} - {formatTimestamp(note.timestamp)} {note.author ? `- ${note.author}` : ''}
                 </p>
                 <p className="text-sm text-gray-700 whitespace-pre-line mt-1">{note.content}</p>
+
+                {/* Email view button for email notes */}
+                {note.metadata?.type === 'email' && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 flex items-center"
+                      onClick={() => toggleEmailView(note.id, note.metadata.emailId)}
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      {expandedEmails[note.id] ? (
+                        <>
+                          Hide Email
+                          <ChevronUp className="h-4 w-4 ml-2" />
+                        </>
+                      ) : (
+                        <>
+                          View Email
+                          <ChevronDown className="h-4 w-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                    {expandedEmails[note.id] && renderEmailContent(note)}
+                  </>
+                )}
               </div>
             ))}
           </div>

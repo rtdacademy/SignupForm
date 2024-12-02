@@ -21,13 +21,13 @@ import {
   DialogFooter
 } from "../components/ui/dialog";
 
-const Login = () => {
+const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState(null);
   const [emailInput, setEmailInput] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(startWithSignUp); // Use the prop for initial state
   const [message, setMessage] = useState(null);
   const [emailError, setEmailError] = useState(null);
   const [passwordError, setPasswordError] = useState(null);
@@ -383,140 +383,266 @@ const Login = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h1 className="text-3xl font-extrabold text-center text-primary">RTD Academy</h1>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Welcome to the Student Portal. Here you can register for new courses, manage your personal information, and access your enrolled courses.
-          </p>
-        </div>
+      {compactView ? (
+        // Compact view - just the card
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+          <div className="space-y-6">
+            <h2 className="text-center text-2xl font-bold text-gray-900">
+              {isSignUp ? "Sign Up" : "Sign In"}
+            </h2>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-            <div className="space-y-6">
-              <h2 className="text-center text-2xl font-bold text-gray-900">
-                {isSignUp ? "Sign Up" : "Sign In"}
-              </h2>
+            <form onSubmit={handleEmailPasswordSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  value={emailInput}
+                  onChange={handleEmailChange}
+                  required
+                  className={`mt-1 block w-full border ${
+                    emailError ? 'border-red-500' : 'border-gray-300'
+                  } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
+                  placeholder="e.g., student@example.com"
+                />
+                {emailError && <p className="mt-2 text-sm text-red-600">{emailError}</p>}
+              </div>
 
-              <form onSubmit={handleEmailPasswordSubmit} className="space-y-6">
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={emailInput}
-                    onChange={handleEmailChange}
-                    required
-                    className={`mt-1 block w-full border ${
-                      emailError ? 'border-red-500' : 'border-gray-300'
-                    } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
-                    placeholder="e.g., student@example.com"
-                  />
-                  {emailError && <p className="mt-2 text-sm text-red-600">{emailError}</p>}
-                </div>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={handlePasswordChange}
+                  required
+                  className={`mt-1 block w-full border ${
+                    passwordError ? 'border-red-500' : 'border-gray-300'
+                  } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
+                  placeholder="Your Password"
+                />
+                {passwordError && <p className="mt-2 text-sm text-red-600">{passwordError}</p>}
+              </div>
 
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-                  <input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={handlePasswordChange}
-                    required
-                    className={`mt-1 block w-full border ${
-                      passwordError ? 'border-red-500' : 'border-gray-300'
-                    } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
-                    placeholder="Your Password"
-                  />
-                  {passwordError && <p className="mt-2 text-sm text-red-600">{passwordError}</p>}
-                </div>
+              <div>
+                <button
+                  type="submit"
+                  disabled={isSignUp && (!!emailError || !!passwordError)}
+                  className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                    isSignUp && (emailError || passwordError)
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-primary hover:bg-primary-dark'
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary`}
+                >
+                  {isSignUp ? "Register with Email" : "Sign In with Email"}
+                </button>
+              </div>
+            </form>
 
-                <div>
-                  <button
-                    type="submit"
-                    disabled={isSignUp && (!!emailError || !!passwordError)}
-                    className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                      isSignUp && (emailError || passwordError)
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-primary hover:bg-primary-dark'
-                    } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary`}
-                  >
-                    {isSignUp ? "Register with Email" : "Sign In with Email"}
-                  </button>
-                </div>
-              </form>
-
-              {!isSignUp && (
-                <div className="text-sm">
-                  <button
-                    onClick={handlePasswordReset}
-                    className="font-medium text-primary hover:text-primary-dark focus:outline-none"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-              )}
-
+            {!isSignUp && (
               <div className="text-sm">
                 <button
-                  onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null); setEmailError(null); setPasswordError(null); }}
+                  onClick={handlePasswordReset}
                   className="font-medium text-primary hover:text-primary-dark focus:outline-none"
                 >
-                  {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+                  Forgot password?
                 </button>
               </div>
+            )}
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
-                </div>
+            <div className="text-sm">
+              <button
+                onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null); setEmailError(null); setPasswordError(null); }}
+                className="font-medium text-primary hover:text-primary-dark focus:outline-none"
+              >
+                {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+              </button>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
               </div>
-
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => handleProviderSignIn(googleProvider)}
-                  className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  <img
-                    className="h-5 w-5 mr-2"
-                    src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                    alt="Google logo"
-                  />
-                  <span>{isSignUp ? "Sign up with Google" : "Sign in with Google"}</span>
-                </button>
-
-                <button
-                  onClick={() => handleProviderSignIn(microsoftProvider)}
-                  className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                >
-                  <img
-                    className="h-5 w-5 mr-2"
-                    src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
-                    alt="Microsoft logo"
-                  />
-                  <span>{isSignUp ? "Sign up with Microsoft" : "Sign in with Microsoft"}</span>
-                </button>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or continue with</span>
               </div>
+            </div>
 
-              {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
-              {message && <p className="mt-2 text-center text-sm text-green-600">{message}</p>}
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handleProviderSignIn(googleProvider)}
+                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <img
+                  className="h-5 w-5 mr-2"
+                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                  alt="Google logo"
+                />
+                <span>{isSignUp ? "Sign up with Google" : "Sign in with Google"}</span>
+              </button>
 
-              <div className="mt-6 text-center">
-                <Link to="/staff-login" className="font-medium text-secondary hover:text-secondary-dark">
-                  Staff Login
-                </Link>
-              </div>
+              <button
+                onClick={() => handleProviderSignIn(microsoftProvider)}
+                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <img
+                  className="h-5 w-5 mr-2"
+                  src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
+                  alt="Microsoft logo"
+                />
+                <span>{isSignUp ? "Sign up with Microsoft" : "Sign in with Microsoft"}</span>
+              </button>
+            </div>
+
+            {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
+            {message && <p className="mt-2 text-center text-sm text-green-600">{message}</p>}
+
+            <div className="mt-6 text-center">
+              <Link to="/staff-login" className="font-medium text-secondary hover:text-secondary-dark">
+                Staff Login
+              </Link>
             </div>
           </div>
         </div>
+      ) : (
+        // Full view with all wrappers
+        <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+          {!hideWelcome && (
+            <div className="sm:mx-auto sm:w-full sm:max-w-md">
+              <h1 className="text-3xl font-extrabold text-center text-primary">RTD Academy</h1>
+              <p className="mt-2 text-center text-sm text-gray-600">
+                Welcome to the Student Portal. Here you can register for new courses, manage your personal information, and access your enrolled courses.
+              </p>
+            </div>
+          )}
 
-        <footer className="mt-8 text-center text-sm text-gray-500">
-          <p>&copy; {new Date().getFullYear()} RTD Math Academy. All rights reserved.</p>
-        </footer>
-      </div>
+          <div className={`${!hideWelcome ? 'mt-8' : ''} sm:mx-auto sm:w-full sm:max-w-md`}>
+            <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+              <div className="space-y-6">
+                <h2 className="text-center text-2xl font-bold text-gray-900">
+                  {isSignUp ? "Sign Up" : "Sign In"}
+                </h2>
+
+                <form onSubmit={handleEmailPasswordSubmit} className="space-y-6">
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+                    <input
+                      id="email"
+                      type="email"
+                      value={emailInput}
+                      onChange={handleEmailChange}
+                      required
+                      className={`mt-1 block w-full border ${
+                        emailError ? 'border-red-500' : 'border-gray-300'
+                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
+                      placeholder="e.g., student@example.com"
+                    />
+                    {emailError && <p className="mt-2 text-sm text-red-600">{emailError}</p>}
+                  </div>
+
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                    <input
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={handlePasswordChange}
+                      required
+                      className={`mt-1 block w-full border ${
+                        passwordError ? 'border-red-500' : 'border-gray-300'
+                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
+                      placeholder="Your Password"
+                    />
+                    {passwordError && <p className="mt-2 text-sm text-red-600">{passwordError}</p>}
+                  </div>
+
+                  <div>
+                    <button
+                      type="submit"
+                      disabled={isSignUp && (!!emailError || !!passwordError)}
+                      className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                        isSignUp && (emailError || passwordError)
+                          ? 'bg-gray-400 cursor-not-allowed'
+                          : 'bg-primary hover:bg-primary-dark'
+                      } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary`}
+                    >
+                      {isSignUp ? "Register with Email" : "Sign In with Email"}
+                    </button>
+                  </div>
+                </form>
+
+                {!isSignUp && (
+                  <div className="text-sm">
+                    <button
+                      onClick={handlePasswordReset}
+                      className="font-medium text-primary hover:text-primary-dark focus:outline-none"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
+
+                <div className="text-sm">
+                  <button
+                    onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null); setEmailError(null); setPasswordError(null); }}
+                    className="font-medium text-primary hover:text-primary-dark focus:outline-none"
+                  >
+                    {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => handleProviderSignIn(googleProvider)}
+                    className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    <img
+                      className="h-5 w-5 mr-2"
+                      src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                      alt="Google logo"
+                    />
+                    <span>{isSignUp ? "Sign up with Google" : "Sign in with Google"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleProviderSignIn(microsoftProvider)}
+                    className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    <img
+                      className="h-5 w-5 mr-2"
+                      src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
+                      alt="Microsoft logo"
+                    />
+                    <span>{isSignUp ? "Sign up with Microsoft" : "Sign in with Microsoft"}</span>
+                  </button>
+                </div>
+
+                {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
+                {message && <p className="mt-2 text-center text-sm text-green-600">{message}</p>}
+
+                <div className="mt-6 text-center">
+                  <Link to="/staff-login" className="font-medium text-secondary hover:text-secondary-dark">
+                    Staff Login
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <footer className="mt-8 text-center text-sm text-gray-500">
+            <p>&copy; {new Date().getFullYear()} RTD Math Academy. All rights reserved.</p>
+          </footer>
+        </div>
+      )}
     </>
   );
 };

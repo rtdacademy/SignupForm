@@ -1,27 +1,17 @@
-// CreateScheduleDialog.js
-
 import React, { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "../components/ui/dialog";
-import YourWayScheduleMaker from '../Website/YourWayScheduleMaker';
+import YourWayScheduleMaker from './YourWayScheduleMaker';
 import { getDatabase, ref, set, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { format } from 'date-fns';
 
-const CreateScheduleDialog = ({ 
-  isOpen, 
-  onOpenChange, 
-  course
+const YourWayScheduleCreator = ({ 
+  course,
+  onScheduleSaved,
+  className = ''
 }) => {
   const { user } = useAuth();
-
   const [saving, setSaving] = useState(false);
 
   const defaultStartDate = course?.ScheduleStartDate ? new Date(course.ScheduleStartDate) : null;
@@ -32,19 +22,20 @@ const CreateScheduleDialog = ({
       toast.error("You must be logged in to save a schedule.");
       return;
     }
-
+  
     const studentEmail = user.email;
     const studentKey = sanitizeEmail(studentEmail);
     const courseId = course.CourseID;
-
+  
     const db = getDatabase();
-    const scheduleRef = ref(db, `students/${studentKey}/courses/${courseId}/ScheduleJSON`);
-    const notesRef = ref(db, `students/${studentKey}/courses/${courseId}/jsonStudentNotes`);
-
+    const basePath = `students/${studentKey}/courses/${courseId}`;
+    const scheduleRef = ref(db, `${basePath}/ScheduleJSON`);
+    const notesRef = ref(db, `${basePath}/jsonStudentNotes`);
+  
     const userName = user.displayName || user.email || 'Unknown User';
     const timestamp = new Date().toISOString();
     const defaultNoteContent = `📅 Schedule created by ${userName}.\nStart Date: ${format(new Date(schedule.startDate), 'MMM dd, yyyy')}\nEnd Date: ${format(new Date(schedule.endDate), 'MMM dd, yyyy')}`;
-
+  
     const newNote = {
       id: `note-${Date.now()}`,
       content: defaultNoteContent,
@@ -52,41 +43,51 @@ const CreateScheduleDialog = ({
       author: userName,
       noteType: '📅',
     };
-
+  
     try {
       setSaving(true);
-
+  
+      // Get current remaining schedules value
       const existingScheduleSnapshot = await get(scheduleRef);
-      let remainingSchedules;
+      let currentRemainingSchedules = 2; // Default value for new schedules
+      
       if (existingScheduleSnapshot.exists()) {
         const existingSchedule = existingScheduleSnapshot.val();
-        remainingSchedules = existingSchedule.remainingSchedules !== undefined 
-          ? existingSchedule.remainingSchedules - 1 
-          : 1;
-      } else {
-        remainingSchedules = 1;
+        currentRemainingSchedules = existingSchedule.remainingSchedules !== undefined 
+          ? existingSchedule.remainingSchedules
+          : 2;
       }
-
-      if (remainingSchedules <= 0) {
+  
+      // Decrement remaining schedules
+      const newRemainingSchedules = Math.max(0, currentRemainingSchedules - 1);
+  
+      if (newRemainingSchedules < 0) {
         toast.error("You have no remaining schedules left to save.");
         setSaving(false);
         return;
       }
-
-      schedule.remainingSchedules = remainingSchedules;
-
+  
+      // Create complete schedule object with the decremented remainingSchedules
+      const completeSchedule = {
+        ...schedule,
+        remainingSchedules: newRemainingSchedules
+      };
+  
       const existingNotesSnapshot = await get(notesRef);
       const existingNotes = existingNotesSnapshot.exists() ? existingNotesSnapshot.val() : [];
       const updatedNotes = [newNote, ...(Array.isArray(existingNotes) ? existingNotes : Object.values(existingNotes))];
-
+  
+      // Save all updates atomically
       await Promise.all([
-        set(scheduleRef, schedule),
-        set(notesRef, updatedNotes),
+        set(scheduleRef, completeSchedule), // Save complete schedule with updated remainingSchedules
+        set(notesRef, updatedNotes)
       ]);
-
+  
       toast.success("Your schedule and note have been saved successfully!");
-      onOpenChange(false);
-
+      if (onScheduleSaved) {
+        onScheduleSaved(completeSchedule);
+      }
+  
     } catch (error) {
       console.error('Error saving schedule and note:', error);
       toast.error("Failed to save schedule and note. Please try again.");
@@ -96,14 +97,14 @@ const CreateScheduleDialog = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl">
-        <DialogHeader>
-          <DialogTitle>Create Your Course Schedule</DialogTitle>
-          <DialogDescription>
+    <div className={`w-full ${className}`}>
+      <div className="space-y-4">
+        <div>
+          
+          <p className="text-gray-500">
             Design your learning schedule for {course?.Course?.Value || 'your course'}
-          </DialogDescription>
-        </DialogHeader>
+          </p>
+        </div>
         
         <div className="h-[80vh] overflow-auto">
           <YourWayScheduleMaker
@@ -111,12 +112,11 @@ const CreateScheduleDialog = ({
             defaultStartDate={defaultStartDate}
             defaultEndDate={defaultEndDate}
             onScheduleSaved={handleScheduleSaved}
-           
           />
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 };
 
-export default CreateScheduleDialog;
+export default YourWayScheduleCreator;

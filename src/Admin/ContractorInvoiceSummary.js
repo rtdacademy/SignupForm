@@ -52,8 +52,9 @@ const ContractorInvoiceSummary = () => {
           const invoiceTotal = parseFloat(invoice.total);
           const isPaid = invoice.isPaid || false;
 
+          // Include the Firebase-generated ID in the invoice object
           contractors[contractorName].invoices.push({
-            id: invoiceId,
+            firebaseId: invoiceId, // Store the Firebase-generated ID
             invoiceNumber: invoice.invoiceNumber,
             date: invoice.invoiceDate,
             dueDate: invoice.dueDate,
@@ -82,9 +83,9 @@ const ContractorInvoiceSummary = () => {
     return date.toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  const handlePaymentToggle = async (contractorName, invoiceDate, invoiceId, currentStatus) => {
+  const handlePaymentToggle = async (contractorName, invoiceDate, firebaseId, currentStatus) => {
     const db = getDatabase();
-    const invoiceRef = ref(db, `invoices/${contractorName}/${invoiceDate}/${invoiceId}`);
+    const invoiceRef = ref(db, `invoices/${contractorName}/${invoiceDate}/${firebaseId}`);
     
     try {
       await update(invoiceRef, { isPaid: !currentStatus });
@@ -95,8 +96,8 @@ const ContractorInvoiceSummary = () => {
           ...prevData[contractorName],
           [invoiceDate]: {
             ...prevData[contractorName][invoiceDate],
-            [invoiceId]: {
-              ...prevData[contractorName][invoiceDate][invoiceId],
+            [firebaseId]: {
+              ...prevData[contractorName][invoiceDate][firebaseId],
               isPaid: !currentStatus
             }
           }
@@ -210,7 +211,11 @@ const ContractorInvoiceSummary = () => {
               .filter(([contractor]) => selectedContractor === "all" || contractor === selectedContractor)
               .flatMap(([contractor, data]) =>
                 data.invoices.map((invoice) => (
-                  <TableRow key={`${contractor}-${invoice.invoiceNumber}`} className={!invoice.isPaid ? "bg-red-100" : ""}>
+                  // Use the Firebase-generated ID in the key
+                  <TableRow 
+                    key={`${contractor}-${invoice.firebaseId}`} 
+                    className={!invoice.isPaid ? "bg-red-100" : ""}
+                  >
                     {selectedContractor === "all" && <TableCell>{contractor.replace(/_/g, ' ')}</TableCell>}
                     <TableCell>{invoice.invoiceNumber}</TableCell>
                     <TableCell>{formatDate(invoice.date)}</TableCell>
@@ -219,7 +224,12 @@ const ContractorInvoiceSummary = () => {
                     <TableCell>
                       <Checkbox
                         checked={invoice.isPaid}
-                        onCheckedChange={() => handlePaymentToggle(contractor, invoice.date, invoice.id, invoice.isPaid)}
+                        onCheckedChange={() => handlePaymentToggle(
+                          contractor, 
+                          invoice.date, 
+                          invoice.firebaseId,  // Use Firebase ID here
+                          invoice.isPaid
+                        )}
                       />
                     </TableCell>
                     <TableCell>

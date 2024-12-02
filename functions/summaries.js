@@ -41,15 +41,46 @@ const syncProfileToCourseSummaries = functions.database
 
       // For each course, update the corresponding summary
       Object.keys(courses).forEach(courseId => {
-        // Only sync profile-related fields
+        const courseData = courses[courseId];
+        // Sync all profile-related fields
+        updates[`studentCourseSummaries/${studentId}_${courseId}/LastSync`] = 
+          newProfileData.LastSync || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/ParentEmail`] = 
+          newProfileData.ParentEmail || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/ParentFirstName`] = 
+          newProfileData.ParentFirstName || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/ParentLastName`] = 
+          newProfileData.ParentLastName || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/ParentPhone_x0023_`] = 
+          newProfileData.ParentPhone_x0023_ || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/StudentEmail`] = 
+          newProfileData.StudentEmail || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/StudentPhone`] = 
+          newProfileData.StudentPhone || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/age`] = 
+          newProfileData.age || 0;
+        updates[`studentCourseSummaries/${studentId}_${courseId}/asn`] = 
+          newProfileData.asn || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/birthday`] = 
+          newProfileData.birthday || '';
         updates[`studentCourseSummaries/${studentId}_${courseId}/firstName`] = 
           newProfileData.firstName || '';
         updates[`studentCourseSummaries/${studentId}_${courseId}/lastName`] = 
           newProfileData.lastName || '';
-        updates[`studentCourseSummaries/${studentId}_${courseId}/StudentEmail`] = 
-          newProfileData.StudentEmail || '';
-        updates[`studentCourseSummaries/${studentId}_${courseId}/asn`] = 
-          newProfileData.asn || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/originalEmail`] = 
+          newProfileData.originalEmail || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/preferredFirstName`] = 
+          newProfileData.preferredFirstName || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/uid`] = 
+          newProfileData.uid || '';
+        
+        // Include schedule dates and Created timestamp from the course data
+        updates[`studentCourseSummaries/${studentId}_${courseId}/ScheduleStartDate`] = 
+          courseData.ScheduleStartDate || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/ScheduleEndDate`] = 
+          courseData.ScheduleEndDate || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/Created`] = 
+          courseData.Created || null;
       });
 
       // Perform all updates in a single transaction
@@ -128,6 +159,12 @@ const updateStudentCourseSummary = functions.database
         .once('value');
       const grade = gradeSnap.val() || 0;
 
+      // Check if ScheduleJSON exists
+      const scheduleJsonSnap = await db
+        .ref(`students/${studentId}/courses/${courseId}/ScheduleJSON`)
+        .once('value');
+      const hasSchedule = scheduleJsonSnap.exists();
+
       // Construct the summary object with only the required fields
       const summary = {
         Status_Value: newValue.Status?.Value || '',
@@ -138,10 +175,31 @@ const updateStudentCourseSummary = functions.database
         ActiveFutureArchived_Value: newValue.ActiveFutureArchived?.Value || '',
         PercentScheduleComplete: newValue.PercentScheduleComplete || 0,
         PercentCompleteGradebook: newValue.PercentCompleteGradebook || 0,
+        Created: newValue.Created || null,
+        hasSchedule: hasSchedule, // Add the new hasSchedule property
+        
+        // Profile fields
+        LastSync: profile.LastSync || '',
+        ParentEmail: profile.ParentEmail || '',
+        ParentFirstName: profile.ParentFirstName || '',
+        ParentLastName: profile.ParentLastName || '',
+        ParentPhone_x0023_: profile.ParentPhone_x0023_ || '',
         StudentEmail: profile.StudentEmail || '',
+        StudentPhone: profile.StudentPhone || '',
+        age: profile.age || 0,
+        asn: profile.asn || '',
+        birthday: profile.birthday || '',
         firstName: profile.firstName || '',
         lastName: profile.lastName || '',
-        asn: profile.asn || '',
+        originalEmail: profile.originalEmail || '',
+        preferredFirstName: profile.preferredFirstName || '',
+        uid: profile.uid || '',
+
+        // Schedule dates
+        ScheduleStartDate: newValue.ScheduleStartDate || '',
+        ScheduleEndDate: newValue.ScheduleEndDate || '',
+
+        // Course-specific fields
         CourseID: newValue.CourseID || courseId,
         LMSStudentID: newValue.LMSStudentID || '',
         StatusCompare: newValue.StatusCompare || '',
