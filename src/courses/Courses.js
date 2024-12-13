@@ -505,6 +505,26 @@ function Courses() {
       });
   };
 
+  // New handleStatsChange function
+  const handleStatsChange = (checked) => {
+    if (!isEditing) return;
+
+    const db = getDatabase();
+    const courseRef = ref(db, `courses/${selectedCourseId}`);
+    update(courseRef, { showStats: checked })
+      .then(() => {
+        console.log('Successfully updated showStats');
+        setCourseData(prev => ({
+          ...prev,
+          showStats: checked
+        }));
+      })
+      .catch((error) => {
+        console.error('Error updating showStats:', error);
+        alert('An error occurred while updating showStats.');
+      });
+  };
+
   const inputClass = `mt-1 block w-full p-2 border ${
     isEditing ? 'border-gray-300' : 'border-gray-200 bg-gray-100'
   } rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm`;
@@ -643,31 +663,31 @@ function Courses() {
 
       {/* Course Details */}
       <div className="w-3/4 p-4 overflow-y-auto">
-      {selectedCourseId ? (
-  <div>
-    <div className="flex justify-between items-center mb-4">
-      <div className="flex items-center gap-2">
-        <h2 className="text-xl font-bold">
-          Course: {courses[selectedCourseId]?.Title || selectedCourseId}
-        </h2>
-        {courseData?.modernCourse && (
-          <div className="flex items-center gap-1 text-yellow-500" title="Modern Course">
-            <FaRegLightbulb />
-            <span className="text-sm font-medium">Modern Course</span>
-          </div>
-        )}
-      </div>
-      <div className="flex items-center space-x-2">
-        {!isEditing && (
-          <button
-            onClick={handleEditClick}
-            className="flex items-center px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200 text-sm"
-          >
-            <FaEdit className="mr-1" /> Edit Course
-          </button>
-        )}
-      </div>
-    </div>
+        {selectedCourseId ? (
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold">
+                  Course: {courses[selectedCourseId]?.Title || selectedCourseId}
+                </h2>
+                {courseData?.modernCourse && (
+                  <div className="flex items-center gap-1 text-yellow-500" title="Modern Course">
+                    <FaRegLightbulb />
+                    <span className="text-sm font-medium">Modern Course</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                {!isEditing && (
+                  <button
+                    onClick={handleEditClick}
+                    className="flex items-center px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200 text-sm"
+                  >
+                    <FaEdit className="mr-1" /> Edit Course
+                  </button>
+                )}
+              </div>
+            </div>
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
               <div className="flex flex-wrap -mx-2">
                 {/* Course Name */}
@@ -729,41 +749,29 @@ function Courses() {
                   )}
                 </div>
 
-                {/* CourseType */}
+                {/* Show Stats Switch */}
                 <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Course Type
-                  </label>
-                  <Select
-                    name="CourseType"
-                    options={courseTypeOptions}
-                    value={courseTypeOptions.find(
-                      (option) => option.value === courseData.CourseType
-                    )}
-                    onChange={handleSelectChange}
-                    isDisabled={!isEditing}
-                    className="mt-1"
-                  />
-                  {courseData.CourseType === 'Custom' && (
-                    <input
-                      type="text"
-                      name="CourseTypeCustom"
-                      value={courseData.CourseTypeCustom || ''}
-                      onChange={handleInputChange}
+                  <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                    <span>Show Course Statistics</span>
+                    <Switch
+                      checked={courseData.showStats || false}
+                      onCheckedChange={handleStatsChange}
                       disabled={!isEditing}
-                      className={`${inputClass} mt-2`}
-                      placeholder="Enter custom value"
+                      className="ml-2"
                     />
-                  )}
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enable to display course statistics to students
+                  </p>
                 </div>
 
-                {/* DiplomaCourse */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
+                {/* DiplomaCourse - Full Width Row */}
+                <div className="w-full px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Diploma Course
                   </label>
-                  <div className="flex space-x-2">
-                    <div className="flex-1">
+                  <div className="flex space-x-4 items-start">
+                    <div className="w-1/3">
                       <Select
                         name="DiplomaCourse"
                         options={diplomaCourseOptions}
@@ -772,7 +780,6 @@ function Courses() {
                         )}
                         onChange={handleSelectChange}
                         isDisabled={!isEditing}
-                        className="mt-1"
                       />
                     </div>
                     {courseData.DiplomaCourse === 'Yes' && (
@@ -780,9 +787,9 @@ function Courses() {
                         <SheetTrigger asChild>
                           <Button 
                             variant="outline" 
-                            className="mt-1"
-                            type="button" // Prevent form submission
+                            type="button"
                             disabled={!isEditing}
+                            className="flex-shrink-0"
                           >
                             <FaClock className="mr-2" /> Manage Diploma Times
                           </Button>
@@ -811,6 +818,34 @@ function Courses() {
                       </Sheet>
                     )}
                   </div>
+                </div>
+
+                {/* CourseType */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Course Type
+                  </label>
+                  <Select
+                    name="CourseType"
+                    options={courseTypeOptions}
+                    value={courseTypeOptions.find(
+                      (option) => option.value === courseData.CourseType
+                    )}
+                    onChange={handleSelectChange}
+                    isDisabled={!isEditing}
+                    className="mt-1"
+                  />
+                  {courseData.CourseType === 'Custom' && (
+                    <input
+                      type="text"
+                      name="CourseTypeCustom"
+                      value={courseData.CourseTypeCustom || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className={`${inputClass} mt-2`}
+                      placeholder="Enter custom value"
+                    />
+                  )}
                 </div>
 
                 {/* NumberGradeBookAssignments */}

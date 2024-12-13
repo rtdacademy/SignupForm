@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext'; // Added import
 import CryptoJS from 'crypto-js';
+import { toast } from 'sonner'; // Added import for toast
 import {
   FaClipboardList,
   FaRegCalendarCheck,
@@ -12,13 +14,16 @@ import {
 } from 'react-icons/fa';
 
 import Notifications from '../Notifications/Notifications';
+import ScheduleDisplay from '../Schedule/ScheduleDisplay';  
 
 const LMSWrapper = ({ 
-  userEmailKey, 
-  courseId, 
+  courseId,  // Removed userEmailKey from props
   courseData,
   onReturn
 }) => {
+  // Added auth context
+  const { current_user_email_key, isEmulating } = useAuth();
+  
   const [expandedIcon, setExpandedIcon] = useState(null);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -33,15 +38,16 @@ const LMSWrapper = ({
   const generateSSOToken = useCallback(() => {
     const ENCRYPTION_KEY = process.env.REACT_APP_ENCRYPTION_KEY;
     
-    if (!ENCRYPTION_KEY || !userEmailKey) {
+    if (!ENCRYPTION_KEY || !current_user_email_key) {
       console.warn('Missing required SSO parameters');
       return '';
     }
 
     const payload = {
-      studentEmail: userEmailKey,
+      studentEmail: current_user_email_key,
       timestamp: Date.now(),
-      nonce: Math.random().toString(36).substring(7)
+      nonce: Math.random().toString(36).substring(7),
+      isEmulated: isEmulating
     };
 
     console.log('SSO Payload before encryption:', payload);
@@ -59,7 +65,7 @@ const LMSWrapper = ({
       console.error('SSO token generation failed:', error);
       return '';
     }
-  }, [userEmailKey]);
+  }, [current_user_email_key, isEmulating]);
 
   // Generate the LMS URL with SSO token
   const getLMSUrl = useCallback(() => {
@@ -76,15 +82,15 @@ const LMSWrapper = ({
     if (ssoToken) {
       params.append('ssoToken', ssoToken);
     }
-*/
+    */
     return `${baseUrl}?${params.toString()}`;
   }, [courseId, generateSSOToken]);
 
   const navItems = useMemo(
     () => [
-      { icon: <FaClipboardList />, label: 'Schedule', content: 'Schedule content goes here' },
-      { icon: <FaRegCalendarCheck />, label: 'Book Time', content: 'Booking' },
-      { icon: <FaBell />, label: 'Notifications', content: 'Notifications' },
+      { icon: <FaClipboardList />, label: 'Schedule' },
+      { icon: <FaRegCalendarCheck />, label: 'Book Time' },
+      { icon: <FaBell />, label: 'Notifications' },
     ],
     []
   );
@@ -102,16 +108,28 @@ const LMSWrapper = ({
     setExpandedIcon(null);
   }, []);
 
+  const handleScheduleSaved = useCallback((schedule) => {
+    // Handle schedule saved logic here, possibly refresh data or notify user
+    console.log('Schedule saved:', schedule);
+    toast.success('Schedule saved successfully!');
+  }, []);
+
   const handleChatSelect = useCallback(() => {
     setExpandedIcon('Messages');
   }, []);
 
   const renderExpandedContent = useCallback(() => {
-    if (expandedIcon === 'Notifications') {
+    if (expandedIcon === 'Schedule') {
+      return (
+        <div className="h-full overflow-auto p-4">
+          <ScheduleDisplay scheduleJSON={courseData.ScheduleJSON} />
+        </div>
+      );
+    } else if (expandedIcon === 'Notifications') {
       return (
         <div className="h-full flex flex-col overflow-hidden">
           <Notifications 
-            userEmailKey={userEmailKey}
+            userEmailKey={current_user_email_key}
             onChatSelect={handleChatSelect}
           />
         </div>
@@ -124,24 +142,8 @@ const LMSWrapper = ({
           className="w-full h-full border-none"
         />
       );
-    } else {
-      return (
-        <p className="text-gray-600">
-          {navItems.find((item) => item.label === expandedIcon)?.content}
-        </p>
-      );
     }
-  }, [
-    expandedIcon,
-    courseId,
-    courseTitle,
-    courseTeachers,
-    courseSupportStaff,
-    allowStudentChats,
-    userEmailKey,
-    handleChatSelect,
-    navItems,
-  ]);
+  }, [expandedIcon, courseData, current_user_email_key, handleChatSelect]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">

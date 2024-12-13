@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Calendar, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2 } from 'lucide-react';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Calendar, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
-import { getDatabase, ref, set, get, push } from 'firebase/database';
+import { getDatabase, ref, set, get, push, remove } from 'firebase/database';
 import { Button } from "../components/ui/button";
 import { Toggle } from "../components/ui/toggle";
 import {
@@ -23,20 +24,15 @@ import {
 } from "../components/ui/dropdown-menu";
 import { Badge } from "../components/ui/badge";
 import ChatApp from '../chat/ChatApp';
-
-// Import specific icon components
 import {
   Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark
 } from 'lucide-react';
-
-// Import useAuth from AuthContext
 import { useAuth } from '../context/AuthContext';
-
-// Import Checkbox
 import { Checkbox } from "../components/ui/checkbox";
-
-// Import StudentDetail component
 import StudentDetail from './StudentDetail';
+import { useMode, MODES } from '../context/ModeContext';
+import { getStudentTypeInfo } from '../config/DropdownOptions';
+import { format } from 'date-fns';
 
 // Map icon names to icon components
 const iconMap = {
@@ -115,8 +111,11 @@ const StudentCard = React.memo(({
   onBulkStatusChange,
   onBulkCategoryChange,
   onBulkAutoStatusToggle,
-  isMobile
+  isMobile,
+  onCourseRemoved
 }) => {
+  const navigate = useNavigate();
+  const { currentMode } = useMode();
   const bgColor = selectedStudentId === student.id 
     ? 'bg-blue-100' 
     : index % 2 === 0 
@@ -139,6 +138,9 @@ const StudentCard = React.memo(({
 
   // State variable for expanded view
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // New state variable for removal dialog
+  const [isRemovalDialogOpen, setIsRemovalDialogOpen] = useState(false);
 
   // Access the logged-in teacher's info
   const { user } = useAuth();
@@ -287,6 +289,27 @@ const StudentCard = React.memo(({
     }
   }, [student.id, isPartOfMultiSelect, onBulkCategoryChange]);
 
+  // In StudentCard.js
+const handleRemoveCourse = useCallback(async () => {
+  const db = getDatabase();
+  const lastUnderscoreIndex = student.id.lastIndexOf('_');
+  const studentKey = student.id.slice(0, lastUnderscoreIndex);
+  const courseId = student.id.slice(lastUnderscoreIndex + 1);
+  const courseRef = ref(db, `students/${studentKey}/courses/${courseId}`);
+
+  try {
+    await remove(courseRef);
+    setIsRemovalDialogOpen(false);
+    // Call the parent callback with student and course info
+    onCourseRemoved(
+      `${student.firstName} ${student.lastName}`,
+      student.Course_Value
+    );
+  } catch (error) {
+    console.error("Error removing course:", error);
+  }
+}, [student.id, student.firstName, student.lastName, student.Course_Value, onCourseRemoved]);
+
   const groupedTeacherCategories = useMemo(() => {
     if (!teacherCategories || typeof teacherCategories !== 'object') {
       console.error('teacherCategories is not an object:', teacherCategories);
@@ -395,7 +418,13 @@ const StudentCard = React.memo(({
         className="w-3 h-3 rounded-full mr-2 flex-shrink-0" 
         style={{ backgroundColor: option.color }}
       />
-      <span style={{ color: option.color }}>{option.value}</span>
+      <span style={{ color: option.color }}>
+        {option.value === "Starting on (Date)" && student.ScheduleStartDate ? (
+          `Starting on ${format(new Date(student.ScheduleStartDate), 'MMM d, yyyy')}`
+        ) : (
+          option.value
+        )}
+      </span>
     </div>
   ));
 
@@ -459,72 +488,81 @@ const StudentCard = React.memo(({
   return (
     <>
       <Card
-  className={`transition-shadow duration-200 ${bgColor} hover:shadow-md mb-3 ${!isMobile ? 'cursor-pointer' : ''}`}
-  onClick={handleCardClick}
->
-      <CardHeader className="p-3 pb-2">
-  {/* First row with checkbox, avatar, name, expand button, and migration badge */}
-  <div className="flex items-start space-x-3 mb-2">
-    <div 
-      className="flex items-center" 
-      onClick={(e) => {
-        e.stopPropagation();
-      }}
-    >
-      <Checkbox
-        checked={isSelected}
-        onCheckedChange={onSelectionChange}
-        aria-label={`Select ${student.firstName} ${student.lastName}`}
-      />
-    </div>
-    <Avatar className="w-10 h-10">
-      <AvatarFallback 
-        className="text-sm font-medium" 
-        style={{ backgroundColor: avatarColor, color: '#FFFFFF' }}
+        className={`transition-shadow duration-200 ${bgColor} hover:shadow-md mb-3 ${!isMobile ? 'cursor-pointer' : ''}`}
+        onClick={handleCardClick}
       >
-        {initials}
-      </AvatarFallback>
-    </Avatar>
-    <div className="min-w-0 flex-1">
-      <div className="flex items-center justify-between gap-2">
-        <CardTitle className="text-base font-medium truncate">
-          {student.firstName} {student.lastName}
-        </CardTitle>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleExpandClick}
-          aria-label="Expand student details"
-        >
-          <Maximize2 className="h-4 w-4" />
-        </Button>
-      </div>
-      {(!student.hasSchedule || student.inOldSharePoint !== false) && (
-  <div className="mt-1 inline-flex items-center bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap">
-    <AlertCircle className="w-3 h-3 mr-1" />
-    Needs Migration
-  </div>
-)}
-    </div>
-    {selectedStudentId === student.id && !isSelected && (
-      <CheckCircle className="w-5 h-5 text-blue-500" />
-    )}
-  </div>
+        <CardHeader className="p-3 pb-2">
+          {/* First row with checkbox, avatar, name, expand button, and migration badge */}
+          <div className="flex items-start space-x-3 mb-2">
+            <div 
+              className="flex items-center" 
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={onSelectionChange}
+                aria-label={`Select ${student.firstName} ${student.lastName}`}
+              />
+            </div>
+            <Avatar className="w-10 h-10">
+              <AvatarFallback 
+                className="text-sm font-medium" 
+                style={{ backgroundColor: avatarColor, color: '#FFFFFF' }}
+              >
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-base font-medium truncate">
+                  {student.firstName} {student.lastName}
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleExpandClick}
+                  aria-label="Expand student details"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </div>
+              {(!student.hasSchedule || student.inOldSharePoint !== false) && (
+                <div className="mt-1 inline-flex items-center bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Needs Migration
+                </div>
+              )}
+            </div>
+            {selectedStudentId === student.id && !isSelected && (
+              <CheckCircle className="w-5 h-5 text-blue-500" />
+            )}
+          </div>
 
-  {/* Second row for email and student type - full width */}
-  <div className="flex items-center justify-between w-full">
-    <span className="text-xs text-gray-500 truncate">
-      {student.StudentEmail}
-    </span>
-    {student.StudentType_Value && (
-      <Badge 
-        className="bg-blue-50 hover:bg-blue-50 text-blue-700 rounded px-2 py-0 h-5 text-[10px] font-medium border-0"
-      >
-        {student.StudentType_Value}
-      </Badge>
-    )}
-  </div>
-</CardHeader>
+          {/* Second row for email and student type - full width */}
+          <div className="flex items-center justify-between w-full">
+            <span className="text-xs text-gray-500 truncate">
+              {student.StudentEmail}
+            </span>
+            {student.StudentType_Value && (
+  <Badge 
+    className="flex items-center gap-1 px-2 py-0.5 h-5 text-[10px] font-medium border-0 rounded"
+    style={{
+      backgroundColor: `${getStudentTypeInfo(student.StudentType_Value).color}15`,
+      color: getStudentTypeInfo(student.StudentType_Value).color
+    }}
+  >
+    {getStudentTypeInfo(student.StudentType_Value).icon && 
+      React.createElement(getStudentTypeInfo(student.StudentType_Value).icon, {
+        className: "w-3 h-3"
+      })
+    }
+    {student.StudentType_Value}
+  </Badge>
+)}
+          </div>
+        </CardHeader>
         <CardContent className="p-3 pt-2">
           {/* Course, Grade, and Progress on the same line */}
           <div className="flex items-center text-xs mb-2">
@@ -533,13 +571,13 @@ const StudentCard = React.memo(({
               
             </span>
             {student.grade !== undefined && 
- student.grade !== null && 
- student.grade !== 0 && (
-  <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
-    Gr. {formatGrade(student.grade)}
-    {getGradeColorAndIcon(student.grade).icon}
-  </span>
-)}
+              student.grade !== null && 
+              student.grade !== 0 && (
+              <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
+                Gr. {formatGrade(student.grade)}
+                {getGradeColorAndIcon(student.grade).icon}
+              </span>
+            )}
             {student.adherenceMetrics && formatLessons(student.adherenceMetrics.lessonsBehind) && (
               <span className="text-xs font-bold flex items-center">
                 {formatLessons(student.adherenceMetrics.lessonsBehind).value}
@@ -552,22 +590,26 @@ const StudentCard = React.memo(({
           <div className="flex items-center space-x-2 mb-2">
             <div className="flex-grow">
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="w-full justify-between"
-                    style={{ borderColor: currentStatusColor, color: currentStatusColor }}
-                  >
-                    <div className="flex items-center">
-                      <div 
-                        className="w-3 h-3 rounded-full mr-2" 
-                        style={{ backgroundColor: currentStatusColor }}
-                      />
-                      {statusValue}
-                    </div>
-                    <ChevronDown className="h-4 w-4 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild>
+  <Button 
+    variant="outline" 
+    className="w-full justify-between"
+    style={{ borderColor: currentStatusColor, color: currentStatusColor }}
+  >
+    <div className="flex items-center">
+      <div 
+        className="w-3 h-3 rounded-full mr-2" 
+        style={{ backgroundColor: currentStatusColor }}
+      />
+      {statusValue === "Starting on (Date)" && student.ScheduleStartDate ? (
+        `Starting on ${format(new Date(student.ScheduleStartDate), 'MMM d, yyyy')}`
+      ) : (
+        statusValue
+      )}
+    </div>
+    <ChevronDown className="h-4 w-4 opacity-50" />
+  </Button>
+</DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56">
                   {STATUS_CATEGORIES.map(category => (
                     <DropdownMenuSub key={category}>
@@ -710,45 +752,74 @@ const StudentCard = React.memo(({
             </>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex justify-end mt-2 space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={handleOpenChat}
-            >
-              <MessageSquare className="w-4 h-4 mr-1" />
-              Chat
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={handleOpenStatusHistory}
-            >
-              <History className="w-4 h-4 mr-1" />
-              Status
-            </Button>
-          </div>
+         {/* Action Buttons */}
+<div className="flex justify-end mt-2 space-x-2">
+  <Button
+    variant="outline"
+    size="sm"
+    className="text-xs"
+    onClick={handleOpenChat}
+  >
+    <MessageSquare className="w-4 h-4 mr-1" />
+    Chat
+  </Button>
+  <Button
+    variant="outline"
+    size="sm"
+    className="text-xs"
+    onClick={handleOpenStatusHistory}
+  >
+    <History className="w-4 h-4 mr-1" />
+    Status
+  </Button>
+
+  <Button
+  variant="outline"
+  size="sm"
+  className="text-xs text-blue-600 hover:text-blue-700"
+  onClick={(e) => {
+    e.stopPropagation(); // Prevent card click event
+    // Open in a new tab with a specific target name
+    window.open(`/emulate/${student.StudentEmail}`, 'emulationTab');
+  }}
+>
+  <UserCheck className="w-4 h-4 mr-1" />
+  Emulate
+</Button>
+
+  {currentMode === MODES.REGISTRATION && (
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-xs text-red-600 hover:text-red-700"
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsRemovalDialogOpen(true);
+      }}
+    >
+      <Trash2 className="w-4 h-4 mr-1" />
+      Remove
+    </Button>
+  )}
+</div>
         </CardContent>
       </Card>
 
      
-     {/* Full-screen dialog for expanded view */}
-<Dialog open={isExpanded} onOpenChange={setIsExpanded}>
-  <DialogContent className="max-w-7xl w-[95vw] h-[95vh] p-6 flex flex-col">
-    <DialogHeader className="flex-shrink-0">
-      <DialogTitle>
-        Student Details - {student.firstName} {student.lastName}
-      </DialogTitle>
-    </DialogHeader>
-    <div className="flex-1 overflow-auto mt-4">
-      <StudentDetail studentSummary={student} isMobile={isMobile} />
-    </div>
-  </DialogContent>
-</Dialog>
-
+      {/* Full-screen dialog for expanded view */}
+      <Dialog open={isExpanded} onOpenChange={setIsExpanded}>
+        <DialogContent className="max-w-7xl w-[95vw] h-[95vh] p-6 flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>
+              Student Details - {student.firstName} {student.lastName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto mt-4">
+            <StudentDetail studentSummary={student} isMobile={isMobile} />
+          </div>
+        </DialogContent>
+      </Dialog>
+    
       {/* Chat Dialog */}
       <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
         <DialogContent className="max-w-[90vw] w-[1000px] h-[95vh] max-h-[900px] p-4 flex flex-col">
@@ -818,6 +889,40 @@ const StudentCard = React.memo(({
             ) : (
               <div className="text-center">No status history available.</div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Course Removal Dialog */}
+      <Dialog open={isRemovalDialogOpen} onOpenChange={setIsRemovalDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Remove Course</DialogTitle>
+            <div className="text-sm text-gray-600 mt-4">
+              Are you sure you want to remove this course?
+              <div className="font-medium mt-2">
+                {student.Course_Value}
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                This action cannot be undone.
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex justify-end space-x-2 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setIsRemovalDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRemoveCourse}
+              className="flex items-center"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Remove Course
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -4,12 +4,14 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { useMode, MODES } from '../context/ModeContext';
+import { useUserPreferences } from '../context/UserPreferencesContext';
 import {
   ChevronDown, X, Maximize, Minimize, Search,
   Star, Flag, Bookmark, Circle, Square, Triangle, BookOpen as BookOpenIcon, 
   GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, 
   Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, 
-  MessageCircle, Users, Presentation, FileText, Filter,
+  MessageCircle, Users, Presentation, FileText, Filter, Loader2, 
+  UserSquare2, ClipboardList
 } from "lucide-react";
 import CategoryManager from './CategoryManager';
 import AdvancedFilters from './AdvancedFilters';
@@ -23,7 +25,6 @@ import {
   DropdownMenuSubTrigger,
 } from "../components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
-import { UserSquare2, ClipboardList } from "lucide-react";
 
 const iconMap = {
   'circle': Circle,
@@ -86,6 +87,19 @@ const ModeSelector = ({ currentMode, setCurrentMode }) => (
   </TooltipProvider>
 );
 
+const ClearingOverlay = ({ isClearing }) => {
+  if (!isClearing) return null;
+
+  return (
+    <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg transition-all duration-300">
+      <div className="flex flex-col items-center gap-2">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+        <span className="text-sm text-blue-500 font-medium">Clearing filters...</span>
+      </div>
+    </div>
+  );
+};
+
 const FilterPanel = memo(function FilterPanel({
   filters: propFilters,
   onFilterChange,
@@ -102,72 +116,114 @@ const FilterPanel = memo(function FilterPanel({
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [localFilters, setLocalFilters] = useState({});
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isClearing, setIsClearing] = useState(false);
   const { currentMode, setCurrentMode } = useMode();
+  const { preferences, updateFilterPreferences, clearAllFilters } = useUserPreferences();
 
+  // Load saved preferences
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+    if (preferences?.filters) {
+      // Make sure we initialize with valid filter structure
+      const safeFilters = {
+        ...preferences.filters,
+        categories: Array.isArray(preferences.filters.categories) ? 
+          preferences.filters.categories : [],
+        dateFilters: preferences.filters.dateFilters || {},
+        hasSchedule: Array.isArray(preferences.filters.hasSchedule) ? 
+          preferences.filters.hasSchedule : []
+      };
+      
+      setLocalFilters(safeFilters);
+      onFilterChange(safeFilters);
+      onSearchChange(preferences.filters.searchTerm || '');
+      
+      if (preferences.filters.currentMode) {
+        setCurrentMode(preferences.filters.currentMode);
+      }
+    }
+  }, [preferences, onFilterChange, onSearchChange, setCurrentMode]);
 
+  // Mobile check effect
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Sync with prop filters
   useEffect(() => {
-    setLocalFilters((prevFilters) => {
-      if (JSON.stringify(prevFilters) !== JSON.stringify(propFilters)) {
-        return propFilters;
-      }
-      return prevFilters;
-    });
-  }, [propFilters]);
+    if (JSON.stringify(localFilters) !== JSON.stringify(propFilters)) {
+      setLocalFilters(propFilters);
+    }
+  }, [propFilters, localFilters]);
 
+  // Updated active filter count calculation
   useEffect(() => {
-    const count = (localFilters.categories || []).reduce((sum, teacherCat) => {
-      const categories = Object.values(teacherCat)[0];
-      return sum + (categories ? categories.length : 0);
-    }, 0) + 
-    (searchTerm ? 1 : 0) +
-    (localFilters.dateFilters ? Object.keys(localFilters.dateFilters).length : 0);
+    const count = (
+      // Count category filters
+      (localFilters.categories || []).reduce((sum, teacherCat) => {
+        const categories = Object.values(teacherCat)[0];
+        return sum + (categories ? categories.length : 0);
+      }, 0) + 
+      // Count search term if present
+      (searchTerm ? 1 : 0) +
+      // Count date filters
+      (localFilters.dateFilters ? Object.keys(localFilters.dateFilters).length : 0) +
+      // Count other filters except mode
+      availableFilters.reduce((sum, { key }) => {
+        if (key !== 'categories' && key !== 'currentMode' && Array.isArray(localFilters[key])) {
+          return sum + (localFilters[key].length || 0);
+        }
+        return sum;
+      }, 0) +
+      // Count hasSchedule filter
+      (localFilters.hasSchedule?.length ? 1 : 0)
+    );
     setActiveFilterCount(count);
-  }, [localFilters, searchTerm]);
+  }, [localFilters, searchTerm, availableFilters]);
 
-  const filterOptions = useMemo(() => {
-    const options = {};
-    availableFilters.forEach(({ key }) => {
-      if (key !== 'categories') {
-        const uniqueOptions = [
-          ...new Set(
-            studentSummaries
-              .map((s) => s[key])
-              .filter((v) => v !== undefined)
-              .map(v => v === null || v === '' ? '(Empty)' : v)
-          ),
-        ].sort();
-        
-        options[key] = uniqueOptions.map((option) => ({
-          value: option === '(Empty)' ? '' : option,
-          label: option === '(Empty)' ? '(Empty)' : String(option)
-        }));
-      }
-    });
-    return options;
-  }, [availableFilters, studentSummaries]);
+  // Memoized handlers
+  const handleSearchChange = useCallback((term) => {
+    onSearchChange(term);
+    updateFilterPreferences({ searchTerm: term });
+  }, [onSearchChange, updateFilterPreferences]);
 
-  const groupedCategories = useMemo(() => {
-    const grouped = {};
-    Object.entries(teacherCategories).forEach(([teacherEmailKey, categories]) => {
-      grouped[teacherEmailKey] = categories
-        .filter(category => !category.archived)
-        .map(category => ({
-          value: category.id,
-          label: category.name,
-          color: category.color,
-          icon: category.icon,
-        }));
-    });
-    return grouped;
-  }, [teacherCategories]);
+  // Updated clear filters handler with animation
+  const handleClearAll = useCallback(async () => {
+    setIsClearing(true);
+
+    // Wait for overlay to appear
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const clearedFilters = {
+      ...localFilters,
+      categories: [],
+      hasSchedule: [],
+      dateFilters: {},
+      currentMode: localFilters.currentMode || MODES.TEACHER,
+      ...Object.keys(localFilters).reduce((acc, key) => {
+        if (key !== 'currentMode' && key !== 'dateFilters' && key !== 'hasSchedule') {
+          acc[key] = [];
+        }
+        return acc;
+      }, {})
+    };
+
+    setLocalFilters(clearedFilters);
+    onFilterChange(clearedFilters);
+    handleSearchChange('');
+    await updateFilterPreferences(clearedFilters);
+
+    // Keep overlay visible for a moment after clearing
+    setTimeout(() => {
+      setIsClearing(false);
+    }, 1000);
+  }, [localFilters, onFilterChange, handleSearchChange, updateFilterPreferences]);
+
+  const handleModeChange = useCallback((newMode) => {
+    setCurrentMode(newMode);
+    updateFilterPreferences({ currentMode: newMode });
+  }, [setCurrentMode, updateFilterPreferences]);
 
   const handleCategoryChange = useCallback(
     (categoryId, teacherEmailKey) => {
@@ -205,35 +261,49 @@ const FilterPanel = memo(function FilterPanel({
         };
 
         onFilterChange(updatedFilters);
+        updateFilterPreferences(updatedFilters);
         return updatedFilters;
       });
     },
-    [onFilterChange]
+    [onFilterChange, updateFilterPreferences]
   );
 
-  const handleClearAllCategories = useCallback(() => {
-    setLocalFilters((prevFilters) => {
-      const updatedFilters = {
-        ...prevFilters,
-        categories: [],
-      };
-      onFilterChange(updatedFilters);
-      return updatedFilters;
+  const filterOptions = useMemo(() => {
+    const options = {};
+    availableFilters.forEach(({ key }) => {
+      if (key === 'CourseID' || key === 'categories') return; // Skip CourseID here since we handle it in AdvancedFilters
+      
+      const uniqueOptions = [
+        ...new Set(
+          studentSummaries
+            .map((s) => s[key])
+            .filter((v) => v !== undefined)
+            .map(v => v === null || v === '' ? '(Empty)' : v)
+        ),
+      ].sort();
+      
+      options[key] = uniqueOptions.map((option) => ({
+        value: option === '(Empty)' ? '' : option,
+        label: option === '(Empty)' ? '(Empty)' : String(option)
+      }));
     });
-  }, [onFilterChange]);
+    return options;
+  }, [availableFilters, studentSummaries]);
 
-  const clearFilters = useCallback(() => {
-    const clearedFilters = Object.keys(localFilters).reduce(
-      (acc, key) => ({
-        ...acc,
-        [key]: key === 'dateFilters' ? {} : [],
-      }),
-      {}
-    );
-    setLocalFilters(clearedFilters);
-    onFilterChange(clearedFilters);
-    onSearchChange('');
-  }, [onFilterChange, onSearchChange, localFilters]);
+  const groupedCategories = useMemo(() => {
+    const grouped = {};
+    Object.entries(teacherCategories).forEach(([teacherEmailKey, categories]) => {
+      grouped[teacherEmailKey] = categories
+        .filter(category => !category.archived)
+        .map(category => ({
+          value: category.id,
+          label: category.name,
+          color: category.color,
+          icon: category.icon,
+        }));
+    });
+    return grouped;
+  }, [teacherCategories]);
 
   const selectedCategoriesCount = useMemo(() => {
     return (localFilters.categories || []).reduce((sum, teacherCat) => {
@@ -243,7 +313,8 @@ const FilterPanel = memo(function FilterPanel({
   }, [localFilters.categories]);
 
   return (
-    <Card className="bg-[#f0f4f7] shadow-md">
+    <Card className="bg-[#f0f4f7] shadow-md relative">
+      <ClearingOverlay isClearing={isClearing} />
       <CardHeader className="py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-2 sm:space-y-0">
         <CardTitle className="text-lg font-semibold text-[#315369] whitespace-nowrap mr-4">
           Filters
@@ -254,7 +325,7 @@ const FilterPanel = memo(function FilterPanel({
               type="text"
               placeholder="Search students..."
               value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10 pr-10 bg-white w-full h-9"
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -262,7 +333,7 @@ const FilterPanel = memo(function FilterPanel({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => onSearchChange('')}
+                onClick={() => handleSearchChange('')}
                 className="absolute right-2 top-1/2 transform -translate-y-1/2"
               >
                 <X className="h-4 w-4" />
@@ -272,7 +343,6 @@ const FilterPanel = memo(function FilterPanel({
 
           {!isMobile && (
             <div className="flex items-center space-x-2">
-              {/* Moved and renamed Advanced Filters button */}
               <AdvancedFilters
                 onFilterChange={(newFilters) => {
                   setLocalFilters((prevFilters) => {
@@ -281,6 +351,7 @@ const FilterPanel = memo(function FilterPanel({
                       ...newFilters
                     };
                     onFilterChange(updatedFilters);
+                    updateFilterPreferences(updatedFilters);
                     return updatedFilters;
                   });
                 }}
@@ -302,7 +373,6 @@ const FilterPanel = memo(function FilterPanel({
                 </Button>
               </AdvancedFilters>
 
-              {/* Categories Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -350,6 +420,11 @@ const FilterPanel = memo(function FilterPanel({
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
                   ))}
+                  {activeFilterCount > 0 && (
+                    <DropdownMenuItem onSelect={handleClearAll}>
+                      Clear All
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -387,9 +462,11 @@ const FilterPanel = memo(function FilterPanel({
                         );
                       });
                     })}
-                    <DropdownMenuItem onSelect={handleClearAllCategories}>
-                      Clear All
-                    </DropdownMenuItem>
+                    {activeFilterCount > 0 && (
+                      <DropdownMenuItem onSelect={handleClearAll}>
+                        Clear All
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
@@ -400,7 +477,7 @@ const FilterPanel = memo(function FilterPanel({
                 <TooltipProvider>
                   <RadioGroup
                     value={currentMode}
-                    onValueChange={setCurrentMode}
+                    onValueChange={handleModeChange}
                     className="flex items-center space-x-1"
                   >
                     {Object.entries(MODE_CONFIG).map(([mode, config]) => (
@@ -430,8 +507,8 @@ const FilterPanel = memo(function FilterPanel({
                 </TooltipProvider>
               </div>
 
-              {/* Filter Counter Badge */}
-              {(activeFilterCount > 0 || searchTerm) && (
+              {/* Filter Counter Badge - only show for actual filters */}
+              {activeFilterCount > 0 && (
                 <div className="bg-blue-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                   {activeFilterCount}
                 </div>
@@ -447,14 +524,19 @@ const FilterPanel = memo(function FilterPanel({
               >
                 {isFullScreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={clearFilters} 
-                className="text-[#315369]"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              
+              {/* Only show clear button when there are active filters */}
+              {activeFilterCount > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleClearAll}
+                  className="text-[#315369]"
+                  title="Clear all filters"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           )}
         </div>

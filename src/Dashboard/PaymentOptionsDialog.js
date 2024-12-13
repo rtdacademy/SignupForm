@@ -133,6 +133,7 @@ const PaymentOptionsDialog = ({ isOpen, onOpenChange, course, user }) => {
         courseId: String(course.CourseID),
         courseName: course.Course?.Value || '',
         userEmail: user.email,
+        userId: user.uid, 
         paymentType: isSubscription ? 'subscription_3_month' : 'one_time'
       };
 

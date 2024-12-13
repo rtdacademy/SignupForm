@@ -1,26 +1,28 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { FaUser, FaPlusCircle, FaSignOutAlt, FaArrowLeft } from 'react-icons/fa';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, AlertCircle, Home } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import FormDialog from '../Registration/FormDialog';
+import WelcomeDialog from './WelcomeDialog';
+import MigrationWelcomeDialog from '../migration/MigrationWelcomeDialog';
 import ProfileComponent from './ProfileComponent';
 import CourseCard from './CourseCard';
 import LMSWrapper from './LMSWrapper';
 import { useAuth } from '../context/AuthContext';
 import { useStudentData } from './hooks/useStudentData';
 import { useNavigate } from 'react-router-dom';
+import { getDatabase, ref, get } from 'firebase/database';
 
 // Constants for triangles
 const TRIANGLE_SIZE = 220;
 
 // Static Triangle Component with random position
 const StaticTriangle = ({ color }) => {
-  // Calculate random position once when the component mounts
   const [randomPosition] = useState(() => ({
     x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth - TRIANGLE_SIZE : 500),
     y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight - TRIANGLE_SIZE : 500),
-    rotation: Math.random() * 360, // Random rotation between 0 and 360 degrees
+    rotation: Math.random() * 360,
   }));
 
   const points = `
@@ -88,12 +90,16 @@ const WelcomeMessage = ({ hasStudentNode, hasCourses }) => {
 };
 
 // Dashboard Header Component
-const DashboardHeader = ({ user, onLogout, onBackClick, showBackButton }) => {
+const DashboardHeader = ({ user, onLogout, onBackClick, showBackButton, isEmulating, onStopEmulation, profile }) => {
   const getUserDisplayName = () => {
-    if (user) {
-      return user.displayName || user.email.split('@')[0] || 'User';
+    if (profile) {
+      if (profile.preferredFirstName) {
+        return `Welcome, ${profile.preferredFirstName}`;
+      } else if (profile.firstName) {
+        return `Welcome, ${profile.firstName}`;
+      }
     }
-    return 'User';
+    return 'Welcome to RTD Academy!';
   };
 
   return (
@@ -104,9 +110,11 @@ const DashboardHeader = ({ user, onLogout, onBackClick, showBackButton }) => {
             {showBackButton && (
               <button 
                 onClick={onBackClick} 
-                className="text-gray-500"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white transition-all duration-200 shadow-md hover:shadow-lg"
+                title="Return to Dashboard"
               >
-                <FaArrowLeft className="text-sm" />
+                <Home className="h-5 w-5" />
+                <span className="hidden sm:inline text-sm font-medium">Dashboard</span>
               </button>
             )}
             <div className="flex items-center space-x-3 cursor-pointer group">
@@ -116,7 +124,7 @@ const DashboardHeader = ({ user, onLogout, onBackClick, showBackButton }) => {
                   RTD Academy
                 </h1>
                 <div className="text-xs font-medium text-gray-500">
-                  Student Portal
+                  Student Portal {isEmulating && '(Emulation Mode)'}
                 </div>
               </div>
             </div>
@@ -124,43 +132,111 @@ const DashboardHeader = ({ user, onLogout, onBackClick, showBackButton }) => {
 
           {user && (
             <div className="flex items-center space-x-6">
-              <span className="text-gray-500 text-sm hidden lg:inline">
-                Welcome, {getUserDisplayName()}
+              {isEmulating && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={onStopEmulation}
+                  className="mr-4 bg-blue-800 hover:bg-blue-900 text-white border-none transition-colors duration-200"
+                >
+                  Exit Emulation
+                </Button>
+              )}
+              <span className="text-gray-700 text-lg hidden lg:inline font-semibold tracking-wide">
+                {getUserDisplayName()}
               </span>
-              <button 
-                onClick={onLogout} 
-                className="flex items-center space-x-2 text-gray-500 text-sm"
-              >
-                <FaSignOutAlt /> 
-                <span className="hidden lg:inline">Sign Out</span>
-              </button>
+              {!isEmulating && (
+                <button 
+                  onClick={onLogout} 
+                  className="flex items-center space-x-2 text-gray-500 text-sm"
+                >
+                  <FaSignOutAlt /> 
+                  <span className="hidden lg:inline">Sign Out</span>
+                </button>
+              )}
             </div>
           )}
         </div>
       </div>
+      {isEmulating && (
+        <div className="bg-blue-100 text-blue-800 px-4 py-2 text-sm flex items-center justify-center">
+          <AlertCircle className="w-4 h-4 mr-2" />
+          You are currently viewing the dashboard as {user.email}
+        </div>
+      )}
     </header>
   );
 };
 
-
-
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user, signOut, user_email_key, loading: authLoading } = useAuth();
-  const { courses, profile, loading: dataLoading, error, studentExists } = useStudentData(user_email_key);
+  const { 
+    currentUser, 
+    current_user_email_key, 
+    signOut, 
+    loading: authLoading,
+    isEmulating,
+    stopEmulation
+  } = useAuth();
+  
+  const { 
+    courses, 
+    profile, 
+    loading: dataLoading, 
+    error, 
+    studentExists 
+  } = useStudentData(current_user_email_key);
+  
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [showLMS, setShowLMS] = useState(false);
+  
+  // Only set showWelcomeDialog initially, after data is loaded
+  const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
+
+  // New state for Migration Dialog
+  const [showMigrationDialog, setShowMigrationDialog] = useState(false);
+
+  // Once data is loaded, determine if we need to show the welcome dialog
+  useEffect(() => {
+    if (!dataLoading && courses.length === 0) {
+      setShowWelcomeDialog(true);
+    }
+  }, [dataLoading, courses.length]);
+
+  // Effect to handle the migration dialog
+  useEffect(() => {
+    const checkMigrationMessage = async () => {
+      if (currentUser?.uid) {
+        const db = getDatabase();
+        const messageRef = ref(db, `users/${currentUser.uid}/readMigrationMessage`);
+        const snapshot = await get(messageRef);
+        
+        // Show migration dialog if user is migrated and hasn't dismissed the message
+        if (currentUser.isMigratedUser && !snapshot.exists()) {
+          setShowMigrationDialog(true);
+        }
+      }
+    };
+
+    if (!dataLoading && currentUser) {
+      checkMigrationMessage();
+    }
+  }, [dataLoading, currentUser]);
 
   const handleLogout = useCallback(async () => {
     try {
-      await signOut();
-      navigate('/login');
+      if (isEmulating) {
+        stopEmulation();
+      } else {
+        await signOut();
+        navigate('/login');
+      }
     } catch (error) {
       console.error('Logout error:', error);
     }
-  }, [signOut, navigate]);
+  }, [signOut, navigate, isEmulating, stopEmulation]);
 
   const handleBackClick = useCallback(() => {
     if (showLMS) {
@@ -173,15 +249,32 @@ const Dashboard = () => {
 
   const showBackButton = showLMS || selectedCourse;
 
-  // Show auth loading state
+  // Memoize the trigger button to prevent unnecessary re-mounts
+  const triggerButton = useMemo(() => (
+    <Button
+      variant="default"
+      className={`
+        relative bg-gradient-to-r from-blue-600/80 to-purple-600/80
+        hover:from-blue-700/90 hover:to-purple-700/90
+        text-white text-lg py-3
+        ${(!dataLoading && (!studentExists || courses.length === 0)) ? 'animate-bounce' : ''}
+      `}
+    >
+      <FaPlusCircle className="mr-2" /> Register for a New Course
+    </Button>
+  ), [dataLoading, studentExists, courses.length]);
+
   if (authLoading) {
     return (
       <div className="flex flex-col h-screen">
         <DashboardHeader 
-          user={user}
+          user={currentUser}
           onLogout={handleLogout}
           onBackClick={handleBackClick}
           showBackButton={showBackButton}
+          isEmulating={isEmulating}
+          onStopEmulation={stopEmulation}
+          profile={profile}
         />
         <div className="flex justify-center items-center flex-1">
           <div className="text-gray-600">Verifying authentication...</div>
@@ -190,15 +283,17 @@ const Dashboard = () => {
     );
   }
 
-  // Show data loading state
   if (dataLoading) {
     return (
       <div className="flex flex-col h-screen">
         <DashboardHeader 
-          user={user}
+          user={currentUser}
           onLogout={handleLogout}
           onBackClick={handleBackClick}
           showBackButton={showBackButton}
+          isEmulating={isEmulating}
+          onStopEmulation={stopEmulation}
+          profile={profile}
         />
         <div className="flex justify-center items-center flex-1">
           <div className="text-gray-600">Loading your courses...</div>
@@ -211,10 +306,13 @@ const Dashboard = () => {
     return (
       <div className="flex flex-col h-screen">
         <DashboardHeader 
-          user={user}
+          user={currentUser}
           onLogout={handleLogout}
           onBackClick={handleBackClick}
           showBackButton={showBackButton}
+          isEmulating={isEmulating}
+          onStopEmulation={stopEmulation}
+          profile={profile}
         />
         <div className="container mx-auto px-4 py-8">
           <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4">
@@ -228,19 +326,20 @@ const Dashboard = () => {
     );
   }
 
-  // If LMS is active, render the LMS wrapper with course data
   if (showLMS && selectedCourse) {
     return (
       <div className="flex flex-col h-screen">
         <DashboardHeader 
-          user={user}
+          user={currentUser}
           onLogout={handleLogout}
           onBackClick={handleBackClick}
           showBackButton={true}
+          isEmulating={isEmulating}
+          onStopEmulation={stopEmulation}
+          profile={profile}
         />
         <div className="flex-1">
           <LMSWrapper
-            userEmailKey={user.email}
             courseId={selectedCourse.CourseID}
             courseData={selectedCourse}
             onReturn={handleBackClick}
@@ -250,18 +349,34 @@ const Dashboard = () => {
     );
   }
 
-  // Main dashboard view
   return (
     <div className="flex flex-col h-screen">
       <DashboardHeader 
-        user={user}
+        user={currentUser}
         onLogout={handleLogout}
         onBackClick={handleBackClick}
         showBackButton={showBackButton}
+        isEmulating={isEmulating}
+        onStopEmulation={stopEmulation}
+        profile={profile}
       />
       
+      {/* Migration Welcome Dialog */}
+      <MigrationWelcomeDialog 
+        isOpen={showMigrationDialog} 
+        onOpenChange={setShowMigrationDialog}
+        currentUser={currentUser}
+      />
+
+      {/* Existing Welcome Dialog */}
+      {courses.length === 0 && (
+        <WelcomeDialog 
+          isOpen={showWelcomeDialog} 
+          onOpenChange={setShowWelcomeDialog}
+        />
+      )}
+
       <div className="flex-1 relative">
-        {/* Background SVG layer */}
         <div className="fixed inset-0 w-screen h-screen overflow-hidden pointer-events-none">
           <svg width="100%" height="100%" className="absolute top-0 left-0">
             <StaticTriangle color="#49a3a6" />
@@ -270,25 +385,22 @@ const Dashboard = () => {
           </svg>
         </div>
 
-        {/* Content layer */}
         <div className="relative z-10 container mx-auto px-4 py-8 h-full flex flex-col overflow-auto">
-          {/* Action Buttons */}
-          <div className="grid grid-cols-1 gap-4 mb-6">
-            <FormDialog
-              trigger={
-                <Button
-                  variant="default"
-                  className="bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white text-lg py-3 transition-all duration-200"
-                >
-                  <FaPlusCircle className="mr-2" /> Register for a New Course
-                </Button>
-              }
-              open={isFormDialogOpen}
-              onOpenChange={setIsFormDialogOpen}
-            />
-          </div>
+          {!isEmulating && (
+            <div className="grid grid-cols-1 gap-4 mb-6">
+              <FormDialog
+                trigger={triggerButton}
+                open={isFormDialogOpen}
+                onOpenChange={(open) => {
+                  setIsFormDialogOpen(open);
+                  if (open) {
+                    setShowWelcomeDialog(false);
+                  }
+                }}
+              />
+            </div>
+          )}
 
-          {/* Welcome Message */}
           <div className="mb-6">
             <WelcomeMessage
               hasStudentNode={!!profile}
@@ -297,7 +409,6 @@ const Dashboard = () => {
           </div>
 
           <div className="flex flex-col lg:flex-row gap-6 flex-1">
-            {/* Left Column: Courses */}
             <div className="lg:w-2/3 space-y-6 flex flex-col">
               <Card className="flex-1 flex flex-col overflow-hidden">
                 <CardHeader className="bg-gradient-to-br from-background to-muted">
@@ -307,51 +418,51 @@ const Dashboard = () => {
                   </h3>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto space-y-6 p-6">
-  {courses.length > 0 ? (
-    courses.map((course) => (
-      <CourseCard
-      user_email_key = {user_email_key}
-        key={course.CourseID || course.id}
-        course={course}
-        onViewDetails={() => setSelectedCourse(course)}
-        onGoToCourse={() => {
-          setSelectedCourse(course);
-          setShowLMS(true);
-        }}
-        customActions={
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSelectedCourse(course);
-                setShowLMS(false);
-              }}
-              className="flex-1 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
-              size="sm"
-            >
-              View Details
-            </Button>
-            <Button
-              className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
-              onClick={() => {
-                setSelectedCourse(course);
-                setShowLMS(true);
-              }}
-            >
-              Go to Course
-            </Button>
-          </div>
-        }
-        showProgressBar={true}
-        showGradeInfo={true}
-      />
-    ))
-  ) : (
-    <div className="text-center py-8 text-gray-500">
-      No courses enrolled yet
-    </div>
-  )}
-</CardContent>
+                  {courses.length > 0 ? (
+                    courses.map((course) => (
+                      <CourseCard
+                        user_email_key={current_user_email_key}
+                        key={course.CourseID || course.id}
+                        course={course}
+                        onViewDetails={() => setSelectedCourse(course)}
+                        onGoToCourse={() => {
+                          setSelectedCourse(course);
+                          setShowLMS(true);
+                        }}
+                        customActions={
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedCourse(course);
+                                setShowLMS(false);
+                              }}
+                              className="flex-1 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
+                              size="sm"
+                            >
+                              View Details
+                            </Button>
+                            <Button
+                              className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
+                              onClick={() => {
+                                setSelectedCourse(course);
+                                setShowLMS(true);
+                              }}
+                            >
+                              Go to Course
+                            </Button>
+                          </div>
+                        }
+                        showProgressBar={true}
+                        showGradeInfo={true}
+                      />
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      No courses enrolled yet
+                    </div>
+                  )}
+                </CardContent>
               </Card>
             </div>
 
@@ -365,12 +476,13 @@ const Dashboard = () => {
                       Profile
                     </h3>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-6">
                     <Button
-                      className="w-full bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
+                      variant="outline"
+                      className="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 shadow-sm transition-all duration-200 hover:border-gray-300"
                       onClick={() => setIsProfileOpen(true)}
                     >
-                      <FaUser className="mr-2" /> View Profile
+                      <FaUser className="mr-2 text-gray-500" /> View Profile
                     </Button>
                   </CardContent>
                 </Card>

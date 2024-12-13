@@ -7,7 +7,7 @@ import { getDatabase, ref, get } from "firebase/database";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 const Layout = React.memo(({ children }) => {
-  const { user, signOut, isStaff } = useAuth();
+  const { user, signOut, isStaff, isEmulating } = useAuth(); 
   const { isFullScreen, setIsFullScreen } = useLayout();
   const navigate = useNavigate();
   const location = useLocation();
@@ -89,8 +89,9 @@ const Layout = React.memo(({ children }) => {
     onSidebarToggle: handleSidebarToggle,
     showSidebarToggle: isStaff(user),
     portalType: isStaff(user) ? "Staff Portal" : "Student Portal",
-    onFullScreenToggle: handleFullScreenToggle
-  }), [user, handleLogout, showBackButton, handleBackClick, handleDashboardClick, handleSidebarToggle, isStaff, handleFullScreenToggle]);
+    onFullScreenToggle: handleFullScreenToggle,
+    isEmulating 
+  }), [user, handleLogout, showBackButton, handleBackClick, handleDashboardClick, handleSidebarToggle, isStaff, handleFullScreenToggle, isEmulating]);
 
   return (
     <div className={`flex flex-col h-screen bg-white ${isFullScreen ? 'overflow-hidden' : ''}`}>

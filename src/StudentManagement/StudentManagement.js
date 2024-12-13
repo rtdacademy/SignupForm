@@ -11,6 +11,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { toast, Toaster } from "sonner";
 
 function StudentManagement({ isFullScreen, onFullScreenToggle }) {
   console.log('StudentManagement component rendered');
@@ -19,7 +20,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
   const filtersList = useMemo(
     () => [
       { key: 'Status_Value', label: 'Status' },
-      { key: 'Course_Value', label: 'Course' },
+      { key: 'CourseID', label: 'Course' }, 
       { key: 'School_x0020_Year_Value', label: 'School Year' },
       { key: 'StudentType_Value', label: 'Student Type' },
       { key: 'DiplomaMonthChoices_Value', label: 'Diploma Month' },
@@ -50,6 +51,25 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
   const [selectedStudents, setSelectedStudents] = useState(new Set()); // Add this state
 
   const { user_email_key } = useAuth();
+
+  const handleMessagingNotification = useCallback((message, type = 'success') => {
+    switch (type) {
+      case 'success':
+        toast.success(message);
+        break;
+      case 'error':
+        toast.error(message);
+        break;
+      default:
+        toast(message);
+    }
+  }, []);
+
+  const handleCourseRemoved = useCallback((studentName, courseName) => {
+    toast.success(`Removed course "${courseName}" from ${studentName}`);
+    // If the removed course was for the selected student, clear the selection
+    setSelectedStudent(null);
+  }, []);
 
   // Handle window resize to update isMobile state
   useEffect(() => {
@@ -102,6 +122,9 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
         prevSummaries.filter((student) => student.id !== key)
       );
     };
+
+
+   
 
     // Attach the listeners
     const unsubscribeChildAdded = onChildAdded(studentSummariesRef, handleChildAdded);
@@ -218,57 +241,6 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
   const memoizedStudentSummaries = useMemo(() => studentSummaries, [studentSummaries]);
   const memoizedAvailableFilters = useMemo(() => availableFilters, [availableFilters]);
 
-  // Apply filters and search
-  const filteredStudents = useMemo(() => {
-    return studentSummaries.filter((student) => {
-      // Apply existing filters
-      const matchesFilters = Object.keys(filters).every((filterKey) => {
-        if (filterKey === 'categories') return true; // We'll handle categories separately
-        if (filterKey === 'dateFilters') return true; // Handle date filters separately
-        if (filters[filterKey].length === 0) return true;
-        const studentValue = String(student[filterKey] || '').toLowerCase();
-        return filters[filterKey].some(
-          (filterValue) => String(filterValue).toLowerCase() === studentValue
-        );
-      });
-  
-      // Apply category filter
-      const matchesCategories = filters.categories.length === 0 || filters.categories.some((teacherCat) => {
-        const teacherEmailKey = Object.keys(teacherCat)[0];
-        const categoryIds = teacherCat[teacherEmailKey];
-        return student.categories && 
-               student.categories[teacherEmailKey] && 
-               categoryIds.some(categoryId => student.categories[teacherEmailKey][categoryId] === true);
-      });
-
-      // Apply date filters
-      let matchesDates = true;
-      if (filters.dateFilters && Object.keys(filters.dateFilters).length > 0) {
-        const createdDate = new Date(student.Created);
-        
-        if (filters.dateFilters.after) {
-          matchesDates = createdDate >= new Date(filters.dateFilters.after);
-        }
-        
-        if (matchesDates && filters.dateFilters.before) {
-          matchesDates = createdDate <= new Date(filters.dateFilters.before);
-        }
-        
-        if (matchesDates && filters.dateFilters.between) {
-          const { start, end } = filters.dateFilters.between;
-          matchesDates = createdDate >= new Date(start) && createdDate <= new Date(end);
-        }
-      }
-  
-      // Apply search
-      const matchesSearch =
-        student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.StudentEmail.toLowerCase().includes(searchTerm.toLowerCase());
-  
-      return matchesFilters && matchesCategories && matchesDates && matchesSearch;
-    });
-  }, [studentSummaries, filters, searchTerm]);
 
   // Render student list
   const renderStudentList = useCallback(() => {
@@ -285,8 +257,9 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
             isMobile={isMobile}
             teacherCategories={teacherCategories}
             user_email_key={user_email_key}
-            onSelectedStudentsChange={handleSelectedStudentsChange} // Added prop
-            selectedStudents={selectedStudents} // Added prop
+            onSelectedStudentsChange={handleSelectedStudentsChange} 
+            selectedStudents={selectedStudents} 
+            onCourseRemoved={handleCourseRemoved}
           />
         </CardContent>
       </Card>
@@ -302,6 +275,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
     user_email_key,
     handleSelectedStudentsChange,
     selectedStudents,
+    handleCourseRemoved
   ]);
 
   // Render student detail
@@ -320,6 +294,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      <Toaster />
       {console.log('Rendering main StudentManagement component')}
       {(!isMobile || !showStudentDetail) && (
         <div className="flex-shrink-0 mb-4 relative z-50">
@@ -364,6 +339,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
                         studentSummaries.find(s => s.id === id)
                       ).filter(Boolean)}
                       onClose={handleCloseMessaging}
+                      onNotification={handleMessagingNotification} 
                     />
                   ) : (
                     renderStudentDetail()

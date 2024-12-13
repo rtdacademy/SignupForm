@@ -16,28 +16,43 @@ const chatFunctions = require('./chat');
 const categoryFunctions = require('./categories');
 const summaryFunctions = require('./summaries');
 const emailFunctions = require('./email');
-const stripeModule = require('./stripe');
+const stripeFunctions = require('./stripe');
+const historicalPaymentFunctions = require('./updateHistoricalPaymentStatus');
 
-// Export the functions
+// Export all gradebook functions
 exports.updateGradebookData = gradebookFunctions.updateGradebookData;
 exports.addGradebookIndex = gradebookFunctions.addGradebookIndex;
 exports.updateJsonGradebookSchedule = gradebookFunctions.updateJsonGradebookSchedule;
 exports.updateJsonGradebookScheduleOnScheduleChange = gradebookFunctions.updateJsonGradebookScheduleOnScheduleChange;
 
+// Export student functions
 exports.updateStudentData = studentFunctions.updateStudentData;
 
+// Export payment functions
 exports.updatePaymentInfo = paymentFunctions.updatePaymentInfo;
 
+// Export chat functions
 exports.removeUserFromChat = chatFunctions.removeUserFromChat;
 exports.sendChatNotification = chatFunctions.sendChatNotification;
 exports.sendChatMessage = chatFunctions.sendChatMessage;
 
+// Export category functions
 exports.deleteCategoryForStudents = categoryFunctions.deleteCategoryForStudents;
 
+// Export summary functions
 exports.updateStudentCourseSummary = summaryFunctions.updateStudentCourseSummary;
 exports.syncProfileToCourseSummaries = summaryFunctions.syncProfileToCourseSummaries;
 
+// Export email functions
 exports.sendEmail = emailFunctions.sendEmail;
 exports.sendBulkEmails = emailFunctions.sendBulkEmails;
 
-exports.handleStripeWebhook = stripeModule.handleStripeWebhook;
+// Export Stripe webhook and related functions
+exports.handleStripeWebhook = stripeFunctions.handleStripeWebhook;
+exports.handleOneTimePayment = stripeFunctions.handleOneTimePayment;
+exports.handleSubscriptionUpdate = stripeFunctions.handleSubscriptionUpdate;
+exports.handleSubscriptionSchedule = stripeFunctions.handleSubscriptionSchedule;
+exports.getPaymentStatus = stripeFunctions.getPaymentStatus;
+
+// Export historical payment status update function
+exports.updateHistoricalPaymentStatus = historicalPaymentFunctions.updateHistoricalPaymentStatus;

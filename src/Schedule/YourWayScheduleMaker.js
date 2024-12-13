@@ -18,6 +18,8 @@ import {
 import { Calendar } from 'react-big-calendar';
 import { dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import {
   Dialog,
   DialogContent,
@@ -67,6 +69,9 @@ const localizer = dateFnsLocalizer({
   getDay,
   locales,
 });
+
+// Create DnD Calendar component after the locales setup
+const DragAndDropCalendar = withDragAndDrop(Calendar);
 
 // Calculate expected time for each type
 const calculateExpectedTimes = (course, totalHours) => {
@@ -200,7 +205,7 @@ const EventComponent = ({ event }) => {
   if (type === 'assignment' || type === 'exam') {
     const timeDisplay = type === 'assignment' ? '1h' : '2h';
     return (
-      <div className="text-xs">
+      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         <div>{event.title}</div>
         <div className="opacity-75">{timeDisplay}</div>
       </div>
@@ -324,13 +329,15 @@ const YourWayScheduleMaker = ({
 
   // Custom blockout dates and other states
   const [customBlockoutDates, setCustomBlockoutDates] = useState([]);
-  const [showMoreEvents, setShowMoreEvents] = useState(null);
-  const [showMoreDate, setShowMoreDate] = useState(null);
   const scheduleRef = useRef(null);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(startDate || new Date());
 
   // New state for schedule creation
   const [scheduleCreated, setScheduleCreated] = useState(false);
+
+  // New state for managing the popup
+  const [showMoreEvents, setShowMoreEvents] = useState(null);
+  const [showMoreDate, setShowMoreDate] = useState(null);
 
   useEffect(() => {
     if (defaultStartDate) {
@@ -667,62 +674,73 @@ const YourWayScheduleMaker = ({
   };
 
   // Updated handleCreateSchedule function
-  const handleCreateSchedule = () => {
-    if (!selectedCourse || !startDate || !endDate) {
-      toast.error("Please select a course and specify start and end dates");
-      return;
-    }
+ // In YourWayScheduleMaker.js, update the handleCreateSchedule function:
 
-    if (isDiplomaCourse && !alreadyWroteDiploma && !selectedDiplomaDate) {
-      toast.error("Please select a diploma exam date");
-      return;
-    }
+const handleCreateSchedule = () => {
+  if (!selectedCourse || !startDate || !endDate) {
+    toast.error("Please select a course and specify start and end dates");
+    return;
+  }
 
-    // Schedule all course items
-    const scheduledItems = distributeItemsAcrossDates(
-      selectedCourse.units,
-      startDate,
-      endDate
-    );
+  if (isDiplomaCourse && !alreadyWroteDiploma && !selectedDiplomaDate) {
+    toast.error("Please select a diploma exam date");
+    return;
+  }
 
-    if (scheduledItems.length === 0) return;
+  // Schedule all course items
+  const scheduledItems = distributeItemsAcrossDates(
+    selectedCourse.units,
+    startDate,
+    endDate
+  );
 
-    // Map scheduled items back to their original units while preserving unit structure
-    const scheduledUnits = selectedCourse.units.map(unit => ({
-      ...unit,
-      items: unit.items.map(item => {
-        const scheduledItem = scheduledItems.find(
-          scheduled => scheduled.title === item.title
-        );
-        return scheduledItem || item;
-      }).filter(item => item.date) // Ensure only scheduled items are included
-    })).filter(unit => unit.items.length > 0);
+  if (scheduledItems.length === 0) return;
 
-    // Add Schedule Information unit at the start
-    scheduledUnits.unshift({
-      name: "Schedule Information",
-      items: [{
-        date: startDate.toISOString(),
-        multiplier: 0,
-        sequence: 0,
-        title: "Schedule Created",
-        type: "info"
-      }]
-    });
+  // Map scheduled items back to their original units while preserving unit structure
+  const scheduledUnits = selectedCourse.units.map(unit => ({
+    ...unit,
+    items: unit.items.map(item => {
+      const scheduledItem = scheduledItems.find(
+        scheduled => scheduled.title === item.title
+      );
+      return scheduledItem || item;
+    }).filter(item => item.date) // Ensure only scheduled items are included
+  })).filter(unit => unit.items.length > 0);
 
-    // Create final schedule structure
-    const schedule = {
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      courseId: selectedCourse.id,
-      courseTitle: selectedCourse.Title,
-      units: scheduledUnits,
-    };
+  // Add Schedule Information unit at the start
+  scheduledUnits.unshift({
+    name: "Schedule Information",
+    items: [{
+      date: startDate.toISOString(),
+      multiplier: 0,
+      sequence: 0,
+      title: "Schedule Created",
+      type: "info"
+    }]
+  });
 
-    setScheduleData(schedule);
-    setScheduleCreated(true);
-    scrollToSchedule();
-  };
+  // Create final schedule structure with diploma information
+// Create final schedule structure with diploma information
+const schedule = {
+  startDate: startDate.toISOString(),
+  endDate: endDate.toISOString(),
+  courseId: selectedCourse.id,
+  courseTitle: selectedCourse.Title,
+  units: scheduledUnits,
+  // Add diploma information
+  diplomaMonth: selectedDiplomaDate ? {
+    month: selectedDiplomaDate.month,
+    alreadyWrote: false
+  } : alreadyWroteDiploma ? {
+    month: "Already Wrote",
+    alreadyWrote: true
+  } : null
+};
+
+  setScheduleData(schedule);
+  setScheduleCreated(true);
+  scrollToSchedule();
+};
 
   // Function to save the schedule
   const handleSaveSchedule = async () => {
@@ -757,8 +775,6 @@ const YourWayScheduleMaker = ({
       toast.error("Failed to save schedule. Please try again.");
     }
   };
-  
-  
 
   const getCalendarEvents = () => {
     if (!scheduleData) return [];
@@ -775,41 +791,8 @@ const YourWayScheduleMaker = ({
     );
   };
 
-  // Updated calendar styles with softer grid and better spacing
-  const calendarStyles = {
-    style: { height: '100%', minHeight: 500 },
-  className: "rounded-lg shadow-sm p-2 w-full", 
-    eventPropGetter: (event) => {
-      const colors = getEventColor(event.type);
-      return {
-        style: {
-          background: colors.background,
-          color: colors.color,
-          border: 'none',
-          padding: '2px 5px',
-          fontSize: '0.75rem',
-          borderRadius: '2px',
-          fontWeight: 500,
-          cursor: 'pointer',
-          transition: 'opacity 0.2s ease',
-          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-        }
-      };
-    },
-    dayPropGetter: date => ({
-      className: `
-        ${isWeekend(date) ? 'bg-slate-50/50' : 'bg-white'}
-        hover:bg-blue-50/50 
-        transition-colors
-      `
-    }),
-    popup: true,
-    components: {
-      event: EventComponent,
-      toolbar: CustomToolbar
-    }
-  };
-  
+
+
   const handleEventSelect = (event) => {
     setSelectedEvent(event.details);
     setIsDialogOpen(true);
@@ -1196,96 +1179,62 @@ const YourWayScheduleMaker = ({
             </TabsList>
 
             <TabsContent value="calendar">
- <>
-   <div style={{ height: 'calc(100vh - 400px)' }} className="w-full">
-     <Calendar
-       localizer={localizer}
-       events={getCalendarEvents()}
-       startAccessor="start"
-       endAccessor="end"
-       views={['month']}
-       defaultView="month"
-       date={currentCalendarDate}
-       onNavigate={setCurrentCalendarDate}
-       onSelectEvent={handleEventSelect}
-       onShowMore={(events, date) => {
-         setShowMoreEvents(events);
-         setShowMoreDate(date);
-       }}
-       style={{ height: '100%', width: '100%' }}
-       className="rounded-lg shadow-sm p-2"
-       eventPropGetter={(event) => {
-         const colors = getEventColor(event.type);
-         return {
-           style: {
-             background: colors.background,
-             color: colors.color,
-             border: 'none',
-             padding: '2px 5px',
-             fontSize: '0.75rem',
-             borderRadius: '2px',
-             fontWeight: 500,
-             cursor: 'pointer',
-             transition: 'opacity 0.2s ease',
-             boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
-           }
-         };
-       }}
-       dayPropGetter={date => ({
-         className: `
-           ${isWeekend(date) ? 'bg-slate-50/50' : 'bg-white'}
-           hover:bg-blue-50/50 
-           transition-colors
-         `
-       })}
-       popup={true}
-       components={{
-         event: EventComponent,
-         toolbar: CustomToolbar
-       }}
-     />
-   </div>
+              <EnhancedCalendarView
+                events={getCalendarEvents()}
+                localizer={localizer}
+                isDateExcluded={isDateExcluded}
+                setScheduleData={setScheduleData}
+                scheduleData={scheduleData}
+                setScheduleCreated={setScheduleCreated}
+                currentCalendarDate={currentCalendarDate}
+                setCurrentCalendarDate={setCurrentCalendarDate}
+                handleEventSelect={handleEventSelect}
+                showMoreEvents={showMoreEvents}
+                setShowMoreEvents={setShowMoreEvents}
+                showMoreDate={showMoreDate}
+                setShowMoreDate={setShowMoreDate}
+              />
 
-   <Dialog 
-     open={showMoreEvents !== null} 
-     onOpenChange={() => {
-       setShowMoreEvents(null);
-       setShowMoreDate(null);
-     }}
-   >
-     <DialogContent className="max-w-md">
-       <DialogHeader>
-         <DialogTitle>
-           Events for {showMoreDate ? format(showMoreDate, 'MMMM d, yyyy') : ''}
-         </DialogTitle>
-       </DialogHeader>
-       <ScrollArea className="max-h-[60vh]">
-         {showMoreEvents?.map((event, index) => {
-           const colors = getEventColor(event.type);
-           return (
-             <div
-               key={index}
-               className="mb-2 p-2 rounded cursor-pointer hover:opacity-90"
-               style={{
-                 background: colors.background,
-                 color: colors.color
-               }}
-               onClick={() => {
-                 handleEventSelect(event);
-                 setShowMoreEvents(null);
-                 setShowMoreDate(null);
-               }}
-             >
-               <div className="font-medium">{event.title}</div>
-               <div className="text-sm opacity-75">{event.type}</div>
-             </div>
-           );
-         })}
-       </ScrollArea>
-     </DialogContent>
-   </Dialog>
- </>
-</TabsContent>
+              {/* Popup Dialog for showing more events */}
+              <Dialog 
+                open={showMoreEvents !== null} 
+                onOpenChange={() => {
+                  setShowMoreEvents(null);
+                  setShowMoreDate(null);
+                }}
+              >
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>
+                      Events for {showMoreDate ? format(showMoreDate, 'MMMM d, yyyy') : ''}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <ScrollArea className="max-h-[60vh]">
+                    {showMoreEvents?.map((event, index) => {
+                      const colors = getEventColor(event.type);
+                      return (
+                        <div
+                          key={index}
+                          className="mb-2 p-2 rounded cursor-pointer hover:opacity-90"
+                          style={{
+                            background: colors.background,
+                            color: colors.color
+                          }}
+                          onClick={() => {
+                            handleEventSelect(event);
+                            setShowMoreEvents(null);
+                            setShowMoreDate(null);
+                          }}
+                        >
+                          <div className="font-medium">{event.title}</div>
+                          <div className="text-sm opacity-75">{event.type}</div>
+                        </div>
+                      );
+                    })}
+                  </ScrollArea>
+                </DialogContent>
+              </Dialog>
+            </TabsContent>
 
             <TabsContent value="list">
               <ScrollArea className="h-[500px]">
@@ -1345,6 +1294,129 @@ const YourWayScheduleMaker = ({
           {dialogContent}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+};
+
+// Define the EnhancedCalendarView component
+const EnhancedCalendarView = ({ 
+  events, 
+  localizer, 
+  isDateExcluded,
+  setScheduleData,
+  scheduleData,
+  setScheduleCreated,
+  currentCalendarDate,
+  setCurrentCalendarDate,
+  handleEventSelect,
+  showMoreEvents,
+  setShowMoreEvents,
+  showMoreDate,
+  setShowMoreDate
+}) => {
+  const handleEventDrop = ({ event, start, end }) => {
+    if (isDateExcluded(start)) {
+      toast.error("You cannot move events to blocked dates (weekends or break periods)");
+      return;
+    }
+
+    const updatedScheduleData = {
+      ...scheduleData,
+      units: scheduleData.units.map(unit => ({
+        ...unit,
+        items: unit.items.map(item => {
+          if (item.title === event.title && 
+              parseISO(item.date).getTime() === event.start.getTime()) {
+            return {
+              ...item,
+              date: startOfDay(start).toISOString()
+            };
+          }
+          return item;
+        })
+      }))
+    };
+
+    setScheduleData(updatedScheduleData);
+    setScheduleCreated(true);
+    toast.success(`Moved "${event.title}" to ${format(start, 'MMM dd, yyyy')}`);
+    toast.info("Don't forget to save your changes!", { duration: 4000 });
+  };
+
+  const handleShowMore = (events, date) => {
+    setShowMoreEvents(events);
+    setShowMoreDate(date);
+  };
+
+  return (
+    <div style={{ height: 'calc(100vh - 400px)' }} className="w-full">
+      <DragAndDropCalendar
+        localizer={localizer}
+        events={events}
+        startAccessor="start"
+        endAccessor="end"
+        views={['month']}
+        defaultView="month"
+        date={currentCalendarDate}
+        onNavigate={setCurrentCalendarDate}
+        onSelectEvent={handleEventSelect}
+        onEventDrop={handleEventDrop}
+        resizable={false}
+        popup
+        popupOffset={5}
+        showMultiDayTimes={false}
+        onShowMore={handleShowMore}
+        style={{ height: '100%', width: '100%' }}
+        className="rounded-lg shadow-sm p-2"
+        eventPropGetter={(event) => {
+          const colors = getEventColor(event.type);
+          return {
+            style: {
+              background: colors.background,
+              color: colors.color,
+              border: 'none',
+              padding: '2px 5px',
+              fontSize: '0.75rem',
+              borderRadius: '2px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'opacity 0.2s ease, transform 0.2s ease',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+              marginBottom: '1px', 
+              position: 'relative',
+              display: 'block',
+
+              whiteSpace: 'nowrap',
+              textOverflow: 'ellipsis',
+              margin: '1px 0',
+              zIndex: 1,
+              minHeight: '20px', 
+              overflow: 'hidden',         // Ensure content does not overflow
+              whiteSpace: 'nowrap',       // Prevent text from wrapping
+              textOverflow: 'ellipsis',   // Add ellipsis for overflowing text
+              maxWidth: '100%',   
+            }
+          };
+        }}
+        dayPropGetter={date => ({
+          className: `
+            ${isWeekend(date) ? 'bg-slate-50/50' : 'bg-white'}
+            hover:bg-blue-50/50 
+            transition-colors
+            ${isDateExcluded(date) ? 'bg-gray-100' : ''}
+          `
+        })}
+        components={{
+          event: EventComponent,
+          toolbar: CustomToolbar
+        }}
+        // Add these props to control event display
+        length={3} // Show max 3 events before showing "+x more"
+        formats={{
+          eventTimeRangeFormat: () => '', // Remove time range display
+          timeGutterFormat: () => '', // Remove time gutter
+        }}
+      />
     </div>
   );
 };

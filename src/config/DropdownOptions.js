@@ -1,5 +1,26 @@
 // src/config/DropdownOptions.js
 
+import { 
+  GraduationCap,
+  Home,
+  Sun,
+  User,
+  Globe 
+} from 'lucide-react';
+
+export const PAYMENT_STATUS_OPTIONS = [
+  { value: "paid", color: "#10B981" },     // Green for paid
+  { value: "active", color: "#3B82F6" },   // Blue for active
+  { value: "unpaid", color: "#EF4444" },   // Red for unpaid
+  { value: "not-required", color: "#9CA3AF" }  // Gray for not required
+];
+
+// Add the helper function for payment status colors
+export const getPaymentStatusColor = (status) => {
+  const option = PAYMENT_STATUS_OPTIONS.find(opt => opt.value === status);
+  return option ? option.color : "#6B7280";  // Default to gray if status not found
+};
+
 export const STATUS_OPTIONS = [
   { value: "Newly Enrolled", color: "#3B82F6", category: "Administrative", allowAutoStatusChange: false },
   { value: "On Track", color: "#10B981", category: "Progress", allowAutoStatusChange: true },
@@ -70,12 +91,53 @@ export const PASI_OPTIONS = [
 ];
 
 export const STUDENT_TYPE_OPTIONS = [
-  { value: "Non-Primary", color: "#3B82F6" },        // Blue
-  { value: "Home Education", color: "#F59E0B" },     // Amber
-  { value: "Summer School", color: "#10B981" },      // Green
-  { value: "Adult Student", color: "#8B5CF6" },      // Purple
-  { value: "International Student", color: "#EC4899" }  // Pink
+  { 
+    value: "Non-Primary", 
+    color: "#3B82F6", 
+    icon: GraduationCap,
+    description: "Students taking additional courses outside their primary institution"
+  },
+  { 
+    value: "Home Education", 
+    color: "#F59E0B", 
+    icon: Home,
+    description: "Students primarily educated at home"
+  },
+  { 
+    value: "Summer School", 
+    color: "#10B981", 
+    icon: Sun,
+    description: "Students enrolled in summer programs"
+  },
+  { 
+    value: "Adult Student", 
+    color: "#8B5CF6", 
+    icon: User,
+    description: "Adult learners and continuing education students"
+  },
+  { 
+    value: "International Student", 
+    color: "#EC4899", 
+    icon: Globe,
+    description: "Students from international jurisdictions"
+  }
 ];
+
+// Add a new helper function to get both color and icon
+export const getStudentTypeInfo = (type) => {
+  const option = STUDENT_TYPE_OPTIONS.find(opt => opt.value === type);
+  return {
+    color: option ? option.color : "#6B7280",
+    icon: option ? option.icon : null,
+    description: option ? option.description : null
+  };
+};
+
+export const getStudentTypeColor = (type) => {
+  const option = STUDENT_TYPE_OPTIONS.find(opt => opt.value === type);
+  return option ? option.color : "#6B7280";  // Default to gray if student type not found
+};
+
 
 export const getSchoolYearOptions = () => {
   const currentDate = new Date();
@@ -100,6 +162,21 @@ export const getSchoolYearOptions = () => {
   ];
 };
 
+// Add this with the other export constants
+export const DIPLOMA_MONTH_OPTIONS = [
+  { value: "November", label: "November", color: "#9333EA" },  // Purple
+  { value: "January", label: "January", color: "#3B82F6" },   // Blue
+  { value: "April", label: "April", color: "#10B981" },     // Green
+  { value: "June", label: "June", color: "#F59E0B" },      // Amber
+  { value: "August", label: "August", color: "#EC4899" }     // Pink
+];
+
+// Add this with the other helper functions
+export const getDiplomaMonthColor = (month) => {
+  const option = DIPLOMA_MONTH_OPTIONS.find(opt => opt.value === month);
+  return option ? option.color : "#6B7280";  // Default to gray if month not found
+};
+
 
 // Helper functions to get color for each option type
 export const getCourseColor = (course) => {
@@ -117,10 +194,7 @@ export const getPasiColor = (pasi) => {
   return option ? option.color : "#6B7280";  // Default to gray if PASI status not found
 };
 
-export const getStudentTypeColor = (type) => {
-  const option = STUDENT_TYPE_OPTIONS.find(opt => opt.value === type);
-  return option ? option.color : "#6B7280";  // Default to gray if student type not found
-};
+
 
 export const getSchoolYearColor = (year) => {
   const options = getSchoolYearOptions();

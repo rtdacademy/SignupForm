@@ -18,8 +18,7 @@ const RTDLogo = () => (
   </svg>
 );
 
-function Header({ user, onLogout, onBackClick, onDashboardClick, portalType }) {
-  const location = useLocation();
+function Header({ user, onLogout, onBackClick, onDashboardClick, portalType, isEmulating }) {
 
   const getUserDisplayName = () => {
     if (user) {
@@ -52,7 +51,7 @@ function Header({ user, onLogout, onBackClick, onDashboardClick, portalType }) {
                   RTD Academy
                 </h1>
                 <div className="text-xs font-medium text-gray-300">
-                  {portalType}
+                  {portalType} {isEmulating && '(Emulation Mode)'}
                 </div>
               </div>
             </div>
@@ -64,17 +63,24 @@ function Header({ user, onLogout, onBackClick, onDashboardClick, portalType }) {
               <span className="text-gray-300 text-sm hidden lg:inline">
                 Welcome, {getUserDisplayName()}
               </span>
-              <button 
-                onClick={onLogout} 
-                className="flex items-center space-x-2 text-gray-300 hover:text-white text-sm transition-colors duration-200"
-              >
-                <FaSignOutAlt /> 
-                <span className="hidden lg:inline">Sign Out</span>
-              </button>
+              {!isEmulating && (
+                <button 
+                  onClick={onLogout} 
+                  className="flex items-center space-x-2 text-gray-300 hover:text-white text-sm transition-colors duration-200"
+                >
+                  <FaSignOutAlt /> 
+                  <span className="hidden lg:inline">Sign Out</span>
+                </button>
+              )}
             </div>
           )}
         </div>
       </div>
+      {isEmulating && (
+        <div className="bg-blue-600 text-white px-4 py-2 text-sm text-center">
+          You are currently viewing the portal as {user.email}
+        </div>
+      )}
     </header>
   );
 }

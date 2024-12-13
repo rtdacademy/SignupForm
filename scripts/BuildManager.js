@@ -6,7 +6,7 @@ class BuildManager {
   constructor(options = {}) {
     this.isSandbox = options.isSandbox;
     this.isSecondSite = options.isSecondSite;
-    this.memorySize = options.memorySize || 4096;
+    this.memorySize = options.memorySize || 12288; // Default to 12GB
     this.maxRetries = options.maxRetries || 3;
     this.currentRetry = 0;
     this.cleanOnly = options.cleanOnly || false;
@@ -97,8 +97,8 @@ class BuildManager {
         : `cross-env NODE_OPTIONS=--max-old-space-size=${this.memorySize} GENERATE_SOURCEMAP=false env-cmd -f ${envFile} react-scripts build`;
       
       if (!this.isStart) {
-        console.log(`\nAttempting build (${this.currentRetry + 1}/${this.maxRetries}):`);
-        console.log(`Memory: ${this.memorySize}MB`);
+        console.log(`\nExecuting build (Attempt ${this.currentRetry + 1}/${this.maxRetries}):`);
+        console.log(`Memory allocated: ${this.memorySize}MB`);
       }
       console.log(`Environment: ${envFile}`);
 
@@ -118,7 +118,12 @@ class BuildManager {
       
       if (this.currentRetry < this.maxRetries - 1) {
         this.currentRetry++;
-        this.memorySize = Math.min(this.memorySize + 2048, 8192);
+        // Only increase memory if we're not already at max
+        const newMemory = Math.min(this.memorySize + 2048, 16384); // Cap at 16GB
+        if (newMemory > this.memorySize) {
+          this.memorySize = newMemory;
+          console.log(`Increasing memory to ${this.memorySize}MB for next attempt...`);
+        }
         return this.execute();
       }
       

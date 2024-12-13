@@ -11,30 +11,29 @@ const YourWayScheduleCreator = ({
   onScheduleSaved,
   className = ''
 }) => {
-  const { user } = useAuth();
+  const { currentUser, current_user_email_key, isEmulating } = useAuth();
   const [saving, setSaving] = useState(false);
 
   const defaultStartDate = course?.ScheduleStartDate ? new Date(course.ScheduleStartDate) : null;
   const defaultEndDate = course?.ScheduleEndDate ? new Date(course.ScheduleEndDate) : null;
 
   const handleScheduleSaved = async (schedule) => {
-    if (!user) {
+    if (!currentUser || !current_user_email_key) {
       toast.error("You must be logged in to save a schedule.");
       return;
     }
   
-    const studentEmail = user.email;
-    const studentKey = sanitizeEmail(studentEmail);
     const courseId = course.CourseID;
-  
     const db = getDatabase();
-    const basePath = `students/${studentKey}/courses/${courseId}`;
+    const basePath = `students/${current_user_email_key}/courses/${courseId}`;
     const scheduleRef = ref(db, `${basePath}/ScheduleJSON`);
     const notesRef = ref(db, `${basePath}/jsonStudentNotes`);
+    const diplomaChoicesRef = ref(db, `${basePath}/DiplomaMonthChoices`);
   
-    const userName = user.displayName || user.email || 'Unknown User';
+    // Use currentUser for display info, but note if it's an emulated action
+    const userName = currentUser.displayName || currentUser.email || 'Unknown User';
     const timestamp = new Date().toISOString();
-    const defaultNoteContent = `📅 Schedule created by ${userName}.\nStart Date: ${format(new Date(schedule.startDate), 'MMM dd, yyyy')}\nEnd Date: ${format(new Date(schedule.endDate), 'MMM dd, yyyy')}`;
+    const defaultNoteContent = `📅 Schedule created${isEmulating ? ' (via emulation)' : ''} by ${userName}.\nStart Date: ${format(new Date(schedule.startDate), 'MMM dd, yyyy')}\nEnd Date: ${format(new Date(schedule.endDate), 'MMM dd, yyyy')}`;
   
     const newNote = {
       id: `note-${Date.now()}`,
@@ -70,18 +69,37 @@ const YourWayScheduleCreator = ({
       // Create complete schedule object with the decremented remainingSchedules
       const completeSchedule = {
         ...schedule,
-        remainingSchedules: newRemainingSchedules
+        remainingSchedules: newRemainingSchedules,
+        createdViaEmulation: isEmulating, // Add flag to track if created via emulation
+        createdBy: currentUser.email // Track who created it
       };
   
       const existingNotesSnapshot = await get(notesRef);
       const existingNotes = existingNotesSnapshot.exists() ? existingNotesSnapshot.val() : [];
       const updatedNotes = [newNote, ...(Array.isArray(existingNotes) ? existingNotes : Object.values(existingNotes))];
   
-      // Save all updates atomically
-      await Promise.all([
-        set(scheduleRef, completeSchedule), // Save complete schedule with updated remainingSchedules
+      // Add diploma month update if present
+      const updates = [
+        set(scheduleRef, completeSchedule),
         set(notesRef, updatedNotes)
-      ]);
+      ];
+  
+      // If there's a diploma month choice, add it to the updates
+      if (schedule.diplomaMonth) {
+        const diplomaValue = schedule.diplomaMonth.alreadyWrote 
+          ? "Already Wrote" 
+          : schedule.diplomaMonth.month;
+        
+        updates.push(
+          set(diplomaChoicesRef, {
+            Id: 1,
+            Value: diplomaValue
+          })
+        );
+      }
+  
+      // Save all updates atomically
+      await Promise.all(updates);
   
       toast.success("Your schedule and note have been saved successfully!");
       if (onScheduleSaved) {
@@ -100,7 +118,6 @@ const YourWayScheduleCreator = ({
     <div className={`w-full ${className}`}>
       <div className="space-y-4">
         <div>
-          
           <p className="text-gray-500">
             Design your learning schedule for {course?.Course?.Value || 'your course'}
           </p>

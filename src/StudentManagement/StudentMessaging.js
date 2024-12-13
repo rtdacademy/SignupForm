@@ -54,7 +54,11 @@ const PLACEHOLDERS = [
   { id: 'studentType', label: 'Student Type', token: '[studentType]' }
 ];
 
-const StudentMessaging = ({ selectedStudents, onClose }) => {
+const StudentMessaging = ({ 
+  selectedStudents, 
+  onClose,
+  onNotification = () => {} 
+}) => {
   const [subject, setSubject] = useState('');
   const [messageContent, setMessageContent] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -281,35 +285,36 @@ const StudentMessaging = ({ selectedStudents, onClose }) => {
   // Modified handleSend to include signature
   const handleSend = async () => {
     if (!messageContent.trim() || !subject.trim()) {
-      toast.error("Please enter both subject and message content");
+      onNotification("Please enter both subject and message content", 'error');
       return;
     }
-
+  
     setIsSending(true);
-
+  
     try {
       const recipients = selectedStudents.map(student => ({
         to: student.StudentEmail,
         subject: replacePlaceholders(subject, student),
-        text: replacePlaceholders(messageContent + (signature ?  signature : ''), student).replace(/<[^>]*>/g, ''),
+        text: replacePlaceholders(messageContent + (signature ? signature : ''), student).replace(/<[^>]*>/g, ''),
         html: replacePlaceholders(messageContent + (signature ? signature : ''), student),
         ccParent: ccParent && student.ParentEmail ? true : false,
         parentEmail: student.ParentEmail,
         courseId: student.CourseID,
         courseName: student.Course_Value
       }));
-
+  
       const result = await sendBulkEmails({ recipients });
-
+  
       if (result.data.success) {
-        toast.success(`Messages sent to ${totalSelected} students${ccParent ? ' (including parent copies)' : ''}`);
+        const message = `Messages sent to ${totalSelected} students${ccParent ? ' (including parent copies)' : ''}`;
+        onNotification(message, 'success');
         onClose();
       } else {
         throw new Error('Failed to send emails');
       }
     } catch (error) {
       console.error('Error sending messages:', error);
-      toast.error("Failed to send messages. Please try again.");
+      onNotification("Failed to send messages. Please try again.", 'error');
     } finally {
       setIsSending(false);
     }

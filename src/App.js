@@ -21,6 +21,10 @@ import app from './firebase';
 import PaymentResult from './Dashboard/PaymentResult';
 import CancelledPayment from './Dashboard/CancelledPayment';
 import GetStartedNow from './Website/GetStartedNow';
+import Emulate from './StudentManagement/Emulate';
+import PoliciesAndReports from './Website/PoliciesAndReports';
+import MigrationLogin from './migration/MigrationLogin'; 
+import ModernCourseViewer from './courses/ModernCourseViewer';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -60,6 +64,21 @@ function MainApp() {
   return (
     <div className="App">
       <Routes>
+
+      <Route path="/modern-course/:courseId?" element={
+  user ? (
+    
+      <ModernCourseViewer />
+    
+  ) : <Navigate to="/login" />
+} />
+
+      <Route path="/migrate" element={
+          user ? (
+            isStaff(user) ? <Navigate to="/teacher-dashboard" /> : <Navigate to="/dashboard" />
+          ) : <MigrationLogin />
+        } />
+
         <Route path="/login" element={
           user ? (
             isStaff(user) ? <Navigate to="/teacher-dashboard" /> : <Navigate to="/dashboard" />
@@ -67,11 +86,20 @@ function MainApp() {
         } />
 
 <Route path="/get-started" element={<GetStartedNow />} />
-
+<Route path="/policies-reports" element={<PoliciesAndReports />} />
         
       <Route 
   path="/dashboard" 
   element={user && !isStaff(user) ? <Dashboard /> : <Navigate to="/login" />} 
+/>
+
+<Route 
+  path="/emulate/:studentEmail" 
+  element={
+    user && isStaff(user) ? 
+    <Emulate /> : 
+    <Navigate to="/staff-login" />
+  } 
 />
       
         <Route path="/" element={
@@ -153,6 +181,8 @@ function EdBotzApp() {
             <EdBotzDashboard />
           </EdBotzProtectedRoute>
         } />
+
+        
 
         {/* Add more EdBotz protected routes here */}
         <Route path="/courses" element={

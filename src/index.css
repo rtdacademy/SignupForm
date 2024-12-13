@@ -227,7 +227,6 @@
 }
 
 
-
 /* Enhanced accessibility */
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -237,6 +236,7 @@
     scroll-behavior: auto !important;
   }
 }
+
 
 
 /* Add this to your CSS file */
@@ -431,4 +431,51 @@ textarea::-webkit-scrollbar-thumb:hover {
 .dialog-content-overflow::-webkit-scrollbar-thumb {
   background-color: rgba(0, 0, 0, 0.2);
   border-radius: 3px;
+}
+.rbc-month-view {
+  table-layout: fixed;
+}
+
+
+
+/* Node resizer styles */
+.react-flow__node-resizer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.react-flow__node-resizer .react-flow__resize-control {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border: 2px solid #60a5fa;
+  pointer-events: all;
+}
+
+/* Only show left and right handles */
+.react-flow__node-resizer .react-flow__resize-control.left {
+  left: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+.react-flow__node-resizer .react-flow__resize-control.right {
+  right: -7px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+
+/* Hide other handles */
+.react-flow__node-resizer .react-flow__resize-control.top,
+.react-flow__node-resizer .react-flow__resize-control.bottom,
+.react-flow__node-resizer .react-flow__resize-control.top-left,
+.react-flow__node-resizer .react-flow__resize-control.top-right,
+.react-flow__node-resizer .react-flow__resize-control.bottom-left,
+.react-flow__node-resizer .react-flow__resize-control.bottom-right {
+  display: none;
 }

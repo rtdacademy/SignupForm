@@ -19,7 +19,6 @@ module.exports = {
       },
     },
     extend: {
-      // Original color definitions
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -61,53 +60,45 @@ module.exports = {
           hover: "#007575"
         },
       },
-      // Enhanced spacing for responsive layouts
       spacing: {
-        'chat-xs': '0.5rem',    // 8px
-        'chat-sm': '0.75rem',   // 12px
-        'chat-md': '1rem',      // 16px
-        'chat-lg': '1.5rem',    // 24px
+        'chat-xs': '0.5rem',
+        'chat-sm': '0.75rem',
+        'chat-md': '1rem',
+        'chat-lg': '1.5rem',
         'input-xs': '60px',
         'input-sm': '80px',
         'input-md': '100px',
         'input-lg': '120px',
       },
-      // Enhanced height configuration
       height: {
         'chat-sm': '300px',
         'chat-md': '400px',
         'chat-lg': '500px',
       },
-      // Enhanced min-height configuration
       minHeight: {
         'chat-sm': '250px',
         'chat-md': '350px',
         'chat-lg': '450px',
       },
-      // Enhanced max-height configuration
       maxHeight: {
         'chat-sm': '80vh',
         'chat-md': '85vh',
         'chat-lg': '90vh',
       },
-      // Original border radius
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      // Original font family
       fontFamily: {
         sans: ["var(--font-sans)", ...fontFamily.sans],
       },
-      // Enhanced font sizes for better responsiveness
       fontSize: {
-        'chat-xs': '0.75rem',    // 12px
-        'chat-sm': '0.875rem',   // 14px
-        'chat-base': '1rem',     // 16px
-        'chat-lg': '1.125rem',   // 18px
+        'chat-xs': '0.75rem',
+        'chat-sm': '0.875rem',
+        'chat-base': '1rem',
+        'chat-lg': '1.125rem',
       },
-      // Original animations
       keyframes: {
         "accordion-down": {
           from: { height: 0 },
@@ -117,10 +108,32 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: 0 },
         },
+        "subtlePulse": {
+          "0%, 100%": { 
+            opacity: "1",
+            transform: "scale(1)"
+          },
+          "50%": { 
+            opacity: "0.85",
+            transform: "scale(1.01)"
+          }
+        },
+        "gentleBounce": {
+          "0%, 100%": {
+            transform: "translateY(-5%)",
+            animationTimingFunction: "cubic-bezier(0.8, 0, 1, 1)"
+          },
+          "50%": {
+            transform: "translateY(0)",
+            animationTimingFunction: "cubic-bezier(0, 0, 0.2, 1)"
+          }
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "subtlePulse": "subtlePulse 6s ease-in-out infinite",
+        "gentleBounce": "gentleBounce 2s ease-in-out infinite"
       },
     },
   },

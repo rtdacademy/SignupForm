@@ -254,6 +254,15 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
             "Id": 1,
             "Value": registrationData.formData.enrollmentYear || ''
           },
+          // Single DiplomaMonthChoices conditional that only adds if there's data
+          ...(registrationData.formData.diplomaMonth && {
+            "DiplomaMonthChoices": {
+              "Id": 1,
+              "Value": registrationData.formData.diplomaMonth.alreadyWrote 
+                ? "Already Wrote"
+                : registrationData.formData.diplomaMonth.month || ""
+            }
+          }),
           ...(registrationData.studentType !== 'Adult Student' && {
             "primarySchoolName": registrationData.formData.schoolAddress?.name || '',
             "primarySchoolAddress": registrationData.formData.schoolAddress?.fullAddress || '',
@@ -262,7 +271,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
           "jsonStudentNotes": [
             {
               "author": `${registrationData.formData.firstName} ${registrationData.formData.lastName}`,
-              "content": `📝 Student completed the registration form.${
+              "content": `Student completed the registration form.${
                 registrationData.formData.additionalInformation
                   ? '\n\nAdditional Information:\n' + registrationData.formData.additionalInformation
                   : ''
@@ -273,7 +282,6 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
             }
           ]
         };
-  
         // Write data using separate set operations
         const studentProfileRef = ref(db, `students/${studentEmailKey}/profile`);
         const studentCourseRef = ref(db, `students/${studentEmailKey}/courses/${numericCourseId}`);

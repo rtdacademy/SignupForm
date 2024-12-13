@@ -12,12 +12,14 @@ import {
   STATUS_OPTIONS, 
   ACTIVE_FUTURE_ARCHIVED_OPTIONS,
   STUDENT_TYPE_OPTIONS,
-  getSchoolYearOptions 
+  getSchoolYearOptions,
+  DIPLOMA_MONTH_OPTIONS,
+  getDiplomaMonthColor 
 } from '../config/DropdownOptions';
-import { AlertCircle, Copy, ClipboardCheck, Edit, X } from "lucide-react";
+import { AlertCircle, Copy, ClipboardCheck, Edit } from "lucide-react";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { ScrollArea } from '../components/ui/scroll-area';
-import SectionPicker from './SectionPicker'; 
+import SectionPicker from './SectionPicker';
 import SchoolAddressPicker from '../components/SchoolAddressPicker';
 import {
   Dialog,
@@ -64,6 +66,25 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
     address: null
   });
 
+  // Add a new state for tracking diploma course status
+  const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
+
+  // Add this helper function inside the component
+  const formatPhoneNumber = (phoneNumber, isInternational) => {
+    if (!phoneNumber) return '';
+    
+    // Remove all non-digit characters
+    const digitsOnly = phoneNumber.replace(/\D/g, '');
+    
+    // If it's not an international student and the number doesn't start with 1,
+    // add it (unless it's empty)
+    if (!isInternational && digitsOnly.length > 0 && !digitsOnly.startsWith('1')) {
+      return '1' + digitsOnly;
+    }
+    
+    return digitsOnly;
+  };
+
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!studentData) return;
@@ -83,14 +104,16 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
           setCourses(coursesList);
         }
 
+        const isInternational = studentData.courses?.[courseId]?.StudentType?.Value === 'International Student';
+
         setProfileData({
           asn: studentData.profile?.asn || '',
           firstName: studentData.profile?.firstName || '',
           lastName: studentData.profile?.lastName || '',
           age: studentData.profile?.age || '',
-          studentPhone: studentData.profile?.StudentPhone || '',
+          studentPhone: formatPhoneNumber(studentData.profile?.StudentPhone || '', isInternational),
           parentGuardian: studentData.profile?.Parent_x002f_Guardian || '',
-          parentPhone: studentData.profile?.ParentPhone_x0023_ || '',
+          parentPhone: formatPhoneNumber(studentData.profile?.ParentPhone_x0023_ || '', isInternational),
           parentEmail: studentData.profile?.ParentEmail || ''
         });
 
@@ -116,6 +139,12 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
           });
         }
 
+        // Add this new check for diploma course
+        if (courseId) {
+          const diplomaCourseSnapshot = await get(ref(db, `courses/${courseId}/DiplomaCourse`));
+          setIsDiplomaCourse(diplomaCourseSnapshot.val() === 'Yes');
+        }
+
         setLoading(false);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -127,18 +156,22 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
     fetchInitialData();
   }, [studentData, courseId]);
 
+  // Modify the phone update handler
   const handlePhoneUpdate = async (field, value) => {
     if (readOnly) return;
     setError(null);
+
+    const isInternational = courseData.studentType === 'International Student';
+    const formattedValue = formatPhoneNumber(value, isInternational);
 
     const db = getDatabase();
     const studentKey = sanitizeEmail(studentData.profile.StudentEmail);
     
     try {
       await update(ref(db), {
-        [`students/${studentKey}/profile/${field}`]: value
+        [`students/${studentKey}/profile/${field}`]: formattedValue
       });
-      setProfileData(prev => ({ ...prev, [field]: value }));
+      setProfileData(prev => ({ ...prev, [field]: formattedValue }));
     } catch (error) {
       console.error(`Error updating ${field}:`, error);
       setError(`Failed to update ${field}`);
@@ -288,6 +321,31 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
     }
   };
 
+  // Helper function to render PhoneInput
+  const renderPhoneInput = (value, onChange, field) => {
+    const isInternational = courseData.studentType === 'International Student';
+    
+    return (
+      <PhoneInput
+        country={'ca'}
+        value={value}
+        onChange={(value) => onChange(field, value)}
+        disabled={readOnly}
+        priority={{ ca: 0, us: 1 }}
+        inputStyle={{
+          width: '100%',
+          height: '36px'
+        }}
+        // Hide country select unless international
+        countryCodeEditable={isInternational}
+        // Hide flag unless international
+        enableAreaCodes={isInternational}
+        // If not international, force CA
+        onlyCountries={isInternational ? undefined : ['ca']}
+      />
+    );
+  };
+
   if (loading) {
     return (
       <div className="animate-pulse space-y-4">
@@ -324,7 +382,7 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
 
       <ScrollArea className="flex-1 min-h-0">
         <div className="grid gap-4 pr-4" style={{ 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+         gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 600px), 1fr))',
           alignItems: 'start'
         }}>
           {/* Course Information Card */}
@@ -421,15 +479,31 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
                 </Select>
               </div>
 
-              {courseData.diplomaMonthChoices && (
+              {/* Modify the diploma month choices render condition to use isDiplomaCourse */}
+              {isDiplomaCourse && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Diploma Date</Label>
-                  <Input
+                  <Label className="text-xs">Diploma Month</Label>
+                  <Select
                     value={courseData.diplomaMonthChoices}
-                    onChange={(e) => handleCourseFieldUpdate('DiplomaMonthChoices/Value', e.target.value, true)}
-                    placeholder="Diploma Month Choices"
+                    onValueChange={(value) => handleCourseFieldUpdate('DiplomaMonthChoices/Value', value, true)}
                     disabled={readOnly}
-                  />
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Diploma Month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DIPLOMA_MONTH_OPTIONS.map((option) => (
+                        <SelectItem 
+                          key={option.value} 
+                          value={option.value}
+                        >
+                          <span style={{ color: option.color }}>
+                            {option.value}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
@@ -443,15 +517,14 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               </div>
 
               {/* Section Input */}
-             {/* Replace the existing section Input with this */}
-<div className="space-y-1.5">
-  <Label className="text-xs">Section</Label>
-  <SectionPicker
-    value={courseData.section}
-    onChange={(value) => handleCourseFieldUpdate('section', value)}
-    disabled={readOnly}
-  />
-</div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Section</Label>
+                <SectionPicker
+                  value={courseData.section}
+                  onChange={(value) => handleCourseFieldUpdate('section', value)}
+                  disabled={readOnly}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -499,17 +572,11 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Student Phone</Label>
-                <PhoneInput
-                  country={'ca'}
-                  value={profileData.studentPhone}
-                  onChange={(value) => handlePhoneUpdate('StudentPhone', value)}
-                  disabled={readOnly}
-                  priority={{ ca: 0, us: 1 }}
-                  inputStyle={{
-                    width: '100%',
-                    height: '36px'
-                  }}
-                />
+                {renderPhoneInput(
+                  profileData.studentPhone,
+                  handlePhoneUpdate,
+                  'StudentPhone'
+                )}
               </div>
             </CardContent>
           </Card>
@@ -563,17 +630,11 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               />
               <div className="space-y-1.5">
                 <Label className="text-xs">Parent Phone</Label>
-                <PhoneInput
-                  country={'ca'}
-                  value={profileData.parentPhone}
-                  onChange={(value) => handlePhoneUpdate('ParentPhone_x0023_', value)}
-                  disabled={readOnly}
-                  priority={{ ca: 0, us: 1 }}
-                  inputStyle={{
-                    width: '100%',
-                    height: '36px'
-                  }}
-                />
+                {renderPhoneInput(
+                  profileData.parentPhone,
+                  handlePhoneUpdate,
+                  'ParentPhone_x0023_'
+                )}
               </div>
               <Input
                 value={profileData.parentEmail}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   FaUser, 
   FaExternalLinkAlt, 
@@ -12,7 +12,7 @@ import {
   FaClock,
   FaEnvelope
 } from 'react-icons/fa';
-import { ChevronRight, AlertCircle, BarChart, AlertTriangle } from 'lucide-react';
+import { ChevronRight, AlertCircle, BarChart } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -34,10 +34,11 @@ import CourseDetailsDialog from './CourseDetailsDialog';
 import YourWayScheduleCreator from '../Schedule/YourWayScheduleCreator';
 import YourWayProgress from '../Schedule/YourWayProgress';
 import PaymentOptionsDialog from './PaymentOptionsDialog';
+import PaymentDetailsDialog from './PaymentDetailsDialog'; // Added import
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
-import { getFirestore, collection, query, getDocs, where } from 'firebase/firestore';
 import SchedulePurchaseDialog from './SchedulePurchaseDialog';
+import CreateScheduleButton from './CreateScheduleButton'; 
 
 const getStatusColor = (status) => {
   switch (status) {
@@ -77,21 +78,19 @@ const CourseCard = ({
   onGoToCourse,
   className = ''
 }) => {
-  const { user } = useAuth();
+  const { currentUser, isEmulating } = useAuth();
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showCreateScheduleDialog, setShowCreateScheduleDialog] = useState(false);
   const [showProgressDialog, setShowProgressDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState({
-    isChecking: true,
-    hasValidPayment: false,
-    paymentType: null,
-    paymentName: null
-  });
   
   // New states
   const [showScheduleConfirmDialog, setShowScheduleConfirmDialog] = useState(false);
   const [remainingSchedules, setRemainingSchedules] = useState(null);
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false); // Added state
+
+  // Get hasSchedule directly from course.ScheduleJSON
+  const hasSchedule = !!course.ScheduleJSON;
 
   const courseName = course.Course?.Value || 'Course Name';
   const courseId = course.CourseID || 'N/A';
@@ -99,75 +98,7 @@ const CourseCard = ({
   const studentType = course.StudentType?.Value || 'Not specified';
   const schoolYear = course.School_x0020_Year?.Value || 'N/A';
   const isOnTranscript = course.PASI?.Value === 'Yes';
-  const hasSchedule = !!course.ScheduleJSON;
   const isAdultStudent = studentType.toLowerCase().includes('adult');
-
-  useEffect(() => {
-    const checkPaymentStatus = async () => {
-      if (!user || !isAdultStudent) {
-        setPaymentStatus(prev => ({ ...prev, isChecking: false }));
-        return;
-      }
-
-      try {
-        const firestore = getFirestore();
-        let hasValidPayment = false;
-        let paymentType = null;
-        let paymentName = null;
-
-        // Check one-time payments first
-        const paymentsRef = collection(firestore, 'customers', user.uid, 'payments');
-        const paymentsQuery = query(paymentsRef, where('metadata.courseId', '==', String(courseId)));
-        const paymentsSnapshot = await getDocs(paymentsQuery);
-        
-        // Check for valid one-time payment
-        const validPayment = paymentsSnapshot.docs.some(doc => {
-          const paymentData = doc.data();
-          if (paymentData.status === 'succeeded') {
-            paymentType = 'one-time';
-            paymentName = 'One-time Payment';
-            return true;
-          }
-          return false;
-        });
-
-        // If no valid one-time payment, check subscriptions
-        if (!validPayment) {
-          const subscriptionsRef = collection(firestore, 'customers', user.uid, 'subscriptions');
-          const subscriptionsSnapshot = await getDocs(subscriptionsRef);
-          
-          // Check each subscription
-          for (const doc of subscriptionsSnapshot.docs) {
-            const subscriptionData = doc.data();
-            if (subscriptionData.metadata?.courseId === String(courseId) && 
-                subscriptionData.status === 'active') {
-              hasValidPayment = true;
-              paymentType = 'subscription';
-              // Try to get the subscription name from metadata
-              paymentName = subscriptionData.metadata?.items?.[0]?.price?.name || 'Monthly Installments';
-              break;
-            }
-          }
-        } else {
-          hasValidPayment = true;
-        }
-
-        setPaymentStatus({
-          isChecking: false,
-          hasValidPayment: hasValidPayment || validPayment,
-          paymentType,
-          paymentName
-        });
-
-      } catch (error) {
-        console.error('Error checking payment status:', error);
-        toast.error('Failed to verify payment status');
-        setPaymentStatus(prev => ({ ...prev, isChecking: false }));
-      }
-    };
-
-    checkPaymentStatus();
-  }, [user, courseId, isAdultStudent]);
 
   // New function to check remaining schedules
   const checkRemainingSchedules = () => {
@@ -196,18 +127,47 @@ const CourseCard = ({
 
   const renderRegistrationMessage = () => {
     if (status !== 'Registration') return null;
-
+  
     return (
       <Alert className="mb-4 bg-blue-50 border-blue-200">
         <FaEnvelope className="h-4 w-4 text-blue-500" />
         <AlertDescription className="text-blue-700">
-          <p className="font-medium mb-2">Your registration is being processed</p>
-          <div className="prose prose-sm prose-blue max-w-none">
-            <ul className="text-blue-700 mt-1 mb-0 list-disc">
-              <li>You'll receive an email once you've been added to the course</li>
-              <li>The "Go to Course" button will become active at that time</li>
-              <li>Feel free to create your schedule now - it will be ready when your course access is granted</li>
-            </ul>
+          <p className="font-medium mb-2">Registration Steps:</p>
+          <div className="space-y-3">
+            {/* Schedule Creation Step */}
+            <div className="flex items-start gap-2">
+              <div className="mt-1 flex-shrink-0">
+                {hasSchedule ? (
+                  <FaCheckCircle className="h-4 w-4 text-green-500" />
+                ) : (
+                  <div className="h-4 w-4 border-2 border-blue-300 rounded-full" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium">Create Your Schedule</p>
+                {!hasSchedule && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Please create your schedule using the button below
+                  </p>
+                )}
+              </div>
+            </div>
+  
+            {/* Registration Processing Step */}
+            <div className="flex items-start gap-2">
+              <div className="mt-1 flex-shrink-0">
+                <div className="h-4 w-4 border-2 border-blue-300 rounded-full flex items-center justify-center">
+                  <div className="h-2 w-2 bg-blue-300 rounded-full animate-pulse" />
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Registration Processing</p>
+                <p className="text-xs text-blue-600 mt-1">
+                  Your registration is being processed by our registrar (up to 2 business days). 
+                  You'll receive an email when complete, and the "Go to Course" button will become active.
+                </p>
+              </div>
+            </div>
           </div>
         </AlertDescription>
       </Alert>
@@ -215,7 +175,7 @@ const CourseCard = ({
   };
 
   const renderTrialMessage = () => {
-    if (!isAdultStudent || paymentStatus.hasValidPayment) return null;
+    if (!isAdultStudent || course.payment?.hasValidPayment) return null;
 
     return (
       <Alert className="mb-4 bg-purple-50 border-purple-200">
@@ -236,41 +196,58 @@ const CourseCard = ({
   const renderPaymentButton = () => {
     if (!isAdultStudent) return null;
     
-    if (paymentStatus.isChecking) {
+    // Get payment info from course object
+    const { payment } = course;
+    
+    if (!payment) {
       return (
         <Button disabled className="w-full bg-gray-100 text-gray-400">
-          <span className="animate-pulse">Checking payment...</span>
+          <span className="animate-pulse">Payment status unavailable</span>
         </Button>
       );
     }
-
-    if (paymentStatus.hasValidPayment) {
-      const paymentLabel = paymentStatus.paymentType === 'subscription' 
-        ? 'Monthly Installments'
-        : 'One-time Payment';
-
+  
+    if (payment.status === 'paid' || payment.status === 'active') {
+      const isSubscription = payment.details?.type === 'subscription';
+      const buttonStyle = payment.status === 'paid'
+        ? 'bg-green-50 text-green-700 hover:bg-green-100'
+        : 'bg-blue-50 text-blue-700 hover:bg-blue-100';
+  
       return (
-        <div className="w-full flex flex-col items-center justify-center bg-green-50 text-green-700 py-2 px-4 rounded-md">
-          <div className="flex items-center gap-2">
-            <FaCheckCircle className="h-4 w-4" />
-            <span className="text-sm font-medium">Payment Complete</span>
-          </div>
-          <div className="flex items-center gap-1 mt-1">
-            {paymentStatus.paymentType === 'subscription' ? (
-              <FaClock className="h-3 w-3 text-green-600" />
+        <>
+          <Button
+            onClick={() => setShowPaymentDetails(true)}
+            className={`w-full ${buttonStyle} transition-colors duration-200 flex items-center justify-center`}
+          >
+            {payment.status === 'paid' ? (
+              <>
+                <FaCheckCircle className="mr-2" />
+                Payment Complete
+              </>
             ) : (
-              <FaCreditCard className="h-3 w-3 text-green-600" />
+              <>
+                <FaClock className="mr-2" />
+                Monthly Payments Active
+              </>
             )}
-            <span className="text-xs text-green-600">{paymentLabel}</span>
-          </div>
-        </div>
+          </Button>
+  
+          <PaymentDetailsDialog
+            isOpen={showPaymentDetails}
+            onOpenChange={setShowPaymentDetails}
+            paymentDetails={{
+              ...payment.details,
+              courseName: courseName
+            }}
+          />
+        </>
       );
     }
-
+  
     return (
       <Button
         onClick={() => setShowPaymentDialog(true)}
-        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg transition-all duration-200"
+        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg transition-all duration-200 flex items-center justify-center"
       >
         <FaCreditCard className="mr-2" />
         Make Payment
@@ -278,55 +255,47 @@ const CourseCard = ({
     );
   };
 
-  // Updated renderScheduleButtons function
+  // Updated renderScheduleButtons function with animation
   const renderScheduleButtons = () => {
     return (
       <>
-        {/* Only show Create Schedule button if no schedule exists */}
-        {!hasSchedule && (
-          <>
-            <Button 
-              className="w-full bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white shadow-sm transition-all duration-200"
-              onClick={checkRemainingSchedules}
-            >
-              <FaCalendarPlus className="mr-2 h-4 w-4" />
-              Create Schedule
-            </Button>
+        <CreateScheduleButton 
+          onClick={checkRemainingSchedules} 
+          hasSchedule={hasSchedule}
+        />
   
-            {/* Schedule Purchase Dialog */}
-            <SchedulePurchaseDialog 
-  isOpen={showScheduleConfirmDialog}
-  onOpenChange={setShowScheduleConfirmDialog}
-  onProceedToCreation={() => {
-    setShowScheduleConfirmDialog(false);
-    setShowCreateScheduleDialog(true);
-  }}
-/>
+        {/* Schedule Purchase Dialog */}
+        <SchedulePurchaseDialog 
+          isOpen={showScheduleConfirmDialog}
+          onOpenChange={setShowScheduleConfirmDialog}
+          onProceedToCreation={() => {
+            setShowScheduleConfirmDialog(false);
+            setShowCreateScheduleDialog(true);
+          }}
+        />
   
-            {/* Create Schedule Dialog */}
-            <Dialog open={showCreateScheduleDialog} onOpenChange={setShowCreateScheduleDialog}>
-              <DialogContent className="max-w-7xl">
-                <DialogHeader>
-                  <DialogTitle>Create Your Course Schedule</DialogTitle>
-                </DialogHeader>
-                <YourWayScheduleCreator 
-                  course={course}
-                  onScheduleSaved={() => {
-                    setRemainingSchedules(prev => Math.max(0, prev - 1));
-                    setShowCreateScheduleDialog(false);
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
-          </>
-        )}
+        {/* Create Schedule Dialog */}
+        <Dialog open={showCreateScheduleDialog} onOpenChange={setShowCreateScheduleDialog}>
+          <DialogContent className="max-w-7xl">
+            <DialogHeader>
+              <DialogTitle>Create Your Course Schedule</DialogTitle>
+            </DialogHeader>
+            <YourWayScheduleCreator 
+              course={course}
+              onScheduleSaved={() => {
+                setRemainingSchedules(prev => Math.max(0, prev - 1));
+                setShowCreateScheduleDialog(false);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
   
         {/* Show Progress button if schedule exists */}
         {hasSchedule && (
           <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
             <DialogTrigger asChild>
               <Button 
-                className="w-full bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white shadow-sm transition-all duration-200"
+                className="w-full bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white shadow-sm transition-all duration-200 flex items-center justify-center"
               >
                 <BarChart className="mr-2 h-4 w-4" />
                 Course Progress
@@ -378,7 +347,7 @@ const CourseCard = ({
                 <Badge variant="outline" className={getStatusColor(status)}>
                   {status}
                 </Badge>
-                {status === 'Registration' && !paymentStatus.hasValidPayment && (
+                {status === 'Registration' && !course.payment?.hasValidPayment && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
@@ -426,26 +395,37 @@ const CourseCard = ({
                   <FaGraduationCap className={`${isOnTranscript ? "text-emerald-500" : "text-gray-400"} mt-1`} />
                   <div>
                     <span className="text-sm font-medium block">
-                      {isOnTranscript ? "Added to Transcript" : "Not Yet on Transcript"}
+                      {isOnTranscript ? "Added to Alberta Education System" : "Transcript Status Pending"}
                     </span>
                     <p className="text-xs text-gray-500 mt-1">
-                      {isOnTranscript 
-                        ? "This course has been added to your MyPass transcript." 
-                        : (
-                          <>
-                            This course will appear on your transcript once you are registered. 
-                            Please confirm your registration in{' '}
-                            <a 
-                              href="https://public.education.alberta.ca/PASI/mypass/welcome"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-gray-800 hover:underline"
-                            >
-                              MyPass <FaExternalLinkAlt className="inline h-2 w-2" />
-                            </a>
-                          </>
-                        )
-                      }
+                      {isOnTranscript ? (
+                        <>
+                          This course has been registered with Alberta Education and can be viewed in your{' '}
+                          <a 
+                            href="https://public.education.alberta.ca/PASI/mypass/welcome"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-gray-800 hover:underline"
+                          >
+                            MyPass <FaExternalLinkAlt className="inline h-2 w-2" />
+                          </a>
+                          {' '}transcript.
+                        </>
+                      ) : (
+                        <>
+                          Our registrar is in the process of adding this course to the Alberta Education system. 
+                          Once complete, it will automatically appear in your{' '}
+                          <a 
+                            href="https://public.education.alberta.ca/PASI/mypass/welcome"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-gray-800 hover:underline"
+                          >
+                            MyPass <FaExternalLinkAlt className="inline h-2 w-2" />
+                          </a>
+                          {' '}transcript. No action is required from you.
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -458,11 +438,17 @@ const CourseCard = ({
 
                 <Button 
                   onClick={handleGoToCourse}
-                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-600 shadow-lg transition-all duration-200 hover:shadow-xl inline-flex items-center justify-center gap-2"
+                  className={`
+                    w-full shadow-lg transition-all duration-200 inline-flex items-center justify-center gap-2
+                    ${(!hasSchedule || status !== 'Active') 
+                      ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60' 
+                      : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                    }
+                  `}
                   disabled={!hasSchedule || status !== 'Active'}
                 >
                   <FaExternalLinkAlt className="h-4 w-4" />
-                  <span>Go to Course</span>
+                  <span>{(!hasSchedule || status !== 'Active') ? 'Course Unavailable' : 'Go to Course'}</span>
                 </Button>
 
                 {renderPaymentButton()}
@@ -477,7 +463,7 @@ const CourseCard = ({
         isOpen={showPaymentDialog}
         onOpenChange={setShowPaymentDialog}
         course={course}
-        user={user}
+        user={currentUser} 
       />
     </>
   );

@@ -21,6 +21,10 @@ import { Clipboard, ChevronDown, ChevronRight } from 'lucide-react';
 import CustomBlockoutDates from './CustomBlockoutDates';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +52,56 @@ const localizer = dateFnsLocalizer({
   getDay: date => date.getDay(),
   locales,
 });
+
+// Create DnD Calendar component
+const DragAndDropCalendar = withDragAndDrop(Calendar);
+
+// Modified calendar view component
+const CalendarView = ({ 
+  events, 
+  localizer, 
+  isDateExcluded,
+  onEventDrop,
+  onEventResize,
+  onSelectEvent 
+}) => {
+  const handleEventDrop = ({ event, start, end }) => {
+    // Check if the new date is excluded
+    if (isDateExcluded(start)) {
+      toast.error("Cannot move event to blocked date");
+      return;
+    }
+    
+    // Call parent handler with new event details
+    onEventDrop({
+      event,
+      start: startOfDay(start),
+      end: startOfDay(end || start)
+    });
+  };
+
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <DragAndDropCalendar
+        localizer={localizer}
+        events={events}
+        style={{ height: 600 }}
+        views={['month']}
+        onEventDrop={handleEventDrop}
+        onEventResize={onEventResize}
+        onSelectEvent={onSelectEvent}
+        dragFromOutsideItem={null}
+        resizable
+        selectable
+        popup
+        messages={{
+          today: 'Today',
+          month: 'Month'
+        }}
+      />
+    </DndProvider>
+  );
+};
 
 const ScheduleMaker = ({ studentKey, courseId, onClose }) => {
   const { user, loading: authLoading } = useAuth();
@@ -491,15 +545,15 @@ const ScheduleMaker = ({ studentKey, courseId, onClose }) => {
 
   const getCalendarEvents = () => {
     if (!scheduleJson) return [];
-  
+
     const events = [];
-  
+
     scheduleJson.units.forEach((unit, unitIndex) => {
       if (!Array.isArray(unit.items)) {
         console.warn(`Unit ${unitIndex} items is not an array:`, unit.items);
         return;
       }
-  
+
       unit.items.forEach((item, itemIndex) => {
         if (item.date) {
           try {
@@ -521,7 +575,7 @@ const ScheduleMaker = ({ studentKey, courseId, onClose }) => {
         }
       });
     });
-  
+
     return events;
   };
 
@@ -535,16 +589,75 @@ const ScheduleMaker = ({ studentKey, courseId, onClose }) => {
     setIsDialogOpen(true);
   };
 
-  const styles = `
-    .orange-circle {
-      width: 8px;
-      height: 8px;
-      background-color: orange;
-      border-radius: 50%;
-      display: inline-block;
-      margin-left: 8px;
+  const handleEventDrop = ({ event, start, end }) => {
+    if (!scheduleJson) {
+      toast.error("Please create a schedule first");
+      return;
     }
-  `;
+  
+    // Find the event in scheduleJson and update its date
+    const updatedScheduleJson = {
+      ...scheduleJson,
+      units: scheduleJson.units.map(unit => ({
+        ...unit,
+        items: unit.items.map(item => {
+          if (item.title === event.title && parseISO(item.date).getTime() === event.start.getTime()) {
+            return {
+              ...item,
+              date: start.toISOString()
+            };
+          }
+          return item;
+        })
+      }))
+    };
+  
+    setScheduleJson(updatedScheduleJson);
+    setNeedsRecreation(true);
+    
+    // Add these lines to show the save options
+    setShowNotes(true);
+    setScheduleCreated(true);
+    
+    toast.success(`Moved "${event.title}" to ${format(start, 'MMM dd, yyyy')}`);
+    toast.info("Don't forget to save your changes!", {
+      duration: 4000,
+    });
+  };
+
+  const handleEventResize = ({ event, start, end }) => {
+    toast.error("Event resizing is not supported for this calendar");
+  };
+
+  const styles = `
+  .orange-circle {
+    width: 8px;
+    height: 8px;
+    background-color: orange;
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 8px;
+  }
+  
+  /* Add these new styles for drag and drop */
+  .rbc-addons-dnd-drag-preview {
+    position: absolute;
+    z-index: 10;
+    pointer-events: none;
+    background-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding: 4px;
+    border-radius: 4px;
+  }
+  
+  .rbc-addons-dnd-dragged-event {
+    opacity: 0.5;
+  }
+  
+  .rbc-addons-dnd-over {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+`;
 
   if (authLoading) {
     return <div>Loading...</div>;
@@ -597,38 +710,36 @@ const ScheduleMaker = ({ studentKey, courseId, onClose }) => {
                 <div className="w-full md:w-1/2 pr-0 md:pr-2 mb-2 md:mb-0">
                   <Label>Start Date</Label>
                   <DatePicker
-  selected={startDate}
-  onChange={(date) => {
-    setStartDate(startOfDay(date));
-    setNeedsRecreation(true);
-    setScheduleCreated(false);
-  }}
-  dateFormat="MMM dd, yyyy"
-  placeholderText="Select start date"
-  className="w-full border border-gray-300 rounded px-2 py-1"
-  wrapperClassName="w-full"
-  preventOpenOnFocus={true} // Add this line
-/>
-
+                    selected={startDate}
+                    onChange={(date) => {
+                      setStartDate(startOfDay(date));
+                      setNeedsRecreation(true);
+                      setScheduleCreated(false);
+                    }}
+                    dateFormat="MMM dd, yyyy"
+                    placeholderText="Select start date"
+                    className="w-full border border-gray-300 rounded px-2 py-1"
+                    wrapperClassName="w-full"
+                    preventOpenOnFocus={true} // Added line
+                  />
                 </div>
                 <div className="w-full md:w-1/2 pl-0 md:pl-2">
                   <Label>End Date</Label>
                   <DatePicker
-  selected={endDate}
-  onChange={(date) => {
-    setEndDate(startOfDay(date));
-    setNeedsRecreation(true);
-    setScheduleCreated(false);
-  }}
-  dateFormat="MMM dd, yyyy"
-  placeholderText="Select end date"
-  minDate={startDate}
-  className="w-full border border-gray-300 rounded px-2 py-1"
-  disabled={!startDate}
-  wrapperClassName="w-full"
-  preventOpenOnFocus={true} // Add this line
-/>
-
+                    selected={endDate}
+                    onChange={(date) => {
+                      setEndDate(startOfDay(date));
+                      setNeedsRecreation(true);
+                      setScheduleCreated(false);
+                    }}
+                    dateFormat="MMM dd, yyyy"
+                    placeholderText="Select end date"
+                    minDate={startDate}
+                    className="w-full border border-gray-300 rounded px-2 py-1"
+                    disabled={!startDate}
+                    wrapperClassName="w-full"
+                    preventOpenOnFocus={true} // Added line
+                  />
                 </div>
               </div>
 
@@ -776,21 +887,13 @@ const ScheduleMaker = ({ studentKey, courseId, onClose }) => {
                 </TabsList>
 
                 <TabsContent value="calendar">
-                  <Calendar
-                    localizer={localizer}
+                  <CalendarView
                     events={getCalendarEvents()}
-                    startAccessor="start"
-                    endAccessor="end"
-                    style={{ height: 600 }}
-                    views={['month']}
+                    localizer={localizer}
+                    isDateExcluded={isDateExcluded}
+                    onEventDrop={handleEventDrop}
+                    onEventResize={handleEventResize}
                     onSelectEvent={handleSelectEvent}
-                    messages={{
-                      today: 'Today',
-                      month: 'Month',
-                      week: 'Week',
-                      day: 'Day',
-                      agenda: 'Agenda',
-                    }}
                   />
                 </TabsContent>
 

@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Label } from "../components/ui/label";
+import { Switch } from "../components/ui/switch";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { useMode, MODES } from '../context/ModeContext';
@@ -20,6 +21,9 @@ import StudentNotes from './StudentNotes';
 import SchedCombined from '../Schedule/schedCombined';
 import ScheduleDisplay from '../Schedule/ScheduleDisplay';
 import RegistrationInfo from './RegistrationInfo';
+import InternationalDocuments from './InternationalDocuments';
+import { useUserPreferences } from '../context/UserPreferencesContext';
+import PaymentInfo from './PaymentInfo'; // New import added
 
 const getColorFromInitials = (initials) => {
   const colors = [
@@ -51,44 +55,106 @@ function StudentDetail({ studentSummary, isMobile }) {
   const [scheduleJSON, setScheduleJSON] = useState(null);
   const [jsonGradebook, setJsonGradebook] = useState(null);
   const { currentMode } = useMode();
+  const { preferences, updatePreferences } = useUserPreferences();
 
   // New refs and state for dynamic font sizing
   const nameRef = useRef(null);
   const containerRef = useRef(null);
   const [nameFontSize, setNameFontSize] = useState(24); // Starting font size for text-2xl
 
-  const getAvailableTabs = () => {
-    if (currentMode === MODES.REGISTRATION) {
-      return ['registration', 'notes', 'progress', 'schedule', 'gradebook'];
-    }
+ 
+  const handleStudentStatsChange = (checked) => {
+    const db = getDatabase();
+    const studentRef = ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}/courses/${courseId}`);
+    update(studentRef, { showStats: checked })
+      .then(() => {
+        console.log('Successfully updated student showStats');
+        setStudentData(prev => ({
+          ...prev,
+          courses: {
+            ...prev.courses,
+            [courseId]: {
+              ...prev.courses[courseId],
+              showStats: checked
+            }
+          }
+        }));
+      })
+      .catch((error) => {
+        console.error('Error updating student stats setting:', error);
+        alert('An error occurred while updating the student stats setting.');
+      });
+  };
 
-    if (studentData?.courses[courseId]?.jsonGradebookSchedule) {
-      return ['notes', 'progress', 'gradebook', 'more-info'];
+  const getAvailableTabs = () => {
+    // If no student data or no courses, return minimal tabs
+    if (!studentData || !studentData.courses || !courseId || !studentData.courses[courseId]) {
+      if (currentMode === MODES.REGISTRATION) {
+        return ['registration', 'notes'];
+      }
+      return ['notes'];
+    }
+  
+    // Rest of the existing logic
+    if (currentMode === MODES.REGISTRATION) {
+      // Start with base tabs
+      let tabs = ['registration', 'notes'];
+      
+      // Add documents tab if internationalDocuments exist
+      if (studentData.profile.internationalDocuments) {
+        tabs.push('documents');
+      }
+  
+      // Add progress or schedule/gradebook tabs
+      if (studentData.courses[courseId].jsonGradebookSchedule) {
+        tabs.push('progress');
+      } else {
+        tabs.push('schedule', 'gradebook');
+      }
+  
+      // Always add paid tab in registration mode
+      tabs.push('paid');
+  
+      return tabs;
     } else {
-      return ['notes', 'schedule', 'gradebook', 'more-info'];
+      const baseTabs = ['notes'];
+      if (studentData.courses[courseId].jsonGradebookSchedule) {
+        return [...baseTabs, 'progress', 'more-info'];
+      } else {
+        return [...baseTabs, 'schedule', 'gradebook', 'more-info'];
+      }
     }
   };
 
   useEffect(() => {
-    if (currentMode === MODES.REGISTRATION) {
-      setVisibleSections(isMobile ? 'registration' : ['registration', 'notes', 'progress']);
-    } else if (isMobile) {
-      setVisibleSections('notes');
+    if (isMobile) {
+      // For mobile, show first available tab
+      const availableTabs = getAvailableTabs();
+      setVisibleSections(availableTabs[0]);
     } else {
-      const initialSections = ['notes'];
-      if (studentData?.courses[courseId]?.jsonGradebookSchedule) {
-        initialSections.push('progress');
+      // For desktop, use saved preferences or default to initial set of tabs
+      const availableTabs = getAvailableTabs();
+      const mode = currentMode === MODES.REGISTRATION ? 'registration' : 'default';
+      const savedTabs = preferences?.selectedTabs?.[mode] || [];
+      
+      // Filter saved tabs to only include currently available tabs
+      const validSavedTabs = savedTabs.filter(tab => availableTabs.includes(tab));
+      
+      if (validSavedTabs.length > 0) {
+        setVisibleSections(validSavedTabs);
+      } else if (availableTabs.length > 2) {
+        setVisibleSections(availableTabs.slice(0, 3));
       } else {
-        initialSections.push('schedule', 'gradebook');
+        setVisibleSections(availableTabs);
       }
-      setVisibleSections(initialSections);
     }
-  }, [currentMode, studentData, courseId, isMobile]);
+  }, [currentMode, studentData, courseId, isMobile, preferences]);
 
   useEffect(() => {
     if (!studentSummary) {
       setStudentData(null);
       setNotes([]);
+      setCourseId(null);
       return;
     }
 
@@ -96,72 +162,104 @@ function StudentDetail({ studentSummary, isMobile }) {
     const db = getDatabase();
     const sanitizedEmail = sanitizeEmail(studentSummary.StudentEmail);
     const studentRef = ref(db, `students/${sanitizedEmail}`);
+    const paymentsRef = ref(db, `payments/${sanitizedEmail}/courses`);
 
     const unsubscribe = onValue(studentRef, async (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        setStudentData(data);
         const selectedCourseId = studentSummary.CourseID;
 
-        if (data.courses && data.courses[selectedCourseId]) {
-          setCourseId(selectedCourseId);
-          const courseData = data.courses[selectedCourseId];
-
-          const courseTitleRef = ref(db, `courses/${selectedCourseId}/Title`);
-          try {
-            const courseSnapshot = await get(courseTitleRef);
-            setCourseTitle(courseSnapshot.exists() ? courseSnapshot.val() : 'Unknown Course');
-          } catch (error) {
-            console.error('Error fetching course title:', error);
-            setCourseTitle('Unknown Course');
+        try {
+          // Fetch payments data
+          const paymentsSnapshot = await get(paymentsRef);
+          const paymentsData = paymentsSnapshot.val() || {};
+          
+          // Merge payments data with course data if courses exist
+          if (data.courses) {
+            Object.keys(data.courses).forEach(courseId => {
+              if (paymentsData[courseId]) {
+                data.courses[courseId].paymentDetails = paymentsData[courseId];
+              }
+            });
           }
 
-          setJsonGradebookSchedule(courseData.jsonGradebookSchedule || null);
-          setScheduleJSON(courseData.ScheduleJSON || null);
-          setJsonGradebook(courseData.jsonGradebook || null);
+          setStudentData(data);
 
-          if (!courseData.jsonStudentNotes) {
-            const legacyNote = {
-              id: 'legacy-note',
-              content: data.profile.StudentNotes || '',
-              timestamp: 'Legacy Note',
-              author: '',
-              noteType: '📝'
-            };
-            const jsonStudentNotes = [legacyNote];
-            await update(ref(db, `students/${sanitizedEmail}/courses/${selectedCourseId}`), 
-              { jsonStudentNotes });
-            setNotes(jsonStudentNotes);
+          // Check if the course still exists
+          if (data.courses && data.courses[selectedCourseId]) {
+            setCourseId(selectedCourseId);
+            const courseData = data.courses[selectedCourseId];
+
+            const courseTitleRef = ref(db, `courses/${selectedCourseId}/Title`);
+            try {
+              const courseSnapshot = await get(courseTitleRef);
+              setCourseTitle(courseSnapshot.exists() ? courseSnapshot.val() : 'Unknown Course');
+            } catch (error) {
+              console.error('Error fetching course title:', error);
+              setCourseTitle('Unknown Course');
+            }
+
+            setJsonGradebookSchedule(courseData.jsonGradebookSchedule || null);
+            setScheduleJSON(courseData.ScheduleJSON || null);
+            setJsonGradebook(courseData.jsonGradebook || null);
+
+            if (!courseData.jsonStudentNotes) {
+              const legacyNote = {
+                id: 'legacy-note',
+                content: data.profile.StudentNotes || '',
+                timestamp: 'Legacy Note',
+                author: '',
+                noteType: '📝'
+              };
+              const jsonStudentNotes = [legacyNote];
+              await update(ref(db, `students/${sanitizedEmail}/courses/${selectedCourseId}`), 
+                { jsonStudentNotes });
+              setNotes(jsonStudentNotes);
+            } else {
+              setNotes(courseData.jsonStudentNotes);
+            }
+
+            const staffSnapshot = await get(ref(db, `courses/${selectedCourseId}`));
+            if (staffSnapshot.exists()) {
+              const courseData = staffSnapshot.val();
+              const teacherEmails = courseData.Teachers || [];
+              const supportEmails = courseData.SupportStaff || [];
+
+              const staffPromises = [
+                ...teacherEmails.map(email =>
+                  get(ref(db, `staff/${sanitizeEmail(email)}`))
+                    .then(snap => ({ ...snap.val(), role: 'Teacher' }))
+                ),
+                ...supportEmails.map(email =>
+                  get(ref(db, `staff/${sanitizeEmail(email)}`))
+                    .then(snap => ({ ...snap.val(), role: 'Support Staff' }))
+                )
+              ];
+
+              const staffData = await Promise.all(staffPromises);
+              setAssignedStaff(staffData.filter(Boolean));
+            }
           } else {
-            setNotes(courseData.jsonStudentNotes);
+            // Course was deleted or doesn't exist
+            setCourseId(null);
+            setJsonGradebookSchedule(null);
+            setScheduleJSON(null);
+            setJsonGradebook(null);
+            setNotes([]);
           }
 
-          const staffSnapshot = await get(ref(db, `courses/${selectedCourseId}`));
-          if (staffSnapshot.exists()) {
-            const courseData = staffSnapshot.val();
-            const teacherEmails = courseData.Teachers || [];
-            const supportEmails = courseData.SupportStaff || [];
-
-            const staffPromises = [
-              ...teacherEmails.map(email =>
-                get(ref(db, `staff/${sanitizeEmail(email)}`))
-                  .then(snap => ({ ...snap.val(), role: 'Teacher' }))
-              ),
-              ...supportEmails.map(email =>
-                get(ref(db, `staff/${sanitizeEmail(email)}`))
-                  .then(snap => ({ ...snap.val(), role: 'Support Staff' }))
-              )
-            ];
-
-            const staffData = await Promise.all(staffPromises);
-            setAssignedStaff(staffData.filter(Boolean));
+          if (prevDataRef.current) {
+            setChangedFields(findChangedFields(prevDataRef.current, data));
           }
+          prevDataRef.current = data;
+        } catch (error) {
+          console.error('Error fetching additional data:', error);
+          setStudentData(data); // Still set the basic student data even if additional fetches fail
         }
-
-        if (prevDataRef.current) {
-          setChangedFields(findChangedFields(prevDataRef.current, data));
-        }
-        prevDataRef.current = data;
+      } else {
+        // Student data doesn't exist
+        setStudentData(null);
+        setCourseId(null);
       }
       setLoading(false);
     });
@@ -228,17 +326,41 @@ function StudentDetail({ studentSummary, isMobile }) {
       // In mobile mode, value will be a single string
       setVisibleSections(value);
     } else {
-      // Desktop mode remains the same
       if (currentMode === MODES.REGISTRATION) {
         if (value.length > 0) {
           setVisibleSections(value);
+          // Save preferences
+          updatePreferences({
+            ...preferences,
+            selectedTabs: {
+              ...preferences.selectedTabs,
+              registration: value
+            }
+          });
         }
       } else {
         if (value.includes('more-info')) {
           setIsSheetOpen(true);
-          setVisibleSections(value.filter(v => v !== 'more-info'));
+          const newValue = value.filter(v => v !== 'more-info');
+          setVisibleSections(newValue);
+          // Save preferences
+          updatePreferences({
+            ...preferences,
+            selectedTabs: {
+              ...preferences.selectedTabs,
+              default: newValue
+            }
+          });
         } else {
           setVisibleSections(value);
+          // Save preferences
+          updatePreferences({
+            ...preferences,
+            selectedTabs: {
+              ...preferences.selectedTabs,
+              default: value
+            }
+          });
         }
       }
     }
@@ -246,6 +368,8 @@ function StudentDetail({ studentSummary, isMobile }) {
 
   const renderScheduleContent = () => {
     const courseData = studentData?.courses[courseId];
+
+  
     
     return (
       <div className="space-y-4">
@@ -292,6 +416,25 @@ function StudentDetail({ studentSummary, isMobile }) {
           <Calendar className="h-4 w-4 mr-2" />
           Schedule Maker
         </Button>
+  
+        <div className="flex items-center justify-between p-2 border rounded-lg bg-gray-50">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center space-x-2">
+                <Switch
+  checked={studentData?.courses[courseId]?.showStats ?? true}
+  onCheckedChange={handleStudentStatsChange}
+/>
+                  <span className="text-sm font-medium">Show Statistics</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs">
+                <p>Toggle this off to hide statistics for students in unique situations where progress tracking may not be applicable. This helps prevent confusion when standard progress metrics don't reflect their actual situation.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         
         <SchedCombined 
           jsonGradebookSchedule={courseData?.jsonGradebookSchedule}
@@ -324,10 +467,15 @@ function StudentDetail({ studentSummary, isMobile }) {
     );
   };
 
-  if (!studentSummary) {
+  if (!studentSummary || !studentData || !courseId || !studentData.courses || !studentData.courses[courseId]) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-gray-500">Select a student to view details</p>
+        <div className="text-center text-gray-500">
+          <p className="mb-2">No student selected or no courses available.</p>
+          {currentMode === MODES.REGISTRATION && (
+            <p className="text-sm">Select a student from the list to view or manage their courses.</p>
+          )}
+        </div>
       </div>
     );
   }
@@ -348,7 +496,7 @@ function StudentDetail({ studentSummary, isMobile }) {
     if (isMobile) {
       return visibleSections === sectionName;
     }
-    return visibleSections.includes(sectionName);
+    return Array.isArray(visibleSections) && visibleSections.includes(sectionName);
   };
 
   return (
@@ -453,9 +601,9 @@ function StudentDetail({ studentSummary, isMobile }) {
 
       {/* Main Content Sections */}
       <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 h-full overflow-hidden">
-        {/* Registration Info Section */}
-        {isSectionVisible('registration') && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+        {/* Registration Info Section - Only shown in registration mode */}
+        {currentMode === MODES.REGISTRATION && isSectionVisible('registration') && (
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                 <h4 className="font-semibold mb-2 text-[#1fa6a7]">Registration Info</h4>
@@ -471,7 +619,7 @@ function StudentDetail({ studentSummary, isMobile }) {
 
         {/* Notes Section */}
         {isSectionVisible('notes') && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                 <h4 className="font-semibold mb-2 text-[#1fa6a7]">Notes</h4>
@@ -487,9 +635,22 @@ function StudentDetail({ studentSummary, isMobile }) {
           </div>
         )}
 
+        {/* International Documents Section */}
+        {currentMode === MODES.REGISTRATION && isSectionVisible('documents') && studentData?.profile?.internationalDocuments && (
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
+              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+                <h4 className="font-semibold mb-2 text-[#1fa6a7]">International Documents</h4>
+                <InternationalDocuments documents={studentData.profile.internationalDocuments} />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+
         {/* Progress Section */}
         {isSectionVisible('progress') && studentData?.courses[courseId]?.jsonGradebookSchedule && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                 <h4 className="font-semibold mb-2 text-[#1fa6a7]">Progress</h4>
@@ -501,7 +662,7 @@ function StudentDetail({ studentSummary, isMobile }) {
 
         {/* Schedule Section */}
         {isSectionVisible('schedule') && !studentData?.courses[courseId]?.jsonGradebookSchedule && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                 <h4 className="font-semibold mb-2 text-[#1fa6a7]">Schedule</h4>
@@ -512,8 +673,8 @@ function StudentDetail({ studentSummary, isMobile }) {
         )}
 
         {/* Gradebook Section */}
-        {isSectionVisible('gradebook') && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+        {isSectionVisible('gradebook') && !studentData?.courses[courseId]?.jsonGradebookSchedule && (
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                 <h4 className="font-semibold mb-2 text-[#1fa6a7]">Gradebook</h4>
@@ -522,6 +683,25 @@ function StudentDetail({ studentSummary, isMobile }) {
             </Card>
           </div>
         )}
+
+  {/* Payment Info Section */}
+  {currentMode === MODES.REGISTRATION && isSectionVisible('paid') && (
+  <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+    <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
+      <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+        <h4 className="font-semibold mb-2 text-[#1fa6a7]">Payment Information</h4>
+        <PaymentInfo 
+  studentKey={sanitizeEmail(studentSummary.StudentEmail)}
+  courseId={courseId}
+  paymentStatus={studentData.courses[courseId].payment_status?.status}
+  paymentDetails={studentData.courses[courseId].paymentDetails}
+  readOnly={currentMode !== MODES.REGISTRATION}
+/>
+      </CardContent>
+    </Card>
+  </div>
+)}
+
       </div>
 
       {/* Additional Sheets and Dialogs */}

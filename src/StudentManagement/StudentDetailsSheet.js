@@ -1,74 +1,81 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { ScrollArea } from "../components/ui/scroll-area";
-import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { getDatabase, ref, update } from 'firebase/database';
+import { getDatabase, ref, get, update } from 'firebase/database';
 import { 
-  // STATUS_OPTIONS, // Removed since Status dropdown is no longer needed
   getSchoolYearOptions,
   STUDENT_TYPE_OPTIONS, 
   ACTIVE_FUTURE_ARCHIVED_OPTIONS,
   getStatusColor,
+  DIPLOMA_MONTH_OPTIONS,
 } from '../config/DropdownOptions';
-import { SheetHeader, SheetTitle } from "../components/ui/sheet"; // Ensure these are imported
+import { SheetHeader, SheetTitle } from "../components/ui/sheet";
+import { cn } from "../lib/utils";
 
-function StudentDetailsSheet({ studentData, courseData, changedFields, courseId, studentKey, onUpdate, onClose }) {
-  const [editedData, setEditedData] = useState({});
+function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, onUpdate }) {
+  const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
+  const [courseTitle, setCourseTitle] = useState('');
   const schoolYearOptions = useMemo(() => getSchoolYearOptions(), []);
 
-  const handleInputChange = (field, value) => {
-    setEditedData((prev) => ({ ...prev, [field]: value }));
-  };
+  useEffect(() => {
+    const fetchCourseInfo = async () => {
+      const db = getDatabase();
+      try {
+        const diplomaCourseSnapshot = await get(ref(db, `courses/${courseId}/DiplomaCourse`));
+        setIsDiplomaCourse(diplomaCourseSnapshot.val() === 'Yes');
 
-  const handleSave = async () => {
+        const courseTitleSnapshot = await get(ref(db, `courses/${courseId}/Title`));
+        setCourseTitle(courseTitleSnapshot.val() || '');
+      } catch (error) {
+        console.error("Error fetching course info:", error);
+      }
+    };
+
+    if (courseId) {
+      fetchCourseInfo();
+    }
+  }, [courseId]);
+
+  const handleFieldUpdate = async (field, value) => {
     const db = getDatabase();
     const updates = {};
 
-    Object.entries(editedData).forEach(([field, value]) => {
-      if (['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value'].includes(field)) {
-        const fieldName = field.replace('_Value', '');
-        updates[`students/${studentKey}/courses/${courseId}/${fieldName}/Value`] = value;
-      } else if (field === 'ParentPermission_x003f_') {
-        updates[`students/${studentKey}/profile/ParentPermission_x003f_/Value`] = value;
-      } else if (field === 'Parent_x002f_Guardian') {
-        updates[`students/${studentKey}/profile/Parent_x002f_Guardian`] = value;
-      } else {
-        updates[`students/${studentKey}/profile/${field}`] = value;
-      }
-    });
+    if (['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value', 'DiplomaMonthChoices_Value'].includes(field)) {
+      const fieldName = field.replace('_Value', '');
+      updates[`students/${studentKey}/courses/${courseId}/${fieldName}/Value`] = value;
+    } else if (field === 'ParentPermission_x003f_') {
+      updates[`students/${studentKey}/profile/ParentPermission_x003f_/Value`] = value;
+    } else if (field === 'Parent_x002f_Guardian') {
+      updates[`students/${studentKey}/profile/Parent_x002f_Guardian`] = value;
+    } else {
+      updates[`students/${studentKey}/profile/${field}`] = value;
+    }
 
     try {
       await update(ref(db), updates);
-      onUpdate();
-      setEditedData({});
-      onClose(); // Close the sheet after saving
+      if (onUpdate) onUpdate();
     } catch (error) {
-      console.error("Error updating student data:", error);
+      console.error("Error updating field:", error);
     }
   };
 
-  const renderEditableField = (label, field, options) => {
+  const renderEditableField = (label, field, options, readOnly = false) => {
     let value;
 
-    if (editedData[field] !== undefined) {
-      value = editedData[field];
+    if (['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value', 'DiplomaMonthChoices_Value'].includes(field)) {
+      const fieldName = field.replace('_Value', '');
+      value = courseData[fieldName]?.Value || '';
+    } else if (field === 'ParentPermission_x003f_') {
+      value = studentData.profile?.ParentPermission_x003f_?.Value || '';
+    } else if (field === 'Parent_x002f_Guardian') {
+      value = studentData.profile?.Parent_x002f_Guardian || '';
     } else {
-      if (['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value'].includes(field)) {
-        const fieldName = field.replace('_Value', '');
-        value = courseData[fieldName]?.Value || '';
-      } else if (field === 'ParentPermission_x003f_') {
-        value = studentData.profile?.ParentPermission_x003f_?.Value || '';
-      } else if (field === 'Parent_x002f_Guardian') {
-        value = studentData.profile?.Parent_x002f_Guardian || '';
-      } else {
-        // Handle other fields
-        value = studentData.profile?.[field] || courseData[field] || '';
-        if (value && typeof value === 'object' && 'Value' in value) {
-          value = value.Value;
-        }
+      value = studentData.profile?.[field] || courseData[field] || '';
+      if (value && typeof value === 'object' && 'Value' in value) {
+        value = value.Value;
       }
     }
 
@@ -76,8 +83,12 @@ function StudentDetailsSheet({ studentData, courseData, changedFields, courseId,
       return (
         <div className="space-y-1">
           <label className="text-sm font-medium">{label}</label>
-          <Select onValueChange={(value) => handleInputChange(field, value)} value={value}>
-            <SelectTrigger className="w-full">
+          <Select 
+            value={value}
+            onValueChange={(newValue) => handleFieldUpdate(field, newValue)}
+            disabled={readOnly}
+          >
+            <SelectTrigger className={cn("w-full", !readOnly && "bg-white")}>
               <SelectValue placeholder={`Select ${label}`} />
             </SelectTrigger>
             <SelectContent>
@@ -96,32 +107,58 @@ function StudentDetailsSheet({ studentData, courseData, changedFields, courseId,
           <label className="text-sm font-medium">{label}</label>
           <Input 
             value={value || ''}
-            onChange={(e) => handleInputChange(field, e.target.value)}
+            onChange={(e) => handleFieldUpdate(field, e.target.value)}
+            disabled={readOnly}
+            className={cn(!readOnly && "bg-white")}
           />
         </div>
       );
     }
   };
 
+  const displayName = studentData.profile.preferredFirstName || studentData.profile.firstName;
+
   return (
     <>
       <SheetHeader>
         <SheetTitle className="text-xl font-bold text-[#315369]">
-          Student Details
+          {displayName} {studentData.profile.lastName} - {courseTitle}
         </SheetTitle>
       </SheetHeader>
-      <Tabs defaultValue="course" className="mt-4">
+      <Tabs defaultValue="profile" className="mt-4">
         <TabsList className="mb-4">
-          <TabsTrigger value="course">Course Data</TabsTrigger>
           <TabsTrigger value="profile">Profile Data</TabsTrigger>
+          <TabsTrigger value="course">Course Data</TabsTrigger>
         </TabsList>
+        <TabsContent value="profile">
+          <ScrollArea className="h-[calc(100vh-200px)]">
+            <Card className="bg-[#f0f4f7]">
+              <CardContent className="p-4 space-y-4">
+                <h3 className="text-lg font-semibold text-[#315369]">
+                  {displayName} {studentData.profile.lastName}
+                </h3>
+                {renderEditableField("First Name", "firstName")}
+                {renderEditableField("Preferred First Name", "preferredFirstName")}
+                {renderEditableField("Last Name", "lastName")}
+                {renderEditableField("Student Age", "StudentAge", null, true)}
+                {renderEditableField("Student Email", "StudentEmail", null, true)}
+                {renderEditableField("Student Phone", "StudentPhone")}
+                {renderEditableField("ASN", "asn", null, true)}
+                {renderEditableField("Parent Email", "ParentEmail")}
+                {renderEditableField("Parent Permission", "ParentPermission_x003f_", [
+                  { value: "Yes", color: "#10B981" },
+                  { value: "No", color: "#EF4444" },
+                ])}
+                {renderEditableField("Parent Phone", "ParentPhone_x0023_")}
+                {renderEditableField("Parent/Guardian", "Parent_x002f_Guardian")}
+              </CardContent>
+            </Card>
+          </ScrollArea>
+        </TabsContent>
         <TabsContent value="course">
           <ScrollArea className="h-[calc(100vh-200px)]">
             <Card className="bg-[#f0f4f7]">
               <CardContent className="p-4 space-y-4">
-                {/* Removed the Status dropdown */}
-                {/* {renderEditableField("Status", "Status_Value", STATUS_OPTIONS)} */}
-                
                 <p className="text-sm">
                   <span className="font-semibold">Last Week Status:</span>{' '}
                   <span style={{ color: getStatusColor(courseData.StatusCompare) }}>
@@ -135,38 +172,13 @@ function StudentDetailsSheet({ studentData, courseData, changedFields, courseId,
                 {renderEditableField("School Year", "School_x0020_Year_Value", schoolYearOptions)}
                 {renderEditableField("Student Type", "StudentType_Value", STUDENT_TYPE_OPTIONS)}
                 {renderEditableField("Active", "ActiveFutureArchived_Value", ACTIVE_FUTURE_ARCHIVED_OPTIONS)}
-              </CardContent>
-            </Card>
-          </ScrollArea>
-        </TabsContent>
-        <TabsContent value="profile">
-          <ScrollArea className="h-[calc(100vh-200px)]">
-            <Card className="bg-[#f0f4f7]">
-              <CardContent className="p-4 space-y-4">
-                <h3 className="text-lg font-semibold text-[#315369]">
-                  {studentData.profile.firstName} {studentData.profile.lastName}
-                </h3>
-                {renderEditableField("Student Age", "StudentAge")}
-                {renderEditableField("Student Email", "StudentEmail")}
-                {renderEditableField("Student Phone", "StudentPhone")}
-                {renderEditableField("ASN", "asn")}
-                {renderEditableField("First Name", "firstName")}
-                {renderEditableField("Last Name", "lastName")}
-                {renderEditableField("Parent Email", "ParentEmail")}
-                {renderEditableField("Parent Permission", "ParentPermission_x003f_", [
-                  { value: "Yes", color: "#10B981" },
-                  { value: "No", color: "#EF4444" },
-                ])}
-                {renderEditableField("Parent Phone", "ParentPhone_x0023_")}
-                {renderEditableField("Parent/Guardian", "Parent_x002f_Guardian")}
+                
+                {isDiplomaCourse && renderEditableField("Diploma Month", "DiplomaMonthChoices_Value", DIPLOMA_MONTH_OPTIONS)}
               </CardContent>
             </Card>
           </ScrollArea>
         </TabsContent>
       </Tabs>
-      <div className="mt-4">
-        <Button onClick={handleSave}>Save Changes</Button>
-      </div>
     </>
   );
 }

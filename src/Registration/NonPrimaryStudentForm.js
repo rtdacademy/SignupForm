@@ -924,15 +924,18 @@ if (snapshot.val().internationalDocuments) {
   // Handle diploma date changes
   const handleDiplomaDateChange = (date) => {
     if (date === null) {
+      // Student already wrote the diploma
       setAlreadyWroteDiploma(true);
       setSelectedDiplomaDate(null);
       handleFormChange({
         target: {
           name: 'diplomaMonth',
-          value: null
+          value: {
+            alreadyWrote: true // Add this flag for the submission handler
+          }
         }
       });
-
+  
       if (formData.startDate) {
         const startDate = new Date(formData.startDate);
         const defaultEndDate = new Date(startDate);
@@ -945,15 +948,22 @@ if (snapshot.val().internationalDocuments) {
         });
       }
     } else {
+      // Student selected a diploma date
       setAlreadyWroteDiploma(false);
       setSelectedDiplomaDate(date);
       handleFormChange({
         target: {
           name: 'diplomaMonth',
-          value: date
+          value: {
+            id: date.id,
+            month: date.month,
+            date: date.date,
+            displayDate: date.displayDate,
+            alreadyWrote: false
+          }
         }
       });
-
+  
       handleFormChange({
         target: {
           name: 'endDate',

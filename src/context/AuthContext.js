@@ -5,6 +5,19 @@ import { getDatabase, ref, get, set } from "firebase/database";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate, useLocation } from 'react-router-dom';
 
+// Define admin levels
+const SUPER_ADMIN_EMAILS = [
+  'kyle@rtdacademy.com',
+  'stan@rtdacademy.com'
+];
+
+const ADMIN_EMAILS = [
+  'kyle@rtdacademy.com',
+  'rachel@rtdacademy.com',
+  'stan@rtdacademy.com',
+  'charlie@rtdacademy.com'
+];
+
 const AuthContext = createContext();
 
 export function useAuth() {
@@ -16,17 +29,24 @@ export function AuthProvider({ children }) {
   const [user_email_key, setUserEmailKey] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isStaffUser, setIsStaffUser] = useState(false);
-  
-  // New state for course teachers and staff members
+  const [isAdminUser, setIsAdminUser] = useState(false);
+  const [isSuperAdminUser, setIsSuperAdminUser] = useState(false);
   const [courseTeachers, setCourseTeachers] = useState({});
   const [staffMembers, setStaffMembers] = useState({});
+  const [isMigratedUser, setIsMigratedUser] = useState(false);
+
+  // Emulation states
+  const [emulatedUser, setEmulatedUser] = useState(null);
+  const [emulatedUserEmailKey, setEmulatedUserEmailKey] = useState(null);
+  const [isEmulating, setIsEmulating] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Define all public routes
+  // Define all public routes - lowercase for consistent comparison
   const publicRoutes = [
     '/login',
+    '/migrate',
     '/staff-login',
     '/reset-password',
     '/signup',
@@ -34,21 +54,23 @@ export function AuthProvider({ children }) {
     '/contractor-invoice',
     '/adult-students',
     '/your-way',
-    '/get-started'  
-  ];
+    '/get-started',
+    '/policies-reports'
+  ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public
   const isPublicRoute = (path) => {
-    // First check exact matches
-    if (publicRoutes.some(route => path.toLowerCase() === route.toLowerCase())) {
+    const normalizedPath = path.toLowerCase();
+    
+    // Check exact matches
+    if (publicRoutes.includes(normalizedPath)) {
       return true;
     }
 
-    // Then check if it's a student portal route
-    if (path.toLowerCase().startsWith('/student-portal/')) {
-      // This regex will match the pattern /student-portal/{userId}/{accessKey}
+    // Check student portal routes
+    if (normalizedPath.startsWith('/student-portal/')) {
       const studentPortalPattern = /^\/student-portal\/[^/]+\/[^/]+$/i;
-      return studentPortalPattern.test(path);
+      return studentPortalPattern.test(normalizedPath);
     }
 
     return false;
@@ -58,8 +80,48 @@ export function AuthProvider({ children }) {
     return user && user.email.endsWith("@rtdacademy.com");
   };
 
+  const checkIsAdmin = (user) => {
+    return user && ADMIN_EMAILS.includes(user.email.toLowerCase());
+  };
+
+  const checkIsSuperAdmin = (user) => {
+    return user && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
+  };
+
+  // Ensure staff node includes admin and super admin status
+  const ensureStaffNode = async (user, emailKey) => {
+    const db = getDatabase();
+    const staffRef = ref(db, `staff/${emailKey}`);
+    const isAdmin = checkIsAdmin(user);
+    const isSuperAdmin = checkIsSuperAdmin(user);
+    
+    try {
+      const snapshot = await get(staffRef);
+      if (!snapshot.exists()) {
+        await set(staffRef, {
+          email: user.email,
+          createdAt: Date.now(),
+          lastLogin: Date.now(),
+          provider: user.providerData[0].providerId,
+          isAdmin: isAdmin,
+          isSuperAdmin: isSuperAdmin
+        });
+      } else {
+        await set(ref(db, `staff/${emailKey}`), {
+          ...snapshot.val(),
+          lastLogin: Date.now(),
+          isAdmin: isAdmin,
+          isSuperAdmin: isSuperAdmin
+        });
+      }
+      return true;
+    } catch (error) {
+      console.error("Error ensuring staff data:", error);
+      throw error;
+    }
+  };
+
   const ensureUserNode = async (user, emailKey) => {
-    // Only require email verification for regular users
     if (!user.emailVerified) {
       console.log("Skipping user data creation - email not verified");
       await signOut();
@@ -78,6 +140,13 @@ export function AuthProvider({ children }) {
       const snapshot = await get(userRef);
       
       if (!snapshot.exists()) {
+        // Check if this is a migrated user by looking for existing data
+        const studentsRef = ref(db, `students/${emailKey}`);
+        const studentSnapshot = await get(studentsRef);
+        const isMigrated = studentSnapshot.exists();
+
+        console.log('Migration check for new user:', { email: user.email, isMigrated });
+
         const userData = {
           uid: user.uid,
           email: user.email,
@@ -86,25 +155,37 @@ export function AuthProvider({ children }) {
           createdAt: Date.now(),
           lastLogin: Date.now(),
           provider: user.providerData[0].providerId,
-          emailVerified: user.emailVerified
+          emailVerified: user.emailVerified,
+          isMigratedUser: isMigrated
         };
         
         await set(userRef, userData);
+        setIsMigratedUser(isMigrated);
+        console.log('Set migration status for new user:', isMigrated);
         
-        const notificationsRef = ref(db, `notifications/${emailKey}`);
-        await set(notificationsRef, {});
-        
+        // Initialize notifications for new users if not migrated
+        if (!isMigrated) {
+          const notificationsRef = ref(db, `notifications/${emailKey}`);
+          await set(notificationsRef, {});
+        }
       } else {
+        const existingData = snapshot.val();
+        const isMigrated = existingData.isMigratedUser || false;
+        console.log('Existing user migration status:', isMigrated);
+        
+        setIsMigratedUser(isMigrated);
+        
         await set(userRef, {
-          ...snapshot.val(),
+          ...existingData,
           lastLogin: Date.now(),
-          emailVerified: user.emailVerified
+          emailVerified: user.emailVerified,
+          isMigratedUser: isMigrated // Ensure migration status is preserved
         });
       }
       return true;
     } catch (error) {
       if (error.message?.includes('PERMISSION_DENIED')) {
-        console.log("User does not have permission yet - email verification may be pending");
+        console.log("User does not have permission - email verification may be pending");
         await signOut();
         navigate('/login', { 
           state: { 
@@ -118,30 +199,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const ensureStaffNode = async (user, emailKey) => {
-    const db = getDatabase();
-    const staffRef = ref(db, `staff/${emailKey}`);
-    
-    try {
-      const snapshot = await get(staffRef);
-      if (!snapshot.exists()) {
-        await set(staffRef, {
-          email: user.email,
-          createdAt: Date.now(),
-          lastLogin: Date.now(),
-          provider: user.providerData[0].providerId
-        });
-      } else {
-        await set(ref(db, `staff/${emailKey}/lastLogin`), Date.now());
-      }
-      return true;
-    } catch (error) {
-      console.error("Error ensuring staff data:", error);
-      throw error;
-    }
-  };
-
-  // Function to fetch all staff members
   const fetchStaffMembers = async () => {
     const db = getDatabase();
     const staffRef = ref(db, 'staff');
@@ -160,7 +217,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Function to fetch teachers for all courses
   const fetchCourseTeachers = async () => {
     const db = getDatabase();
     const coursesRef = ref(db, 'courses');
@@ -171,7 +227,6 @@ export function AuthProvider({ children }) {
         const courses = snapshot.val();
         const teacherMapping = {};
 
-        // Process each course
         Object.entries(courses).forEach(([courseId, courseData]) => {
           if (courseData.Teachers && courseData.Teachers.length > 0) {
             const primaryTeacherKey = courseData.Teachers[0];
@@ -189,7 +244,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Function to get teacher info for a specific course
   const getTeacherForCourse = (courseId) => {
     const teacherKey = courseTeachers[courseId];
     if (teacherKey && staffMembers[teacherKey]) {
@@ -198,6 +252,7 @@ export function AuthProvider({ children }) {
     return null;
   };
 
+  // Updated auth state change handler
   useEffect(() => {
     let isMounted = true;
 
@@ -206,13 +261,13 @@ export function AuthProvider({ children }) {
         if (currentUser) {
           const emailKey = sanitizeEmail(currentUser.email);
           const staffStatus = checkIsStaff(currentUser);
+          const adminStatus = checkIsAdmin(currentUser);
+          const superAdminStatus = checkIsSuperAdmin(currentUser);
           
           let dataCreated = false;
           if (staffStatus) {
-            // Staff users don't need email verification
             dataCreated = await ensureStaffNode(currentUser, emailKey);
             if (dataCreated && isMounted) {
-              // Fetch staff and course data after successful login
               await Promise.all([
                 fetchStaffMembers(),
                 fetchCourseTeachers()
@@ -221,21 +276,22 @@ export function AuthProvider({ children }) {
               setUser(currentUser);
               setUserEmailKey(emailKey);
               setIsStaffUser(true);
+              setIsAdminUser(adminStatus);
+              setIsSuperAdminUser(superAdminStatus);
               
-              // Redirect staff to teacher dashboard if on staff-login page
               if (location.pathname.toLowerCase() === '/staff-login') {
                 navigate('/teacher-dashboard');
               }
             }
           } else {
-            // Regular users need email verification
             dataCreated = await ensureUserNode(currentUser, emailKey);
             if (dataCreated && isMounted) {
               setUser(currentUser);
               setUserEmailKey(emailKey);
               setIsStaffUser(false);
+              setIsAdminUser(false);
+              setIsSuperAdminUser(false);
               
-              // Redirect students to dashboard if on login page
               if (location.pathname.toLowerCase() === '/login') {
                 navigate('/dashboard');
               }
@@ -246,13 +302,19 @@ export function AuthProvider({ children }) {
             setUser(null);
             setUserEmailKey(null);
             setIsStaffUser(false);
+            setIsAdminUser(false);
+            setIsSuperAdminUser(false);
             setCourseTeachers({});
             setStaffMembers({});
+            setEmulatedUser(null);
+            setEmulatedUserEmailKey(null);
+            setIsEmulating(false);
+            setIsMigratedUser(false);
 
-            // Only redirect if not on a public route
-            const currentPath = location.pathname.toLowerCase();
+            const currentPath = location.pathname;
             if (!isPublicRoute(currentPath)) {
-              if (currentPath.includes('teacher') || currentPath === '/courses') {
+              if (currentPath.toLowerCase().includes('teacher') || 
+                  currentPath.toLowerCase() === '/courses') {
                 navigate('/staff-login');
               } else {
                 navigate('/login');
@@ -266,8 +328,14 @@ export function AuthProvider({ children }) {
           setUser(null);
           setUserEmailKey(null);
           setIsStaffUser(false);
+          setIsAdminUser(false);
+          setIsSuperAdminUser(false);
           setCourseTeachers({});
           setStaffMembers({});
+          setEmulatedUser(null);
+          setEmulatedUserEmailKey(null);
+          setIsEmulating(false);
+          setIsMigratedUser(false);
         }
       } finally {
         if (isMounted) {
@@ -289,8 +357,15 @@ export function AuthProvider({ children }) {
       setUser(null);
       setUserEmailKey(null);
       setIsStaffUser(false);
+      setIsAdminUser(false);
+      setIsSuperAdminUser(false);
       setCourseTeachers({});
       setStaffMembers({});
+      setEmulatedUser(null);
+      setEmulatedUserEmailKey(null);
+      setIsEmulating(false);
+      setIsMigratedUser(false);
+      
       navigate(wasStaff ? '/staff-login' : '/login');
     } catch (error) {
       console.error("Error signing out:", error);
@@ -302,18 +377,101 @@ export function AuthProvider({ children }) {
     return checkIsStaff(user);
   };
 
+  // Start emulation function
+  const startEmulation = async (studentEmail) => {
+    if (!isStaffUser) {
+      console.error("Only staff members can emulate students");
+      return false;
+    }
+
+    try {
+      const db = getDatabase();
+      const emailKey = sanitizeEmail(studentEmail);
+      const studentRef = ref(db, `students/${emailKey}`);
+      const snapshot = await get(studentRef);
+
+      if (snapshot.exists()) {
+        const studentData = snapshot.val();
+        
+        const emulatedUserData = {
+          email: studentEmail,
+          emailVerified: true,
+          profile: studentData.profile || null
+        };
+
+        setEmulatedUser(emulatedUserData);
+        setEmulatedUserEmailKey(emailKey);
+        setIsEmulating(true);
+        return true;
+      } else {
+        console.error("Student not found");
+        return false;
+      }
+    } catch (error) {
+      console.error("Error starting emulation:", error);
+      return false;
+    }
+  };
+
+  // Stop emulation function
+  const stopEmulation = () => {
+    setEmulatedUser(null);
+    setEmulatedUserEmailKey(null);
+    setIsEmulating(false);
+    navigate('/teacher-dashboard');
+  };
+
+  // Helper function to check migration status
+  const checkMigrationStatus = async (email) => {
+    const db = getDatabase();
+    const emailKey = sanitizeEmail(email);
+    const studentsRef = ref(db, `students/${emailKey}`);
+    const snapshot = await get(studentsRef);
+    return snapshot.exists();
+  };
+
   const value = {
+    // Original auth values
     user,
     user_email_key,
     loading,
     isStaff,
     isStaffUser,
+    isAdminUser,
+    isSuperAdminUser,
     ensureStaffNode,
     ensureUserNode,
     signOut,
     courseTeachers,
     staffMembers,
-    getTeacherForCourse
+    getTeacherForCourse,
+    
+    // Emulation values 
+    emulatedUser,
+    emulatedUserEmailKey,
+    isEmulating,
+    startEmulation,
+    stopEmulation,
+    
+    // Current user with migration status
+    currentUser: isEmulating ? {
+      ...emulatedUser,
+      uid: user ? user.uid : null,
+      isMigratedUser: false // Emulated users aren't considered migrated
+    } : user ? {
+      ...user,
+      isMigratedUser // Include the migration status for regular users
+    } : null,
+    
+    current_user_email_key: isEmulating ? emulatedUserEmailKey : user_email_key,
+
+    // Admin access helpers
+    hasAdminAccess: () => isStaffUser && isAdminUser,
+    hasSuperAdminAccess: () => isStaffUser && isSuperAdminUser,
+
+    // Migration related values and functions
+    isMigratedUser,
+    checkMigrationStatus
   };
 
   return (

@@ -32,13 +32,14 @@ import IcsUpload from '../Schedule/IcsUpload';
 import Notifications from '../Notifications/Notifications';
 import AIChatApp from '../AI/AIChatApp';
 import EmailComponent from '../email/EmailComponent';
-import PricingComponent from '../config/PricingComponent'; 
+import PricingComponent from '../config/PricingComponent';
+import OrgChart from '../OrgChart/OrgChart';
 import { getDatabase, ref, get, onValue } from 'firebase/database';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import NavItemWithIndicator from '../Notifications/NavItemWithIndicator';
 
 function TeacherDashboard() {
-  const { user, isStaff } = useAuth();
+  const { user, isStaff, hasAdminAccess } = useAuth();
   const { isFullScreen, setIsFullScreen } = useLayout();
   const [activeSection, setActiveSection] = useState('react-dashboard');
   const [isChatExpanded, setIsChatExpanded] = useState(false);
@@ -96,35 +97,98 @@ function TeacherDashboard() {
     return <AIChatApp />;
   }, []);
 
-  const navItems = [
-    { icon: Grid, label: 'React Dashboard', key: 'react-dashboard' },
-    { icon: Layout, label: 'PowerApps Dashboard', key: 'powerapps-dashboard' },
-    { 
-      icon: Bell, 
-      label: 'Notifications', 
-      key: 'notifications', 
-      showIndicator: unreadChatsCount > 0,
-      indicatorCount: unreadChatsCount
-    },
-    { icon: MessageSquare, label: 'Chats', key: 'chat' },
-    { icon: Bot, label: 'AI Chat', key: 'ai-chat' },
-    { icon: Mail, label: 'Email', key: 'email' },
-    { icon: BookOpen, label: 'Courses', key: 'courses' },
-    { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
-    { icon: Link, label: 'Links', key: 'external-links' },
-    { 
-      icon: Settings, 
-      label: 'Admin', 
-      key: 'admin', 
-      subItems: [
-        { icon: DollarSign, label: 'Pricing', key: 'pricing' }, // New pricing menu item
-        { icon: BarChart2, label: 'Reports', key: 'reports' },
-        { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' }
-      ]
-    },
-  ];
+  // Update navItems to be dynamic based on admin access
+  const navItems = useMemo(() => {
+    const baseItems = [
+      { icon: Grid, label: 'React Dashboard', key: 'react-dashboard' },
+      { icon: Layout, label: 'PowerApps Dashboard', key: 'powerapps-dashboard' },
+      { 
+        icon: Bell, 
+        label: 'Notifications', 
+        key: 'notifications', 
+        showIndicator: unreadChatsCount > 0,
+        indicatorCount: unreadChatsCount
+      },
+      { icon: MessageSquare, label: 'Chats', key: 'chat' },
+      { icon: Bot, label: 'AI Chat', key: 'ai-chat' },
+      { icon: Mail, label: 'Email', key: 'email' },
+      { icon: BookOpen, label: 'Courses', key: 'courses' },
+      { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
+      { icon: Link, label: 'Links', key: 'external-links' },
+      { icon: Users, label: 'Org Chart', key: 'org-chart' },
+    ];
 
+    // Only add admin items if user has admin access
+    if (hasAdminAccess()) {
+      baseItems.push({
+        icon: Settings,
+        label: 'Admin',
+        key: 'admin',
+        subItems: [
+          { icon: DollarSign, label: 'Pricing', key: 'pricing' },
+          { icon: BarChart2, label: 'Reports', key: 'reports' },
+          { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' }
+        ]
+      });
+    }
+
+    return baseItems;
+  }, [unreadChatsCount, hasAdminAccess]);
+
+  const renderContent = () => {
+    // Check for admin-only sections
+    const adminOnlySections = ['pricing', 'reports', 'contractor-invoices'];
+    if (adminOnlySections.includes(activeSection) && !hasAdminAccess()) {
+      return <div className="p-4">Access Denied. This section requires admin privileges.</div>;
+    }
+
+    switch (activeSection) {
+      case 'chat':
+        return memoizedChatApp;
+      case 'ai-chat':
+        return memoizedAIChatApp;
+      case 'courses':
+        return <Courses />;
+      case 'students':
+      case 'react-dashboard':
+        return <StudentManagement isFullScreen={isFullScreen} onFullScreenToggle={toggleFullScreen} />;
+      case 'powerapps-dashboard':
+        return (
+          <iframe
+            src="https://apps.powerapps.com/play/e42ed678-5bbd-43fc-8c9c-e15ff3b181a8?source=iframe"
+            title="Teacher Portal PowerApp"
+            className="w-full h-full border-none rounded-lg"
+          />
+        );
+      case 'external-links':
+        return <ExternalLinks />;
+      case 'calendar-creator':
+        return <IcsUpload />;
+      case 'notifications':
+        return <Notifications />;
+      case 'contractor-invoices':
+        return <ContractorInvoiceSummary invoicesData={invoicesData} />;
+      case 'pricing':
+        return <PricingComponent />;
+      case 'email':
+        return <EmailComponent />;
+      case 'org-chart':
+        return <OrgChart />;
+      default:
+        return null;
+    }
+  };
+
+  // Update handleNavItemClick to handle unauthorized access attempts
   const handleNavItemClick = (key) => {
+    const adminOnlySections = ['pricing', 'reports', 'contractor-invoices'];
+
+    if (adminOnlySections.includes(key) && !hasAdminAccess()) {
+      // Optionally show a toast or alert here
+      alert('Access Denied. You do not have the necessary permissions to access this section.');
+      return;
+    }
+
     setActiveSection(activeSection === key ? null : key);
     setIsFullScreen(false);
     setIsChatExpanded(key === 'chat' || key === 'ai-chat');
@@ -171,43 +235,6 @@ function TeacherDashboard() {
       ))}
     </nav>
   );
-
-  const renderContent = () => {
-    switch (activeSection) {
-      case 'chat':
-        return memoizedChatApp;
-      case 'ai-chat':
-        return memoizedAIChatApp;
-    
-      case 'courses':
-        return <Courses />;
-      case 'students':
-      case 'react-dashboard':
-        return <StudentManagement isFullScreen={isFullScreen} onFullScreenToggle={toggleFullScreen} />;
-      case 'powerapps-dashboard':
-        return (
-          <iframe
-            src="https://apps.powerapps.com/play/e42ed678-5bbd-43fc-8c9c-e15ff3b181a8?source=iframe"
-            title="Teacher Portal PowerApp"
-            className="w-full h-full border-none rounded-lg"
-          />
-        );
-      case 'external-links':
-        return <ExternalLinks />;
-      case 'calendar-creator':
-        return <IcsUpload />;
-      case 'notifications':
-        return <Notifications />;
-      case 'contractor-invoices':
-        return <ContractorInvoiceSummary invoicesData={invoicesData} />;
-      case 'pricing':
-        return <PricingComponent />;
-      case 'email':
-        return <EmailComponent />;
-      default:
-        return null;
-    }
-  };
 
   if (!user || !isStaff(user)) {
     return <div className="p-4">Access Denied. This page is only for staff members.</div>;

@@ -12,7 +12,6 @@ import {
   MessageCircle
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
-import { sanitizeEmail } from '../utils/sanitizeEmail';
 import ChatApp from '../chat/ChatApp';
 import {
   Dialog,
@@ -22,7 +21,7 @@ import {
 } from "../components/ui/dialog";
 
 const Notifications = () => {
-  const { user } = useAuth();
+  const { currentUser, current_user_email_key, isEmulating } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [courses, setCourses] = useState({});
   const [loading, setLoading] = useState(true);
@@ -31,13 +30,12 @@ const Notifications = () => {
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [chatParticipants, setChatParticipants] = useState([]);
   const db = getDatabase();
-  const sanitizedEmail = user ? sanitizeEmail(user.email) : '';
 
   // Fetch notifications
   useEffect(() => {
-    if (!user) return;
+    if (!currentUser || !current_user_email_key) return;
 
-    const notificationsRef = ref(db, `notifications/${sanitizedEmail}`);
+    const notificationsRef = ref(db, `notifications/${current_user_email_key}`);
 
     const unsubscribe = onValue(notificationsRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -59,7 +57,7 @@ const Notifications = () => {
     });
 
     return () => unsubscribe();
-  }, [user, db, sanitizedEmail]);
+  }, [currentUser, current_user_email_key, db]);
 
   // Fetch course names for notifications
   useEffect(() => {
@@ -90,10 +88,10 @@ const Notifications = () => {
   // Mark a notification as read
   const markAsRead = useCallback(
     async (notificationId) => {
-      if (!user) return;
+      if (!currentUser || !current_user_email_key) return;
   
       try {
-        const notificationRef = ref(db, `notifications/${sanitizedEmail}/${notificationId}`);
+        const notificationRef = ref(db, `notifications/${current_user_email_key}/${notificationId}`);
         const notificationSnapshot = await get(notificationRef);
         
         if (notificationSnapshot.exists()) {
@@ -122,7 +120,7 @@ const Notifications = () => {
         console.error('Error marking notification as read:', error);
       }
     },
-    [db, sanitizedEmail, user]
+    [db, current_user_email_key, currentUser]
   );
 
   // Sanitize HTML content to prevent XSS
@@ -280,26 +278,26 @@ const Notifications = () => {
 
       {/* Chat Modal */}
       <Dialog open={isChatOpen} onOpenChange={handleCloseChatModal}>
-  <DialogContent className="max-w-[90vw] w-[1000px] h-[95vh] max-h-[900px] p-4 flex flex-col">
-    <DialogHeader className="mb-0 bg-white py-0">
-      <DialogTitle>
-        Messaging
-      </DialogTitle>
-    </DialogHeader>
-    <div className="flex-grow overflow-hidden rounded-lg border border-gray-200">
-      {selectedChatId && (
-        <ChatApp
-          mode="popup"
-          courseInfo={null}
-          courseTeachers={[]}
-          courseSupportStaff={[]}
-          initialParticipants={chatParticipants}
-          existingChatId={selectedChatId}
-        />
-      )}
-    </div>
-  </DialogContent>
-</Dialog>
+        <DialogContent className="max-w-[90vw] w-[1000px] h-[95vh] max-h-[900px] p-4 flex flex-col">
+          <DialogHeader className="mb-0 bg-white py-0">
+            <DialogTitle>
+              Messaging
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-grow overflow-hidden rounded-lg border border-gray-200">
+            {selectedChatId && (
+              <ChatApp
+                mode="popup"
+                courseInfo={null}
+                courseTeachers={[]}
+                courseSupportStaff={[]}
+                initialParticipants={chatParticipants}
+                existingChatId={selectedChatId}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

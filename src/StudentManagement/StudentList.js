@@ -61,7 +61,8 @@ function StudentList({
   user_email_key,
   selectedStudents,
   onSelectedStudentsChange,
-  isMobile
+  isMobile,
+  onCourseRemoved,
 }) {
   const { getTeacherForCourse } = useAuth();
   const [sortKey, setSortKey] = useState('lastName');
@@ -69,124 +70,157 @@ function StudentList({
 
   // Apply filters and search using useMemo for performance optimization
   
-  const filteredStudents = useMemo(() => {
-    return studentSummaries.filter((student) => {
-      // Handle hasSchedule filter
-      if (filters.hasSchedule?.length > 0) {
-        const shouldHaveSchedule = filters.hasSchedule[0];
-        const hasSchedule = Boolean(student.hasSchedule);
-        if (shouldHaveSchedule !== hasSchedule) {
-          return false;
-        }
-      }
-  
-      // Handle category filters
-      const matchesCategories = !filters.categories || filters.categories.length === 0 || 
-        filters.categories.some((teacherCat) => {
-          const teacherEmailKey = Object.keys(teacherCat)[0];
-          const categoryIds = teacherCat[teacherEmailKey];
-          return student.categories && 
-                 student.categories[teacherEmailKey] && 
-                 categoryIds.some(categoryId => student.categories[teacherEmailKey][categoryId] === true);
-        });
-  
-      if (!matchesCategories) {
+ // Inside the useMemo for filteredStudents in StudentList component
+const filteredStudents = useMemo(() => {
+  const normalizedSearchTerm = String(searchTerm || '').toLowerCase();
+  return studentSummaries.filter((student) => {
+    // Helper function to compare dates
+    const compareDates = (studentDate, filterDate) => {
+      if (!studentDate || !filterDate) return false;
+      const studentDateTime = new Date(studentDate).getTime();
+      const filterDateTime = new Date(filterDate).getTime();
+      return !isNaN(studentDateTime) && !isNaN(filterDateTime) ? { studentDateTime, filterDateTime } : false;
+    };
+
+    // Handle hasSchedule filter
+    if (filters.hasSchedule?.length > 0) {
+      const shouldHaveSchedule = filters.hasSchedule[0];
+      const hasSchedule = Boolean(student.hasSchedule);
+      if (shouldHaveSchedule !== hasSchedule) {
         return false;
       }
-  
-      // Handle all other filters
-      const matchesFilters = Object.keys(filters).every((filterKey) => {
-        // Skip special filter cases
-        if (filterKey === 'hasSchedule' || filterKey === 'categories') return true;
-        
-        // Handle date filters
-        if (filterKey === 'dateFilters') {
-          if (!filters.dateFilters || Object.keys(filters.dateFilters).length === 0) return true;
-          
-          // Handle Created date filters
-          if (filters.dateFilters.created) {
-            if (!student.Created) return false;
-            const createdDate = new Date(student.Created);
-            if (isNaN(createdDate.getTime())) return false;
-  
-            if (filters.dateFilters.created.after && createdDate < new Date(filters.dateFilters.created.after)) {
-              return false;
-            }
-            if (filters.dateFilters.created.before && createdDate > new Date(filters.dateFilters.created.before)) {
-              return false;
-            }
-            if (filters.dateFilters.created.between) {
-              const { start, end } = filters.dateFilters.created.between;
-              if (createdDate < new Date(start) || createdDate > new Date(end)) {
-                return false;
-              }
-            }
-          }
-  
-          // Handle Schedule Start date filters
-          if (filters.dateFilters.scheduleStart) {
-            if (!student.ScheduleStartDate) return false;
-            const startDate = new Date(student.ScheduleStartDate);
-            if (isNaN(startDate.getTime())) return false;
-  
-            if (filters.dateFilters.scheduleStart.after && startDate < new Date(filters.dateFilters.scheduleStart.after)) {
-              return false;
-            }
-            if (filters.dateFilters.scheduleStart.before && startDate > new Date(filters.dateFilters.scheduleStart.before)) {
-              return false;
-            }
-            if (filters.dateFilters.scheduleStart.between) {
-              const { start, end } = filters.dateFilters.scheduleStart.between;
-              if (startDate < new Date(start) || startDate > new Date(end)) {
-                return false;
-              }
-            }
-          }
-  
-          // Handle Schedule End date filters
-          if (filters.dateFilters.scheduleEnd) {
-            if (!student.ScheduleEndDate) return false;
-            const endDate = new Date(student.ScheduleEndDate);
-            if (isNaN(endDate.getTime())) return false;
-  
-            if (filters.dateFilters.scheduleEnd.after && endDate < new Date(filters.dateFilters.scheduleEnd.after)) {
-              return false;
-            }
-            if (filters.dateFilters.scheduleEnd.before && endDate > new Date(filters.dateFilters.scheduleEnd.before)) {
-              return false;
-            }
-            if (filters.dateFilters.scheduleEnd.between) {
-              const { start, end } = filters.dateFilters.scheduleEnd.between;
-              if (endDate < new Date(start) || endDate > new Date(end)) {
-                return false;
-              }
-            }
-          }
-  
-          return true;
-        }
-  
-        // Handle regular array-based filters
-        if (!Array.isArray(filters[filterKey])) return true;
-        if (filters[filterKey].length === 0) return true;
-        
-        const studentValue = String(student[filterKey] || '').toLowerCase();
-        return filters[filterKey].some(
-          (filterValue) => String(filterValue).toLowerCase() === studentValue
-        );
-      });
-  
-      // Handle search term
-      const matchesSearch =
-        searchTerm === '' ||
-        student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.StudentEmail.toLowerCase().includes(searchTerm.toLowerCase());
-  
-      return matchesFilters && matchesSearch;
-    });
-  }, [studentSummaries, filters, searchTerm]);
+    }
 
+    // Handle category filters
+    const matchesCategories = !filters.categories || filters.categories.length === 0 || 
+      filters.categories.some((teacherCat) => {
+        const teacherEmailKey = Object.keys(teacherCat)[0];
+        const categoryIds = teacherCat[teacherEmailKey];
+        return student.categories && 
+               student.categories[teacherEmailKey] && 
+               categoryIds.some(categoryId => student.categories[teacherEmailKey][categoryId] === true);
+      });
+
+    if (!matchesCategories) {
+      return false;
+    }
+
+    // Handle all other filters
+    const matchesFilters = Object.keys(filters).every((filterKey) => {
+      // Skip special filter cases
+      if (filterKey === 'hasSchedule' || filterKey === 'categories') return true;
+      
+      // Handle date filters
+      if (filterKey === 'dateFilters') {
+        if (!filters.dateFilters || Object.keys(filters.dateFilters).length === 0) return true;
+        
+        // Handle Created date filters
+        if (filters.dateFilters.created) {
+          const createdFilter = filters.dateFilters.created;
+          
+          if (createdFilter.between) {
+            const startComparison = compareDates(student.Created, createdFilter.between.start);
+            const endComparison = compareDates(student.Created, createdFilter.between.end);
+            
+            if (!startComparison || !endComparison) return false;
+            
+            return startComparison.studentDateTime >= startComparison.filterDateTime && 
+                   endComparison.studentDateTime <= endComparison.filterDateTime;
+          }
+          
+          if (createdFilter.after) {
+            const comparison = compareDates(student.Created, createdFilter.after);
+            return comparison && comparison.studentDateTime >= comparison.filterDateTime;
+          }
+          
+          if (createdFilter.before) {
+            const comparison = compareDates(student.Created, createdFilter.before);
+            return comparison && comparison.studentDateTime <= comparison.filterDateTime;
+          }
+        }
+
+        // Handle Schedule Start date filters
+        if (filters.dateFilters.scheduleStart) {
+          const startFilter = filters.dateFilters.scheduleStart;
+          
+          if (startFilter.between) {
+            const startComparison = compareDates(student.ScheduleStartDate, startFilter.between.start);
+            const endComparison = compareDates(student.ScheduleStartDate, startFilter.between.end);
+            
+            if (!startComparison || !endComparison) return false;
+            
+            return startComparison.studentDateTime >= startComparison.filterDateTime && 
+                   endComparison.studentDateTime <= endComparison.filterDateTime;
+          }
+          
+          if (startFilter.after) {
+            const comparison = compareDates(student.ScheduleStartDate, startFilter.after);
+            return comparison && comparison.studentDateTime >= comparison.filterDateTime;
+          }
+          
+          if (startFilter.before) {
+            const comparison = compareDates(student.ScheduleStartDate, startFilter.before);
+            return comparison && comparison.studentDateTime <= comparison.filterDateTime;
+          }
+        }
+
+        // Handle Schedule End date filters
+        if (filters.dateFilters.scheduleEnd) {
+          const endFilter = filters.dateFilters.scheduleEnd;
+          
+          if (endFilter.between) {
+            const startComparison = compareDates(student.ScheduleEndDate, endFilter.between.start);
+            const endComparison = compareDates(student.ScheduleEndDate, endFilter.between.end);
+            
+            if (!startComparison || !endComparison) return false;
+            
+            return startComparison.studentDateTime >= startComparison.filterDateTime && 
+                   endComparison.studentDateTime <= endComparison.filterDateTime;
+          }
+          
+          if (endFilter.after) {
+            const comparison = compareDates(student.ScheduleEndDate, endFilter.after);
+            return comparison && comparison.studentDateTime >= comparison.filterDateTime;
+          }
+          
+          if (endFilter.before) {
+            const comparison = compareDates(student.ScheduleEndDate, endFilter.before);
+            return comparison && comparison.studentDateTime <= comparison.filterDateTime;
+          }
+        }
+
+        return true;
+      }
+
+      // Handle CourseID specifically
+      if (filterKey === 'CourseID') {
+        if (!Array.isArray(filters[filterKey]) || filters[filterKey].length === 0) return true;
+        return filters[filterKey].includes(String(student.CourseID));
+      }
+
+      // Handle regular array-based filters
+      if (!Array.isArray(filters[filterKey])) return true;
+      if (filters[filterKey].length === 0) return true;
+      
+      // Skip Course_Value since we're using CourseID now
+      if (filterKey === 'Course_Value') return true;
+      
+      const studentValue = String(student[filterKey] || '').toLowerCase();
+      return filters[filterKey].some(
+        (filterValue) => String(filterValue).toLowerCase() === studentValue
+      );
+    });
+
+    // Handle search term
+    const matchesSearch =
+    !normalizedSearchTerm || 
+    String(student.firstName || '').toLowerCase().includes(normalizedSearchTerm) ||
+    String(student.lastName || '').toLowerCase().includes(normalizedSearchTerm) ||
+    String(student.StudentEmail || '').toLowerCase().includes(normalizedSearchTerm);
+
+  return matchesFilters && matchesSearch;
+});
+}, [studentSummaries, filters, searchTerm]);
   // Sorting using useMemo for performance optimization
   const sortedStudents = useMemo(() => {
     return [...filteredStudents].sort((a, b) => {
@@ -381,33 +415,38 @@ function StudentList({
 
       {/* Student List Section */}
       <div className="flex-1 overflow-auto">
-        <Virtuoso
-          style={{ height: '100%' }}
-          totalCount={sortedStudents.length}
-          itemContent={(index) => (
-            <div className="px-2">
-              <StudentCard
-                student={sortedStudents[index]}
-                index={index}
-                selectedStudentId={selectedStudentId}
-                onStudentSelect={() => handleCardClick(sortedStudents[index])}
-                isSelected={selectedStudents.has(sortedStudents[index].id)}
-                onSelectionChange={(checked) => handleStudentSelect(sortedStudents[index].id, checked)}
-                courseInfo={courseInfo}
-                courseTeachers={courseTeachers}
-                courseSupportStaff={courseSupportStaff}
-                teacherCategories={teacherCategories}
-                user_email_key={user_email_key}
-                isMobile={isMobile}
-              />
-            </div>
-          )}
-          components={{
-            EmptyPlaceholder: () => (
-              <p className="text-center text-gray-500 py-4">No students match the selected filters.</p>
-            ),
-          }}
+      <Virtuoso
+  style={{ height: '100%' }}
+  totalCount={sortedStudents.length}
+  itemContent={(index) => {
+    const student = sortedStudents[index];
+    return (
+      <div className="px-2" key={student.id}>
+        <StudentCard
+          key={student.id}
+          student={student}
+          index={index}
+          selectedStudentId={selectedStudentId}
+          onStudentSelect={() => handleCardClick(student)}
+          isSelected={selectedStudents.has(student.id)}
+          onSelectionChange={(checked) => handleStudentSelect(student.id, checked)}
+          courseInfo={courseInfo}
+          courseTeachers={courseTeachers}
+          courseSupportStaff={courseSupportStaff}
+          teacherCategories={teacherCategories}
+          user_email_key={user_email_key}
+          isMobile={isMobile}
+          onCourseRemoved={onCourseRemoved}
         />
+      </div>
+    );
+  }}
+  components={{
+    EmptyPlaceholder: () => (
+      <p className="text-center text-gray-500 py-4">No students match the selected filters.</p>
+    ),
+  }}
+/>
       </div>
     </div>
   );
