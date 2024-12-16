@@ -9,7 +9,7 @@ import { ScrollArea } from "../components/ui/scroll-area";
 import { Badge } from "../components/ui/badge";
 import { Label } from "../components/ui/label";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
-import { CalendarIcon, FilterIcon, XCircleIcon } from 'lucide-react';
+import { CalendarIcon, FilterIcon, XCircleIcon,BookOpen } from 'lucide-react';
 import { format } from 'date-fns';
 import { useUserPreferences } from '../context/UserPreferencesContext';
 import { getDatabase, ref, get } from 'firebase/database';
@@ -18,9 +18,12 @@ import {
   STUDENT_TYPE_OPTIONS,
   ACTIVE_FUTURE_ARCHIVED_OPTIONS,
   DIPLOMA_MONTH_OPTIONS,
-  getSchoolYearOptions
+  getSchoolYearOptions,
+  COURSE_OPTIONS,
+  getCourseInfo
 } from '../config/DropdownOptions';
 
+// Option components
 const StatusOption = ({ data, children, ...props }) => {
   const option = STATUS_OPTIONS.find(opt => opt.value === data.value) || data;
   const color = option?.color || '#6B7280'; // Fallback color
@@ -56,7 +59,31 @@ const StudentTypeOption = ({ data, children, ...props }) => {
   );
 };
 
-// Separate component for date display
+// New CourseOption component
+const CourseOption = ({ data, children, ...props }) => {
+  // Try to find matching predefined course using courseId
+  const predefinedCourse = COURSE_OPTIONS.find(opt => String(opt.courseId) === String(data.value));
+  const Icon = predefinedCourse?.icon || BookOpen;
+  
+  return (
+    <components.Option {...props}>
+      <div className="flex items-center">
+        {Icon && React.createElement(Icon, {
+          className: "w-4 h-4 mr-2",
+          style: { color: predefinedCourse?.color || '#6B7280' }
+        })}
+        <span className="flex-1">{children}</span>
+        {predefinedCourse?.grade && (
+          <span className="ml-2 text-sm text-gray-500">
+            Grade {predefinedCourse.grade}
+          </span>
+        )}
+      </div>
+    </components.Option>
+  );
+};
+
+// DateDisplay component
 const DateDisplay = ({ date, placeholder }) => {
   if (!date) {
     return (
@@ -66,6 +93,7 @@ const DateDisplay = ({ date, placeholder }) => {
   return format(new Date(date), 'MMM d, yyyy');
 };
 
+// DateRangeFilter component
 const DateRangeFilter = ({ 
   title, 
   filterType,
@@ -155,6 +183,7 @@ const DateRangeFilter = ({
   );
 };
 
+// AdvancedFilters component
 const AdvancedFilters = ({ 
   children,
   onFilterChange, 
@@ -165,17 +194,79 @@ const AdvancedFilters = ({
 }) => {
   const { updateFilterPreferences } = useUserPreferences();
   const [courseTitles, setCourseTitles] = useState({});
-  
-  // Migration status state
   const [migrationStatus, setMigrationStatus] = useState('all');
+  const [dynamicOptions, setDynamicOptions] = useState({});
 
-  // Fetch course titles
+  // Extract unique values from studentSummaries for each filter field
+  useEffect(() => {
+    const extractUniqueValues = () => {
+      const options = {};
+      
+      availableFilters.forEach(({ key }) => {
+        if (key === 'CourseID') return; // Handle courses separately
+        
+        // Get all unique values including null/empty
+        const values = new Set(studentSummaries.map(student => student[key] || ''));
+        
+        // Get the corresponding predefined options object
+        let predefinedOptions;
+        switch (key) {
+          case 'Status_Value':
+            predefinedOptions = STATUS_OPTIONS;
+            break;
+          case 'StudentType_Value':
+            predefinedOptions = STUDENT_TYPE_OPTIONS;
+            break;
+          case 'ActiveFutureArchived_Value':
+            predefinedOptions = ACTIVE_FUTURE_ARCHIVED_OPTIONS;
+            break;
+          case 'DiplomaMonthChoices_Value':
+            predefinedOptions = DIPLOMA_MONTH_OPTIONS;
+            break;
+          case 'School_x0020_Year_Value':
+            predefinedOptions = getSchoolYearOptions();
+            break;
+          default:
+            predefinedOptions = [];
+        }
+
+        // Create options array combining actual values with predefined styling
+        options[key] = Array.from(values).map(value => {
+          const predefinedOption = predefinedOptions.find(opt => opt.value === value);
+          return {
+            value: value,
+            label: value === null || value === undefined || value === '' ? '(Empty)' : String(value),
+            ...(predefinedOption && {
+              color: predefinedOption.color,
+              icon: predefinedOption.icon
+            })
+          };
+        }).sort((a, b) => {
+          // Handle empty values
+          if (a.label === '(Empty)' && b.label !== '(Empty)') return -1;
+          if (b.label === '(Empty)' && a.label !== '(Empty)') return 1;
+          
+          // Convert to strings for comparison
+          const labelA = String(a.label || '');
+          const labelB = String(b.label || '');
+          
+          return labelA.localeCompare(labelB);
+        });
+      });
+
+      setDynamicOptions(options);
+    };
+
+    extractUniqueValues();
+  }, [studentSummaries, availableFilters]);
+
+  // Updated course title fetching logic
   useEffect(() => {
     const fetchCourseTitles = async () => {
       const db = getDatabase();
       const uniqueCourseIds = [...new Set(
         studentSummaries
-          .map(s => String(s.CourseID)) // Ensure IDs are strings
+          .map(s => String(s.CourseID))
           .filter(id => id !== undefined && id !== null)
       )];
     
@@ -189,8 +280,23 @@ const AdvancedFilters = ({
     
         const titles = await Promise.all(titlePromises);
         const titleMap = titles.reduce((acc, { courseId, title }) => {
-          if (title && typeof title === 'string') { // Only include courses with valid titles
-            acc[courseId] = title;
+          // Try to find matching predefined course
+          const predefinedCourse = COURSE_OPTIONS.find(opt => String(opt.courseId) === String(courseId));
+          
+          if (predefinedCourse) {
+            // Use predefined course information
+            acc[courseId] = {
+              title: predefinedCourse.value,
+              predefinedCourse: true,
+              ...predefinedCourse
+            };
+          } else if (title && typeof title === 'string') {
+            // Use database title for unknown courses
+            acc[courseId] = {
+              title,
+              value: title,
+              predefinedCourse: false
+            };
           }
           return acc;
         }, {});
@@ -220,7 +326,11 @@ const AdvancedFilters = ({
     if (dateFilters.scheduleEnd && Object.keys(dateFilters.scheduleEnd).length) count++;
     if (currentFilters.hasSchedule?.length > 0) count++;
     Object.keys(currentFilters).forEach(key => {
-      if (key !== 'dateFilters' && Array.isArray(currentFilters[key]) && currentFilters[key].length > 0) count++;
+      if (key !== 'dateFilters' && key !== 'hasSchedule') {
+        if (Array.isArray(currentFilters[key]) && currentFilters[key].length > 0) {
+          count++;
+        }
+      }
     });
     return count;
   };
@@ -287,9 +397,9 @@ const AdvancedFilters = ({
     if (key === 'Course_Value' || key === 'categories') {
       return null;
     }
-  
+
     let selectConfig = {
-      options: [],
+      options: dynamicOptions[key] || [],
       components: {},
       styles: {
         option: (provided, state) => ({
@@ -319,66 +429,66 @@ const AdvancedFilters = ({
         })
       }
     };
-  
-    switch (key) {
-      case 'Status_Value':
-        selectConfig.options = STATUS_OPTIONS.map(opt => ({
-          value: opt.value,
-          label: opt.value,
-          color: opt.color,
-          category: opt.category
-        }));
-        selectConfig.components = { Option: StatusOption };
-        break;
-  
-      case 'StudentType_Value':
-        selectConfig.options = STUDENT_TYPE_OPTIONS.map(opt => ({
-          value: opt.value,
-          label: opt.value,
-          color: opt.color,
-          icon: opt.icon
-        }));
-        selectConfig.components = { Option: StudentTypeOption };
-        break;
-  
-      case 'ActiveFutureArchived_Value':
-        selectConfig.options = ACTIVE_FUTURE_ARCHIVED_OPTIONS.map(opt => ({
-          value: opt.value,
-          label: opt.value,
-          color: opt.color
-        }));
-        break;
-  
-      case 'DiplomaMonthChoices_Value':
-        selectConfig.options = DIPLOMA_MONTH_OPTIONS.map(opt => ({
-          value: opt.value,
-          label: opt.label || opt.value,
-          color: opt.color
-        }));
-        break;
-  
-      case 'School_x0020_Year_Value':
-        selectConfig.options = getSchoolYearOptions().map(opt => ({
-          value: opt.value,
-          label: opt.value,
-          color: opt.color
-        }));
-        break;
-  
-      case 'CourseID':
-        selectConfig.options = Object.entries(courseTitles)
-          .sort((a, b) => a[1].localeCompare(b[1]))
-          .map(([id, title]) => ({
-            value: String(id),
-            label: title
-          }))
-          .filter(option => option.label && !option.label.startsWith('Course '));
-        break;
-  
-      default:
-        selectConfig.options = filterOptions[key] || [];
+
+    // Add specific components based on filter type
+    if (key === 'Status_Value') {
+      selectConfig.components = { Option: StatusOption };
+    } else if (key === 'StudentType_Value') {
+      selectConfig.components = { Option: StudentTypeOption };
     }
-  
+
+    // Updated CourseID handling
+    if (key === 'CourseID') {
+      selectConfig.components = {
+        Option: CourseOption,
+        MultiValue: ({ data, ...props }) => {
+          // Try to find matching predefined course using courseId
+          const predefinedCourse = COURSE_OPTIONS.find(opt => String(opt.courseId) === String(data.value));
+          const Icon = predefinedCourse?.icon || BookOpen;
+          
+          return (
+            <components.MultiValue {...props}>
+              <div className="flex items-center">
+                {Icon && React.createElement(Icon, {
+                  className: "w-3 h-3 mr-1",
+                  style: { color: predefinedCourse?.color || '#6B7280' }
+                })}
+                {data.label}
+              </div>
+            </components.MultiValue>
+          );
+        }
+      };
+
+      selectConfig.options = Object.entries(courseTitles)
+    .map(([id, courseInfo]) => ({
+      value: id, // Change this to use the courseId as the value
+      label: courseInfo.title,
+      courseId: id,
+      ...(courseInfo.predefinedCourse && {
+        color: courseInfo.color,
+        icon: courseInfo.icon,
+        grade: courseInfo.grade,
+        courseType: courseInfo.courseType
+      })
+    }))
+    .sort((a, b) => {
+      // Sort by grade first (if available)
+      const gradeA = a.grade || 0;
+      const gradeB = b.grade || 0;
+      if (gradeA !== gradeB) return gradeA - gradeB;
+      
+      // Then by course type
+      const typeA = a.courseType || '';
+      const typeB = b.courseType || '';
+      if (typeA !== typeB) return typeA.localeCompare(typeB);
+      
+      // Finally by title
+      return a.label.localeCompare(b.label);
+    })
+    .filter(option => option.label && !option.label.startsWith('Course '));
+}
+
     return (
       <div key={key} className="flex items-center space-x-4">
         <Label className="font-medium text-gray-700 min-w-[120px]">
@@ -397,6 +507,8 @@ const AdvancedFilters = ({
           classNamePrefix="select"
           placeholder={`Select ${label.toLowerCase()}`}
           styles={selectConfig.styles}
+          menuPlacement="auto"  
+          menuPosition="fixed" 
         />
       </div>
     );

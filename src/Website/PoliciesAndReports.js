@@ -78,8 +78,8 @@ const PoliciesAndReports = () => {
             <Tabs defaultValue="policies" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="policies">Policies</TabsTrigger>
-                <TabsTrigger value="aerr">Current AERR</TabsTrigger>
-                <TabsTrigger value="documents">Documents & Archive</TabsTrigger>
+                <TabsTrigger value="aerr">AERR 23/24</TabsTrigger>
+                <TabsTrigger value="documents">Documents</TabsTrigger>
               </TabsList>
               
               <TabsContent value="policies">

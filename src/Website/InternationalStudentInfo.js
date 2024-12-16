@@ -12,7 +12,7 @@ import NewUserSignUp from '../Registration/NewUserSignUp';
 import YourWayScheduleMaker from '../Schedule/YourWayScheduleMaker';
 import { getPricingForStudentType } from '../config/pricingConfig';
 
-// Constants for triangle animation
+// Constants for triangle animation (using blue/teal colors for international theme)
 const TRIANGLE_SIZE = 220;
 const MOVEMENT_SPEED = 0.2;
 const ROTATION_SPEED = 0.001;
@@ -27,14 +27,14 @@ const RTDLogo = () => (
     aria-label="RTD Academy Logo"
   >
     <g transform="translate(10, 25)">
-      <polygon points="40 0 46.5 12 53 24 40 24 27 24 33.5 12 40 0" fill="#008B8B"/>
-      <polygon points="53 24 59.5 36 66 48 53 48 40 48 46.5 36 53 24" fill="#E0FFFF"/>
-      <polygon points="27 24 33.5 36 40 48 27 48 14 48 20.5 36 27 24" fill="#20B2AA"/>
+      <polygon points="40 0 46.5 12 53 24 40 24 27 24 33.5 12 40 0" fill="#4169E1"/>
+      <polygon points="53 24 59.5 36 66 48 53 48 40 48 46.5 36 53 24" fill="#E6E6FA"/>
+      <polygon points="27 24 33.5 36 40 48 27 48 14 48 20.5 36 27 24" fill="#1E90FF"/>
     </g>
   </svg>
 );
 
-// MovingTriangle Component for animated background triangles
+// MovingTriangle Component remains the same as in AdultStudentInfo
 const MovingTriangle = ({ color, initialX, initialY, initialAngle }) => {
   const [position, setPosition] = useState({ x: initialX, y: initialY });
   const [angle, setAngle] = useState(initialAngle);
@@ -123,10 +123,10 @@ const FeatureCard = ({ title, children, className = '' }) => (
   </AnimatedCard>
 );
 
-// Main AdultStudentInfo Component
-const AdultStudentInfo = () => {
+// Main InternationalStudentInfo Component
+const InternationalStudentInfo = () => {
   // Get pricing data from config
-  const pricingData = getPricingForStudentType('adultStudents');
+  const pricingData = getPricingForStudentType('internationalStudents');
 
   const handleBackClick = () => {
     window.location.href = 'https://www.rtdacademy.com/';
@@ -156,19 +156,19 @@ const AdultStudentInfo = () => {
       <div className="fixed inset-0 w-screen h-screen overflow-hidden pointer-events-none">
         <svg width="100%" height="100%" className="absolute top-0 left-0">
           <MovingTriangle
-            color="#49a3a6"
+            color="#4169E1"
             initialX={-100}
             initialY={-100}
             initialAngle={Math.random() * Math.PI * 2}
           />
           <MovingTriangle
-            color="#b1dbda"
+            color="#1E90FF"
             initialX={typeof window !== 'undefined' ? window.innerWidth / 2 : 0}
             initialY={-150}
             initialAngle={Math.random() * Math.PI * 2}
           />
           <MovingTriangle
-            color="#0d8081"
+            color="#000080"
             initialX={typeof window !== 'undefined' ? window.innerWidth - 200 : 0}
             initialY={-50}
             initialAngle={Math.random() * Math.PI * 2}
@@ -194,8 +194,11 @@ const AdultStudentInfo = () => {
             <RTDLogo />
           </div>
           <h1 className="text-4xl font-bold text-center text-foreground">
-            Adult Student Programs
+            International Student Programs
           </h1>
+          <p className="mt-2 text-lg text-muted-foreground">
+            Study Alberta Curriculum from Anywhere in the World
+          </p>
         </div>
 
         {/* Modified Tabs Section */}
@@ -238,10 +241,10 @@ const AdultStudentInfo = () => {
 
           {/* How It Works Tab Content */}
           <TabsContent value="how-it-works" className="space-y-6">
-            <FeatureCard title="Try Before You Commit" className="bg-gradient-to-br from-muted to-background">
+            <FeatureCard title="International Student Experience" className="bg-gradient-to-br from-muted to-background">
               <p className="mb-2">
-                Start with a {trialPeriodDays}-day trial period to experience our course firsthand. 
-                Get full access to course materials and see how our innovative learning system works for you.
+                Join our global community of learners and earn an Alberta High School Diploma from anywhere in the world. 
+                Start with a {trialPeriodDays}-day trial period to experience our comprehensive online learning system.
               </p>
             </FeatureCard>
 
@@ -249,14 +252,16 @@ const AdultStudentInfo = () => {
               <ul className="list-disc ml-6 space-y-2">
                 <li>One-time payment: <span className="font-semibold text-primary">${oneTimePrice}</span></li>
                 <li>Monthly payments: <span className="font-semibold text-primary">${monthlyPayment.toFixed(2)}</span> per month for {subscriptionLengthMonths} months (total ${subscriptionTotal})</li>
+                <li>International payment methods accepted</li>
                 <li>Cancel anytime during the {subscriptionLengthMonths}-month period</li>
               </ul>
             </FeatureCard>
 
-            <FeatureCard title="Learn at Your Pace" className="bg-gradient-to-br from-muted to-background">
+            <FeatureCard title="Study at Your Own Pace" className="bg-gradient-to-br from-muted to-background">
               <ul className="list-disc ml-6 space-y-2">
+                <li>Access course materials 24/7 from any time zone</li>
                 <li>Create your personalized schedule with our "Your Way Schedule Maker"</li>
-                <li>Adjust your learning pace as needed</li>
+                <li>Flexible deadlines to accommodate your local schedule</li>
                 <li>If you fall {lockoutAfterDays} days behind, you can create a new schedule once</li>
                 <li>Additional schedule resets available for a ${rejoinFee} fee</li>
               </ul>
@@ -265,19 +270,29 @@ const AdultStudentInfo = () => {
 
           {/* Our Courses Tab Content */}
           <TabsContent value="courses" className="space-y-6">
-            <FeatureCard title="Flexible Learning Environment" className="bg-gradient-to-br from-muted to-background">
+            <FeatureCard title="Global Learning Environment" className="bg-gradient-to-br from-muted to-background">
               <p className="mb-4">
-                Our asynchronous learning platform lets you study when it's convenient for you. 
-                No scheduled class times means you can learn at your own pace.
+                Experience Alberta's world-class curriculum through our innovative online platform. 
+                Study from anywhere, anytime, with full support from our experienced teachers.
               </p>
+            </FeatureCard>
+
+            <FeatureCard title="International Student Support">
+              <ul className="list-disc ml-6 space-y-2">
+                <li>English language support available</li>
+                <li>Course materials accessible across all time zones</li>
+                <li>Regular check-ins with Alberta-certified teachers</li>
+                <li>Progress tracking and feedback in multiple languages</li>
+                <li>Cultural support for international learners</li>
+              </ul>
             </FeatureCard>
 
             <FeatureCard title="Interactive Learning Materials">
               <ul className="list-disc ml-6 space-y-2">
-                <li>Engaging video lessons and interactive animations</li>
-                <li>Online homework assignments with immediate feedback</li>
-                <li>Math courses feature randomized practice questions</li>
-                <li>Progress tracking to keep you on schedule</li>
+                <li>Engaging video lessons with multilingual captions</li>
+                <li>Online homework with instant feedback</li>
+                <li>Math courses with randomized practice questions</li>
+                <li>Downloadable resources for offline study</li>
               </ul>
             </FeatureCard>
           </TabsContent>
@@ -286,20 +301,20 @@ const AdultStudentInfo = () => {
           <TabsContent value="assessments" className="space-y-6">
             <FeatureCard title="Course Assessments" className="bg-gradient-to-br from-muted to-background">
               <ul className="list-disc ml-6 space-y-2">
-                <li>Multiple online assessments throughout the course</li>
+                <li>Multiple online assessments with flexible timing for different time zones</li>
                 <li>Three comprehensive Section Exams covering 2-3 units each</li>
-                <li>Flexible exam scheduling with multiple daily time slots</li>
-                <li>Weekend exam options available</li>
+                <li>24/7 exam scheduling to accommodate international students</li>
+                <li>Online proctoring available for remote testing</li>
               </ul>
             </FeatureCard>
 
-            <FeatureCard title="Diploma Information">
+            <FeatureCard title="International Diploma Information">
               <ul className="list-disc ml-6 space-y-2">
-                <li>Diploma exams account for 30% of your final grade (where applicable)</li>
-                <li>Option to retain previous diploma marks or rewrite to improve</li>
-                <li>Multiple test writing facilities available throughout Alberta</li>
-                <li>Detailed MyPass instructions provided before exam dates</li>
-                <li>Note: Alberta Education diploma exam fees apply</li>
+                <li>Alberta Diploma recognized by universities worldwide</li>
+                <li>Diploma exams account for 30% of final grade (where applicable)</li>
+                <li>Option to write diploma exams at international test centers</li>
+                <li>Support for university applications worldwide</li>
+                <li>Note: Additional fees may apply for international exam centers</li>
               </ul>
             </FeatureCard>
           </TabsContent>
@@ -311,16 +326,16 @@ const AdultStudentInfo = () => {
 
           {/* Get Started Tab Content */}
           <TabsContent value="get-started" className="space-y-6">
-            <FeatureCard title="Begin Your Learning Journey" className="bg-gradient-to-br from-muted to-background">
+            <FeatureCard title="Begin Your International Learning Journey" className="bg-gradient-to-br from-muted to-background">
               <div className="mb-6">
-                <p className="text-lg mb-4">
-                  Start by signing in securely with Google or Microsoft authentication. This creates your secure dashboard access.
+              <p className="text-lg mb-4">
+                  Start your international education journey by signing in securely with Google or Microsoft authentication. Create your personalized dashboard to begin.
                 </p>
 
                 <Alert className="mb-4">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Important: Do not use a school district email as it may be deactivated after graduation.
+                    Important: Use a personal email address that you'll have long-term access to, not a temporary or school-provided email.
                   </AlertDescription>
                 </Alert>
 
@@ -348,12 +363,29 @@ const AdultStudentInfo = () => {
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-2 text-sm text-muted-foreground pl-6">
                       <ol className="list-decimal ml-4 space-y-1">
-                        <li>Sign in creates your secure dashboard access</li>
-                        <li>From your dashboard, you can browse and register for courses</li>
-                        <li>Create your personalized schedule</li>
-                        <li>Complete payment processing securely</li>
-                        <li>Begin your {trialPeriodDays}-day trial with full access</li>
+                        <li>Sign in creates your secure international student dashboard</li>
+                        <li>Access our course catalog and registration system</li>
+                        <li>Create your personalized schedule in your time zone</li>
+                        <li>Complete secure international payment processing</li>
+                        <li>Begin your {trialPeriodDays}-day trial with full course access</li>
+                        <li>Connect with our international student support team</li>
                       </ol>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  <Collapsible>
+                    <CollapsibleTrigger className="flex items-center text-sm text-muted-foreground hover:text-foreground">
+                      <Info className="h-4 w-4 mr-2" />
+                      International Student FAQs
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 text-sm text-muted-foreground pl-6">
+                      <ul className="list-disc ml-4 space-y-2">
+                        <li>We welcome students from all time zones</li>
+                        <li>All course materials are available in English</li>
+                        <li>Technical support available 24/7</li>
+                        <li>International payment methods accepted</li>
+                        <li>Alberta diploma recognized by universities worldwide</li>
+                      </ul>
                     </CollapsibleContent>
                   </Collapsible>
                 </div>
@@ -370,4 +402,4 @@ const AdultStudentInfo = () => {
   );
 };
 
-export default AdultStudentInfo;
+export default InternationalStudentInfo;

@@ -132,16 +132,19 @@ const DashboardHeader = ({ user, onLogout, onBackClick, showBackButton, isEmulat
 
           {user && (
             <div className="flex items-center space-x-6">
-              {isEmulating && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={onStopEmulation}
-                  className="mr-4 bg-blue-800 hover:bg-blue-900 text-white border-none transition-colors duration-200"
-                >
-                  Exit Emulation
-                </Button>
-              )}
+             {isEmulating && (
+  <Button
+    variant="secondary"
+    size="sm"
+    onClick={() => {
+      onStopEmulation();
+      window.close();
+    }}
+    className="mr-4 bg-blue-800 hover:bg-blue-900 text-white border-none transition-colors duration-200"
+  >
+    Exit Emulation
+  </Button>
+)}
               <span className="text-gray-700 text-lg hidden lg:inline font-semibold tracking-wide">
                 {getUserDisplayName()}
               </span>

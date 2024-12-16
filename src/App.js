@@ -24,7 +24,8 @@ import GetStartedNow from './Website/GetStartedNow';
 import Emulate from './StudentManagement/Emulate';
 import PoliciesAndReports from './Website/PoliciesAndReports';
 import MigrationLogin from './migration/MigrationLogin'; 
-import ModernCourseViewer from './courses/ModernCourseViewer';
+import ModernCourseViewer from './courses/CourseViewer/ModernCourseViewer';
+import CourseEditor from './courses/CourseEditor/CourseEditor';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -65,13 +66,19 @@ function MainApp() {
     <div className="App">
       <Routes>
 
-      <Route path="/modern-course/:courseId?" element={
-  user ? (
-    
-      <ModernCourseViewer />
-    
-  ) : <Navigate to="/login" />
-} />
+      <Route 
+  path="/modern-course/:courseId?" 
+  element={user ? <ModernCourseViewer /> : <Navigate to="/login" />} 
+/>
+
+<Route 
+  path="/course-editor/:courseId?" 
+  element={
+    user && isStaff(user) ? 
+    <Layout><CourseEditor /></Layout> : 
+    <Navigate to="/staff-login" />
+  } 
+/>
 
       <Route path="/migrate" element={
           user ? (

@@ -95,10 +95,28 @@ const Layout = React.memo(({ children }) => {
 
   return (
     <div className={`flex flex-col h-screen bg-white ${isFullScreen ? 'overflow-hidden' : ''}`}>
+      {/* Header - only shown when not fullscreen */}
       {!isFullScreen && <Header {...headerProps} />}
-      <main className="flex-1 overflow-hidden bg-gray-50">
+
+      {/* Main content area */}
+      <main className="flex-1 overflow-hidden bg-gray-50 min-h-0">
         {childrenWithProps}
       </main>
+
+      {/* Footer - only shown when not fullscreen */}
+      {!isFullScreen && (
+        <footer className="flex-none h-8 bg-gray-800 text-gray-400 px-4 flex items-center justify-between text-xs">
+          <div>
+            © {new Date().getFullYear()} RTD Academy
+          </div>
+          <div className="flex items-center gap-4">
+            <span>Version 2.0</span>
+            {user && !isEmulating && (
+              <span>Logged in as {user.email}</span>
+            )}
+          </div>
+        </footer>
+      )}
     </div>
   );
 });

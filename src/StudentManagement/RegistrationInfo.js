@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import GuardianManager from './GuardianManager';
 
 const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
   const [status, setStatus] = useState('');
@@ -644,6 +645,19 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
               />
             </CardContent>
           </Card>
+
+          <Card>
+  <CardHeader>
+    <CardTitle className="text-sm">Additional Guardians</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <GuardianManager 
+      studentKey={sanitizeEmail(studentData.profile.StudentEmail)}
+      readOnly={readOnly}
+    />
+  </CardContent>
+</Card>
+
         </div>
       </ScrollArea>
     </div>

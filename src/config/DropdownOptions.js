@@ -5,7 +5,11 @@ import {
   Home,
   Sun,
   User,
-  Globe 
+  Globe ,
+  Calculator,  // for Math courses
+  Code,        // for Coding courses
+  Beaker,      // for Science courses
+  BookOpen     // for other course types
 } from 'lucide-react';
 
 export const PAYMENT_STATUS_OPTIONS = [
@@ -61,23 +65,184 @@ export const getStatusAllowsAutoStatus = (status) => {
   return option ? option.allowAutoStatusChange : true;  // Default to true if status not found
 };
 
-
+export const COURSE_TYPE_ICONS = {
+  Math: Calculator,
+  Science: Beaker,
+  Options: Code,
+  Other: BookOpen
+};
 
 export const COURSE_OPTIONS = [
-  { value: "Math 10-4", color: "#EF4444" },  // Red
-  { value: "Math 10-3", color: "#F59E0B" },  // Amber
-  { value: "Math 10C", color: "#10B981" },   // Green
-  { value: "Math 20-4", color: "#3B82F6" },  // Blue
-  { value: "Math 20-3", color: "#6366F1" },  // Indigo
-  { value: "Math 20-2", color: "#8B5CF6" },  // Purple
-  { value: "Math 20-1", color: "#EC4899" },  // Pink
-  { value: "Math 30-3", color: "#14B8A6" },  // Teal
-  { value: "Math 30-2", color: "#06B6D4" },  // Cyan
-  { value: "Math 30-1", color: "#2563EB" },  // Blue
-  { value: "Math 31 (Calculus)", color: "#7C3AED" },  // Violet
-  { value: "Coding", color: "#059669" },     // Green
-  { value: "Math 15", color: "#DC2626" }     // Red
+  // Grade 10 Courses - Blue theme
+  { 
+    value: "Math 10-4",
+    label: "Math 10-4", 
+    courseType: "Math",
+    grade: 10,
+    color: "#3B82F6",
+    icon: Calculator,
+    courseId: 82
+  },
+  { 
+    value: "Math 10-3",
+    label: "Math 10-3", 
+    courseType: "Math",
+    grade: 10,
+    color: "#3B82F6",
+    icon: Calculator,
+    courseId: 78
+  },
+  { 
+    value: "Math 10C",
+    label: "Math 10C", 
+    courseType: "Math",
+    grade: 10,
+    color: "#3B82F6",
+    icon: Calculator,
+    courseId: 97
+  },
+  { 
+    value: "Math 15",
+    label: "Math 15", 
+    courseType: "Math",
+    grade: 10,
+    color: "#3B82F6",
+    icon: Calculator,
+    courseId: 90
+  },
+  { 
+    value: "Coding",
+    label: "Coding", 
+    courseType: "Options",
+    grade: 10,
+    color: "#3B82F6",
+    icon: Code,
+    courseId: 1111
+  },
+
+  // Grade 11 Courses - Purple theme
+  { 
+    value: "Math 20-4",
+    label: "Math 20-4", 
+    courseType: "Math",
+    grade: 11,
+    color: "#8B5CF6",
+    icon: Calculator,
+    courseId: 84
+  },
+  { 
+    value: "Math 20-3",
+    label: "Math 20-3", 
+    courseType: "Math",
+    grade: 11,
+    color: "#8B5CF6",
+    icon: Calculator,
+    courseId: 96
+  },
+  { 
+    value: "Math 20-2",
+    label: "Math 20-2", 
+    courseType: "Math",
+    grade: 11,
+    color: "#8B5CF6",
+    icon: Calculator,
+    courseId: 98
+  },
+  { 
+    value: "Math 20-1",
+    label: "Math 20-1", 
+    courseType: "Math",
+    grade: 11,
+    color: "#8B5CF6",
+    icon: Calculator,
+    courseId: 95
+  },
+
+  // Grade 12 Courses - Green theme
+  { 
+    value: "Math 30-3",
+    label: "Math 30-3", 
+    courseType: "Math",
+    grade: 12,
+    color: "#10B981",
+    icon: Calculator,
+    courseId: 86
+  },
+  { 
+    value: "Math 30-2",
+    label: "Math 30-2", 
+    courseType: "Math",
+    grade: 12,
+    color: "#10B981",
+    icon: Calculator,
+    courseId: 87
+  },
+  { 
+    value: "Math 30-1",
+    label: "Math 30-1", 
+    courseType: "Math",
+    grade: 12,
+    color: "#10B981",
+    icon: Calculator,
+    courseId: 89
+  },
+  { 
+    value: "Math 31 (Calculus)",
+    label: "Math 31 (Calculus)", 
+    courseType: "Math",
+    grade: 12,
+    color: "#10B981",
+    icon: Calculator,
+    courseId: 93
+  }
 ];
+
+// Color scheme reference
+export const GRADE_COLORS = {
+  10: "#3B82F6", // Blue
+  11: "#8B5CF6", // Purple
+  12: "#10B981"  // Green
+};
+
+// Helper functions
+export const getCourseInfo = (courseValue) => {
+  const course = COURSE_OPTIONS.find(opt => opt.value === courseValue);
+  return {
+    color: course ? course.color : "#6B7280",
+    icon: course ? course.icon : BookOpen,
+    grade: course ? course.grade : null,
+    courseType: course ? course.courseType : null,
+    courseId: course ? course.courseId : null
+  };
+};
+
+// Keep your existing getCourseColor function for backward compatibility
+export const getCourseColor = (course) => {
+  const courseInfo = getCourseInfo(course);
+  return courseInfo.color;
+};
+
+// Helper function to group courses by type
+export const getCoursesByType = () => {
+  return COURSE_OPTIONS.reduce((acc, course) => {
+    if (!acc[course.courseType]) {
+      acc[course.courseType] = [];
+    }
+    acc[course.courseType].push(course);
+    return acc;
+  }, {});
+};
+
+// Helper function to group courses by grade
+export const getCoursesByGrade = () => {
+  return COURSE_OPTIONS.reduce((acc, course) => {
+    if (!acc[course.grade]) {
+      acc[course.grade] = [];
+    }
+    acc[course.grade].push(course);
+    return acc;
+  }, {});
+};
 
 export const ACTIVE_FUTURE_ARCHIVED_OPTIONS = [
   { value: "Active", color: "#10B981" },     // Green
@@ -162,13 +327,13 @@ export const getSchoolYearOptions = () => {
   ];
 };
 
-// Add this with the other export constants
 export const DIPLOMA_MONTH_OPTIONS = [
   { value: "November", label: "November", color: "#9333EA" },  // Purple
   { value: "January", label: "January", color: "#3B82F6" },   // Blue
-  { value: "April", label: "April", color: "#10B981" },     // Green
-  { value: "June", label: "June", color: "#F59E0B" },      // Amber
-  { value: "August", label: "August", color: "#EC4899" }     // Pink
+  { value: "April", label: "April", color: "#10B981" },       // Green
+  { value: "June", label: "June", color: "#F59E0B" },         // Amber
+  { value: "August", label: "August", color: "#EC4899" },     // Pink
+  { value: "Already Wrote", label: "Already Wrote", color: "#9CA3AF" } // Gray
 ];
 
 // Add this with the other helper functions
@@ -178,11 +343,7 @@ export const getDiplomaMonthColor = (month) => {
 };
 
 
-// Helper functions to get color for each option type
-export const getCourseColor = (course) => {
-  const option = COURSE_OPTIONS.find(opt => opt.value === course);
-  return option ? option.color : "#6B7280";  // Default to gray if course not found
-};
+
 
 export const getActiveFutureArchivedColor = (status) => {
   const option = ACTIVE_FUTURE_ARCHIVED_OPTIONS.find(opt => opt.value === status);

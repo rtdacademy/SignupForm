@@ -14,6 +14,8 @@ import {
 } from '../config/DropdownOptions';
 import { SheetHeader, SheetTitle } from "../components/ui/sheet";
 import { cn } from "../lib/utils";
+import GuardianManager from './GuardianManager';
+import { Separator } from "../components/ui/separator";
 
 function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, onUpdate }) {
   const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
@@ -132,27 +134,44 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
         </TabsList>
         <TabsContent value="profile">
           <ScrollArea className="h-[calc(100vh-200px)]">
-            <Card className="bg-[#f0f4f7]">
-              <CardContent className="p-4 space-y-4">
-                <h3 className="text-lg font-semibold text-[#315369]">
-                  {displayName} {studentData.profile.lastName}
-                </h3>
-                {renderEditableField("First Name", "firstName")}
-                {renderEditableField("Preferred First Name", "preferredFirstName")}
-                {renderEditableField("Last Name", "lastName")}
-                {renderEditableField("Student Age", "StudentAge", null, true)}
-                {renderEditableField("Student Email", "StudentEmail", null, true)}
-                {renderEditableField("Student Phone", "StudentPhone")}
-                {renderEditableField("ASN", "asn", null, true)}
-                {renderEditableField("Parent Email", "ParentEmail")}
-                {renderEditableField("Parent Permission", "ParentPermission_x003f_", [
-                  { value: "Yes", color: "#10B981" },
-                  { value: "No", color: "#EF4444" },
-                ])}
-                {renderEditableField("Parent Phone", "ParentPhone_x0023_")}
-                {renderEditableField("Parent/Guardian", "Parent_x002f_Guardian")}
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+              <Card className="bg-[#f0f4f7]">
+                <CardContent className="p-4 space-y-4">
+                  <h3 className="text-lg font-semibold text-[#315369]">
+                    {displayName} {studentData.profile.lastName}
+                  </h3>
+                  {renderEditableField("First Name", "firstName")}
+                  {renderEditableField("Preferred First Name", "preferredFirstName")}
+                  {renderEditableField("Last Name", "lastName")}
+                  {renderEditableField("Student Age", "StudentAge", null, true)}
+                  {renderEditableField("Student Email", "StudentEmail", null, true)}
+                  {renderEditableField("Student Phone", "StudentPhone")}
+                  {renderEditableField("ASN", "asn", null, true)}
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#f0f4f7]">
+                <CardContent className="p-4 space-y-4">
+                  <h3 className="text-lg font-semibold text-[#315369]">Primary Guardian</h3>
+                  {renderEditableField("Parent Email", "ParentEmail")}
+                  {renderEditableField("Parent Permission", "ParentPermission_x003f_", [
+                    { value: "Yes", color: "#10B981" },
+                    { value: "No", color: "#EF4444" },
+                  ])}
+                  {renderEditableField("Parent Phone", "ParentPhone_x0023_")}
+                  {renderEditableField("Parent/Guardian", "Parent_x002f_Guardian")}
+                </CardContent>
+              </Card>
+
+              <Card className="bg-[#f0f4f7]">
+                <CardContent className="p-4">
+                  <GuardianManager 
+                    studentKey={studentKey}
+                    onUpdate={onUpdate}
+                  />
+                </CardContent>
+              </Card>
+            </div>
           </ScrollArea>
         </TabsContent>
         <TabsContent value="course">

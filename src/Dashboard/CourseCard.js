@@ -34,11 +34,12 @@ import CourseDetailsDialog from './CourseDetailsDialog';
 import YourWayScheduleCreator from '../Schedule/YourWayScheduleCreator';
 import YourWayProgress from '../Schedule/YourWayProgress';
 import PaymentOptionsDialog from './PaymentOptionsDialog';
-import PaymentDetailsDialog from './PaymentDetailsDialog'; // Added import
+import PaymentDetailsDialog from './PaymentDetailsDialog'; 
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import SchedulePurchaseDialog from './SchedulePurchaseDialog';
 import CreateScheduleButton from './CreateScheduleButton'; 
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '../components/ui/sheet';
 
 const getStatusColor = (status) => {
   switch (status) {
@@ -274,21 +275,28 @@ const CourseCard = ({
           }}
         />
   
-        {/* Create Schedule Dialog */}
-        <Dialog open={showCreateScheduleDialog} onOpenChange={setShowCreateScheduleDialog}>
-          <DialogContent className="max-w-7xl">
-            <DialogHeader>
-              <DialogTitle>Create Your Course Schedule</DialogTitle>
-            </DialogHeader>
-            <YourWayScheduleCreator 
-              course={course}
-              onScheduleSaved={() => {
-                setRemainingSchedules(prev => Math.max(0, prev - 1));
-                setShowCreateScheduleDialog(false);
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        {/* Create Schedule sheet */}
+        <Sheet 
+  open={showCreateScheduleDialog} 
+  onOpenChange={setShowCreateScheduleDialog}
+  side="right" // or "bottom" for mobile-first
+>
+  <SheetContent 
+    className="w-full sm:max-w-[90%] h-full"
+    // Remove max-height constraints
+  >
+    <SheetHeader>
+      <SheetTitle>Create Your Course Schedule</SheetTitle>
+    </SheetHeader>
+    <YourWayScheduleCreator 
+      course={course}
+      onScheduleSaved={() => {
+        setRemainingSchedules(prev => Math.max(0, prev - 1));
+        setShowCreateScheduleDialog(false);
+      }}
+    />
+  </SheetContent>
+</Sheet>
   
         {/* Show Progress button if schedule exists */}
         {hasSchedule && (

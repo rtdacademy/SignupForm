@@ -7,6 +7,12 @@ import PerformanceMetrics from './Stats/PerformanceMetrics';
 import DomainsDashboard from './DomainsDashboard'; 
 
 const AERR2324 = () => {
+  const dataTabs = [
+    { value: "survey", label: "Survey Results", component: <SurveyResults /> },
+    { value: "courses", label: "Course Stats", component: <CourseStats /> },
+    { value: "performance", label: "Performance", component: <PerformanceMetrics /> }
+  ];
+
   return (
     <div className="space-y-8 max-w-6xl mx-auto p-6">
       <section className="space-y-4">
@@ -61,23 +67,41 @@ const AERR2324 = () => {
             </p>
             
             <Tabs defaultValue="survey" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="survey">Survey Results</TabsTrigger>
-                <TabsTrigger value="courses">Course Stats</TabsTrigger>
-                <TabsTrigger value="performance">Performance</TabsTrigger>
-              </TabsList>
+              {/* Mobile view - horizontal scroll */}
+              <div className="md:hidden overflow-x-auto pb-2">
+                <TabsList className="inline-flex min-w-full">
+                  {dataTabs.map((tab) => (
+                    <TabsTrigger 
+                      key={tab.value}
+                      value={tab.value}
+                      className="whitespace-nowrap flex-1"
+                    >
+                      {tab.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
 
-              <TabsContent value="survey">
-                <SurveyResults />
-              </TabsContent>
+              {/* Desktop view - grid */}
+              <div className="hidden md:block">
+                <TabsList className="grid w-full grid-cols-3">
+                  {dataTabs.map((tab) => (
+                    <TabsTrigger 
+                      key={tab.value}
+                      value={tab.value}
+                    >
+                      {tab.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
 
-              <TabsContent value="courses">
-                <CourseStats />
-              </TabsContent>
-
-              <TabsContent value="performance">
-                <PerformanceMetrics />
-              </TabsContent>
+              {/* Tab content */}
+              {dataTabs.map((tab) => (
+                <TabsContent key={tab.value} value={tab.value}>
+                  {tab.component}
+                </TabsContent>
+              ))}
             </Tabs>
           </div>
         </div>
@@ -98,6 +122,55 @@ const AERR2324 = () => {
           </ul>
         </div>
       </section>
+
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold">Conclusion</h2>
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <p className="text-gray-600 mb-4">
+            The 2023-24 Annual Education Results Report highlights RTD Academy's commitment to delivering accessible, high-quality education through an innovative asynchronous model. With 1,294 course enrollments and a significant improvement in completion rates, we have demonstrated our ability to address the diverse needs of our student population. Investments in enhanced support systems, technology integration, and professional development have played a crucial role in driving these positive outcomes.
+          </p>
+          <p className="text-gray-600 mb-4">
+            Stakeholder feedback reflects strong satisfaction levels, with 89% of students and 90% of parents expressing positive experiences. These insights guide our continuous efforts to improve communication, support at-risk students, and refine our curriculum to meet evolving educational standards.
+          </p>
+          <p className="text-gray-600">
+            As we move forward, our focus remains on sustaining this growth by expanding course offerings, enhancing support systems, and leveraging data-driven insights to optimize student success. RTD Academy is proud to contribute to the advancement of asynchronous education in Alberta and remains dedicated to empowering students to achieve their fullest potential.
+          </p>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold">Annual Report of Disclosures</h2>
+        <div className="bg-white p-6 rounded-lg shadow-sm">
+          <div>
+            
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-600">
+                In accordance with Section 32 of the Public Interest Disclosure Act, RTD Academy reports 
+                that there were no disclosures received or acted upon during the 2023-24 academic year. 
+                Our commitment to transparency and ethical practices remains steadfast, with clear procedures 
+                in place for handling any future disclosures.
+              </p>
+            </div>
+          </div>
+          <div className="mt-6">
+            <h4 className="text-sm font-medium text-gray-900 mb-2">Financial Documentation</h4>
+            <p className="text-sm text-gray-600 mb-2">
+              For detailed financial information, please view our complete audited financial statements:
+            </p>
+            <a
+              href="https://rtdacademy.sharepoint.com/:f:/s/RTDMathAcademy/Ep-6WVc_xu5PjrvcgB76gGYBUxrF3BHnY015dg_U6Dv0Ag?e=RIiRqB"
+              className="text-blue-600 hover:text-blue-800 text-sm"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View Audited Financial Statements 2023-24
+            </a>
+          </div>
+        </div>
+      </section>
+
+
+
     </div>
   );
 };

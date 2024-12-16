@@ -130,8 +130,8 @@ module.exports = {
         }
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
+        "accordion-down": "accordion-down 0.3s ease-out",
+        "accordion-up": "accordion-up 0.3s ease-out",
         "subtlePulse": "subtlePulse 6s ease-in-out infinite",
         "gentleBounce": "gentleBounce 2s ease-in-out infinite"
       },

@@ -56,27 +56,51 @@ const AddChatParticipantDialog = ({ isOpen, onClose, onAddParticipant, currentPa
 
   useEffect(() => {
     const fetchCourses = async () => {
-      const coursesSnapshot = await get(ref(db, 'courses'));
-      const coursesData = [];
-      coursesSnapshot.forEach((courseSnapshot) => {
-        const courseData = courseSnapshot.val();
-        if (courseData.Title) {
-          coursesData.push({
-            value: courseData.LMSCourseID.toString(),
-            label: courseData.Title
-          });
+      try {
+        const coursesSnapshot = await get(ref(db, 'courses'));
+        const coursesData = [];
+        
+        coursesSnapshot.forEach((courseSnapshot) => {
+          // Skip the 'sections' entry
+          if (courseSnapshot.key === 'sections') {
+            return;
+          }
+  
+          const courseData = courseSnapshot.val();
+          // Only require that we have some identifiable information
+          if (courseData) {
+            try {
+              // Use the snapshot key (courseId) if LMSCourseID is not available
+              const courseId = courseData.LMSCourseID ?? courseSnapshot.key;
+              const courseTitle = courseData.Title ?? `Course ${courseId}`;
+              
+              coursesData.push({
+                value: String(courseId),
+                label: courseTitle
+              });
+            } catch (err) {
+              console.warn('Error processing course:', courseData, err);
+            }
+          }
+        });
+        
+        setCourses(coursesData);
+  
+        // Handle the case where courseInfo exists and has an LMSCourseID
+        if (courseInfo?.LMSCourseID != null) {
+          const defaultCourse = coursesData.find(
+            course => course.value === String(courseInfo.LMSCourseID)
+          );
+          if (defaultCourse) {
+            setSelectedCourses([defaultCourse]);
+          }
         }
-      });
-      setCourses(coursesData);
-
-      if (courseInfo && courseInfo.LMSCourseID) {
-        const defaultCourse = coursesData.find(course => course.value === courseInfo.LMSCourseID.toString());
-        if (defaultCourse) {
-          setSelectedCourses([defaultCourse]);
-        }
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+        setCourses([]); // Set empty array on error
       }
     };
-
+  
     fetchCourses();
   }, [db, courseInfo]);
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Calendar, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck } from 'lucide-react';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Calendar, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck,  } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { getDatabase, ref, set, get, push, remove } from 'firebase/database';
@@ -33,6 +33,7 @@ import StudentDetail from './StudentDetail';
 import { useMode, MODES } from '../context/ModeContext';
 import { getStudentTypeInfo } from '../config/DropdownOptions';
 import { format } from 'date-fns';
+import { COURSE_OPTIONS, getCourseInfo } from '../config/DropdownOptions';
 
 // Map icon names to icon components
 const iconMap = {
@@ -114,7 +115,7 @@ const StudentCard = React.memo(({
   isMobile,
   onCourseRemoved
 }) => {
-  const navigate = useNavigate();
+  
   const { currentMode } = useMode();
   const bgColor = selectedStudentId === student.id 
     ? 'bg-blue-100' 
@@ -356,10 +357,9 @@ const handleRemoveCourse = useCallback(async () => {
   }, [teacherCategories, student.categories]);
 
   const handleCardClick = useCallback(() => {
-    // Only trigger card click if not in mobile view
-    if (!isMobile) {
+   
       onStudentSelect(student);
-    }
+    
   }, [isMobile, onStudentSelect, student]);
 
   const handleSelectClick = useCallback((event) => {
@@ -481,9 +481,13 @@ const handleRemoveCourse = useCallback(async () => {
   }, []);
 
   const handleExpandClick = useCallback((e) => {
-    e.stopPropagation(); // Prevent card selection
+   
     setIsExpanded(true);
   }, []);
+
+  const findCourseById = (courseId) => {
+    return COURSE_OPTIONS.find(course => String(course.courseId) === String(courseId));
+  };
 
   return (
     <>
@@ -497,7 +501,7 @@ const handleRemoveCourse = useCallback(async () => {
             <div 
               className="flex items-center" 
               onClick={(e) => {
-                e.stopPropagation();
+                
               }}
             >
               <Checkbox
@@ -566,25 +570,53 @@ const handleRemoveCourse = useCallback(async () => {
         <CardContent className="p-3 pt-2">
           {/* Course, Grade, and Progress on the same line */}
           <div className="flex items-center text-xs mb-2">
-            <span className="flex-grow flex items-center">
-              {student.Course_Value}
-              
-            </span>
-            {student.grade !== undefined && 
-              student.grade !== null && 
-              student.grade !== 0 && (
-              <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
-                Gr. {formatGrade(student.grade)}
-                {getGradeColorAndIcon(student.grade).icon}
-              </span>
-            )}
-            {student.adherenceMetrics && formatLessons(student.adherenceMetrics.lessonsBehind) && (
-              <span className="text-xs font-bold flex items-center">
-                {formatLessons(student.adherenceMetrics.lessonsBehind).value}
-                {formatLessons(student.adherenceMetrics.lessonsBehind).icon}
-              </span>
-            )}
-          </div>
+  <span className="flex-grow flex items-center">
+    {student.CourseID ? (
+      (() => {
+        const courseInfo = findCourseById(student.CourseID);
+        return (
+          <Badge 
+            className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
+            style={{
+              backgroundColor: `${courseInfo?.color || '#6B7280'}15`,
+              color: courseInfo?.color || '#6B7280'
+            }}
+          >
+            {React.createElement(courseInfo?.icon || BookOpen, {
+              className: "w-4 h-4"
+            })}
+            {courseInfo?.label || `Course ${student.CourseID}`}
+          </Badge>
+        );
+      })()
+    ) : (
+      <Badge 
+        className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
+        style={{
+          backgroundColor: '#6B728015',
+          color: '#6B7280'
+        }}
+      >
+        <BookOpen className="w-4 h-4" />
+        No Course
+      </Badge>
+    )}
+  </span>
+  {student.grade !== undefined && 
+    student.grade !== null && 
+    student.grade !== 0 && (
+    <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
+      Gr. {formatGrade(student.grade)}
+      {getGradeColorAndIcon(student.grade).icon}
+    </span>
+  )}
+  {student.adherenceMetrics && formatLessons(student.adherenceMetrics.lessonsBehind) && (
+    <span className="text-xs font-bold flex items-center">
+      {formatLessons(student.adherenceMetrics.lessonsBehind).value}
+      {formatLessons(student.adherenceMetrics.lessonsBehind).icon}
+    </span>
+  )}
+</div>
                     
           {/* Status Dropdown, Last Week Status, and Auto Status Toggle */}
           <div className="flex items-center space-x-2 mb-2">
@@ -723,7 +755,7 @@ const handleRemoveCourse = useCallback(async () => {
                     className="ml-1 cursor-pointer"
                     size={12}
                     onClick={(e) => {
-                      e.stopPropagation();
+                      
                       handleRemoveCategory(id, teacherEmailKey);
                     }}
                   />
@@ -778,7 +810,7 @@ const handleRemoveCourse = useCallback(async () => {
   size="sm"
   className="text-xs text-blue-600 hover:text-blue-700"
   onClick={(e) => {
-    e.stopPropagation(); // Prevent card click event
+   
     // Open in a new tab with a specific target name
     window.open(`/emulate/${student.StudentEmail}`, 'emulationTab');
   }}
@@ -793,7 +825,7 @@ const handleRemoveCourse = useCallback(async () => {
       size="sm"
       className="text-xs text-red-600 hover:text-red-700"
       onClick={(e) => {
-        e.stopPropagation();
+        
         setIsRemovalDialogOpen(true);
       }}
     >

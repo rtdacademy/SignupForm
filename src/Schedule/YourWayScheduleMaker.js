@@ -46,6 +46,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "../components/ui/dropdown-menu";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "../components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import { Label } from '../components/ui/label';
@@ -306,8 +307,8 @@ const YourWayScheduleMaker = ({
   onScheduleSaved = () => {},
 }) => {
   // Add auth context
-  const { user_email_key } = useAuth();
-  
+  const { user, user_email_key, authLoading } = useAuth(); // Assuming useAuth provides user and authLoading
+
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [endDate, setEndDate] = useState(defaultEndDate);
   const [selectedCourse, setSelectedCourse] = useState(null);
@@ -338,6 +339,18 @@ const YourWayScheduleMaker = ({
   // New state for managing the popup
   const [showMoreEvents, setShowMoreEvents] = useState(null);
   const [showMoreDate, setShowMoreDate] = useState(null);
+
+  // Add these new state variables near the top of YourWayScheduleMaker component
+  const [startingAssignmentOptions, setStartingAssignmentOptions] = useState([]);
+  const [selectedStartingAssignment, setSelectedStartingAssignment] = useState(null);
+
+  // New state variable as per user instructions
+  const [allCourseItems, setAllCourseItems] = useState([]);
+
+  // New state for existing schedule
+  const [hasExistingSchedule, setHasExistingSchedule] = useState(false);
+  const [existingSchedule, setExistingSchedule] = useState(null);
+  const [scheduleJson, setScheduleJson] = useState(null);
 
   useEffect(() => {
     if (defaultStartDate) {
@@ -467,6 +480,11 @@ const YourWayScheduleMaker = ({
     }
   };
 
+  // Function to encode the email for Firebase path
+  const encodeEmailForPath = (email) => {
+    return email ? email.replace(/[.#$\[\]]/g, ',') : null;
+  };
+
   // Handle course selection from dropdown
   const handleCourseSelect = async (course) => {
     // Reset all dependent fields when course changes
@@ -477,6 +495,9 @@ const YourWayScheduleMaker = ({
     setIsDiplomaCourse(false);
     setDiplomaDates([]);
     setSelectedCourse(course);
+    setHasExistingSchedule(false);
+    setExistingSchedule(null);
+    setScheduleJson(null);
 
     // Fetch and handle course data
     try {
@@ -500,6 +521,38 @@ const YourWayScheduleMaker = ({
       // You can set expectedTimes to state or use it directly where needed
     }
   }, [selectedCourse, courseHours]);
+
+  // Add this effect after the course data is loaded
+  useEffect(() => {
+    if (selectedCourse) {
+      // Flatten all items from all units into a single array
+      const flattenedItems = selectedCourse.units.flatMap(unit => 
+        unit.items.map(item => ({
+          ...item,
+          unitName: unit.name // Keep track of which unit it belongs to
+        }))
+      );
+      setAllCourseItems(flattenedItems);
+      
+      // Create options for the dropdown
+      const assignmentOptions = flattenedItems.map((item, index) => ({
+        value: index,
+        label: item.title,
+        type: item.type
+      }));
+      setStartingAssignmentOptions(assignmentOptions);
+      
+      // Try to find first lesson as default selection
+      const firstLesson = assignmentOptions.find(option => 
+        option.label.toLowerCase().includes('lesson')
+      );
+      setSelectedStartingAssignment(firstLesson || assignmentOptions[0]);
+    } else {
+      setAllCourseItems([]);
+      setStartingAssignmentOptions([]);
+      setSelectedStartingAssignment(null);
+    }
+  }, [selectedCourse]);
 
   // Update this state whenever scheduleData changes
   useEffect(() => {
@@ -613,7 +666,7 @@ const YourWayScheduleMaker = ({
     }
 
     const totalDays = availableDates.length;
-    const allItems = items.flatMap(unit => unit.items);
+    const allItems = items;
     const totalMultiplier = allItems.reduce((sum, item) => {
       const type = item.type?.toLowerCase();
       if (type === 'exam') return sum + 4;
@@ -668,79 +721,87 @@ const YourWayScheduleMaker = ({
     }, 100);
   };
 
-  // Function to encode the email for Firebase path
-  const encodeEmailForPath = (email) => {
-    return email ? email.replace(/[.#$\[\]]/g, ',') : null;
-  };
+  // Update the handleCreateSchedule function as per user instructions
+  const handleCreateSchedule = () => {
+    if (!selectedCourse || !startDate || !endDate) {
+      toast.error("Please select a course and specify start and end dates");
+      return;
+    }
 
-  // Updated handleCreateSchedule function
- // In YourWayScheduleMaker.js, update the handleCreateSchedule function:
+    if (isDiplomaCourse && !alreadyWroteDiploma && !selectedDiplomaDate) {
+      toast.error("Please select a diploma exam date");
+      return;
+    }
 
-const handleCreateSchedule = () => {
-  if (!selectedCourse || !startDate || !endDate) {
-    toast.error("Please select a course and specify start and end dates");
-    return;
-  }
+    // Get all items after the selected starting point
+    const startingIndex = selectedStartingAssignment?.value || 0;
+    const relevantItems = allCourseItems.slice(startingIndex);
 
-  if (isDiplomaCourse && !alreadyWroteDiploma && !selectedDiplomaDate) {
-    toast.error("Please select a diploma exam date");
-    return;
-  }
+    if (relevantItems.length === 0) {
+      toast.error("No items to schedule for the selected starting point.");
+      return;
+    }
 
-  // Schedule all course items
-  const scheduledItems = distributeItemsAcrossDates(
-    selectedCourse.units,
-    startDate,
-    endDate
-  );
+    const utcStartDate = startOfDay(startDate);
+    const utcEndDate = startOfDay(endDate);
 
-  if (scheduledItems.length === 0) return;
-
-  // Map scheduled items back to their original units while preserving unit structure
-  const scheduledUnits = selectedCourse.units.map(unit => ({
-    ...unit,
-    items: unit.items.map(item => {
-      const scheduledItem = scheduledItems.find(
-        scheduled => scheduled.title === item.title
-      );
-      return scheduledItem || item;
-    }).filter(item => item.date) // Ensure only scheduled items are included
-  })).filter(unit => unit.items.length > 0);
-
-  // Add Schedule Information unit at the start
-  scheduledUnits.unshift({
-    name: "Schedule Information",
-    items: [{
-      date: startDate.toISOString(),
+    const scheduleCreationItem = {
       multiplier: 0,
       sequence: 0,
-      title: "Schedule Created",
-      type: "info"
-    }]
-  });
+      title: 'Schedule Created',
+      type: 'info',
+    };
 
-  // Create final schedule structure with diploma information
-// Create final schedule structure with diploma information
-const schedule = {
-  startDate: startDate.toISOString(),
-  endDate: endDate.toISOString(),
-  courseId: selectedCourse.id,
-  courseTitle: selectedCourse.Title,
-  units: scheduledUnits,
-  // Add diploma information
-  diplomaMonth: selectedDiplomaDate ? {
-    month: selectedDiplomaDate.month,
-    alreadyWrote: false
-  } : alreadyWroteDiploma ? {
-    month: "Already Wrote",
-    alreadyWrote: true
-  } : null
-};
+    const itemsWithCreation = [scheduleCreationItem, ...relevantItems];
 
-  setScheduleData(schedule);
-  setScheduleCreated(true);
-  scrollToSchedule();
-};
+    // Schedule all items
+    const scheduledItems = distributeItemsAcrossDates(
+      itemsWithCreation,
+      utcStartDate,
+      utcEndDate
+    );
+
+    if (scheduledItems.length === 0) return;
+
+    // Group scheduled items back into their original units
+    const scheduledUnits = selectedCourse.units.map(unit => ({
+      ...unit,
+      items: scheduledItems.filter(item => 
+        item.type === 'info' ? false : // Exclude info items from regular units
+        unit.items.some(unitItem => unitItem.title === item.title)
+      )
+    })).filter(unit => unit.items.length > 0);
+
+    // Add Schedule Information unit at the start
+    const scheduleInfoItem = scheduledItems.find(item => item.title === 'Schedule Created');
+    if (scheduleInfoItem) {
+      scheduledUnits.unshift({
+        name: 'Schedule Information',
+        items: [scheduleInfoItem]
+      });
+    }
+
+    // Create final schedule
+    const schedule = {
+      startDate: utcStartDate.toISOString(),
+      endDate: utcEndDate.toISOString(),
+      courseId: selectedCourse.id,
+      courseTitle: selectedCourse.Title,
+      units: scheduledUnits,
+      // Add diploma information if applicable
+      diplomaMonth: selectedDiplomaDate ? {
+        month: selectedDiplomaDate.month,
+        alreadyWrote: false
+      } : alreadyWroteDiploma ? {
+        month: "Already Wrote",
+        alreadyWrote: true
+      } : null
+    };
+
+    setScheduleData(schedule);
+    setScheduleCreated(true);
+    scrollToSchedule();
+  };
 
   // Function to save the schedule
   const handleSaveSchedule = async () => {
@@ -790,8 +851,6 @@ const schedule = {
       }))
     );
   };
-
-
 
   const handleEventSelect = (event) => {
     setSelectedEvent(event.details);
@@ -865,74 +924,159 @@ const schedule = {
     </div>
   );
 
-  // Update the Dialog content
-  const dialogContent = (
-    <DialogDescription>
-      {selectedEvent && (
+  // Add this UI section in your component's return, after the course selection and before the date selection
+  const startingAssignmentSection = selectedCourse && hasExistingSchedule && (
+    <div className="space-y-2 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+      <Label className="text-blue-800">Starting Assignment</Label>
+      <Select
+        value={selectedStartingAssignment?.value?.toString()}
+        onValueChange={(value) => {
+          const option = startingAssignmentOptions.find(opt => opt.value.toString() === value);
+          setSelectedStartingAssignment(option);
+        }}
+      >
+        <SelectTrigger className="w-full bg-white">
+          <SelectValue placeholder="Select starting point" />
+        </SelectTrigger>
+        <SelectContent>
+          <ScrollArea className="h-[200px]">
+            {startingAssignmentOptions.map((option) => (
+              <SelectItem 
+                key={option.value} 
+                value={option.value.toString()}
+                className="flex items-center space-x-2"
+              >
+                <span>{option.label}</span>
+                <span className="text-sm text-muted-foreground">({option.type})</span>
+              </SelectItem>
+            ))}
+          </ScrollArea>
+        </SelectContent>
+      </Select>
+      <p className="text-sm text-blue-600">
+        Select the assignment you're currently working on. Your schedule will start from this point.
+      </p>
+    </div>
+  );
+
+  // Update the Study Time Required section to check for starting assignment value:
+  const studyTimeRequiredSection = startDate && endDate && courseHours && 
+    (!selectedStartingAssignment || selectedStartingAssignment.value === 0) && (
+    <div className="space-y-4">
+      <div className="p-6 bg-gradient-to-br from-slate-50 to-white rounded-lg border border-slate-200 shadow-sm">
+        <h5 className="font-semibold text-lg mb-3">Study Time Required</h5>
         <div className="space-y-4">
-          <div className="space-y-2">
-            <div><strong>Type:</strong> {selectedEvent.type}</div>
-            <div><strong>Date:</strong> {format(parseISO(selectedEvent.date), 'MMM dd, yyyy')}</div>
-            
-            {selectedEvent.type?.toLowerCase() !== 'info' && (
-              <div className="mt-4">
-                {selectedEvent.type?.toLowerCase() === 'lesson' ? (
-                  <div className="flex items-center space-x-2">
-                    <CalendarClock className="h-4 w-4 text-green-500" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-600">Time Available</div>
-                      <div className="text-green-600">
-                        {selectedEvent.estimatedMinutes >= 60 
-                          ? `${Math.floor(selectedEvent.estimatedMinutes / 60)}h ${selectedEvent.estimatedMinutes % 60}m`
-                          : `${selectedEvent.estimatedMinutes}m`}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <Clock className="h-4 w-4 text-blue-500" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-600">Expected Time</div>
-                      <div className="text-blue-600">
-                        {selectedEvent.type?.toLowerCase() === 'assignment' ? '1 hour' : '2 hours'}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {selectedEvent.type === 'exam' && (
-            <Alert className="bg-blue-50 border-blue-200">
-              <AlertDescription className="text-blue-700">
-                This exam will take 2 hours to complete. While this date appears in your schedule, you are not required to write the exam specifically on this day. You'll have access to a variety of available dates and times to choose from through our online booking system.
-              </AlertDescription>
-            </Alert>
+          <p className="text-gray-700 leading-relaxed">
+            This is a <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">{courseHours}-hour</span> course. 
+            Based on your selected schedule, you will need to study approximately{' '}
+            <span className="font-semibold text-purple-600 bg-purple-50 px-2 py-1 rounded">
+              {calculateHoursPerWeek(startDate, endDate, courseHours)}
+            </span>{' '}
+            hours per week.
+          </p>
+          
+          {parseFloat(calculateHoursPerWeek(startDate, endDate, courseHours)) > 20 && (
+            <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-md border border-amber-200">
+              <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+              <p className="text-amber-700">
+                This schedule may be intensive. Consider extending your end date for a more manageable pace.
+              </p>
+            </div>
           )}
-
-          {selectedEvent.type === 'lesson' && (
-            <Alert className="bg-green-50 border-green-200">
-              <AlertDescription className="text-green-700">
-                You have {selectedEvent.estimatedMinutes >= 60 
-                  ? `${Math.floor(selectedEvent.estimatedMinutes / 60)}h ${selectedEvent.estimatedMinutes % 60}m`
-                  : `${selectedEvent.estimatedMinutes}m`} 
-                allocated in your schedule for this lesson. This timing allows you to work at your own pace while staying On Track with your course progress.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {selectedEvent.type === 'assignment' && (
-            <Alert className="bg-purple-50 border-purple-200">
-              <AlertDescription className="text-purple-700">
-                This assignment will take approximately 1 hour to complete. You can work on it at your own pace within your scheduled timeframe.
-              </AlertDescription>
-            </Alert>
+          
+          {parseFloat(calculateHoursPerWeek(startDate, endDate, courseHours)) < 3 && (
+            <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-md border border-amber-200">
+              <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+              <p className="text-amber-700">
+                This schedule is quite spread out. Consider reducing the duration to maintain momentum.
+              </p>
+            </div>
           )}
         </div>
-      )}
-    </DialogDescription>
+      </div>
+    </div>
   );
+
+  // Add this effect to check for existing schedule
+  useEffect(() => {
+    if (authLoading || !user || !user_email_key || !courseId) return;
+
+    const db = getDatabase();
+    const scheduleJSONRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${courseId}/ScheduleJSON`);
+    const scheduleRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${courseId}/Schedule`);
+    const scheduleStartDateRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${courseId}/ScheduleStartDate`);
+    const scheduleEndDateRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${courseId}/ScheduleEndDate`);
+
+    const fetchScheduleData = async () => {
+      try {
+        const [scheduleJSONSnapshot, scheduleSnapshot] = await Promise.all([
+          get(scheduleJSONRef),
+          get(scheduleRef)
+        ]);
+        
+        setHasExistingSchedule(scheduleJSONSnapshot.exists() || scheduleSnapshot.exists());
+
+        if (scheduleJSONSnapshot.exists()) {
+          const data = scheduleJSONSnapshot.val();
+          setExistingSchedule(data);
+          setScheduleJson(data);
+          setStartDate(parseISO(data.startDate)); 
+          setEndDate(parseISO(data.endDate));
+
+          if (data.units && data.units.length > 0 && data.units[0].items && data.units[0].items.length > 0) {
+            const firstItem = data.units[0].items[0];
+            const startingAssignmentOption = startingAssignmentOptions.find(option => 
+              option.label === firstItem.title
+            );
+            if (startingAssignmentOption) {
+              setSelectedStartingAssignment(startingAssignmentOption);
+            }
+          }
+        } else {
+          const startDateSnapshot = await get(scheduleStartDateRef);
+          const endDateSnapshot = await get(scheduleEndDateRef);
+          
+          if (startDateSnapshot.exists() && endDateSnapshot.exists()) {
+            const startDateString = startDateSnapshot.val();
+            const endDateString = endDateSnapshot.val();
+            
+            const parsedStartDate = parseISO(startDateString);
+            const parsedEndDate = parseISO(endDateString);
+            
+            setStartDate(parsedStartDate);
+            setEndDate(parsedEndDate);
+          }
+          setExistingSchedule(null);
+        }
+      } catch (error) {
+        console.error('Error fetching schedule data:', error);
+      }
+    };
+
+    fetchScheduleData();
+  }, [courseId, user, authLoading, user_email_key, startingAssignmentOptions]);
+
+  // Add this effect to update startingAssignmentOptions when existingSchedule changes
+  useEffect(() => {
+    if (existingSchedule && startingAssignmentOptions.length > 0) {
+      const firstItem = existingSchedule.units?.[0]?.items?.[0];
+      if (firstItem) {
+        const startingAssignmentOption = startingAssignmentOptions.find(option => 
+          option.label === firstItem.title
+        );
+        if (startingAssignmentOption) {
+          setSelectedStartingAssignment(startingAssignmentOption);
+        }
+      }
+    }
+  }, [existingSchedule, startingAssignmentOptions]);
+
+  // Determine if schedule has been created
+  useEffect(() => {
+    if (scheduleCreated) {
+      // Additional logic if needed when schedule is created
+    }
+  }, [scheduleCreated]);
 
   return (
     <div className="flex flex-col space-y-8 p-4">
@@ -1004,6 +1148,9 @@ const schedule = {
             </div>
           )}
 
+          {/* Starting Assignment Section */}
+          {startingAssignmentSection}
+
           {/* Diploma Section */}
           {diplomaSelectSection}
 
@@ -1058,93 +1205,55 @@ const schedule = {
           </div>
 
           {/* Combined Study Time and Distribution section */}
-          {startDate && endDate && courseHours && (
-            <div className="space-y-4">
-              {/* Study Time Required - Enhanced styling */}
-              <div className="p-6 bg-gradient-to-br from-slate-50 to-white rounded-lg border border-slate-200 shadow-sm">
-                <h5 className="font-semibold text-lg mb-3">Study Time Required</h5>
-                <div className="space-y-4">
-                  <p className="text-gray-700 leading-relaxed">
-                    This is a <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">{courseHours}-hour</span> course. 
-                    Based on your selected schedule, you will need to study approximately{' '}
-                    <span className="font-semibold text-purple-600 bg-purple-50 px-2 py-1 rounded">
-                      {calculateHoursPerWeek(startDate, endDate, courseHours)}
-                    </span>{' '}
-                    hours per week.
-                  </p>
-                  
-                  {parseFloat(calculateHoursPerWeek(startDate, endDate, courseHours)) > 20 && (
-                    <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-md border border-amber-200">
-                      <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
-                      <p className="text-amber-700">
-                        This schedule may be intensive. Consider extending your end date for a more manageable pace.
-                      </p>
-                    </div>
-                  )}
-                  
-                  {parseFloat(calculateHoursPerWeek(startDate, endDate, courseHours)) < 3 && (
-                    <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-md border border-amber-200">
-                      <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
-                      <p className="text-amber-700">
-                        This schedule is quite spread out. Consider reducing the duration to maintain momentum.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+          {studyTimeRequiredSection}
 
-          {/* Break Options */}
-          <div>
-            <button
-              className="flex items-center space-x-2"
-              onClick={() => setShowBreakOptions(!showBreakOptions)}
-            >
-              {showBreakOptions ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              <span>Schedule Breaks & Days Off</span>
-            </button>
-            
-            {showBreakOptions && (
-              <div className="mt-4 space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                {/* Add a helpful description */}
-                <div className="text-sm text-gray-600 mb-4">
-                  <p>Customize when you'll be taking breaks from your studies. Your schedule will be created around these dates.</p>
-                </div>
+          <Accordion type="single" collapsible className="w-full">
+  <AccordionItem value="breaks">
+    <AccordionTrigger className="hover:no-underline">
+      Schedule Breaks & Days Off
+    </AccordionTrigger>
+    <AccordionContent>
+      <div className="space-y-4">
+        {/* Description */}
+        <div className="text-sm text-gray-600">
+          <p>Customize when you'll be taking breaks from your studies. Your schedule will be created around these dates.</p>
+        </div>
 
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="excludeWeekends"
-                    checked={excludeWeekends}
-                    onChange={(e) => setExcludeWeekends(e.target.checked)}
-                    className="mr-2"
-                  />
-                  <Label htmlFor="excludeWeekends">Keep Weekends Free</Label>
-                </div>
-                
-                {/* Keep CustomBlockoutDates component name but update the rendered content */}
-                <div className="mt-4">
-                  <Label className="text-base font-medium">Plan Additional Breaks</Label>
-                  <p className="text-sm text-gray-600 mt-1 mb-3">
-                    Add dates when you won't be studying (e.g., vacations, appointments, or other commitments)
-                  </p>
-                  <CustomBlockoutDates
-                    customBlockoutDates={customBlockoutDates}
-                    setCustomBlockoutDates={setCustomBlockoutDates}
-                  />
-                </div>
+        {/* Weekend checkbox */}
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="excludeWeekends"
+            checked={excludeWeekends}
+            onChange={(e) => setExcludeWeekends(e.target.checked)}
+            className="mr-2"
+          />
+          <Label htmlFor="excludeWeekends">Keep Weekends Free</Label>
+        </div>
+        
+        {/* Custom blockout dates */}
+        <div>
+          <Label className="text-base font-medium">Plan Additional Breaks</Label>
+          <p className="text-sm text-gray-600 mt-1 mb-3">
+            Add dates when you won't be studying (e.g., vacations, appointments, or other commitments)
+          </p>
+          <CustomBlockoutDates
+            customBlockoutDates={customBlockoutDates}
+            setCustomBlockoutDates={setCustomBlockoutDates}
+          />
+        </div>
 
-                {customBlockoutDates.length > 0 && (
-                  <div className="mt-2 p-3 bg-blue-50 rounded-md">
-                    <p className="text-sm text-blue-700">
-                      Your schedule will be adjusted to work around these breaks while keeping you on track to complete your course.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+        {customBlockoutDates.length > 0 && (
+          <div className="mt-2 p-3 bg-blue-50 rounded-md">
+            <p className="text-sm text-blue-700">
+              Your schedule will be adjusted to work around these breaks while keeping you on track to complete your course.
+            </p>
           </div>
+        )}
+      </div>
+    </AccordionContent>
+  </AccordionItem>
+</Accordion>
 
           <Button
             onClick={handleCreateSchedule}
@@ -1291,7 +1400,71 @@ const schedule = {
           <DialogHeader>
             <DialogTitle>{selectedEvent?.title}</DialogTitle>
           </DialogHeader>
-          {dialogContent}
+          <DialogDescription>
+            {selectedEvent && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div><strong>Type:</strong> {selectedEvent.type}</div>
+                  <div><strong>Date:</strong> {format(parseISO(selectedEvent.date), 'MMM dd, yyyy')}</div>
+                  
+                  {selectedEvent.type?.toLowerCase() !== 'info' && (
+                    <div className="mt-4">
+                      {selectedEvent.type?.toLowerCase() === 'lesson' ? (
+                        <div className="flex items-center space-x-2">
+                          <CalendarClock className="h-4 w-4 text-green-500" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-600">Time Available</div>
+                            <div className="text-green-600">
+                              {selectedEvent.estimatedMinutes >= 60 
+                                ? `${Math.floor(selectedEvent.estimatedMinutes / 60)}h ${selectedEvent.estimatedMinutes % 60}m`
+                                : `${selectedEvent.estimatedMinutes}m`}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <Clock className="h-4 w-4 text-blue-500" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-600">Expected Time</div>
+                            <div className="text-blue-600">
+                              {selectedEvent.type?.toLowerCase() === 'assignment' ? '1 hour' : '2 hours'}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {selectedEvent.type === 'exam' && (
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <AlertDescription className="text-blue-700">
+                      This exam will take 2 hours to complete. While this date appears in your schedule, you are not required to write the exam specifically on this day. You'll have access to a variety of available dates and times to choose from through our online booking system.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {selectedEvent.type === 'lesson' && (
+                  <Alert className="bg-green-50 border-green-200">
+                    <AlertDescription className="text-green-700">
+                      You have {selectedEvent.estimatedMinutes >= 60 
+                        ? `${Math.floor(selectedEvent.estimatedMinutes / 60)}h ${selectedEvent.estimatedMinutes % 60}m `
+                        : `${selectedEvent.estimatedMinutes}m `} 
+                      allocated in your schedule for this lesson. This timing allows you to work at your own pace while staying On Track with your course progress.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {selectedEvent.type === 'assignment' && (
+                  <Alert className="bg-purple-50 border-purple-200">
+                    <AlertDescription className="text-purple-700">
+                      This assignment will take approximately 1 hour to complete. You can work on it at your own pace within your scheduled timeframe.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
+          </DialogDescription>
         </DialogContent>
       </Dialog>
     </div>
@@ -1349,7 +1522,7 @@ const EnhancedCalendarView = ({
   };
 
   return (
-    <div style={{ height: 'calc(100vh - 400px)' }} className="w-full">
+    <div className="w-full min-h-[600px]">
       <DragAndDropCalendar
         localizer={localizer}
         events={events}
@@ -1366,7 +1539,7 @@ const EnhancedCalendarView = ({
         popupOffset={5}
         showMultiDayTimes={false}
         onShowMore={handleShowMore}
-        style={{ height: '100%', width: '100%' }}
+        style={{ height: '100%', minHeight: '600px' }}
         className="rounded-lg shadow-sm p-2"
         eventPropGetter={(event) => {
           const colors = getEventColor(event.type);
@@ -1421,4 +1594,4 @@ const EnhancedCalendarView = ({
   );
 };
 
-export default YourWayScheduleMaker;
+export default YourWayScheduleMaker; 
