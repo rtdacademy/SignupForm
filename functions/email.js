@@ -14,7 +14,7 @@ const sendEmail = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send emails.');
   }
 
-  const { to, subject, text, html, ccParent } = data;
+  const { to, subject, text, html, ccParent = false, useDoNotReply = false } = data;
   if (!to || !subject || !text) {
     throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters.');
   }
@@ -44,16 +44,32 @@ const sendEmail = functions.https.onCall(async (data, context) => {
       parentEmail = snapshot.val();
     }
 
+    // Prepare email content with do-not-reply notice if applicable
+    let finalHtml = html || text;
+    let finalText = text;
+
+    if (useDoNotReply) {
+      const doNotReplyNotice = `
+        <hr style="margin: 20px 0;">
+        <p style="color: #666; font-size: 12px;">
+          This is an automated message. Please do not reply to this email.
+        </p>
+      `;
+      finalHtml += doNotReplyNotice;
+      finalText += "\n\n---\nThis is an automated message. Please do not reply to this email.";
+    }
+
     // Prepare email message
     const msg = {
       to,
       from: {
-        email: senderEmail,
-        name: senderName
+        email: useDoNotReply ? 'noreply@rtdacademy.com' : senderEmail,
+        name: useDoNotReply ? 'RTD Academy (Do Not Reply)' : senderName
       },
       subject,
-      text,
-      html: html || text
+      text: finalText,
+      html: finalHtml,
+      replyTo: useDoNotReply ? undefined : senderEmail
     };
 
     // Add CC if parent email exists
@@ -70,24 +86,26 @@ const sendEmail = functions.https.onCall(async (data, context) => {
     // Store email in recipient's history
     updates[`userEmails/${recipientKey}/${newEmailId}`] = {
       subject,
-      text,
-      html: html || text,
+      text: finalText,
+      html: finalHtml,
       timestamp,
       sender: senderEmail,
       senderName,
       read: false,
-      ccParent: !!parentEmail
+      ccParent: !!parentEmail,
+      sentAsNoReply: useDoNotReply || false
     };
 
     // Store in sender's sent emails
     updates[`userEmails/${senderKey}/sent/${newEmailId}`] = {
       to,
       subject,
-      text,
-      html: html || text,
+      text: finalText,
+      html: finalHtml,
       timestamp,
       recipient: to,
-      ccParent: !!parentEmail
+      ccParent: !!parentEmail,
+      sentAsNoReply: useDoNotReply || false
     };
 
     // Create notification
@@ -100,8 +118,9 @@ const sendEmail = functions.https.onCall(async (data, context) => {
       preview: text.substring(0, 100) + '...',
       timestamp,
       read: false,
-      isStaff: senderEmail.includes('@rtdacademy.com'),
-      ccParent: !!parentEmail
+      isStaff: true,
+      ccParent: !!parentEmail,
+      sentAsNoReply: useDoNotReply || false
     };
 
     // Perform all updates atomically
@@ -146,50 +165,91 @@ const sendBulkEmails = functions.https.onCall(async (data, context) => {
 
   try {
     // Prepare messages for SendGrid
-    const messages = recipients.map(({ to, subject, text, html, ccParent }) => {
+    const messagePrep = await Promise.all(recipients.map(async ({ to, subject, text, html, ccParent = false, useDoNotReply = false }) => {
+      // Get parent email if needed
+      let parentEmail = null;
+      if (ccParent) {
+        const recipientKey = sanitizeEmail(to);
+        const studentRef = db.ref(`students/${recipientKey}/profile/ParentEmail`);
+        const snapshot = await studentRef.once('value');
+        parentEmail = snapshot.val();
+      }
+
+      // Add do-not-reply notice if applicable
+      let finalHtml = html || text;
+      let finalText = text;
+
+      if (useDoNotReply) {
+        const doNotReplyNotice = `
+          <hr style="margin: 20px 0;">
+          <p style="color: #666; font-size: 12px;">
+            This is an automated message. Please do not reply to this email.
+          </p>
+        `;
+        finalHtml += doNotReplyNotice;
+        finalText += "\n\n---\nThis is an automated message. Please do not reply to this email.";
+      }
+
       const emailConfig = {
         to,
         from: {
-          email: senderEmail,
-          name: senderName
+          email: useDoNotReply ? 'noreply@rtdacademy.com' : senderEmail,
+          name: useDoNotReply ? 'RTD Academy (Do Not Reply)' : senderName
         },
         subject,
-        text,
-        html: html || text
+        text: finalText,
+        html: finalHtml,
+        replyTo: useDoNotReply ? undefined : senderEmail
       };
 
-      return emailConfig;
-    });
+      // Add CC if parent email exists
+      if (parentEmail) {
+        emailConfig.cc = parentEmail;
+      }
+
+      return {
+        config: emailConfig,
+        parentEmail,
+        finalText,
+        finalHtml
+      };
+    }));
+
+    // Extract just the email configs for SendGrid
+    const messageConfigs = messagePrep.map(m => m.config);
 
     // Send all emails
-    await sgMail.send(messages);
+    await sgMail.send(messageConfigs);
 
     // For each recipient, update the database accordingly
-    await Promise.all(recipients.map(async ({ to, subject, text, html, ccParent, courseId, courseName }) => {
+    await Promise.all(recipients.map(async ({ to, subject, text, html, ccParent = false, courseId, courseName, useDoNotReply = false }, index) => {
       const recipientKey = sanitizeEmail(to);
       const newEmailId = db.ref('emails').push().key;
+      const { parentEmail, finalText, finalHtml } = messagePrep[index];
 
       // Store email in recipient's history
       await db.ref(`userEmails/${recipientKey}/${newEmailId}`).set({
         subject,
-        text,
-        html: html || text,
+        text: finalText,
+        html: finalHtml,
         timestamp,
         sender: senderEmail,
         senderName,
         read: false,
-        ccParent: ccParent
+        ccParent: !!parentEmail,
+        sentAsNoReply: useDoNotReply || false
       });
 
       // Store in sender's sent emails
       await db.ref(`userEmails/${senderKey}/sent/${newEmailId}`).set({
         to,
         subject,
-        text,
-        html: html || text,
+        text: finalText,
+        html: finalHtml,
         timestamp,
         recipient: to,
-        ccParent: ccParent
+        ccParent: !!parentEmail,
+        sentAsNoReply: useDoNotReply || false
       });
 
       // Create notification
@@ -202,8 +262,9 @@ const sendBulkEmails = functions.https.onCall(async (data, context) => {
         preview: text.substring(0, 100) + '...',
         timestamp,
         read: false,
-        isStaff: senderEmail.includes('@rtdacademy.com'),
-        ccParent: ccParent
+        isStaff: true,
+        ccParent: !!parentEmail,
+        sentAsNoReply: useDoNotReply || false
       });
 
       // Add note to student's course
@@ -213,7 +274,7 @@ const sendBulkEmails = functions.https.onCall(async (data, context) => {
           const notesArray = Array.isArray(currentNotes) ? currentNotes : [];
           const newNote = {
             id: `email-note-${newEmailId}`,
-            content: `Subject: ${subject}\nCourse: ${courseName}\n${ccParent ? '(CC\'d to parent)' : ''}`,
+            content: `Subject: ${subject}\nCourse: ${courseName}\n${parentEmail ? `(CC'd to parent: ${parentEmail})` : ''}${useDoNotReply ? ' (Sent as no-reply)' : ''}`,
             timestamp: Date.now(),
             author: senderName,
             noteType: '📧',
@@ -222,9 +283,11 @@ const sendBulkEmails = functions.https.onCall(async (data, context) => {
               emailId: newEmailId,
               subject: subject,
               courseId: courseId,
-              senderEmail: senderEmail
+              senderEmail: senderEmail,
+              sentAsNoReply: useDoNotReply || false
             }
           };
+          
           // Prepend the new note to the array
           return [newNote, ...notesArray];
         });
@@ -241,8 +304,6 @@ const sendBulkEmails = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('internal', 'Failed to send bulk emails.');
   }
 });
-
-
 
 module.exports = {
   sendEmail,

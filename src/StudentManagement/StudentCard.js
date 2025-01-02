@@ -34,6 +34,7 @@ import { useMode, MODES } from '../context/ModeContext';
 import { getStudentTypeInfo } from '../config/DropdownOptions';
 import { format } from 'date-fns';
 import { COURSE_OPTIONS, getCourseInfo } from '../config/DropdownOptions';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../components/ui/tooltip";
 
 // Map icon names to icon components
 const iconMap = {
@@ -491,6 +492,7 @@ const handleRemoveCourse = useCallback(async () => {
 
   return (
     <>
+    <TooltipProvider>
       <Card
         className={`transition-shadow duration-200 ${bgColor} hover:shadow-md mb-3 ${!isMobile ? 'cursor-pointer' : ''}`}
         onClick={handleCardClick}
@@ -532,12 +534,22 @@ const handleRemoveCourse = useCallback(async () => {
                   <Maximize2 className="h-4 w-4" />
                 </Button>
               </div>
-              {(!student.hasSchedule || student.inOldSharePoint !== false) && (
-                <div className="mt-1 inline-flex items-center bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap">
-                  <AlertCircle className="w-3 h-3 mr-1" />
-                  Needs Migration
-                </div>
-              )}
+
+             {(!student.hasSchedule || student.inOldSharePoint !== false) && (
+  <div className="mt-1 space-y-1">
+    <div className="inline-flex items-center bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap">
+      <AlertCircle className="w-3 h-3 mr-1" />
+      Needs Migration
+    </div>
+    {student.Status_SharepointValue && (
+      <div className="inline-flex items-center ml-2 text-[10px] text-gray-600">
+        <div className="mr-1">SharePoint Status:</div>
+        <div className="font-medium">{student.Status_SharepointValue}</div>
+      </div>
+    )}
+  </div>
+)}
+
             </div>
             {selectedStudentId === student.id && !isSelected && (
               <CheckCircle className="w-5 h-5 text-blue-500" />
@@ -667,12 +679,41 @@ const handleRemoveCourse = useCallback(async () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="flex-shrink-0 text-center" style={{ minWidth: '50px' }}>
-              <div className="text-[9px] text-gray-500 leading-tight">LW</div>
-              <div className="text-[10px] font-semibold" style={{ color: lastWeekColor }}>
-                {lastWeekStatus}
-              </div>
-            </div>
+
+  {/* SharePoint Status if it exists */}
+  {student.Status_SharepointValue && (
+    <Tooltip delayDuration={200}>
+      <TooltipTrigger asChild>
+        <div className="flex-shrink-0 text-center cursor-help" style={{ minWidth: '50px' }}>
+          <div className="text-[9px] text-gray-500 leading-tight">SP</div>
+          <div className="text-[10px] font-semibold" style={{ color: getStatusColor(student.Status_SharepointValue) }}>
+            {student.Status_SharepointValue}
+          </div>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-[200px] text-xs" side="top">
+        <p>SharePoint Status (temporary)</p>
+        <p className="text-gray-400 mt-1">This indicator shows the student's status in the legacy SharePoint system and will be removed once migration is complete.</p>
+      </TooltipContent>
+    </Tooltip>
+  )}
+  
+  {/* Last Week Status */}
+  <Tooltip delayDuration={200}>
+    <TooltipTrigger asChild>
+      <div className="flex-shrink-0 text-center cursor-help" style={{ minWidth: '50px' }}>
+        <div className="text-[9px] text-gray-500 leading-tight">LW</div>
+        <div className="text-[10px] font-semibold" style={{ color: lastWeekColor }}>
+          {lastWeekStatus}
+        </div>
+      </div>
+    </TooltipTrigger>
+    <TooltipContent className="text-xs">
+      Last Week's Status
+    </TooltipContent>
+  </Tooltip>
+
+
             {/* Auto Status Toggle */}
             <Toggle
               pressed={autoStatus}
@@ -958,6 +999,7 @@ const handleRemoveCourse = useCallback(async () => {
           </div>
         </DialogContent>
       </Dialog>
+      </TooltipProvider>
     </>
   );
 });

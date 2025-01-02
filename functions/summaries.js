@@ -168,6 +168,7 @@ const updateStudentCourseSummary = functions.database
       // Construct the summary object with only the required fields
       const summary = {
         Status_Value: newValue.Status?.Value || '',
+        Status_SharepointValue: newValue.Status?.SharepointValue || '',
         Course_Value: newValue.Course?.Value || '',
         School_x0020_Year_Value: newValue.School_x0020_Year?.Value || '',
         StudentType_Value: newValue.StudentType?.Value || '',
@@ -176,7 +177,7 @@ const updateStudentCourseSummary = functions.database
         PercentScheduleComplete: newValue.PercentScheduleComplete || 0,
         PercentCompleteGradebook: newValue.PercentCompleteGradebook || 0,
         Created: newValue.Created || null,
-        hasSchedule: hasSchedule, // Add the new hasSchedule property
+        hasSchedule: hasSchedule,
         
         // Profile fields
         LastSync: profile.LastSync || '',
@@ -194,18 +195,17 @@ const updateStudentCourseSummary = functions.database
         originalEmail: profile.originalEmail || '',
         preferredFirstName: profile.preferredFirstName || '',
         uid: profile.uid || '',
-
+      
         // Schedule dates
         ScheduleStartDate: newValue.ScheduleStartDate || '',
         ScheduleEndDate: newValue.ScheduleEndDate || '',
-
+      
         // Course-specific fields
         CourseID: newValue.CourseID || courseId,
         LMSStudentID: newValue.LMSStudentID || '',
         StatusCompare: newValue.StatusCompare || '',
         section: newValue.section || '',
-        autoStatus:
-          newValue.autoStatus !== undefined ? newValue.autoStatus : false,
+        autoStatus: newValue.autoStatus !== undefined ? newValue.autoStatus : false,
         categories: newValue.categories || {},
         adherenceMetrics: adherenceMetrics,
         grade: grade,

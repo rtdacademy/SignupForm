@@ -70,6 +70,7 @@ const StudentMessaging = ({
   const [signature, setSignature] = useState('');
   const [isEditingSignature, setIsEditingSignature] = useState(false);
   const totalSelected = selectedStudents.length;
+  const [useDoNotReply, setUseDoNotReply] = useState(false);
 
   const { currentUser, user_email_key } = useAuth();
   const functions = getFunctions();
@@ -282,7 +283,7 @@ const StudentMessaging = ({
     return processedContent;
   };
 
-  // Modified handleSend to include signature
+
   const handleSend = async () => {
     if (!messageContent.trim() || !subject.trim()) {
       onNotification("Please enter both subject and message content", 'error');
@@ -300,7 +301,8 @@ const StudentMessaging = ({
         ccParent: ccParent && student.ParentEmail ? true : false,
         parentEmail: student.ParentEmail,
         courseId: student.CourseID,
-        courseName: student.Course_Value
+        courseName: student.Course_Value,
+        useDoNotReply: useDoNotReply // Add this line
       }));
   
       const result = await sendBulkEmails({ recipients });
@@ -546,20 +548,36 @@ const StudentMessaging = ({
   )}
 </div>
 
-          {/* CC Parents Option */}
-          <div className="flex items-center space-x-2 pt-2">
-            <Checkbox
-              id="ccParents"
-              checked={ccParent}
-              onCheckedChange={setCcParent}
-            />
-            <label
-              htmlFor="ccParents"
-              className="text-sm text-gray-700 cursor-pointer select-none"
-            >
-              CC Parents (if available)
-            </label>
-          </div>
+{/* Email Options */}
+<div className="flex items-center space-x-4 pt-2">
+  <div className="flex items-center space-x-2">
+    <Checkbox
+      id="ccParents"
+      checked={ccParent}
+      onCheckedChange={setCcParent}
+    />
+    <label
+      htmlFor="ccParents"
+      className="text-sm text-gray-700 cursor-pointer select-none"
+    >
+      CC Parents (if available)
+    </label>
+  </div>
+  <div className="flex items-center space-x-2">
+    <Checkbox
+      id="doNotReply"
+      checked={useDoNotReply}
+      onCheckedChange={setUseDoNotReply}
+    />
+    <label
+      htmlFor="doNotReply"
+      className="text-sm text-gray-700 cursor-pointer select-none"
+    >
+      Send as Do Not Reply
+    </label>
+  </div>
+</div>
+
 
           {/* Action Buttons */}
           <div className="flex justify-between items-center pt-4">

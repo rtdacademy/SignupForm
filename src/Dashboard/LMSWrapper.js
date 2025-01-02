@@ -78,11 +78,11 @@ const LMSWrapper = ({
       view: 'iframe'
     });
 
-    /*
+ 
     if (ssoToken) {
       params.append('ssoToken', ssoToken);
     }
-    */
+   
     return `${baseUrl}?${params.toString()}`;
   }, [courseId, generateSSOToken]);
 

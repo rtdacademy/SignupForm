@@ -1,13 +1,11 @@
-// functions/student.js
-
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const { sanitizeEmail, formatASN, API_KEY, profileFields, largeStringFields } = require('./utils');
+const { sanitizeEmail, API_KEY } = require('./utils');
 
 /**
  * Cloud Function: updateStudentData
  *
- * Updates or adds student data based on the sanitized email.
+ * Updates the SharepointValue status for a student's course.
  */
 const updateStudentData = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -34,12 +32,22 @@ const updateStudentData = functions.https.onRequest(async (req, res) => {
     console.log('Received student data:', JSON.stringify(data));
 
     // Validate required fields
-    if (!data.StudentEmail || !data.VersionNumber || !data.CourseID) {
-      return res.status(400).send('StudentEmail, VersionNumber, and CourseID are required');
+    if (!data.StudentEmail || !data.CourseID || !data.Status) {
+      return res.status(400).send('StudentEmail, CourseID, and Status are required');
     }
 
     const sanitizedEmail = sanitizeEmail(data.StudentEmail);
     const db = admin.database();
+    
+    // Directly update the SharepointValue
+    const statusRef = db.ref(`students/${sanitizedEmail}/courses/${data.CourseID}/Status`);
+    await statusRef.update({
+      SharepointValue: data.Status.Value
+    });
+
+    res.status(200).send(`Status SharepointValue updated for student ${data.StudentEmail} in course ${data.CourseID}`);
+
+    /* Original Code - Commented Out for Reference
     const studentRef = db.ref(`students/${sanitizedEmail}`);
     const coursesRef = studentRef.child('courses');
 
@@ -94,10 +102,10 @@ const updateStudentData = functions.https.onRequest(async (req, res) => {
     if (Object.keys(courseData).length > 0) {
       await coursesRef.child(data.CourseID).update(courseData);
     }
+    */
 
-    res.status(200).send(`Data for student with email ${data.StudentEmail} ${isNewCourse ? 'added to' : 'updated in'} course ${data.CourseID} successfully`);
   } catch (error) {
-    console.error('Error updating student data:', error);
+    console.error('Error updating student status:', error);
     res.status(500).send('Internal Server Error: ' + error.message);
   }
 });

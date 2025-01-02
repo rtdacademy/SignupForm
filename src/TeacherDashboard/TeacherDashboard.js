@@ -21,7 +21,8 @@ import {
   Menu,
   Bot,
   Mail,
-  Handshake
+  Handshake,
+  KeyRound 
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import Courses from '../courses/Courses';
@@ -37,6 +38,10 @@ import OrgChart from '../OrgChart/OrgChart';
 import { getDatabase, ref, get, onValue } from 'firebase/database';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import NavItemWithIndicator from '../Notifications/NavItemWithIndicator';
+import SSOTestLink from './SSOTestLink'; 
+import LTIManagement from '../LTI/LTIManagement';
+
+
 
 function TeacherDashboard() {
   const { user, isStaff, hasAdminAccess } = useAuth();
@@ -127,7 +132,9 @@ function TeacherDashboard() {
         subItems: [
           { icon: DollarSign, label: 'Pricing', key: 'pricing' },
           { icon: BarChart2, label: 'Reports', key: 'reports' },
-          { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' }
+          { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' },
+          { icon: KeyRound, label: 'SSO Testing', key: 'sso-testing' },
+          { icon: Link, label: 'LTI Management', key: 'lti-management' }  
         ]
       });
     }
@@ -137,7 +144,7 @@ function TeacherDashboard() {
 
   const renderContent = () => {
     // Check for admin-only sections
-    const adminOnlySections = ['pricing', 'reports', 'contractor-invoices'];
+    const adminOnlySections = ['pricing', 'reports', 'contractor-invoices', 'sso-testing']; 
     if (adminOnlySections.includes(activeSection) && !hasAdminAccess()) {
       return <div className="p-4">Access Denied. This section requires admin privileges.</div>;
     }
@@ -174,8 +181,17 @@ function TeacherDashboard() {
         return <EmailComponent />;
       case 'org-chart':
         return <OrgChart />;
-      default:
-        return null;
+        case 'sso-testing':
+          return (
+            <div className="p-4">
+              <h2 className="text-2xl font-bold mb-6">SSO Testing Tool</h2>
+              <SSOTestLink />
+            </div>
+          );
+          case 'lti-management':
+  return <LTIManagement />;
+        default:
+          return null;
     }
   };
 

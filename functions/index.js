@@ -18,6 +18,7 @@ const summaryFunctions = require('./summaries');
 const emailFunctions = require('./email');
 const stripeFunctions = require('./stripe');
 const historicalPaymentFunctions = require('./updateHistoricalPaymentStatus');
+const ltiFunctions = require('./lti');
 
 // Export all gradebook functions
 exports.updateGradebookData = gradebookFunctions.updateGradebookData;
@@ -56,3 +57,11 @@ exports.getPaymentStatus = stripeFunctions.getPaymentStatus;
 
 // Export historical payment status update function
 exports.updateHistoricalPaymentStatus = historicalPaymentFunctions.updateHistoricalPaymentStatus;
+
+// Export LTI functions
+exports.ltiJwks = ltiFunctions.ltiJwks;
+exports.ltiLogin = ltiFunctions.ltiLogin;
+exports.ltiAuth = ltiFunctions.ltiAuth; 
+exports.ltiDeepLinkReturn = ltiFunctions.ltiDeepLinkReturn; 
+exports.getLTILinks = ltiFunctions.getLTILinks; 
+exports.ltiGradeCallback = ltiFunctions.ltiGradeCallback;

@@ -522,14 +522,13 @@ const YourWayScheduleMaker = ({
     }
   }, [selectedCourse, courseHours]);
 
-  // Add this effect after the course data is loaded
   useEffect(() => {
     if (selectedCourse) {
       // Flatten all items from all units into a single array
       const flattenedItems = selectedCourse.units.flatMap(unit => 
         unit.items.map(item => ({
           ...item,
-          unitName: unit.name // Keep track of which unit it belongs to
+          unitName: unit.name
         }))
       );
       setAllCourseItems(flattenedItems);
@@ -542,17 +541,23 @@ const YourWayScheduleMaker = ({
       }));
       setStartingAssignmentOptions(assignmentOptions);
       
-      // Try to find first lesson as default selection
-      const firstLesson = assignmentOptions.find(option => 
-        option.label.toLowerCase().includes('lesson')
-      );
-      setSelectedStartingAssignment(firstLesson || assignmentOptions[0]);
+      // Always select first item if no existing schedule
+      if (!hasExistingSchedule && assignmentOptions.length > 0) {
+        setSelectedStartingAssignment(assignmentOptions[0]);
+      } else {
+        // Try to find first lesson as default selection for existing schedules
+        const firstLesson = assignmentOptions.find(option => 
+          option.label.toLowerCase().includes('lesson')
+        );
+        setSelectedStartingAssignment(firstLesson || assignmentOptions[0]);
+      }
     } else {
       setAllCourseItems([]);
       setStartingAssignmentOptions([]);
       setSelectedStartingAssignment(null);
     }
-  }, [selectedCourse]);
+  }, [selectedCourse, hasExistingSchedule]);
+  
 
   // Update this state whenever scheduleData changes
   useEffect(() => {
@@ -924,18 +929,24 @@ const YourWayScheduleMaker = ({
     </div>
   );
 
-  // Add this UI section in your component's return, after the course selection and before the date selection
-  const startingAssignmentSection = selectedCourse && hasExistingSchedule && (
-    <div className="space-y-2 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
-      <Label className="text-blue-800">Starting Assignment</Label>
+  const startingAssignmentSection = selectedCourse && (
+    <div className={`space-y-2 p-4 rounded-lg border ${
+      hasExistingSchedule 
+        ? 'bg-blue-50/50 border-blue-100' 
+        : 'bg-gray-50/50 border-gray-100'
+    }`}>
+      <Label className={hasExistingSchedule ? 'text-blue-800' : 'text-gray-800'}>
+        Starting Assignment
+      </Label>
       <Select
         value={selectedStartingAssignment?.value?.toString()}
         onValueChange={(value) => {
           const option = startingAssignmentOptions.find(opt => opt.value.toString() === value);
           setSelectedStartingAssignment(option);
         }}
+        disabled={!hasExistingSchedule}
       >
-        <SelectTrigger className="w-full bg-white">
+        <SelectTrigger className={`w-full bg-white ${!hasExistingSchedule ? 'opacity-50' : ''}`}>
           <SelectValue placeholder="Select starting point" />
         </SelectTrigger>
         <SelectContent>
@@ -953,9 +964,15 @@ const YourWayScheduleMaker = ({
           </ScrollArea>
         </SelectContent>
       </Select>
-      <p className="text-sm text-blue-600">
-        Select the assignment you're currently working on. Your schedule will start from this point.
-      </p>
+      {hasExistingSchedule ? (
+        <p className="text-sm text-blue-600">
+          Select the assignment you're currently working on. Your schedule will start from this point.
+        </p>
+      ) : (
+        <p className="text-sm text-gray-600">
+          This is your first schedule. It will start from the beginning of the course.
+        </p>
+      )}
     </div>
   );
 
