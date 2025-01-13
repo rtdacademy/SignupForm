@@ -8,9 +8,6 @@ if (!admin.apps.length) {
 
 /**
  * Cloud Function: syncProfileToCourseSummaries
- * 
- * Syncs profile changes to all related studentCourseSummaries entries
- * when a student's profile is updated.
  */
 const syncProfileToCourseSummaries = functions.database
   .ref('/students/{studentId}/profile')
@@ -25,7 +22,6 @@ const syncProfileToCourseSummaries = functions.database
     }
 
     try {
-      // Get all courses for this student
       const coursesSnap = await db
         .ref(`students/${studentId}/courses`)
         .once('value');
@@ -36,13 +32,10 @@ const syncProfileToCourseSummaries = functions.database
         return null;
       }
 
-      // Create batch updates object
       const updates = {};
 
-      // For each course, update the corresponding summary
       Object.keys(courses).forEach(courseId => {
         const courseData = courses[courseId];
-        // Sync all profile-related fields
         updates[`studentCourseSummaries/${studentId}_${courseId}/LastSync`] = 
           newProfileData.LastSync || '';
         updates[`studentCourseSummaries/${studentId}_${courseId}/ParentEmail`] = 
@@ -71,19 +64,35 @@ const syncProfileToCourseSummaries = functions.database
           newProfileData.originalEmail || '';
         updates[`studentCourseSummaries/${studentId}_${courseId}/preferredFirstName`] = 
           newProfileData.preferredFirstName || '';
+        updates[`studentCourseSummaries/${studentId}_${courseId}/gender`] = 
+          newProfileData.gender || '';
         updates[`studentCourseSummaries/${studentId}_${courseId}/uid`] = 
           newProfileData.uid || '';
         
-        // Include schedule dates and Created timestamp from the course data
         updates[`studentCourseSummaries/${studentId}_${courseId}/ScheduleStartDate`] = 
           courseData.ScheduleStartDate || '';
         updates[`studentCourseSummaries/${studentId}_${courseId}/ScheduleEndDate`] = 
           courseData.ScheduleEndDate || '';
         updates[`studentCourseSummaries/${studentId}_${courseId}/Created`] = 
           courseData.Created || null;
+
+        // Update guardian emails
+        const guardians = newProfileData.AdditionalGuardians || [];
+        for (let i = 0; i < guardians.length; i++) {
+          updates[`studentCourseSummaries/${studentId}_${courseId}/guardianEmail${i + 1}`] = guardians[i].email || '';
+        }
+
+        // Remove any extra guardian emails if the number of guardians has decreased
+        const maxGuardians = guardians.length;
+        for (let i = maxGuardians + 1; ; i++) {
+          const guardianEmailKey = `studentCourseSummaries/${studentId}_${courseId}/guardianEmail${i}`;
+          if (updates[guardianEmailKey] === undefined) {
+            break; // No more guardian emails to remove
+          }
+          updates[guardianEmailKey] = null; // Set to null to remove the property
+        } 
       });
 
-      // Perform all updates in a single transaction
       if (Object.keys(updates).length > 0) {
         await db.ref().update(updates);
         console.log(
@@ -99,7 +108,6 @@ const syncProfileToCourseSummaries = functions.database
         `Error syncing profile updates for student ${studentId}: ${error.message}`
       );
 
-      // Log error for debugging
       await db.ref('errorLogs/syncProfileToCourseSummaries').push({
         studentId,
         error: error.message,
@@ -107,15 +115,12 @@ const syncProfileToCourseSummaries = functions.database
         timestamp: admin.database.ServerValue.TIMESTAMP,
       });
 
-      throw error; // Rethrow to ensure function failure is properly logged
+      throw error;
     }
   });
 
 /**
  * Cloud Function: updateStudentCourseSummary
- *
- * Updates the studentCourseSummaries node whenever a student's course data changes.
- * Includes handling for course deletion and error logging.
  */
 const updateStudentCourseSummary = functions.database
   .ref('/students/{studentId}/courses/{courseId}')
@@ -124,7 +129,6 @@ const updateStudentCourseSummary = functions.database
     const newValue = change.after.val();
     const db = admin.database();
 
-    // If the course was deleted, remove it from studentCourseSummaries
     if (!newValue) {
       try {
         await db.ref(`studentCourseSummaries/${studentId}_${courseId}`).remove();
@@ -137,13 +141,11 @@ const updateStudentCourseSummary = functions.database
     }
 
     try {
-      // Fetch additional required data from the student's profile
       const profileSnap = await db
         .ref(`students/${studentId}/profile`)
         .once('value');
       const profile = profileSnap.val() || {};
 
-      // Fetch adherenceMetrics from jsonGradebookSchedule
       const adherenceMetricsSnap = await db
         .ref(
           `/students/${studentId}/courses/${courseId}/jsonGradebookSchedule/adherenceMetrics`
@@ -151,7 +153,6 @@ const updateStudentCourseSummary = functions.database
         .once('value');
       const adherenceMetrics = adherenceMetricsSnap.val() || {};
 
-      // Fetch grade percentage from overallTotals
       const gradeSnap = await db
         .ref(
           `/students/${studentId}/courses/${courseId}/jsonGradebookSchedule/overallTotals/percentage`
@@ -159,13 +160,11 @@ const updateStudentCourseSummary = functions.database
         .once('value');
       const grade = gradeSnap.val() || 0;
 
-      // Check if ScheduleJSON exists
       const scheduleJsonSnap = await db
         .ref(`students/${studentId}/courses/${courseId}/ScheduleJSON`)
         .once('value');
       const hasSchedule = scheduleJsonSnap.exists();
 
-      // Construct the summary object with only the required fields
       const summary = {
         Status_Value: newValue.Status?.Value || '',
         Status_SharepointValue: newValue.Status?.SharepointValue || '',
@@ -194,13 +193,12 @@ const updateStudentCourseSummary = functions.database
         lastName: profile.lastName || '',
         originalEmail: profile.originalEmail || '',
         preferredFirstName: profile.preferredFirstName || '',
+        gender: profile.gender || '',
         uid: profile.uid || '',
       
-        // Schedule dates
         ScheduleStartDate: newValue.ScheduleStartDate || '',
         ScheduleEndDate: newValue.ScheduleEndDate || '',
       
-        // Course-specific fields
         CourseID: newValue.CourseID || courseId,
         LMSStudentID: newValue.LMSStudentID || '',
         StatusCompare: newValue.StatusCompare || '',
@@ -213,7 +211,6 @@ const updateStudentCourseSummary = functions.database
         lastUpdated: admin.database.ServerValue.TIMESTAMP,
       };
 
-      // Update the studentCourseSummaries node
       await db
         .ref(`studentCourseSummaries/${studentId}_${courseId}`)
         .update(summary);
@@ -227,7 +224,6 @@ const updateStudentCourseSummary = functions.database
         `Error updating studentCourseSummary for student ${studentId} in course ${courseId}: ${error.message}`
       );
 
-      // Log the error to a database path for debugging
       await db.ref('errorLogs/updateStudentCourseSummary').push({
         studentId,
         courseId,
@@ -236,13 +232,10 @@ const updateStudentCourseSummary = functions.database
         timestamp: admin.database.ServerValue.TIMESTAMP,
       });
 
-      throw error; // Rethrow to ensure function failure is properly logged
+      throw error;
     }
   });
 
-/**
- * Export all functions
- */
 module.exports = {
   updateStudentCourseSummary,
   syncProfileToCourseSummaries,

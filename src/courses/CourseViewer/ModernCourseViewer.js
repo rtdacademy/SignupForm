@@ -8,6 +8,7 @@ import {
   MenuIcon,
   CalendarDays,
   Star,
+  ExternalLink,
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -20,6 +21,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../.
 import { format, parseISO } from 'date-fns';
 import PerformanceSummary from './PerformanceSummary';
 import CourseNavigation from './CourseNavigation';
+import LTIAssessmentLauncher from './LTIAssessmentLauncher';
+
+const LTI_BASE_URL = 'https://us-central1-rtd-academy.cloudfunctions.net';
 
 const typeColors = {
   lesson: 'text-blue-600 bg-blue-50 border-blue-200',
@@ -34,28 +38,47 @@ const ModernCourseViewer = ({
   previewContent = null 
 }) => {
   const { courseId: paramsCourseId } = useParams();
-  const { current_user_email_key } = useAuth();
-  const finalCourseId = propsCourseId || paramsCourseId || '89';
+  const { current_user_email_key, user } = useAuth();
+  const finalCourseId = propsCourseId || paramsCourseId;
   
   const [courseData, setCourseData] = useState(null);
   const [studentCourseData, setStudentCourseData] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [courseTitle, setCourseTitle] = useState('');
   const [currentUnitIndex, setCurrentUnitIndex] = useState(0);
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(true);
   const [contentData, setContentData] = useState(null);
+  const [ltiLaunchLoading, setLtiLaunchLoading] = useState(false);
+  const [isLaunchSheetOpen, setIsLaunchSheetOpen] = useState(false);
+  const [ltiLaunchUrl, setLtiLaunchUrl] = useState(null);
 
-  // Fetch course structure and content
+  // Move units and currentUnit declarations up with useMemo
+  const units = useMemo(() => courseData?.units || [], [courseData]);
+  const currentUnit = useMemo(() => units[currentUnitIndex], [units, currentUnitIndex]);
+  const currentItem = useMemo(() => currentUnit?.items?.[currentItemIndex], [currentUnit, currentItemIndex]);
+
+  // Fetch course structure, content, and user profile
   useEffect(() => {
     const db = getDatabase();
     const courseRef = ref(db, `courses/${finalCourseId}`);
+    const profileRef = ref(db, `students/${current_user_email_key}/profile`);
     
     const unsubscribeCourse = onValue(courseRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         setCourseData(data);
         setCourseTitle(data.Title || 'Course Title');
+        setLoading(false);
+      }
+    });
+
+    // Add profile listener
+    const unsubscribeProfile = onValue(profileRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setUserProfile(data);
       }
     });
 
@@ -63,7 +86,10 @@ const ModernCourseViewer = ({
     if (previewMode && previewContent) {
       setContentData(previewContent);
       setLoading(false);
-      return () => unsubscribeCourse();
+      return () => {
+        unsubscribeCourse();
+        unsubscribeProfile();
+      };
     }
 
     // Fetch published content from Firestore
@@ -96,12 +122,52 @@ const ModernCourseViewer = ({
 
       return () => {
         unsubscribeCourse();
+        unsubscribeProfile();
         unsubscribeStudent();
       };
     }
 
-    return () => unsubscribeCourse();
+    return () => {
+      unsubscribeCourse();
+      unsubscribeProfile();
+    };
   }, [finalCourseId, previewMode, previewContent, current_user_email_key]);
+
+  // Update useEffect to prepare LTI URL when an LTI item is detected
+  useEffect(() => {
+    const prepareLTILaunch = async () => {
+      if (!user || !userProfile || !currentItem?.lti?.enabled) {
+        return;
+      }
+
+      try {
+        const firstName = userProfile.preferredFirstName || userProfile.firstName || '';
+        
+        const params = new URLSearchParams({
+          user_id: user.uid,
+          course_id: finalCourseId,
+          role: 'student',
+          deep_link_id: currentItem.lti.deep_link_id, 
+          allow_direct_login: "1",
+          firstname: firstName,
+          lastname: userProfile.lastName || '',
+          email: userProfile.StudentEmail || user.email
+        });
+
+        const launchUrl = `${LTI_BASE_URL}/ltiLogin?${params.toString()}`;
+        setLtiLaunchUrl(launchUrl);
+      } catch (error) {
+        console.error('Error preparing LTI launch:', error);
+      }
+    };
+
+    prepareLTILaunch();
+  }, [currentItem, user, userProfile, finalCourseId]);
+
+  // Modify handleLTILaunch to just open the sheet since URL is already prepared
+  const handleLTILaunch = () => {
+    setIsLaunchSheetOpen(true);
+  };
 
   const {
     schedule,
@@ -132,10 +198,6 @@ const ModernCourseViewer = ({
       sortedScheduleItems: sortedItems
     };
   }, [studentCourseData, previewMode]);
-
-  const units = courseData?.units || [];
-  const currentUnit = units[currentUnitIndex];
-  const currentItem = currentUnit?.items?.[currentItemIndex];
 
   // Get content for current item
   const currentItemContent = useMemo(() => {
@@ -168,7 +230,8 @@ const ModernCourseViewer = ({
     return sortedScheduleItems.indexOf(scheduleItem) === lastStartedIndex;
   };
 
-  if (loading) {
+  // Add loading state for profile data
+  if (loading || !userProfile) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center">
@@ -178,6 +241,74 @@ const ModernCourseViewer = ({
       </div>
     );
   }
+
+  const renderContent = () => {
+    if (currentItem?.lti?.enabled) {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">IMathAS Assessment</h3>
+              <p className="text-sm text-gray-500">
+                Click to open the assessment
+              </p>
+            </div>
+            <Button
+              onClick={handleLTILaunch}
+              disabled={ltiLaunchLoading}
+              className="flex items-center gap-2"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Open Assessment
+            </Button>
+          </div>
+  
+          <LTIAssessmentLauncher
+            isOpen={isLaunchSheetOpen}
+            onOpenChange={setIsLaunchSheetOpen}
+            title={currentItem.title}
+            courseId={finalCourseId}
+            launchUrl={ltiLaunchUrl}
+            type={currentItem.type}
+            onError={(error) => {
+              console.error('LTI Launch error:', error);
+              setIsLaunchSheetOpen(false);
+            }}
+          />
+        </div>
+      );
+    }
+
+    if (currentItemContent) {
+      return (
+        <div className="prose max-w-none">
+          {currentItem.type === 'lesson' && (
+            <div dangerouslySetInnerHTML={{ __html: currentItemContent.content }} />
+          )}
+          {currentItem.type === 'assignment' && currentItemContent.questions && (
+            <div className="space-y-6">
+              {currentItemContent.questions.map((question, index) => (
+                <div key={index} className="p-4 border rounded-lg">
+                  <div dangerouslySetInnerHTML={{ __html: question.prompt }} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="text-gray-600">
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            This {currentItem?.type} does not have any content yet.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -298,32 +429,7 @@ const ModernCourseViewer = ({
               {/* Main Content Card */}
               <Card>
                 <CardContent className="p-6">
-                  {currentItemContent ? (
-                    <div className="prose max-w-none">
-                      {currentItem.type === 'lesson' && (
-                        <div dangerouslySetInnerHTML={{ __html: currentItemContent.content }} />
-                      )}
-                      {currentItem.type === 'assignment' && currentItemContent.questions && (
-                        <div className="space-y-6">
-                          {currentItemContent.questions.map((question, index) => (
-                            <div key={index} className="p-4 border rounded-lg">
-                              <div dangerouslySetInnerHTML={{ __html: question.prompt }} />
-                              {/* Add question rendering logic here */}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-gray-600">
-                      <Alert>
-                        <Info className="h-4 w-4" />
-                        <AlertDescription>
-                          This {currentItem?.type} does not have any content yet.
-                        </AlertDescription>
-                      </Alert>
-                    </div>
-                  )}
+                  {renderContent()}
                 </CardContent>
               </Card>
             </div>

@@ -27,9 +27,15 @@ import {
   X, 
   Loader2, 
   PlusCircle, 
-  ListPlus,
-  Users, 
-  Mail 
+  ListPlus, 
+  Grid2X2 as Grid2X2Icon,
+  Circle as CircleIcon,
+
+   // Template type icons
+   Circle, Square, Triangle, BookOpen, GraduationCap, Trophy, Target, 
+   ClipboardCheck, Brain, Lightbulb, Clock, Calendar, BarChart, TrendingUp, 
+   AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, 
+   Bookmark, Mail, Bell, Megaphone, Chat, ListFilterIcon
 } from 'lucide-react'; // Added Users and Mail
 import { toast, Toaster } from "sonner";
 import { useAuth } from '../context/AuthContext';
@@ -41,17 +47,46 @@ import {
   TooltipTrigger, 
   TooltipContent 
 } from "../components/ui/tooltip"; // Added Tooltip imports
+import EmailRecipientSelector from './EmailRecipientSelector';
 
 const database = getDatabase();
 
 const PLACEHOLDERS = [
-  { id: 'firstName', label: 'First Name', token: '[firstName]' },
+  { id: 'firstName', label: 'Prefered Name', token: '[firstName]' },
   { id: 'lastName', label: 'Last Name', token: '[lastName]' },
   { id: 'courseName', label: 'Course Name', token: '[courseName]' },
   { id: 'startDate', label: 'Start Date', token: '[startDate]' },
   { id: 'endDate', label: 'End Date', token: '[endDate]' },
   { id: 'status', label: 'Status', token: '[status]' },
   { id: 'studentType', label: 'Student Type', token: '[studentType]' }
+];
+
+const iconOptions = [
+  { value: 'circle', label: 'Circle', icon: Circle },
+  { value: 'square', label: 'Square', icon: Square },
+  { value: 'triangle', label: 'Triangle', icon: Triangle },
+  { value: 'book-open', label: 'Study Material', icon: BookOpen },
+  { value: 'graduation-cap', label: 'Graduation', icon: GraduationCap },
+  { value: 'trophy', label: 'Achievement', icon: Trophy },
+  { value: 'target', label: 'Goal', icon: Target },
+  { value: 'clipboard-check', label: 'Task Complete', icon: ClipboardCheck },
+  { value: 'brain', label: 'Understanding', icon: Brain },
+  { value: 'lightbulb', label: 'Idea', icon: Lightbulb },
+  { value: 'clock', label: 'Time Management', icon: Clock },
+  { value: 'calendar', label: 'Schedule', icon: Calendar },
+  { value: 'bar-chart', label: 'Progress', icon: BarChart },
+  { value: 'trending-up', label: 'Improvement', icon: TrendingUp },
+  { value: 'alert-circle', label: 'Important', icon: AlertCircle },
+  { value: 'help-circle', label: 'Help', icon: HelpCircle },
+  { value: 'message-circle', label: 'Discussion', icon: MessageCircle },
+  { value: 'users', label: 'Group Work', icon: Users },
+  { value: 'presentation', label: 'Lecture', icon: Presentation },
+  { value: 'file-text', label: 'Assignment', icon: FileText },
+  { value: 'bookmark', label: 'Bookmark', icon: Bookmark },
+  { value: 'mail', label: 'Mail', icon: Mail },
+  { value: 'bell', label: 'Notifications', icon: Bell },
+  { value: 'megaphone', label: 'Announcements', icon: Megaphone },
+  { value: 'message-circle', label: 'Chat', icon: MessageCircle }
 ];
 
 const StudentMessaging = ({ 
@@ -62,7 +97,6 @@ const StudentMessaging = ({
   const [subject, setSubject] = useState('');
   const [messageContent, setMessageContent] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [ccParent, setCcParent] = useState(false);
   const [quillRef, setQuillRef] = useState(null);
   const [teacherMessages, setTeacherMessages] = useState({});
   const [teacherNames, setTeacherNames] = useState({});
@@ -71,8 +105,11 @@ const StudentMessaging = ({
   const [isEditingSignature, setIsEditingSignature] = useState(false);
   const totalSelected = selectedStudents.length;
   const [useDoNotReply, setUseDoNotReply] = useState(false);
+  const [templateTypes, setTemplateTypes] = useState([]);
+  const [showCcOptions, setShowCcOptions] = useState(false); // State for the CC options dialog
+  const [ccRecipients, setCcRecipients] = useState({}); // State to store CC recipient selections
 
-  const { currentUser, user_email_key } = useAuth();
+  const { currentUser, user_email_key} = useAuth(); 
   const functions = getFunctions();
   const sendBulkEmails = httpsCallable(functions, 'sendBulkEmails');
 
@@ -284,43 +321,177 @@ const StudentMessaging = ({
   };
 
 
-  const handleSend = async () => {
-    if (!messageContent.trim() || !subject.trim()) {
-      onNotification("Please enter both subject and message content", 'error');
-      return;
-    }
-  
-    setIsSending(true);
-  
-    try {
-      const recipients = selectedStudents.map(student => ({
+
+// Then modify the handleSend function:
+const handleSend = async () => {
+  if (!messageContent.trim() || !subject.trim()) {
+    onNotification("Please enter both subject and message content", 'error');
+    return;
+  }
+
+  setIsSending(true);
+
+  try {
+    const recipients = selectedStudents.map(student => {
+      // Get parent/guardian CC emails
+      const studentCcEmails = ccRecipients[student.id] || {};
+      const parentGuardianCcList = Object.entries(studentCcEmails)
+        .filter(([_, checked]) => checked)
+        .map(([email]) => email);
+
+      // Get staff CC/BCC information if this is a single student
+      let staffCcEmails = [];
+      let staffBccEmails = [];
+      let staffCcInfo = [];
+      let staffBccInfo = [];
+      
+      if (selectedStudents.length === 1 && ccRecipients['staff']) {
+        if (ccRecipients['staff'].cc) {
+          staffCcInfo = ccRecipients['staff'].cc;
+          staffCcEmails = staffCcInfo.map(staff => staff.email);
+        }
+        if (ccRecipients['staff'].bcc) {
+          staffBccInfo = ccRecipients['staff'].bcc;
+          staffBccEmails = staffBccInfo.map(staff => staff.email);
+        }
+      }
+
+      // Combine parent/guardian CCs with staff CCs
+      const allCcList = [...parentGuardianCcList, ...staffCcEmails];
+
+      return {
         to: student.StudentEmail,
         subject: replacePlaceholders(subject, student),
         text: replacePlaceholders(messageContent + (signature ? signature : ''), student).replace(/<[^>]*>/g, ''),
         html: replacePlaceholders(messageContent + (signature ? signature : ''), student),
-        ccParent: ccParent && student.ParentEmail ? true : false,
-        parentEmail: student.ParentEmail,
+        cc: allCcList.length > 0 ? allCcList : undefined,
+        bcc: staffBccEmails.length > 0 ? staffBccEmails : undefined,
+        staffCcInfo: staffCcInfo.length > 0 ? staffCcInfo : undefined,
+        staffBccInfo: staffBccInfo.length > 0 ? staffBccInfo : undefined,
         courseId: student.CourseID,
         courseName: student.Course_Value,
-        useDoNotReply: useDoNotReply // Add this line
-      }));
-  
-      const result = await sendBulkEmails({ recipients });
-  
-      if (result.data.success) {
-        const message = `Messages sent to ${totalSelected} students${ccParent ? ' (including parent copies)' : ''}`;
-        onNotification(message, 'success');
+        useDoNotReply
+      };
+    });
+
+    const result = await sendBulkEmails({ recipients });
+
+    if (result.data.success) {
+      // Handle successful sends
+      if (result.data.successfulCount > 0) {
+        toast.success(`Successfully sent ${result.data.successfulCount} emails`);
+      }
+      
+      // Handle failures with detailed error display
+      if (result.data.failedEmails?.length > 0) {
+        // Group failures by error type
+        const failureGroups = result.data.failedEmails.reduce((acc, failure) => {
+          const key = failure.message;
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(failure.recipient);
+          return acc;
+        }, {});
+
+        // Display grouped errors
+        Object.entries(failureGroups).forEach(([error, recipients]) => {
+          toast.error(
+            <div className="space-y-2">
+              <p className="font-semibold">{error}</p>
+              <div className="text-sm max-h-32 overflow-y-auto">
+                {recipients.map((recipient, i) => (
+                  <div key={i} className="text-xs">{recipient}</div>
+                ))}
+              </div>
+              {recipients.length > 3 && (
+                <p className="text-xs text-gray-500">
+                  ... and {recipients.length - 3} more
+                </p>
+              )}
+            </div>,
+            {
+              duration: 10000,
+            }
+          );
+        });
+
+        // Store error IDs for reference
+        if (result.data.failedEmails.some(f => f.errorId)) {
+          console.log('Error IDs for reference:', 
+            result.data.failedEmails
+              .filter(f => f.errorId)
+              .map(f => f.errorId)
+          );
+        }
+      }
+
+      // Only close if all emails were successful
+      if (result.data.failedCount === 0) {
         onClose();
       } else {
-        throw new Error('Failed to send emails');
+        onNotification(
+          `${result.data.successfulCount} sent successfully, ${result.data.failedCount} failed. Check the error messages for details.`,
+          'warning'
+        );
       }
-    } catch (error) {
-      console.error('Error sending messages:', error);
-      onNotification("Failed to send messages. Please try again.", 'error');
-    } finally {
-      setIsSending(false);
+    } else {
+      throw new Error(result.data.message || 'Failed to send emails');
     }
-  };
+  } catch (error) {
+    console.error('Error sending messages:', error);
+    
+    let errorMessage = "Failed to send messages.";
+    
+    if (error.details?.failedEmails) {
+      const failureCount = error.details.failedEmails.length;
+      errorMessage += ` ${failureCount} email${failureCount !== 1 ? 's' : ''} failed.`;
+      
+      // Log error IDs if available
+      const errorIds = error.details.failedEmails
+        .filter(f => f.errorId)
+        .map(f => f.errorId);
+      if (errorIds.length > 0) {
+        console.log('Error IDs:', errorIds);
+      }
+    }
+    
+    onNotification(errorMessage, 'error');
+    
+    // Show detailed error toast if available
+    if (error.details?.failedEmails) {
+      error.details.failedEmails.forEach(failure => {
+        toast.error(`Failed to send to ${failure.recipient}: ${failure.message}`, {
+          duration: 10000,
+        });
+      });
+    }
+  } finally {
+    setIsSending(false);
+  }
+};
+  useEffect(() => {
+    const db = getDatabase();
+    const typesRef = ref(db, 'templateTypes'); // Shared template types path
+  
+    const handleTypes = (snapshot) => {
+      if (snapshot.exists()) {
+        const typesData = snapshot.val();
+        const typesArray = Object.entries(typesData).map(([id, type]) => ({
+          id,
+          ...type
+        }));
+        setTemplateTypes(typesArray);
+      } else {
+        setTemplateTypes([]);
+      }
+    };
+  
+    onValue(typesRef, handleTypes);
+  
+    return () => {
+      off(typesRef);
+    };
+  }, []);
+
 
   return (
     <>
@@ -351,7 +522,10 @@ const StudentMessaging = ({
                       <div
                         className="bg-white px-3 py-1.5 rounded-full text-xs border flex items-center gap-2 cursor-pointer"
                       >
-                        <span>{student.firstName} {student.lastName}</span>
+                        <span>
+      {(student?.preferredFirstName || student?.firstName || '') + ' ' + (student?.lastName || '')}
+    </span>
+
                         {student.ParentEmail && (
                           <Mail 
                             className="h-3.5 w-3.5 text-blue-500" 
@@ -365,22 +539,30 @@ const StudentMessaging = ({
                         {student.ParentEmail && (
                           <div>Parent: {student.ParentEmail}</div>
                         )}
+                        {Array.from({ length: 10 }, (_, i) => i + 1).map(i => {
+                          const email = student[`guardianEmail${i}`];
+                          return (
+                            email && (
+                              <div key={i}>Guardian {i}: {email}</div>
+                            )
+                          );
+                        })}
                       </div>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               ))}
             </div>
-            {ccParent && (
+            {Object.values(ccRecipients).some(cc => Object.values(cc).some(checked => checked)) && (
               <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
                 <Mail className="h-3.5 w-3.5" />
-                Parent emails will be CC'd when available
+                CC options have been selected
               </div>
             )}
           </div>
 
-          {/* Message Actions */}
-          <div className="flex items-center space-x-2">
+          {/* New Flex Container with Add Template, CC Options, and Do Not Reply */}
+          <div className="flex items-center space-x-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -388,58 +570,200 @@ const StudentMessaging = ({
                   Add Template
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                {/* Current teacher's templates */}
-                {teacherMessages[user_email_key] && (
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>My Templates</DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      {Object.entries(teacherMessages[user_email_key])
-                        .filter(([_, template]) => !template.archived)
-                        .map(([id, template]) => (
-                          <DropdownMenuItem
-                            key={id}
-                            onClick={() => handleTemplateSelect({ ...template, id, teacherKey: user_email_key })}
+              <DropdownMenuContent 
+                className="w-56" 
+                align="start" 
+                side="right"
+              >
+                {/* By Staff option */}
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Users className="h-4 w-4 mr-2" />
+                    By Staff
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent 
+                    className="max-h-[300px] overflow-y-auto"
+                    alignOffset={-5}
+                    side="right"
+                  >
+                    {/* Current user's templates */}
+                    {teacherMessages[user_email_key] && (
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>My Templates</DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent 
+                          className="max-h-[300px] overflow-y-auto"
+                          alignOffset={-5}
+                          side="right"
+                        >
+                          {Object.entries(teacherMessages[user_email_key])
+                            .filter(([_, template]) => !template.archived)
+                            .map(([id, template]) => (
+                              <DropdownMenuItem
+                                key={id}
+                                onClick={() => handleTemplateSelect({ ...template, id, teacherKey: user_email_key })}
+                              >
+                                <div className="flex items-center w-full overflow-hidden">
+                                  <div
+                                    className="w-2 h-2 rounded-full mr-2 flex-shrink-0"
+                                    style={{ backgroundColor: template.color }}
+                                  />
+                                  <span className="truncate">{template.name}</span>
+                                </div>
+                              </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    )}
+    
+                    {/* Other staff templates */}
+                    {Object.entries(teacherMessages)
+                      .filter(([key]) => key !== user_email_key)
+                      .map(([teacherKey, templates]) => (
+                        <DropdownMenuSub key={teacherKey}>
+                          <DropdownMenuSubTrigger className="w-full">
+                            <div className="truncate">
+                              {teacherNames[teacherKey] || teacherKey}
+                            </div>
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent 
+                            className="max-h-[300px] overflow-y-auto"
+                            alignOffset={-5}
+                            side="right"
                           >
-                            <div
-                              className="w-2 h-2 rounded-full mr-2"
-                              style={{ backgroundColor: template.color }}
-                            />
-                            {template.name}
-                          </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                )}
-
-                {/* Other teachers' templates */}
-                {Object.entries(teacherMessages)
-                  .filter(([key]) => key !== user_email_key)
-                  .map(([teacherKey, templates]) => (
-                    <DropdownMenuSub key={teacherKey}>
+                            {Object.entries(templates)
+                              .filter(([_, template]) => !template.archived)
+                              .map(([id, template]) => (
+                                <DropdownMenuItem
+                                  key={id}
+                                  onClick={() => handleTemplateSelect({ ...template, id, teacherKey })}
+                                >
+                                  <div className="flex items-center w-full overflow-hidden">
+                                    <div
+                                      className="w-2 h-2 rounded-full mr-2 flex-shrink-0"
+                                      style={{ backgroundColor: template.color }}
+                                    />
+                                    <span className="truncate">{template.name}</span>
+                                  </div>
+                                </DropdownMenuItem>
+                              ))}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+    
+                {/* By Type option */}
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <Grid2X2Icon className="h-4 w-4 mr-2" />
+                    By Type
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent 
+                    className="max-h-[300px] overflow-y-auto"
+                    alignOffset={-5}
+                    side="right"
+                  >
+                    {templateTypes.map((type) => (
+                      <DropdownMenuSub key={type.id}>
+                        <DropdownMenuSubTrigger className="w-full">
+                          <div className="flex items-center overflow-hidden">
+                            {React.createElement(
+                              iconOptions.find(icon => icon.value === type.icon)?.icon || CircleIcon,
+                              { 
+                                className: "h-4 w-4 mr-2 flex-shrink-0",
+                                style: { color: type.color }
+                              }
+                            )}
+                            <span className="truncate">{type.name}</span>
+                          </div>
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent 
+                          className="max-h-[300px] overflow-y-auto"
+                          alignOffset={-5}
+                          side="right"
+                        >
+                          {Object.entries(teacherMessages).flatMap(([teacherKey, templates]) =>
+                            Object.entries(templates)
+                              .filter(([_, template]) => !template.archived && template.type === type.id)
+                              .map(([id, template]) => (
+                                <DropdownMenuItem
+                                  key={`${teacherKey}-${id}`}
+                                  onClick={() => handleTemplateSelect({ ...template, id, teacherKey })}
+                                >
+                                  <div className="flex items-center w-full overflow-hidden">
+                                    <div
+                                      className="w-2 h-2 rounded-full mr-2 flex-shrink-0"
+                                      style={{ backgroundColor: template.color }}
+                                    />
+                                    <span className="truncate">{template.name}</span>
+                                    <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                                      ({teacherNames[teacherKey] || teacherKey})
+                                    </span>
+                                  </div>
+                                </DropdownMenuItem>
+                              ))
+                          )}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    ))}
+    
+                    {/* Uncategorized templates */}
+                    <DropdownMenuSub>
                       <DropdownMenuSubTrigger>
-                        {teacherNames[teacherKey] || teacherKey}
+                        <CircleIcon className="h-4 w-4 mr-2" />
+                        Uncategorized
                       </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        {Object.entries(templates)
-                          .filter(([_, template]) => !template.archived)
-                          .map(([id, template]) => (
-                            <DropdownMenuItem
-                              key={id}
-                              onClick={() => handleTemplateSelect({ ...template, id, teacherKey })}
-                            >
-                              <div
-                                className="w-2 h-2 rounded-full mr-2"
-                                style={{ backgroundColor: template.color }}
-                              />
-                              {template.name}
-                            </DropdownMenuItem>
-                          ))}
+                      <DropdownMenuSubContent 
+                        className="max-h-[300px] overflow-y-auto"
+                        alignOffset={-5}
+                        side="right"
+                      >
+                        {Object.entries(teacherMessages).flatMap(([teacherKey, templates]) =>
+                          Object.entries(templates)
+                            .filter(([_, template]) => !template.archived && !template.type)
+                            .map(([id, template]) => (
+                              <DropdownMenuItem
+                                key={`${teacherKey}-${id}`}
+                                onClick={() => handleTemplateSelect({ ...template, id, teacherKey })}
+                              >
+                                <div className="flex items-center w-full overflow-hidden">
+                                  <div
+                                    className="w-2 h-2 rounded-full mr-2 flex-shrink-0"
+                                    style={{ backgroundColor: template.color }}
+                                  />
+                                  <span className="truncate">{template.name}</span>
+                                  <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                                    ({teacherNames[teacherKey] || teacherKey})
+                                  </span>
+                                </div>
+                              </DropdownMenuItem>
+                            ))
+                        )}
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
-                  ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <Button variant="outline" size="sm" onClick={() => setShowCcOptions(true)}>
+              <ListPlus className="h-4 w-4 mr-2" />
+              CC Options
+            </Button>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="doNotReply"
+                checked={useDoNotReply}
+                onCheckedChange={setUseDoNotReply}
+              />
+              <label
+                htmlFor="doNotReply"
+                className="text-sm text-gray-700 cursor-pointer select-none"
+              >
+                Send as Do Not Reply
+              </label>
+            </div>
           </div>
 
           {/* Subject Input */}
@@ -502,82 +826,51 @@ const StudentMessaging = ({
           </div>
 
           {/* Signature Section */}
-<div className="space-y-2 border-t pt-4">
-  <div className="flex items-center justify-between mb-2">
-    <label className="text-sm font-medium">Email Signature</label>
-    <div className="flex gap-2">
-      {isEditingSignature && (
-        <Button size="sm" onClick={handleSaveSignature}>
-          <Save className="h-4 w-4 mr-2" />
-          Save Signature
-        </Button>
-      )}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setIsEditingSignature(!isEditingSignature)}
-      >
-        {isEditingSignature ? (
-          <>
-            <X className="h-4 w-4 mr-2" />
-            Cancel
-          </>
-        ) : (
-          <>
-            <PlusCircle className="h-4 w-4 mr-2" />
-            Edit Signature
-          </>
-        )}
-      </Button>
-    </div>
-  </div>
-  {isEditingSignature ? (
-    <ReactQuill
-      theme="snow"
-      value={signature}
-      onChange={setSignature}
-      modules={modules}
-      formats={formats}
-      className="h-[100px]"
-    />
-  ) : (
-    <div 
-      className="p-3 bg-gray-50 rounded-md min-h-[50px]"
-      dangerouslySetInnerHTML={{ __html: signature }}
-    />
-  )}
-</div>
-
-{/* Email Options */}
-<div className="flex items-center space-x-4 pt-2">
-  <div className="flex items-center space-x-2">
-    <Checkbox
-      id="ccParents"
-      checked={ccParent}
-      onCheckedChange={setCcParent}
-    />
-    <label
-      htmlFor="ccParents"
-      className="text-sm text-gray-700 cursor-pointer select-none"
-    >
-      CC Parents (if available)
-    </label>
-  </div>
-  <div className="flex items-center space-x-2">
-    <Checkbox
-      id="doNotReply"
-      checked={useDoNotReply}
-      onCheckedChange={setUseDoNotReply}
-    />
-    <label
-      htmlFor="doNotReply"
-      className="text-sm text-gray-700 cursor-pointer select-none"
-    >
-      Send as Do Not Reply
-    </label>
-  </div>
-</div>
-
+          <div className="space-y-2 border-t pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium">Email Signature</label>
+              <div className="flex gap-2">
+                {isEditingSignature && (
+                  <Button size="sm" onClick={handleSaveSignature}>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Signature
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditingSignature(!isEditingSignature)}
+                >
+                  {isEditingSignature ? (
+                    <>
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Edit Signature
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+            {isEditingSignature ? (
+              <ReactQuill
+                theme="snow"
+                value={signature}
+                onChange={setSignature}
+                modules={modules}
+                formats={formats}
+                className="h-[100px]"
+              />
+            ) : (
+              <div 
+                className="p-3 bg-gray-50 rounded-md min-h-[50px]"
+                dangerouslySetInnerHTML={{ __html: signature }}
+              />
+            )}
+          </div>
 
           {/* Action Buttons */}
           <div className="flex justify-between items-center pt-4">
@@ -622,6 +915,15 @@ const StudentMessaging = ({
           </div>
         </CardContent>
       </Card>
+  
+     {/* CC Options Dialog */}
+  <EmailRecipientSelector
+    open={showCcOptions}
+    onOpenChange={setShowCcOptions}
+    students={selectedStudents}
+    ccRecipients={ccRecipients}
+    onCcRecipientsChange={setCcRecipients}
+  />
     </>
   );
 };

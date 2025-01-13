@@ -12,6 +12,7 @@ import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { useMode, MODES } from '../context/ModeContext';
@@ -56,6 +57,9 @@ function StudentDetail({ studentSummary, isMobile }) {
   const [jsonGradebook, setJsonGradebook] = useState(null);
   const { currentMode } = useMode();
   const { preferences, updatePreferences } = useUserPreferences();
+  const [newLMSId, setNewLMSId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localLMSStudentID, setLocalLMSStudentID] = useState(studentSummary?.LMSStudentID || null);
 
   // New refs and state for dynamic font sizing
   const nameRef = useRef(null);
@@ -84,6 +88,26 @@ function StudentDetail({ studentSummary, isMobile }) {
         console.error('Error updating student stats setting:', error);
         alert('An error occurred while updating the student stats setting.');
       });
+  };
+
+  const handleSubmitLMSId = async () => {
+    if (!newLMSId.trim()) return;
+    
+    setIsSubmitting(true);
+    const db = getDatabase();
+    
+    try {
+      await update(ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}/courses/${courseId}`), {
+        LMSStudentID: newLMSId
+      });
+      setLocalLMSStudentID(newLMSId); // Update local state
+      toast.success("LMS Student ID updated successfully");
+    } catch (error) {
+      console.error('Error updating LMS Student ID:', error);
+      toast.error("Failed to update LMS Student ID. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getAvailableTabs = () => {
@@ -445,16 +469,115 @@ function StudentDetail({ studentSummary, isMobile }) {
   };
 
   const renderGradebookContent = () => {
-    if (!studentSummary?.CourseID || !studentSummary?.LMSStudentID) {
+    const copyToClipboard = async (text) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast.success("Email copied to clipboard");
+      } catch (err) {
+        console.error('Failed to copy:', err);
+        toast.error("Failed to copy email");
+      }
+    };
+  
+    if (!studentSummary?.CourseID) {
       return (
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-yellow-700">Missing course or student ID information</p>
+          <p className="text-yellow-700">Missing course information</p>
         </div>
       );
     }
-
-    const gradebookUrl = `https://edge.rtdacademy.com/course/gradebook.php?cid=${studentSummary.CourseID}&stu=${studentSummary.LMSStudentID}`;
-
+  
+    const lookupUrl = "https://edge.rtdacademy.com/util/utils.php?form=lookup";
+    const gradebookUrl = `https://edge.rtdacademy.com/course/gradebook.php?cid=${studentSummary.CourseID}&stu=${localLMSStudentID || studentSummary.LMSStudentID}`;
+  
+    if (!localLMSStudentID && !studentSummary?.LMSStudentID) {
+      return (
+        <div className="space-y-4">
+          <div className="p-6 bg-white border rounded-lg shadow-sm">
+            <h3 className="text-lg font-semibold mb-4 text-[#315369]">LMS Student ID Required</h3>
+            
+            {/* Email copy section */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-md">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-600">Student Email:</p>
+                <div className="flex items-center gap-2">
+                  <code className="px-2 py-1 bg-white rounded border">
+                    {studentSummary.StudentEmail}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyToClipboard(studentSummary.StudentEmail)}
+                    className="flex items-center gap-1"
+                  >
+                    <svg 
+                      width="15" 
+                      height="15" 
+                      viewBox="0 0 15 15" 
+                      fill="none" 
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="opacity-70"
+                    >
+                      <path 
+                        d="M1 9.50006C1 10.3285 1.67157 11.0001 2.5 11.0001H4L4 10.0001H2.5C2.22386 10.0001 2 9.7762 2 9.50006L2 2.50006C2 2.22392 2.22386 2.00006 2.5 2.00006L9.5 2.00006C9.77614 2.00006 10 2.22392 10 2.50006V4.00002H5.5C4.67158 4.00002 4 4.67159 4 5.50002V12.5C4 13.3284 4.67158 14 5.5 14H12.5C13.3284 14 14 13.3284 14 12.5V5.50002C14 4.67159 13.3284 4.00002 12.5 4.00002H11V2.50006C11 1.67163 10.3284 1.00006 9.5 1.00006H2.5C1.67157 1.00006 1 1.67163 1 2.50006V9.50006ZM5 5.50002C5 5.22388 5.22386 5.00002 5.5 5.00002H12.5C12.7761 5.00002 13 5.22388 13 5.50002V12.5C13 12.7762 12.7761 13 12.5 13H5.5C5.22386 13 5 12.7762 5 12.5V5.50002Z" 
+                        fill="currentColor" 
+                        fillRule="evenodd" 
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            </div>
+  
+            <p className="text-gray-600 mb-4">
+              This student doesn't have an LMS ID assigned. Please enter their LMS Student ID to view the gradebook.
+            </p>
+            <div className="space-y-4">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newLMSId}
+                  onChange={(e) => setNewLMSId(e.target.value)}
+                  placeholder="Enter LMS Student ID"
+                  className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#40b3b3] focus:border-transparent"
+                  disabled={isSubmitting}
+                />
+                <Button
+                  onClick={handleSubmitLMSId}
+                  disabled={!newLMSId.trim() || isSubmitting}
+                  className="bg-[#40b3b3] text-white hover:bg-[#379999] disabled:bg-gray-300"
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center">
+                      <span className="animate-spin mr-2">⟳</span>
+                      Saving...
+                    </span>
+                  ) : (
+                    'Save ID'
+                  )}
+                </Button>
+              </div>
+              <p className="text-sm text-gray-500">
+                The LMS Student ID can be found in Edge.
+              </p>
+            </div>
+          </div>
+          
+          {/* Lookup iframe */}
+          <div className="w-full h-[500px] relative border rounded-lg overflow-hidden">
+            <iframe
+              src={lookupUrl}
+              className="w-full h-full absolute inset-0 border-0"
+              title="LMS ID Lookup"
+              allow="fullscreen"
+            />
+          </div>
+        </div>
+      );
+    }
+  
     return (
       <div className="w-full h-full min-h-[500px] relative">
         <iframe
@@ -563,11 +686,13 @@ function StudentDetail({ studentSummary, isMobile }) {
                       className="font-bold text-[#315369] truncate"
                       style={{ fontSize: `${nameFontSize}px` }}
                     >
-                      {studentData?.profile.firstName} {studentData?.profile.lastName}
+                      {(studentData?.profile.preferredFirstName || studentData?.profile.firstName || '') + ' ' + (studentData?.profile.lastName || '')}
+
                     </h2>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{studentData?.profile.firstName} {studentData?.profile.lastName}</p>
+                    <p>{(studentData?.profile.preferredFirstName || studentData?.profile.firstName || '') + ' ' + (studentData?.profile.lastName || '')}
+                    </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -728,7 +853,8 @@ function StudentDetail({ studentSummary, isMobile }) {
                   Schedule Maker
                 </DialogTitle>
                 <div className="text-sm text-gray-700 text-center sm:text-left">
-                  <p><strong>Student:</strong> {studentData?.profile.firstName} {studentData?.profile.lastName}</p>
+                  <p><strong>Student:</strong> {(studentData?.profile.preferredFirstName || studentData?.profile.firstName || '') + ' ' + (studentData?.profile.lastName || '')}
+                  </p>
                   <p><strong>Course:</strong> {courseTitle}</p>
                 </div>
               </div>

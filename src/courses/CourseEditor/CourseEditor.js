@@ -7,11 +7,14 @@ import {
   Eye, 
   EyeOff, 
   AlertTriangle,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Switch } from '../../components/ui/switch';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
 import ModernCourseViewer from '../CourseViewer/ModernCourseViewer';
 import ContentEditor from './ContentEditor';
 
@@ -26,6 +29,8 @@ const CourseEditor = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [currentSection, setCurrentSection] = useState('content');
+  const [syncingGrades, setSyncingGrades] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null);
 
   useEffect(() => {
     if (!isStaffUser) {
@@ -141,6 +146,37 @@ const CourseEditor = () => {
     }
   };
 
+  const handleSyncGrades = async () => {
+    setSyncingGrades(true);
+    setSyncStatus(null);
+    try {
+      const response = await fetch(
+        `https://us-central1-rtd-academy.cloudfunctions.net/syncGrades?courseId=${courseId}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to sync grades');
+      }
+
+      const result = await response.json();
+      setSyncStatus({
+        success: true,
+        message: `Successfully synced ${result.processedCount} assessments`,
+        details: result
+      });
+
+    } catch (err) {
+      console.error('Grade sync error:', err);
+      setSyncStatus({
+        success: false,
+        message: 'Failed to sync grades. Please try again.',
+        error: err.message
+      });
+    } finally {
+      setSyncingGrades(false);
+    }
+  };
+
   if (!courseData || !contentData) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -245,15 +281,55 @@ const CourseEditor = () => {
                     courseData={courseData}
                     contentData={contentData}
                     onUpdate={handleContentUpdate}
-                    courseId = {courseId}
+                    courseId={courseId}
                   />
                 </div>
               </div>
             </TabsContent>
 
             <TabsContent value="settings" className="p-4">
-              <div className="text-gray-600">
-                Settings will go here
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>IMathAS Grade Sync</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <p className="text-sm text-gray-600">
+                        Sync all grades from IMathAS assignments in this course.
+                      </p>
+                      
+                      <Button
+                        onClick={handleSyncGrades}
+                        disabled={syncingGrades}
+                        className="w-full sm:w-auto"
+                      >
+                        {syncingGrades ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Syncing Grades...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Sync Grades
+                          </>
+                        )}
+                      </Button>
+
+                      {syncStatus && (
+                        <Alert
+                          variant={syncStatus.success ? "default" : "destructive"}
+                          className="mt-4"
+                        >
+                          <AlertDescription>
+                            {syncStatus.message}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </TabsContent>
           </Tabs>

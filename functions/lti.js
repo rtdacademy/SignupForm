@@ -13,6 +13,7 @@ const CLIENT_ID = 'rtd-academy-lti-client';
 const ISSUER = 'https://us-central1-rtd-academy.cloudfunctions.net';
 const TOOL_URL = 'https://edge.rtdacademy.com';
 const PLATFORM_UNIQUE_ID = '6765d5fcca524';
+const DEPLOYMENT_ID = 'imathas-deployment-1'; // Your single deployment ID for now
 
 // Helper Functions
 const logEvent = async (type, details, success = true) => {
@@ -66,7 +67,7 @@ const createIdToken = (payload, privateKey, kid) => {
 
 const cleanupExpiredLaunches = async () => {
     const db = admin.database();
-    const launchesRef = db.ref('lti/test_launches');
+    const launchesRef = db.ref('lti/launches');
     const now = Date.now();
     const oldLaunches = await launchesRef.orderByChild('expires').endAt(now).once('value');
     const deletePromises = [];
@@ -76,7 +77,7 @@ const cleanupExpiredLaunches = async () => {
     await Promise.all(deletePromises);
 };
 
-// JWKS Endpoint
+// JWKS Endpoint (No changes needed)
 exports.ltiJwks = functions.https.onRequest(async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET');
@@ -129,7 +130,7 @@ exports.ltiJwks = functions.https.onRequest(async (req, res) => {
     }
 });
 
-// Helper function to sanitize objects for logging
+// Helper function to sanitize objects for logging (No changes needed)
 const sanitizeForLog = (obj) => {
     return Object.fromEntries(
         Object.entries(obj)
@@ -138,6 +139,7 @@ const sanitizeForLog = (obj) => {
     );
 };
 
+// LTI Authentication Endpoint (ltiAuth)
 exports.ltiAuth = functions.https.onRequest(async (req, res) => {
     try {
         await logEvent('Auth Request Initial', sanitizeForLog({
@@ -156,6 +158,7 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
             lti_message_hint
         } = req.query;
 
+        // Validate required parameters
         if (!client_id || !login_hint || !nonce || !redirect_uri || !state) {
             throw new Error('Missing required parameters');
         }
@@ -164,7 +167,7 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
         const db = admin.database();
         let launchData = null;
         if (lti_message_hint) {
-            const launchRef = db.ref(`lti/test_launches/${lti_message_hint}`);
+            const launchRef = db.ref(`lti/launches/${lti_message_hint}`);
             const launchSnapshot = await launchRef.once('value');
             launchData = launchSnapshot.val();
             
@@ -185,7 +188,7 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
             throw new Error('Invalid or missing launch data');
         }
 
-        // Get platform keys
+        // Get platform keys (No changes)
         const keysRef = db.ref('lti/keys');
         const keyData = (await keysRef.once('value')).val();
 
@@ -202,13 +205,13 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
             customParams = {
                 "context_history": launchData.course_id,
                 "lti_key": ltiKey,
-                "allow_direct_login": "1",  // Required for account linking
+                "allow_direct_login": "1",
                 "tool_consumer_instance_guid": PLATFORM_UNIQUE_ID,
                 "tool_consumer_info_product_family_code": "RTD-Academy"
             };
         } else {
-            // For students, need to get assessment ID from deep link
-            if (launchData.deep_link_id) {
+            // For students, get assessment ID from resource link
+            if (launchData.deep_link_id) { 
                 const deepLinkRef = db.ref(`lti/deep_links/${launchData.deep_link_id}`);
                 const deepLinkSnapshot = await deepLinkRef.once('value');
                 const deepLinkData = deepLinkSnapshot.val();
@@ -222,12 +225,12 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
                 customParams = {
                     "context_history": launchData.course_id,
                     "lti_key": ltiKey,
-                    "allow_direct_login": "1",
+                    "allow_direct_login": launchData.allowDirectLogin ? "1" : "0",
                     "tool_consumer_instance_guid": PLATFORM_UNIQUE_ID,
                     "tool_consumer_info_product_family_code": "RTD-Academy"
                 };
             } else {
-                throw new Error('No assessment ID found for student launch');
+                throw new Error('No resource link ID found for student launch');
             }
         }
 
@@ -238,7 +241,7 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
             ltiKey
         });
 
-        // Base payload
+        // Construct base payload
         const payload = {
             // OIDC required claims
             sub: login_hint,
@@ -263,48 +266,52 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
 
             // LTI required claims
             "https://purl.imsglobal.org/spec/lti/claim/version": "1.3.0",
-            "https://purl.imsglobal.org/spec/lti/claim/deployment_id": "1",
+            "https://purl.imsglobal.org/spec/lti/claim/deployment_id": DEPLOYMENT_ID, // Use the deployment ID
             "https://purl.imsglobal.org/spec/lti/claim/roles": [
                 launchData.role === 'instructor' 
                     ? "http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor"
                     : "http://purl.imsglobal.org/vocab/lis/v2/institution/person#Student"
             ],
 
-            // Context claim with history
+            // Context claim
             "https://purl.imsglobal.org/spec/lti/claim/context": {
                 "id": launchData.course_id,
                 "label": `Course ${launchData.course_id}`,
                 "title": `Course ${launchData.course_id}`,
                 "type": ["http://purl.imsglobal.org/vocab/lis/v2/course#CourseSection"]
             },
-
-            // Custom claims
-            "https://purl.imsglobal.org/spec/lti/claim/custom": customParams
         };
 
         // Add role-specific claims and target link URIs
         if (launchData.role === 'instructor') {
             payload["https://purl.imsglobal.org/spec/lti/claim/message_type"] = "LtiDeepLinkingRequest";
-            payload["https://purl.imsglobal.org/spec/lti/claim/target_link_uri"] = 
+            payload["https://purl.imsglobal.org/spec/lti/claim/target_link_uri"] =
                 `${TOOL_URL}/lti/launch.php?type=course&refcid=${launchData.course_id}`;
-            
+
             payload["https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings"] = {
                 "accept_types": ["ltiResourceLink"],
                 "accept_presentation_document_targets": ["iframe", "window"],
                 "deep_link_return_url": `${ISSUER}/ltiDeepLinkReturn`,
                 "accept_multiple": false,
-                "auto_create": true
+                "auto_create": true,
+                "data": launchData.deep_link_id
             };
-        } else {
+        } else { // Student launch
             if (launchData.deep_link_id) {
                 const deepLinkRef = db.ref(`lti/deep_links/${launchData.deep_link_id}`);
                 const deepLinkSnapshot = await deepLinkRef.once('value');
                 const deepLinkData = deepLinkSnapshot.val();
 
+                if (!deepLinkData || !deepLinkData.assessment_id) {
+                    throw new Error('Invalid deep link or missing assessment ID');
+                }
+
                 payload["https://purl.imsglobal.org/spec/lti/claim/message_type"] = "LtiResourceLinkRequest";
                 payload["https://purl.imsglobal.org/spec/lti/claim/target_link_uri"] = deepLinkData.url;
+
+                // IMPORTANT: Add the resource_link claim with the correct ID
                 payload["https://purl.imsglobal.org/spec/lti/claim/resource_link"] = {
-                    "id": launchData.resource_link_id,
+                    "id": launchData.deep_link_id, // Use the deep_link_id as resource_link.id
                     "title": deepLinkData.title
                 };
 
@@ -314,11 +321,17 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
                             "https://purl.imsglobal.org/spec/lti-ags/scope/score"
                         ],
                         "lineitem": deepLinkData.lineItem.id,
+                        "lineitems": `${ISSUER}/lineitems?deployment_id=${DEPLOYMENT_ID}&resource_link_id=${launchData.deep_link_id}`,
                         "scores": `${ISSUER}/ltiGradeCallback`
                     };
                 }
+            } else {
+                throw new Error('No deep link ID found for student launch');
             }
         }
+
+        // Add custom claims
+        payload["https://purl.imsglobal.org/spec/lti/claim/custom"] = customParams;
 
         // Create and send the form
         const id_token = await createIdToken(payload, keyData.privateKey, keyData.kid);
@@ -352,7 +365,7 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
     }
 });
 
-
+// LTI Login Endpoint (ltiLogin)
 exports.ltiLogin = functions.https.onRequest(async (req, res) => {
     return cors(req, res, async () => {
         try {
@@ -365,30 +378,22 @@ exports.ltiLogin = functions.https.onRequest(async (req, res) => {
 
             const { 
                 user_id,
-                test_user_id,
                 course_id, 
                 deep_link_id,
                 role = 'student',
                 allow_direct_login,
-                firstname = 'Kyle',  // Default values for all users
-                lastname = 'Fake',   // Default values for all users
-                email = 'kyle.e.brown13@gmail.com' // Default values for all users
+                firstname,
+                lastname,
+                email
             } = req.query;
-
-            // Use test_user_id if provided, otherwise use regular user_id
-            const effectiveUserId = test_user_id || user_id;
 
             // Log parameters
             const logParams = {
-                actual_user_id: user_id,
-                effective_user_id: effectiveUserId,
-                is_test_user: !!test_user_id,
+                user_id,
                 course_id,
                 role,
                 allow_direct_login,
-                firstname,
-                lastname,
-                email: email ? 'provided' : 'not provided'
+                has_user_details: !!(firstname && lastname && email)
             };
             
             if (role === 'student' && deep_link_id) {
@@ -398,50 +403,53 @@ exports.ltiLogin = functions.https.onRequest(async (req, res) => {
             await logEvent('Login Parameters', logParams);
 
             // Validate required parameters
-            if (!effectiveUserId || !course_id) {
+            if (!user_id || !course_id) {
                 throw new Error('Missing required parameters');
             }
+
+            // For students, ensure deep_link_id is provided
             if (role === 'student' && !deep_link_id) {
                 throw new Error('Missing deep_link_id for student launch');
+            }
+
+            // Validate user details are provided
+            if (!firstname || !lastname || !email) {
+                throw new Error('Missing required user details');
             }
 
             const state = crypto.randomBytes(32).toString('hex');
             const nonce = crypto.randomBytes(32).toString('hex');
 
-            // Create resource link ID
+            // Create resource link ID based on role and context
+            // For students, use the deep_link_id as resource_link_id
             const resource_link_id = role === 'instructor'
                 ? `course_${course_id}`
-                : `link_${deep_link_id}`;
+                : deep_link_id; // Use deep_link_id for students
 
-            // Create launch data object with user details
+            // Create launch data object
             const launchData = {
-                user_id: effectiveUserId,
-                actual_user_id: user_id,
-                is_test_user: !!test_user_id,
+                user_id,
                 role,
                 course_id,
-                resource_link_id,
+                resource_link_id, // Now correctly set for both roles
+                deep_link_id,
                 nonce,
-                firstname,    // Always include user details
-                lastname,     // Always include user details
-                email,       // Always include user details
+                firstname,
+                lastname,
+                email,
                 allowDirectLogin: allow_direct_login === "1",
                 created: admin.database.ServerValue.TIMESTAMP,
-                expires: Date.now() + (5 * 60 * 1000)
+                expires: Date.now() + (5 * 60 * 1000)  // 5 minute expiry
             };
-
-            if (role === 'student' && deep_link_id) {
-                launchData.deep_link_id = deep_link_id;
-            }
 
             // Store launch data
             const db = admin.database();
-            await db.ref(`lti/test_launches/${state}`).set(launchData);
+            await db.ref(`lti/launches/${state}`).set(launchData);
 
-            // Construct IMathAS login URL
+            // Construct IMathAS login URL with parameters
             const params = new URLSearchParams({
                 iss: ISSUER,
-                login_hint: effectiveUserId,
+                login_hint: user_id,
                 client_id: CLIENT_ID,
                 lti_message_hint: state,
                 scope: 'openid',
@@ -459,8 +467,7 @@ exports.ltiLogin = functions.https.onRequest(async (req, res) => {
                 redirectUrl,
                 params: Object.fromEntries(params),
                 role,
-                course_id,
-                is_test_user: !!test_user_id
+                course_id
             });
             
             res.redirect(redirectUrl);
@@ -476,10 +483,10 @@ exports.ltiLogin = functions.https.onRequest(async (req, res) => {
     });
 });
 
-
 // Get LTI configuration from functions config
 const LTI_CONFIG = functions.config().lti;
 
+// LTI Deep Link Return Endpoint (ltiDeepLinkReturn)
 exports.ltiDeepLinkReturn = functions.https.onRequest(async (req, res) => {
     return cors(req, res, async () => {
         try {
@@ -498,6 +505,15 @@ exports.ltiDeepLinkReturn = functions.https.onRequest(async (req, res) => {
                 audience: LTI_CONFIG.issuer
             });
 
+            // Correctly extract deep_link_id from the top-level data claim
+            const deep_link_id = decodedJwt['https://purl.imsglobal.org/spec/lti-dl/claim/data'];
+
+            console.log("deep_link_id", deep_link_id); // Log for debugging
+
+            if (!deep_link_id) {
+                throw new Error('deep_link_id not found in deep link response');
+            }
+
             const contentItems = decodedJwt['https://purl.imsglobal.org/spec/lti-dl/claim/content_items'];
 
             if (!Array.isArray(contentItems) || contentItems.length === 0) {
@@ -513,11 +529,12 @@ exports.ltiDeepLinkReturn = functions.https.onRequest(async (req, res) => {
                 const refaid = urlParams.get('refaid');
 
                 const linkData = {
+                    resource_link_id: deep_link_id, // Use the provided deep_link_id as resource_link_id
                     title: item.title,
                     url: item.url,
                     type: item.type,
-                    course_id: refcid, // Use the course ID from the URL
-                    assessment_id: refaid, // Store the assessment ID
+                    course_id: refcid,
+                    assessment_id: refaid,
                     created: admin.database.ServerValue.TIMESTAMP
                 };
 
@@ -530,52 +547,52 @@ exports.ltiDeepLinkReturn = functions.https.onRequest(async (req, res) => {
                     };
                 }
 
-                // Store in Firebase
-                const linksRef = admin.database().ref('lti/deep_links').push();
-                await linksRef.set(linkData);
+                // Store in Firebase using the received deep_link_id
+                const db = admin.database();
+                const deepLinkRef = db.ref(`lti/deep_links/${deep_link_id}`);
+                await deepLinkRef.set(linkData);
                 storedLinks.push({
-                    id: linksRef.key,
+                    id: deep_link_id, // This is now the resource_link_id
                     ...linkData
                 });
 
                 await logEvent('Deep Link Stored', {
-                    linkId: linksRef.key,
+                    deep_link_id,
                     linkData
                 });
             }
 
             // Return success page that will close the deep linking window
             const responseHtml = `
-    <html>
-    <head>
-        <title>Deep Link Created</title>
-        <style>
-            body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
-            .success { color: #4caf50; margin-bottom: 20px; }
-            .details { background: #f5f5f5; padding: 15px; border-radius: 4px; margin: 20px 0; }
-        </style>
-    </head>
-    <body>
-        <h2 class="success">Assignment Links Created Successfully</h2>
-        <div class="details">
-            <p>${storedLinks.length} assignment link(s) have been created and stored.</p>
-            <p>These assignments are now available for student access.</p>
-            <p>You may continue setting up your course in IMathAS.</p>
-        </div>
-        <script>
-            // Just notify the parent window of success
-            window.parent.postMessage(
-                {
-                    subject: 'lti.deep_linking.response.success',
-                    linkCount: ${storedLinks.length},
-                    links: ${JSON.stringify(storedLinks)}
-                }, 
-                '*'
-            );
-        </script>
-    </body>
-    </html>
-`;
+        <html>
+        <head>
+            <title>Deep Link Created</title>
+            <style>
+                body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+                .success { color: #4caf50; margin-bottom: 20px; }
+                .details { background: #f5f5f5; padding: 15px; border-radius: 4px; margin: 20px 0; }
+            </style>
+        </head>
+        <body>
+            <h2 class="success">Assignment Links Created Successfully</h2>
+            <div class="details">
+                <p>${storedLinks.length} assignment link(s) have been created and stored.</p>
+                <p>These assignments are now available for student access.</p>
+                <p>You may continue setting up your course in IMathAS.</p>
+            </div>
+            <script>
+                window.parent.postMessage(
+                    {
+                        subject: 'lti.deep_linking.response.success',
+                        linkCount: ${storedLinks.length},
+                        links: ${JSON.stringify(storedLinks)}
+                    }, 
+                    '*'
+                );
+            </script>
+        </body>
+        </html>
+        `;
 
             res.status(200).send(responseHtml);
 
@@ -585,7 +602,6 @@ exports.ltiDeepLinkReturn = functions.https.onRequest(async (req, res) => {
                 stack: error.stack
             }, false);
 
-            // Return an error page
             const errorHtml = `
                 <html>
                 <head>
@@ -608,20 +624,19 @@ exports.ltiDeepLinkReturn = functions.https.onRequest(async (req, res) => {
     });
 });
 
-
-// Get LTI Links for a Course
+// Get LTI Links Endpoint (getLTILinks)
 exports.getLTILinks = functions.https.onRequest(async (req, res) => {
     return cors(req, res, async () => {
         try {
             const { courseId } = req.query;
-            
+
             if (!courseId) {
                 throw new Error('Course ID is required');
             }
 
             const db = admin.database();
             const linksRef = db.ref('lti/deep_links');
-            
+
             // Query links for this course
             const snapshot = await linksRef
                 .orderByChild('course_id')
@@ -631,7 +646,7 @@ exports.getLTILinks = functions.https.onRequest(async (req, res) => {
             const links = [];
             snapshot.forEach((childSnapshot) => {
                 links.push({
-                    id: childSnapshot.key,
+                    id: childSnapshot.key, // This is the resource_link_id
                     ...childSnapshot.val()
                 });
             });
@@ -657,6 +672,7 @@ exports.getLTILinks = functions.https.onRequest(async (req, res) => {
     });
 });
 
+// LTI Grade Callback Endpoint (ltiGradeCallback)
 exports.ltiGradeCallback = functions.https.onRequest(async (req, res) => {
     return cors(req, res, async () => {
         try {
@@ -693,21 +709,21 @@ exports.ltiGradeCallback = functions.https.onRequest(async (req, res) => {
                 comment: score.comment || ''
             };
 
-            // Create a reference combining user and assessment
-            // The URL will include the deep link ID
-            const urlParams = new URL(req.headers.referer || '').searchParams;
-            const deepLinkId = urlParams.get('deep_link_id');
-            
-            if (!deepLinkId) {
-                throw new Error('Missing deep link ID');
+            // The URL will include the resource link ID
+            const referer = req.headers.referer || '';
+            const urlParams = new URL(referer).searchParams;
+            const resourceLinkId = urlParams.get('resource_link_id'); // Now using resource_link_id
+
+            if (!resourceLinkId) {
+                throw new Error('Missing resource link ID');
             }
 
-            // Store the grade
-            const gradeRef = db.ref(`lti/grades/${deepLinkId}/${score.userId}`);
+            // Store the grade using resourceLinkId
+            const gradeRef = db.ref(`lti/grades/${resourceLinkId}/${score.userId}`);
             await gradeRef.set(gradeData);
 
             await logEvent('Grade Stored', {
-                deepLinkId,
+                resourceLinkId, // Log the resourceLinkId
                 userId: score.userId,
                 score: gradeData.score
             });

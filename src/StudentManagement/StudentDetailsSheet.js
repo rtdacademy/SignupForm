@@ -15,12 +15,17 @@ import {
 import { SheetHeader, SheetTitle } from "../components/ui/sheet";
 import { cn } from "../lib/utils";
 import GuardianManager from './GuardianManager';
-import { Separator } from "../components/ui/separator";
 
 function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, onUpdate }) {
   const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
   const [courseTitle, setCourseTitle] = useState('');
   const schoolYearOptions = useMemo(() => getSchoolYearOptions(), []);
+
+  const GENDER_OPTIONS = [
+    { value: 'male', label: 'Male' },
+    { value: 'female', label: 'Female' },
+    { value: 'prefer-not-to-say', label: 'Prefer not to say'}
+  ];
 
   useEffect(() => {
     const fetchCourseInfo = async () => {
@@ -143,6 +148,7 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
                   {renderEditableField("First Name", "firstName")}
                   {renderEditableField("Preferred First Name", "preferredFirstName")}
                   {renderEditableField("Last Name", "lastName")}
+                  {renderEditableField("Gender", "gender", GENDER_OPTIONS)}
                   {renderEditableField("Student Age", "StudentAge", null, true)}
                   {renderEditableField("Student Email", "StudentEmail", null, true)}
                   {renderEditableField("Student Phone", "StudentPhone")}

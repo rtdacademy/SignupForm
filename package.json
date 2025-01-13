@@ -61,6 +61,7 @@
     "lucide-react": "^0.439.0",
     "mathquill4quill": "^2.4.0",
     "next-themes": "^0.3.0",
+    "papaparse": "^5.4.1",
     "quill-image-resize-module": "^3.0.0",
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",

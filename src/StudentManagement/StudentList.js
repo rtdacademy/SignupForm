@@ -58,6 +58,7 @@ function StudentList({
   courseTeachers,
   courseSupportStaff,
   teacherCategories,
+  categoryTypes,
   user_email_key,
   selectedStudents,
   onSelectedStudentsChange,
@@ -434,6 +435,7 @@ const filteredStudents = useMemo(() => {
           courseTeachers={courseTeachers}
           courseSupportStaff={courseSupportStaff}
           teacherCategories={teacherCategories}
+          categoryTypes={categoryTypes} 
           user_email_key={user_email_key}
           isMobile={isMobile}
           onCourseRemoved={onCourseRemoved}

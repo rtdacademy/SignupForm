@@ -1,26 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
-import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '../components/ui/sheet';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { FaUser, FaEdit, FaSave, FaTimes } from 'react-icons/fa';
-import { AlertCircle, Loader2, InfoIcon } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import PhoneInput from 'react-phone-input-2';
 import "react-phone-input-2/lib/style.css";
 import { getDatabase, ref, update } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 
+const GENDER_OPTIONS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'prefer-not-to-say', label: 'Prefer not to say' }
+];
+
 const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
   const { user_email_key } = useAuth();
-  const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     preferredFirstName: '',
-    phoneNumber: '',
+    StudentPhone: '',
+    gender: '',
     birthday: '',
     albertaStudentNumber: '',
     parentFirstName: '',
@@ -36,7 +41,8 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
         firstName: profile.firstName || '',
         lastName: profile.lastName || '',
         preferredFirstName: profile.preferredFirstName || profile.firstName || '',
-        phoneNumber: profile.StudentPhone || '',
+        StudentPhone: profile.StudentPhone || '',
+        gender: profile.gender || '',
         birthday: profile.birthday || '',
         albertaStudentNumber: profile.asn || '',
         parentFirstName: profile.ParentFirstName || '',
@@ -46,6 +52,37 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
       });
     }
   }, [profile]);
+
+  // Check if required fields are complete in the database
+  const checkRequiredFields = (profileData) => {
+    if (!profileData) return false;
+    
+    console.log('Checking profile data:', profileData);
+    
+    return (
+      profileData.firstName?.trim() &&
+      profileData.lastName?.trim() &&
+      profileData.preferredFirstName?.trim() &&
+      profileData.StudentPhone?.trim() &&
+      profileData.gender?.trim()
+    );
+  };
+
+  const getMissingFields = (profileData) => {
+    if (!profileData) return [];
+    
+    const required = [
+      { key: 'firstName', label: 'first name' },
+      { key: 'lastName', label: 'last name' },
+      { key: 'preferredFirstName', label: 'preferred name' },
+      { key: 'StudentPhone', label: 'phone number' },
+      { key: 'gender', label: 'gender' }
+    ];
+    
+    return required.filter(field => 
+      !profileData[field.key] || !String(profileData[field.key]).trim()
+    ).map(field => field.label);
+  };
 
   const handleChange = (field, value) => {
     setFormData(prev => ({
@@ -59,16 +96,27 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
     
     setIsSaving(true);
     setError(null);
-
+  
     try {
       const db = getDatabase();
       const updates = {
         [`students/${user_email_key}/profile/preferredFirstName`]: formData.preferredFirstName,
-        [`students/${user_email_key}/profile/StudentPhone`]: formData.phoneNumber,
+        [`students/${user_email_key}/profile/StudentPhone`]: formData.StudentPhone,
+        [`students/${user_email_key}/profile/gender`]: formData.gender,
       };
-
-      await update(ref(getDatabase()), updates);
-      setIsEditing(false);
+  
+      // Only update firstName and lastName if they're currently empty in the database
+      if (!profile.firstName) {
+        updates[`students/${user_email_key}/profile/firstName`] = formData.firstName;
+      }
+      if (!profile.lastName) {
+        updates[`students/${user_email_key}/profile/lastName`] = formData.lastName;
+      }
+  
+      await update(ref(db), updates);
+      
+      // Always close the dialog after successful save
+      onOpenChange(false);
     } catch (err) {
       console.error('Error saving profile:', err);
       setError('Failed to save profile changes');
@@ -77,22 +125,48 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
     }
   };
 
-  const renderEditableField = (label, value, field, type = 'text') => {
+  const renderField = (label, field, type = 'text', readonly = false) => {
     const isPhoneField = type === 'phone';
+    const isGenderField = type === 'gender';
+    const value = formData[field];
+    const isRequired = ['firstName', 'lastName', 'preferredFirstName', 'StudentPhone', 'gender'].includes(field);
+    const isMissing = isRequired && (!profile[field] || !String(profile[field]).trim());
+    const canEdit = field === 'preferredFirstName' || field === 'StudentPhone' || field === 'gender' || 
+                   (field === 'firstName' && !profile.firstName) || 
+                   (field === 'lastName' && !profile.lastName);
 
     return (
       <div className="space-y-2">
         <label className="text-sm font-medium">
           {label}
-          {isEditing && <span className="text-primary ml-1">(Editable)</span>}
+          {isRequired && <span className="text-red-500 ml-1">*</span>}
+          {canEdit && <span className="text-primary ml-1">(Editable)</span>}
         </label>
-        {isPhoneField ? (
+        
+        {isGenderField ? (
+          <Select
+            value={value}
+            onValueChange={(val) => handleChange(field, val)}
+            disabled={readonly || !canEdit}
+          >
+            <SelectTrigger className={`w-full ${isMissing ? 'border-red-500' : ''}`}>
+              <SelectValue placeholder="Select gender" />
+            </SelectTrigger>
+            <SelectContent>
+              {GENDER_OPTIONS.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : isPhoneField ? (
           <PhoneInput
             country={"ca"}
             value={value}
             onChange={(val) => handleChange(field, val)}
-            disabled={!isEditing}
-            inputClass={`w-full p-2 border rounded-md ${!isEditing ? 'bg-gray-50' : ''}`}
+            disabled={readonly || !canEdit}
+            inputClass={`w-full p-2 border rounded-md ${isMissing ? 'border-red-500' : ''} ${!canEdit ? 'bg-gray-50' : ''}`}
             containerClass="phone-input-container"
             buttonClass="phone-input-button"
             preferredCountries={["ca"]}
@@ -103,37 +177,54 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
             type={type}
             value={value}
             onChange={(e) => handleChange(field, e.target.value)}
-            className={`w-full p-2 border rounded-md ${!isEditing ? 'bg-gray-50' : ''}`}
-            readOnly={!isEditing}
+            className={`w-full p-2 border rounded-md 
+              ${isMissing ? 'border-red-500' : ''} 
+              ${!canEdit ? 'bg-gray-50' : ''}`}
+            readOnly={readonly || !canEdit}
           />
+        )}
+        
+        {isMissing && (
+          <p className="text-sm text-red-500">This field is required</p>
         )}
       </div>
     );
   };
 
-  const renderReadOnlyField = (label, value, type = 'text') => {
-    return (
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-600">{label}</label>
-        <input
-          type={type}
-          value={value}
-          className="w-full p-2 border rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
-          readOnly
-        />
-      </div>
-    );
-  };
+  const canClose = checkRequiredFields(profile);
+  const missingFields = getMissingFields(profile);
 
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
+    <Sheet 
+      open={isOpen} 
+      onOpenChange={(open) => {
+        console.log('Sheet onOpenChange:', { open, canClose, profile });
+        if (!open && canClose) {
+          onOpenChange(false);
+        } else if (open) {
+          onOpenChange(true);
+        }
+      }}
+    >
       <SheetContent className="w-full max-w-2xl overflow-hidden flex flex-col h-full">
         <SheetHeader className="flex-shrink-0">
           <SheetTitle>Profile Information</SheetTitle>
           <SheetDescription>
-            View and manage your profile information
+            Manage your profile information
           </SheetDescription>
         </SheetHeader>
+
+        {!canClose && (
+          <Alert className="mt-4 flex-shrink-0 bg-red-50 border-red-200">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-sm text-red-700">
+              Please complete all required fields marked with * before closing. 
+              {missingFields.length > 0 && (
+                <span> Missing: {missingFields.join(', ')}.</span>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {error && (
           <Alert className="mt-4 flex-shrink-0 bg-red-50 border-red-200">
@@ -144,13 +235,6 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
           </Alert>
         )}
 
-        <Alert className="mt-4 flex-shrink-0 bg-blue-50 border-blue-200">
-          <InfoIcon className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-sm text-blue-700">
-            You can only edit your preferred name and phone number. To update other information, please contact your instructor.
-          </AlertDescription>
-        </Alert>
-
         <ScrollArea className="flex-grow my-6 pr-4">
           <div className="space-y-6">
             {/* Personal Information */}
@@ -158,22 +242,21 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
               <h3 className="text-lg font-medium">Personal Information</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderReadOnlyField('First Name', formData.firstName)}
-                {renderReadOnlyField('Last Name', formData.lastName)}
+                {renderField('First Name', 'firstName')}
+                {renderField('Last Name', 'lastName')}
               </div>
               
-              {/* Editable Fields */}
-              <div className="space-y-4 border-l-4 border-primary pl-4 bg-primary/5 p-4 rounded">
-                <h4 className="text-sm font-medium text-primary">Editable Information</h4>
-                {renderEditableField('Preferred Name', formData.preferredFirstName, 'preferredFirstName')}
-                {renderEditableField('Phone Number', formData.phoneNumber, 'phoneNumber', 'phone')}
+              <div className="space-y-4">
+                {renderField('Preferred Name', 'preferredFirstName')}
+                {renderField('Phone Number', 'StudentPhone', 'phone')}
+                {renderField('Gender', 'gender', 'gender')}
               </div>
 
               {/* Read-only Fields */}
               <div className="space-y-4 mt-6">
                 <h4 className="text-sm font-medium text-gray-500">Other Information (Contact instructor to update)</h4>
-                {renderReadOnlyField('Birthday', formData.birthday, 'date')}
-                {renderReadOnlyField('Alberta Student Number (ASN)', formData.albertaStudentNumber)}
+                {renderField('Birthday', 'birthday', 'date', true)}
+                {renderField('Alberta Student Number (ASN)', 'albertaStudentNumber', 'text', true)}
               </div>
             </div>
 
@@ -181,60 +264,33 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-gray-500">Parent/Guardian Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderReadOnlyField('Parent First Name', formData.parentFirstName)}
-                {renderReadOnlyField('Parent Last Name', formData.parentLastName)}
+                {renderField('Parent First Name', 'parentFirstName', 'text', true)}
+                {renderField('Parent Last Name', 'parentLastName', 'text', true)}
               </div>
-              {renderReadOnlyField('Parent Phone', formData.parentPhone)}
-              {renderReadOnlyField('Parent Email', formData.parentEmail)}
+              {renderField('Parent Phone', 'parentPhone', 'text', true)}
+              {renderField('Parent Email', 'parentEmail', 'text', true)}
             </div>
           </div>
         </ScrollArea>
 
         <SheetFooter className="flex-shrink-0 flex justify-between border-t pt-4">
-          <div className="flex gap-2">
-            {isEditing ? (
-              <>
-                <Button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  {isSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <FaSave className="mr-2" />
-                  )}
-                  Save Changes
-                </Button>
-                <Button
-                  onClick={() => {
-                    setIsEditing(false);
-                    setFormData(prev => ({
-                      ...prev,
-                      preferredFirstName: profile.preferredFirstName || profile.firstName || '',
-                      phoneNumber: profile.StudentPhone || ''
-                    }));
-                  }}
-                  variant="outline"
-                  disabled={isSaving}
-                >
-                  <FaTimes className="mr-2" />
-                  Cancel
-                </Button>
-              </>
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="bg-primary hover:bg-primary/90"
+          >
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
             ) : (
-              <Button
-                onClick={() => setIsEditing(true)}
-                className="bg-secondary hover:bg-secondary/90"
-              >
-                <FaEdit className="mr-2" />
-                Edit Profile
-              </Button>
+              'Update Profile'
             )}
-          </div>
-          <SheetClose asChild>
-            <Button type="button" variant="outline">Close</Button>
-          </SheetClose>
+          </Button>
+          
+          {canClose && (
+            <SheetClose asChild>
+              <Button type="button" variant="outline">Close</Button>
+            </SheetClose>
+          )}
         </SheetFooter>
       </SheetContent>
     </Sheet>

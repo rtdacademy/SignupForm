@@ -71,6 +71,26 @@ const validationRules = {
     successMessage: "Valid preferred first name"
   },
 
+  gender: {
+    validate: (value, options) => {
+      // Skip validation if readonly
+      if (options?.readOnlyFields?.gender) {
+        return null;
+      }
+      
+      if (!value) return "Gender is required";
+      
+      const validGenders = ['male', 'female', 'prefer-not-to-say'];
+      if (!validGenders.includes(value)) {
+        return "Please select a valid gender option";
+      }
+      
+      return null;
+    },
+    required: true,
+    successMessage: "Gender selected"
+  },
+
   email: {
     validate: (value) => {
       if (!value) return "Email is required";

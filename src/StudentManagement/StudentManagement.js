@@ -47,6 +47,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showStudentDetail, setShowStudentDetail] = useState(false);
   const [teacherCategories, setTeacherCategories] = useState({});
+  const [categoryTypes, setCategoryTypes] = useState([]);
   const [teacherNames, setTeacherNames] = useState({});
   const [selectedStudents, setSelectedStudents] = useState(new Set()); // Add this state
 
@@ -86,6 +87,29 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
     };
   }, []);
 
+
+      // Fetch category types
+useEffect(() => {
+  const db = getDatabase();
+  const typesRef = ref(db, 'categoryTypes');
+
+  const handleTypes = (snapshot) => {
+    if (snapshot.exists()) {
+      const typesData = snapshot.val();
+      const typesArray = Object.entries(typesData).map(([id, type]) => ({
+        id,
+        ...type
+      }));
+      setCategoryTypes(typesArray);
+    } else {
+      setCategoryTypes([]);
+    }
+  };
+
+  const unsubscribe = onValue(typesRef, handleTypes);
+  return () => unsubscribe();
+}, []);
+
   // Fetch student summaries from Firebase
   useEffect(() => {
     //console.log('useEffect - Firebase listeners added for student summaries');
@@ -102,6 +126,8 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
 
       setStudentSummaries((prevSummaries) => [...prevSummaries, student]);
     };
+
+
 
     const handleChildChanged = (snapshot) => {
      // console.log('Child changed:', snapshot.key);
@@ -256,6 +282,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
             selectedStudentId={selectedStudent?.id}
             isMobile={isMobile}
             teacherCategories={teacherCategories}
+            categoryTypes={categoryTypes} 
             user_email_key={user_email_key}
             onSelectedStudentsChange={handleSelectedStudentsChange} 
             selectedStudents={selectedStudents} 
@@ -310,6 +337,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
             teacherCategories={teacherCategories}
             teacherNames={teacherNames}
             user_email_key={user_email_key}
+            categoryTypes={categoryTypes} 
           />
         </div>
       )}

@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Calendar, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck,  } from 'lucide-react';
+import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo } from '../config/DropdownOptions';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { getDatabase, ref, set, get, push, remove } from 'firebase/database';
@@ -24,16 +23,11 @@ import {
 } from "../components/ui/dropdown-menu";
 import { Badge } from "../components/ui/badge";
 import ChatApp from '../chat/ChatApp';
-import {
-  Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark
-} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Checkbox } from "../components/ui/checkbox";
 import StudentDetail from './StudentDetail';
 import { useMode, MODES } from '../context/ModeContext';
-import { getStudentTypeInfo } from '../config/DropdownOptions';
 import { format } from 'date-fns';
-import { COURSE_OPTIONS, getCourseInfo } from '../config/DropdownOptions';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../components/ui/tooltip";
 
 // Map icon names to icon components
@@ -78,27 +72,55 @@ const getColorFromInitials = (initials) => {
   return colorPalette[Math.abs(hash) % colorPalette.length];
 };
 
-const ProgressBar = ({ percent, icon, label }) => {
-  const isValidPercent = typeof percent === 'number' && !isNaN(percent);
-  
-  if (!isValidPercent) return null;
+// Add Gender Display Configuration
+const GENDER_DISPLAY_CONFIG = {
+  male: {
+    Icon: User,
+    color: '#3B82F6', // Blue-500
+    label: 'Male'
+  },
+  female: {
+    Icon: User,
+    color: '#EC4899', // Pink-500
+    label: 'Female'
+  },
+  'prefer-not-to-say': {
+    Icon: CircleSlash,
+    color: '#9CA3AF', // Gray-400
+    label: 'Prefer not to say'
+  }
+};
+
+// GenderBadge Component
+const GenderBadge = ({ gender }) => {
+  if (!gender || !GENDER_DISPLAY_CONFIG[gender]) return null;
+
+  const config = GENDER_DISPLAY_CONFIG[gender];
+  const IconComponent = config.Icon;
 
   return (
-    <div className="flex items-center mt-2">
-      {icon}
-      <div className="ml-2 flex-grow">
-        <div className="text-[10px] text-gray-500 mb-1">{label}</div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className="bg-blue-600 h-2 rounded-full"
-            style={{ width: `${percent}%` }}
-          ></div>
-        </div>
-      </div>
-      <div className="ml-2 text-[10px] font-semibold">{percent}%</div>
-    </div>
+    <TooltipProvider>
+      <Tooltip delayDuration={200}>
+        <TooltipTrigger asChild>
+          <div 
+            className="inline-flex items-center rounded-full w-5 h-5 justify-center"
+            style={{ 
+              backgroundColor: `${config.color}15`,
+              color: config.color
+            }}
+          >
+            <IconComponent className="w-3 h-3" />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          Gender: {config.label}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
+
+
 
 const StudentCard = React.memo(({ 
   student, 
@@ -106,6 +128,7 @@ const StudentCard = React.memo(({
   selectedStudentId, 
   onStudentSelect, 
   teacherCategories,
+  categoryTypes,
   user_email_key,
   isSelected,
   onSelectionChange,
@@ -123,7 +146,8 @@ const StudentCard = React.memo(({
     : index % 2 === 0 
       ? 'bg-white' 
       : 'bg-gray-50';
-  const initials = `${student.firstName[0]}${student.lastName[0]}`;
+  const displayName = student.preferredFirstName || student.firstName;
+  const initials = `${displayName[0]}${student.lastName[0]}`;
   const avatarColor = getColorFromInitials(initials);
 
   // Initialize statusValue from student.Status_Value
@@ -292,25 +316,25 @@ const StudentCard = React.memo(({
   }, [student.id, isPartOfMultiSelect, onBulkCategoryChange]);
 
   // In StudentCard.js
-const handleRemoveCourse = useCallback(async () => {
-  const db = getDatabase();
-  const lastUnderscoreIndex = student.id.lastIndexOf('_');
-  const studentKey = student.id.slice(0, lastUnderscoreIndex);
-  const courseId = student.id.slice(lastUnderscoreIndex + 1);
-  const courseRef = ref(db, `students/${studentKey}/courses/${courseId}`);
-
-  try {
-    await remove(courseRef);
-    setIsRemovalDialogOpen(false);
-    // Call the parent callback with student and course info
-    onCourseRemoved(
-      `${student.firstName} ${student.lastName}`,
-      student.Course_Value
-    );
-  } catch (error) {
-    console.error("Error removing course:", error);
-  }
-}, [student.id, student.firstName, student.lastName, student.Course_Value, onCourseRemoved]);
+  const handleRemoveCourse = useCallback(async () => {
+    const db = getDatabase();
+    const lastUnderscoreIndex = student.id.lastIndexOf('_');
+    const studentKey = student.id.slice(0, lastUnderscoreIndex);
+    const courseId = student.id.slice(lastUnderscoreIndex + 1);
+    const courseRef = ref(db, `students/${studentKey}/courses/${courseId}`);
+  
+    try {
+      await remove(courseRef);
+      setIsRemovalDialogOpen(false);
+      // Call the parent callback with student and course info
+      onCourseRemoved(
+        `${student.preferredFirstName || student.firstName} ${student.lastName}`,
+        student.Course_Value
+      );
+    } catch (error) {
+      console.error("Error removing course:", error);
+    }
+  }, [student.id, student.preferredFirstName, student.firstName, student.lastName, student.Course_Value, onCourseRemoved]);
 
   const groupedTeacherCategories = useMemo(() => {
     if (!teacherCategories || typeof teacherCategories !== 'object') {
@@ -358,9 +382,7 @@ const handleRemoveCourse = useCallback(async () => {
   }, [teacherCategories, student.categories]);
 
   const handleCardClick = useCallback(() => {
-   
       onStudentSelect(student);
-    
   }, [isMobile, onStudentSelect, student]);
 
   const handleSelectClick = useCallback((event) => {
@@ -379,37 +401,46 @@ const handleRemoveCourse = useCallback(async () => {
     return [
       {
         email: student.StudentEmail,
-        displayName: `${student.firstName} ${student.lastName}`,
+        displayName: `${student.preferredFirstName || student.firstName} ${student.lastName}`,
         type: 'student',
       },
     ];
-  }, [student.StudentEmail, student.firstName, student.lastName]);
+  }, [student.StudentEmail, student.preferredFirstName, student.firstName, student.lastName]);
 
   const lastWeekStatus = student.StatusCompare;
   const lastWeekColor = getStatusColor(lastWeekStatus);
 
   // Compute selectedCategories from student.categories
   const selectedCategories = useMemo(() => {
-    if (student.categories) {
-      const activeCategoriesSet = new Set();
-      const activeCategories = Object.entries(student.categories).flatMap(([teacherEmailKey, categories]) =>
+    if (!student.categories) return [];
+  
+    const activeCategoriesSet = new Set();
+    return Object.entries(student.categories)
+      .flatMap(([teacherEmailKey, categories]) =>
         Object.entries(categories)
           .filter(([_, value]) => value === true)
           .map(([categoryId]) => {
             const uniqueKey = `${categoryId}-${teacherEmailKey}`;
             if (!activeCategoriesSet.has(uniqueKey)) {
               activeCategoriesSet.add(uniqueKey);
-              return { id: categoryId, teacherEmailKey };
+              // Find the category in groupedTeacherCategories
+              const categoryData = groupedTeacherCategories[teacherEmailKey]?.find(c => c.id === categoryId);
+              
+              // Only include categories that we can find the data for
+              if (categoryData) {
+                return {
+                  id: categoryId,
+                  teacherEmailKey,
+                  category: categoryData
+                };
+              }
+              return null; // Skip categories we can't find data for
             }
-            return null; // Skip duplicates
+            return null;
           })
-      ).filter(Boolean); // Remove nulls
-
-      return activeCategories;
-    } else {
-      return [];
-    }
-  }, [student.categories]);
+      )
+      .filter(Boolean);
+  }, [student.categories, groupedTeacherCategories]);
 
   const currentStatusColor = useMemo(() => getStatusColor(statusValue), [statusValue]);
 
@@ -482,7 +513,6 @@ const handleRemoveCourse = useCallback(async () => {
   }, []);
 
   const handleExpandClick = useCallback((e) => {
-   
     setIsExpanded(true);
   }, []);
 
@@ -522,9 +552,9 @@ const handleRemoveCourse = useCallback(async () => {
             </Avatar>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-base font-medium truncate">
-                  {student.firstName} {student.lastName}
-                </CardTitle>
+              <CardTitle className="text-base font-medium truncate">
+              {student.preferredFirstName || student.firstName} {student.lastName}
+              </CardTitle>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -541,12 +571,7 @@ const handleRemoveCourse = useCallback(async () => {
       <AlertCircle className="w-3 h-3 mr-1" />
       Needs Migration
     </div>
-    {student.Status_SharepointValue && (
-      <div className="inline-flex items-center ml-2 text-[10px] text-gray-600">
-        <div className="mr-1">SharePoint Status:</div>
-        <div className="font-medium">{student.Status_SharepointValue}</div>
-      </div>
-    )}
+   
   </div>
 )}
 
@@ -556,78 +581,82 @@ const handleRemoveCourse = useCallback(async () => {
             )}
           </div>
 
-          {/* Second row for email and student type - full width */}
+          {/* Updated Section with GenderBadge */}
           <div className="flex items-center justify-between w-full">
-            <span className="text-xs text-gray-500 truncate">
-              {student.StudentEmail}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 truncate">
+                {student.StudentEmail}
+              </span>
+              <GenderBadge gender={student.gender} />
+            </div>
             {student.StudentType_Value && (
-  <Badge 
-    className="flex items-center gap-1 px-2 py-0.5 h-5 text-[10px] font-medium border-0 rounded"
-    style={{
-      backgroundColor: `${getStudentTypeInfo(student.StudentType_Value).color}15`,
-      color: getStudentTypeInfo(student.StudentType_Value).color
-    }}
-  >
-    {getStudentTypeInfo(student.StudentType_Value).icon && 
-      React.createElement(getStudentTypeInfo(student.StudentType_Value).icon, {
-        className: "w-3 h-3"
-      })
-    }
-    {student.StudentType_Value}
-  </Badge>
-)}
-          </div>
+              <Badge 
+                className="flex items-center gap-1 px-2 py-0.5 h-5 text-[10px] font-medium border-0 rounded"
+                style={{
+                  backgroundColor: `${getStudentTypeInfo(student.StudentType_Value).color}15`,
+                  color: getStudentTypeInfo(student.StudentType_Value).color
+                }}
+              >
+                {getStudentTypeInfo(student.StudentType_Value).icon && 
+                  React.createElement(getStudentTypeInfo(student.StudentType_Value).icon, {
+                    className: "w-3 h-3"
+                  })
+                }
+                {student.StudentType_Value}
+              </Badge>
+            )}
+          </div> 
+
         </CardHeader>
         <CardContent className="p-3 pt-2">
           {/* Course, Grade, and Progress on the same line */}
           <div className="flex items-center text-xs mb-2">
-  <span className="flex-grow flex items-center">
-    {student.CourseID ? (
-      (() => {
-        const courseInfo = findCourseById(student.CourseID);
-        return (
-          <Badge 
-            className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
-            style={{
-              backgroundColor: `${courseInfo?.color || '#6B7280'}15`,
-              color: courseInfo?.color || '#6B7280'
-            }}
-          >
-            {React.createElement(courseInfo?.icon || BookOpen, {
-              className: "w-4 h-4"
-            })}
-            {courseInfo?.label || `Course ${student.CourseID}`}
-          </Badge>
-        );
-      })()
-    ) : (
-      <Badge 
-        className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
-        style={{
-          backgroundColor: '#6B728015',
-          color: '#6B7280'
-        }}
-      >
-        <BookOpen className="w-4 h-4" />
-        No Course
-      </Badge>
-    )}
+<span className="flex-grow flex items-center">
+  {student.CourseID ? (
+    (() => {
+      const courseInfo = findCourseById(student.CourseID);
+      return (
+        <Badge 
+          className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
+          style={{
+            backgroundColor: `${courseInfo?.color || '#6B7280'}15`,
+            color: courseInfo?.color || '#6B7280'
+          }}
+        >
+          {React.createElement(courseInfo?.icon || BookOpen, {
+            className: "w-4 h-4"
+          })}
+          {courseInfo?.label || `Course ${student.CourseID}`}
+        </Badge>
+      );
+    })()
+  ) : (
+    <Badge 
+      className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
+      style={{
+        backgroundColor: '#6B728015',
+        color: '#6B7280'
+      }}
+    >
+      <BookOpen className="w-4 h-4" />
+      No Course
+    </Badge>
+  )}
+</span>
+{student.grade !== undefined && 
+  student.grade !== null && 
+  student.grade !== 0 && (
+  <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
+    Gr. {formatGrade(student.grade)}
+    {getGradeColorAndIcon(student.grade).icon}
   </span>
-  {student.grade !== undefined && 
-    student.grade !== null && 
-    student.grade !== 0 && (
-    <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
-      Gr. {formatGrade(student.grade)}
-      {getGradeColorAndIcon(student.grade).icon}
-    </span>
-  )}
-  {student.adherenceMetrics && formatLessons(student.adherenceMetrics.lessonsBehind) && (
-    <span className="text-xs font-bold flex items-center">
-      {formatLessons(student.adherenceMetrics.lessonsBehind).value}
-      {formatLessons(student.adherenceMetrics.lessonsBehind).icon}
-    </span>
-  )}
+)}
+{student.adherenceMetrics && formatLessons(student.adherenceMetrics.lessonsBehind) && (
+  <span className="text-xs font-bold flex items-center">
+    {formatLessons(student.adherenceMetrics.lessonsBehind).value}
+    {formatLessons(student.adherenceMetrics.lessonsBehind).icon}
+  </span>
+)}
 </div>
                     
           {/* Status Dropdown, Last Week Status, and Auto Status Toggle */}
@@ -680,7 +709,7 @@ const handleRemoveCourse = useCallback(async () => {
               </DropdownMenu>
             </div>
 
-  {/* SharePoint Status if it exists */}
+  {/* SharePoint Status if it exists 
   {student.Status_SharepointValue && (
     <Tooltip delayDuration={200}>
       <TooltipTrigger asChild>
@@ -697,7 +726,7 @@ const handleRemoveCourse = useCallback(async () => {
       </TooltipContent>
     </Tooltip>
   )}
-  
+  */}
   {/* Last Week Status */}
   <Tooltip delayDuration={200}>
     <TooltipTrigger asChild>
@@ -731,101 +760,174 @@ const handleRemoveCourse = useCallback(async () => {
             </Toggle>
           </div>
 
-          {/* Category Selection */}
-          <div className="mt-2 flex items-center">
-            <DropdownMenu open={categoryMenuOpen} onOpenChange={setCategoryMenuOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-8 px-2 text-xs font-normal"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Category
-                  <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                {Object.entries(filteredTeacherCategories).map(([teacherEmailKey, categories]) => (
-                  <DropdownMenuSub key={teacherEmailKey}>
-                    <DropdownMenuSubTrigger className={customHoverStyle}>
-                      {teacherNames[teacherEmailKey] || teacherEmailKey}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      {Array.isArray(categories) && categories.length > 0 ? categories.map(category => (
-                        <DropdownMenuItem
-                          key={category.id}
-                          onSelect={() => handleCategoryChange(category.id, teacherEmailKey)}
-                          className={customHoverStyle}
-                        >
-                          <div className="flex items-center">
-                            {iconMap[category.icon] && React.createElement(iconMap[category.icon], { style: { color: category.color }, size: 16, className: 'mr-2' })}
-                            <span>{category.name}</span>
-                          </div>
-                        </DropdownMenuItem>
-                      )) : (
-                        <DropdownMenuItem disabled>No categories available</DropdownMenuItem>
-                      )}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
+        {/* Category Selection */}
+<div className="mt-2 flex items-center">
+  <DropdownMenu open={categoryMenuOpen} onOpenChange={setCategoryMenuOpen}>
+    <DropdownMenuTrigger asChild>
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="h-8 px-2 text-xs font-normal"
+      >
+        <Plus className="h-4 w-4 mr-1" />
+        Add Category
+        <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent className="w-56">
+      {/* By Staff option */}
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <Users className="h-4 w-4 mr-2" />
+          By Staff
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+          {Object.entries(filteredTeacherCategories).map(([teacherEmailKey, categories]) => (
+            <DropdownMenuSub key={teacherEmailKey}>
+              <DropdownMenuSubTrigger className="w-full">
+                <div className="truncate">
+                  {teacherNames[teacherEmailKey] || teacherEmailKey}
+                </div>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {categories.map(category => (
+                  <DropdownMenuItem
+                    key={category.id}
+                    onSelect={() => handleCategoryChange(category.id, teacherEmailKey)}
+                    className={customHoverStyle}
+                  >
+                    <div className="flex items-center">
+                      {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                        style: { color: category.color }, 
+                        size: 16, 
+                        className: 'mr-2' 
+                      })}
+                      <span>{category.name}</span>
+                    </div>
+                  </DropdownMenuItem>
                 ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ))}
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+
+      {/* By Type option */}
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <Grid2X2 className="h-4 w-4 mr-2" />
+          By Type
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+          {categoryTypes.map((type) => (
+            <DropdownMenuSub key={type.id}>
+              <DropdownMenuSubTrigger className="w-full">
+                <div className="flex items-center">
+                  {React.createElement(
+                    iconMap[type.icon] || Circle,
+                    { 
+                      className: "h-4 w-4 mr-2 flex-shrink-0",
+                      style: { color: type.color }
+                    }
+                  )}
+                  <span className="truncate">{type.name}</span>
+                </div>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {Object.entries(filteredTeacherCategories).flatMap(([teacherEmailKey, categories]) =>
+                  categories
+                    .filter(category => category.type === type.id)
+                    .map(category => (
+                      <DropdownMenuItem
+                        key={`${teacherEmailKey}-${category.id}`}
+                        onSelect={() => handleCategoryChange(category.id, teacherEmailKey)}
+                        className={customHoverStyle}
+                      >
+                        <div className="flex items-center">
+                          {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                            style: { color: category.color }, 
+                            size: 16, 
+                            className: 'mr-2' 
+                          })}
+                          <span className="truncate">{category.name}</span>
+                          <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                            ({teacherNames[teacherEmailKey] || teacherEmailKey})
+                          </span>
+                        </div>
+                      </DropdownMenuItem>
+                    ))
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ))}
+
+          {/* Uncategorized section */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Circle className="h-4 w-4 mr-2" />
+              Uncategorized
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {Object.entries(filteredTeacherCategories).flatMap(([teacherEmailKey, categories]) =>
+                categories
+                  .filter(category => !category.type)
+                  .map(category => (
+                    <DropdownMenuItem
+                      key={`${teacherEmailKey}-${category.id}`}
+                      onSelect={() => handleCategoryChange(category.id, teacherEmailKey)}
+                      className={customHoverStyle}
+                    >
+                      <div className="flex items-center">
+                        {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                          style: { color: category.color }, 
+                          size: 16, 
+                          className: 'mr-2' 
+                        })}
+                        <span className="truncate">{category.name}</span>
+                        <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                          ({teacherNames[teacherEmailKey] || teacherEmailKey})
+                        </span>
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+              )}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+    </DropdownMenuContent>
+  </DropdownMenu>
+</div>
 
           {/* Display selected categories */}
           <div className="flex flex-wrap mt-2">
-            {selectedCategories.map(({ id, teacherEmailKey }) => {
-              const category = groupedTeacherCategories[teacherEmailKey]?.find(c => c.id === id);
-              if (!category) {
-                console.warn(`Category not found: id=${id}, teacherEmailKey=${teacherEmailKey}`);
-                return null;
-              }
+  {selectedCategories.map(({ id, teacherEmailKey, category }) => {
+    const uniqueKey = `${id}-${teacherEmailKey}-${student.id}`;
 
-              const uniqueKey = `${id}-${teacherEmailKey}-${student.id}`;
+    return (
+      <div 
+        key={uniqueKey}
+        className="flex items-center bg-gray-100 rounded-full px-2 py-1 text-xs mr-1 mb-1"
+        style={{ color: category.color }}
+      >
+        {iconMap[category.icon] && React.createElement(iconMap[category.icon], { size: 12, className: 'mr-1' })}
+        {category.name}
+        <X
+          className="ml-1 cursor-pointer"
+          size={12}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleRemoveCategory(id, teacherEmailKey);
+          }}
+        />
+      </div>
+    );
+  })}
+</div>
 
-              return (
-                <div 
-                  key={uniqueKey}
-                  className="flex items-center bg-gray-100 rounded-full px-2 py-1 text-xs mr-1 mb-1"
-                  style={{ color: category.color }}
-                >
-                  {iconMap[category.icon] && React.createElement(iconMap[category.icon], { size: 12, className: 'mr-1' })}
-                  {category.name}
-                  <X
-                    className="ml-1 cursor-pointer"
-                    size={12}
-                    onClick={(e) => {
-                      
-                      handleRemoveCategory(id, teacherEmailKey);
-                    }}
-                  />
-                </div>
-              );
-            })}
-          </div>
+       
 
-          {/* Conditional Progress Bars */}
-          {(!student.adherenceMetrics || student.adherenceMetrics.lessonsBehind === undefined) && (
-            <>
-              {student.PercentScheduleComplete > 0 && (
-                <ProgressBar
-                  percent={student.PercentScheduleComplete}
-                  icon={<Calendar className="w-4 h-4 text-blue-500" />}
-                  label="Schedule Progress"
-                />
-              )}
-              {student.PercentCompleteGradebook > 0 && (
-                <ProgressBar
-                  percent={student.PercentCompleteGradebook}
-                  icon={<BookOpen className="w-4 h-4 text-green-500" />}
-                  label="Gradebook Progress"
-                />
-              )}
-            </>
-          )}
-
-         {/* Action Buttons */}
+           {/* Action Buttons */}
 <div className="flex justify-end mt-2 space-x-2">
   <Button
     variant="outline"

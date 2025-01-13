@@ -962,6 +962,7 @@ function Courses() {
               {/* Course Units Editor */}
               <div className="mt-8">
                 <CourseUnitsEditor
+                 courseId={selectedCourseId}
                   units={courseData.units || []}
                   onUnitsChange={handleUnitsChange}
                   isEditing={isEditing}

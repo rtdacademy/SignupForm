@@ -22,7 +22,8 @@ import {
   Bot,
   Mail,
   Handshake,
-  KeyRound 
+  Upload,
+  FilePenLine
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import Courses from '../courses/Courses';
@@ -32,13 +33,13 @@ import ContractorInvoiceSummary from '../Admin/ContractorInvoiceSummary';
 import IcsUpload from '../Schedule/IcsUpload';
 import Notifications from '../Notifications/Notifications';
 import AIChatApp from '../AI/AIChatApp';
-import EmailComponent from '../email/EmailComponent';
+import TemplateManager from '../StudentManagement/TemplateManager';
 import PricingComponent from '../config/PricingComponent';
 import OrgChart from '../OrgChart/OrgChart';
 import { getDatabase, ref, get, onValue } from 'firebase/database';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import NavItemWithIndicator from '../Notifications/NavItemWithIndicator';
-import SSOTestLink from './SSOTestLink'; 
+import IMathASGradeImporter from './IMathASGradeImporter';
 import LTIManagement from '../LTI/LTIManagement';
 
 
@@ -116,7 +117,7 @@ function TeacherDashboard() {
       },
       { icon: MessageSquare, label: 'Chats', key: 'chat' },
       { icon: Bot, label: 'AI Chat', key: 'ai-chat' },
-      { icon: Mail, label: 'Email', key: 'email' },
+      { icon: FilePenLine, label: 'Email Templates', key: 'templates' },
       { icon: BookOpen, label: 'Courses', key: 'courses' },
       { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
       { icon: Link, label: 'Links', key: 'external-links' },
@@ -133,7 +134,7 @@ function TeacherDashboard() {
           { icon: DollarSign, label: 'Pricing', key: 'pricing' },
           { icon: BarChart2, label: 'Reports', key: 'reports' },
           { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' },
-          { icon: KeyRound, label: 'SSO Testing', key: 'sso-testing' },
+          { icon: Upload, label: 'IMathAS Import', key: 'imathas-import' },
           { icon: Link, label: 'LTI Management', key: 'lti-management' }  
         ]
       });
@@ -177,17 +178,12 @@ function TeacherDashboard() {
         return <ContractorInvoiceSummary invoicesData={invoicesData} />;
       case 'pricing':
         return <PricingComponent />;
-      case 'email':
-        return <EmailComponent />;
+      case 'templates':
+        return <TemplateManager defaultOpen={true} />;
       case 'org-chart':
         return <OrgChart />;
-        case 'sso-testing':
-          return (
-            <div className="p-4">
-              <h2 className="text-2xl font-bold mb-6">SSO Testing Tool</h2>
-              <SSOTestLink />
-            </div>
-          );
+        case 'imathas-import':  
+  return <IMathASGradeImporter />;
           case 'lti-management':
   return <LTIManagement />;
         default:

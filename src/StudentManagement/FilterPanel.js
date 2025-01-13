@@ -11,7 +11,7 @@ import {
   GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, 
   Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, 
   MessageCircle, Users, Presentation, FileText, Filter, Loader2, 
-  UserSquare2, ClipboardList
+  UserSquare2, ClipboardList, Grid2X2, ChartNoAxesGantt
 } from "lucide-react";
 import CategoryManager from './CategoryManager';
 import AdvancedFilters from './AdvancedFilters';
@@ -50,6 +50,7 @@ const iconMap = {
   'bookmark': Bookmark,
   'star': Star,
   'flag': Flag,
+  'grid-2x2': Grid2X2, // Added Grid2X2 to iconMap
 };
 
 const MODE_CONFIG = {
@@ -112,6 +113,7 @@ const FilterPanel = memo(function FilterPanel({
   teacherCategories,
   teacherNames,
   user_email_key,
+  categoryTypes, // Added categoryTypes prop
 }) {
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [localFilters, setLocalFilters] = useState({});
@@ -119,6 +121,42 @@ const FilterPanel = memo(function FilterPanel({
   const [isClearing, setIsClearing] = useState(false);
   const { currentMode, setCurrentMode } = useMode();
   const { preferences, updateFilterPreferences, clearAllFilters } = useUserPreferences();
+
+
+  const groupCategoriesByType = useMemo(() => {
+    return () => {
+      const grouped = {};
+      
+      // Initialize groups for each type
+      categoryTypes.forEach(type => {
+        grouped[type.id] = [];
+      });
+      
+      // Add uncategorized group
+      grouped['uncategorized'] = [];
+      
+      // Group categories
+      Object.entries(teacherCategories).forEach(([teacherEmailKey, categories]) => {
+        categories
+          .filter(category => !category.archived)
+          .forEach(category => {
+            const categoryWithTeacher = {
+              ...category,
+              teacherEmailKey,
+              teacherName: teacherNames[teacherEmailKey] || teacherEmailKey
+            };
+            
+            if (category.type && grouped[category.type]) {
+              grouped[category.type].push(categoryWithTeacher);
+            } else {
+              grouped['uncategorized'].push(categoryWithTeacher);
+            }
+          });
+      });
+      
+      return grouped;
+    };
+  }, [categoryTypes, teacherCategories, teacherNames]);
 
   // Load saved preferences
   useEffect(() => {
@@ -312,6 +350,193 @@ const FilterPanel = memo(function FilterPanel({
     }, 0);
   }, [localFilters.categories]);
 
+ 
+
+  // Render Categories Dropdown with grouping by Staff and Type
+  const renderCategoriesDropdown = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9"
+        >
+          <div className="flex items-center">
+            <Filter className="h-4 w-4 mr-1" />
+            Categories
+            <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
+          </div>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56">
+        {/* By Staff option */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Users className="h-4 w-4 mr-2" />
+            By Staff
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent 
+            className="max-h-[300px] overflow-y-auto"
+            alignOffset={-5}
+            side="right"
+          >
+            {Object.entries(teacherCategories).map(([teacherEmailKey, categories]) => (
+              <DropdownMenuSub key={teacherEmailKey}>
+                <DropdownMenuSubTrigger className="w-full">
+                  <div className="truncate">
+                    {teacherNames[teacherEmailKey] || teacherEmailKey}
+                  </div>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent 
+                  className="max-h-[300px] overflow-y-auto"
+                  alignOffset={-5}
+                  side="right"
+                >
+                  {categories
+                    .filter(category => !category.archived)
+                    .map((category) => {
+                      const isSelected = (localFilters.categories || []).some(cat => 
+                        cat[teacherEmailKey] && 
+                        cat[teacherEmailKey].includes(category.id)
+                      );
+                      return (
+                        <DropdownMenuItem
+                          key={category.id}
+                          onSelect={() => handleCategoryChange(category.id, teacherEmailKey)}
+                          className="flex items-center"
+                          style={{
+                            backgroundColor: isSelected ? `${category.color}20` : 'transparent',
+                          }}
+                        >
+                          {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                            style: { color: category.color }, 
+                            size: 16, 
+                            className: 'mr-2' 
+                          })}
+                          <span className="truncate">{category.name}</span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+
+        {/* By Type option */}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Grid2X2 className="h-4 w-4 mr-2" />
+            By Type
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent 
+            className="max-h-[300px] overflow-y-auto"
+            alignOffset={-5}
+            side="right"
+          >
+            {categoryTypes.map((type) => {
+              const categoriesByType = groupCategoriesByType();
+              const typeCategories = categoriesByType[type.id] || [];
+              
+              if (typeCategories.length === 0) return null;
+
+              return (
+                <DropdownMenuSub key={type.id}>
+                  <DropdownMenuSubTrigger className="w-full">
+                    <div className="flex items-center">
+                      {React.createElement(
+                        iconMap[type.icon] || Circle,
+                        { 
+                          className: "h-4 w-4 mr-2 flex-shrink-0",
+                          style: { color: type.color }
+                        }
+                      )}
+                      <span className="truncate">{type.name}</span>
+                    </div>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent 
+                    className="max-h-[300px] overflow-y-auto"
+                    alignOffset={-5}
+                    side="right"
+                  >
+                    {typeCategories.map((category) => {
+                      const isSelected = (localFilters.categories || []).some(cat => 
+                        cat[category.teacherEmailKey] && 
+                        cat[category.teacherEmailKey].includes(category.id)
+                      );
+                      
+                      return (
+                        <DropdownMenuItem
+                          key={`${category.teacherEmailKey}-${category.id}`}
+                          onSelect={() => handleCategoryChange(category.id, category.teacherEmailKey)}
+                          className="flex items-center"
+                          style={{
+                            backgroundColor: isSelected ? `${category.color}20` : 'transparent',
+                          }}
+                        >
+                          {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                            style: { color: category.color }, 
+                            size: 16, 
+                            className: 'mr-2' 
+                          })}
+                          <span className="truncate">{category.name}</span>
+                          <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                            ({category.teacherName})
+                          </span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              );
+            })}
+
+            {/* Uncategorized section */}
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Circle className="h-4 w-4 mr-2" />
+                Uncategorized
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent 
+                className="max-h-[300px] overflow-y-auto"
+                alignOffset={-5}
+                side="right"
+              >
+                {groupCategoriesByType()['uncategorized'].map((category) => {
+                  const isSelected = (localFilters.categories || []).some(cat => 
+                    cat[category.teacherEmailKey] && 
+                    cat[category.teacherEmailKey].includes(category.id)
+                  );
+                  
+                  return (
+                    <DropdownMenuItem
+                      key={`${category.teacherEmailKey}-${category.id}`}
+                      onSelect={() => handleCategoryChange(category.id, category.teacherEmailKey)}
+                      className="flex items-center"
+                      style={{
+                        backgroundColor: isSelected ? `${category.color}20` : 'transparent',
+                      }}
+                    >
+                      {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                        style: { color: category.color }, 
+                        size: 16, 
+                        className: 'mr-2' 
+                      })}
+                      <span className="truncate">{category.name}</span>
+                      <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                        ({category.teacherName})
+                      </span>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <Card className="bg-[#f0f4f7] shadow-md relative">
       <ClearingOverlay isClearing={isClearing} />
@@ -373,60 +598,7 @@ const FilterPanel = memo(function FilterPanel({
                 </Button>
               </AdvancedFilters>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9"
-                  >
-                    <div className="flex items-center">
-                      <Filter className="h-4 w-4 mr-1" />
-                      Categories
-                      <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
-                    </div>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto">
-                  {Object.entries(groupedCategories).map(([teacherEmailKey, categories]) => (
-                    <DropdownMenuSub key={teacherEmailKey}>
-                      <DropdownMenuSubTrigger>
-                        {teacherNames[teacherEmailKey] || teacherEmailKey}
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent className="max-h-64 overflow-y-auto">
-                        {categories.map((category) => {
-                          const isSelected = (localFilters.categories || []).some(cat => 
-                            cat[teacherEmailKey] && 
-                            cat[teacherEmailKey].includes(category.value)
-                          );
-                          return (
-                            <DropdownMenuItem
-                              key={category.value}
-                              onSelect={() => handleCategoryChange(category.value, teacherEmailKey)}
-                              className="flex items-center"
-                              style={{
-                                backgroundColor: isSelected ? `${category.color}20` : 'transparent',
-                              }}
-                            >
-                              {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
-                                style: { color: category.color }, 
-                                size: 16, 
-                                className: 'mr-2' 
-                              })}
-                              <span>{category.label}</span>
-                            </DropdownMenuItem>
-                          );
-                        })}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                  ))}
-                  {activeFilterCount > 0 && (
-                    <DropdownMenuItem onSelect={handleClearAll}>
-                      Clear All
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {renderCategoriesDropdown()}
 
               {localFilters.categories && localFilters.categories.length > 0 && (
                 <DropdownMenu>

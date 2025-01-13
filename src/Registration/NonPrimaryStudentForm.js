@@ -261,6 +261,7 @@ const countryOptions = useMemo(() => countryList().getData(), []);
     console.log('Default enrollment year:', defaultEnrollmentYear);
   
     const formData = {
+      gender: '',
       firstName: validationRules.firstName.format(user?.displayName?.split(' ')[0] || ''),
       lastName: validationRules.lastName.format(user?.displayName?.split(' ').slice(1).join(' ') || ''),
       preferredFirstName: '', 
@@ -333,55 +334,54 @@ const countryOptions = useMemo(() => countryList().getData(), []);
   }, [studentType]);
   
 
-  // Fetch profile data
-  useEffect(() => {
-    const fetchProfileData = async () => {
-      if (!user_email_key) return;
+ // Fetch profile data
+useEffect(() => {
+  const fetchProfileData = async () => {
+    if (!user_email_key) return;
 
-      try {
-        const db = getDatabase();
-        const profileRef = databaseRef(db, `students/${user_email_key}/profile`);
-        const snapshot = await get(profileRef);
+    try {
+      const db = getDatabase();
+      const profileRef = databaseRef(db, `students/${user_email_key}/profile`);
+      const snapshot = await get(profileRef);
 
-        if (snapshot.exists()) {
-          setProfileData(snapshot.val());
+      if (snapshot.exists()) {
+        setProfileData(snapshot.val());
 
-          // Update form data with profile data
-          setFormData(prev => ({
+        // Update form data with profile data
+        setFormData(prev => ({
+          ...prev,
+          firstName: snapshot.val().firstName || prev.firstName,
+          lastName: snapshot.val().lastName || prev.lastName,
+          phoneNumber: snapshot.val().StudentPhone || prev.phoneNumber,
+          gender: snapshot.val().gender || prev.gender,  // FIXED LINE
+          birthday: snapshot.val().birthday || prev.birthday,
+          albertaStudentNumber: snapshot.val().asn || prev.albertaStudentNumber,
+          parentFirstName: snapshot.val().ParentFirstName || prev.parentFirstName,
+          parentLastName: snapshot.val().ParentLastName || prev.parentLastName,
+          parentPhone: snapshot.val().ParentPhone_x0023_ || prev.parentPhone,
+          parentEmail: snapshot.val().ParentEmail || prev.parentEmail,
+          country: snapshot.val().internationalDocuments?.countryOfOrigin || prev.country,
+        }));
+
+        // Set document URLs if they exist
+        if (snapshot.val().internationalDocuments) {
+          setDocumentUrls(prev => ({
             ...prev,
-            firstName: snapshot.val().firstName || prev.firstName,
-            lastName: snapshot.val().lastName || prev.lastName,
-            phoneNumber: snapshot.val().StudentPhone || prev.phoneNumber,
-            birthday: snapshot.val().birthday || prev.birthday,
-            albertaStudentNumber: snapshot.val().asn || prev.albertaStudentNumber,
-            parentFirstName: snapshot.val().ParentFirstName || prev.parentFirstName,
-            parentLastName: snapshot.val().ParentLastName || prev.parentLastName,
-            parentPhone: snapshot.val().ParentPhone_x0023_ || prev.parentPhone,
-            parentEmail: snapshot.val().ParentEmail || prev.parentEmail,
-            country: snapshot.val().internationalDocuments?.countryOfOrigin || prev.country,
+            passport: snapshot.val().internationalDocuments.passport || '',
+            additionalID: snapshot.val().internationalDocuments.additionalID || '',
+            residencyProof: snapshot.val().internationalDocuments.residencyProof || ''
           }));
-
-// Set document URLs if they exist
-if (snapshot.val().internationalDocuments) {
-  setDocumentUrls(prev => ({
-    ...prev,
-    passport: snapshot.val().internationalDocuments.passport || '',
-    additionalID: snapshot.val().internationalDocuments.additionalID || '',
-    residencyProof: snapshot.val().internationalDocuments.residencyProof || ''
-  }));
-}
-
-
         }
-      } catch (err) {
-        console.error('Error fetching profile data:', err);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      console.error('Error fetching profile data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchProfileData();
-  }, [user_email_key]);
+  fetchProfileData();
+}, [user_email_key]);
 
   
 
@@ -1259,6 +1259,43 @@ useEffect(() => {
                   )
                 )}
               </div>
+
+              <div className="space-y-4">
+  
+  {readOnlyFields.gender ? (
+    renderReadOnlyField('gender', formData.gender, 'Gender')
+  ) : (
+    <div className="space-y-2">
+      <label className="text-sm font-medium">
+        Gender <span className="text-red-500">*</span>
+      </label>
+      <select
+        name="gender"
+        value={formData.gender}
+        onChange={handleFormChange}
+        onBlur={() => handleBlur('gender')}
+        className={`w-full p-2 border rounded-md ${
+          touched.gender && errors.gender ? 'border-red-500' : 'border-gray-300'
+        }`}
+        required
+      >
+        <option value="">Select gender</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+        <option value="prefer-not-to-say">Prefer not to say</option>
+      </select>
+      <ValidationFeedback
+        isValid={touched.gender && !errors.gender}
+        message={
+          touched.gender
+            ? errors.gender || validationRules.gender.successMessage
+            : null
+        }
+      />
+    </div>
+  )}
+  
+</div>
 
               {/* Email Field */}
               <div className="space-y-2">

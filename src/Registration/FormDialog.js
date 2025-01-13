@@ -204,6 +204,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
           "StudentEmail": user.email,
           "StudentPhone": registrationData.formData.phoneNumber || '',
           "asn": registrationData.formData.albertaStudentNumber || '',
+          "gender": registrationData.formData.gender || '',
           "firstName": registrationData.formData.firstName || '',
           "lastName": registrationData.formData.lastName || '',
           "originalEmail": user.email,

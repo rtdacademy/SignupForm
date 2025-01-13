@@ -31,13 +31,53 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../com
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { getDatabase, ref, set, onValue, update, remove } from 'firebase/database';
-import { FilePenLine, PlusCircle, Archive, Trash2, RotateCcw, Eye, Save, Pencil } from 'lucide-react';
+import { 
+  // Existing imports
+  FilePenLine, PlusCircle, Archive, Trash2, RotateCcw, Eye, Save, Pencil, CircleIcon,
+  // Template type icons
+  Circle, Square, Triangle, BookOpen, GraduationCap, Trophy, Target, 
+  ClipboardCheck, Brain, Lightbulb, Clock, Calendar, BarChart, TrendingUp, 
+  AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, 
+  Bookmark, Mail, Bell, Megaphone, Chat , Grid2X2Icon, ListFilterIcon
+} from 'lucide-react';
 import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useAuth } from '../context/AuthContext';
 
+const iconOptions = [
+  { value: 'circle', label: 'Circle', icon: Circle },
+  { value: 'square', label: 'Square', icon: Square },
+  { value: 'triangle', label: 'Triangle', icon: Triangle },
+  { value: 'book-open', label: 'Study Material', icon: BookOpen },
+  { value: 'graduation-cap', label: 'Graduation', icon: GraduationCap },
+  { value: 'trophy', label: 'Achievement', icon: Trophy },
+  { value: 'target', label: 'Goal', icon: Target },
+  { value: 'clipboard-check', label: 'Task Complete', icon: ClipboardCheck },
+  { value: 'brain', label: 'Understanding', icon: Brain },
+  { value: 'lightbulb', label: 'Idea', icon: Lightbulb },
+  { value: 'clock', label: 'Time Management', icon: Clock },
+  { value: 'calendar', label: 'Schedule', icon: Calendar },
+  { value: 'bar-chart', label: 'Progress', icon: BarChart },
+  { value: 'trending-up', label: 'Improvement', icon: TrendingUp },
+  { value: 'alert-circle', label: 'Important', icon: AlertCircle },
+  { value: 'help-circle', label: 'Help', icon: HelpCircle },
+  { value: 'message-circle', label: 'Discussion', icon: MessageCircle },
+  { value: 'users', label: 'Group Work', icon: Users },
+  { value: 'presentation', label: 'Lecture', icon: Presentation },
+  { value: 'file-text', label: 'Assignment', icon: FileText },
+  { value: 'bookmark', label: 'Bookmark', icon: Bookmark },
+  { value: 'mail', label: 'Mail', icon: Mail },
+  { value: 'bell', label: 'Notifications', icon: Bell },
+  { value: 'megaphone', label: 'Announcements', icon: Megaphone },
+  { value: 'message-circle', label: 'Chat', icon: MessageCircle }
+];
+
+const DEFAULT_TEMPLATE_TYPES = [
+  { id: 'welcome', name: 'Welcome Messages', description: 'New student welcome emails', icon: 'mail', color: '#315369' }
+];
+
 const PLACEHOLDERS = [
-  { id: 'firstName', label: 'First Name', token: '[firstName]' },
+  { id: 'firstName', label: 'Prefered Name', token: '[firstName]' },
   { id: 'lastName', label: 'Last Name', token: '[lastName]' },
   { id: 'courseName', label: 'Course Name', token: '[courseName]' },
   { id: 'startDate', label: 'Start Date', token: '[startDate]' },
@@ -84,7 +124,10 @@ const formats = [
   'link'
 ];
 
-function TemplateManager({ onMessageChange = () => {}, initialTemplate = null }) {
+
+
+function TemplateManager({ onMessageChange = () => {}, initialTemplate = null, defaultOpen = false }) {
+  
   const [templates, setTemplates] = useState([]);
   const [newTemplate, setNewTemplate] = useState({
     name: '',
@@ -92,7 +135,7 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
     content: '',
     color: ''
   });
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const [activeTab, setActiveTab] = useState('create');
   const [templateToDelete, setTemplateToDelete] = useState(null);
   const [notification, setNotification] = useState({ message: '', type: '' });
@@ -101,20 +144,62 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
 
   const { user_email_key } = useAuth();
 
+
+
   const [isEditing, setIsEditing] = useState(false);
   const [currentTemplateId, setCurrentTemplateId] = useState(null);
+
+  // New state declarations
+  const [templateTypes, setTemplateTypes] = useState([]);
+  const [organizationMethod, setOrganizationMethod] = useState('type'); // 'type' or 'name'
+  const [selectedType, setSelectedType] = useState('');
+  const [isAddingType, setIsAddingType] = useState(false);
+  const [newType, setNewType] = useState({ 
+    name: '', 
+    description: '', 
+    icon: '',
+    color: colorOptions[0].value // Default color
+  });
+
+  const isTemplateTypeInUse = (typeId) => {
+    return templates.some(template => template.type === typeId);
+  };
+
+  const handleDeleteTemplateType = async (typeId) => {
+    if (isTemplateTypeInUse(typeId)) {
+      showNotification('Cannot delete this template type as it is currently in use. Please reassign or delete templates using this type first.', 'error');
+      return;
+    }
+
+    const db = getDatabase();
+    const typeRef = ref(db, `templateTypes/${typeId}`);
+
+    try {
+      await remove(typeRef);
+      showNotification('Template type deleted successfully');
+    } catch (error) {
+      console.error('Error deleting template type:', error);
+      showNotification('Failed to delete template type', 'error');
+    }
+  };
 
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
     setTimeout(() => setNotification({ message: '', type: '' }), 3000);
   };
 
+
+  useEffect(() => {
+    setIsOpen(defaultOpen);
+  }, [defaultOpen]);
+
+
   useEffect(() => {
     if (!user_email_key) return;
-
+  
     const db = getDatabase();
     const templatesRef = ref(db, `teacherMessages/${user_email_key}`);
-
+  
     const unsubscribe = onValue(templatesRef, (snapshot) => {
       if (snapshot.exists()) {
         const templatesData = snapshot.val();
@@ -129,9 +214,34 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
         onMessageChange([]);
       }
     });
-
+  
     return () => unsubscribe();
   }, [user_email_key, onMessageChange]);
+
+
+  useEffect(() => {
+    const db = getDatabase();
+    const typesRef = ref(db, 'templateTypes'); // Changed from user-specific path
+  
+    const handleTypes = (snapshot) => {
+      if (snapshot.exists()) {
+        const typesData = snapshot.val();
+        const typesArray = Object.entries(typesData).map(([id, type]) => ({
+          id,
+          ...type
+        }));
+        setTemplateTypes(typesArray);
+      } else {
+        setTemplateTypes([]);
+      }
+    };
+  
+    onValue(typesRef, handleTypes);
+  
+    return () => {
+      // Cleanup
+    };
+  }, []);
 
   // Handle initial template loading
   useEffect(() => {
@@ -149,6 +259,65 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
     }
   }, [initialTemplate]);
 
+  // New useEffect for template types
+  useEffect(() => {
+    if (!user_email_key) return;
+
+    const db = getDatabase();
+    const customTypesRef = ref(db, `templateTypes/${user_email_key}`);
+
+    const handleCustomTypes = (snapshot) => {
+      if (snapshot.exists()) {
+        const customTypes = snapshot.val();
+        setTemplateTypes([
+          ...DEFAULT_TEMPLATE_TYPES,
+          ...Object.entries(customTypes).map(([id, type]) => ({
+            id,
+            ...type,
+            isCustom: true
+          }))
+        ]);
+      } else {
+        setTemplateTypes(DEFAULT_TEMPLATE_TYPES);
+      }
+    };
+
+    onValue(customTypesRef, handleCustomTypes);
+
+    return () => {
+      // Cleanup if necessary
+    };
+  }, [user_email_key]);
+
+  // Handle adding a new template type
+  const handleAddTemplateType = async () => {
+    if (!newType.name || !newType.icon) {
+      showNotification('Please fill in all required fields', 'error');
+      return;
+    }
+  
+    const db = getDatabase();
+    const typeId = newType.name.toLowerCase().replace(/\s+/g, '-');
+    const typeRef = ref(db, `templateTypes/${typeId}`); // Changed from user-specific path
+  
+    try {
+      await set(typeRef, {
+        name: newType.name,
+        description: newType.description,
+        icon: newType.icon,
+        color: newType.color,
+        createdAt: new Date().toISOString(),
+        createdBy: user_email_key // Track who created it
+      });
+      setNewType({ name: '', description: '', icon: '', color: colorOptions[0].value });
+      setIsAddingType(false);
+      showNotification('Template type added successfully');
+    } catch (error) {
+      console.error('Error adding template type:', error);
+      showNotification('Failed to add template type', 'error');
+    }
+  };
+
   const openDialog = () => {
     setNewTemplate({
       name: '',
@@ -156,12 +325,14 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
       content: '',
       color: ''
     });
+    setSelectedType('');
     setActiveTab('create');
     setIsOpen(true);
     setIsEditing(false);
     setCurrentTemplateId(null);
   };
 
+  // Modified handleAddTemplate to include template type
   const handleAddTemplate = async () => {
     if (!quillRef.current || !newTemplate.name || !newTemplate.color || !user_email_key)
       return;
@@ -173,18 +344,17 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
 
     try {
       if (isEditing && currentTemplateId) {
-        // Update existing template
         const templateRef = ref(db, `teacherMessages/${user_email_key}/${currentTemplateId}`);
         await update(templateRef, {
           name: newTemplate.name,
           subject: newTemplate.subject,
           content: deltaContent,
           color: newTemplate.color,
+          type: selectedType, // Add type
           lastModified: new Date().toISOString(),
         });
         showNotification('Template updated successfully');
       } else {
-        // Add new template
         const templateId = Date.now().toString();
         const templateRef = ref(db, `teacherMessages/${user_email_key}/${templateId}`);
         await set(templateRef, {
@@ -192,6 +362,7 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
           subject: newTemplate.subject,
           content: deltaContent,
           color: newTemplate.color,
+          type: selectedType, // Add type
           archived: false,
           createdAt: new Date().toISOString(),
           lastUsed: new Date().toISOString()
@@ -200,6 +371,7 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
       }
 
       setNewTemplate({ name: '', subject: '', content: '', color: '' });
+      setSelectedType('');
       setIsEditing(false);
       setCurrentTemplateId(null);
       setActiveTab('templates');
@@ -240,6 +412,7 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
       content: template.content,
       color: template.color,
     });
+    setSelectedType(template.type || '');
     setCurrentTemplateId(template.id);
     setIsEditing(true);
     setActiveTab('create');
@@ -274,13 +447,14 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
     return quill.getText().substring(0, 100);
   };
 
-  const renderTemplateList = (archived) => (
-    <ScrollArea className="h-[400px] w-full">
-      <div className="space-y-4 pr-4">
-        {templates
-          .filter((template) => template.archived === archived)
-          .map((template) => (
-            <div key={template.id} className="bg-white p-4 rounded-lg shadow-sm border break-words">
+  
+  const renderTemplateList = (archived, templatesList = null) => {
+    const list = templatesList !== null ? templatesList : templates.filter((template) => template.archived === archived);
+  
+    return (
+      <div className="space-y-4">
+        {list.map((template) => (
+          <div key={template.id} className="bg-white p-4 rounded-lg shadow-sm border break-words">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center overflow-hidden">
                   <div
@@ -303,7 +477,7 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
                       </TooltipTrigger>
                       <TooltipContent>Preview template</TooltipContent>
                     </Tooltip>
-  
+
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -318,7 +492,7 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
                         <p>Edit template</p>
                       </TooltipContent>
                     </Tooltip>
-  
+
                     {archived ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -350,7 +524,7 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
                         </TooltipContent>
                       </Tooltip>
                     )}
-  
+
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <AlertDialog>
@@ -401,8 +575,263 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
               </div>
             </div>
           ))}
+        </div>
+     
+    );
+  };
+
+  // Function to render the template type select
+  const renderTemplateTypeSelect = () => (
+    <div className="mb-4">
+      <Select
+        value={selectedType}
+        onValueChange={setSelectedType}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select template type">
+            {selectedType && templateTypes.find(t => t.id === selectedType) && (
+              <div className="flex items-center">
+                {React.createElement(
+                  iconOptions.find(icon => icon.value === templateTypes.find(t => t.id === selectedType).icon)?.icon || CircleIcon,
+                  { 
+                    className: "h-4 w-4 mr-2",
+                    style: { color: templateTypes.find(t => t.id === selectedType).color }
+                  }
+                )}
+                <span>{templateTypes.find(t => t.id === selectedType).name}</span>
+              </div>
+            )}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {templateTypes.map((type) => (
+            <SelectItem key={type.id} value={type.id}>
+              <div className="flex items-center">
+                {React.createElement(
+                  iconOptions.find(icon => icon.value === type.icon)?.icon || CircleIcon,
+                  { 
+                    className: "h-4 w-4 mr-2",
+                    style: { color: type.color }
+                  }
+                )}
+                <span>{type.name}</span>
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  // Function to render the add type dialog
+  const renderAddTypeDialog = () => (
+    <AlertDialog open={isAddingType} onOpenChange={setIsAddingType}>
+      <AlertDialogContent className="sm:max-w-[425px]">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Add New Template Type</AlertDialogTitle>
+          <AlertDialogDescription>
+            Create a new category for organizing your templates. Choose an icon and color to help identify this type.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="space-y-4 py-4">
+          <Input
+            placeholder="Type Name"
+            value={newType.name}
+            onChange={(e) => setNewType({ ...newType, name: e.target.value })}
+          />
+          <Input
+            placeholder="Description (optional)"
+            value={newType.description}
+            onChange={(e) => setNewType({ ...newType, description: e.target.value })}
+          />
+          <Select
+            value={newType.icon}
+            onValueChange={(value) => setNewType({ ...newType, icon: value })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select an icon">
+                {newType.icon && (
+                  <div className="flex items-center">
+                    {React.createElement(
+                      iconOptions.find(icon => icon.value === newType.icon)?.icon || CircleIcon,
+                      { 
+                        className: "h-4 w-4 mr-2",
+                        style: { color: newType.color }
+                      }
+                    )}
+                    {iconOptions.find(icon => icon.value === newType.icon)?.label}
+                  </div>
+                )}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <div className="grid grid-cols-3 gap-2 p-2">
+                {iconOptions.map((icon) => (
+                  <SelectItem key={icon.value} value={icon.value}>
+                    <div className="flex flex-col items-center justify-center">
+                      {React.createElement(icon.icon, { 
+                        className: "h-6 w-6 mb-1",
+                        style: { color: newType.color }
+                      })}
+                      <span className="text-xs text-center">{icon.label}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </div>
+            </SelectContent>
+          </Select>
+          <Select
+            value={newType.color}
+            onValueChange={(value) => setNewType({ ...newType, color: value })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a color" />
+            </SelectTrigger>
+            <SelectContent>
+              {colorOptions.map((color) => (
+                <SelectItem key={color.value} value={color.value}>
+                  <div className="flex items-center">
+                    <div className="w-4 h-4 rounded-full mr-2" style={{ backgroundColor: color.value }} />
+                    {color.label}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setIsAddingType(false)}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={handleAddTemplateType}>
+            Add Type
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
+  // Function to render the templates tab with organization options
+  const renderTemplatesTab = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setOrganizationMethod('type')}
+            className={organizationMethod === 'type' ? 'bg-primary text-white' : ''}
+          >
+            <Grid2X2Icon className="h-4 w-4 mr-2" />
+            By Type
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setOrganizationMethod('name')}
+            className={organizationMethod === 'name' ? 'bg-primary text-white' : ''}
+          >
+            <ListFilterIcon className="h-4 w-4 mr-2" />
+            By Name
+          </Button>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsAddingType(true)}
+        >
+          <PlusCircle className="h-4 w-4 mr-2" />
+          Add Type
+        </Button>
       </div>
-    </ScrollArea>
+    
+      <ScrollArea className="h-[450px]">
+        {organizationMethod === 'type' ? (
+          <div className="space-y-4 pr-4">
+            {templateTypes.map((type) => {
+              const typeTemplates = templates.filter(
+                (template) => !template.archived && template.type === type.id
+              );
+              
+              return (
+                <div key={type.id}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      {React.createElement(
+                        iconOptions.find(icon => icon.value === type.icon)?.icon || CircleIcon,
+                        { 
+                          className: "h-5 w-5 mr-2",
+                          style: { color: type.color }
+                        }
+                      )}
+                      <h3 className="font-medium">{type.name}</h3>
+                    </div>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="ml-2"
+                                disabled={isTemplateTypeInUse(type.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete template type?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete this template type. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteTemplateType(type.id)}>
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {isTemplateTypeInUse(type.id) 
+                            ? "Cannot delete: Type is in use by templates"
+                            : "Delete template type"}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  {typeTemplates.length > 0 && renderTemplateList(false, typeTemplates)}
+                  {typeTemplates.length === 0 && (
+                    <div className="text-sm text-gray-500 italic pl-7">
+                      No templates in this category
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {/* Uncategorized templates */}
+            {templates.filter((t) => !t.archived && !t.type).length > 0 && (
+              <div>
+                <h3 className="font-medium mb-2">Uncategorized</h3>
+                {renderTemplateList(
+                  false,
+                  templates.filter((t) => !t.archived && !t.type)
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="pr-4">
+            {renderTemplateList(false)}
+          </div>
+        )}
+      </ScrollArea>
+      {renderAddTypeDialog()}
+    </div>
   );
 
   return (
@@ -455,6 +884,7 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
                     setNewTemplate({ ...newTemplate, subject: e.target.value })
                   }
                 />
+                {renderTemplateTypeSelect()}
                 <Select
                   value={newTemplate.color}
                   onValueChange={(value) =>
@@ -527,7 +957,7 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
 
                 <Button
                   onClick={handleAddTemplate}
-                  disabled={!newTemplate.name || !newTemplate.content || !newTemplate.color}
+                  disabled={!newTemplate.name || !newTemplate.content || !newTemplate.color || !selectedType}
                   className="w-full"
                 >
                   <Save className="mr-2 h-4 w-4" /> {isEditing ? 'Update Template' : 'Save Template'}
@@ -536,7 +966,7 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null })
             </TabsContent>
 
             <TabsContent value="templates" className="w-full">
-              {renderTemplateList(false)}
+              {renderTemplatesTab()}
             </TabsContent>
 
             <TabsContent value="archived" className="w-full">

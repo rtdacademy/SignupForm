@@ -19,6 +19,10 @@ const emailFunctions = require('./email');
 const stripeFunctions = require('./stripe');
 const historicalPaymentFunctions = require('./updateHistoricalPaymentStatus');
 const ltiFunctions = require('./lti');
+const IMathASFunctions = require('./IMathAS_Database');
+
+
+
 
 // Export all gradebook functions
 exports.updateGradebookData = gradebookFunctions.updateGradebookData;
@@ -45,8 +49,9 @@ exports.updateStudentCourseSummary = summaryFunctions.updateStudentCourseSummary
 exports.syncProfileToCourseSummaries = summaryFunctions.syncProfileToCourseSummaries;
 
 // Export email functions
-exports.sendEmail = emailFunctions.sendEmail;
 exports.sendBulkEmails = emailFunctions.sendBulkEmails;
+// Sendgrid webhooks
+exports.handleWebhookEvents = emailFunctions.handleWebhookEvents;
 
 // Export Stripe webhook and related functions
 exports.handleStripeWebhook = stripeFunctions.handleStripeWebhook;
@@ -63,5 +68,9 @@ exports.ltiJwks = ltiFunctions.ltiJwks;
 exports.ltiLogin = ltiFunctions.ltiLogin;
 exports.ltiAuth = ltiFunctions.ltiAuth; 
 exports.ltiDeepLinkReturn = ltiFunctions.ltiDeepLinkReturn; 
-exports.getLTILinks = ltiFunctions.getLTILinks; 
+exports.getLTILinks = ltiFunctions.getLTILinks;
 exports.ltiGradeCallback = ltiFunctions.ltiGradeCallback;
+
+
+// functions to sync data between mysql and firestore
+exports.updateIMathASGrade = IMathASFunctions.updateIMathASGrade;

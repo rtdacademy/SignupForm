@@ -133,17 +133,17 @@ const DashboardHeader = ({ user, onLogout, onBackClick, showBackButton, isEmulat
           {user && (
             <div className="flex items-center space-x-6">
              {isEmulating && (
-  <Button
-    variant="secondary"
-    size="sm"
-    onClick={() => {
-      onStopEmulation();
-      window.close();
-    }}
-    className="mr-4 bg-blue-800 hover:bg-blue-900 text-white border-none transition-colors duration-200"
-  >
-    Exit Emulation
-  </Button>
+<Button
+  variant="secondary"
+  size="sm"
+  onClick={() => {
+    onStopEmulation();
+    window.close();
+  }}
+  className="mr-4 bg-blue-800 hover:bg-blue-900 text-white border-none transition-colors duration-200"
+>
+  Exit Emulation
+</Button>
 )}
               <span className="text-gray-700 text-lg hidden lg:inline font-semibold tracking-wide">
                 {getUserDisplayName()}
@@ -201,6 +201,19 @@ const Dashboard = () => {
   // New state for Migration Dialog
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
 
+  const [forceProfileOpen, setForceProfileOpen] = useState(false);
+
+  // Helper function to check required fields
+  const checkRequiredFields = (profileData) => {
+    if (!profileData) return false;
+    
+    const requiredFields = ['firstName', 'lastName', 'preferredFirstName', 'StudentPhone', 'gender'];
+    return requiredFields.every(field => {
+      const value = profileData[field];
+      return value && String(value).trim() !== '';
+    });
+  };
+
   // Once data is loaded, determine if we need to show the welcome dialog
   useEffect(() => {
     if (!dataLoading && courses.length === 0) {
@@ -227,6 +240,33 @@ const Dashboard = () => {
       checkMigrationMessage();
     }
   }, [dataLoading, currentUser]);
+
+  // Updated useEffect with helper function and logging
+  useEffect(() => {
+    if (profile && !dataLoading) {
+      const hasAllRequiredFields = checkRequiredFields(profile);
+      
+      console.log('Profile check:', {
+        profile,
+        hasAllRequiredFields,
+        fields: {
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          preferredFirstName: profile.preferredFirstName,
+          StudentPhone: profile.StudentPhone,
+          gender: profile.gender
+        }
+      });
+      
+      setForceProfileOpen(!hasAllRequiredFields);
+      
+      // If all fields are complete and the profile was forced open, close it
+      if (hasAllRequiredFields && forceProfileOpen) {
+        setIsProfileOpen(false);
+        setForceProfileOpen(false);
+      }
+    }
+  }, [profile, dataLoading, forceProfileOpen]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -493,11 +533,19 @@ const Dashboard = () => {
             )}
           </div>
 
-          {/* Profile Sheet - Only render if student exists */}
+          {/* Profile Component - Updated with force profile logic */}
           {studentExists && (
             <ProfileComponent
-              isOpen={isProfileOpen}
-              onOpenChange={setIsProfileOpen}
+              isOpen={isProfileOpen || forceProfileOpen}
+              onOpenChange={(open) => {
+                // Only allow closing if all required fields are complete
+                if (!open && checkRequiredFields(profile)) {
+                  setIsProfileOpen(false);
+                  setForceProfileOpen(false);
+                } else if (open) {
+                  setIsProfileOpen(true);
+                }
+              }}
               profile={profile}
             />
           )}

@@ -6,8 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
-import { X, Plus, Archive, Trash2, RotateCcw, Circle, Square, Triangle, BookOpen, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, UserMinus } from 'lucide-react';
-import { getDatabase, ref, set, onValue, update, remove } from 'firebase/database';
+import { ScrollArea } from '../components/ui/scroll-area';
+import { Plus, Archive, Trash2, RotateCcw, Circle, Square, Triangle, BookOpen, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, UserMinus, Grid2X2, ListFilter, ChartNoAxesGantt } from 'lucide-react';
+import { getDatabase, ref, set, onValue, update, remove, push, serverTimestamp } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 
@@ -47,27 +48,39 @@ const colorOptions = [
 
 const CategoryManager = ({ onCategoryChange }) => {
   const [categories, setCategories] = useState([]);
-  const [newCategory, setNewCategory] = useState({ name: '', color: '', icon: '' });
+  const [categoryTypes, setCategoryTypes] = useState([]);
+  const [newCategory, setNewCategory] = useState({ name: '', color: '', icon: '', type: '' });
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('active');
+  const [organizationMethod, setOrganizationMethod] = useState('type');
   const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [isAddingType, setIsAddingType] = useState(false);
+  const [newType, setNewType] = useState({
+    name: '',
+    description: '',
+    icon: '',
+    color: colorOptions[0].value
+  });
+
+  // New state for all teacher categories and teacher info
+  const [allCategories, setAllCategories] = useState([]);
+  const [teacherNames, setTeacherNames] = useState({});
+
   const { user_email_key } = useAuth();
-  
-  // State for custom notification
   const [notification, setNotification] = useState({ message: '', type: '' });
 
-  // Function to show notification
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type });
-    setTimeout(() => setNotification({ message: '', type: '' }), 3000); // Hide after 3 seconds
+    setTimeout(() => setNotification({ message: '', type: '' }), 3000);
   };
 
+  // Load categories for the current teacher
   useEffect(() => {
     if (!user_email_key) return;
 
     const db = getDatabase();
     const categoriesRef = ref(db, `teacherCategories/${user_email_key}`);
-    
+
     const unsubscribe = onValue(categoriesRef, (snapshot) => {
       if (snapshot.exists()) {
         const categoriesData = snapshot.val();
@@ -83,20 +96,137 @@ const CategoryManager = ({ onCategoryChange }) => {
     return () => unsubscribe();
   }, [user_email_key, onCategoryChange]);
 
+  // Load category types
+  useEffect(() => {
+    const db = getDatabase();
+    const typesRef = ref(db, 'categoryTypes');
+
+    const handleTypes = (snapshot) => {
+      if (snapshot.exists()) {
+        const typesData = snapshot.val();
+        const typesArray = Object.entries(typesData).map(([id, type]) => ({
+          id,
+          ...type
+        }));
+        setCategoryTypes(typesArray);
+      } else {
+        setCategoryTypes([]);
+      }
+    };
+
+    onValue(typesRef, handleTypes);
+    return () => {
+      // Cleanup
+    };
+  }, []);
+
+  // Load all categories and teacher names
+  useEffect(() => {
+    const db = getDatabase();
+    const allCategoriesRef = ref(db, 'teacherCategories');
+    const staffRef = ref(db, 'staff');
+
+    // Load all categories
+    const unsubscribeAllCategories = onValue(allCategoriesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const categoriesData = snapshot.val();
+        const allCategoriesArray = Object.entries(categoriesData).flatMap(([teacherKey, teacherCategories]) =>
+          Object.entries(teacherCategories).map(([id, data]) => ({
+            id,
+            teacherKey,
+            ...data
+          }))
+        );
+        setAllCategories(allCategoriesArray);
+      } else {
+        setAllCategories([]);
+      }
+    });
+
+    // Load teacher names
+    const unsubscribeStaff = onValue(staffRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const staffData = snapshot.val();
+        const names = Object.entries(staffData).reduce((acc, [email, data]) => {
+          acc[email] = `${data.firstName} ${data.lastName}`;
+          return acc;
+        }, {});
+        setTeacherNames(names);
+      } else {
+        setTeacherNames({});
+      }
+    });
+
+    return () => {
+      unsubscribeAllCategories();
+      unsubscribeStaff();
+    };
+  }, []);
+
+  const isCategoryTypeInUse = (typeId) => {
+    return [...categories, ...allCategories].some(category => category.type === typeId);
+  };
+
+  const handleAddCategoryType = async () => {
+    if (!newType.name || !newType.icon) {
+      showNotification('Please fill in all required fields', 'error');
+      return;
+    }
+
+    const db = getDatabase();
+    const typeId = newType.name.toLowerCase().replace(/\s+/g, '-');
+    const typeRef = ref(db, `categoryTypes/${typeId}`);
+
+    try {
+      await set(typeRef, {
+        name: newType.name,
+        description: newType.description,
+        icon: newType.icon,
+        color: newType.color,
+        createdAt: serverTimestamp(),
+        createdBy: user_email_key
+      });
+      setNewType({ name: '', description: '', icon: '', color: colorOptions[0].value });
+      setIsAddingType(false);
+      showNotification('Category type added successfully');
+    } catch (error) {
+      console.error('Error adding category type:', error);
+      showNotification('Failed to add category type', 'error');
+    }
+  };
+
+  const handleDeleteCategoryType = async (typeId) => {
+    if (isCategoryTypeInUse(typeId)) {
+      showNotification('Cannot delete this category type as it is currently in use', 'error');
+      return;
+    }
+
+    const db = getDatabase();
+    const typeRef = ref(db, `categoryTypes/${typeId}`);
+
+    try {
+      await remove(typeRef);
+      showNotification('Category type deleted successfully');
+    } catch (error) {
+      console.error('Error deleting category type:', error);
+      showNotification('Failed to delete category type', 'error');
+    }
+  };
+
   const handleAddCategory = () => {
     if (newCategory.name && newCategory.color && newCategory.icon && user_email_key) {
       const db = getDatabase();
       const newCategoryRef = ref(db, `teacherCategories/${user_email_key}/${Date.now()}`);
       set(newCategoryRef, { ...newCategory, archived: false });
-      setNewCategory({ name: '', color: '', icon: '' });
+      setNewCategory({ name: '', color: '', icon: '', type: '' });
       showNotification("Category added successfully");
     }
   };
 
-  const handleCategoryAction = async (categoryId, action) => {
-    if (user_email_key) {
+  const handleCategoryAction = async (categoryId, action, teacherKey = user_email_key) => {
+    if (teacherKey) {
       const db = getDatabase();
-      const categoryRef = ref(db, `teacherCategories/${user_email_key}/${categoryId}`);
+      const categoryRef = ref(db, `teacherCategories/${teacherKey}/${categoryId}`);
   
       if (action === 'delete' || action === 'removeFromStudents') {
         showNotification(action === 'delete' ? "Deleting category..." : "Removing category from students...", "info");
@@ -104,7 +234,6 @@ const CategoryManager = ({ onCategoryChange }) => {
         if (action === 'delete') {
           try {
             await remove(categoryRef);
-            console.log(`Category ${categoryId} deleted locally`);
           } catch (error) {
             console.error('Error deleting category locally:', error);
             showNotification("Error deleting category locally", "error");
@@ -115,21 +244,17 @@ const CategoryManager = ({ onCategoryChange }) => {
         const functions = getFunctions();
         const deleteCategoryForStudents = httpsCallable(functions, 'deleteCategoryForStudents');
         try {
-          console.log(`Calling cloud function to ${action === 'delete' ? 'delete' : 'remove'} category ${categoryId} for students`);
           const result = await deleteCategoryForStudents({ 
             categoryId, 
-            teacherEmailKey: user_email_key,
+            teacherEmailKey: teacherKey,
             action
           });
           
-          console.log('Cloud function response:', result.data);
-          
-          const { affectedStudents, message } = result.data;
-          if (affectedStudents > 0) {
-            showNotification(`Category ${action === 'delete' ? 'deleted' : 'removed'}. ${affectedStudents} student${affectedStudents !== 1 ? 's were' : ' was'} affected.`);
-          } else {
-            showNotification(`Category ${action === 'delete' ? 'deleted' : 'removed'}. No students were affected.`);
-          }
+          const { affectedStudents } = result.data;
+          showNotification(
+            `Category ${action === 'delete' ? 'deleted' : 'removed'}. ` +
+            `${affectedStudents > 0 ? `${affectedStudents} student${affectedStudents !== 1 ? 's were' : ' was'} affected.` : 'No students were affected.'}`
+          );
           
           if (action === 'delete') {
             setCategoryToDelete(null);
@@ -141,7 +266,6 @@ const CategoryManager = ({ onCategoryChange }) => {
       } else if (action === 'archive' || action === 'unarchive') {
         try {
           await update(categoryRef, { archived: action === 'archive' });
-          console.log(`Category ${categoryId} ${action}d locally`);
           showNotification(`Category ${action}d successfully`);
         } catch (error) {
           console.error(`Error ${action}ing category:`, error);
@@ -151,20 +275,145 @@ const CategoryManager = ({ onCategoryChange }) => {
     }
   };
 
-  const renderCategoryList = (archived) => (
-    <div className="max-h-[200px] overflow-y-auto">
-      {categories
-        .filter((category) => category.archived === archived)
-        .map((category) => (
+  const handleUpdateCategoryType = async (categoryId, typeId, teacherKey = user_email_key) => {
+    const db = getDatabase();
+    const categoryRef = ref(db, `teacherCategories/${teacherKey}/${categoryId}`);
+    
+    try {
+      await update(categoryRef, { type: typeId === 'none' ? null : typeId });
+      showNotification("Category type updated successfully");
+    } catch (error) {
+      console.error('Error updating category type:', error);
+      showNotification("Failed to update category type", "error");
+    }
+  };
+
+  const renderCategoryByType = (archived) => {
+    const filteredCategories = categories.filter(cat => cat.archived === archived);
+    
+    return (
+      <ScrollArea className="h-[300px] pr-4">
+        <div className="space-y-4">
+          {/* Categories with types */}
+          {categoryTypes.map((type) => {
+            const typeCategories = filteredCategories.filter(cat => cat.type === type.id);
+            if (typeCategories.length === 0) return null;
+
+            return (
+              <div key={type.id}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    {React.createElement(
+                      iconOptions.find(icon => icon.value === type.icon)?.icon || Circle,
+                      { 
+                        className: "h-5 w-5 mr-2",
+                        style: { color: type.color }
+                      }
+                    )}
+                    <h3 className="font-medium">{type.name}</h3>
+                  </div>
+                  {/* Type actions */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="ml-2"
+                              disabled={isCategoryTypeInUse(type.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete category type?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete this category type. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteCategoryType(type.id)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isCategoryTypeInUse(type.id) 
+                          ? "Cannot delete: Type is in use by categories"
+                          : "Delete category type"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                {renderCategoryList(archived, typeCategories)}
+              </div>
+            );
+          })}
+
+          {/* Uncategorized categories */}
+          {filteredCategories.filter(cat => !cat.type).length > 0 && (
+            <div>
+              <h3 className="font-medium mb-2">Uncategorized</h3>
+              {renderCategoryList(archived, filteredCategories.filter(cat => !cat.type))}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    );
+  };
+
+  const renderCategoryList = (archived, categoryList = null) => {
+    const list = categoryList || categories.filter((category) => category.archived === archived);
+  
+    return (
+      <div className="space-y-2">
+        {list.map((category) => (
           <div key={category.id} className="flex items-center justify-between py-2">
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
               {iconOptions.find(icon => icon.value === category.icon) && 
                 React.createElement(iconOptions.find(icon => icon.value === category.icon).icon, { 
                   className: "mr-2 h-5 w-5", 
                   style: { color: category.color }
                 })}
               <span>{category.name}</span>
+              
+              {/* Add type selection dropdown */}
+              <Select
+                value={category.type || 'none'}
+                onValueChange={(value) => handleUpdateCategoryType(category.id, value === 'none' ? '' : value)}
+              >
+                <SelectTrigger className="h-7 w-[180px]">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-gray-500">No type</span>
+                  </SelectItem>
+                  {categoryTypes.map((type) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      <div className="flex items-center">
+                        {React.createElement(
+                          iconOptions.find(icon => icon.value === type.icon)?.icon || Circle,
+                          { 
+                            className: "h-4 w-4 mr-2",
+                            style: { color: type.color }
+                          }
+                        )}
+                        <span>{type.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
+
             <div className="flex items-center space-x-2">
               <TooltipProvider>
                 {archived ? (
@@ -179,7 +428,7 @@ const CategoryManager = ({ onCategoryChange }) => {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Unarchive: Make this category visible again. Students who previously had this category will regain access to it.</p>
+                      <p>Unarchive: Make this category visible again</p>
                     </TooltipContent>
                   </Tooltip>
                 ) : (
@@ -194,118 +443,458 @@ const CategoryManager = ({ onCategoryChange }) => {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Archive: Hide this category from view. It can be unarchived later. Students will retain the category.</p>
+                      <p>Archive: Hide this category from view</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                        >
-                          <UserMinus className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Remove category from all students?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will remove the category from all students but keep it in your {archived ? 'archived' : ''} list. This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction asChild>
-                            <Button onClick={() => handleCategoryAction(category.id, 'removeFromStudents')}>
-                              Remove
-                            </Button>
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Remove from Students: Remove this category from all students without deleting it from your list</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setCategoryToDelete(category.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the category and remove it from all students.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel onClick={() => setCategoryToDelete(null)}>Cancel</AlertDialogCancel>
-                          <AlertDialogAction asChild>
-                            <Button onClick={() => handleCategoryAction(category.id, 'delete')}>
-                              Delete
-                            </Button>
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Delete: Permanently remove this category from your list and remove it from all students</p>
-                  </TooltipContent>
-                </Tooltip>
+                <TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <div> {/* Wrapper div to prevent tooltip/dialog conflict */}
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <UserMinus className="h-4 w-4" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            {/* ... dialog content ... */}
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </TooltipTrigger>
+    <TooltipContent>
+      <p>Remove from Students: Remove this category from ALL students WITHOUT deleting it from your list</p>
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+
+<Tooltip>
+  <TooltipTrigger asChild>
+    <div> {/* Add this wrapper div */}
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCategoryToDelete(category.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the category and remove it from all students.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setCategoryToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleCategoryAction(category.id, 'delete')}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  </TooltipTrigger>
+  <TooltipContent>
+    <p>Delete: Permanently remove this category and remove it from ALL students</p>
+  </TooltipContent>
+</Tooltip>
               </TooltipProvider>
             </div>
           </div>
         ))}
-    </div>
-  );
+      </div>
+    );
+  };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="ml-2">
-          <Plus className="mr-2 h-4 w-4" /> Categories
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Manage Categories</DialogTitle>
-          <DialogDescription>Create, edit, archive, or delete your custom categories for tracking student progress.</DialogDescription>
-        </DialogHeader>
-        {/* Custom notification */}
-        {notification.message && (
-          <div className={`p-2 mb-4 rounded ${notification.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-            {notification.message}
+  const renderAllCategoriesList = () => {
+    return (
+      <ScrollArea className="h-[400px] pr-4">
+        <div className="space-y-2">
+          {allCategories.map((category) => (
+            <div key={`${category.teacherKey}-${category.id}`} className="flex items-center justify-between py-2">
+              <div className="flex items-center gap-2">
+                {iconOptions.find(icon => icon.value === category.icon) && 
+                  React.createElement(iconOptions.find(icon => icon.value === category.icon).icon, { 
+                    className: "mr-2 h-5 w-5", 
+                    style: { color: category.color }
+                  })}
+                <div className="flex flex-col">
+                  <span>{category.name}</span>
+                  <span className="text-xs text-gray-500">
+                    Created by: {teacherNames[category.teacherKey] || category.teacherKey}
+                  </span>
+                </div>
+                
+                {/* Type selection dropdown */}
+                <Select
+                  value={category.type || 'none'}
+                  onValueChange={(value) => handleUpdateCategoryType(category.id, value === 'none' ? '' : value, category.teacherKey)}
+                >
+                  <SelectTrigger className="h-7 w-[180px]">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <span className="text-gray-500">No type</span>
+                    </SelectItem>
+                    {categoryTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        <div className="flex items-center">
+                          {React.createElement(
+                            iconOptions.find(icon => icon.value === type.icon)?.icon || Circle,
+                            { 
+                              className: "h-4 w-4 mr-2",
+                              style: { color: type.color }
+                            }
+                          )}
+                          <span>{type.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Only show delete button if user owns the category */}
+              {category.teacherKey === user_email_key && (
+              <div className="flex items-center space-x-2">
+                <TooltipProvider>
+                  {/* Archive button */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCategoryAction(category.id, 'archive', category.teacherKey)}
+                      >
+                        <Archive className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Archive: Hide this category from view</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Remove from students button */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <UserMinus className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove category from all students?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will remove the category from all students but keep it in your list. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleCategoryAction(category.id, 'removeFromStudents', category.teacherKey)}>
+                                Remove
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Remove from Students: Remove this category from all students without deleting it from your list</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Delete button */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete category?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete the category and remove it from all students.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleCategoryAction(category.id, 'delete', category.teacherKey)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Delete: Permanently remove this category</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            )}
           </div>
-        )}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        ))}
+      </div>
+    </ScrollArea>
+    );
+  };
+
+  const renderAllCategoriesByType = () => {
+    const grouped = allCategories.reduce((acc, category) => {
+      if (category.archived) return acc;
+      if (!category.type) {
+        acc['uncategorized'] = acc['uncategorized'] || [];
+        acc['uncategorized'].push(category);
+      } else {
+        acc[category.type] = acc[category.type] || [];
+        acc[category.type].push(category);
+      }
+      return acc;
+    }, {});
+
+    return (
+      <ScrollArea className="h-[400px] pr-4">
+        <div className="space-y-4">
+          {categoryTypes.map((type) => {
+            const typeCategories = grouped[type.id];
+            if (!typeCategories || typeCategories.length === 0) return null;
+
+            return (
+              <div key={type.id}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    {React.createElement(
+                      iconOptions.find(icon => icon.value === type.icon)?.icon || Circle,
+                      { 
+                        className: "h-5 w-5 mr-2",
+                        style: { color: type.color }
+                      }
+                    )}
+                    <h3 className="font-medium">{type.name}</h3>
+                  </div>
+                </div>
+                {renderAllCategoriesListByType(typeCategories)}
+              </div>
+            );
+          })}
+
+          {/* Uncategorized categories */}
+          {grouped['uncategorized'] && grouped['uncategorized'].length > 0 && (
+            <div>
+              <h3 className="font-medium mb-2">Uncategorized</h3>
+              {renderAllCategoriesListByType(grouped['uncategorized'])}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    );
+  };
+
+  const renderAllCategoriesListByType = (categoryList) => {
+    return (
+      <div className="space-y-2">
+        {categoryList.map((category) => (
+          <div key={`${category.teacherKey}-${category.id}`} className="flex items-center justify-between py-2">
+            <div className="flex items-center gap-2">
+              {iconOptions.find(icon => icon.value === category.icon) && 
+                React.createElement(iconOptions.find(icon => icon.value === category.icon).icon, { 
+                  className: "mr-2 h-5 w-5", 
+                  style: { color: category.color }
+                })}
+              <div className="flex flex-col">
+                <span>{category.name}</span>
+                <span className="text-xs text-gray-500">
+                  Created by: {teacherNames[category.teacherKey] || category.teacherKey}
+                </span>
+              </div>
+              
+              {/* Type selection dropdown */}
+              <Select
+                value={category.type || 'none'}
+                onValueChange={(value) => handleUpdateCategoryType(category.id, value === 'none' ? '' : value, category.teacherKey)}
+              >
+                <SelectTrigger className="h-7 w-[180px]">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-gray-500">No type</span>
+                  </SelectItem>
+                  {categoryTypes.map((type) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      <div className="flex items-center">
+                        {React.createElement(
+                          iconOptions.find(icon => icon.value === type.icon)?.icon || Circle,
+                          { 
+                            className: "h-4 w-4 mr-2",
+                            style: { color: type.color }
+                          }
+                        )}
+                        <span>{type.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Only show delete button if user owns the category */}
+            {category.teacherKey === user_email_key && (
+  <div className="flex items-center space-x-2">
+    <TooltipProvider>
+      {/* Archive button */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleCategoryAction(category.id, 'archive', category.teacherKey)}
+          >
+            <Archive className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Archive: Hide this category from view</p>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Remove from students button */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <UserMinus className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Remove category from all students?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will remove the category from all students but keep it in your list. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleCategoryAction(category.id, 'removeFromStudents', category.teacherKey)}>
+                    Remove
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Remove from Students: Remove this category from all students without deleting it from your list</p>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Delete button */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete category?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete the category and remove it from all students.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleCategoryAction(category.id, 'delete', category.teacherKey)}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Delete: Permanently remove this category</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderAddTypeDialog = () => (
+    <AlertDialog open={isAddingType} onOpenChange={setIsAddingType}>
+      <AlertDialogContent className="sm:max-w-[600px]">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Category Types Manager</AlertDialogTitle>
+          <AlertDialogDescription>
+            Create and manage types to organize your categories.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+  
+        <Tabs defaultValue="new" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="active">Active</TabsTrigger>
-            <TabsTrigger value="archived">Archived</TabsTrigger>
+            <TabsTrigger value="new">New Type</TabsTrigger>
+            <TabsTrigger value="manage">Manage Types</TabsTrigger>
           </TabsList>
-          <TabsContent value="active">
-            <div className="grid gap-4 py-4">
+  
+          <TabsContent value="new">
+            <div className="space-y-4 py-4">
               <Input
-                id="name"
-                value={newCategory.name}
-                onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
-                placeholder="Category Name"
+                placeholder="Type Name"
+                value={newType.name}
+                onChange={(e) => setNewType({ ...newType, name: e.target.value })}
+              />
+              <Input
+                placeholder="Description (optional)"
+                value={newType.description}
+                onChange={(e) => setNewType({ ...newType, description: e.target.value })}
               />
               <Select
-                value={newCategory.color}
-                onValueChange={(value) => setNewCategory({ ...newCategory, color: value })}
+                value={newType.icon}
+                onValueChange={(value) => setNewType({ ...newType, icon: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an icon" />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="grid grid-cols-3 gap-2 p-2">
+                    {iconOptions.map((icon) => (
+                      <SelectItem key={icon.value} value={icon.value}>
+                        <div className="flex flex-col items-center justify-center">
+                          {React.createElement(icon.icon, { className: "h-6 w-6 mb-1" })}
+                          <span className="text-xs text-center">{icon.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </div>
+                </SelectContent>
+              </Select>
+              <Select
+                value={newType.color}
+                onValueChange={(value) => setNewType({ ...newType, color: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a color" />
@@ -321,45 +910,308 @@ const CategoryManager = ({ onCategoryChange }) => {
                   ))}
                 </SelectContent>
               </Select>
-              <Select
-                value={newCategory.icon}
-                onValueChange={(value) => setNewCategory({ ...newCategory, icon: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an icon">
-                    {newCategory.icon && (
-                      <div className="flex items-center">
-                        {React.createElement(iconOptions.find(icon => icon.value === newCategory.icon).icon, { className: "h-4 w-4 mr-2" })}
-                        {iconOptions.find(icon => icon.value === newCategory.icon).label}
-                      </div>
-                    )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <div className="grid grid-cols-3 gap-2 p-2">
-                    {iconOptions.map((icon) => (
-                      <SelectItem key={icon.value} value={icon.value}>
-                        <div className="flex flex-col items-center justify-center">
-                          {React.createElement(icon.icon, { className: "h-6 w-6 mb-1" })}
-                          <span className="text-xs text-center">{icon.label}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </div>
-                </SelectContent>
-              </Select>
-              <Button onClick={handleAddCategory} disabled={!newCategory.name || !newCategory.color || !newCategory.icon}>
-                <Plus className="mr-2 h-4 w-4" /> Add Category
-              </Button>
+              <div className="pt-4">
+                <Button 
+                  className="w-full"
+                  onClick={handleAddCategoryType}
+                  disabled={!newType.name || !newType.icon}
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Add Type
+                </Button>
+              </div>
             </div>
-            {renderCategoryList(false)}
           </TabsContent>
-          <TabsContent value="archived">
-            {renderCategoryList(true)}
-          </TabsContent>
+  
+         {/* ... in the manage tab ... */}
+<TabsContent value="manage">
+  <div className="text-sm text-gray-500 mb-4">
+    Note: Category types can only be deleted if they are not being used by any categories.
+  </div>
+  <ScrollArea className="h-[400px] pr-4">
+    <div className="space-y-2">
+      {categoryTypes.map((type) => {
+        const isInUse = [...categories, ...allCategories].some(cat => cat.type === type.id);
+        
+        return (
+          <div key={type.id} className="flex items-center justify-between p-2 border rounded-md">
+            <div className="flex items-center space-x-2">
+              {React.createElement(
+                iconOptions.find(icon => icon.value === type.icon)?.icon || Circle,
+                { 
+                  className: "h-5 w-5",
+                  style: { color: type.color }
+                }
+              )}
+              <div>
+                <div className="font-medium">{type.name}</div>
+                {type.description && (
+                  <div className="text-sm text-gray-500">{type.description}</div>
+                )}
+              </div>
+            </div>
+            
+            <TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <div> {/* Wrapper div to handle disabled state */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleDeleteCategoryType(type.id)}
+          disabled={isInUse}
+          className={isInUse ? "opacity-50 cursor-not-allowed" : ""}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </TooltipTrigger>
+    <TooltipContent>
+      {isInUse 
+        ? "Cannot delete: Remove all categories from this type first"
+        : "Delete type"
+      }
+    </TooltipContent>
+  </Tooltip>
+</TooltipProvider>
+          </div>
+        );
+      })}
+      
+      {categoryTypes.length === 0 && (
+        <div className="text-center text-gray-500 py-8">
+          No category types found. Create one to get started.
+        </div>
+      )}
+    </div>
+  </ScrollArea>
+</TabsContent>
         </Tabs>
-      </DialogContent>
-    </Dialog>
+        
+        <AlertDialogFooter className="mt-4">
+          <AlertDialogCancel onClick={() => setIsAddingType(false)}>
+            Close
+          </AlertDialogCancel>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
+  const renderCategoryTypes = () => (
+    <div className="mt-4 border-t pt-4">
+      <h3 className="font-medium mb-2">Category Types</h3>
+      <div className="space-y-2">
+        {categoryTypes.map((type) => {
+          const isInUse = [...categories, ...allCategories].some(cat => cat.type === type.id);
+          
+          return (
+            <div key={type.id} className="flex items-center justify-between">
+              <div className="flex items-center">
+                {React.createElement(
+                  iconOptions.find(icon => icon.value === type.icon)?.icon || Circle,
+                  { 
+                    className: "h-5 w-5 mr-2",
+                    style: { color: type.color }
+                  }
+                )}
+                <span>{type.name}</span>
+                {isInUse && (
+                  <span className="text-xs text-gray-500 ml-2">
+                    (In use)
+                  </span>
+                )}
+              </div>
+              
+              {!isInUse && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDeleteCategoryType(type.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" className="ml-2">
+            <ChartNoAxesGantt className="mr-2 h-4 w-4" /> Categories
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[725px]">
+          <DialogHeader>
+            <DialogTitle>Manage Categories</DialogTitle>
+            <DialogDescription>
+              Create and manage your custom categories for tracking student progress.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {notification.message && (
+            <div className={`p-2 rounded ${notification.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+              {notification.message}
+            </div>
+          )}
+
+<div className="flex items-center justify-between mb-4">
+  {activeTab !== 'new' && (  // Only show sort buttons if not on 'new' tab
+    <div className="flex items-center space-x-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setOrganizationMethod('type')}
+        className={organizationMethod === 'type' ? 'bg-primary text-white' : ''}
+      >
+        <Grid2X2 className="h-4 w-4 mr-2" />
+        By Type
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setOrganizationMethod('name')}
+        className={organizationMethod === 'name' ? 'bg-primary text-white' : ''}
+      >
+        <ListFilter className="h-4 w-4 mr-2" />
+        By Name
+      </Button>
+    </div>
+  )}
+  <Button
+  variant="outline"
+  size="sm"
+  onClick={() => setIsAddingType(true)}
+  className={activeTab === 'new' ? 'ml-auto' : ''}
+>
+  <ChartNoAxesGantt className="h-4 w-4 mr-2" />
+  Types Manager
+</Button>
+</div>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-4">
+  <TabsTrigger value="new">New</TabsTrigger>
+  <TabsTrigger value="active">My Active</TabsTrigger>
+  <TabsTrigger value="archived">My Archived</TabsTrigger>
+  <TabsTrigger value="all">All Categories</TabsTrigger>
+</TabsList>
+            
+            <TabsContent value="new">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 py-4">
+                  <Input
+                    value={newCategory.name}
+                    onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                    placeholder="Category Name"
+                  />
+                  
+                  <Select
+                    value={newCategory.type || 'none'}
+                    onValueChange={(value) => setNewCategory({ ...newCategory, type: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        <span className="text-gray-500">No type</span>
+                      </SelectItem>
+                      {categoryTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.id}>
+                          <div className="flex items-center">
+                            {React.createElement(
+                              iconOptions.find(icon => icon.value === type.icon)?.icon || Circle,
+                              { 
+                                className: "h-4 w-4 mr-2",
+                                style: { color: type.color }
+                              }
+                            )}
+                            <span>{type.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={newCategory.color}
+                    onValueChange={(value) => setNewCategory({ ...newCategory, color: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a color" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {colorOptions.map((color) => (
+                        <SelectItem key={color.value} value={color.value}>
+                          <div className="flex items-center">
+                            <div className="w-4 h-4 rounded-full mr-2" style={{ backgroundColor: color.value }} />
+                            {color.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={newCategory.icon}
+                    onValueChange={(value) => setNewCategory({ ...newCategory, icon: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an icon" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <div className="grid grid-cols-3 gap-2 p-2">
+                        {iconOptions.map((icon) => (
+                          <SelectItem key={icon.value} value={icon.value}>
+                            <div className="flex flex-col items-center justify-center">
+                              {React.createElement(icon.icon, { className: "h-6 w-6 mb-1" })}
+                              <span className="text-xs text-center">{icon.label}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </div>
+                    </SelectContent>
+                  </Select>
+
+                  <Button 
+                    className="col-span-2"
+                    onClick={handleAddCategory} 
+                    disabled={!newCategory.name || !newCategory.color || !newCategory.icon}
+                  >
+                    <Plus className="mr-2 h-4 w-4" /> Add Category
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="active">
+              <div className="space-y-4">
+                {organizationMethod === 'type' ? renderCategoryByType(false) : renderCategoryList(false)}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="archived">
+              {organizationMethod === 'type' ? renderCategoryByType(true) : renderCategoryList(true)}
+            </TabsContent>
+
+            <TabsContent value="all">
+              <div className="space-y-4">
+                {organizationMethod === 'type' ? renderAllCategoriesByType() : renderAllCategoriesList()}
+              </div>
+            </TabsContent>
+          </Tabs>
+
+         
+        </DialogContent>
+      </Dialog>
+
+      {renderAddTypeDialog()}
+    </>
   );
 };
 

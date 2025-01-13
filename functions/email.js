@@ -1,161 +1,67 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const sgMail = require('@sendgrid/mail');
 const { sanitizeEmail } = require('./utils');
+const sgMail = require('@sendgrid/mail');
+
+// Utility functions
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const validateEmail = (email) => {
+  if (!email) return false;
+  return emailRegex.test(String(email).toLowerCase());
+};
+
+const logEmailFailure = async (db, error, emailDetails) => {
+  try {
+    const errorRecord = {
+      error: {
+        message: error.message || 'No error message provided',
+        code: error.code || 'NO_CODE',
+        response: error.response?.body || null
+      },
+      emailDetails: emailDetails || {},
+      timestamp: Date.now(),
+      resolved: false
+    };
+
+    await db.ref('emailFailures').push(errorRecord);
+  } catch (logError) {
+    console.error('Failed to log email failure:', logError);
+  }
+};
 
 // Initialize SendGrid with API key from Firebase environment
 sgMail.setApiKey(functions.config().sendgrid.key);
 
 /**
- * Cloud Function: sendEmail
- */
-const sendEmail = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send emails.');
-  }
-
-  const { to, subject, text, html, ccParent = false, useDoNotReply = false } = data;
-  if (!to || !subject || !text) {
-    throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters.');
-  }
-
-  const senderEmail = context.auth.token.email;
-  const senderName = context.auth.token.name || senderEmail;
-  const timestamp = admin.database.ServerValue.TIMESTAMP;
-
-  // Validate sender's email domain
-  if (!senderEmail.endsWith('@rtdacademy.com')) {
-    throw new functions.https.HttpsError('permission-denied', 'Only RTD Academy staff members can send emails.');
-  }
-
-  const db = admin.database();
-  const recipientKey = sanitizeEmail(to);
-  const senderKey = sanitizeEmail(senderEmail);
-
-  try {
-    // Generate new email ID
-    const newEmailId = db.ref('emails').push().key;
-
-    // If ccParent is true, fetch parent email
-    let parentEmail = null;
-    if (ccParent) {
-      const studentRef = db.ref(`students/${recipientKey}/profile/ParentEmail`);
-      const snapshot = await studentRef.once('value');
-      parentEmail = snapshot.val();
-    }
-
-    // Prepare email content with do-not-reply notice if applicable
-    let finalHtml = html || text;
-    let finalText = text;
-
-    if (useDoNotReply) {
-      const doNotReplyNotice = `
-        <hr style="margin: 20px 0;">
-        <p style="color: #666; font-size: 12px;">
-          This is an automated message. Please do not reply to this email.
-        </p>
-      `;
-      finalHtml += doNotReplyNotice;
-      finalText += "\n\n---\nThis is an automated message. Please do not reply to this email.";
-    }
-
-    // Prepare email message
-    const msg = {
-      to,
-      from: {
-        email: useDoNotReply ? 'noreply@rtdacademy.com' : senderEmail,
-        name: useDoNotReply ? 'RTD Academy (Do Not Reply)' : senderName
-      },
-      subject,
-      text: finalText,
-      html: finalHtml,
-      replyTo: useDoNotReply ? undefined : senderEmail
-    };
-
-    // Add CC if parent email exists
-    if (parentEmail) {
-      msg.cc = parentEmail;
-    }
-
-    // Send email via SendGrid
-    await sgMail.send(msg);
-
-    // Prepare database updates
-    const updates = {};
-
-    // Store email in recipient's history
-    updates[`userEmails/${recipientKey}/${newEmailId}`] = {
-      subject,
-      text: finalText,
-      html: finalHtml,
-      timestamp,
-      sender: senderEmail,
-      senderName,
-      read: false,
-      ccParent: !!parentEmail,
-      sentAsNoReply: useDoNotReply || false
-    };
-
-    // Store in sender's sent emails
-    updates[`userEmails/${senderKey}/sent/${newEmailId}`] = {
-      to,
-      subject,
-      text: finalText,
-      html: finalHtml,
-      timestamp,
-      recipient: to,
-      ccParent: !!parentEmail,
-      sentAsNoReply: useDoNotReply || false
-    };
-
-    // Create notification
-    updates[`notifications/${recipientKey}/${newEmailId}`] = {
-      type: 'new_email',
-      emailId: newEmailId,
-      sender: senderEmail,
-      senderName,
-      subject,
-      preview: text.substring(0, 100) + '...',
-      timestamp,
-      read: false,
-      isStaff: true,
-      ccParent: !!parentEmail,
-      sentAsNoReply: useDoNotReply || false
-    };
-
-    // Perform all updates atomically
-    await db.ref().update(updates);
-
-    return {
-      success: true,
-      emailId: newEmailId,
-      timestamp,
-      ccParent: !!parentEmail
-    };
-  } catch (error) {
-    console.error('Error sending email:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to send email.');
-  }
-});
-
-/**
  * Cloud Function: sendBulkEmails
+ * Sends bulk emails and creates corresponding records in Firebase
  */
-const sendBulkEmails = functions.https.onCall(async (data, context) => {
+exports.sendBulkEmails = functions.https.onCall(async (data, context) => {
+  // Authentication check
   if (!context.auth) {
+    console.error('Unauthenticated request attempted');
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
   }
 
   const senderEmail = context.auth.token.email;
-  
-  // Validate sender's email domain
+
+  // Domain validation
   if (!senderEmail.endsWith('@rtdacademy.com')) {
-    throw new functions.https.HttpsError('permission-denied', 'Only RTD Academy staff members can send emails.');
+    console.error(`Unauthorized sender domain: ${senderEmail}`);
+    throw new functions.https.HttpsError(
+      'permission-denied',
+      'Only RTD Academy staff members can send emails.'
+    );
   }
 
+  // Input validation
   const { recipients } = data;
   if (!Array.isArray(recipients) || recipients.length === 0) {
-    throw new functions.https.HttpsError('invalid-argument', 'Recipients must be a non-empty array.');
+    console.error('Invalid recipients array:', recipients);
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Recipients must be a non-empty array.'
+    );
   }
 
   const senderName = context.auth.token.name || senderEmail;
@@ -164,22 +70,29 @@ const sendBulkEmails = functions.https.onCall(async (data, context) => {
   const senderKey = sanitizeEmail(senderEmail);
 
   try {
-    // Prepare messages for SendGrid
-    const messagePrep = await Promise.all(recipients.map(async ({ to, subject, text, html, ccParent = false, useDoNotReply = false }) => {
-      // Get parent email if needed
-      let parentEmail = null;
-      if (ccParent) {
-        const recipientKey = sanitizeEmail(to);
-        const studentRef = db.ref(`students/${recipientKey}/profile/ParentEmail`);
-        const snapshot = await studentRef.once('value');
-        parentEmail = snapshot.val();
+    console.log(
+      `Processing bulk email request from ${senderEmail} to ${recipients.length} recipients`
+    );
+    const messagePrep = [];
+    const invalidEmails = [];
+
+    // Process each recipient
+    recipients.forEach((recipient) => {
+      if (!validateEmail(recipient.to)) {
+        console.warn(`Invalid recipient email: ${recipient.to}`);
+        invalidEmails.push(recipient.to);
+        return;
       }
 
-      // Add do-not-reply notice if applicable
-      let finalHtml = html || text;
-      let finalText = text;
+      const validCc = (recipient.cc || []).filter((email) => validateEmail(email));
+      const validBcc = (recipient.bcc || []).filter((email) => validateEmail(email));
+      const recipientKey = sanitizeEmail(recipient.to);
 
-      if (useDoNotReply) {
+      // Prepare email content
+      let finalHtml = recipient.html || recipient.text;
+      let finalText = recipient.text || '';
+
+      if (recipient.useDoNotReply) {
         const doNotReplyNotice = `
           <hr style="margin: 20px 0;">
           <p style="color: #666; font-size: 12px;">
@@ -187,125 +100,419 @@ const sendBulkEmails = functions.https.onCall(async (data, context) => {
           </p>
         `;
         finalHtml += doNotReplyNotice;
-        finalText += "\n\n---\nThis is an automated message. Please do not reply to this email.";
+        finalText += '\n\n---\nThis is an automated message. Please do not reply to this email.';
       }
 
+      const emailId = db.ref('emails').push().key;
+      console.log(`Generated emailId: ${emailId} for recipient: ${recipient.to}`);
+
+      // Prepare email configuration
       const emailConfig = {
-        to,
+        personalizations: [
+          {
+            to: [{ email: recipient.to }],
+            subject: recipient.subject,
+            custom_args: {
+              emailId
+            },
+            cc: validCc.map((email) => ({ email })), // Add CC
+            bcc: validBcc.map((email) => ({ email })) // Add BCC
+          }
+        ],
         from: {
-          email: useDoNotReply ? 'noreply@rtdacademy.com' : senderEmail,
-          name: useDoNotReply ? 'RTD Academy (Do Not Reply)' : senderName
+          email: recipient.useDoNotReply ? 'noreply@rtdacademy.com' : senderEmail,
+          name: recipient.useDoNotReply ? 'RTD Academy (Do Not Reply)' : senderName
         },
-        subject,
-        text: finalText,
-        html: finalHtml,
-        replyTo: useDoNotReply ? undefined : senderEmail
+        reply_to: recipient.useDoNotReply
+          ? undefined
+          : {
+              email: senderEmail,
+              name: senderName
+            },
+        content: [
+          {
+            type: 'text/plain',
+            value: finalText
+          },
+          {
+            type: 'text/html',
+            value: `${finalHtml}`
+          }
+        ],
+        trackingSettings: {
+          openTracking: {
+            enable: true,
+            substitutionTag: '%open-track%'
+          }
+        }
       };
 
-      // Add CC if parent email exists
-      if (parentEmail) {
-        emailConfig.cc = parentEmail;
+      messagePrep.push({
+        config: emailConfig,
+        recipientKey,
+        emailId,
+        originalRecipient: recipient,
+        ccRecipients: validCc,
+        bccRecipients: validBcc,
+        finalText,
+        finalHtml
+      });
+    });
+
+    // Send emails if we have valid recipients
+    if (messagePrep.length > 0) {
+      console.log(`Sending ${messagePrep.length} emails via SendGrid`);
+      const messageConfigs = messagePrep.map((m) => m.config);
+
+      try {
+        await sgMail.send(messageConfigs);
+        console.log('SendGrid send operation completed successfully');
+
+        // Create tracking records
+        const trackingRecords = messagePrep.map(
+          ({ emailId, recipientKey, originalRecipient }) => ({
+            emailId,
+            recipientKey,
+            senderKey,
+            recipientEmail: originalRecipient.to,
+            senderEmail,
+            senderName,
+            timestamp: Date.now(),
+            subject: originalRecipient.subject,
+            sent: true,
+            events: {
+              sent: {
+                timestamp: Date.now(),
+                success: true
+              }
+            },
+            metadata: {
+              courseId: originalRecipient.courseId || null,
+              courseName: originalRecipient.courseName || null,
+              useDoNotReply: originalRecipient.useDoNotReply || false
+            }
+          })
+        );
+
+        // Store tracking records
+        await Promise.all([
+          // Store tracking records
+          ...trackingRecords.map(async (record, index) => {
+            const { emailId, recipientKey, recipientEmail } = record;
+            const ccEmails = messagePrep[index].ccRecipients || [];
+            const bccEmails = messagePrep[index].bccRecipients || [];
+
+            // -------------------------------
+            // NEW for multiple recipients:
+            // Build the "recipients" object for this emailId
+            // containing "to", "cc", and "bcc" addresses
+            // so handleWebhookEvents can store statuses in
+            // /sendGridTracking/{emailId}/recipients/sanitizedEmail
+            // -------------------------------
+            const recipientsObj = {};
+
+            // 1) The main "to" recipient
+            recipientsObj[sanitizeEmail(recipientEmail)] = {
+              email: recipientEmail,
+              status: 'sent', // or "unknown" until webhook updates
+              timestamp: Date.now()
+            };
+
+            // 2) CC
+            ccEmails.forEach((cc) => {
+              recipientsObj[sanitizeEmail(cc)] = {
+                email: cc,
+                status: 'sent',
+                timestamp: Date.now()
+              };
+            });
+
+            // 3) BCC
+            bccEmails.forEach((bcc) => {
+              recipientsObj[sanitizeEmail(bcc)] = {
+                email: bcc,
+                status: 'sent',
+                timestamp: Date.now()
+              };
+            });
+
+            // Build the top-level record (backwards-compatible)
+            const topLevelTrackingData = {
+              ...record,
+              recipients: recipientsObj // <--- store them here
+            };
+
+            // Write the entire record
+            return db.ref(`sendGridTracking/${emailId}`).set(topLevelTrackingData);
+          }),
+
+          // Also store userEmails & notifications
+          ...messagePrep.map(async (preparedMessage) => {
+            const { recipientKey, emailId, originalRecipient } = preparedMessage;
+
+            const emailRecord = {
+              subject: originalRecipient.subject,
+              text: preparedMessage.finalText,
+              html: preparedMessage.finalHtml,
+              timestamp,
+              sender: senderEmail,
+              senderName,
+              status: 'sent',
+              ccRecipients: preparedMessage.ccRecipients,
+              bccRecipients: preparedMessage.bccRecipients,
+              sentAsNoReply: originalRecipient.useDoNotReply || false,
+              courseId: originalRecipient.courseId,
+              courseName: originalRecipient.courseName
+            };
+
+            return Promise.all([
+              // Store recipient's copy
+              db.ref(`userEmails/${recipientKey}/${emailId}`).set(emailRecord),
+
+              // Store sender's copy
+              db.ref(`userEmails/${senderKey}/sent/${emailId}`).set({
+                ...emailRecord,
+                to: originalRecipient.to
+              }),
+
+              // Create notification
+              db.ref(`notifications/${recipientKey}/${emailId}`).set({
+                type: 'new_email',
+                emailId,
+                sender: senderEmail,
+                senderName,
+                subject: originalRecipient.subject,
+                preview: preparedMessage.finalText.substring(0, 100) + '...',
+                timestamp,
+                read: false
+              }),
+
+              // Add course note if applicable
+              originalRecipient.courseId
+                ? db
+                    .ref(
+                      `students/${recipientKey}/courses/${originalRecipient.courseId}/jsonStudentNotes`
+                    )
+                    .transaction((currentNotes) => {
+                      const notesArray = Array.isArray(currentNotes) ? currentNotes : [];
+                      const newNote = {
+                        id: `email-note-${emailId}`,
+                        content: `Subject: ${originalRecipient.subject}\nCourse: ${originalRecipient.courseName}`,
+                        timestamp: Date.now(),
+                        author: senderName,
+                        noteType: '📧',
+                        metadata: {
+                          type: 'email',
+                          emailId,
+                          subject: originalRecipient.subject,
+                          courseId: originalRecipient.courseId
+                        }
+                      };
+                      return [newNote, ...notesArray];
+                    })
+                : Promise.resolve()
+            ]);
+          })
+        ]);
+
+        console.log('Successfully stored all records');
+      } catch (sendGridError) {
+        console.error('SendGrid send operation failed:', {
+          message: sendGridError.message,
+          response: sendGridError.response?.body,
+          statusCode: sendGridError.code,
+          details: sendGridError.response?.body?.errors,
+          config: messageConfigs
+        });
+
+        await logEmailFailure(db, sendGridError, {
+          recipients: messagePrep.map((m) => ({
+            to: m.originalRecipient.to,
+            subject: m.originalRecipient.subject,
+            emailId: m.emailId
+          })),
+          sender: senderEmail,
+          timestamp: Date.now()
+        });
+
+        throw new functions.https.HttpsError('internal', 'Failed to send emails via SendGrid');
       }
 
       return {
-        config: emailConfig,
-        parentEmail,
-        finalText,
-        finalHtml
+        success: true,
+        timestamp,
+        successfulCount: messagePrep.length,
+        failedCount: invalidEmails.length,
+        invalidEmails: invalidEmails.length > 0 ? invalidEmails : undefined
       };
-    }));
+    }
 
-    // Extract just the email configs for SendGrid
-    const messageConfigs = messagePrep.map(m => m.config);
-
-    // Send all emails
-    await sgMail.send(messageConfigs);
-
-    // For each recipient, update the database accordingly
-    await Promise.all(recipients.map(async ({ to, subject, text, html, ccParent = false, courseId, courseName, useDoNotReply = false }, index) => {
-      const recipientKey = sanitizeEmail(to);
-      const newEmailId = db.ref('emails').push().key;
-      const { parentEmail, finalText, finalHtml } = messagePrep[index];
-
-      // Store email in recipient's history
-      await db.ref(`userEmails/${recipientKey}/${newEmailId}`).set({
-        subject,
-        text: finalText,
-        html: finalHtml,
-        timestamp,
-        sender: senderEmail,
-        senderName,
-        read: false,
-        ccParent: !!parentEmail,
-        sentAsNoReply: useDoNotReply || false
-      });
-
-      // Store in sender's sent emails
-      await db.ref(`userEmails/${senderKey}/sent/${newEmailId}`).set({
-        to,
-        subject,
-        text: finalText,
-        html: finalHtml,
-        timestamp,
-        recipient: to,
-        ccParent: !!parentEmail,
-        sentAsNoReply: useDoNotReply || false
-      });
-
-      // Create notification
-      await db.ref(`notifications/${recipientKey}/${newEmailId}`).set({
-        type: 'new_email',
-        emailId: newEmailId,
-        sender: senderEmail,
-        senderName,
-        subject,
-        preview: text.substring(0, 100) + '...',
-        timestamp,
-        read: false,
-        isStaff: true,
-        ccParent: !!parentEmail,
-        sentAsNoReply: useDoNotReply || false
-      });
-
-      // Add note to student's course
-      if (courseId) {
-        const notesRef = db.ref(`students/${recipientKey}/courses/${courseId}/jsonStudentNotes`);
-        await notesRef.transaction((currentNotes) => {
-          const notesArray = Array.isArray(currentNotes) ? currentNotes : [];
-          const newNote = {
-            id: `email-note-${newEmailId}`,
-            content: `Subject: ${subject}\nCourse: ${courseName}\n${parentEmail ? `(CC'd to parent: ${parentEmail})` : ''}${useDoNotReply ? ' (Sent as no-reply)' : ''}`,
-            timestamp: Date.now(),
-            author: senderName,
-            noteType: '📧',
-            metadata: {
-              type: 'email',
-              emailId: newEmailId,
-              subject: subject,
-              courseId: courseId,
-              senderEmail: senderEmail,
-              sentAsNoReply: useDoNotReply || false
-            }
-          };
-          
-          // Prepend the new note to the array
-          return [newNote, ...notesArray];
-        });
-      }
-    }));
-
+    console.log('No valid emails to send');
     return {
-      success: true,
-      timestamp,
-      message: `Successfully sent ${recipients.length} emails`
+      success: false,
+      message: 'No valid emails to send',
+      invalidEmails
     };
   } catch (error) {
-    console.error('Error sending bulk emails:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to send bulk emails.');
+    console.error('Error in sendBulkEmails:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to process email request');
   }
 });
 
-module.exports = {
-  sendEmail,
-  sendBulkEmails
-};
+/**
+ * Cloud Function: handleWebhookEvents
+ * Processes webhook events from SendGrid
+ */
+
+
+exports.handleWebhookEvents = functions.runWith({
+  timeoutSeconds: 30,
+  memory: '128MB',
+  maxInstances: 10,
+}).https.onRequest(async (req, res) => {
+  // 1) Ensure correct method
+  if (req.method !== 'POST') {
+    console.warn(`Invalid request method: ${req.method}`);
+    return res.status(405).send('Method not allowed');
+  }
+
+  try {
+    // 2) Parse events payload
+    const events = req.body;
+    if (!Array.isArray(events)) {
+      console.error('Invalid event payload - expected array');
+      return res.status(400).send('Invalid event payload');
+    }
+
+    console.log(`Processing ${events.length} webhook events...`);
+    const db = admin.database();
+
+    // 3) Process each event in parallel, but catch per-event errors
+    await Promise.all(
+      events.map(async (event) => {
+        try {
+          // Destructure fields from the incoming SendGrid event
+          const {
+            email,
+            timestamp,
+            event: eventType,
+            sg_message_id,
+            reason,
+            status, // numeric code (bounces) or string
+            ip,
+            useragent,
+            response,
+            emailId
+          } = event;
+
+          // Validate core fields
+          if (!emailId || !eventType || !timestamp) {
+            console.log('Skipping invalid event:', event);
+            return; // Skip
+          }
+
+          // Filter out unsupported event types
+          const allowedEvents = ['processed', 'delivered', 'bounce', 'dropped', 'open'];
+          if (!allowedEvents.includes(eventType)) {
+            console.log(`Ignoring unsupported event type: ${eventType}`);
+            return; // Skip
+          }
+
+          console.log(`Processing event for emailId: ${emailId}`, {
+            type: eventType,
+            timestamp,
+            recipient: email
+          });
+
+          // Determine our internal status
+          let newStatus;
+          switch (eventType) {
+            case 'delivered':
+              newStatus = 'delivered';
+              break;
+            case 'bounce':
+            case 'dropped':
+              newStatus = 'failed';
+              break;
+            case 'open':
+              newStatus = 'opened';
+              break;
+            case 'processed':
+              newStatus = 'sent';
+              break;
+            default:
+              newStatus = 'unknown';
+          }
+
+          // Build the object to store (omit undefined props)
+          const newData = {
+            email,
+            eventType,
+            timestamp,
+            sg_message_id,
+            status: newStatus // Our internal status
+          };
+          if (reason !== undefined) newData.reason = reason;
+          if (status !== undefined) newData.code = status; // numeric code if bounce
+          if (ip !== undefined) newData.ip = ip;
+          if (useragent !== undefined) newData.useragent = useragent;
+          if (response !== undefined) newData.response = response;
+
+          // Fetch existing record from /sendGridTracking/{emailId}
+          const trackingRef = db.ref(`sendGridTracking/${emailId}`);
+          const snapshot = await trackingRef.once('value');
+          const existingData = snapshot.val() || {};
+
+          // If the record doesn't exist at all, skip or handle differently
+          if (!existingData.recipients) {
+            console.warn(`Unknown emailId: ${emailId}, no 'recipients' node found.`);
+            return;
+          }
+
+          // Overwrite the per-recipient node with this new data
+          const sanitizedRecipient = sanitizeEmail(email);
+          const recipientRef = trackingRef.child(`recipients/${sanitizedRecipient}`);
+          await recipientRef.set(newData);
+
+          // Optionally, update userEmails if event is delivered or failed
+          if (newStatus === 'delivered' || newStatus === 'failed') {
+            const recipientKey = existingData.recipientKey; // main "to" user
+            const senderKey = existingData.senderKey;
+
+            // If this event is for the main "recipientEmail"
+            if (email === existingData.recipientEmail && recipientKey) {
+              await db.ref(`userEmails/${recipientKey}/${emailId}/status`).set(newStatus);
+            }
+
+            // Update the sender's "sent" folder if we have a senderKey
+            if (senderKey) {
+              await db.ref(`userEmails/${senderKey}/sent/${emailId}/status`).set(newStatus);
+            }
+          }
+
+          console.log(
+            `Successfully processed ${eventType} event for emailId: ${emailId} -> ${email}`
+          );
+        } catch (innerErr) {
+          // This error only affects the single event
+          console.error('Error processing individual event:', {
+            message: innerErr.message,
+            stack: innerErr.stack,
+            event
+          });
+          // We do NOT throw again; we allow other events to continue
+        }
+      })
+    );
+
+    // If we reach here, we've tried to process all events
+    console.log('Successfully processed all webhook events (with possible per-event errors)');
+    return res.status(200).send('Events processed successfully');
+  } catch (outerErr) {
+    console.error('Critical error processing webhook events:', {
+      message: outerErr.message,
+      stack: outerErr.stack
+    });
+    return res.status(500).send('Error processing events');
+  }
+});

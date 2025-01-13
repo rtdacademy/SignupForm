@@ -13,6 +13,7 @@
   },
   "main": "index.js",
   "dependencies": {
+    "@sendgrid/eventwebhook": "^8.0.0",
     "@sendgrid/mail": "^8.1.4",
     "cors": "^2.8.5",
     "firebase-admin": "^12.1.0",
