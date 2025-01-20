@@ -48,6 +48,8 @@ import {
   TooltipContent 
 } from "../components/ui/tooltip"; // Added Tooltip imports
 import EmailRecipientSelector from './EmailRecipientSelector';
+import { TutorialButton } from '../components/TutorialButton';
+import DuplicateEmailDialog from '../components/DuplicateEmailDialog';
 
 const database = getDatabase();
 
@@ -108,6 +110,9 @@ const StudentMessaging = ({
   const [templateTypes, setTemplateTypes] = useState([]);
   const [showCcOptions, setShowCcOptions] = useState(false); // State for the CC options dialog
   const [ccRecipients, setCcRecipients] = useState({}); // State to store CC recipient selections
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+const [duplicateEmails, setDuplicateEmails] = useState([]);
+const [preparedRecipients, setPreparedRecipients] = useState(null);
 
   const { currentUser, user_email_key} = useAuth(); 
   const functions = getFunctions();
@@ -322,23 +327,122 @@ const StudentMessaging = ({
 
 
 
-// Then modify the handleSend function:
-const handleSend = async () => {
-  if (!messageContent.trim() || !subject.trim()) {
-    onNotification("Please enter both subject and message content", 'error');
-    return;
-  }
-
-  setIsSending(true);
-
-  try {
+  const sendEmails = async (recipients) => {
+    setIsSending(true);
+  
+    try {
+      // Format recipients for the API by only including needed properties
+      const formattedRecipients = recipients.map(recipient => {
+        // Filter out any CC emails that match the recipient's email
+        const filteredCCs = (recipient.originalCCs || [])
+          .filter(cc => cc.toLowerCase() !== recipient.to.toLowerCase());
+  
+        return {
+          to: recipient.to,
+          subject: recipient.subject,
+          text: recipient.text,
+          html: recipient.html,
+          cc: filteredCCs.length > 0 ? filteredCCs : undefined,
+          bcc: recipient.bcc,
+          courseId: recipient.courseId,
+          courseName: recipient.courseName,
+          useDoNotReply: recipient.useDoNotReply
+        };
+      });
+  
+      const result = await sendBulkEmails({ recipients: formattedRecipients });
+  
+      if (result.data.success) {
+        // Handle successful sends
+        if (result.data.successfulCount > 0) {
+          toast.success(`Successfully sent ${result.data.successfulCount} emails`);
+        }
+        
+        // Handle failures with detailed error display
+        if (result.data.failedEmails?.length > 0) {
+          // Group failures by error type
+          const failureGroups = result.data.failedEmails.reduce((acc, failure) => {
+            const key = failure.message;
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(failure.recipient);
+            return acc;
+          }, {});
+  
+          // Display grouped errors
+          Object.entries(failureGroups).forEach(([error, recipients]) => {
+            toast.error(
+              <div className="space-y-2">
+                <p className="font-semibold">{error}</p>
+                <div className="text-sm max-h-32 overflow-y-auto">
+                  {recipients.map((recipient, i) => (
+                    <div key={i} className="text-xs">{recipient}</div>
+                  ))}
+                </div>
+                {recipients.length > 3 && (
+                  <p className="text-xs text-gray-500">
+                    ... and {recipients.length - 3} more
+                  </p>
+                )}
+              </div>,
+              {
+                duration: 10000,
+              }
+            );
+          });
+        }
+  
+        // Only close if all emails were successful
+        if (result.data.failedCount === 0) {
+          onClose();
+        } else {
+          onNotification(
+            `${result.data.successfulCount} sent successfully, ${result.data.failedCount} failed. Check the error messages for details.`,
+            'warning'
+          );
+        }
+      } else {
+        throw new Error(result.data.message || 'Failed to send emails');
+      }
+    } catch (error) {
+      console.error('Error sending messages:', error);
+      
+      let errorMessage = "Failed to send messages.";
+      
+      if (error.details?.failedEmails) {
+        const failureCount = error.details.failedEmails.length;
+        errorMessage += ` ${failureCount} email${failureCount !== 1 ? 's' : ''} failed.`;
+      }
+      
+      onNotification(errorMessage, 'error');
+      
+      if (error.details?.failedEmails) {
+        error.details.failedEmails.forEach(failure => {
+          toast.error(`Failed to send to ${failure.recipient}: ${failure.message}`, {
+            duration: 10000,
+          });
+        });
+      }
+    } finally {
+      setIsSending(false);
+    }
+  };
+  
+  const handleSend = async () => {
+    if (!messageContent.trim() || !subject.trim()) {
+      onNotification("Please enter both subject and message content", 'error');
+      return;
+    }
+  
+    // First prepare the recipients and check for duplicates
     const recipients = selectedStudents.map(student => {
+      const studentEmail = student.StudentEmail?.toLowerCase();
+  
       // Get parent/guardian CC emails
       const studentCcEmails = ccRecipients[student.id] || {};
       const parentGuardianCcList = Object.entries(studentCcEmails)
         .filter(([_, checked]) => checked)
         .map(([email]) => email);
-
+  
       // Get staff CC/BCC information if this is a single student
       let staffCcEmails = [];
       let staffBccEmails = [];
@@ -355,119 +459,57 @@ const handleSend = async () => {
           staffBccEmails = staffBccInfo.map(staff => staff.email);
         }
       }
-
+  
       // Combine parent/guardian CCs with staff CCs
       const allCcList = [...parentGuardianCcList, ...staffCcEmails];
-
+  
       return {
+        studentName: `${student.preferredFirstName || student.firstName} ${student.lastName}`,
+        studentEmail: student.StudentEmail,
         to: student.StudentEmail,
+        originalCCs: allCcList,
+        bcc: staffBccEmails.length > 0 ? staffBccEmails : undefined,
         subject: replacePlaceholders(subject, student),
         text: replacePlaceholders(messageContent + (signature ? signature : ''), student).replace(/<[^>]*>/g, ''),
         html: replacePlaceholders(messageContent + (signature ? signature : ''), student),
-        cc: allCcList.length > 0 ? allCcList : undefined,
-        bcc: staffBccEmails.length > 0 ? staffBccEmails : undefined,
-        staffCcInfo: staffCcInfo.length > 0 ? staffCcInfo : undefined,
-        staffBccInfo: staffBccInfo.length > 0 ? staffBccInfo : undefined,
         courseId: student.CourseID,
         courseName: student.Course_Value,
         useDoNotReply
       };
     });
-
-    const result = await sendBulkEmails({ recipients });
-
-    if (result.data.success) {
-      // Handle successful sends
-      if (result.data.successfulCount > 0) {
-        toast.success(`Successfully sent ${result.data.successfulCount} emails`);
-      }
-      
-      // Handle failures with detailed error display
-      if (result.data.failedEmails?.length > 0) {
-        // Group failures by error type
-        const failureGroups = result.data.failedEmails.reduce((acc, failure) => {
-          const key = failure.message;
-          if (!acc[key]) acc[key] = [];
-          acc[key].push(failure.recipient);
-          return acc;
-        }, {});
-
-        // Display grouped errors
-        Object.entries(failureGroups).forEach(([error, recipients]) => {
-          toast.error(
-            <div className="space-y-2">
-              <p className="font-semibold">{error}</p>
-              <div className="text-sm max-h-32 overflow-y-auto">
-                {recipients.map((recipient, i) => (
-                  <div key={i} className="text-xs">{recipient}</div>
-                ))}
-              </div>
-              {recipients.length > 3 && (
-                <p className="text-xs text-gray-500">
-                  ... and {recipients.length - 3} more
-                </p>
-              )}
-            </div>,
-            {
-              duration: 10000,
-            }
-          );
-        });
-
-        // Store error IDs for reference
-        if (result.data.failedEmails.some(f => f.errorId)) {
-          console.log('Error IDs for reference:', 
-            result.data.failedEmails
-              .filter(f => f.errorId)
-              .map(f => f.errorId)
-          );
-        }
-      }
-
-      // Only close if all emails were successful
-      if (result.data.failedCount === 0) {
-        onClose();
-      } else {
-        onNotification(
-          `${result.data.successfulCount} sent successfully, ${result.data.failedCount} failed. Check the error messages for details.`,
-          'warning'
-        );
-      }
-    } else {
-      throw new Error(result.data.message || 'Failed to send emails');
+  
+    // Check for duplicates
+    const duplicates = recipients
+      .map(recipient => {
+        const recipientEmail = recipient.to.toLowerCase();
+        const duplicateCCs = (recipient.originalCCs || [])
+          .filter(cc => cc.toLowerCase() === recipientEmail);
+        
+        return duplicateCCs.length > 0 ? {
+          studentName: recipient.studentName,
+          studentEmail: recipient.studentEmail,
+          duplicateCCs
+        } : null;
+      })
+      .filter(Boolean);
+  
+    console.log('Found duplicates:', duplicates); // For debugging
+  
+    if (duplicates.length > 0) {
+      console.log('Showing duplicate dialog', duplicates); // For debugging
+      setPreparedRecipients(recipients);
+      setDuplicateEmails(duplicates);
+      setShowDuplicateDialog(true);
+      return;
     }
-  } catch (error) {
-    console.error('Error sending messages:', error);
-    
-    let errorMessage = "Failed to send messages.";
-    
-    if (error.details?.failedEmails) {
-      const failureCount = error.details.failedEmails.length;
-      errorMessage += ` ${failureCount} email${failureCount !== 1 ? 's' : ''} failed.`;
-      
-      // Log error IDs if available
-      const errorIds = error.details.failedEmails
-        .filter(f => f.errorId)
-        .map(f => f.errorId);
-      if (errorIds.length > 0) {
-        console.log('Error IDs:', errorIds);
-      }
-    }
-    
-    onNotification(errorMessage, 'error');
-    
-    // Show detailed error toast if available
-    if (error.details?.failedEmails) {
-      error.details.failedEmails.forEach(failure => {
-        toast.error(`Failed to send to ${failure.recipient}: ${failure.message}`, {
-          duration: 10000,
-        });
-      });
-    }
-  } finally {
-    setIsSending(false);
-  }
-};
+  
+    // If no duplicates, proceed with send
+    await sendEmails(recipients);
+  };
+
+
+
+
   useEffect(() => {
     const db = getDatabase();
     const typesRef = ref(db, 'templateTypes'); // Shared template types path
@@ -497,16 +539,19 @@ const handleSend = async () => {
     <>
       <Toaster />
       <Card className="h-full flex flex-col">
-        <CardHeader className="border-b">
-          <div className="flex items-center justify-between">
+      <CardHeader className="border-b">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <CardTitle className="text-lg font-semibold">
               Message Students ({totalSelected})
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
+            <TutorialButton tutorialId="student-messaging" tooltipText="Learn about messaging" />
           </div>
-        </CardHeader>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </CardHeader>
         <CardContent className="flex-grow overflow-auto p-4 space-y-4">
           {/* Recipients Summary */}
           <div className="bg-gray-50 p-3 rounded-lg">
@@ -924,6 +969,18 @@ const handleSend = async () => {
     ccRecipients={ccRecipients}
     onCcRecipientsChange={setCcRecipients}
   />
+
+<DuplicateEmailDialog
+      open={showDuplicateDialog}
+      onOpenChange={setShowDuplicateDialog}
+      duplicates={duplicateEmails}
+      onContinue={() => {
+        if (preparedRecipients) {
+          sendEmails(preparedRecipients);
+        }
+      }}
+    />
+  
     </>
   );
 };

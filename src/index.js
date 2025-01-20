@@ -5,6 +5,8 @@ import { AuthProvider } from './context/AuthContext';
 import { LayoutProvider } from './context/LayoutContext';
 import { ModeProvider } from './context/ModeContext';
 import { UserPreferencesProvider } from './context/UserPreferencesContext';
+import { TutorialProvider } from './context/TutorialContext';
+import { CourseProvider } from './context/CourseContext'; 
 import App from "./App";
 import './index.css';
 
@@ -18,7 +20,11 @@ root.render(
         <UserPreferencesProvider>
           <LayoutProvider>
             <ModeProvider>
+            <TutorialProvider> 
+            <CourseProvider> 
               <App isSecondSite={isSecondSite} />
+              </CourseProvider> 
+              </TutorialProvider> 
             </ModeProvider>
           </LayoutProvider>
         </UserPreferencesProvider>

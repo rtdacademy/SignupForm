@@ -29,6 +29,9 @@ import StudentDetail from './StudentDetail';
 import { useMode, MODES } from '../context/ModeContext';
 import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../components/ui/tooltip";
+import { TutorialButton } from '../components/TutorialButton';
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+
 
 // Map icon names to icon components
 const iconMap = {
@@ -552,9 +555,13 @@ const StudentCard = React.memo(({
             </Avatar>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
-              <CardTitle className="text-base font-medium truncate">
-              {student.preferredFirstName || student.firstName} {student.lastName}
-              </CardTitle>
+              <CardTitle className="text-base font-medium truncate flex items-center gap-2">
+  {student.preferredFirstName || student.firstName} {student.lastName}
+  <TutorialButton 
+    tutorialId="student-card" 
+    tooltipText="Learn about student cards" 
+  />
+</CardTitle>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -742,22 +749,23 @@ const StudentCard = React.memo(({
     </TooltipContent>
   </Tooltip>
 
-
-            {/* Auto Status Toggle */}
-            <Toggle
-              pressed={autoStatus}
-              onPressedChange={handleAutoStatusToggle}
-              size="sm"
-              className={`h-10 px-2 flex items-center justify-center ${!isAutoStatusAllowed ? 'opacity-50 cursor-not-allowed' : ''}`}
-              disabled={!isAutoStatusAllowed}
-            >
-              <span className="text-[10px] leading-tight">Auto</span>
-              {autoStatus ? (
-                <Zap className="h-3 w-3 text-yellow-500 ml-1" />
-              ) : (
-                <X className="h-3 w-3 text-red-500 ml-1" />
-              )}
-            </Toggle>
+{/* Auto Status Toggle */}
+{/*
+<Toggle
+  pressed={autoStatus}
+  onPressedChange={handleAutoStatusToggle}
+  size="sm"
+  className={`h-10 px-2 flex items-center justify-center ${!isAutoStatusAllowed ? 'opacity-50 cursor-not-allowed' : ''}`}
+  disabled={!isAutoStatusAllowed}
+>
+  <span className="text-[10px] leading-tight">Auto</span>
+  {autoStatus ? (
+    <Zap className="h-3 w-3 text-yellow-500 ml-1" />
+  ) : (
+    <X className="h-3 w-3 text-red-500 ml-1" />
+  )}
+</Toggle>
+*/}
           </div>
 
         {/* Category Selection */}
@@ -1070,37 +1078,46 @@ const StudentCard = React.memo(({
 
       {/* Course Removal Dialog */}
       <Dialog open={isRemovalDialogOpen} onOpenChange={setIsRemovalDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Remove Course</DialogTitle>
-            <div className="text-sm text-gray-600 mt-4">
-              Are you sure you want to remove this course?
-              <div className="font-medium mt-2">
-                {student.Course_Value}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                This action cannot be undone.
-              </div>
-            </div>
-          </DialogHeader>
-          <div className="flex justify-end space-x-2 mt-6">
-            <Button
-              variant="outline"
-              onClick={() => setIsRemovalDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleRemoveCourse}
-              className="flex items-center"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Remove Course
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+  <DialogContent className="sm:max-w-[425px]">
+    <DialogHeader>
+      <DialogTitle>Remove Course</DialogTitle>
+      <div className="text-sm text-gray-600 mt-4">
+        Are you sure you want to remove this course for:
+        <div className="font-medium mt-2 text-base">
+          {student.preferredFirstName || student.firstName} {student.lastName}
+        </div>
+        <div className="font-medium mt-2 text-blue-600">
+          {student.Course_Value}
+        </div>
+      </div>
+    </DialogHeader>
+    
+    <Alert className="mt-4">
+      <AlertCircle className="h-4 w-4" />
+      <AlertTitle>Warning</AlertTitle>
+      <AlertDescription>
+        This action cannot be undone and will remove all course data for this student.
+      </AlertDescription>
+    </Alert>
+
+    <div className="flex justify-end space-x-2 mt-6">
+      <Button
+        variant="outline"
+        onClick={() => setIsRemovalDialogOpen(false)}
+      >
+        Cancel
+      </Button>
+      <Button
+        variant="destructive"
+        onClick={handleRemoveCourse}
+        className="flex items-center bg-red-600 hover:bg-red-700 text-white"
+      >
+        <Trash2 className="w-4 h-4 mr-2" />
+        Remove Course
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
       </TooltipProvider>
     </>
   );

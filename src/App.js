@@ -26,6 +26,7 @@ import PoliciesAndReports from './Website/PoliciesAndReports';
 import MigrationLogin from './migration/MigrationLogin'; 
 import ModernCourseViewer from './courses/CourseViewer/ModernCourseViewer';
 import CourseEditor from './courses/CourseEditor/CourseEditor';
+import EmployeePortal from './TeacherDashboard/EmployeePortal';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -76,6 +77,15 @@ function MainApp() {
   element={
     user && isStaff(user) ? 
     <Layout><CourseEditor /></Layout> : 
+    <Navigate to="/staff-login" />
+  } 
+/>
+
+<Route 
+  path="/employee-portal" 
+  element={
+    user && isStaff(user) ? 
+    <Layout><EmployeePortal /></Layout> : 
     <Navigate to="/staff-login" />
   } 
 />

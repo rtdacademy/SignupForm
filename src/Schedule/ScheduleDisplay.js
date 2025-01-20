@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { format, parseISO, startOfToday, isAfter, isBefore, isSameDay } from 'date-fns';
+import { format, parseISO, startOfToday, isAfter, isSameDay } from 'date-fns';
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
-import { Calendar, Flag, Info } from 'lucide-react';
+import { Calendar, Flag } from 'lucide-react';
 
 const typeColors = {
   lesson: 'bg-blue-100 text-blue-800',
@@ -12,23 +12,63 @@ const typeColors = {
   info: 'bg-yellow-100 text-yellow-800'
 };
 
-const ScheduleItem = ({ item, isCurrentItem, isPastDue }) => {
+const sanitizeHTML = (html) => {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  
+  const elements = tempDiv.getElementsByTagName('*');
+  for (let i = 0; i < elements.length; i++) {
+    const element = elements[i];
+    for (let j = 0; j < element.attributes.length; j++) {
+      const attr = element.attributes[j];
+      if (attr.name.startsWith('on')) {
+        element.removeAttribute(attr.name);
+      }
+    }
+  }
+  
+  return tempDiv.innerHTML;
+};
+
+const ScheduleItem = ({ item, isCurrentItem }) => {
   const [isOpen, setIsOpen] = useState(false);
   const formattedDate = useMemo(() => {
     return format(parseISO(item.date), 'EEE, MMM d, yyyy');
   }, [item.date]);
 
+  const sanitizedTitle = useMemo(() => ({
+    __html: sanitizeHTML(item.title)
+  }), [item.title]);
+
+  const sanitizedNotes = useMemo(() => ({
+    __html: item.notes ? sanitizeHTML(item.notes) : ''
+  }), [item.notes]);
+
+  // Get background color based on type for subtle title highlighting
+  const getTitleAccentColor = (type) => {
+    switch (type) {
+      case 'exam': return 'bg-red-50';
+      case 'assignment': return 'bg-green-50';
+      case 'lesson': return 'bg-blue-50';
+      case 'info': return 'bg-yellow-50';
+      default: return 'bg-gray-50';
+    }
+  };
+
   return (
-    <Card className={`mb-2 shadow-sm ${isCurrentItem ? 'border-green-500 border-2' : ''} 
-      ${isPastDue ? 'bg-red-50' : ''}`}>
+    <Card 
+      className={`mb-2 shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer
+        ${isCurrentItem ? 'border-green-500 border-2' : ''}`}
+      onClick={() => setIsOpen(!isOpen)}
+    >
       <CardContent className="p-3">
-        <div className="flex justify-between items-center">
-          <div className="flex-grow flex items-center gap-2">
+        <div className="flex justify-between items-start">
+          <div className="flex-grow flex items-start gap-2">
             {isCurrentItem && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger>
-                    <Flag className="text-green-500" size={16} />
+                    <Flag className="text-green-500 mt-1" size={16} />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Current Item</p>
@@ -36,35 +76,31 @@ const ScheduleItem = ({ item, isCurrentItem, isPastDue }) => {
                 </Tooltip>
               </TooltipProvider>
             )}
-            {isPastDue && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Info className="text-red-500" size={16} />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Past Due</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            <div>
-              <h3 className="text-base font-semibold">{item.title}</h3>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="flex-grow">
+              <div 
+                className={`prose prose-sm max-w-none prose-headings:m-0 prose-p:m-0
+                  prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
+                  font-medium text-gray-900 ${getTitleAccentColor(item.type)} 
+                  p-2 rounded-md mb-2`}
+                dangerouslySetInnerHTML={sanitizedTitle}
+              />
+              <div className="flex items-center gap-2 text-xs text-gray-500 mt-1 ml-2">
                 <Calendar size={12} />
                 {formattedDate}
               </div>
             </div>
           </div>
-          <Badge className={`${typeColors[item.type] || 'bg-gray-100 text-gray-800'} text-xs`}>
+          <Badge className={`${typeColors[item.type] || 'bg-gray-100 text-gray-800'} text-xs ml-2 shrink-0`}>
             {item.type}
           </Badge>
         </div>
 
         {item.notes && isOpen && (
-          <div className="mt-2 text-sm text-gray-700">
-            {item.notes}
-          </div>
+          <div 
+            className="mt-3 prose prose-sm max-w-none prose-a:text-blue-600 
+              prose-a:no-underline hover:prose-a:underline ml-2"
+            dangerouslySetInnerHTML={sanitizedNotes}
+          />
         )}
       </CardContent>
     </Card>
@@ -119,8 +155,6 @@ const ScheduleDisplay = ({ scheduleJSON }) => {
     return <div className="p-4 text-center text-gray-500">No schedule data available</div>;
   }
 
-  const today = startOfToday();
-
   return (
     <div ref={containerRef} className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
@@ -136,7 +170,6 @@ const ScheduleDisplay = ({ scheduleJSON }) => {
             <ScheduleItem
               item={item}
               isCurrentItem={index === currentItemIndex}
-              isPastDue={isBefore(parseISO(item.date), today) && index < currentItemIndex}
             />
           </div>
         ))}

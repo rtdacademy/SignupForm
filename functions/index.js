@@ -1,6 +1,4 @@
 // functions/index.js
-
-const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin if not already initialized
@@ -20,6 +18,7 @@ const stripeFunctions = require('./stripe');
 const historicalPaymentFunctions = require('./updateHistoricalPaymentStatus');
 const ltiFunctions = require('./lti');
 const IMathASFunctions = require('./IMathAS_Database');
+const edgeFunctions = require('./edge');
 
 
 
@@ -74,3 +73,4 @@ exports.ltiGradeCallback = ltiFunctions.ltiGradeCallback;
 
 // functions to sync data between mysql and firestore
 exports.updateIMathASGrade = IMathASFunctions.updateIMathASGrade;
+exports.fetchLMSStudentId = edgeFunctions.fetchLMSStudentId;

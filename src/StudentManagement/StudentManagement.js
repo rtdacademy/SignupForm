@@ -53,6 +53,15 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
 
   const { user_email_key } = useAuth();
 
+// Holds a count or a toggle to force re-mount
+const [detailRefreshKey, setDetailRefreshKey] = useState(0);
+
+const handleRefreshStudent = useCallback(() => {
+  setDetailRefreshKey(prev => prev + 1);
+}, []);
+
+
+
   const handleMessagingNotification = useCallback((message, type = 'success') => {
     switch (type) {
       case 'success':
@@ -241,6 +250,8 @@ useEffect(() => {
     [isMobile]
   );
 
+
+
   // Handle search term changes
   const handleSearchChange = useCallback((value) => {
    // console.log('Search term changed:', value);
@@ -310,15 +321,22 @@ useEffect(() => {
     return (
       <Card className="h-full bg-white shadow-md">
         <CardContent className="h-full p-4 overflow-auto">
-          <StudentDetail 
-            studentSummary={selectedStudent} 
-            isMobile={isMobile}  
-          />
+        <StudentDetail
+  key={detailRefreshKey}           // Force a full unmount/remount on increment
+  studentSummary={selectedStudent}
+  isMobile={isMobile}
+  onRefresh={handleRefreshStudent} // If you want a button in the child to do this
+/>
+
         </CardContent>
       </Card>
     );
-  }, [selectedStudent, isMobile]); 
-
+  }, [
+    selectedStudent, 
+    isMobile, 
+  + detailRefreshKey
+  ]);
+  
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Toaster />

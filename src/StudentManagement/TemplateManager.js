@@ -43,6 +43,7 @@ import {
 import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useAuth } from '../context/AuthContext';
+import { TutorialButton } from '../components/TutorialButton';
 
 const iconOptions = [
   { value: 'circle', label: 'Circle', icon: Circle },
@@ -842,12 +843,17 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null, d
 
       <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) { setIsEditing(false); setCurrentTemplateId(null); } }}>
         <DialogContent className="max-w-2xl w-full">
-          <DialogHeader>
-            <DialogTitle>Message Templates</DialogTitle>
-            <DialogDescription>
-              Create and manage your message templates for quick access while messaging students.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogHeader>
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-2">
+      <DialogTitle>Message Templates</DialogTitle>
+      <TutorialButton tutorialId="template-manager" tooltipText="Learn about templates" />
+    </div>
+  </div>
+  <DialogDescription>
+    Create and manage your message templates for quick access while messaging students.
+  </DialogDescription>
+</DialogHeader>
 
           {notification.message && (
             <div

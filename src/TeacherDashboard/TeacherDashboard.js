@@ -41,6 +41,7 @@ import { sanitizeEmail } from '../utils/sanitizeEmail';
 import NavItemWithIndicator from '../Notifications/NavItemWithIndicator';
 import IMathASGradeImporter from './IMathASGradeImporter';
 import LTIManagement from '../LTI/LTIManagement';
+import EnrollmentStatistics from '../Statistics/EnrollmentStatistics'; 
 
 
 
@@ -122,6 +123,7 @@ function TeacherDashboard() {
       { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
       { icon: Link, label: 'Links', key: 'external-links' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
+      { icon: BarChart2, label: 'Enrollment Stats', key: 'enrollment-stats' },
     ];
 
     // Only add admin items if user has admin access
@@ -133,6 +135,7 @@ function TeacherDashboard() {
         subItems: [
           { icon: DollarSign, label: 'Pricing', key: 'pricing' },
           { icon: BarChart2, label: 'Reports', key: 'reports' },
+          
           { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' },
           { icon: Upload, label: 'IMathAS Import', key: 'imathas-import' },
           { icon: Link, label: 'LTI Management', key: 'lti-management' }  
@@ -186,6 +189,8 @@ function TeacherDashboard() {
   return <IMathASGradeImporter />;
           case 'lti-management':
   return <LTIManagement />;
+  case 'enrollment-stats':
+    return <EnrollmentStatistics />;
         default:
           return null;
     }
@@ -193,7 +198,7 @@ function TeacherDashboard() {
 
   // Update handleNavItemClick to handle unauthorized access attempts
   const handleNavItemClick = (key) => {
-    const adminOnlySections = ['pricing', 'reports', 'contractor-invoices'];
+    const adminOnlySections = ['pricing', 'reports', 'contractor-invoices', 'sso-testing'];
 
     if (adminOnlySections.includes(key) && !hasAdminAccess()) {
       // Optionally show a toast or alert here

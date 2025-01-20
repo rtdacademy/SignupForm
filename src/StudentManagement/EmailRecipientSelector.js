@@ -8,6 +8,7 @@ import { Users, UserPlus, Mail, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from "../components/ui/alert";
 import Select from 'react-select';
 import { useAuth } from '../context/AuthContext';
+import { toast } from "sonner";
 
 const EmailRecipientSelector = ({ 
   open, 
@@ -73,7 +74,8 @@ const EmailRecipientSelector = ({
   // Helper functions
   const getAllPrimaryEmails = () => {
     return students
-      .filter(student => student.ParentEmail)
+      .filter(student => student.ParentEmail && 
+        student.ParentEmail.toLowerCase() !== student.StudentEmail?.toLowerCase())
       .map(student => ({
         studentId: student.id,
         email: student.ParentEmail,
@@ -85,7 +87,8 @@ const EmailRecipientSelector = ({
     return students.flatMap(student => 
       Array.from({ length: 10 }, (_, i) => i + 1)
         .map(i => student[`guardianEmail${i}`])
-        .filter(Boolean)
+        .filter(email => email && 
+          email.toLowerCase() !== student.StudentEmail?.toLowerCase())
         .map(email => ({
           studentId: student.id,
           email,
@@ -123,6 +126,30 @@ const EmailRecipientSelector = ({
   };
 
   const handleRecipientChange = (studentId, email, checked) => {
+    // Find the student's email
+    const student = students.find(s => s.id === studentId);
+    const studentEmail = student?.StudentEmail?.toLowerCase();
+    const emailToCheck = email.toLowerCase();
+    
+    console.log('Comparing emails:', {
+      studentEmail,
+      emailToCheck,
+      matches: emailToCheck === studentEmail
+    });
+    
+    // If attempting to CC the student's own email, show warning and don't add
+    if (checked && emailToCheck === studentEmail) {
+      toast.warning(
+        <div className="flex flex-col gap-1">
+          <div className="font-semibold">Cannot CC Student's Own Email</div>
+          <div className="text-sm">
+            {student.firstName} {student.lastName}'s email ({email}) cannot be CC'd as they are the main recipient.
+          </div>
+        </div>
+      );
+      return;
+    }
+  
     const newCcRecipients = {
       ...ccRecipients,
       [studentId]: {
@@ -172,11 +199,27 @@ const EmailRecipientSelector = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>CC Recipients</DialogTitle>
+          <DialogTitle>CC Recipients 1</DialogTitle>
           <DialogDescription>
             Select which recipients you want to CC for each student. Added teachers will be CC'd.
           </DialogDescription>
         </DialogHeader>
+
+        {students.some(student => {
+    const studentEmail = student.StudentEmail?.toLowerCase();
+    return (
+      (student.ParentEmail?.toLowerCase() === studentEmail) ||
+      Array.from({ length: 10 }, (_, i) => student[`guardianEmail${i}`])
+        .some(email => email?.toLowerCase() === studentEmail)
+    );
+  }) && (
+    <Alert variant="warning" className="mb-4">
+      <AlertCircle className="h-4 w-4" />
+      <AlertDescription>
+        Some email addresses match their student's email and have been excluded from CC options to prevent duplicate emails.
+      </AlertDescription>
+    </Alert>
+  )}
 
         <div className="space-y-4">
           {/* Select All Checkboxes */}
@@ -233,51 +276,67 @@ const EmailRecipientSelector = ({
             </TabsList>
 
             <TabsContent value="primary" className="mt-4 space-y-4">
-              <div className="max-h-[300px] overflow-y-auto space-y-4">
-                {students.map(student => student.ParentEmail && (
-                  <div key={`primary-${student.id}`} className="space-y-2">
-                    <h4 className="font-medium text-sm">{student.firstName} {student.lastName}</h4>
-                    <div className="flex items-center space-x-2 pl-4">
-                      <Checkbox
-                        id={`cc-parent-${student.id}`}
-                        checked={ccRecipients[student.id]?.[student.ParentEmail] || false}
-                        onCheckedChange={checked => handleRecipientChange(student.id, student.ParentEmail, checked)}
-                      />
-                      <label htmlFor={`cc-parent-${student.id}`} className="text-sm text-gray-700">
-                        {student.ParentEmail}
-                      </label>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </TabsContent>
+  <div className="max-h-[300px] overflow-y-auto space-y-4">
+    {students.map(student => student.ParentEmail && (
+      <div key={`primary-${student.id}`} className="space-y-2">
+        <h4 className="font-medium text-sm">{student.firstName} {student.lastName}</h4>
+        {student.ParentEmail.toLowerCase() === student.StudentEmail?.toLowerCase() ? (
+          <div className="pl-4 text-sm text-gray-500 italic">
+            {student.ParentEmail} (Cannot be CC'd - matches student email)
+          </div>
+        ) : (
+          <div className="flex items-center space-x-2 pl-4">
+            <Checkbox
+              id={`cc-parent-${student.id}`}
+              checked={ccRecipients[student.id]?.[student.ParentEmail] || false}
+              onCheckedChange={checked => handleRecipientChange(student.id, student.ParentEmail, checked)}
+            />
+            <label htmlFor={`cc-parent-${student.id}`} className="text-sm text-gray-700">
+              {student.ParentEmail}
+            </label>
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+</TabsContent>
 
-            <TabsContent value="guardians" className="mt-4 space-y-4">
-              <div className="max-h-[300px] overflow-y-auto space-y-4">
-                {students.map(student => (
-                  <div key={`guardian-${student.id}`} className="space-y-2">
-                    <h4 className="font-medium text-sm">{student.firstName} {student.lastName}</h4>
-                    <div className="space-y-2 pl-4">
-                      {Array.from({ length: 10 }, (_, i) => i + 1).map(i => {
-                        const email = student[`guardianEmail${i}`];
-                        return email && (
-                          <div key={i} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`cc-guardian-${student.id}-${i}`}
-                              checked={ccRecipients[student.id]?.[email] || false}
-                              onCheckedChange={checked => handleRecipientChange(student.id, email, checked)}
-                            />
-                            <label htmlFor={`cc-guardian-${student.id}-${i}`} className="text-sm text-gray-700">
-                              {email}
-                            </label>
-                          </div>
-                        );
-                      })}
-                    </div>
+<TabsContent value="guardians" className="mt-4 space-y-4">
+  <div className="max-h-[300px] overflow-y-auto space-y-4">
+    {students.map(student => (
+      <div key={`guardian-${student.id}`} className="space-y-2">
+        <h4 className="font-medium text-sm">{student.firstName} {student.lastName}</h4>
+        <div className="space-y-2 pl-4">
+          {Array.from({ length: 10 }, (_, i) => i + 1).map(i => {
+            const email = student[`guardianEmail${i}`];
+            const isStudentEmail = email?.toLowerCase() === student.StudentEmail?.toLowerCase();
+            
+            return email && (
+              <div key={i}>
+                {isStudentEmail ? (
+                  <div className="text-sm text-gray-500 italic">
+                    {email} (Cannot be CC'd - matches student email)
                   </div>
-                ))}
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`cc-guardian-${student.id}-${i}`}
+                      checked={ccRecipients[student.id]?.[email] || false}
+                      onCheckedChange={checked => handleRecipientChange(student.id, email, checked)}
+                    />
+                    <label htmlFor={`cc-guardian-${student.id}-${i}`} className="text-sm text-gray-700">
+                      {email}
+                    </label>
+                  </div>
+                )}
               </div>
-            </TabsContent>
+            );
+          })}
+        </div>
+      </div>
+    ))}
+  </div>
+</TabsContent>
 
             {isSingleStudent && (
               <TabsContent value="staff" className="mt-4 space-y-4">

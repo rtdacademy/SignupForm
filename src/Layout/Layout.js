@@ -90,7 +90,8 @@ const Layout = React.memo(({ children }) => {
     showSidebarToggle: isStaff(user),
     portalType: isStaff(user) ? "Staff Portal" : "Student Portal",
     onFullScreenToggle: handleFullScreenToggle,
-    isEmulating 
+    isEmulating,
+    isStaffUser: isStaff(user) 
   }), [user, handleLogout, showBackButton, handleBackClick, handleDashboardClick, handleSidebarToggle, isStaff, handleFullScreenToggle, isEmulating]);
 
   return (
@@ -107,7 +108,7 @@ const Layout = React.memo(({ children }) => {
       {!isFullScreen && (
         <footer className="flex-none h-8 bg-gray-800 text-gray-400 px-4 flex items-center justify-between text-xs">
           <div>
-            © {new Date().getFullYear()} RTD Academy
+            © {new Date().getFullYear()} Edbotz
           </div>
           <div className="flex items-center gap-4">
             <span>Version 2.0</span>

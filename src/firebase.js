@@ -6,6 +6,7 @@ import { getAnalytics } from "firebase/analytics";
 import { getVertexAI } from "firebase/vertexai";
 import { getFirestore } from '@firebase/firestore';
 import { getStripePayments } from '@invertase/firestore-stripe-payments';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDjx3BINgvUwR1CHE80yX1gCBXYl5OMCqs",
@@ -27,6 +28,7 @@ export const functions = getFunctions(app);
 export const analytics = getAnalytics(app);
 export const firestore = getFirestore(app);
 export const vertexAI = getVertexAI(app);
+export const storage = getStorage(app);
 
 // Initialize Stripe Payments
 export const payments = getStripePayments(app, {

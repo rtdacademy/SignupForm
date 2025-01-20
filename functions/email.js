@@ -4,10 +4,12 @@ const { sanitizeEmail } = require('./utils');
 const sgMail = require('@sendgrid/mail');
 
 // Utility functions
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;  
+
 const validateEmail = (email) => {
   if (!email) return false;
-  return emailRegex.test(String(email).toLowerCase());
+  const normalizedEmail = String(email).trim().toLowerCase(); // Trim whitespace
+  return emailRegex.test(normalizedEmail);
 };
 
 const logEmailFailure = async (db, error, emailDetails) => {
@@ -78,20 +80,30 @@ exports.sendBulkEmails = functions.https.onCall(async (data, context) => {
 
     // Process each recipient
     recipients.forEach((recipient) => {
-      if (!validateEmail(recipient.to)) {
+      // Normalize the recipient's email to lowercase and trim whitespace
+      const normalizedTo = recipient.to?.trim().toLowerCase();
+    
+      if (!validateEmail(normalizedTo)) {
         console.warn(`Invalid recipient email: ${recipient.to}`);
         invalidEmails.push(recipient.to);
         return;
       }
-
-      const validCc = (recipient.cc || []).filter((email) => validateEmail(email));
-      const validBcc = (recipient.bcc || []).filter((email) => validateEmail(email));
-      const recipientKey = sanitizeEmail(recipient.to);
-
+    
+      // Process CC and BCC emails similarly
+      const validCc = (recipient.cc || [])
+        .map(email => email.trim().toLowerCase()) // Trim and normalize
+        .filter((email) => validateEmail(email));
+    
+      const validBcc = (recipient.bcc || [])
+        .map(email => email.trim().toLowerCase()) // Trim and normalize
+        .filter((email) => validateEmail(email));
+    
+      const recipientKey = sanitizeEmail(normalizedTo);
+    
       // Prepare email content
       let finalHtml = recipient.html || recipient.text;
       let finalText = recipient.text || '';
-
+    
       if (recipient.useDoNotReply) {
         const doNotReplyNotice = `
           <hr style="margin: 20px 0;">
@@ -102,21 +114,21 @@ exports.sendBulkEmails = functions.https.onCall(async (data, context) => {
         finalHtml += doNotReplyNotice;
         finalText += '\n\n---\nThis is an automated message. Please do not reply to this email.';
       }
-
+    
       const emailId = db.ref('emails').push().key;
-      console.log(`Generated emailId: ${emailId} for recipient: ${recipient.to}`);
-
+      console.log(`Generated emailId: ${emailId} for recipient: ${normalizedTo}`);
+    
       // Prepare email configuration
       const emailConfig = {
         personalizations: [
           {
-            to: [{ email: recipient.to }],
+            to: [{ email: normalizedTo }], // Use sanitized version
             subject: recipient.subject,
             custom_args: {
               emailId
             },
-            cc: validCc.map((email) => ({ email })), // Add CC
-            bcc: validBcc.map((email) => ({ email })) // Add BCC
+            cc: validCc.map((email) => ({ email })), // Use sanitized version
+            bcc: validBcc.map((email) => ({ email })) // Use sanitized version
           }
         ],
         from: {
@@ -146,18 +158,22 @@ exports.sendBulkEmails = functions.https.onCall(async (data, context) => {
           }
         }
       };
-
+    
       messagePrep.push({
         config: emailConfig,
         recipientKey,
         emailId,
-        originalRecipient: recipient,
+        originalRecipient: {
+          ...recipient,
+          to: normalizedTo // Use sanitized version
+        },
         ccRecipients: validCc,
         bccRecipients: validBcc,
         finalText,
         finalHtml
       });
     });
+    
 
     // Send emails if we have valid recipients
     if (messagePrep.length > 0) {

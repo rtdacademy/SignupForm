@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getDatabase, ref, onValue, off, update, get } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -24,7 +25,8 @@ import ScheduleDisplay from '../Schedule/ScheduleDisplay';
 import RegistrationInfo from './RegistrationInfo';
 import InternationalDocuments from './InternationalDocuments';
 import { useUserPreferences } from '../context/UserPreferencesContext';
-import PaymentInfo from './PaymentInfo'; // New import added
+import PaymentInfo from './PaymentInfo'; 
+import PASIManager from './PASIManager';
 
 const getColorFromInitials = (initials) => {
   const colors = [
@@ -39,7 +41,7 @@ const getColorFromInitials = (initials) => {
   return colors[hash % colors.length];
 };
 
-function StudentDetail({ studentSummary, isMobile }) {
+function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
   const [studentData, setStudentData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -60,13 +62,14 @@ function StudentDetail({ studentSummary, isMobile }) {
   const [newLMSId, setNewLMSId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLMSStudentID, setLocalLMSStudentID] = useState(studentSummary?.LMSStudentID || null);
+  const [isEditingLMSId, setIsEditingLMSId] = useState(false);
+  const lmsId = studentData?.courses?.[courseId]?.LMSStudentID || "";
 
   // New refs and state for dynamic font sizing
   const nameRef = useRef(null);
   const containerRef = useRef(null);
   const [nameFontSize, setNameFontSize] = useState(24); // Starting font size for text-2xl
 
- 
   const handleStudentStatsChange = (checked) => {
     const db = getDatabase();
     const studentRef = ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}/courses/${courseId}`);
@@ -90,57 +93,87 @@ function StudentDetail({ studentSummary, isMobile }) {
       });
   };
 
-  const handleSubmitLMSId = async () => {
-    if (!newLMSId.trim()) return;
+  const handleFetchLMSId = async () => {
+    if (!studentSummary?.StudentEmail || isSubmitting) return;
     
     setIsSubmitting(true);
-    const db = getDatabase();
     
     try {
-      await update(ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}/courses/${courseId}`), {
-        LMSStudentID: newLMSId
+      const functions = getFunctions();
+      const fetchLMSStudentId = httpsCallable(functions, 'fetchLMSStudentId');
+      
+      const result = await fetchLMSStudentId({
+        email: studentSummary.StudentEmail,
+        courseId: courseId
       });
-      setLocalLMSStudentID(newLMSId); // Update local state
-      toast.success("LMS Student ID updated successfully");
+      
+      if (result.data.success) {
+        setLocalLMSStudentID(result.data.lmsId);
+        toast.success("Successfully fetched and updated LMS Student ID");
+      } else {
+        toast.error(result.data.message || "Failed to fetch LMS ID");
+      }
     } catch (error) {
-      console.error('Error updating LMS Student ID:', error);
-      toast.error("Failed to update LMS Student ID. Please try again.");
+      console.error('Error fetching LMS ID:', error);
+      toast.error(error.message || "An error occurred while fetching the LMS ID");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleSubmitLMSId = async () => {
+    if (!newLMSId.trim()) return;
+  
+    setIsSubmitting(true);
+    const db = getDatabase();
+  
+    try {
+      // 1. Update the student's LMS Student ID
+      await update(
+        ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}/courses/${courseId}`),
+        {
+          LMSStudentID: newLMSId
+        }
+      );
+  
+
+  
+      toast.success('LMS Student ID updated successfully');
+      setNewLMSId('');
+    } catch (error) {
+      console.error('Error updating LMS Student ID:', error);
+      toast.error('Failed to update LMS Student ID. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Updated getAvailableTabs function to include 'edge-admin'
   const getAvailableTabs = () => {
     // If no student data or no courses, return minimal tabs
     if (!studentData || !studentData.courses || !courseId || !studentData.courses[courseId]) {
       if (currentMode === MODES.REGISTRATION) {
-        return ['registration', 'notes'];
+        return ['registration', 'pasi', 'edge-admin', 'notes'];
       }
       return ['notes'];
     }
   
-    // Rest of the existing logic
+    // Registration mode tabs
     if (currentMode === MODES.REGISTRATION) {
-      // Start with base tabs
-      let tabs = ['registration', 'notes'];
+      // Start with ordered base tabs
+      let tabs = ['registration', 'pasi', 'edge-admin', 'notes'];
       
       // Add documents tab if internationalDocuments exist
       if (studentData.profile.internationalDocuments) {
         tabs.push('documents');
       }
   
-      // Add progress or schedule/gradebook tabs
-      if (studentData.courses[courseId].jsonGradebookSchedule) {
-        tabs.push('progress');
-      } else {
-        tabs.push('schedule', 'gradebook');
-      }
-  
-      // Always add paid tab in registration mode
+      // Add paid tab in registration mode
       tabs.push('paid');
   
       return tabs;
     } else {
+      // Non-registration mode tabs
       const baseTabs = ['notes'];
       if (studentData.courses[courseId].jsonGradebookSchedule) {
         return [...baseTabs, 'progress', 'more-info'];
@@ -149,6 +182,13 @@ function StudentDetail({ studentSummary, isMobile }) {
       }
     }
   };
+
+  // Right inside StudentDetail:
+useEffect(() => {
+  console.log("StudentDetail MOUNTED (or re-mounted)");
+  return () => console.log("StudentDetail UNMOUNTED");
+}, []);
+
 
   useEffect(() => {
     if (isMobile) {
@@ -393,8 +433,6 @@ function StudentDetail({ studentSummary, isMobile }) {
   const renderScheduleContent = () => {
     const courseData = studentData?.courses[courseId];
 
-  
-    
     return (
       <div className="space-y-4">
         <Button 
@@ -440,16 +478,16 @@ function StudentDetail({ studentSummary, isMobile }) {
           <Calendar className="h-4 w-4 mr-2" />
           Schedule Maker
         </Button>
-  
+
         <div className="flex items-center justify-between p-2 border rounded-lg bg-gray-50">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="flex items-center space-x-2">
-                <Switch
-  checked={studentData?.courses[courseId]?.showStats ?? true}
-  onCheckedChange={handleStudentStatsChange}
-/>
+                  <Switch
+                    checked={studentData?.courses[courseId]?.showStats ?? true}
+                    onCheckedChange={handleStudentStatsChange}
+                  />
                   <span className="text-sm font-medium">Show Statistics</span>
                 </div>
               </TooltipTrigger>
@@ -468,17 +506,51 @@ function StudentDetail({ studentSummary, isMobile }) {
     );
   };
 
-  const renderGradebookContent = () => {
-    const copyToClipboard = async (text) => {
-      try {
-        await navigator.clipboard.writeText(text);
-        toast.success("Email copied to clipboard");
-      } catch (err) {
-        console.error('Failed to copy:', err);
-        toast.error("Failed to copy email");
-      }
+  // New render function for Edge Admin content
+  const renderEdgeAdminContent = () => {
+    const handleOpenNewWindow = () => {
+      window.open('https://edge.rtdacademy.com/admin/forms.php?from=admin2&action=newadmin', '_blank', 'width=1200,height=800');
     };
-  
+
+    const handleOpenNewTab = () => {
+      window.open('https://edge.rtdacademy.com/admin/forms.php?from=admin2&action=newadmin', '_blank');
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex justify-end space-x-2 mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenNewTab}
+            className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white"
+          >
+            Open in New Tab
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenNewWindow}
+            className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white"
+          >
+            Open in New Window
+          </Button>
+        </div>
+        <div className="flex-1 min-h-[500px] relative">
+          <iframe
+            src="https://edge.rtdacademy.com/admin/admin2.php"
+            className="w-full h-full absolute inset-0 border-0"
+            title="Edge Admin Interface"
+            allow="fullscreen"
+          />
+        </div>
+      </div>
+    );
+  };
+
+  // Modify your renderGradebookContent function to include the fetch button
+  const renderGradebookContent = () => {
+   
     if (!studentSummary?.CourseID) {
       return (
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -487,99 +559,22 @@ function StudentDetail({ studentSummary, isMobile }) {
       );
     }
   
-    const lookupUrl = "https://edge.rtdacademy.com/util/utils.php?form=lookup";
-    const gradebookUrl = `https://edge.rtdacademy.com/course/gradebook.php?cid=${studentSummary.CourseID}&stu=${localLMSStudentID || studentSummary.LMSStudentID}`;
-  
-    if (!localLMSStudentID && !studentSummary?.LMSStudentID) {
+    if (!lmsId) {
       return (
-        <div className="space-y-4">
-          <div className="p-6 bg-white border rounded-lg shadow-sm">
-            <h3 className="text-lg font-semibold mb-4 text-[#315369]">LMS Student ID Required</h3>
-            
-            {/* Email copy section */}
-            <div className="mb-4 p-3 bg-gray-50 rounded-md">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-600">Student Email:</p>
-                <div className="flex items-center gap-2">
-                  <code className="px-2 py-1 bg-white rounded border">
-                    {studentSummary.StudentEmail}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyToClipboard(studentSummary.StudentEmail)}
-                    className="flex items-center gap-1"
-                  >
-                    <svg 
-                      width="15" 
-                      height="15" 
-                      viewBox="0 0 15 15" 
-                      fill="none" 
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="opacity-70"
-                    >
-                      <path 
-                        d="M1 9.50006C1 10.3285 1.67157 11.0001 2.5 11.0001H4L4 10.0001H2.5C2.22386 10.0001 2 9.7762 2 9.50006L2 2.50006C2 2.22392 2.22386 2.00006 2.5 2.00006L9.5 2.00006C9.77614 2.00006 10 2.22392 10 2.50006V4.00002H5.5C4.67158 4.00002 4 4.67159 4 5.50002V12.5C4 13.3284 4.67158 14 5.5 14H12.5C13.3284 14 14 13.3284 14 12.5V5.50002C14 4.67159 13.3284 4.00002 12.5 4.00002H11V2.50006C11 1.67163 10.3284 1.00006 9.5 1.00006H2.5C1.67157 1.00006 1 1.67163 1 2.50006V9.50006ZM5 5.50002C5 5.22388 5.22386 5.00002 5.5 5.00002H12.5C12.7761 5.00002 13 5.22388 13 5.50002V12.5C13 12.7762 12.7761 13 12.5 13H5.5C5.22386 13 5 12.7762 5 12.5V5.50002Z" 
-                        fill="currentColor" 
-                        fillRule="evenodd" 
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    Copy
-                  </Button>
-                </div>
-              </div>
-            </div>
-  
-            <p className="text-gray-600 mb-4">
-              This student doesn't have an LMS ID assigned. Please enter their LMS Student ID to view the gradebook.
-            </p>
-            <div className="space-y-4">
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={newLMSId}
-                  onChange={(e) => setNewLMSId(e.target.value)}
-                  placeholder="Enter LMS Student ID"
-                  className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#40b3b3] focus:border-transparent"
-                  disabled={isSubmitting}
-                />
-                <Button
-                  onClick={handleSubmitLMSId}
-                  disabled={!newLMSId.trim() || isSubmitting}
-                  className="bg-[#40b3b3] text-white hover:bg-[#379999] disabled:bg-gray-300"
-                >
-                  {isSubmitting ? (
-                    <span className="flex items-center">
-                      <span className="animate-spin mr-2">⟳</span>
-                      Saving...
-                    </span>
-                  ) : (
-                    'Save ID'
-                  )}
-                </Button>
-              </div>
-              <p className="text-sm text-gray-500">
-                The LMS Student ID can be found in Edge.
-              </p>
-            </div>
-          </div>
-          
-          {/* Lookup iframe */}
-          <div className="w-full h-[500px] relative border rounded-lg overflow-hidden">
-            <iframe
-              src={lookupUrl}
-              className="w-full h-full absolute inset-0 border-0"
-              title="LMS ID Lookup"
-              allow="fullscreen"
-            />
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center text-gray-500">
+            <p className="mb-2">No LMS Student ID assigned</p>
+            <p className="text-sm">Click "Edit LMS ID" to add an ID</p>
           </div>
         </div>
       );
     }
+   
+    const gradebookUrl = `https://edge.rtdacademy.com/course/gradebook.php?cid=${studentSummary?.CourseID}&stu=${lmsId}`;
   
     return (
       <div className="w-full h-full min-h-[500px] relative">
+       
         <iframe
           src={gradebookUrl}
           className="w-full h-full absolute inset-0 border-0"
@@ -772,7 +767,6 @@ function StudentDetail({ studentSummary, isMobile }) {
           </div>
         )}
 
-
         {/* Progress Section */}
         {isSectionVisible('progress') && studentData?.courses[courseId]?.jsonGradebookSchedule && (
           <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
@@ -802,30 +796,158 @@ function StudentDetail({ studentSummary, isMobile }) {
           <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                <h4 className="font-semibold mb-2 text-[#1fa6a7]">Gradebook</h4>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-semibold text-[#1fa6a7]">Gradebook</h4>
+
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditingLMSId(true)}
+                    className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white"
+                  >
+                    Edit LMS ID: {studentData?.courses?.[courseId]?.LMSStudentID}
+                  </Button>
+                  
+                </div>
                 {renderGradebookContent()}
+              </CardContent>
+            </Card>
+            
+            <Dialog open={isEditingLMSId} onOpenChange={setIsEditingLMSId}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>LMS Student ID</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {!studentSummary?.LMSStudentID ? (
+                    <>
+                      {/* Auto-fetch section */}
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <p className="text-sm text-gray-600 mb-3">
+                          Click below to automatically fetch the student's LMS ID using their email:
+                        </p>
+                        <Button
+                          onClick={handleFetchLMSId}
+                          disabled={isSubmitting}
+                          className="w-full bg-[#40b3b3] text-white hover:bg-[#379999] disabled:bg-gray-300"
+                        >
+                          {isSubmitting ? (
+                            <span className="flex items-center justify-center">
+                              <span className="animate-spin mr-2">⟳</span>
+                              Fetching...
+                            </span>
+                          ) : (
+                            'Fetch LMS ID from Edge'
+                          )}
+                        </Button>
+                        <div className="mt-2 flex items-center justify-between text-sm text-gray-500">
+                          <span>Using email:</span>
+                          <code className="px-2 py-1 bg-white rounded border">
+                            {studentSummary.StudentEmail}
+                          </code>
+                        </div>
+                      </div>
+
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-white px-2 text-gray-500">or enter manually</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
+
+                  {/* Manual entry section */}
+                  <div className="space-y-4">
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={newLMSId || ''}
+                        onChange={(e) => setNewLMSId(e.target.value)}
+                        placeholder="Enter LMS Student ID"
+                        className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#40b3b3] focus:border-transparent"
+                        disabled={isSubmitting}
+                      />
+                      <Button
+                        onClick={() => {
+                          handleSubmitLMSId();
+                          setIsEditingLMSId(false);
+                        }}
+                        disabled={!newLMSId && !studentSummary?.LMSStudentID || isSubmitting}
+                        className="bg-[#40b3b3] text-white hover:bg-[#379999] disabled:bg-gray-300"
+                      >
+                        Save
+                      </Button>
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-sm">
+                      <a 
+                        href="https://edge.rtdacademy.com/util/utils.php?form=lookup"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#40b3b3] hover:text-[#379999] flex items-center"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Look up ID manually
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
+
+        {/* Edge Admin Section */}
+        {currentMode === MODES.REGISTRATION && isSectionVisible('edge-admin') && (
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+                <h4 className="font-semibold mb-2 text-[#1fa6a7]">Edge Admin</h4>
+                {renderEdgeAdminContent()}
               </CardContent>
             </Card>
           </div>
         )}
 
-  {/* Payment Info Section */}
-  {currentMode === MODES.REGISTRATION && isSectionVisible('paid') && (
-  <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
-    <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
-      <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-        <h4 className="font-semibold mb-2 text-[#1fa6a7]">Payment Information</h4>
-        <PaymentInfo 
-  studentKey={sanitizeEmail(studentSummary.StudentEmail)}
-  courseId={courseId}
-  paymentStatus={studentData.courses[courseId].payment_status?.status}
-  paymentDetails={studentData.courses[courseId].paymentDetails}
-  readOnly={currentMode !== MODES.REGISTRATION}
+        {/* Payment Info Section */}
+        {currentMode === MODES.REGISTRATION && isSectionVisible('paid') && (
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
+              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+                <h4 className="font-semibold mb-2 text-[#1fa6a7]">Payment Information</h4>
+                <PaymentInfo 
+                  studentKey={sanitizeEmail(studentSummary.StudentEmail)}
+                  courseId={courseId}
+                  paymentStatus={studentData.courses[courseId].payment_status?.status}
+                  paymentDetails={studentData.courses[courseId].paymentDetails}
+                  readOnly={currentMode !== MODES.REGISTRATION}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+ {/* PASI Section - Add here */}
+ {currentMode === MODES.REGISTRATION && isSectionVisible('pasi') && (
+    <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+      <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+        <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+          <h4 className="font-semibold mb-2 text-[#1fa6a7]">PASI Management</h4>
+          <PASIManager 
+  studentData={studentData} 
+  courseId={courseId} 
+  assignedStaff={assignedStaff} 
 />
-      </CardContent>
-    </Card>
-  </div>
-)}
+        </CardContent>
+      </Card>
+    </div>
+  )}
 
       </div>
 

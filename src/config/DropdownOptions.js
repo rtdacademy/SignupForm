@@ -9,7 +9,13 @@ import {
   Calculator,  // for Math courses
   Code,        // for Coding courses
   Beaker,      // for Science courses
-  BookOpen     // for other course types
+  BookOpen,    // for other course types
+  Play,           // for Active
+  CheckCircle,    // for Completed
+  ArrowRight,     // for Continuing
+  XCircle,        // for Incomplete
+  ClipboardList,  // for Registered
+  SignalZero      // for Withdrawn
 } from 'lucide-react';
 
 export const PAYMENT_STATUS_OPTIONS = [
@@ -303,6 +309,81 @@ export const getStudentTypeColor = (type) => {
   return option ? option.color : "#6B7280";  // Default to gray if student type not found
 };
 
+export const COURSE_ENROLLMENT_STATUS_OPTIONS = [
+  { 
+    value: "Active",
+    label: "Active", 
+    color: "#10B981", // Green
+    icon: Play,
+    iconName: "play",
+    description: "Currently taking the course",
+    categoryName: "Send Email to Active"
+  },
+  { 
+    value: "Completed",
+    label: "Completed", 
+    color: "#3B82F6", // Blue
+    icon: CheckCircle,
+    iconName: "check-circle",
+    description: "Successfully finished the course",
+    categoryName: "Send Email to Completed"
+  },
+  { 
+    value: "Continuing",
+    label: "Continuing", 
+    color: "#8B5CF6", // Purple
+    icon: ArrowRight,
+    iconName: "arrow-right",
+    description: "Will continue in the next term",
+    categoryName: "Send Email to Continuing"
+  },
+  { 
+    value: "Incomplete",
+    label: "Incomplete", 
+    color: "#EF4444", // Red
+    icon: XCircle,
+    iconName: "x-circle",
+    description: "Did not complete course requirements",
+    categoryName: "Send Email to Incomplete"
+  },
+  { 
+    value: "Registered",
+    label: "Registered", 
+    color: "#F59E0B", // Amber
+    icon: ClipboardList,
+    iconName: "clipboard-list",
+    description: "Enrolled but not yet started",
+    categoryName: "Send Email to Registered"
+  },
+  { 
+    value: "Withdrawn",
+    label: "Withdrawn", 
+    color: "#FF8C00", // Dark Orange
+    icon: SignalZero,
+    iconName: "signal-zero",
+    description: "Withdrew from the course",
+    categoryName: "Send Email to Withdrawn"
+  }
+];
+
+// Updated helper function to include categoryName
+export const getCourseEnrollmentStatusInfo = (status) => {
+  const option = COURSE_ENROLLMENT_STATUS_OPTIONS.find(opt => opt.value === status);
+  return {
+    color: option ? option.color : "#6B7280",
+    icon: option ? option.icon : null,
+    iconName: option ? option.iconName : null,
+    description: option ? option.description : null,
+    label: option ? option.label : status,
+    categoryName: option ? option.categoryName : null
+  };
+};
+
+// Helper function to get just the color (unchanged)
+export const getCourseEnrollmentStatusColor = (status) => {
+  const option = COURSE_ENROLLMENT_STATUS_OPTIONS.find(opt => opt.value === status);
+  return option ? option.color : "#6B7280";  // Default to gray if status not found
+};
 
 export const getSchoolYearOptions = () => {
   const currentDate = new Date();

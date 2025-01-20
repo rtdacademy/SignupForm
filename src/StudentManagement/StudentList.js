@@ -7,6 +7,7 @@ import { Checkbox } from "../components/ui/checkbox";
 import StudentCard from './StudentCard';
 import { ChevronUp, ChevronDown, SortAsc, FileDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { TutorialButton } from '../components/TutorialButton';
 
 // Utility function to generate username
 const generateUsername = (firstName, lastName) => {
@@ -336,11 +337,16 @@ const filteredStudents = useMemo(() => {
             />
             <h3 className="text-lg font-medium text-gray-700 flex items-center">
               Students
+        
               <span className="ml-2 text-sm font-normal text-gray-500">
                 ({sortedStudents.length})
                 {selectedStudents.size > 0 && ` • ${selectedStudents.size} selected`}
               </span>
             </h3>
+            <TutorialButton 
+          tutorialId="student-selection" 
+          tooltipText="Learn about student selection" 
+        />
           </div>
           <div className="flex items-center space-x-2">
             <Select value={sortKey} onValueChange={setSortKey}>

@@ -349,20 +349,28 @@ function Courses() {
     });
 
     // Fetch staff members
-    const staffRef = ref(db, 'staff');
-    const unsubscribeStaff = onValue(staffRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const uniqueStaff = Object.entries(data).map(([key, staffData]) => ({
-          value: key, // Use the Firebase key instead of sanitized email
-          label: staffData.name || staffData.displayName || 'No Name',
-          email: staffData.email,
-        }));
-        setStaffMembers(uniqueStaff);
-      } else {
-        setStaffMembers([]);
-      }
+   // Fetch staff members
+const staffRef = ref(db, 'staff');
+const unsubscribeStaff = onValue(staffRef, (snapshot) => {
+  const data = snapshot.val();
+  if (data) {
+    const uniqueStaff = Object.entries(data).map(([key, staffData]) => {
+      // Generate display name from firstName and lastName, fallback to email
+      const fullName = staffData.firstName && staffData.lastName
+        ? `${staffData.firstName} ${staffData.lastName}`
+        : staffData.email;
+        
+      return {
+        value: key,
+        label: fullName,
+        email: staffData.email,
+      };
     });
+    setStaffMembers(uniqueStaff);
+  } else {
+    setStaffMembers([]);
+  }
+});
 
     // Cleanup subscriptions on unmount
     return () => {

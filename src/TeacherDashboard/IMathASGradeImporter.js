@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Loader2, Upload } from 'lucide-react';
+import { TutorialButton } from '../components/TutorialButton';
 import Papa from 'papaparse';
 
 const IMathASGradeImporter = () => {
@@ -101,7 +102,10 @@ const IMathASGradeImporter = () => {
     <div className="p-4">
       <Card>
         <CardHeader>
-          <CardTitle>IMathAS Grade Import</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>IMathAS Grade Import</CardTitle>
+            <TutorialButton tutorialId="email-component" className="mt-0.5" />
+          </div>
           <p className="text-sm text-gray-500 mt-1">
             Upload the IMathAS grades CSV file to import assessment records into Firestore
           </p>

@@ -1,6 +1,6 @@
 import React from 'react';
-import { FaSignOutAlt, FaArrowLeft } from 'react-icons/fa';
-import { useLocation } from 'react-router-dom';
+import { FaSignOutAlt, FaArrowLeft, FaUserCircle } from 'react-icons/fa';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const RTDLogo = () => (
   <svg 
@@ -18,7 +18,8 @@ const RTDLogo = () => (
   </svg>
 );
 
-function Header({ user, onLogout, onBackClick, onDashboardClick, portalType, isEmulating }) {
+function Header({ user, onLogout, onBackClick, onDashboardClick, portalType, isEmulating, isStaffUser }) {
+  const navigate = useNavigate();
 
   const getUserDisplayName = () => {
     if (user) {
@@ -60,6 +61,15 @@ function Header({ user, onLogout, onBackClick, onDashboardClick, portalType, isE
           {/* Right section */}
           {user && (
             <div className="flex items-center space-x-6">
+              {isStaffUser && (
+                <button
+                  onClick={() => navigate('/employee-portal')}
+                  className="flex items-center space-x-2 text-gray-300 hover:text-white text-sm transition-colors duration-200"
+                >
+                  <FaUserCircle />
+                  <span className="hidden lg:inline">Employee Portal</span>
+                </button>
+              )}
               <span className="text-gray-300 text-sm hidden lg:inline">
                 Welcome, {getUserDisplayName()}
               </span>

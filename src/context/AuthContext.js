@@ -5,17 +5,10 @@ import { getDatabase, ref, get, set } from "firebase/database";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-// Define admin levels
+// Only keep super admin emails hardcoded for highest level security
 const SUPER_ADMIN_EMAILS = [
   'kyle@rtdacademy.com',
   'stan@rtdacademy.com'
-];
-
-const ADMIN_EMAILS = [
-  'kyle@rtdacademy.com',
-  'rachel@rtdacademy.com',
-  'stan@rtdacademy.com',
-  'charlie@rtdacademy.com'
 ];
 
 const AuthContext = createContext();
@@ -34,6 +27,7 @@ export function AuthProvider({ children }) {
   const [courseTeachers, setCourseTeachers] = useState({});
   const [staffMembers, setStaffMembers] = useState({});
   const [isMigratedUser, setIsMigratedUser] = useState(false);
+  const [adminEmails, setAdminEmails] = useState([]);
 
   // Emulation states
   const [emulatedUser, setEmulatedUser] = useState(null);
@@ -80,26 +74,52 @@ export function AuthProvider({ children }) {
     return user && user.email.endsWith("@rtdacademy.com");
   };
 
-  const checkIsAdmin = (user) => {
-    return user && ADMIN_EMAILS.includes(user.email.toLowerCase());
+  const checkIsAdmin = (user, adminEmailsList) => {
+    return user && adminEmailsList.includes(user.email.toLowerCase());
   };
 
   const checkIsSuperAdmin = (user) => {
     return user && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
   };
 
+  // Fetch admin emails (only called after staff authentication)
+  const fetchAdminEmails = async () => {
+    try {
+      const db = getDatabase();
+      const adminEmailsRef = ref(db, 'adminEmails');
+      const snapshot = await get(adminEmailsRef);
+      
+      if (snapshot.exists()) {
+        const emails = snapshot.val();
+        if (Array.isArray(emails)) {
+          return emails.map(email => email.toLowerCase());
+        }
+      }
+      console.warn('No admin emails found or invalid format');
+      return [];
+    } catch (error) {
+      console.error("Error fetching admin emails:", error);
+      return [];
+    }
+  };
+
   // Ensure staff node includes admin and super admin status
   const ensureStaffNode = async (user, emailKey) => {
     const db = getDatabase();
     const staffRef = ref(db, `staff/${emailKey}`);
-    const isAdmin = checkIsAdmin(user);
+    const isAdmin = isAdminUser; // Use the state value instead of rechecking
     const isSuperAdmin = checkIsSuperAdmin(user);
     
     try {
       const snapshot = await get(staffRef);
       if (!snapshot.exists()) {
+        // Split the displayName into first and last name
+        const [firstName = '', lastName = ''] = (user.displayName || '').split(' ');
+        
         await set(staffRef, {
           email: user.email,
+          firstName: firstName,
+          lastName: lastName,
           createdAt: Date.now(),
           lastLogin: Date.now(),
           provider: user.providerData[0].providerId,
@@ -140,12 +160,9 @@ export function AuthProvider({ children }) {
       const snapshot = await get(userRef);
       
       if (!snapshot.exists()) {
-        // Check if this is a migrated user by looking for existing data
         const studentsRef = ref(db, `students/${emailKey}`);
         const studentSnapshot = await get(studentsRef);
         const isMigrated = studentSnapshot.exists();
-
-        console.log('Migration check for new user:', { email: user.email, isMigrated });
 
         const userData = {
           uid: user.uid,
@@ -161,9 +178,7 @@ export function AuthProvider({ children }) {
         
         await set(userRef, userData);
         setIsMigratedUser(isMigrated);
-        console.log('Set migration status for new user:', isMigrated);
         
-        // Initialize notifications for new users if not migrated
         if (!isMigrated) {
           const notificationsRef = ref(db, `notifications/${emailKey}`);
           await set(notificationsRef, {});
@@ -171,15 +186,13 @@ export function AuthProvider({ children }) {
       } else {
         const existingData = snapshot.val();
         const isMigrated = existingData.isMigratedUser || false;
-        console.log('Existing user migration status:', isMigrated);
-        
         setIsMigratedUser(isMigrated);
         
         await set(userRef, {
           ...existingData,
           lastLogin: Date.now(),
           emailVerified: user.emailVerified,
-          isMigratedUser: isMigrated // Ensure migration status is preserved
+          isMigratedUser: isMigrated
         });
       }
       return true;
@@ -261,26 +274,33 @@ export function AuthProvider({ children }) {
         if (currentUser) {
           const emailKey = sanitizeEmail(currentUser.email);
           const staffStatus = checkIsStaff(currentUser);
-          const adminStatus = checkIsAdmin(currentUser);
-          const superAdminStatus = checkIsSuperAdmin(currentUser);
           
           let dataCreated = false;
           if (staffStatus) {
-            dataCreated = await ensureStaffNode(currentUser, emailKey);
-            if (dataCreated && isMounted) {
-              await Promise.all([
-                fetchStaffMembers(),
-                fetchCourseTeachers()
-              ]);
+            // Fetch admin emails first for staff users
+            const adminEmailsList = await fetchAdminEmails();
+            if (isMounted) {
+              setAdminEmails(adminEmailsList);
+              const adminStatus = checkIsAdmin(currentUser, adminEmailsList);
+              const superAdminStatus = checkIsSuperAdmin(currentUser);
               
-              setUser(currentUser);
-              setUserEmailKey(emailKey);
-              setIsStaffUser(true);
               setIsAdminUser(adminStatus);
               setIsSuperAdminUser(superAdminStatus);
               
-              if (location.pathname.toLowerCase() === '/staff-login') {
-                navigate('/teacher-dashboard');
+              dataCreated = await ensureStaffNode(currentUser, emailKey);
+              if (dataCreated) {
+                await Promise.all([
+                  fetchStaffMembers(),
+                  fetchCourseTeachers()
+                ]);
+                
+                setUser(currentUser);
+                setUserEmailKey(emailKey);
+                setIsStaffUser(true);
+                
+                if (location.pathname.toLowerCase() === '/staff-login') {
+                  navigate('/teacher-dashboard');
+                }
               }
             }
           } else {
@@ -310,6 +330,7 @@ export function AuthProvider({ children }) {
             setEmulatedUserEmailKey(null);
             setIsEmulating(false);
             setIsMigratedUser(false);
+            setAdminEmails([]);
 
             const currentPath = location.pathname;
             if (!isPublicRoute(currentPath)) {
@@ -336,6 +357,7 @@ export function AuthProvider({ children }) {
           setEmulatedUserEmailKey(null);
           setIsEmulating(false);
           setIsMigratedUser(false);
+          setAdminEmails([]);
         }
       } finally {
         if (isMounted) {
@@ -365,6 +387,7 @@ export function AuthProvider({ children }) {
       setEmulatedUserEmailKey(null);
       setIsEmulating(false);
       setIsMigratedUser(false);
+      setAdminEmails([]);
       
       navigate(wasStaff ? '/staff-login' : '/login');
     } catch (error) {

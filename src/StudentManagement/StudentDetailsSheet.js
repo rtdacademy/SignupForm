@@ -15,6 +15,7 @@ import {
 import { SheetHeader, SheetTitle } from "../components/ui/sheet";
 import { cn } from "../lib/utils";
 import GuardianManager from './GuardianManager';
+import { EmailChangeDialog } from './EmailChangeDialog';
 
 function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, onUpdate }) {
   const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
@@ -151,6 +152,13 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
                   {renderEditableField("Gender", "gender", GENDER_OPTIONS)}
                   {renderEditableField("Student Age", "StudentAge", null, true)}
                   {renderEditableField("Student Email", "StudentEmail", null, true)}
+                  <EmailChangeDialog 
+                    studentData={studentData}
+                    studentKey={studentKey}
+                    onComplete={(newSanitizedEmail, newEmail) => {
+                      if (onUpdate) onUpdate();
+                    }}
+                  />
                   {renderEditableField("Student Phone", "StudentPhone")}
                   {renderEditableField("ASN", "asn", null, true)}
                 </CardContent>
