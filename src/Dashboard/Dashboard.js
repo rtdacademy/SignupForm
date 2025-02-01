@@ -5,7 +5,7 @@ import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import FormDialog from '../Registration/FormDialog';
 import WelcomeDialog from './WelcomeDialog';
-import MigrationWelcomeDialog from '../migration/MigrationWelcomeDialog';
+import MigrationWelcomeDialog from '../migration/MigrationWelcomeSheet';
 import ProfileComponent from './ProfileComponent';
 import CourseCard from './CourseCard';
 import LMSWrapper from './LMSWrapper';
@@ -203,6 +203,8 @@ const Dashboard = () => {
 
   const [forceProfileOpen, setForceProfileOpen] = useState(false);
 
+  
+
   // Helper function to check required fields
   const checkRequiredFields = (profileData) => {
     if (!profileData) return false;
@@ -213,6 +215,33 @@ const Dashboard = () => {
       return value && String(value).trim() !== '';
     });
   };
+
+
+  // Add these two functions
+const getMissingFields = (profileData) => {
+  if (!profileData) return [];
+  
+  const required = [
+    { key: 'firstName', label: 'first name' },
+    { key: 'lastName', label: 'last name' },
+    { key: 'preferredFirstName', label: 'preferred name' },
+    { key: 'StudentPhone', label: 'phone number' },
+    { key: 'gender', label: 'gender' }
+  ];
+  
+  return required.filter(field => 
+    !profileData[field.key] || !String(profileData[field.key]).trim()
+  ).map(field => field.label);
+};
+
+// Use useMemo to calculate these values
+const hasRequiredFields = useMemo(() => {
+  return checkRequiredFields(profile);
+}, [profile]);
+
+const missingFields = useMemo(() => {
+  return getMissingFields(profile);
+}, [profile]);
 
   // Once data is loaded, determine if we need to show the welcome dialog
   useEffect(() => {
@@ -258,15 +287,18 @@ const Dashboard = () => {
         }
       });
       
-      setForceProfileOpen(!hasAllRequiredFields);
+      // Only update if the value would actually change
+      if (!hasAllRequiredFields !== forceProfileOpen) {
+        setForceProfileOpen(!hasAllRequiredFields);
+      }
       
-      // If all fields are complete and the profile was forced open, close it
+      // Only close if fields are complete and it was forced open
       if (hasAllRequiredFields && forceProfileOpen) {
         setIsProfileOpen(false);
         setForceProfileOpen(false);
       }
     }
-  }, [profile, dataLoading, forceProfileOpen]);
+  }, [profile, dataLoading]); // Remove forceProfileOpen from dependencies
 
   const handleLogout = useCallback(async () => {
     try {
@@ -461,17 +493,18 @@ const Dashboard = () => {
                   </h3>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto space-y-6 p-6">
-                  {courses.length > 0 ? (
-                    courses.map((course) => (
-                      <CourseCard
-                        user_email_key={current_user_email_key}
-                        key={course.CourseID || course.id}
-                        course={course}
-                        onViewDetails={() => setSelectedCourse(course)}
-                        onGoToCourse={() => {
-                          setSelectedCourse(course);
-                          setShowLMS(true);
-                        }}
+                {courses.length > 0 ? (
+  courses.map((course) => (
+    <CourseCard
+      user_email_key={current_user_email_key}
+      key={course.CourseID || course.id}
+      course={course}
+      profile={profile}  // Add this line
+      onViewDetails={() => setSelectedCourse(course)}
+      onGoToCourse={() => {
+        setSelectedCourse(course);
+        setShowLMS(true);
+      }}
                         customActions={
                           <div className="flex gap-2">
                             <Button
@@ -533,22 +566,22 @@ const Dashboard = () => {
             )}
           </div>
 
-          {/* Profile Component - Updated with force profile logic */}
-          {studentExists && (
-            <ProfileComponent
-              isOpen={isProfileOpen || forceProfileOpen}
-              onOpenChange={(open) => {
-                // Only allow closing if all required fields are complete
-                if (!open && checkRequiredFields(profile)) {
-                  setIsProfileOpen(false);
-                  setForceProfileOpen(false);
-                } else if (open) {
-                  setIsProfileOpen(true);
-                }
-              }}
-              profile={profile}
-            />
-          )}
+        
+{studentExists && (
+  <ProfileComponent
+    isOpen={isProfileOpen || forceProfileOpen}
+    onOpenChange={(open) => {
+      // Simply update both states when closing
+      if (!open) {
+        setIsProfileOpen(false);
+        setForceProfileOpen(false);
+      } else {
+        setIsProfileOpen(true);
+      }
+    }}
+    profile={profile}
+  />
+)}
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import CourseStats from './Stats/CourseStats';
 import SurveyResults from './Stats/SurveyResults';
 import PerformanceMetrics from './Stats/PerformanceMetrics'; 
 import DomainsDashboard from './DomainsDashboard'; 
+import RequiredAEAMResults from './Components/RequiredAEAMResults';
 
 const AERR2324 = () => {
   const dataTabs = [
@@ -49,6 +50,8 @@ const AERR2324 = () => {
           </ul>
         </div>
       </section>
+
+ 
 
       <section className="space-y-4">
         <div className="bg-slate-50 border-2 border-blue-200 rounded-xl shadow-lg p-6">
@@ -167,6 +170,10 @@ const AERR2324 = () => {
             </a>
           </div>
         </div>
+      </section>
+
+      <section className="space-y-4">
+        <RequiredAEAMResults />
       </section>
 
 

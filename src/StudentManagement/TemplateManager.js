@@ -944,21 +944,26 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null, d
                       </PopoverContent>
                     </Popover>
                   </div>
-                  <div className="min-h-[200px]">
-                    <ReactQuill
-                      theme="snow"
-                      value={newTemplate.content}
-                      onChange={(content) => {
-                        setNewTemplate({
-                          ...newTemplate,
-                          content
-                        });
-                      }}
-                      modules={modules}
-                      formats={formats}
-                      ref={quillRef}
-                    />
-                  </div>
+                  <div className="relative">
+  <div className="h-[300px] overflow-hidden">
+    <div className="h-full">
+      <ReactQuill
+        theme="snow"
+        value={newTemplate.content}
+        onChange={(content) => {
+          setNewTemplate({
+            ...newTemplate,
+            content
+          });
+        }}
+        modules={modules}
+        formats={formats}
+        ref={quillRef}
+        className="h-[calc(300px-42px)]" // 42px accounts for the toolbar height
+      />
+    </div>
+  </div>
+</div>
                 </div>
 
                 <Button

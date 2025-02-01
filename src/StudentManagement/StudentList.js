@@ -8,6 +8,7 @@ import StudentCard from './StudentCard';
 import { ChevronUp, ChevronDown, SortAsc, FileDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { TutorialButton } from '../components/TutorialButton';
+import CustomCSVExport from './CustomCSVExport';
 
 // Utility function to generate username
 const generateUsername = (firstName, lastName) => {
@@ -65,17 +66,48 @@ function StudentList({
   onSelectedStudentsChange,
   isMobile,
   onCourseRemoved,
+  studentAsns, 
 }) {
   const { getTeacherForCourse } = useAuth();
   const [sortKey, setSortKey] = useState('lastName');
   const [sortOrder, setSortOrder] = useState('asc');
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
 
   // Apply filters and search using useMemo for performance optimization
   
  // Inside the useMemo for filteredStudents in StudentList component
-const filteredStudents = useMemo(() => {
-  const normalizedSearchTerm = String(searchTerm || '').toLowerCase();
+ const filteredStudents = useMemo(() => {
+  const normalizedSearchTerm = String(searchTerm || '').toLowerCase().trim();
+
+  // Helper function to normalize ASN for comparison
+  const normalizeASN = (asn) => {
+    if (!asn) return '';
+    // Remove hyphens and convert to lowercase
+    return asn.replace(/-/g, '').toLowerCase();
+  };
+
+  // Helper function to check full name matches
+  const matchesFullName = (student, searchTerm) => {
+    // Create both possible full name combinations
+    const firstNameLastName = `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase().trim();
+    const preferredFirstNameLastName = `${student.preferredFirstName || student.firstName || ''} ${student.lastName || ''}`.toLowerCase().trim();
+    
+    // Check if search term matches either combination
+    return firstNameLastName.includes(searchTerm) || 
+           preferredFirstNameLastName.includes(searchTerm);
+  };
+
+
   return studentSummaries.filter((student) => {
+    // Basic validation - skip invalid student records
+    if (!student || 
+      typeof student.firstName === 'undefined' || 
+      typeof student.lastName === 'undefined' || 
+      !student.StudentEmail) {
+    console.warn('Skipping invalid student record:', student);
+    return false;
+  }
+
     // Helper function to compare dates
     const compareDates = (studentDate, filterDate) => {
       if (!studentDate || !filterDate) return false;
@@ -215,14 +247,19 @@ const filteredStudents = useMemo(() => {
 
     // Handle search term
     const matchesSearch =
-    !normalizedSearchTerm || 
-    String(student.firstName || '').toLowerCase().includes(normalizedSearchTerm) ||
-    String(student.lastName || '').toLowerCase().includes(normalizedSearchTerm) ||
-    String(student.StudentEmail || '').toLowerCase().includes(normalizedSearchTerm);
+      !normalizedSearchTerm || 
+      matchesFullName(student, normalizedSearchTerm) || // Check full name combinations
+      String(student.firstName || '').toLowerCase().includes(normalizedSearchTerm) ||
+      String(student.preferredFirstName || '').toLowerCase().includes(normalizedSearchTerm) ||
+      String(student.lastName || '').toLowerCase().includes(normalizedSearchTerm) ||
+      String(student.StudentEmail || '').toLowerCase().includes(normalizedSearchTerm) ||
+      normalizeASN(student.asn).includes(normalizeASN(searchTerm));
 
-  return matchesFilters && matchesSearch;
-});
+    return matchesFilters && matchesSearch;
+  });
 }, [studentSummaries, filters, searchTerm]);
+
+
   // Sorting using useMemo for performance optimization
   const sortedStudents = useMemo(() => {
     return [...filteredStudents].sort((a, b) => {
@@ -307,6 +344,7 @@ const filteredStudents = useMemo(() => {
           email: student.StudentEmail || '',
           courseid: student.CourseID || '',
           course: student.Course_Value || '',
+          Status_Value: student.Status_Value || '',
           section: formatSection(student.section),
           pemail: student.ParentEmail || '',
           teacherFirstName: teacher ? teacher.firstName : '',
@@ -315,7 +353,22 @@ const filteredStudents = useMemo(() => {
           studenttype: student.StudentType_Value || '',
           starting: formatDate(student.ScheduleStartDate),
           ending: formatDate(student.ScheduleEndDate),
-          asn: student.asn || '' // Adding the ASN to the CSV data
+          asn: student.asn || '', 
+          DiplomaMonthChoices_Value: student.DiplomaMonthChoices_Value || '',
+          LMSStudentID: student.LMSStudentID || '',
+          StudentPhone: student.StudentPhone || '',
+          School_x0020_Year_Value: student.School_x0020_Year_Value || '',
+          ParentFirstName: student.ParentFirstName || '',
+          ParentLastName: student.ParentLastName || '',
+          ParentPhone_x0023_: student.ParentPhone_x0023_ || '',
+          lastUpdated: student.lastUpdated ? 
+            new Date(student.lastUpdated).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            }) : '',
         };
       })
       .filter(Boolean);
@@ -389,32 +442,15 @@ const filteredStudents = useMemo(() => {
               className="text-xs flex items-center"
               asChild
             >
-              <CSVLink
-                data={csvData}
-                filename={`student-export-${new Date().toISOString().split('T')[0]}.csv`}
-                className="flex items-center"
-                headers={[
-                  { label: 'Username', key: 'username' },
-                  { label: 'Password', key: 'password' },
-                  { label: 'Last Name', key: 'lname' },
-                  { label: 'First Name', key: 'fname' },
-                  { label: 'Email', key: 'email' },
-                  { label: 'Course ID', key: 'courseid' },
-                  { label: 'Course', key: 'course' },
-                  { label: 'Section', key: 'section' },
-                  { label: 'Parent Email', key: 'pemail' },
-                  { label: 'Teacher First Name', key: 'teacherFirstName' },
-                  { label: 'Teacher Last Name', key: 'teacherLastName' },
-                  { label: 'Teacher Email', key: 'teacherEmail' },
-                  { label: 'Student Type', key: 'studenttype' },
-                  { label: 'Start Date', key: 'starting' },
-                  { label: 'End Date', key: 'ending' },
-                  { label: 'ASN', key: 'asn' } // Adding ASN to CSV headers
-                ]}
-              >
-                <FileDown className="w-4 h-4 mr-1" />
-                Export CSV
-              </CSVLink>
+              <Button
+  variant="outline"
+  size="sm"
+  className="text-xs flex items-center"
+  onClick={() => setIsExportDialogOpen(true)}
+>
+  <FileDown className="w-4 h-4 mr-1" />
+  Export CSV
+</Button>
             </Button>
           </div>
         )}
@@ -445,6 +481,7 @@ const filteredStudents = useMemo(() => {
           user_email_key={user_email_key}
           isMobile={isMobile}
           onCourseRemoved={onCourseRemoved}
+          studentAsns={studentAsns} 
         />
       </div>
     );
@@ -456,6 +493,12 @@ const filteredStudents = useMemo(() => {
   }}
 />
       </div>
+      <CustomCSVExport
+  isOpen={isExportDialogOpen}
+  onClose={() => setIsExportDialogOpen(false)}
+  data={csvData}
+/>
+
     </div>
   );
 }

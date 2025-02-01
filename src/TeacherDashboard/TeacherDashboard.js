@@ -23,7 +23,8 @@ import {
   Mail,
   Handshake,
   Upload,
-  FilePenLine
+  FilePenLine,
+  Shield
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import Courses from '../courses/Courses';
@@ -42,6 +43,7 @@ import NavItemWithIndicator from '../Notifications/NavItemWithIndicator';
 import IMathASGradeImporter from './IMathASGradeImporter';
 import LTIManagement from '../LTI/LTIManagement';
 import EnrollmentStatistics from '../Statistics/EnrollmentStatistics'; 
+import DataVerification from '../PASI/DataVerification';
 
 
 
@@ -124,6 +126,7 @@ function TeacherDashboard() {
       { icon: Link, label: 'Links', key: 'external-links' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
       { icon: BarChart2, label: 'Enrollment Stats', key: 'enrollment-stats' },
+      { icon: Shield, label: 'Data Verification', key: 'data-verification' },
     ];
 
     // Only add admin items if user has admin access
@@ -191,6 +194,8 @@ function TeacherDashboard() {
   return <LTIManagement />;
   case 'enrollment-stats':
     return <EnrollmentStatistics />;
+    case 'data-verification':
+  return <DataVerification />;
         default:
           return null;
     }

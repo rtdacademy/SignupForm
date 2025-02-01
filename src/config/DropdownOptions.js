@@ -87,7 +87,8 @@ export const COURSE_OPTIONS = [
     grade: 10,
     color: "#3B82F6",
     icon: Calculator,
-    courseId: 82
+    courseId: 82,
+    pasiCode: "KAE1782"
   },
   { 
     value: "Math 10-3",
@@ -96,7 +97,8 @@ export const COURSE_OPTIONS = [
     grade: 10,
     color: "#3B82F6",
     icon: Calculator,
-    courseId: 78
+    courseId: 78,
+    pasiCode: "MAT1793"
   },
   { 
     value: "Math 10C",
@@ -105,7 +107,8 @@ export const COURSE_OPTIONS = [
     grade: 10,
     color: "#3B82F6",
     icon: Calculator,
-    courseId: 97
+    courseId: 97,
+    pasiCode: "MAT1791"
   },
   { 
     value: "Math 15",
@@ -114,8 +117,10 @@ export const COURSE_OPTIONS = [
     grade: 10,
     color: "#3B82F6",
     icon: Calculator,
-    courseId: 90
+    courseId: 90,
+    pasiCode: "LDC1515"
   },
+
   { 
     value: "Coding",
     label: "Coding", 
@@ -134,7 +139,8 @@ export const COURSE_OPTIONS = [
     grade: 11,
     color: "#8B5CF6",
     icon: Calculator,
-    courseId: 84
+    courseId: 84,
+    pasiCode: "KAE2782"
   },
   { 
     value: "Math 20-3",
@@ -143,7 +149,8 @@ export const COURSE_OPTIONS = [
     grade: 11,
     color: "#8B5CF6",
     icon: Calculator,
-    courseId: 96
+    courseId: 96,
+    pasiCode: "MAT2793"
   },
   { 
     value: "Math 20-2",
@@ -152,7 +159,8 @@ export const COURSE_OPTIONS = [
     grade: 11,
     color: "#8B5CF6",
     icon: Calculator,
-    courseId: 98
+    courseId: 98,
+    pasiCode: "MAT2792"
   },
   { 
     value: "Math 20-1",
@@ -161,7 +169,8 @@ export const COURSE_OPTIONS = [
     grade: 11,
     color: "#8B5CF6",
     icon: Calculator,
-    courseId: 95
+    courseId: 95,
+    pasiCode: "MAT2791"
   },
 
   // Grade 12 Courses - Green theme
@@ -172,7 +181,8 @@ export const COURSE_OPTIONS = [
     grade: 12,
     color: "#10B981",
     icon: Calculator,
-    courseId: 86
+    courseId: 86,
+    pasiCode: "MAT3793"
   },
   { 
     value: "Math 30-2",
@@ -181,7 +191,8 @@ export const COURSE_OPTIONS = [
     grade: 12,
     color: "#10B981",
     icon: Calculator,
-    courseId: 87
+    courseId: 87,
+    pasiCode: "MAT3792"
   },
   { 
     value: "Math 30-1",
@@ -190,17 +201,21 @@ export const COURSE_OPTIONS = [
     grade: 12,
     color: "#10B981",
     icon: Calculator,
-    courseId: 89
+    courseId: 89,
+    pasiCode: "MAT3791"
   },
   { 
-    value: "Math 31 (Calculus)",
+    value: "Math 31",
     label: "Math 31 (Calculus)", 
     courseType: "Math",
     grade: 12,
     color: "#10B981",
     icon: Calculator,
-    courseId: 93
-  }
+    courseId: 93,
+    pasiCode: "MAT3211"
+  },
+
+
 ];
 
 // Color scheme reference
@@ -249,6 +264,213 @@ export const getCoursesByGrade = () => {
     return acc;
   }, {});
 };
+
+
+export const PASI_COURSES = [
+  // Grade 10 Math Courses
+  {
+    pasiCode: "KAE1782",
+    description: "Mathematics 10-4",
+    credits: 5,
+    color: "#3B82F6", // Blue
+    courseType: "Math",
+    grade: 10,
+    courseId: [82]
+  },
+  {
+    pasiCode: "MAT1793",
+    description: "Mathematics 10-3",
+    credits: 5,
+    color: "#3B82F6",
+    courseType: "Math",
+    grade: 10,
+    courseId: [78]
+  },
+  {
+    pasiCode: "MAT1791",
+    description: "Mathematics 10C",
+    credits: 5,
+    color: "#3B82F6",
+    courseType: "Math",
+    grade: 10,
+    courseId: [97]
+  },
+  {
+    pasiCode: "LDC1515",
+    description: "Competencies in Math 15",
+    credits: 3,
+    color: "#3B82F6",
+    courseType: "Math",
+    grade: 10,
+    courseId: [90]
+  },
+
+  // Grade 11 Math Courses
+  {
+    pasiCode: "KAE2782",
+    description: "Mathematics 20-4",
+    credits: 5,
+    color: "#8B5CF6", // Purple
+    courseType: "Math",
+    grade: 11,
+    courseId: [84]
+  },
+  {
+    pasiCode: "MAT2793",
+    description: "Mathematics 20-3",
+    credits: 5,
+    color: "#8B5CF6",
+    courseType: "Math",
+    grade: 11,
+    courseId: [96]
+  },
+  {
+    pasiCode: "MAT2792",
+    description: "Mathematics 20-2",
+    credits: 5,
+    color: "#8B5CF6",
+    courseType: "Math",
+    grade: 11,
+    courseId: [98]
+  },
+  {
+    pasiCode: "MAT2791",
+    description: "Mathematics 20-1",
+    credits: 5,
+    color: "#8B5CF6",
+    courseType: "Math",
+    grade: 11,
+    courseId: [95]
+  },
+
+  // Grade 12 Math Courses
+  {
+    pasiCode: "MAT3793",
+    description: "Mathematics 30-3",
+    credits: 5,
+    color: "#10B981", // Green
+    courseType: "Math",
+    grade: 12,
+    courseId: [86]
+  },
+  {
+    pasiCode: "MAT3792",
+    description: "Mathematics 30-2",
+    credits: 5,
+    color: "#10B981",
+    courseType: "Math",
+    grade: 12,
+    courseId: [87]
+  },
+  {
+    pasiCode: "MAT3791",
+    description: "Mathematics 30-1",
+    credits: 5,
+    color: "#10B981",
+    courseType: "Math",
+    grade: 12,
+    courseId: [89]
+  },
+  {
+    pasiCode: "MAT3211",
+    description: "Mathematics 31",
+    credits: 5,
+    color: "#10B981",
+    courseType: "Math",
+    grade: 12,
+    courseId: [93]
+  },
+
+  // CTS Courses
+  {
+    pasiCode: "CSE1210",
+    description: "Client-side Scripting 1",
+    credits: 1,
+    color: "#F97316", // Orange
+    courseType: "Options",
+    grade: 10,
+    courseId: [1111]
+  },
+  {
+    pasiCode: "COM1255",
+    description: "E-Learning & Learning Management Systems",
+    credits: 1,
+    color: "#F97316",
+    courseType: "Options",
+    grade: 10,
+    courseId: [82, 78, 97, 90, 84, 96, 98, 95, 86, 87, 89, 93, 1111] // All Math courseIds
+  },
+  {
+    pasiCode: "CSE1110",
+    description: "Structured Programming 1",
+    credits: 1,
+    color: "#F97316",
+    courseType: "Options",
+    grade: 10,
+    courseId: [1111]
+  },
+  {
+    pasiCode: "CSE1120",
+    description: "Structured Programming 2",
+    credits: 1,
+    color: "#F97316",
+    courseType: "Options",
+    grade: 10,
+    courseId: [1111]
+  },
+  {
+    pasiCode: "CSE1220",
+    description: "Client-side Scripting 2",
+    credits: 1,
+    color: "#F97316",
+    courseType: "Options",
+    grade: 10,
+    courseId: [1111]
+  },
+  {
+    pasiCode: "CSE1910",
+    description: "CSE Project A",
+    credits: 1,
+    color: "#F97316",
+    courseType: "Options",
+    grade: 10,
+    courseId: [1111]
+  },
+  {
+    pasiCode: "INF2020",
+    description: "Keyboarding",
+    credits: 1,
+    color: "#F97316",
+    courseType: "Options",
+    grade: 10,
+    courseId: [82, 78, 97, 90, 84, 96, 98, 95, 86, 87, 89, 93, 1111] 
+  }
+];
+
+// Helper function to get courses for dropdown
+export const getPASICoursesForDropdown = () => {
+  return PASI_COURSES.map(course => ({
+    value: course.pasiCode,
+    label: `${course.pasiCode} - ${course.description} (${course.credits} credits)`
+  }));
+};
+
+// Helper function to get course info by PASI code
+export const getPASICourseInfo = (pasiCode) => {
+  return PASI_COURSES.find(course => course.pasiCode === pasiCode);
+};
+
+// Helper function to group PASI courses by type
+export const getPASICoursesByType = () => {
+  return PASI_COURSES.reduce((acc, course) => {
+    if (!acc[course.courseType]) {
+      acc[course.courseType] = [];
+    }
+    acc[course.courseType].push(course);
+    return acc;
+  }, {});
+};
+
 
 export const ACTIVE_FUTURE_ARCHIVED_OPTIONS = [
   { value: "Active", color: "#10B981" },     // Green
@@ -388,24 +610,34 @@ export const getCourseEnrollmentStatusColor = (status) => {
 export const getSchoolYearOptions = () => {
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+  const currentMonth = currentDate.getMonth() + 1;
 
   let startYear = currentMonth >= 9 ? currentYear : currentYear - 1;
 
-  return [
-    {
-      value: `${(startYear - 1).toString().substr(-2)}/${startYear.toString().substr(-2)}`,
+  const options = [];
+
+  // Add the past 5 years
+  for (let i = 5; i > 0; i--) {
+    options.push({
+      value: `${(startYear - i).toString().substr(-2)}/${(startYear - i + 1).toString().substr(-2)}`,
       color: "#6B7280",
-    }, // Gray for last year
-    {
-      value: `${startYear.toString().substr(-2)}/${(startYear + 1).toString().substr(-2)}`,
-      color: "#10B981",
-    }, // Green for current year
-    {
-      value: `${(startYear + 1).toString().substr(-2)}/${(startYear + 2).toString().substr(-2)}`,
-      color: "#3B82F6",
-    }, // Blue for next year
-  ];
+    });
+  }
+
+  // Add the current year (default)
+  options.push({
+    value: `${startYear.toString().substr(-2)}/${(startYear + 1).toString().substr(-2)}`,
+    color: "#10B981",
+    isDefault: true, 
+  });
+
+  // Add the next year
+  options.push({
+    value: `${(startYear + 1).toString().substr(-2)}/${(startYear + 2).toString().substr(-2)}`,
+    color: "#3B82F6",
+  });
+
+  return options;
 };
 
 export const DIPLOMA_MONTH_OPTIONS = [

@@ -481,4 +481,36 @@ textarea::-webkit-scrollbar-thumb:hover {
 }
 
 
+@media print {
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
 
+  body * {
+    visibility: hidden;
+  }
+
+  .print-content,
+  .print-content * {
+    visibility: visible;
+  }
+
+  .print-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  .print-content {
+    height: auto !important;
+    overflow: visible !important;
+  }
+}

@@ -16,9 +16,10 @@ const GENDER_OPTIONS = [
   { value: 'prefer-not-to-say', label: 'Prefer not to say' }
 ];
 
+const REQUIRED_FIELDS = ['preferredFirstName', 'StudentPhone', 'gender'];
+
 const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
-  const { user_email_key } = useAuth();
-  const [isSaving, setIsSaving] = useState(false);
+  const { current_user_email_key } = useAuth();
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -53,75 +54,24 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
     }
   }, [profile]);
 
-  // Check if required fields are complete in the database
-  const checkRequiredFields = (profileData) => {
-    if (!profileData) return false;
-    
-    console.log('Checking profile data:', profileData);
-    
-    return (
-      profileData.firstName?.trim() &&
-      profileData.lastName?.trim() &&
-      profileData.preferredFirstName?.trim() &&
-      profileData.StudentPhone?.trim() &&
-      profileData.gender?.trim()
-    );
-  };
-
-  const getMissingFields = (profileData) => {
-    if (!profileData) return [];
-    
-    const required = [
-      { key: 'firstName', label: 'first name' },
-      { key: 'lastName', label: 'last name' },
-      { key: 'preferredFirstName', label: 'preferred name' },
-      { key: 'StudentPhone', label: 'phone number' },
-      { key: 'gender', label: 'gender' }
-    ];
-    
-    return required.filter(field => 
-      !profileData[field.key] || !String(profileData[field.key]).trim()
-    ).map(field => field.label);
-  };
-
-  const handleChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleSave = async () => {
-    if (!user_email_key) return;
-    
-    setIsSaving(true);
-    setError(null);
-  
+  const handleChange = async (field, value) => {
     try {
+      // Update local state
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+
+      // Update database
       const db = getDatabase();
-      const updates = {
-        [`students/${user_email_key}/profile/preferredFirstName`]: formData.preferredFirstName,
-        [`students/${user_email_key}/profile/StudentPhone`]: formData.StudentPhone,
-        [`students/${user_email_key}/profile/gender`]: formData.gender,
-      };
-  
-      // Only update firstName and lastName if they're currently empty in the database
-      if (!profile.firstName) {
-        updates[`students/${user_email_key}/profile/firstName`] = formData.firstName;
-      }
-      if (!profile.lastName) {
-        updates[`students/${user_email_key}/profile/lastName`] = formData.lastName;
-      }
-  
-      await update(ref(db), updates);
-      
-      // Always close the dialog after successful save
-      onOpenChange(false);
+      await update(ref(db), {
+        [`students/${current_user_email_key}/profile/${field}`]: value
+      });
+
+      setError(null);
     } catch (err) {
-      console.error('Error saving profile:', err);
-      setError('Failed to save profile changes');
-    } finally {
-      setIsSaving(false);
+      console.error('Error updating field:', err);
+      setError('Failed to update profile');
     }
   };
 
@@ -129,25 +79,22 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
     const isPhoneField = type === 'phone';
     const isGenderField = type === 'gender';
     const value = formData[field];
-    const isRequired = ['firstName', 'lastName', 'preferredFirstName', 'StudentPhone', 'gender'].includes(field);
-    const isMissing = isRequired && (!profile[field] || !String(profile[field]).trim());
-    const canEdit = field === 'preferredFirstName' || field === 'StudentPhone' || field === 'gender' || 
-                   (field === 'firstName' && !profile.firstName) || 
-                   (field === 'lastName' && !profile.lastName);
+    const isRequired = ['preferredFirstName', 'StudentPhone', 'gender'].includes(field);
+    const isMissing = isRequired && (!value || !String(value).trim());
 
     return (
       <div className="space-y-2">
         <label className="text-sm font-medium">
           {label}
           {isRequired && <span className="text-red-500 ml-1">*</span>}
-          {canEdit && <span className="text-primary ml-1">(Editable)</span>}
+          {!readonly && <span className="text-primary ml-1">(Editable)</span>}
         </label>
         
         {isGenderField ? (
           <Select
             value={value}
             onValueChange={(val) => handleChange(field, val)}
-            disabled={readonly || !canEdit}
+            disabled={readonly}
           >
             <SelectTrigger className={`w-full ${isMissing ? 'border-red-500' : ''}`}>
               <SelectValue placeholder="Select gender" />
@@ -165,8 +112,8 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
             country={"ca"}
             value={value}
             onChange={(val) => handleChange(field, val)}
-            disabled={readonly || !canEdit}
-            inputClass={`w-full p-2 border rounded-md ${isMissing ? 'border-red-500' : ''} ${!canEdit ? 'bg-gray-50' : ''}`}
+            disabled={readonly}
+            inputClass={`w-full p-2 border rounded-md ${isMissing ? 'border-red-500' : ''} ${readonly ? 'bg-gray-50' : ''}`}
             containerClass="phone-input-container"
             buttonClass="phone-input-button"
             preferredCountries={["ca"]}
@@ -179,8 +126,8 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
             onChange={(e) => handleChange(field, e.target.value)}
             className={`w-full p-2 border rounded-md 
               ${isMissing ? 'border-red-500' : ''} 
-              ${!canEdit ? 'bg-gray-50' : ''}`}
-            readOnly={readonly || !canEdit}
+              ${readonly ? 'bg-gray-50' : ''}`}
+            readOnly={readonly}
           />
         )}
         
@@ -191,21 +138,8 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
     );
   };
 
-  const canClose = checkRequiredFields(profile);
-  const missingFields = getMissingFields(profile);
-
   return (
-    <Sheet 
-      open={isOpen} 
-      onOpenChange={(open) => {
-        console.log('Sheet onOpenChange:', { open, canClose, profile });
-        if (!open && canClose) {
-          onOpenChange(false);
-        } else if (open) {
-          onOpenChange(true);
-        }
-      }}
-    >
+    <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="w-full max-w-2xl overflow-hidden flex flex-col h-full">
         <SheetHeader className="flex-shrink-0">
           <SheetTitle>Profile Information</SheetTitle>
@@ -213,18 +147,6 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
             Manage your profile information
           </SheetDescription>
         </SheetHeader>
-
-        {!canClose && (
-          <Alert className="mt-4 flex-shrink-0 bg-red-50 border-red-200">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-sm text-red-700">
-              Please complete all required fields marked with * before closing. 
-              {missingFields.length > 0 && (
-                <span> Missing: {missingFields.join(', ')}.</span>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
 
         {error && (
           <Alert className="mt-4 flex-shrink-0 bg-red-50 border-red-200">
@@ -237,13 +159,12 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
 
         <ScrollArea className="flex-grow my-6 pr-4">
           <div className="space-y-6">
-            {/* Personal Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Personal Information</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderField('First Name', 'firstName')}
-                {renderField('Last Name', 'lastName')}
+                {renderField('First Name', 'firstName', 'text', true)}
+                {renderField('Last Name', 'lastName', 'text', true)}
               </div>
               
               <div className="space-y-4">
@@ -252,7 +173,6 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
                 {renderField('Gender', 'gender', 'gender')}
               </div>
 
-              {/* Read-only Fields */}
               <div className="space-y-4 mt-6">
                 <h4 className="text-sm font-medium text-gray-500">Other Information (Contact instructor to update)</h4>
                 {renderField('Birthday', 'birthday', 'date', true)}
@@ -260,7 +180,6 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
               </div>
             </div>
 
-            {/* Parent/Guardian Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-gray-500">Parent/Guardian Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -273,24 +192,10 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
           </div>
         </ScrollArea>
 
-        <SheetFooter className="flex-shrink-0 flex justify-between border-t pt-4">
-          <Button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="bg-primary hover:bg-primary/90"
-          >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              'Update Profile'
-            )}
-          </Button>
-          
-          {canClose && (
-            <SheetClose asChild>
-              <Button type="button" variant="outline">Close</Button>
-            </SheetClose>
-          )}
+        <SheetFooter className="flex-shrink-0 flex justify-end border-t pt-4">
+          <SheetClose asChild>
+            <Button type="button" variant="outline">Close</Button>
+          </SheetClose>
         </SheetFooter>
       </SheetContent>
     </Sheet>

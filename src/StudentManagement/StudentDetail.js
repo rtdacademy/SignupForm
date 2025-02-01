@@ -508,41 +508,62 @@ useEffect(() => {
 
   // New render function for Edge Admin content
   const renderEdgeAdminContent = () => {
-    const handleOpenNewWindow = () => {
-      window.open('https://edge.rtdacademy.com/admin/forms.php?from=admin2&action=newadmin', '_blank', 'width=1200,height=800');
+    const handleOpenSearchTab = () => {
+      window.open('https://edge.rtdacademy.com/admin/admin2.php', '_blank');
     };
-
-    const handleOpenNewTab = () => {
-      window.open('https://edge.rtdacademy.com/admin/forms.php?from=admin2&action=newadmin', '_blank');
+  
+    const handleOpenNewStudentTab = () => {
+      window.open(`https://edge.rtdacademy.com/course/listusers.php?cid=${courseId}&newstu=new`, '_blank');
     };
-
+  
+    const handleOpenExistingStudentTab = () => {
+      window.open(`https://edge.rtdacademy.com/course/listusers.php?cid=${courseId}&enroll=student`, '_blank');
+    };
+  
     return (
       <div className="flex flex-col h-full">
-        <div className="flex justify-end space-x-2 mb-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenNewTab}
-            className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white"
-          >
-            Open in New Tab
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleOpenNewWindow}
-            className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white"
-          >
-            Open in New Window
-          </Button>
-        </div>
-        <div className="flex-1 min-h-[500px] relative">
-          <iframe
-            src="https://edge.rtdacademy.com/admin/admin2.php"
-            className="w-full h-full absolute inset-0 border-0"
-            title="Edge Admin Interface"
-            allow="fullscreen"
-          />
+        <div className="flex flex-col space-y-4">
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenSearchTab}
+              className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white w-full text-left justify-start"
+            >
+              1. Search for Existing Student
+            </Button>
+            <p className="text-sm mt-2 text-gray-600">
+              Search for the newly registered student to see if they already exist. If they exist, use the third option. If they don't exist, use the second option.
+            </p>
+          </div>
+  
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenNewStudentTab}
+              className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white w-full text-left justify-start"
+            >
+              2. Add New Student
+            </Button>
+            <p className="text-sm mt-2 text-gray-600">
+              Use this option when the student does not already have an account. You can add the student to the course from here.
+            </p>
+          </div>
+  
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenExistingStudentTab}
+              className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white w-full text-left justify-start"
+            >
+              3. Add Existing Student to Course
+            </Button>
+            <p className="text-sm mt-2 text-gray-600">
+              Use this option to register an existing student by their username.
+            </p>
+          </div>
         </div>
       </div>
     );

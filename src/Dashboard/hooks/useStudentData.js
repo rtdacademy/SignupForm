@@ -149,6 +149,8 @@ export const useStudentData = (userEmailKey) => {
   };
 
   useEffect(() => {
+    let isMounted = true; // Add mounted flag
+    
     if (!userEmailKey) {
       setStudentData(prev => ({ ...prev, loading: false }));
       return;
@@ -159,19 +161,19 @@ export const useStudentData = (userEmailKey) => {
     let unsubscribe = null;
 
     const handleData = async (snapshot) => {
+      if (!isMounted) return; // Check if still mounted
+
       try {
         const exists = snapshot.exists();
         
         if (exists) {
           const data = snapshot.val();
-          console.log('Raw Student Data:', {
-            profile: data.profile,
-            coursesCount: data.courses ? Object.keys(data.courses).length : 0,
-            notificationsCount: data.notifications ? Object.keys(data.notifications).length : 0
-          });
-
+          
+          // Batch all the async operations together
           const processedCourses = await processCourses(data.courses);
           
+          if (!isMounted) return; // Check again after async operations
+
           const finalData = {
             courses: processedCourses,
             profile: data.profile || null,
@@ -179,12 +181,11 @@ export const useStudentData = (userEmailKey) => {
             error: null,
             studentExists: true
           };
-
-          console.log('Final Student Data Structure:', finalData);
           
           setStudentData(finalData);
         } else {
-          console.log('No student data found');
+          if (!isMounted) return;
+          
           setStudentData({
             courses: [],
             profile: null,
@@ -194,6 +195,8 @@ export const useStudentData = (userEmailKey) => {
           });
         }
       } catch (error) {
+        if (!isMounted) return;
+        
         console.error('Error processing student data:', error);
         setStudentData(prev => ({
           ...prev,
@@ -205,6 +208,8 @@ export const useStudentData = (userEmailKey) => {
     };
 
     const handleError = (error) => {
+      if (!isMounted) return;
+      
       console.error('Firebase listener error:', error);
       setStudentData(prev => ({
         ...prev,
@@ -214,31 +219,34 @@ export const useStudentData = (userEmailKey) => {
       }));
     };
 
+    const fetchData = async () => {
+      try {
+        const snapshot = await get(studentRef);
+        await handleData(snapshot);
+      } catch (error) {
+        handleError(error);
+      }
+    };
+
     if (isEmulating) {
-      // One-time fetch for emulation mode
-      console.log('Fetching data once for emulation mode:', userEmailKey);
-      get(studentRef)
-        .then(snapshot => handleData(snapshot))
-        .catch(handleError);
+      // Single fetch for emulation
+      fetchData();
     } else {
       // Real-time listener for normal mode
-      console.log('Setting up Firebase listener for:', userEmailKey);
       unsubscribe = onValue(
         studentRef,
-        (snapshot) => {
-          handleData(snapshot).catch(handleError);
-        },
+        snapshot => handleData(snapshot),
         handleError
       );
     }
 
     return () => {
-      console.log('Cleaning up Firebase listener');
+      isMounted = false; // Cleanup
       if (unsubscribe) {
         unsubscribe();
       }
     };
-  }, [userEmailKey, isEmulating]);
+  }, [userEmailKey, isEmulating]); // Keep these dependencies
 
   return studentData;
 };

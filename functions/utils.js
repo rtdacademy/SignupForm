@@ -1,5 +1,3 @@
-// functions/utils.js
-
 const functions = require('firebase-functions');
 
 // Utility function to sanitize email addresses
@@ -30,10 +28,34 @@ const profileFields = [
 
 const largeStringFields = ['Schedule', 'AssignmentsList'];
 
+// Mapping PASI course codes to internal course IDs
+const PASI_TO_COURSE_MAP = {
+  'KAE1782': 82,
+  'MAT1793': 78,
+  'MAT1791': 97,
+  'LDC1515': 90,
+  'KAE2782': 84,
+  'MAT2793': 96,
+  'MAT2792': 98,
+  'MAT2791': 95,
+  'MAT3793': 86,
+  'MAT3792': 87,
+  'MAT3791': 89,
+  'MAT3211': 93,
+  'CSE1210': 1111,
+  'CSE1110': 1111,
+  'CSE1120': 1111,
+  'CSE1220': 1111,
+  'CSE1910': 1111,
+  'CSE2110': 1111, 
+  'CSE3120': 1111  
+};
+
 module.exports = {
   sanitizeEmail,
   formatASN,
   API_KEY,
   profileFields,
   largeStringFields,
+  PASI_TO_COURSE_MAP
 };

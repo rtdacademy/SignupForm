@@ -8,7 +8,6 @@ if (!admin.apps.length) {
 
 // Export functions from other files
 const gradebookFunctions = require('./gradebook');
-const studentFunctions = require('./student');
 const paymentFunctions = require('./payment');
 const chatFunctions = require('./chat');
 const categoryFunctions = require('./categories');
@@ -19,6 +18,9 @@ const historicalPaymentFunctions = require('./updateHistoricalPaymentStatus');
 const ltiFunctions = require('./lti');
 const IMathASFunctions = require('./IMathAS_Database');
 const edgeFunctions = require('./edge');
+const asnFunctions = require('./asnSync');
+const pasiFunctions = require('./pasi');
+const httpFunctions = require('./httpTrigger');
 
 
 
@@ -29,8 +31,6 @@ exports.addGradebookIndex = gradebookFunctions.addGradebookIndex;
 exports.updateJsonGradebookSchedule = gradebookFunctions.updateJsonGradebookSchedule;
 exports.updateJsonGradebookScheduleOnScheduleChange = gradebookFunctions.updateJsonGradebookScheduleOnScheduleChange;
 
-// Export student functions
-exports.updateStudentData = studentFunctions.updateStudentData;
 
 // Export payment functions
 exports.updatePaymentInfo = paymentFunctions.updatePaymentInfo;
@@ -70,7 +70,16 @@ exports.ltiDeepLinkReturn = ltiFunctions.ltiDeepLinkReturn;
 exports.getLTILinks = ltiFunctions.getLTILinks;
 exports.ltiGradeCallback = ltiFunctions.ltiGradeCallback;
 
-
 // functions to sync data between mysql and firestore
 exports.updateIMathASGrade = IMathASFunctions.updateIMathASGrade;
 exports.fetchLMSStudentId = edgeFunctions.fetchLMSStudentId;
+
+// Export ASN sync function
+exports.syncStudentASN = asnFunctions.syncStudentASN;
+exports.rebuildASNNodes= asnFunctions.rebuildASNNodes;
+
+exports.syncPasiRecordsV2 = pasiFunctions.syncPasiRecordsV2;
+
+exports.addSchoolYearToPasiLinks = httpFunctions.addSchoolYearToPasiLinks;
+
+

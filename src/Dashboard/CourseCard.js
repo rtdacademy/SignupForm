@@ -10,7 +10,8 @@ import {
   FaCreditCard,
   FaCheckCircle,
   FaClock,
-  FaEnvelope
+  FaEnvelope,
+  FaFileAlt
 } from 'react-icons/fa';
 import { ChevronRight, AlertCircle, BarChart } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
@@ -40,6 +41,7 @@ import { useAuth } from '../context/AuthContext';
 import SchedulePurchaseDialog from './SchedulePurchaseDialog';
 import CreateScheduleButton from './CreateScheduleButton'; 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '../components/ui/sheet';
+import ProofOfEnrollmentDialog from './ProofOfEnrollmentDialog';
 
 const getStatusColor = (status) => {
   switch (status) {
@@ -77,7 +79,8 @@ const formatDate = (dateString) => {
 const CourseCard = ({ 
   course, 
   onGoToCourse,
-  className = ''
+  className = '',
+  profile 
 }) => {
   const { currentUser, isEmulating } = useAuth();
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
@@ -100,6 +103,8 @@ const CourseCard = ({
   const schoolYear = course.School_x0020_Year?.Value || 'N/A';
   const isOnTranscript = course.PASI?.Value === 'Yes';
   const isAdultStudent = studentType.toLowerCase().includes('adult');
+
+  const [showEnrollmentProof, setShowEnrollmentProof] = useState(false);
 
   // New function to check remaining schedules
   const checkRemainingSchedules = () => {
@@ -264,6 +269,8 @@ const CourseCard = ({
           onClick={checkRemainingSchedules} 
           hasSchedule={hasSchedule}
         />
+
+
   
         {/* Schedule Purchase Dialog */}
         <SchedulePurchaseDialog 
@@ -334,7 +341,7 @@ const CourseCard = ({
         />
 
         <Card className="overflow-hidden border-l-4" style={{ borderLeftColor: getBorderColor(status) }}>
-          <CardHeader className="bg-gradient-to-br from-slate-50 to-white p-4">
+        <CardHeader className="bg-gradient-to-br from-slate-50 to-white p-4">
             <div className="flex justify-between items-center">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -351,6 +358,14 @@ const CourseCard = ({
                   size="sm"
                 >
                   <FaSearch className="mr-2 h-4 w-4" /> Details
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEnrollmentProof(true)}
+                  className="border-gray-200 hover:bg-gray-50 hover:text-gray-900"
+                  size="sm"
+                >
+                  <FaFileAlt className="mr-2 h-4 w-4" /> Enrollment
                 </Button>
                 <Badge variant="outline" className={getStatusColor(status)}>
                   {status}
@@ -473,6 +488,17 @@ const CourseCard = ({
         course={course}
         user={currentUser} 
       />
+
+<ProofOfEnrollmentDialog
+  isOpen={showEnrollmentProof}
+  onOpenChange={setShowEnrollmentProof}
+  course={course}
+  studentProfile={profile}
+  onPrint={() => {
+    toast.success("Document ready for printing");
+  }}
+/>
+
     </>
   );
 };

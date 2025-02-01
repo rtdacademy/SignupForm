@@ -12,6 +12,9 @@ import { Button } from "../components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast, Toaster } from "sonner";
+import { getSchoolYearOptions } from '../config/DropdownOptions';
+import SchoolYearSelector from './SchoolYearSelector';
+import { query, orderByChild, equalTo } from 'firebase/database';
 
 function StudentManagement({ isFullScreen, onFullScreenToggle }) {
   console.log('StudentManagement component rendered');
@@ -49,7 +52,8 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
   const [teacherCategories, setTeacherCategories] = useState({});
   const [categoryTypes, setCategoryTypes] = useState([]);
   const [teacherNames, setTeacherNames] = useState({});
-  const [selectedStudents, setSelectedStudents] = useState(new Set()); // Add this state
+  const [selectedStudents, setSelectedStudents] = useState(new Set());
+  const [studentAsns, setStudentAsns] = useState({});
 
   const { user_email_key } = useAuth();
 
@@ -59,6 +63,10 @@ const [detailRefreshKey, setDetailRefreshKey] = useState(0);
 const handleRefreshStudent = useCallback(() => {
   setDetailRefreshKey(prev => prev + 1);
 }, []);
+
+const [selectedSchoolYear, setSelectedSchoolYear] = useState(
+  getSchoolYearOptions().find(option => option.isDefault)?.value
+);
 
 
 
@@ -96,6 +104,22 @@ const handleRefreshStudent = useCallback(() => {
     };
   }, []);
 
+  useEffect(() => {
+    const db = getDatabase();
+    const asnsRef = ref(db, 'ASNs');
+
+    const handleAsnData = (snapshot) => {
+      if (snapshot.exists()) {
+        setStudentAsns(snapshot.val());
+      } else {
+        setStudentAsns({});
+      }
+    };
+
+    const unsubscribe = onValue(asnsRef, handleAsnData);
+
+    return () => unsubscribe();
+}, []);
 
       // Fetch category types
 useEffect(() => {
@@ -121,58 +145,62 @@ useEffect(() => {
 
   // Fetch student summaries from Firebase
   useEffect(() => {
-    //console.log('useEffect - Firebase listeners added for student summaries');
-
+    console.log('Setting up Firebase listeners for school year:', selectedSchoolYear);
+    
     const db = getDatabase();
     const studentSummariesRef = ref(db, 'studentCourseSummaries');
-
-    // Define the event handlers
+    
+    // Create a query filtered by school year
+    const yearQuery = query(
+      studentSummariesRef,
+      orderByChild('School_x0020_Year_Value'),
+      equalTo(selectedSchoolYear)
+    );
+  
     const handleChildAdded = (snapshot) => {
-     // console.log('Child added:', snapshot.key);
       const key = snapshot.key;
       const data = snapshot.val();
       const student = { ...data, id: key };
-
+      
       setStudentSummaries((prevSummaries) => [...prevSummaries, student]);
     };
-
-
-
+  
     const handleChildChanged = (snapshot) => {
-     // console.log('Child changed:', snapshot.key);
       const key = snapshot.key;
       const data = snapshot.val();
       const updatedStudent = { ...data, id: key };
-
+  
       setStudentSummaries((prevSummaries) =>
-        prevSummaries.map((student) => (student.id === key ? updatedStudent : student))
+        prevSummaries.map((student) => 
+          student.id === key ? updatedStudent : student
+        )
       );
     };
-
+  
     const handleChildRemoved = (snapshot) => {
-     // console.log('Child removed:', snapshot.key);
       const key = snapshot.key;
-
       setStudentSummaries((prevSummaries) =>
         prevSummaries.filter((student) => student.id !== key)
       );
     };
-
-
-   
-
-    // Attach the listeners
-    const unsubscribeChildAdded = onChildAdded(studentSummariesRef, handleChildAdded);
-    const unsubscribeChildChanged = onChildChanged(studentSummariesRef, handleChildChanged);
-    const unsubscribeChildRemoved = onChildRemoved(studentSummariesRef, handleChildRemoved);
-
-    // Cleanup function
+  
+    // Clear existing data when changing school year
+    setStudentSummaries([]);
+  
+    // Attach the listeners to the filtered query
+    const unsubscribeChildAdded = onChildAdded(yearQuery, handleChildAdded);
+    const unsubscribeChildChanged = onChildChanged(yearQuery, handleChildChanged);
+    const unsubscribeChildRemoved = onChildRemoved(yearQuery, handleChildRemoved);
+  
     return () => {
-     // console.log('useEffect cleanup - Firebase listeners removed');
       unsubscribeChildAdded();
       unsubscribeChildChanged();
       unsubscribeChildRemoved();
     };
+  }, [selectedSchoolYear]); 
+
+  const handleSchoolYearChange = useCallback((year) => {
+    setSelectedSchoolYear(year);
   }, []);
 
   // Fetch teacher categories and names
@@ -298,6 +326,7 @@ useEffect(() => {
             onSelectedStudentsChange={handleSelectedStudentsChange} 
             selectedStudents={selectedStudents} 
             onCourseRemoved={handleCourseRemoved}
+            studentAsns={studentAsns}
           />
         </CardContent>
       </Card>
@@ -313,7 +342,8 @@ useEffect(() => {
     user_email_key,
     handleSelectedStudentsChange,
     selectedStudents,
-    handleCourseRemoved
+    handleCourseRemoved,
+    studentAsns
   ]);
 
   // Render student detail
@@ -342,21 +372,31 @@ useEffect(() => {
       <Toaster />
       {console.log('Rendering main StudentManagement component')}
       {(!isMobile || !showStudentDetail) && (
-        <div className="flex-shrink-0 mb-4 relative z-50">
-          <FilterPanel
-            filters={filters}
-            onFilterChange={handleFilterChange}
-            studentSummaries={memoizedStudentSummaries}
-            availableFilters={memoizedAvailableFilters}
-            isFullScreen={isFullScreen}
-            onFullScreenToggle={onFullScreenToggle}
-            searchTerm={searchTerm}
-            onSearchChange={handleSearchChange}
-            teacherCategories={teacherCategories}
-            teacherNames={teacherNames}
-            user_email_key={user_email_key}
-            categoryTypes={categoryTypes} 
-          />
+        <div className="flex-shrink-0 space-y-2 mb-4 relative z-50">
+          <div className="flex items-center space-x-4">
+          <div className="flex-shrink-0"> 
+      <SchoolYearSelector
+        selectedYear={selectedSchoolYear}
+        onYearChange={handleSchoolYearChange}
+      />
+    </div>
+            <div className="flex-1">
+              <FilterPanel
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                studentSummaries={memoizedStudentSummaries}
+                availableFilters={memoizedAvailableFilters}
+                isFullScreen={isFullScreen}
+                onFullScreenToggle={onFullScreenToggle}
+                searchTerm={searchTerm}
+                onSearchChange={handleSearchChange}
+                teacherCategories={teacherCategories}
+                teacherNames={teacherNames}
+                user_email_key={user_email_key}
+                categoryTypes={categoryTypes} 
+              />
+            </div>
+          </div>
         </div>
       )}
       <div className="flex-1 overflow-hidden">

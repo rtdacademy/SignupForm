@@ -456,7 +456,7 @@ export function AuthProvider({ children }) {
   const value = {
     // Original auth values
     user,
-    user_email_key,
+    user_email_key: isEmulating ? emulatedUserEmailKey : user_email_key,
     loading,
     isStaff,
     isStaffUser,
@@ -486,6 +486,7 @@ export function AuthProvider({ children }) {
       isMigratedUser // Include the migration status for regular users
     } : null,
     
+    // Both email keys should be the emulated user's during emulation
     current_user_email_key: isEmulating ? emulatedUserEmailKey : user_email_key,
 
     // Admin access helpers

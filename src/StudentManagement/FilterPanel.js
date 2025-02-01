@@ -11,7 +11,7 @@ import {
   GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, 
   Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, 
   MessageCircle, Users, Presentation, FileText, Filter, Loader2, 
-  UserSquare2, ClipboardList, Grid2X2, ChartNoAxesGantt
+  UserSquare2, ClipboardList, Grid2X2, FilterX
 } from "lucide-react";
 import CategoryManager from './CategoryManager';
 import AdvancedFilters from './AdvancedFilters';
@@ -64,30 +64,6 @@ const MODE_CONFIG = {
   }
 };
 
-const ModeSelector = ({ currentMode, setCurrentMode }) => (
-  <TooltipProvider>
-    <div className="flex items-center space-x-1">
-      {Object.entries(MODE_CONFIG).map(([mode, config]) => (
-        <Tooltip key={mode}>
-          <TooltipTrigger asChild>
-            <Button
-              variant={currentMode === mode ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setCurrentMode(mode)}
-              className="p-1.5"
-            >
-              {config.icon}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>{config.tooltip}</p>
-          </TooltipContent>
-        </Tooltip>
-      ))}
-    </div>
-  </TooltipProvider>
-);
-
 const ClearingOverlay = ({ isClearing }) => {
   if (!isClearing) return null;
 
@@ -98,6 +74,65 @@ const ClearingOverlay = ({ isClearing }) => {
         <span className="text-sm text-blue-500 font-medium">Clearing filters...</span>
       </div>
     </div>
+  );
+};
+
+// New enhanced filter indicator component
+const FilterIndicator = ({ count }) => {
+  if (count === 0) return null;
+  
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center bg-blue-600 text-white px-3 py-1 rounded-full shadow-md hover:bg-blue-700 transition-colors">
+            <Filter className="h-4 w-4 mr-1" />
+            <span className="text-sm font-medium">{count} active {count === 1 ? 'filter' : 'filters'}</span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Click 'Clear Filters' to reset all filters</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
+// New enhanced clear filters button component
+const ClearFiltersButton = ({ onClick, isClearing }) => {
+  if (isClearing) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        className="bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+        disabled
+      >
+        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+        Clearing...
+      </Button>
+    );
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onClick}
+            className="bg-red-50 text-red-600 border-red-200 hover:bg-red-100 transition-colors"
+          >
+            <FilterX className="h-4 w-4 mr-1" />
+           
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Reset all applied filters</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
 
@@ -121,7 +156,6 @@ const FilterPanel = memo(function FilterPanel({
   const [isClearing, setIsClearing] = useState(false);
   const { currentMode, setCurrentMode } = useMode();
   const { preferences, updateFilterPreferences, clearAllFilters } = useUserPreferences();
-
 
   const groupCategoriesByType = useMemo(() => {
     return () => {
@@ -230,33 +264,37 @@ const FilterPanel = memo(function FilterPanel({
   const handleClearAll = useCallback(async () => {
     setIsClearing(true);
 
-    // Wait for overlay to appear
     await new Promise(resolve => setTimeout(resolve, 100));
 
     const clearedFilters = {
-      ...localFilters,
-      categories: [],
-      hasSchedule: [],
-      dateFilters: {},
-      currentMode: localFilters.currentMode || MODES.TEACHER,
-      ...Object.keys(localFilters).reduce((acc, key) => {
-        if (key !== 'currentMode' && key !== 'dateFilters' && key !== 'hasSchedule') {
-          acc[key] = [];
-        }
-        return acc;
-      }, {})
+        ...localFilters,
+        categories: [],
+        hasSchedule: [],
+        dateFilters: {},
+        currentMode: localFilters.currentMode || MODES.TEACHER,
+        ...Object.keys(localFilters).reduce((acc, key) => {
+            if (key !== 'currentMode' && key !== 'dateFilters' && key !== 'hasSchedule') {
+                acc[key] = [];
+            }
+            return acc;
+        }, {})
+    };
+
+    // Clear everything in one batch
+    const updatedPreferences = {
+        ...clearedFilters,
+        searchTerm: '' // Include searchTerm in the preferences update
     };
 
     setLocalFilters(clearedFilters);
     onFilterChange(clearedFilters);
-    handleSearchChange('');
-    await updateFilterPreferences(clearedFilters);
+    onSearchChange(''); // Use onSearchChange directly instead of handleSearchChange
+    await updateFilterPreferences(updatedPreferences);
 
-    // Keep overlay visible for a moment after clearing
     setTimeout(() => {
-      setIsClearing(false);
+        setIsClearing(false);
     }, 1000);
-  }, [localFilters, onFilterChange, handleSearchChange, updateFilterPreferences]);
+}, [localFilters, onFilterChange, onSearchChange, updateFilterPreferences]);
 
   const handleModeChange = useCallback((newMode) => {
     setCurrentMode(newMode);
@@ -349,8 +387,6 @@ const FilterPanel = memo(function FilterPanel({
       return sum + (categories ? categories.length : 0);
     }, 0);
   }, [localFilters.categories]);
-
- 
 
   // Render Categories Dropdown with grouping by Staff and Type
   const renderCategoriesDropdown = () => (
@@ -548,7 +584,7 @@ const FilterPanel = memo(function FilterPanel({
           <div className="relative flex-1">
             <Input
               type="text"
-              placeholder="Search students..."
+              placeholder="Search by name, email or asn..."
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10 pr-10 bg-white w-full h-9"
@@ -679,11 +715,17 @@ const FilterPanel = memo(function FilterPanel({
                 </TooltipProvider>
               </div>
 
-              {/* Filter Counter Badge - only show for actual filters */}
+              {/* Enhanced Filter Indicator */}
               {activeFilterCount > 0 && (
-                <div className="bg-blue-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                  {activeFilterCount}
-                </div>
+                <FilterIndicator count={activeFilterCount} />
+              )}
+
+              {/* Enhanced Clear Filters Button */}
+              {activeFilterCount > 0 && (
+                <ClearFiltersButton
+                  onClick={handleClearAll}
+                  isClearing={isClearing}
+                />
               )}
 
               {/* Action Buttons */}
@@ -697,18 +739,6 @@ const FilterPanel = memo(function FilterPanel({
                 {isFullScreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
               </Button>
               
-              {/* Only show clear button when there are active filters */}
-              {activeFilterCount > 0 && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleClearAll}
-                  className="text-[#315369]"
-                  title="Clear all filters"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
             </div>
           )}
         </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2 } from 'lucide-react';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { getDatabase, ref, set, get, push, remove } from 'firebase/database';
@@ -31,6 +31,8 @@ import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../components/ui/tooltip";
 import { TutorialButton } from '../components/TutorialButton';
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import PasiRecordsDialog from './PasiRecordsDialog';
+import AsnIssuesDialog from './AsnIssuesDialog';
 
 
 // Map icon names to icon components
@@ -140,7 +142,8 @@ const StudentCard = React.memo(({
   onBulkCategoryChange,
   onBulkAutoStatusToggle,
   isMobile,
-  onCourseRemoved
+  onCourseRemoved,
+  studentAsns
 }) => {
   
   const { currentMode } = useMode();
@@ -149,16 +152,18 @@ const StudentCard = React.memo(({
     : index % 2 === 0 
       ? 'bg-white' 
       : 'bg-gray-50';
-  const displayName = student.preferredFirstName || student.firstName;
-  const initials = `${displayName[0]}${student.lastName[0]}`;
+  const displayName = (student?.preferredFirstName || student?.firstName || '?');
+  const lastName = student?.lastName || '?';
+  const initials = `${displayName[0] || '?'}${lastName[0] || '?'}`;
   const avatarColor = getColorFromInitials(initials);
 
   // Initialize statusValue from student.Status_Value
-  const [statusValue, setStatusValue] = useState(student.Status_Value);
+  const [statusValue, setStatusValue] = useState(student?.Status_Value || '');
+const [autoStatus, setAutoStatus] = useState(student?.autoStatus || false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [teacherNames, setTeacherNames] = useState({});
-  const [autoStatus, setAutoStatus] = useState(student.autoStatus || false);
+  
 
   // State variables for status history dialog
   const [isStatusHistoryOpen, setIsStatusHistoryOpen] = useState(false);
@@ -175,6 +180,30 @@ const StudentCard = React.memo(({
   const { user } = useAuth();
 
   const customHoverStyle = "hover:bg-accent hover:text-accent-foreground";
+
+  const [isPasiDialogOpen, setIsPasiDialogOpen] = useState(false);
+
+  const [isAsnIssuesDialogOpen, setIsAsnIssuesDialogOpen] = useState(false);
+
+  const checkAsnIssues = useMemo(() => {
+    if (!student.asn || !studentAsns) return true;  // Show button if no ASN or no studentAsns data
+    
+    // Check if student's ASN exists in studentAsns
+    const asnData = studentAsns[student.asn];
+    if (!asnData) return true;  // Show button if ASN not found
+  
+    // Check for multiple email keys set to true
+    const emailKeys = asnData.emailKeys || {};
+    const trueEmailKeys = Object.entries(emailKeys)
+      .filter(([_, value]) => value === true)
+      .length;
+  
+    return trueEmailKeys > 1;  // Show button only if multiple email keys are true
+  }, [student.asn, studentAsns]);
+ 
+
+
+
 
   useEffect(() => {
     setStatusValue(student.Status_Value);
@@ -305,16 +334,16 @@ const StudentCard = React.memo(({
     const studentKey = student.id.slice(0, lastUnderscoreIndex);
     const courseId = student.id.slice(lastUnderscoreIndex + 1);
     const categoryRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}/${categoryId}`);
-
+  
     try {
-      await set(categoryRef, null);
+      // Set to false instead of removing the node
+      await set(categoryRef, false);
       
-      // If this is part of a multi-select, update other selected students
       if (isPartOfMultiSelect) {
         onBulkCategoryChange(categoryId, teacherEmailKey, student.id, false);
       }
     } catch (error) {
-      console.error("Error removing category:", error);
+      console.error("Error updating category:", error);
     }
   }, [student.id, isPartOfMultiSelect, onBulkCategoryChange]);
 
@@ -935,8 +964,38 @@ const StudentCard = React.memo(({
 
        
 
-           {/* Action Buttons */}
-<div className="flex justify-end mt-2 space-x-2">
+{/* Action Buttons */}
+<div className="flex flex-wrap gap-2 mt-2">
+  {student.asn && (
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-xs"
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsPasiDialogOpen(true);
+      }}
+    >
+      <Database className="w-4 h-4 mr-1" />
+      PASI
+    </Button>
+  )}
+
+{checkAsnIssues && (
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-xs text-amber-600 hover:text-amber-700"
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsAsnIssuesDialogOpen(true);
+      }}
+    >
+      <AlertTriangle className="w-4 h-4 mr-1" />
+      ASN Issues
+    </Button>
+)}
+
   <Button
     variant="outline"
     size="sm"
@@ -946,6 +1005,7 @@ const StudentCard = React.memo(({
     <MessageSquare className="w-4 h-4 mr-1" />
     Chat
   </Button>
+
   <Button
     variant="outline"
     size="sm"
@@ -957,18 +1017,16 @@ const StudentCard = React.memo(({
   </Button>
 
   <Button
-  variant="outline"
-  size="sm"
-  className="text-xs text-blue-600 hover:text-blue-700"
-  onClick={(e) => {
-   
-    // Open in a new tab with a specific target name
-    window.open(`/emulate/${student.StudentEmail}`, 'emulationTab');
-  }}
->
-  <UserCheck className="w-4 h-4 mr-1" />
-  Emulate
-</Button>
+    variant="outline"
+    size="sm"
+    className="text-xs text-blue-600 hover:text-blue-700"
+    onClick={(e) => {
+      window.open(`/emulate/${student.StudentEmail}`, 'emulationTab');
+    }}
+  >
+    <UserCheck className="w-4 h-4 mr-1" />
+    Emulate
+  </Button>
 
   {currentMode === MODES.REGISTRATION && (
     <Button
@@ -976,7 +1034,6 @@ const StudentCard = React.memo(({
       size="sm"
       className="text-xs text-red-600 hover:text-red-700"
       onClick={(e) => {
-        
         setIsRemovalDialogOpen(true);
       }}
     >
@@ -1119,6 +1176,31 @@ const StudentCard = React.memo(({
   </DialogContent>
 </Dialog>
       </TooltipProvider>
+
+{/* PASI Records Dialog */}
+<PasiRecordsDialog
+  isOpen={isPasiDialogOpen}
+  onOpenChange={setIsPasiDialogOpen}
+  studentAsn={student.asn}
+  student={student} 
+  courseId={student.CourseID}
+/>
+
+{/* ASN Issues Dialog */}
+<AsnIssuesDialog
+  isOpen={isAsnIssuesDialogOpen}
+  onOpenChange={setIsAsnIssuesDialogOpen}
+  asn={student.asn}
+  studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
+  studentEmail={student.StudentEmail}  
+  emailKeys={studentAsns?.[student.asn]?.emailKeys ? 
+    Object.entries(studentAsns[student.asn].emailKeys)
+      .filter(([_, value]) => value === true)
+      .map(([email]) => email) : 
+    []
+  }
+/>
+
     </>
   );
 });
