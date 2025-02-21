@@ -8,6 +8,7 @@ import { UserPreferencesProvider } from './context/UserPreferencesContext';
 import { TutorialProvider } from './context/TutorialContext';
 import { CourseProvider } from './context/CourseContext'; 
 import App from "./App";
+import { Toaster } from 'sonner'; 
 import './index.css';
 
 const isSecondSite = process.env.REACT_APP_SITE === 'second';
@@ -22,8 +23,9 @@ root.render(
             <ModeProvider>
             <TutorialProvider> 
             <CourseProvider> 
-              <App isSecondSite={isSecondSite} />
-              </CourseProvider> 
+                  <App isSecondSite={isSecondSite} />
+                  <Toaster position="top-right" />  {/* Render Toaster here */}
+                </CourseProvider> 
               </TutorialProvider> 
             </ModeProvider>
           </LayoutProvider>

@@ -78,7 +78,7 @@ const ClearingOverlay = ({ isClearing }) => {
 };
 
 // New enhanced filter indicator component
-const FilterIndicator = ({ count }) => {
+const FilterIndicator = ({ count, isFullScreen }) => {
   if (count === 0) return null;
   
   return (
@@ -86,8 +86,17 @@ const FilterIndicator = ({ count }) => {
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="flex items-center bg-blue-600 text-white px-3 py-1 rounded-full shadow-md hover:bg-blue-700 transition-colors">
-            <Filter className="h-4 w-4 mr-1" />
-            <span className="text-sm font-medium">{count} active {count === 1 ? 'filter' : 'filters'}</span>
+            <Filter className="h-4 w-4" />
+            {isFullScreen && (
+              <>
+                <span className="ml-1 text-sm font-medium">
+                  {count} active {count === 1 ? 'filter' : 'filters'}
+                </span>
+              </>
+            )}
+            {!isFullScreen && (
+              <span className="ml-1 text-sm font-medium">{count}</span>
+            )}
           </div>
         </TooltipTrigger>
         <TooltipContent>
@@ -148,7 +157,7 @@ const FilterPanel = memo(function FilterPanel({
   teacherCategories,
   teacherNames,
   user_email_key,
-  categoryTypes, // Added categoryTypes prop
+  categoryTypes, 
 }) {
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [localFilters, setLocalFilters] = useState({});
@@ -582,13 +591,13 @@ const FilterPanel = memo(function FilterPanel({
         </CardTitle>
         <div className="flex flex-1 items-center space-x-4 w-full">
           <div className="relative flex-1">
-            <Input
-              type="text"
-              placeholder="Search by name, email or asn..."
-              value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-10 pr-10 bg-white w-full h-9"
-            />
+          <Input
+  type="text"
+  placeholder="Search by name, email, parent email or asn..."  
+  value={searchTerm}
+  onChange={(e) => handleSearchChange(e.target.value)}
+  className="pl-10 pr-10 bg-white w-full h-9"
+/>
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             {searchTerm && (
               <Button

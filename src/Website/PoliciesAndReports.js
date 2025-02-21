@@ -89,37 +89,37 @@ const PoliciesAndReports = () => {
                     <PolicyLink 
                       icon={Shield}
                       title="Safe & Caring School"
-                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDMathAcademy/EfL2P1EAyrJNo4gxv5XhiJEBpgsZSs8iolelYnOx8dTr6w?e=aLeXHC"
+                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDAdministration/EXQneL8kVxtNtRL1nRLd16wB6pcQkGFH5Mor1ITxfFKsMA?e=V2mLk7"
                     />
                     <PolicyLink 
                       icon={AlertTriangle}
                       title="Emergency Procedures"
-                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDMathAcademy/EUzxdzSaR0tFolUul0Fw1U0BKDEUuAtnFAK2Giw-S8sZhg?e=t7gQFv"
+                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDAdministration/EeLFulPeZXlIoT_2sVsYgNcBWjt0snVrciL5n3JxZObXdg?e=qVkY7z"
                     />
                     <PolicyLink 
                       icon={Heart}
                       title="Health Protocol Policy"
-                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDMathAcademy/Eb3gwMHWKlBJgEXaODAQzNEBbezap7g8femmch86azCsOw?e=eLPVKe"
+                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDAdministration/EU9_Rd6iHupGgy1z3f_LCYMBFRO55sVYX2T_D8XbX8MI4A?e=bCFLT7"
                     />
                     <PolicyLink 
                       icon={GraduationCap}
                       title="Assessment of Students"
-                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDMathAcademy/EUbYacmcLntAvluWc_SXASIBE1IBu3cIomifVSr6DUGA1Q?e=bT4yjB"
+                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDAdministration/EeKIQKTSaORGsDbpL2FWB_wBxnl7aclptk6fq1Sbfu33NA?e=rOE8DT"
                     />
                     <PolicyLink 
                       icon={Scale}
                       title="Discipline Policy"
-                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDMathAcademy/EXpp_XX1_MZFgCHsj_o8hO4Bt3fTFBHQR1q45tSrgBp2yA?e=cdGdq7"
+                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDAdministration/EfXfyUrGddhIps8Rg5JJ-GMB8DbLoCmqbbmoeLdbVcwhuA?e=PLNjra"
                     />
                     <PolicyLink 
                       icon={Users}
                       title="Teacher Growth, Supervision & Evaluation"
-                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDMathAcademy/EUFg7DPK6HtBncVYQmt9RM4By5MWArRJFbYMKo4N9uEzRA?e=HCaq89"
+                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDAdministration/EWCYnziKGZdJruVblbLC7u8BYnGLvoYLyeaXXKpFRiKupQ?e=HkO6j2"
                     />
                     <PolicyLink 
                       icon={Map}
                       title="Safety for Field Trips"
-                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDMathAcademy/EcfAUREsGn9Jtw8rmg-QV2QBeV3-Ip0rSacrzLP-cvM9Zw?e=NKmCua"
+                      href="https://rtdacademy.sharepoint.com/:w:/s/RTDAdministration/Eecl8T_Ivb9GnH4fSo_EuFMB2RliovzepfEhgqs0jmRC9g?e=7EZxkx"
                     />
                   </div>
                 </div>
@@ -143,19 +143,19 @@ const PoliciesAndReports = () => {
                     <DocumentLink 
                       icon={BookOpen}
                       title="Education Plan"
-                      href="https://rtdacademy.sharepoint.com/:b:/s/RTDMathAcademy/EXJhl1q5gfdCpdLRlUALWnEBBpre3_3IB0Vlrcrum7vp3g?e=EeB91R"
+                      href="https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/EYYUkFuBkcZLlnpBU2WwSD8B3XTunO3WRUVEjQJMQiJhQg?e=Q9R8T4"
                       date="Current"
                     />
                     <DocumentLink 
                       icon={Calculator}
                       title="Budget 2024-2025"
-                      href="https://rtdacademy.sharepoint.com/:b:/s/RTDMathAcademy/EfaSg3pjUPZOsS0z8VVsNmQBpYVDpyIS_RiMR4dYICVe6w?e=gZgE76"
+                      href="https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/EdmbZ58KeCVPpvn4rl9MZHQBgnIfNnnrCki8Be24DWwwQA?e=tny7Yr"
                       date="2024-2025"
                     />
                     <DocumentLink 
                       icon={FileText}
                       title="Previous AERR (2022-2023)"
-                      href="https://rtdacademy.sharepoint.com/:b:/s/RTDMathAcademy/Ec01JbLmKXVAkTYjdlPJGDMBuOt7rqhp-riGc3aY9hpzLg?e=XTzfRp"
+                      href="https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/ERJtO6M-KIdHqCj8ivnzGRYBl9P0JV05CGUyYToBLaVyew?e=xDC9uc"
                       date="2022-2023"
                     />
                   </div>

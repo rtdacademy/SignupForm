@@ -46,16 +46,14 @@ const AddCourseDialog = () => {
           );
           setExistingCourseIds(ids);
           
-          // Suggest next available course ID
-          const suggestedId = isModern ? 
-            findNextAvailableId(ids, 100) : 
-            findNextAvailableId(ids, 1);
+          // Suggest next available course ID (for both modern and original, start from 1)
+          const suggestedId = findNextAvailableId(ids, 1);
           setCourseId(suggestedId.toString());
         }
       };
       fetchCourseIds();
     }
-  }, [open, isModern]);
+  }, [open]);
 
   // Find next available ID based on a starting number
   const findNextAvailableId = (existingIds, startFrom) => {
@@ -70,7 +68,8 @@ const AddCourseDialog = () => {
     const numId = parseInt(id);
     if (isNaN(numId)) return 'Course ID must be a number';
     if (numId < 1) return 'Course ID must be positive';
-    if (isModern && numId < 100) return 'Modern course IDs must be 100 or greater';
+    // For modern courses, there is no restriction on the number.
+    // For original (traditional) courses, enforce the existing rule: must be less than 100.
     if (!isModern && numId >= 100) return 'Traditional course IDs must be less than 100';
     if (existingCourseIds.has(numId)) return 'This course ID already exists';
     return '';
@@ -93,6 +92,7 @@ const AddCourseDialog = () => {
         CourseType: courseType,
         modernCourse: isModern,
         Active: 'Current',
+        LMSCourseID: courseId,
         units: [],
         Created: new Date().toISOString(),
         Modified: new Date().toISOString()
@@ -119,10 +119,10 @@ const AddCourseDialog = () => {
     const newIsModern = value === "modern";
     setIsModern(newIsModern);
     
-    // Suggest new course ID based on version
-    const suggestedId = newIsModern ? 
-      findNextAvailableId(existingCourseIds, 100) : 
-      findNextAvailableId(existingCourseIds, 1);
+    // Suggest new course ID based on version.
+    // For modern courses, there is no restriction so we start at 1.
+    // For traditional courses, the same suggestion is used, but the validation will enforce the limit.
+    const suggestedId = findNextAvailableId(existingCourseIds, 1);
     setCourseId(suggestedId.toString());
   };
 

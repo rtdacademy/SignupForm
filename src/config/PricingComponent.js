@@ -425,7 +425,7 @@ const PricingComponent = () => {
 
   return (
     <>
-      <Toaster />
+     
       <div className="container mx-auto p-4">
         <Tabs defaultValue="adult" className="w-full">
           <TabsList className="grid w-full grid-cols-4">

@@ -369,7 +369,7 @@ useEffect(() => {
   
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Toaster />
+      
       {console.log('Rendering main StudentManagement component')}
       {(!isMobile || !showStudentDetail) && (
         <div className="flex-shrink-0 space-y-2 mb-4 relative z-50">

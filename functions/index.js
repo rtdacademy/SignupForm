@@ -21,16 +21,13 @@ const edgeFunctions = require('./edge');
 const asnFunctions = require('./asnSync');
 const pasiFunctions = require('./pasi');
 const httpFunctions = require('./httpTrigger');
+const speechFunctions = require('./speech'); // Add this line
 
-
-
-
-// Export all gradebook functions
+// Export gradebook functions
 exports.updateGradebookData = gradebookFunctions.updateGradebookData;
-exports.addGradebookIndex = gradebookFunctions.addGradebookIndex;
+
 exports.updateJsonGradebookSchedule = gradebookFunctions.updateJsonGradebookSchedule;
 exports.updateJsonGradebookScheduleOnScheduleChange = gradebookFunctions.updateJsonGradebookScheduleOnScheduleChange;
-
 
 // Export payment functions
 exports.updatePaymentInfo = paymentFunctions.updatePaymentInfo;
@@ -51,6 +48,10 @@ exports.syncProfileToCourseSummaries = summaryFunctions.syncProfileToCourseSumma
 exports.sendBulkEmails = emailFunctions.sendBulkEmails;
 // Sendgrid webhooks
 exports.handleWebhookEvents = emailFunctions.handleWebhookEvents;
+exports.sendCourseEmail = emailFunctions.sendCourseEmail;
+exports.testCheckCourseDates = emailFunctions.testCheckCourseDates;
+
+
 
 // Export Stripe webhook and related functions
 exports.handleStripeWebhook = stripeFunctions.handleStripeWebhook;
@@ -70,16 +71,29 @@ exports.ltiDeepLinkReturn = ltiFunctions.ltiDeepLinkReturn;
 exports.getLTILinks = ltiFunctions.getLTILinks;
 exports.ltiGradeCallback = ltiFunctions.ltiGradeCallback;
 
-// functions to sync data between mysql and firestore
+
+
+
+// functions to sync data between mysql and realtime database
 exports.updateIMathASGrade = IMathASFunctions.updateIMathASGrade;
+exports.importIMathASGrades = IMathASFunctions.importIMathASGrades;
+
+
 exports.fetchLMSStudentId = edgeFunctions.fetchLMSStudentId;
 
 // Export ASN sync function
 exports.syncStudentASN = asnFunctions.syncStudentASN;
-exports.rebuildASNNodes= asnFunctions.rebuildASNNodes;
+exports.rebuildASNNodes = asnFunctions.rebuildASNNodes;
 
 exports.syncPasiRecordsV2 = pasiFunctions.syncPasiRecordsV2;
+exports.syncCategoriesToStudents = pasiFunctions.syncCategoriesToStudents;
+
+
 
 exports.addSchoolYearToPasiLinks = httpFunctions.addSchoolYearToPasiLinks;
 
+// Export text-to-speech function
+exports.textToSpeech = speechFunctions.textToSpeech; 
+exports.streamTextToSpeech = speechFunctions.streamTextToSpeech; 
 
+exports.primarySchoolNameUpdate = httpFunctions.primarySchoolNameUpdate; 

@@ -1,10 +1,9 @@
-// src/components/StaffLogin.js
-
 import React, { useState } from "react";
 import { signInWithPopup } from "firebase/auth";
 import { useNavigate, Link } from "react-router-dom";
 import { auth, microsoftProvider } from "../firebase";
 import { useAuth } from "../context/AuthContext";
+import { sanitizeEmail } from "../utils/sanitizeEmail";
 
 const StaffLogin = () => {
   const navigate = useNavigate();
@@ -17,16 +16,36 @@ const StaffLogin = () => {
       const result = await signInWithPopup(auth, microsoftProvider);
       const user = result.user;
       if (isStaff(user)) {
-        await ensureStaffNode(user);
-        console.log("Signed in staff:", user.displayName);
-        navigate("/teacher-dashboard");
+        const staffNodeCreated = await ensureStaffNode(user, sanitizeEmail(user.email));
+        if (staffNodeCreated) {
+          console.log("Signed in staff:", user.displayName);
+          navigate("/teacher-dashboard");
+        } else {
+          setError("Failed to create staff profile. Please contact support.");
+          await auth.signOut();
+        }
       } else {
-        setError("Access denied. Please use an @rtdacademy.com email address.");
+        setError(
+          <div className="text-center">
+            <p className="mb-2">This login page is for RTD Math Academy staff only.</p>
+            <p>Students should login at:{" "}
+              <a 
+                href="https://yourway.rtdacademy.com/login" 
+                className="text-blue-600 hover:text-blue-800 underline"
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                yourway.rtdacademy.com/login
+              </a>
+            </p>
+          </div>
+        );
         await auth.signOut();
       }
     } catch (error) {
       console.error("Sign-in error:", error.code, error.message);
       setError("Failed to sign in. Please try again.");
+      await auth.signOut();
     }
   };
 
@@ -35,8 +54,7 @@ const StaffLogin = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h1 className="text-3xl font-extrabold text-center text-primary">RTD Math Academy</h1>
         <p className="mt-2 text-center text-sm text-gray-600 max-w-md mx-auto">
-          Welcome to the Staff Portal. Access the dashboard to manage courses,
-          view student information, and perform administrative tasks.
+          Staff Portal - Course Management & Administration
         </p>
       </div>
 
@@ -59,11 +77,21 @@ const StaffLogin = () => {
                 Sign in with Microsoft
               </button>
             </div>
-            {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
-            <div className="mt-6 text-center">
-              <Link to="/login" className="font-medium text-secondary hover:text-secondary-dark">
-                Student Login
-              </Link>
+            {error && (
+              <div className="mt-2 text-sm text-red-600">
+                {error}
+              </div>
+            )}
+            <div className="mt-6 text-center space-y-2">
+              <p className="text-sm text-gray-600">Are you a student?</p>
+              <a 
+                href="https://yourway.rtdacademy.com/login"
+                className="font-medium text-secondary hover:text-secondary-dark block"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Go to Student Login →
+              </a>
             </div>
           </div>
         </div>

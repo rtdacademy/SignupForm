@@ -1,183 +1,345 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { ScrollArea } from '../../components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../components/ui/tooltip';
+import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
-import { format, parseISO } from 'date-fns';
-import { 
-  Book, 
-  GraduationCap, 
-  FileText, 
-  Info,
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from '../../components/ui/accordion';
+import { format, parseISO, fromUnixTime } from 'date-fns';
+import {
   Calendar,
   CalendarDays,
-  CheckCircle2,
-  Flag,
-  UserCircle,
-  BookOpen
+  BookOpen,
+  Clock as ClockIcon,
+  PlayCircle,
+  Target,
 } from 'lucide-react';
 import ProgressSection from '../components/ProgressSection';
 
-const CourseNavigation = ({ 
+const typeColors = {
+  lesson: 'bg-blue-100 text-blue-800',
+  assignment: 'bg-green-100 text-green-800',
+  exam: 'bg-red-100 text-red-800',
+  info: 'bg-yellow-100 text-yellow-800',
+};
+
+const getTitleAccentColor = (type) => {
+  switch (type) {
+    case 'exam':
+      return 'bg-red-50';
+    case 'assignment':
+      return 'bg-green-50';
+    case 'lesson':
+      return 'bg-blue-50';
+    case 'info':
+      return 'bg-yellow-50';
+    default:
+      return 'bg-gray-50';
+  }
+};
+
+const sanitizeHTML = (html) => {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+
+  const elements = tempDiv.getElementsByTagName('*');
+  for (let i = 0; i < elements.length; i++) {
+    const element = elements[i];
+    for (let j = 0; j < element.attributes.length; j++) {
+      const attr = element.attributes[j];
+      if (attr.name.startsWith('on')) {
+        element.removeAttribute(attr.name);
+      }
+    }
+  }
+
+  return tempDiv.innerHTML;
+};
+
+const TimeDetails = ({ startTime, lastChange }) => {
+  if (!startTime && !lastChange) return null;
+
+  return (
+    <div className="space-y-2 p-2">
+      {startTime && (
+        <div className="text-sm">
+          <span className="font-medium">Started:</span>{' '}
+          {format(fromUnixTime(startTime), 'MMM d, yyyy h:mm a')}
+        </div>
+      )}
+      {lastChange && (
+        <div className="text-sm">
+          <span className="font-medium">Last Modified:</span>{' '}
+          {format(fromUnixTime(lastChange), 'MMM d, yyyy h:mm a')}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CourseNavigation = ({
   courseTitle,
   schedule,
-  units = [],
-  currentUnitIndex,
-  currentItemIndex,
-  calculateProgress,
+  normalizedSchedule,
   findScheduleItem,
-  isCurrentAssignment,
-  isLastStartedAssignment,
   onItemSelect,
-  typeColors,
+  typeColors: customTypeColors,
   studentCourseData,
-  courseData
+  courseData,
+  previewMode,
 }) => {
-  const getItemIcon = (type) => {
-    switch (type) {
-      case 'lesson':
-        return <Book className="w-5 h-5" />;
-      case 'assignment':
-        return <FileText className="w-5 h-5" />;
-      case 'exam':
-        return <GraduationCap className="w-5 h-5" />;
-      default:
-        return <Info className="w-5 h-5" />;
+  useEffect(() => {
+    console.group('%c[CourseNavigation] Rendering with data:', 'color: #06b6d4; font-weight: bold;');
+    console.log('normalizedSchedule:', normalizedSchedule);
+    console.log('Student Course Data:', studentCourseData);
+    console.groupEnd();
+  }, [normalizedSchedule, studentCourseData]);
+
+  const renderItem = (item, unitIdx, itemIdx) => {
+    if (item.type === 'info' && item.title === 'Schedule Created') {
+      return null;
     }
+
+    const scheduleItem = findScheduleItem?.(item);
+    const isCurrentScheduled = item.globalIndex === normalizedSchedule?.scheduleAdherence?.currentScheduledIndex;
+    const isCurrentProgress = item.globalIndex === (normalizedSchedule?.scheduleAdherence?.currentCompletedIndex + 1);
+    const isCompleted = item.globalIndex <= normalizedSchedule?.scheduleAdherence?.currentCompletedIndex;
+    const sanitizedTitle = { __html: sanitizeHTML(item.title) };
+    
+    const hasScore = item.assessmentData?.scorePercent !== undefined;
+    const startTime = item.assessmentData?.startTime;
+    const lastChange = item.assessmentData?.lastChange;
+    const gradebookData = scheduleItem?.gradebookData?.grade;
+
+    const getScoreDisplay = () => {
+      if (hasScore) {
+        const scorePercent = parseFloat(item.assessmentData.scorePercent);
+        return {
+          label: `${scorePercent.toFixed(1)}%`,
+          className: 'bg-blue-100 text-blue-800',
+        };
+      }
+      if (gradebookData?.percentage !== undefined) {
+        return {
+          label: `${gradebookData.percentage.toFixed(1)}%`,
+          className: 'bg-blue-100 text-blue-800',
+        };
+      }
+      return {
+        label: item.type,
+        className: typeColors[item.type] || 'bg-gray-100 text-gray-800',
+      };
+    };
+
+    const scoreDisplay = getScoreDisplay();
+
+    const getCardBorderClass = () => {
+      if (isCurrentProgress) return 'border-purple-500 border-2 bg-purple-50';
+      if (isCurrentScheduled) return 'border-green-500 border-2 bg-green-50';
+      return '';
+    };
+
+    return (
+      <Card
+        key={`${unitIdx}-${itemIdx}-${item.sequence}`}
+        className={`mb-2 shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer
+          ${getCardBorderClass()}
+          ${isCompleted ? 'bg-gray-50' : ''}`}
+        onClick={() => onItemSelect(unitIdx, itemIdx)}
+      >
+        <CardContent className="p-3">
+          <div className="flex justify-between items-start">
+            <div className="flex-grow flex items-start gap-2">
+              {isCurrentProgress && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <PlayCircle className="text-purple-600 mt-1" size={16} />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Current Progress Position</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {isCurrentScheduled && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Target className="text-green-600 mt-1" size={16} />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Scheduled Position</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              <div className="flex-grow">
+                <div
+                  className={`prose prose-sm max-w-none prose-headings:m-0 prose-p:m-0
+                    prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
+                    font-medium text-gray-900 ${getTitleAccentColor(item.type)}
+                    p-2 rounded-md mb-2`}
+                  dangerouslySetInnerHTML={sanitizedTitle}
+                />
+                <div className="flex flex-wrap gap-2 ml-2">
+                  {(item.date || scheduleItem?.date) && (
+                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                      <CalendarDays size={12} />
+                      <span>Due: {format(parseISO(item.date || scheduleItem?.date), 'MMM d, yyyy')}</span>
+                    </div>
+                  )}
+                  {(startTime || lastChange) && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="flex items-center gap-1 text-xs text-gray-500">
+                          <ClockIcon size={12} />
+                          <span>
+                            Modified:{' '}
+                            {lastChange ? format(fromUnixTime(lastChange), 'MMM d') : 'Not yet'}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <TimeDetails startTime={startTime} lastChange={lastChange} />
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+              </div>
+            </div>
+            <Badge className={`${scoreDisplay.className} text-xs ml-2 shrink-0`}>
+              {scoreDisplay.label}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
-  // Group units by section
-  const sectionedUnits = units.reduce((acc, unit) => {
-    const section = unit.section || 'Other';
-    if (!acc[section]) {
-      acc[section] = [];
-    }
-    acc[section].push(unit);
-    return acc;
-  }, {});
+  const sectionedUnits = useMemo(() => {
+    const filteredUnits = normalizedSchedule?.units || [];
+    return filteredUnits.reduce((acc, unit) => {
+      if (unit.name === 'Schedule Information') return acc;
+      const section = unit.section || "1";
+      if (!acc[section]) {
+        acc[section] = [];
+      }
+      acc[section].push(unit);
+      return acc;
+    }, {});
+  }, [normalizedSchedule]);
+
+  const scheduleAdherence = normalizedSchedule?.scheduleAdherence;
+
+  // Find both current and scheduled units
+  const currentProgressUnit = useMemo(() => {
+    if (!scheduleAdherence?.currentCompletedIndex) return null;
+    return normalizedSchedule?.units?.find(unit =>
+      unit.items?.some(item => item.globalIndex === (scheduleAdherence.currentCompletedIndex + 1))
+    );
+  }, [normalizedSchedule, scheduleAdherence]);
 
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-gray-200 bg-gray-50">
-        <h2 className="font-semibold text-lg text-gray-800 line-clamp-2 break-words">
-          {courseTitle}
-        </h2>
+        <h2 className="font-semibold text-xl text-gray-800 mb-2">{courseTitle}</h2>
+        {schedule && !previewMode && (
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Calendar className="w-4 h-4" />
+            <span>
+              {format(parseISO(schedule.startDate), 'MMM d')} -{' '}
+              {format(parseISO(schedule.endDate), 'MMM d, yyyy')}
+            </span>
+          </div>
+        )}
       </div>
 
       <ScrollArea className="flex-1 w-full">
         <div className="p-4">
-          {/* Course Date Range and Progress Section */}
-          {schedule && (
-            <div className="mb-6 space-y-4">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Calendar className="w-4 h-4 flex-shrink-0" />
-                <span className="break-words">
-                  {format(parseISO(schedule.startDate), 'MMM d')} - {format(parseISO(schedule.endDate), 'MMM d, yyyy')}
-                </span>
-              </div>
+          {schedule && !previewMode && (
+            <div className="mb-6">
               <ProgressSection
                 totalAssignments={courseData?.NumberGradeBookAssignments}
-                lastStartedIndex={studentCourseData?.jsonGradebookSchedule?.adherenceMetrics?.lastStartedIndex}
-                lessonsBehind={studentCourseData?.jsonGradebookSchedule?.adherenceMetrics?.lessonsBehind}
-                isOnTrack={studentCourseData?.jsonGradebookSchedule?.adherenceMetrics?.isOnTrack}
+                lastStartedIndex={scheduleAdherence?.lastStartedIndex}
+                lessonsBehind={scheduleAdherence?.lessonsOffset}
+                isOnTrack={!scheduleAdherence?.isBehind}
                 status={studentCourseData?.Status?.Value}
                 autoStatus={studentCourseData?.autoStatus}
-                currentMark={Math.round(studentCourseData?.jsonGradebookSchedule?.overallTotals?.percentage ?? 0)}
+                currentMark={Math.round(
+                  studentCourseData?.jsonGradebookSchedule?.overallTotals?.percentage ?? 0
+                )}
                 statusLog={studentCourseData?.statusLog}
               />
             </div>
           )}
 
-          {/* Sections and Units */}
-          {Object.entries(sectionedUnits).map(([sectionNumber, sectionUnits]) => (
-            sectionNumber !== 'Other' && (
+          {Object.entries(sectionedUnits)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([sectionNumber, sectionUnits]) => (
               <div key={sectionNumber} className="mb-8">
-                {/* Section Header */}
-                <div className="mb-4">
-                  <div className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded-lg">
-                    <BookOpen className="w-5 h-5 text-blue-600" />
-                    <h3 className="font-semibold text-gray-900">
-                      Section {sectionNumber}
-                    </h3>
-                  </div>
+                <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg mb-4">
+                  <BookOpen className="w-5 h-5 text-blue-600" />
+                  <h3 className="font-semibold text-gray-900">
+                    Section {sectionNumber}
+                  </h3>
                 </div>
 
-                {/* Units in Section */}
-                {sectionUnits.map((unit, unitIdx) => (
-                  <div key={unit.sequence} className="mb-6">
-                    <div className="flex items-center mb-2">
-                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mr-2 text-gray-700 font-medium flex-shrink-0">
-                        {unit.sequence}
-                      </div>
-                      <h3 className="font-semibold text-gray-900 break-words">
-                        {unit.name}
-                      </h3>
-                    </div>
-
-                    <div className="ml-4 space-y-1">
-                      {unit.items.map((item, itemIdx) => {
-                        const isActive = currentUnitIndex === units.indexOf(unit) && currentItemIndex === itemIdx;
-                        const scheduleItem = findScheduleItem(item);
-                        const isCurrent = isCurrentAssignment(item);
-                        const isLastStarted = isLastStartedAssignment(item);
-
-                        return (
-                          <TooltipProvider key={item.sequence}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={() => onItemSelect(units.indexOf(unit), itemIdx)}
-                                  className={`w-full text-left p-2 rounded-lg transition-all duration-200 flex gap-2
-                                    ${isActive ? typeColors[item.type] : 'hover:bg-gray-50'} border
-                                    ${isActive ? '' : 'border-transparent hover:border-gray-200'}
-                                    ${isCurrent ? 'border-green-500 border-2' : ''}
-                                    ${isLastStarted ? 'border-yellow-500 border-2' : ''}`}
-                                >
-                                  <div className="flex-shrink-0 flex items-start pt-0.5">
-                                    {isCurrent && <Flag className="w-4 h-4 text-green-500 mr-1" />}
-                                    {isLastStarted && <UserCircle className="w-4 h-4 text-yellow-500 mr-1" />}
-                                    <span className={`${isActive ? 'text-current' : typeColors[item.type].split(' ')[0]}`}>
-                                      {scheduleItem?.completed ? (
-                                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                                      ) : getItemIcon(item.type)}
-                                    </span>
-                                  </div>
-                                  <div className="flex flex-col min-w-0 flex-1">
-                                    <div className="text-sm break-words">
-                                      {item.title}
-                                    </div>
-                                    {scheduleItem && (
-                                      <div className="text-xs mt-0.5">
-                                        <span className="inline-flex items-center">
-                                          <CalendarDays className="w-3 h-3 mr-1 flex-shrink-0" />
-                                          {format(parseISO(scheduleItem.date), 'MMM d')}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {item.multiplier > 1 && (
-                                    <span className="text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 flex-shrink-0 self-start mt-0.5">
-                                      {item.multiplier}x
-                                    </span>
-                                  )}
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {isCurrent && <p>Current Assignment</p>}
-                                {isLastStarted && <p>Last Started Assignment</p>}
-                                {scheduleItem?.gradebookData?.grade?.percentage !== undefined && (
-                                  <p>Grade: {scheduleItem.gradebookData.grade.percentage}%</p>
-                                )}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
+                <Accordion
+                  type="single"
+                  collapsible
+                  className="space-y-4"
+                  defaultValue={currentProgressUnit ? `unit-${currentProgressUnit.sequence}` : undefined}
+                >
+                  {sectionUnits.map((unit) => {
+                    const isCurrentUnit = currentProgressUnit?.sequence === unit.sequence;
+                    return (
+                      <AccordionItem
+                        key={unit.sequence}
+                        value={`unit-${unit.sequence}`}
+                        className={
+                          isCurrentUnit ? 'border-purple-200 bg-purple-50 rounded-lg' : ''
+                        }
+                      >
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-700 font-medium
+                                ${isCurrentUnit ? 'bg-purple-100' : 'bg-gray-100'}`}
+                            >
+                              {unit.sequence}
+                            </div>
+                            <span
+                              className={`font-semibold ${
+                                isCurrentUnit ? 'text-purple-800' : 'text-gray-900'
+                              }`}
+                            >
+                              {unit.name}
+                            </span>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4">
+                          <div className="space-y-2">
+                            {unit.items?.map((item, itemIdx) =>
+                              item && renderItem(item, unit.sequence - 1, itemIdx)
+                            )}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
               </div>
-            )
-          ))}
+            ))}
         </div>
       </ScrollArea>
     </div>

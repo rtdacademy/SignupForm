@@ -1,36 +1,11 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const { formatASN, sanitizeEmail } = require('./utils');
 
 // Initialize admin if not already initialized
 if (!admin.apps.length) {
   admin.initializeApp();
 }
-
-/**
- * Validates and formats ASN
- * @param {string} asn - The ASN to validate
- * @returns {Object} - { isValid: boolean, formattedASN: string }
- */
-const validateAndFormatASN = (asn) => {
-  if (!asn) return { isValid: false, formattedASN: null };
-
-  // Remove any existing dashes and whitespace
-  const cleanASN = asn.replace(/[-\s]/g, '');
-
-  // Check if it's a 9-digit number
-  if (/^\d{9}$/.test(cleanASN)) {
-    // Format as ####-####-#
-    const formattedASN = `${cleanASN.slice(0, 4)}-${cleanASN.slice(4, 8)}-${cleanASN.slice(8)}`;
-    return { isValid: true, formattedASN, wasReformatted: true };
-  }
-
-  // Check if it's already in correct format
-  if (/^\d{4}-\d{4}-\d{1}$/.test(asn)) {
-    return { isValid: true, formattedASN: asn, wasReformatted: false };
-  }
-
-  return { isValid: false, formattedASN: null, wasReformatted: false };
-};
 
 /**
  * Database Function: syncStudentASN
@@ -45,52 +20,62 @@ const syncStudentASN = functions.database
     const db = admin.database();
 
     try {
+      // Get student's current school year
+      const studentRef = await db.ref(`/students/${userEmailKey}/profile/School_x0020_Year_Value`).once('value');
+      const schoolYear = studentRef.val() || 'Unknown';
+
       // Handle old ASN reference if it exists
       if (previousASN) {
-        const { isValid: wasValidPrevious, formattedASN: formattedPreviousASN } = validateAndFormatASN(previousASN);
-        if (wasValidPrevious) {
+        const formattedPreviousASN = formatASN(previousASN);
+        const isValidPrevious = /^\d{4}-\d{4}-\d$/.test(formattedPreviousASN);
+        
+        if (isValidPrevious) {
           // Remove email from previous ASN's emailKeys
-          await db.ref(`/ASNs/${formattedPreviousASN}/emailKeys/${userEmailKey}`).remove();
+          await db.ref(`/ASNs/${formattedPreviousASN}/emailKeys/${sanitizeEmail(userEmailKey)}`).remove();
           
-          // Check if the ASN node is empty and remove it if so
-          const previousAsnRef = db.ref(`/ASNs/${formattedPreviousASN}/emailKeys`);
+          // Get the ASN node to check if it's empty
+          const previousAsnRef = db.ref(`/ASNs/${formattedPreviousASN}`);
           const snapshot = await previousAsnRef.once('value');
-          if (!snapshot.exists() || !snapshot.val()) {
-            await db.ref(`/ASNs/${formattedPreviousASN}`).remove();
+          const asnData = snapshot.val();
+          
+          if (!asnData || !asnData.emailKeys || Object.keys(asnData.emailKeys).length === 0) {
+            // Remove the entire ASN node if no more emailKeys
+            await previousAsnRef.remove();
           }
 
           // Remove from wrong format if it was there
-          await db.ref(`/ASN_Wrong_Format/${userEmailKey}`).remove();
+          await db.ref(`/ASN_Wrong_Format/${sanitizeEmail(userEmailKey)}`).remove();
         }
       }
 
       // Handle new ASN
       if (newASN) {
-        const { isValid, formattedASN } = validateAndFormatASN(newASN);
+        const formattedASN = formatASN(newASN);
+        const isValid = /^\d{4}-\d{4}-\d$/.test(formattedASN);
+        const sanitizedEmail = sanitizeEmail(userEmailKey);
 
         if (isValid) {
+          // Get existing ASN data if any
+          const existingAsnRef = await db.ref(`/ASNs/${formattedASN}`).once('value');
+          const existingAsnData = existingAsnRef.val() || {};
+
           // Add to valid ASNs
           const updates = {
-            [`/ASNs/${formattedASN}/emailKeys/${userEmailKey}`]: true,
+            [`/ASNs/${formattedASN}/emailKeys/${sanitizedEmail}`]: true,
             [`/ASNs/${formattedASN}/lastUpdated`]: admin.database.ServerValue.TIMESTAMP,
-            [`/ASN_Wrong_Format/${userEmailKey}`]: null // Remove from wrong format
+            [`/ASN_Wrong_Format/${sanitizedEmail}`]: null // Remove from wrong format
           };
           
           await db.ref().update(updates);
         } else {
           // Add to wrong format
           const updates = {
-            [`/ASN_Wrong_Format/${userEmailKey}`]: true
+            [`/ASN_Wrong_Format/${sanitizedEmail}`]: true
           };
           
           await db.ref().update(updates);
         }
       }
-
-      console.log(
-        `Successfully synced ASN for user ${userEmailKey} in Realtime Database. ` +
-        `Old ASN: ${previousASN || 'none'}, New ASN: ${newASN || 'none'}`
-      );
 
       return null;
     } catch (error) {
@@ -104,17 +89,17 @@ const syncStudentASN = functions.database
         stack: error.stack,
         timestamp: admin.database.ServerValue.TIMESTAMP,
         oldASN: previousASN,
-        newASN: newASN,
+        newASN: newASN
       });
 
       throw error;
     }
   });
 
-
 /**
  * HTTP Function: rebuildASNNodes
  * Rebuilds the /ASNs and /ASN_Wrong_Format nodes from studentCourseSummaries
+ * while preserving existing data
  */
 const rebuildASNNodes = functions
   .runWith({
@@ -134,21 +119,23 @@ const rebuildASNNodes = functions
       validASNs: 0,
       invalidASNs: 0,
       duplicatesSkipped: 0,
+      existingPreserved: 0,
       errors: [],
     };
 
     try {
-      // Create a query to filter by school year
-      const query = db.ref('/studentCourseSummaries')
-        .orderByChild('School_x0020_Year_Value')
-        .equalTo('24/25');
+      // First, get existing ASN data
+      const [existingASNsSnapshot, summariesSnapshot] = await Promise.all([
+        db.ref('/ASNs').once('value'),
+        db.ref('/studentCourseSummaries').once('value')
+      ]);
 
-      const summariesSnapshot = await query.once('value');
+      const existingASNs = existingASNsSnapshot.val() || {};
       const summaries = summariesSnapshot.val();
 
       if (!summaries) {
         res.status(404).json({ 
-          error: 'No student course summaries found for school year 24/25' 
+          error: 'No student course summaries found' 
         });
         return;
       }
@@ -167,40 +154,38 @@ const rebuildASNNodes = functions
         stats.totalProcessed++;
         
         try {
+          if (!data.StudentEmail || !data.asn) continue;
+
           const studentEmail = data.StudentEmail;
           const asn = data.asn;
-
+          
           // Skip if we've already processed this email
           if (processedEmails.has(studentEmail)) {
             stats.duplicatesSkipped++;
             continue;
           }
 
-          if (asn) {
-            const { isValid, formattedASN } = validateAndFormatASN(asn);
-            
-            if (isValid) {
-              // Add to valid ASNs
-              if (!newData.ASNs[formattedASN]) {
-                newData.ASNs[formattedASN] = {
-                  emailKeys: {},
-                  lastUpdated: admin.database.ServerValue.TIMESTAMP,
-                  schoolYear: '24/25' // Add school year reference
-                };
-              }
-              // Use sanitized email as key
-              const sanitizedEmail = studentEmail.replace(/\./g, ',');
-              newData.ASNs[formattedASN].emailKeys[sanitizedEmail] = true;
+          const formattedASN = formatASN(asn);
+          const isValid = /^\d{4}-\d{4}-\d$/.test(formattedASN);
+          const sanitizedEmail = sanitizeEmail(studentEmail);
+
+          if (isValid) {
+            // Initialize ASN entry if it doesn't exist
+            if (!newData.ASNs[formattedASN]) {
+              newData.ASNs[formattedASN] = {
+                emailKeys: {}
+              };
               stats.validASNs++;
             } else {
-              // Add to wrong format
-              const sanitizedEmail = studentEmail.replace(/\./g, ',');
-              newData.ASN_Wrong_Format[sanitizedEmail] = {
-                timestamp: admin.database.ServerValue.TIMESTAMP,
-                schoolYear: '24/25'
-              };
-              stats.invalidASNs++;
+              stats.existingPreserved++;
             }
+
+            // Add email to emailKeys
+            newData.ASNs[formattedASN].emailKeys[sanitizedEmail] = true;
+          } else {
+            // Add to wrong format with just true as the value
+            newData.ASN_Wrong_Format[sanitizedEmail] = true;
+            stats.invalidASNs++;
           }
 
           // Mark this email as processed
@@ -210,7 +195,10 @@ const rebuildASNNodes = functions
           stats.errors.push({
             key,
             error: error.message,
-            schoolYear: '24/25'
+            data: {
+              email: data.StudentEmail,
+              asn: data.asn
+            }
           });
         }
       }
@@ -224,26 +212,31 @@ const rebuildASNNodes = functions
       // Perform the update
       await db.ref().update(updates);
 
-      // Add completion log with school year information
+      // Add completion log
       await db.ref('rebuild_logs').push({
         timestamp: admin.database.ServerValue.TIMESTAMP,
-        schoolYear: '24/25',
         stats,
+        summary: {
+          totalValidASNs: Object.keys(newData.ASNs).length,
+          totalInvalidASNs: Object.keys(newData.ASN_Wrong_Format).length
+        }
       });
 
       res.status(200).json({
-        message: 'ASN nodes rebuilt successfully for school year 24/25',
-        schoolYear: '24/25',
+        message: 'ASN nodes rebuilt successfully',
         stats,
+        summary: {
+          totalValidASNs: Object.keys(newData.ASNs).length,
+          totalInvalidASNs: Object.keys(newData.ASN_Wrong_Format).length
+        }
       });
 
     } catch (error) {
       console.error('Error rebuilding ASN nodes:', error);
 
-      // Log error with school year information
+      // Log error
       await db.ref('error_logs').push({
         function: 'rebuildASNNodes',
-        schoolYear: '24/25',
         error: error.message,
         stack: error.stack,
         timestamp: admin.database.ServerValue.TIMESTAMP,
@@ -251,7 +244,6 @@ const rebuildASNNodes = functions
 
       res.status(500).json({
         error: 'Failed to rebuild ASN nodes',
-        schoolYear: '24/25',
         message: error.message,
         stats,
       });

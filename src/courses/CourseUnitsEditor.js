@@ -1,15 +1,44 @@
-import React, { useState, useCallback } from 'react';
-import { FaChevronDown, FaChevronUp, FaInfoCircle, FaPlus, FaTrash } from 'react-icons/fa';
+import React, { useState, useCallback, useEffect } from 'react';
+import { FaInfoCircle, FaPlus, FaTrash } from 'react-icons/fa';
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import IMathASSetup from './IMathASSetup';
+import { ref, query, orderByChild, equalTo, get } from 'firebase/database';
+import { database } from '../firebase';
 
 const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
-  const [expandedItems, setExpandedItems] = useState({});
   const [showMultiplierInfo, setShowMultiplierInfo] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false, unitIndex: null });
+  const [deleteLessonConfirmation, setDeleteLessonConfirmation] = useState({ show: false, unitIndex: null, itemIndex: null });
+  const [hasEnrolledStudents, setHasEnrolledStudents] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const safeUnits = Array.isArray(units) ? units : [];
+
+  // Check for enrolled students
+  useEffect(() => {
+    const checkEnrolledStudents = async () => {
+      try {
+        const summariesRef = ref(database, 'studentCourseSummaries');
+        const courseQuery = query(
+          summariesRef,
+          orderByChild('CourseID'),
+          equalTo(courseId)
+        );
+        
+        const snapshot = await get(courseQuery);
+        setHasEnrolledStudents(snapshot.exists());
+      } catch (error) {
+        console.error('Error checking enrolled students:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (courseId) {
+      checkEnrolledStudents();
+    }
+  }, [courseId]);
 
   const handleUnitChange = useCallback((unitIndex, field, value) => {
     const newUnits = [...safeUnits];
@@ -36,13 +65,6 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
     onUnitsChange(newUnits);
   }, [safeUnits, onUnitsChange]);
 
-  const toggleItemExpansion = useCallback((unitIndex, itemIndex) => {
-    setExpandedItems(prev => ({
-      ...prev,
-      [`${unitIndex}-${itemIndex}`]: !prev[`${unitIndex}-${itemIndex}`]
-    }));
-  }, []);
-
   const getItemTypeColor = useCallback((type) => {
     switch (type) {
       case 'info':
@@ -59,6 +81,11 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
   }, []);
 
   const addAssessment = useCallback((unitIndex, insertIndex = null) => {
+    if (hasEnrolledStudents) {
+      alert("Cannot add assessments while students are enrolled in the course.");
+      return;
+    }
+
     const newUnits = [...safeUnits];
     const newItem = {
       title: 'New Assessment',
@@ -68,7 +95,7 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
       gradebookIndex: newUnits[unitIndex].items ? newUnits[unitIndex].items.length : 0,
       sequence: (newUnits[unitIndex].items?.length || 0) + 1,
     };
-    
+
     if (insertIndex === null) {
       newUnits[unitIndex].items = [...(newUnits[unitIndex].items || []), newItem];
     } else {
@@ -82,11 +109,16 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
         item.sequence = index + 1;
       });
     }
-    
+
     onUnitsChange(newUnits);
-  }, [safeUnits, onUnitsChange]);
+  }, [safeUnits, onUnitsChange, hasEnrolledStudents]);
 
   const removeAssessment = useCallback((unitIndex, itemIndex) => {
+    if (hasEnrolledStudents) {
+      alert("Cannot remove assessments while students are enrolled in the course.");
+      return;
+    }
+
     const newUnits = [...safeUnits];
     newUnits[unitIndex].items = [
       ...newUnits[unitIndex].items.slice(0, itemIndex),
@@ -97,9 +129,14 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
       item.sequence = index + 1;
     });
     onUnitsChange(newUnits);
-  }, [safeUnits, onUnitsChange]);
+  }, [safeUnits, onUnitsChange, hasEnrolledStudents]);
 
   const addUnit = useCallback(() => {
+    if (hasEnrolledStudents) {
+      alert("Cannot add units while students are enrolled in the course.");
+      return;
+    }
+
     const newUnits = [...safeUnits];
     const newUnit = {
       name: 'New Unit',
@@ -109,22 +146,31 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
     };
     newUnits.push(newUnit);
     onUnitsChange(newUnits);
-  }, [safeUnits, onUnitsChange]);
+  }, [safeUnits, onUnitsChange, hasEnrolledStudents]);
 
   const removeUnit = useCallback((unitIndex) => {
+    if (hasEnrolledStudents) {
+      alert("Cannot remove units while students are enrolled in the course.");
+      return;
+    }
+
     const newUnits = safeUnits.filter((_, index) => index !== unitIndex);
     newUnits.forEach((unit, index) => {
       unit.sequence = index + 1;
     });
     onUnitsChange(newUnits);
     setDeleteConfirmation({ show: false, unitIndex: null });
-  }, [safeUnits, onUnitsChange]);
+  }, [safeUnits, onUnitsChange, hasEnrolledStudents]);
+
+  if (isLoading) {
+    return <div>Loading course information...</div>;
+  }
 
   if (!Array.isArray(units)) {
     return (
       <div>
         No units available.
-        {isEditing && (
+        {isEditing && !hasEnrolledStudents && (
           <Button onClick={addUnit} className="mt-2">
             <FaPlus className="mr-2" /> Add First Unit
           </Button>
@@ -135,6 +181,14 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
 
   return (
     <div className="space-y-4">
+      {hasEnrolledStudents && isEditing && (
+        <Alert className="mb-4">
+          <AlertDescription>
+            This course has enrolled students. You can edit existing items but cannot add, remove, or reorder units and assessments.
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <h3 className="text-lg font-bold">Course Units</h3>
       {safeUnits.map((unit, unitIndex) => (
         <div key={unitIndex} className="border p-4 rounded">
@@ -163,19 +217,21 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
                     placeholder="Section"
                   />
                 </div>
-                <button
-                  onClick={() => setDeleteConfirmation({ show: true, unitIndex })}
-                  className="text-red-500 hover:text-red-700 focus:outline-none ml-2"
-                >
-                  <FaTrash />
-                </button>
+                {!hasEnrolledStudents && (
+                  <button
+                    onClick={() => setDeleteConfirmation({ show: true, unitIndex })}
+                    className="text-red-500 hover:text-red-700 focus:outline-none ml-2"
+                  >
+                    <FaTrash />
+                  </button>
+                )}
               </>
             )}
           </div>
-          
+
           {/* Assessments List */}
           <div className="space-y-1">
-            {isEditing && (
+            {isEditing && !hasEnrolledStudents && (
               <button
                 onClick={() => addAssessment(unitIndex, 0)}
                 className="w-full text-gray-500 hover:text-gray-700 text-sm py-1 flex items-center justify-center"
@@ -226,70 +282,75 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
                             <option value="assignment">Assignment</option>
                             <option value="exam">Exam</option>
                           </select>
-                          <div className="flex items-center">
-                            <label className="mr-2">Multiplier:</label>
-                            <input
-                              type="number"
-                              value={item.multiplier}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                const parsedValue = parseFloat(value);
-                                handleItemChange(
-                                  unitIndex,
-                                  itemIndex,
-                                  'multiplier',
-                                  isNaN(parsedValue) ? 1 : parsedValue
-                                );
-                              }}
-                              className="w-16 border rounded p-1"
-                              step="0.1"
-                              min="0"
-                            />
-                            <button
-                              onClick={() => setShowMultiplierInfo(!showMultiplierInfo)}
-                              className="ml-2 text-blue-500 hover:text-blue-700 focus:outline-none"
-                            >
-                              <FaInfoCircle />
-                            </button>
+                          <div className="flex items-center space-x-2">
+                            <div className="flex items-center">
+                              <label className="mr-2">Multiplier:</label>
+                              <input
+                                type="number"
+                                value={item.multiplier}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  const parsedValue = parseFloat(value);
+                                  handleItemChange(
+                                    unitIndex,
+                                    itemIndex,
+                                    'multiplier',
+                                    isNaN(parsedValue) ? 1 : parsedValue
+                                  );
+                                }}
+                                className="w-16 border rounded p-1"
+                                step="0.1"
+                                min="0"
+                              />
+                              <button
+                                onClick={() => setShowMultiplierInfo(!showMultiplierInfo)}
+                                className="ml-2 text-blue-500 hover:text-blue-700 focus:outline-none"
+                              >
+                                <FaInfoCircle />
+                              </button>
+                            </div>
+                            {item.type !== 'info' && (
+                              <div className="flex items-center">
+                                <label className="mr-2">Weight:</label>
+                                <span className="text-sm bg-gray-100 px-2 py-1 rounded">
+                                  {item.weight ? `${(item.weight * 100).toFixed(1)}%` : '0%'}
+                                </span>
+                              </div>
+                            )}
+                            {!hasEnrolledStudents && (
+                              <button
+                                onClick={() =>
+                                  setDeleteLessonConfirmation({ show: true, unitIndex, itemIndex })
+                                }
+                                className="text-red-500 hover:text-red-700 focus:outline-none"
+                              >
+                                <FaTrash />
+                              </button>
+                            )}
                           </div>
                         </>
                       )}
-                      <button
-                        onClick={() => toggleItemExpansion(unitIndex, itemIndex)}
-                        className="text-gray-500 hover:text-gray-700 focus:outline-none"
-                      >
-                        {expandedItems[`${unitIndex}-${itemIndex}`] ? (
-                          <FaChevronUp />
-                        ) : (
-                          <FaChevronDown />
-                        )}
-                      </button>
-                      {isEditing && (
-                        <button
-                          onClick={() => removeAssessment(unitIndex, itemIndex)}
-                          className="text-red-500 hover:text-red-700 focus:outline-none"
-                        >
-                          <FaTrash />
-                        </button>
+                      {!isEditing && item.type !== 'info' && item.weight && (
+                        <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                          Weight: {(item.weight * 100).toFixed(1)}%
+                        </span>
                       )}
                     </div>
 
-                    {/* Expanded Content - IMathAS Setup */}
-                    {expandedItems[`${unitIndex}-${itemIndex}`] && (
-                      <IMathASSetup
-                        item={item}
-                        courseId={courseId}
-                        unitIndex={unitIndex}
-                        itemIndex={itemIndex}
-                        onItemChange={handleItemChange}
-                        isEditing={isEditing}
-                      />
-                    )}
+                    {/* Always Open IMathAS Setup */}
+                    <IMathASSetup
+                      item={item}
+                      courseId={courseId}
+                      unitIndex={unitIndex}
+                      itemIndex={itemIndex}
+                      onItemChange={handleItemChange}
+                      isEditing={isEditing}
+                    />
                   </div>
                 </div>
-                
+
                 {/* Button to Add Assessment Below */}
-                {isEditing && (
+                {isEditing && !hasEnrolledStudents && (
                   <button
                     onClick={() => addAssessment(unitIndex, itemIndex + 1)}
                     className="w-full text-gray-500 hover:text-gray-700 text-sm py-1 flex items-center justify-center"
@@ -302,9 +363,9 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
           </div>
         </div>
       ))}
-      
+
       {/* Add New Unit Button */}
-      {isEditing && (
+      {isEditing && !hasEnrolledStudents && (
         <Button
           onClick={addUnit}
           className="w-full"
@@ -313,7 +374,7 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
           <FaPlus className="mr-2" /> Add New Unit
         </Button>
       )}
-      
+
       {/* Multiplier Information Modal */}
       {showMultiplierInfo && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -333,9 +394,9 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
           </div>
         </div>
       )}
-      
-      {/* Delete Confirmation Modal */}
-      {deleteConfirmation.show && (
+
+ {/* Unit Delete Confirmation Modal */}
+      {deleteConfirmation.show && !hasEnrolledStudents && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-4 rounded-lg max-w-md">
             <h4 className="font-bold mb-2">Confirm Deletion</h4>
@@ -352,6 +413,37 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
               <Button
                 variant="destructive"
                 onClick={() => removeUnit(deleteConfirmation.unitIndex)}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lesson Delete Confirmation Modal */}
+      {deleteLessonConfirmation.show && !hasEnrolledStudents && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg max-w-md">
+            <h4 className="font-bold mb-2">Confirm Deletion</h4>
+            <p>
+              Are you sure you want to delete this lesson? This action cannot be undone.
+            </p>
+            <div className="mt-4 flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() =>
+                  setDeleteLessonConfirmation({ show: false, unitIndex: null, itemIndex: null })
+                }
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  removeAssessment(deleteLessonConfirmation.unitIndex, deleteLessonConfirmation.itemIndex);
+                  setDeleteLessonConfirmation({ show: false, unitIndex: null, itemIndex: null });
+                }}
               >
                 Delete
               </Button>

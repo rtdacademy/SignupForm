@@ -12,7 +12,10 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
-  Sparkles
+  Sparkles,
+  Volume2,
+  VolumeX,
+  Square
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import TeX from '@matejmazur/react-katex';
@@ -21,7 +24,8 @@ import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { useAuth } from '../context/AuthContext';
 import { getVertexAI, getGenerativeModel } from 'firebase/vertexai';
-import { getDatabase, ref, onValue, update } from 'firebase/database';
+import { getDatabase, ref, onValue } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { ScrollArea } from "../components/ui/scroll-area";
 import useEnhancedChatHandler from "./components/useEnhancedChatHandler";
 import {
@@ -32,6 +36,8 @@ import {
   CardTitle,
 } from "../components/ui/card";
 import { cn } from "../lib/utils";
+import { AI_MODEL_MAPPING } from './utils/settings';
+
 
 // Loading Overlay Component
 const LoadingOverlay = ({ assistantName = 'AI Assistant' }) => {
@@ -112,9 +118,8 @@ const processText = (text) => {
     
     // Handle inline math with $ or \(...\)
     if (
-      
-      (part.startsWith('\\(') && part.endsWith('\\)')
-    )) {
+      (part.startsWith('\\(') && part.endsWith('\\)'))
+    ) {
       const mathContent = part.startsWith('$')
         ? part.slice(1, -1)
         : cleanMathContent(part.slice(2, -2));
@@ -194,9 +199,77 @@ const processText = (text) => {
   });
 };
 
-const MessageBubble = React.memo(({ message, isStreaming, userName, assistantName }) => {
+const MessageBubble = React.memo(({ message, isStreaming, userName, assistantName, onPlayAudio }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const audioRef = useRef(null);
   const isUser = message.sender === 'user';
+ 
+  const handlePlay = async () => {
+    console.log('Play button clicked');
+    // If already playing, stop playback
+    if (isPlaying) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        URL.revokeObjectURL(audioRef.current.src);
+        audioRef.current = null;
+      }
+      setIsPlaying(false);
+      return;
+    }
   
+    setIsLoadingAudio(true);
+    setIsPlaying(true);
+    
+    try {
+      // Single audio synthesis for the entire message
+      const audio = await onPlayAudio(message.text);
+      if (!audio) {
+        setIsPlaying(false);
+        setIsLoadingAudio(false);
+        return;
+      }
+      
+      audioRef.current = audio;
+      
+      // Add loading state handlers
+      audio.addEventListener('canplaythrough', () => {
+        setIsLoadingAudio(false);
+        audio.play();
+      });
+      
+      // Wait for the audio to finish
+      await new Promise(resolve => {
+        audio.addEventListener('ended', () => {
+          setIsPlaying(false);
+          setIsLoadingAudio(false);
+          resolve();
+        }, { once: true });
+        
+        // Handle errors
+        audio.addEventListener('error', () => {
+          setIsPlaying(false);
+          setIsLoadingAudio(false);
+          resolve();
+        }, { once: true });
+      });
+    } catch (error) {
+      console.error('Speech synthesis failed:', error);
+      setIsPlaying(false);
+      setIsLoadingAudio(false);
+    }
+  };
+ 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+    };
+  }, []);
+ 
   return (
     <div className={cn(
       "group flex gap-3 relative transition-all duration-300",
@@ -213,8 +286,36 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
         "flex flex-col max-w-[80%]",
         isUser ? "items-end" : "items-start"
       )}>
-        <div className="text-sm font-medium text-gray-500 mb-1">
+        <div className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-2">
           {isUser ? userName || 'You' : assistantName || 'AI Assistant'}
+          {!isUser && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handlePlay}
+                className={cn(
+                  "h-6 px-2 hover:bg-purple-50",
+                  isPlaying ? "text-red-600 hover:text-red-700" : "text-purple-600 hover:text-purple-700"
+                )}
+                disabled={isLoadingAudio}
+              >
+                {isLoadingAudio ? (
+                  <Loader className="w-3 h-3 animate-spin" />
+                ) : isPlaying ? (
+                  <>
+                    <Square className="w-3 h-3" />
+                    <span className="sr-only">Stop</span>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 className="w-3 h-3" />
+                    <span className="sr-only">Play</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
         
         <div className={cn(
@@ -314,11 +415,11 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
   const [chat, setChat] = useState(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [currentAssistant, setCurrentAssistant] = useState(assistant);
-  const [isMessageVisible, setIsMessageVisible] = useState(true);
+  const [isMessageVisible, setIsMessageVisible] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const [error, setError] = useState(null);
-  
+
   // Keep assistantKey for component remounting on assistant change
   const [assistantKey, setAssistantKey] = useState(assistant?.id);
 
@@ -348,9 +449,9 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
     error: chatError,
     handleSendMessage: sendMessage,
     setMessages,
-    initializeChat, // Add this
-    resetState,     // Add this
-    isChatReady     // Add this
+    initializeChat,
+    resetState,
+    isChatReady
   } = useEnhancedChatHandler(scrollToBottom);
 
   // Simplified cleanup function
@@ -367,6 +468,34 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
     setInputMessage('');
   }, [setMessages]);
 
+  // New TTS synthesis helper that returns an Audio element for a given text chunk.
+  const synthesizeAudio = async (text) => {
+    try {
+      console.log('Sending text to TTS:', text); 
+      const functions = getFunctions(firebaseApp);
+      const textToSpeech = httpsCallable(functions, 'textToSpeech');
+      
+      const result = await textToSpeech({ text });
+      console.log('TTS response received:', result);
+      const audioContent = result.data.audioContent;
+      
+      // Convert base64 to audio
+      const audioBuffer = Uint8Array.from(atob(audioContent), c => c.charCodeAt(0));
+      const audioBlob = new Blob([audioBuffer], { type: 'audio/mp3' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      // Create and return an Audio object (do not play automatically)
+      const audio = new Audio(audioUrl);
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+      };
+      return audio;
+    } catch (error) {
+      console.error('Speech synthesis failed:', error);
+      return null;
+    }
+  };
+
   // Initialize AI function
   const initializeAI = useCallback(async (assistantConfig) => {
     if (!assistantConfig) return;
@@ -378,7 +507,8 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
       await new Promise(resolve => setTimeout(resolve, 1000));
   
       const vertexAI = getVertexAI(firebaseApp);
-      const modelName = assistantConfig?.model === 'advanced' ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
+      const modelName = AI_MODEL_MAPPING[assistantConfig?.model]?.name || AI_MODEL_MAPPING.standard.name;
+
   
       // Request tracking logic to handle rate limiting
       const now = Date.now();
@@ -430,25 +560,25 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
         // Include the assistant's first message in the chat history
         const history = assistantConfig?.firstMessage
           ? [
-            {
-              role: 'user',
-              parts: [{ text: 'Hello' }],
-            },
+              {
+                role: 'user',
+                parts: [{ text: 'Hello' }],
+              },
               {
                 role: 'model',
                 parts: [{ text: assistantConfig.firstMessage }],
               },
             ]
           : [];
-
+  
         initialChat = await geminiModel.startChat({ history });
       } catch (err) {
         if (err.message.includes('429')) {
           console.log('Rate limited, falling back to Gemini Flash');
-
+  
           // Fallback to a different model if rate limited
           const fallbackModel = getGenerativeModel(vertexAI, {
-            model: 'gemini-1.5-flash-002',
+            model: AI_MODEL_MAPPING.fallback.name,
             generationConfig: {
               maxOutputTokens: 8192,
               temperature: 0.9,
@@ -476,7 +606,7 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
               parts: [{ text: assistantConfig?.instructions || "You are a helpful AI assistant. Be concise and clear in your responses." }],
             },
           });
-
+  
           // Include the assistant's first message in the chat history
           const history = assistantConfig?.firstMessage
             ? [
@@ -486,21 +616,21 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
                 },
               ]
             : [];
-
+  
           initialChat = await fallbackModel.startChat({ history });
         } else {
           throw err;
         }
       }
-
+  
       // Set up chat session references before initialization
       chatSessionRef.current = initialChat;
       setChat(initialChat);
       setModel(geminiModel);
-
+  
       // Initialize the chat handler with the new chat session
       await initializeChat(initialChat);
-
+  
       // Display the assistant's first message in the UI
       if (assistantConfig?.firstMessage) {
         const initialMessageId = Date.now();
@@ -524,15 +654,11 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
   // Simplified reset handler that directly manages the chat state
   const handleReset = useCallback(async () => {
     if (!currentAssistant) return;
-
+  
     try {
       setIsResetting(true);
       setIsInitializing(true);
-      
-      // Clean up existing chat session
       await cleanup();
-      
-      // Initialize new chat session with current assistant config
       await initializeAI(currentAssistant);
     } catch (err) {
       console.error('Reset error:', err);
@@ -545,7 +671,7 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
   // Modify the Firebase listener effect with resetState
   useEffect(() => {
     if (!assistant?.id) return;
-
+  
     const handleAssistantUpdate = async (updatedAssistant) => {
       if (updatedAssistant) {
         setCurrentAssistant({
@@ -555,23 +681,23 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
         });
       }
     };
-
+  
     // Reset state when changing assistants
     resetState();
     
     // Initialize AI for new assistant
     initializeAI(assistant);
-
+  
     const db = getDatabase(firebaseApp);
     const assistantRef = ref(db, `edbotz/assistants/${assistant.usage.ownerId}/${assistant.id}`);
-
+  
     const unsubscribe = onValue(assistantRef, (snapshot) => {
       const updatedAssistant = snapshot.val();
       if (updatedAssistant) {
         handleAssistantUpdate(updatedAssistant);
       }
     });
-
+  
     return () => {
       unsubscribe();
       cleanup();
@@ -712,6 +838,7 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
                   isStreaming={isStreaming}
                   userName={user?.displayName}
                   assistantName={currentAssistant?.assistantName}
+                  onPlayAudio={synthesizeAudio}
                 />
               ))}
             </div>

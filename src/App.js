@@ -33,6 +33,7 @@ import EdBotzDashboard from './edbotz/Dashboard';
 import EdBotzLogin from './edbotz/Login';
 import EdBotzLayout from './edbotz/EdBotzLayout';
 import StudentPortal from './edbotz/StudentPortal'
+import CourseManagement from './edbotz/CourseManagement';  
 
 import './styles/styles.css';
 import 'katex/dist/katex.min.css';
@@ -201,12 +202,12 @@ function EdBotzApp() {
 
         
 
-        {/* Add more EdBotz protected routes here */}
+       
         <Route path="/courses" element={
-          <EdBotzProtectedRoute>
-            <Courses />
-          </EdBotzProtectedRoute>
-        } />
+  <EdBotzProtectedRoute>
+    <CourseManagement />
+  </EdBotzProtectedRoute>
+} />
 
          {/* Student Portal Route - Note this is public but access controlled via Firebase */}
          <Route path="/student-portal/:userId/:accessKey" element={<StudentPortal />} />

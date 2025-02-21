@@ -57,6 +57,13 @@ const initialResults = {
 
 // New helper function for status validation
 function validateStatusConsistency(pasiRecord, summary, linkId = null) {
+  // Early return if course code matches excluded codes
+  if (pasiRecord.courseCode === 'COM1255' || pasiRecord.courseCode === 'INF2020') {
+    return {
+      updates: {},
+      mismatch: { found: false, details: {} }
+    };
+  }
   
   const updates = {};
   const summaryKey = summary.key;
@@ -92,12 +99,12 @@ function validateStatusConsistency(pasiRecord, summary, linkId = null) {
   }
 
   if (mismatch.found) {
-    updates[`studentCourseSummaries/${summaryKey}/categories/info@rtdacademy,com/YourWay_PASI_Status_Mismatch`] = true;
+    updates[`systemCategories/${summaryKey}/YourWay_PASI_Status_Mismatch`] = true;
     if (linkId) {
       mismatch.details.linkId = linkId;
     }
   } else {
-    updates[`studentCourseSummaries/${summaryKey}/categories/info@rtdacademy,com/YourWay_PASI_Status_Mismatch`] = false;
+    updates[`systemCategories/${summaryKey}/YourWay_PASI_Status_Mismatch`] = false;
   }
 
   return { updates, mismatch };
@@ -110,6 +117,12 @@ async function findMissingPasiRecords(summaries) {
   const updates = {};
   
   Object.entries(summaries).forEach(([key, summary]) => {
+    // Check ActiveFutureArchived_Value first
+    const activeStatus = summary.ActiveFutureArchived_Value;
+    if (activeStatus !== 'Active' && activeStatus !== 'Archived') {
+      return; // Skip if not Active or Archived
+    }
+    
     // Skip records marked as removed
     if (summary.Status_Value === "✗ Removed (Not Funded)") {
       return;
@@ -123,15 +136,19 @@ async function findMissingPasiRecords(summaries) {
         courseId: summary.CourseID,
         asn: summary.asn,
         email: summary.StudentEmail,
-        status: summary.Status_Value
+        status: summary.Status_Value,
+        schoolYear: summary.School_x0020_Year_Value,  // Added school year
+        activeStatus: summary.ActiveFutureArchived_Value  
       };
       
-      updates[`studentCourseSummaries/${key}/categories/info@rtdacademy,com/PASI_Record_Missing`] = true;
+      updates[`systemCategories/${key}/PASI_Record_Missing`] = true;
     } else {
-      updates[`studentCourseSummaries/${key}/categories/info@rtdacademy,com/PASI_Record_Missing`] = false;
+      updates[`systemCategories/${key}/PASI_Record_Missing`] = false;
     }
   });
 
+  console.log('Total missing PASI records:', Object.keys(missingPasi).length);
+  
   return {
     missingPasi,
     updates,
@@ -141,13 +158,74 @@ async function findMissingPasiRecords(summaries) {
 
 
 
+/**
+ * Process updates in batches to avoid triggering too many cloud functions
+ * @param {Object} db - Firebase database reference
+ * @param {Object} updates - Object containing all updates to be processed
+ * @param {number} batchSize - Maximum number of operations per batch
+ */
+async function processBatchedUpdates(db, updates, batchSize = 200) {
+  const entries = Object.entries(updates);
+  const batches = [];
+  let currentBatch = {};
+  let count = 0;
+
+  // Sort updates to prioritize non-systemCategories updates first
+  entries.sort(([pathA], [pathB]) => {
+    const isSystemCategoryA = pathA.startsWith('systemCategories/');
+    const isSystemCategoryB = pathB.startsWith('systemCategories/');
+    return isSystemCategoryA - isSystemCategoryB;
+  });
+
+  // Group updates into batches
+  for (const [path, value] of entries) {
+    currentBatch[path] = value;
+    count++;
+
+    if (count >= batchSize) {
+      batches.push(currentBatch);
+      currentBatch = {};
+      count = 0;
+    }
+  }
+
+  // Add the last batch if it has any updates
+  if (count > 0) {
+    batches.push(currentBatch);
+  }
+
+  console.log(`Processing ${batches.length} batches of updates`);
+
+  // Process batches in parallel with a maximum of 3 concurrent batches
+  const concurrentBatches = 3;
+  for (let i = 0; i < batches.length; i += concurrentBatches) {
+    const batchPromises = batches.slice(i, i + concurrentBatches).map(async (batch, index) => {
+      try {
+        console.log(`Processing batch ${i + index + 1} of ${batches.length} (${Object.keys(batch).length} updates)`);
+        await db.ref().update(batch);
+        
+        // Add a shorter delay between batches
+        if (i + index < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 250));
+        }
+      } catch (error) {
+        console.error(`Error processing batch ${i + index + 1}:`, error);
+        throw error;
+      }
+    });
+
+    // Wait for the current group of batches to complete before starting the next group
+    await Promise.all(batchPromises);
+  }
+}
+
 exports.syncPasiRecordsV2 = functions
   .runWith({
     timeoutSeconds: 540,
     memory: '1GB'
   })
   .https.onCall(async (data, context) => {
-    // Authentication and authorization checks remain the same
+    // Authentication and authorization checks
     if (!context.auth) {
       throw new functions.https.HttpsError(
         'unauthenticated',
@@ -177,10 +255,7 @@ exports.syncPasiRecordsV2 = functions
     try {
       // Fetch filtered data in parallel
       const [linksSnapshot, pasiSnapshot, summariesSnapshot] = await Promise.all([
-        db.ref('pasiLinks')
-          .orderByChild('schoolYear')
-          .equalTo(schoolYearWithSlash)
-          .once('value'),
+        db.ref('pasiLinks').once('value'),
         db.ref('pasiRecords')
           .orderByChild('schoolYear')
           .equalTo(schoolYearWithUnderscore)
@@ -212,7 +287,7 @@ exports.syncPasiRecordsV2 = functions
         results
       );
 
-      // Use new simplified approach for finding missing PASI records
+      // Use simplified approach for finding missing PASI records
       const { missingPasi, updates: missingUpdates, totalMissing } = await findMissingPasiRecords(summaries);
       
       // Update results with missing PASI information
@@ -240,25 +315,27 @@ exports.syncPasiRecordsV2 = functions
         }
       };
 
-      // Merge all updates
+      // First, update the school year report separately
+      await db.ref(`pasiSyncReport/schoolYear/${schoolYearWithUnderscore}`).set({
+        ...results,
+        lastSync: {
+          timestamp: linkedAt,
+          initiatedBy: userEmail
+        }
+      });
+
+      // Merge all remaining updates
       const updates = {
         ...existingLinksUpdates,
         ...unlinkedRecordsUpdates,
         ...missingUpdates,
-        [`pasiSyncReport/history/${historyKey}`]: historySummary,
-        [`pasiSyncReport/schoolYear/${schoolYearWithUnderscore}`]: {
-          ...results,
-          lastSync: {
-            timestamp: linkedAt,
-            initiatedBy: userEmail
-          }
-        }
+        [`pasiSyncReport/history/${historyKey}`]: historySummary
       };
 
-      // Perform atomic update if there are changes
+      // Process updates in batches if there are any
       if (Object.keys(updates).length > 0) {
-        console.log(`Performing atomic update with ${Object.keys(updates).length} changes`);
-        await db.ref().update(updates);
+        console.log(`Starting batched processing of ${Object.keys(updates).length} updates`);
+        await processBatchedUpdates(db, updates);
       }
 
       return {
@@ -276,7 +353,6 @@ exports.syncPasiRecordsV2 = functions
       );
     }
   });
-
 /**
  * Helper function to process existing links in parallel
  */
@@ -345,7 +421,7 @@ async function processExistingLinksParallel(links, pasiRecords, summaries, linke
         },
         [`pasiRecords/${linkData.pasiRecordId}/linked`]: true,
         [`pasiRecords/${linkData.pasiRecordId}/linkedAt`]: linkedAt,
-        [`studentCourseSummaries/${linkData.studentCourseSummaryKey}/categories/info@rtdacademy,com/PASI_Course_Link`]: false
+        [`systemCategories/${linkData.studentCourseSummaryKey}/PASI_Course_Link`]: false
       };
 
       return { ...statusUpdates, ...linkUpdates };
@@ -384,7 +460,15 @@ async function processExistingLinksParallel(links, pasiRecords, summaries, linke
 async function processUnlinkedRecordsParallel(pasiRecords, summaries, linkedAt, results) {
   const updates = {};
   const unlinkedRecords = Object.entries(pasiRecords)
-    .filter(([_, record]) => !record.linked);
+ 
+  .filter(([id, record]) => {
+    // If linked is explicitly true, exclude the record
+    if (record.linked === true) {
+      return false;
+    }
+    // Include if linked is false or undefined
+    return true;
+  });
 
   // Add standardized error handling function
   const addFailedRecord = (results, pasiRecordId, reason, pasiRecord, additionalData = {}) => {
@@ -496,6 +580,11 @@ async function processUnlinkedRecordsParallel(pasiRecords, summaries, linkedAt, 
  * Helper function to handle unknown course codes
  */
 async function handleUnknownCourse(pasiRecord, pasiRecordId, studentKey, summaries, results) {
+  // If the record is already linked, we don't need to do anything
+  if (pasiRecord.linked === true) {
+    return {};
+  }
+
   const formattedSchoolYear = pasiRecord.schoolYear.replace('_', '/');
   const updates = {};
   
@@ -510,10 +599,11 @@ async function handleUnknownCourse(pasiRecord, pasiRecordId, studentKey, summari
   if (matchingSummaries.length > 0) {
     flaggedAny = true;
     matchingSummaries.forEach(([summaryKey]) => {
-      updates[`studentCourseSummaries/${summaryKey}/categories/info@rtdacademy,com/PASI_Course_Link`] = true;
+      updates[`systemCategories/${summaryKey}/PASI_Course_Link`] = true;
     });
   }
 
+  // Only add to needsManualCourseMapping if not already linked
   results.newLinks.needsManualCourseMapping.push({
     pasiRecordId,
     courseCode: pasiRecord.courseCode,
@@ -525,3 +615,120 @@ async function handleUnknownCourse(pasiRecord, pasiRecordId, studentKey, summari
 
   return updates;
 }
+
+
+////// syncCategoriesToStudents /////
+
+// Constants for category paths
+const SYSTEM_CATEGORIES = 'systemCategories';
+const CATEGORY_TYPES = {
+  PASI_COURSE_LINK: 'PASI_Course_Link',
+  PASI_RECORD_MISSING: 'PASI_Record_Missing',
+  YOURWAY_PASI_STATUS_MISMATCH: 'YourWay_PASI_Status_Mismatch'
+};
+
+// Helper to extract studentKey and courseId from summaryKey
+function parseKey(summaryKey) {
+  const [studentKey, courseId] = summaryKey.split('_');
+  return { studentKey, courseId };
+}
+
+// Validate category name
+function isValidCategory(categoryName) {
+  return Object.values(CATEGORY_TYPES).includes(categoryName);
+}
+
+// Function to process category updates in batches
+async function processCategoryBatch(categories, batchSize = 100) {
+  const db = admin.database();
+  const batches = [];
+  let currentBatch = {};
+  let count = 0;
+
+  for (const [summaryKey, categoryData] of Object.entries(categories)) {
+    const { studentKey, courseId } = parseKey(summaryKey);
+    
+    // Skip if missing required data
+    if (!studentKey || !courseId) {
+      console.warn(`Invalid summary key: ${summaryKey}`);
+      continue;
+    }
+
+    const updates = {};
+    for (const [categoryName, value] of Object.entries(categoryData)) {
+      // Skip invalid category names
+      if (!isValidCategory(categoryName)) {
+        console.warn(`Invalid category name: ${categoryName}`);
+        continue;
+      }
+
+      updates[`students/${studentKey}/courses/${courseId}/categories/info@rtdacademy,com/${categoryName}`] = value;
+      updates[`${SYSTEM_CATEGORIES}/${summaryKey}/${categoryName}/processed`] = true;
+      updates[`${SYSTEM_CATEGORIES}/${summaryKey}/${categoryName}/processedAt`] = admin.database.ServerValue.TIMESTAMP;
+    }
+
+    currentBatch = { ...currentBatch, ...updates };
+    count++;
+
+    if (count >= batchSize) {
+      batches.push(currentBatch);
+      currentBatch = {};
+      count = 0;
+    }
+  }
+
+  if (count > 0) {
+    batches.push(currentBatch);
+  }
+
+  // Process each batch sequentially
+  for (const batch of batches) {
+    try {
+      await db.ref().update(batch);
+    } catch (error) {
+      console.error('Error processing batch:', error);
+      throw error;
+    }
+  }
+}
+
+// Cloud Function to listen for system category changes
+exports.syncCategoriesToStudents = functions.database
+  .ref(`${SYSTEM_CATEGORIES}/{summaryKey}/{categoryName}`)
+  .onCreate(async (snapshot, context) => {
+    const { summaryKey, categoryName } = context.params;
+    
+    // Skip if already processed
+    if (snapshot.val().processed) {
+      return null;
+    }
+
+    // Validate category name
+    if (!isValidCategory(categoryName)) {
+      console.error(`Invalid category name: ${categoryName}`);
+      return null;
+    }
+
+    try {
+      const categories = {
+        [summaryKey]: {
+          [categoryName]: snapshot.val()
+        }
+      };
+
+      await processCategoryBatch(categories);
+      
+      console.log(`Successfully processed category ${categoryName} for ${summaryKey}`);
+      return null;
+    } catch (error) {
+      console.error(`Error processing category ${categoryName} for ${summaryKey}:`, error);
+      
+      // Mark as failed in systemCategories
+      const updates = {};
+      updates[`${SYSTEM_CATEGORIES}/${summaryKey}/${categoryName}/error`] = error.message;
+      updates[`${SYSTEM_CATEGORIES}/${summaryKey}/${categoryName}/failedAt`] = admin.database.ServerValue.TIMESTAMP;
+      
+      await admin.database().ref().update(updates);
+      throw error;
+    }
+  });

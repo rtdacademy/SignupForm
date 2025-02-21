@@ -3,6 +3,8 @@ const admin = require('firebase-admin');
 const crypto = require('crypto');
 const cors = require('cors')({ origin: true });
 const jwt = require('jsonwebtoken');
+const fetch = require('node-fetch');
+const { sanitizeEmail } = require('./utils');
 
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -188,7 +190,72 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
             throw new Error('Invalid or missing launch data');
         }
 
-        // Get platform keys (No changes)
+        // Check for LMSStudentID after successful launch for students
+        if (launchData.role === 'student' && launchData.email) {
+            const sanitizedEmail = sanitizeEmail(launchData.email);
+            const studentIdRef = db.ref(`students/${sanitizedEmail}/courses/${launchData.course_id}/LMSStudentID`);
+            const studentIdSnapshot = await studentIdRef.once('value');
+
+            if (!studentIdSnapshot.exists()) {
+                try {
+                    console.log('Attempting to fetch LMS ID for:', launchData.email);
+
+                    // Send request to edge system
+                    const response = await fetch('https://edge.rtdacademy.com/return_data_to_yourway.php', {
+                        method: 'POST',
+                        body: JSON.stringify({ email: launchData.email }),
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+
+                    const responseText = await response.text();
+                    console.log('Raw response:', responseText);
+
+                    let result;
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (e) {
+                        console.error('Failed to parse response:', e);
+                        throw new Error('Invalid response from Edge system');
+                    }
+
+                    console.log('Parsed result:', result);
+
+                    if (!result.success) {
+                        console.log('Edge system returned error:', result.message);
+                        throw new Error(result.message || 'Failed to fetch LMS ID');
+                    }
+
+                    const updates = {};
+                    updates[`students/${sanitizedEmail}/courses/${launchData.course_id}/LMSStudentID`] = result.user.id;
+                    
+                    const summaryRef = db.ref(`studentCourseSummaries/${sanitizedEmail}_${launchData.course_id}`);
+                    const summarySnapshot = await summaryRef.once('value');
+                    const currentToggle = summarySnapshot.exists() ? summarySnapshot.val().toggle : false;
+                    
+                    updates[`studentCourseSummaries/${sanitizedEmail}_${launchData.course_id}/toggle`] = !currentToggle;
+
+                    await db.ref().update(updates);
+                    
+                    await logEvent('LMS Student ID Fetch', {
+                        email: launchData.email,
+                        courseId: launchData.course_id,
+                        status: 'success',
+                        lmsId: result.user.id
+                    });
+
+                } catch (error) {
+                    await logEvent('LMS Student ID Fetch Error', {
+                        email: launchData.email,
+                        courseId: launchData.course_id,
+                        error: error.message
+                    }, false);
+                }
+            }
+        }
+
+        // Get platform keys
         const keysRef = db.ref('lti/keys');
         const keyData = (await keysRef.once('value')).val();
 
@@ -200,7 +267,6 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
         let ltiKey;
         let customParams;
         if (launchData.role === 'instructor') {
-            // For instructors, use cid_###_0 format
             ltiKey = `cid_${launchData.course_id}_0`;
             customParams = {
                 "context_history": launchData.course_id,
@@ -210,7 +276,6 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
                 "tool_consumer_info_product_family_code": "RTD-Academy"
             };
         } else {
-            // For students, get assessment ID from resource link
             if (launchData.deep_link_id) { 
                 const deepLinkRef = db.ref(`lti/deep_links/${launchData.deep_link_id}`);
                 const deepLinkSnapshot = await deepLinkRef.once('value');
@@ -220,7 +285,6 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
                     throw new Error('Invalid deep link or missing assessment ID');
                 }
 
-                // For students, use aid_###_0 format
                 ltiKey = `aid_${deepLinkData.assessment_id}_0`;
                 customParams = {
                     "context_history": launchData.course_id,
@@ -266,7 +330,7 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
 
             // LTI required claims
             "https://purl.imsglobal.org/spec/lti/claim/version": "1.3.0",
-            "https://purl.imsglobal.org/spec/lti/claim/deployment_id": DEPLOYMENT_ID, // Use the deployment ID
+            "https://purl.imsglobal.org/spec/lti/claim/deployment_id": DEPLOYMENT_ID,
             "https://purl.imsglobal.org/spec/lti/claim/roles": [
                 launchData.role === 'instructor' 
                     ? "http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor"
@@ -309,9 +373,8 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
                 payload["https://purl.imsglobal.org/spec/lti/claim/message_type"] = "LtiResourceLinkRequest";
                 payload["https://purl.imsglobal.org/spec/lti/claim/target_link_uri"] = deepLinkData.url;
 
-                // IMPORTANT: Add the resource_link claim with the correct ID
                 payload["https://purl.imsglobal.org/spec/lti/claim/resource_link"] = {
-                    "id": launchData.deep_link_id, // Use the deep_link_id as resource_link.id
+                    "id": launchData.deep_link_id,
                     "title": deepLinkData.title
                 };
 
@@ -336,18 +399,18 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
         // Create and send the form
         const id_token = await createIdToken(payload, keyData.privateKey, keyData.kid);
         const formHtml = `
-        <html>
-        <head><title>Submitting LTI Launch</title></head>
-        <body>
-            <form id="ltiLaunchForm" action="${redirect_uri}" method="POST">
-                <input type="hidden" name="id_token" value="${id_token}"/>
-                <input type="hidden" name="state" value="${state}"/>
-            </form>
-            <script>
-                document.getElementById('ltiLaunchForm').submit();
-            </script>
-        </body>
-        </html>
+            <html>
+            <head><title>Submitting LTI Launch</title></head>
+            <body>
+                <form id="ltiLaunchForm" action="${redirect_uri}" method="POST">
+                    <input type="hidden" name="id_token" value="${id_token}"/>
+                    <input type="hidden" name="state" value="${state}"/>
+                </form>
+                <script>
+                    document.getElementById('ltiLaunchForm').submit();
+                </script>
+            </body>
+            </html>
         `;
 
         res.status(200).send(formHtml);

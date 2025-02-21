@@ -165,6 +165,12 @@ const updateStudentCourseSummary = functions.database
         .once('value');
       const hasSchedule = scheduleJsonSnap.exists();
 
+      // Get primarySchoolName
+      const primarySchoolNameSnap = await db
+        .ref(`students/${studentId}/courses/${courseId}/primarySchoolName`)
+        .once('value');
+      const primarySchoolName = primarySchoolNameSnap.val() || '';
+
       const summary = {
         Status_Value: newValue.Status?.Value || '',
         Status_SharepointValue: newValue.Status?.SharepointValue || '',
@@ -177,6 +183,7 @@ const updateStudentCourseSummary = functions.database
         PercentCompleteGradebook: newValue.PercentCompleteGradebook || 0,
         Created: newValue.Created || null,
         hasSchedule: hasSchedule,
+        primarySchoolName: primarySchoolName, // Add primarySchoolName to summary
         
         // Profile fields
         LastSync: profile.LastSync || '',

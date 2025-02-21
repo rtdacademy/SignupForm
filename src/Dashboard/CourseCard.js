@@ -88,42 +88,93 @@ const CourseCard = ({
   const [showProgressDialog, setShowProgressDialog] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   
-  // New states
+  // New states for schedule management
   const [showScheduleConfirmDialog, setShowScheduleConfirmDialog] = useState(false);
   const [remainingSchedules, setRemainingSchedules] = useState(null);
-  const [showPaymentDetails, setShowPaymentDetails] = useState(false); // Added state
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
 
-  // Get hasSchedule directly from course.ScheduleJSON
+  // Determine if a schedule exists by checking if ScheduleJSON is present
   const hasSchedule = !!course.ScheduleJSON;
 
   const courseName = course.Course?.Value || 'Course Name';
   const courseId = course.CourseID || 'N/A';
   const status = course.ActiveFutureArchived?.Value || 'Unknown';
   const studentType = course.StudentType?.Value || 'Not specified';
+  const isAdultStudent = studentType.toLowerCase().includes('adult');
+  const isInternationalStudent = studentType.toLowerCase().includes('international');
   const schoolYear = course.School_x0020_Year?.Value || 'N/A';
   const isOnTranscript = course.PASI?.Value === 'Yes';
-  const isAdultStudent = studentType.toLowerCase().includes('adult');
 
   const [showEnrollmentProof, setShowEnrollmentProof] = useState(false);
 
-  // New function to check remaining schedules
-  const checkRemainingSchedules = () => {
-    if (!course?.ScheduleJSON?.remainingSchedules) {
-      // If remainingSchedules doesn't exist, set it to 2
-      setRemainingSchedules(2);
-    } else {
-      setRemainingSchedules(course.ScheduleJSON.remainingSchedules);
+  // Compute the effective payment status.
+  // If course.payment_status.status is already set, use it.
+  // Otherwise, if the student is adult or international and 9+ days have passed since course.Created,
+  // mark the status as "unpaid".
+  const computedPaymentStatus = (() => {
+    if (course.payment_status && course.payment_status.status) {
+      return course.payment_status.status;
     }
-    setShowScheduleConfirmDialog(true);
+    if ((isAdultStudent || isInternationalStudent) && course.Created) {
+      const createdDate = new Date(course.Created);
+      const today = new Date();
+      const diffDays = Math.floor((today - createdDate) / (1000 * 3600 * 24));
+      if (diffDays >= 9) {
+        return 'unpaid';
+      }
+    }
+    return null;
+  })();
+
+  // Render a trial period message if the student has not yet paid and is still within trial period.
+  // This message now includes when payment is due.
+  const renderTrialMessage = () => {
+    const isEligible = isAdultStudent || isInternationalStudent;
+    if (!isEligible) return null;
+    if (course.payment?.hasValidPayment) return null;
+    if (!course.Created) return null;
+
+    const createdDate = new Date(course.Created);
+    const trialEndDate = new Date(createdDate.getTime() + 9 * 24 * 3600 * 1000);
+    const today = new Date();
+
+    // Only show if trial period is still active
+    if (today >= trialEndDate) return null;
+  
+    return (
+      <Alert className="mb-4 bg-purple-50 border-purple-200">
+        <AlertCircle className="h-4 w-4 text-purple-500" />
+        <AlertDescription className="text-purple-700">
+          <p className="font-medium mb-1">Trial Period Active</p>
+          <div className="prose prose-sm prose-purple max-w-none">
+            <p className="text-purple-700 mt-0 mb-0">
+              You are currently in a trial period. Your payment is due on {trialEndDate.toLocaleDateString('en-US', {year: 'numeric', month: 'short', day: 'numeric'})}. Please ensure your payment is completed by that date to maintain access.
+            </p>
+          </div>
+        </AlertDescription>
+      </Alert>
+    );
   };
 
+  const checkRemainingSchedules = () => {
+    // Only assume a default of 2 if remainingSchedules is not defined.
+    const remaining =
+      course?.ScheduleJSON?.remainingSchedules === undefined ||
+      course?.ScheduleJSON?.remainingSchedules === null
+        ? 2
+        : course.ScheduleJSON.remainingSchedules;
+    setRemainingSchedules(remaining);
+    setShowScheduleConfirmDialog(true);
+  };
+  
+  // Updated handleGoToCourse to block access if payment is required or trial period expired.
   const handleGoToCourse = () => {
     if (!hasSchedule) {
       toast.error("Please create a schedule before accessing the course");
       return;
     }
-    if (status !== 'Active') {
-      toast.error("You cannot access the course until it has been activated");
+    if (status !== 'Active' || computedPaymentStatus === 'unpaid') {
+      toast.error("You cannot access the course until it has been activated and payment completed");
       return;
     }
     if (onGoToCourse) {
@@ -140,7 +191,6 @@ const CourseCard = ({
         <AlertDescription className="text-blue-700">
           <p className="font-medium mb-2">Registration Steps:</p>
           <div className="space-y-3">
-            {/* Schedule Creation Step */}
             <div className="flex items-start gap-2">
               <div className="mt-1 flex-shrink-0">
                 {hasSchedule ? (
@@ -159,7 +209,6 @@ const CourseCard = ({
               </div>
             </div>
   
-            {/* Registration Processing Step */}
             <div className="flex items-start gap-2">
               <div className="mt-1 flex-shrink-0">
                 <div className="h-4 w-4 border-2 border-blue-300 rounded-full flex items-center justify-center">
@@ -180,32 +229,13 @@ const CourseCard = ({
     );
   };
 
-  const renderTrialMessage = () => {
-    if (!isAdultStudent || course.payment?.hasValidPayment) return null;
-
-    return (
-      <Alert className="mb-4 bg-purple-50 border-purple-200">
-        <AlertCircle className="h-4 w-4 text-purple-500" />
-        <AlertDescription className="text-purple-700">
-          <p className="font-medium mb-1">7-Day Trial Period</p>
-          <div className="prose prose-sm prose-purple max-w-none">
-            <p className="text-purple-700 mt-0 mb-0">
-              Once you're added to the course, you'll have 7 days to explore the content before payment is required. 
-              Choose between a one-time payment or three monthly installments.
-            </p>
-          </div>
-        </AlertDescription>
-      </Alert>
-    );
-  };
-
+  // Updated payment button uses the computed payment status.
   const renderPaymentButton = () => {
-    if (!isAdultStudent) return null;
+    const isAdultOrInternational = isAdultStudent || isInternationalStudent;
     
-    // Get payment info from course object
-    const { payment } = course;
+    if (!isAdultOrInternational) return null;
     
-    if (!payment) {
+    if (!computedPaymentStatus) {
       return (
         <Button disabled className="w-full bg-gray-100 text-gray-400">
           <span className="animate-pulse">Payment status unavailable</span>
@@ -213,9 +243,8 @@ const CourseCard = ({
       );
     }
   
-    if (payment.status === 'paid' || payment.status === 'active') {
-      const isSubscription = payment.details?.type === 'subscription';
-      const buttonStyle = payment.status === 'paid'
+    if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
+      const buttonStyle = computedPaymentStatus === 'paid'
         ? 'bg-green-50 text-green-700 hover:bg-green-100'
         : 'bg-blue-50 text-blue-700 hover:bg-blue-100';
   
@@ -225,7 +254,7 @@ const CourseCard = ({
             onClick={() => setShowPaymentDetails(true)}
             className={`w-full ${buttonStyle} transition-colors duration-200 flex items-center justify-center`}
           >
-            {payment.status === 'paid' ? (
+            {computedPaymentStatus === 'paid' ? (
               <>
                 <FaCheckCircle className="mr-2" />
                 Payment Complete
@@ -242,8 +271,8 @@ const CourseCard = ({
             isOpen={showPaymentDetails}
             onOpenChange={setShowPaymentDetails}
             paymentDetails={{
-              ...payment.details,
               courseName: courseName
+              // Additional payment details can be passed here as needed
             }}
           />
         </>
@@ -261,18 +290,16 @@ const CourseCard = ({
     );
   };
 
-  // Updated renderScheduleButtons function with animation
+  // Updated renderScheduleButtons function
   const renderScheduleButtons = () => {
     return (
       <>
         <CreateScheduleButton 
           onClick={checkRemainingSchedules} 
           hasSchedule={hasSchedule}
+          remainingSchedules={course?.ScheduleJSON?.remainingSchedules ?? 2} 
         />
 
-
-  
-        {/* Schedule Purchase Dialog */}
         <SchedulePurchaseDialog 
           isOpen={showScheduleConfirmDialog}
           onOpenChange={setShowScheduleConfirmDialog}
@@ -280,32 +307,28 @@ const CourseCard = ({
             setShowScheduleConfirmDialog(false);
             setShowCreateScheduleDialog(true);
           }}
+          hasSchedule={hasSchedule}
         />
   
-        {/* Create Schedule sheet */}
         <Sheet 
-  open={showCreateScheduleDialog} 
-  onOpenChange={setShowCreateScheduleDialog}
-  side="right" // or "bottom" for mobile-first
->
-  <SheetContent 
-    className="w-full sm:max-w-[90%] h-full"
-    // Remove max-height constraints
-  >
-    <SheetHeader>
-      <SheetTitle>Create Your Course Schedule</SheetTitle>
-    </SheetHeader>
-    <YourWayScheduleCreator 
-      course={course}
-      onScheduleSaved={() => {
-        setRemainingSchedules(prev => Math.max(0, prev - 1));
-        setShowCreateScheduleDialog(false);
-      }}
-    />
-  </SheetContent>
-</Sheet>
+          open={showCreateScheduleDialog} 
+          onOpenChange={setShowCreateScheduleDialog}
+          side="right"
+        >
+          <SheetContent className="w-full sm:max-w-[90%] h-full">
+            <SheetHeader>
+              <SheetTitle>Create Your Course Schedule</SheetTitle>
+            </SheetHeader>
+            <YourWayScheduleCreator 
+              course={course}
+              onScheduleSaved={() => {
+                setRemainingSchedules(prev => Math.max(0, prev - 1));
+                setShowCreateScheduleDialog(false);
+              }}
+            />
+          </SheetContent>
+        </Sheet>
   
-        {/* Show Progress button if schedule exists */}
         {hasSchedule && (
           <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
             <DialogTrigger asChild>
@@ -341,7 +364,7 @@ const CourseCard = ({
         />
 
         <Card className="overflow-hidden border-l-4" style={{ borderLeftColor: getBorderColor(status) }}>
-        <CardHeader className="bg-gradient-to-br from-slate-50 to-white p-4">
+          <CardHeader className="bg-gradient-to-br from-slate-50 to-white p-4">
             <div className="flex justify-between items-center">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -455,6 +478,16 @@ const CourseCard = ({
               </div>
             </div>
 
+            {/* Alert to inform the student that payment is required once trial has expired */}
+            {computedPaymentStatus === 'unpaid' && (
+              <Alert className="mb-4 bg-red-50 border-red-200">
+                <FaCreditCard className="h-4 w-4 text-red-500" />
+                <AlertDescription className="text-red-700">
+                  Payment is required to access this course. Please complete your payment.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-4">
               <div className="grid grid-cols-3 gap-2">
                 {renderScheduleButtons()}
@@ -463,15 +496,15 @@ const CourseCard = ({
                   onClick={handleGoToCourse}
                   className={`
                     w-full shadow-lg transition-all duration-200 inline-flex items-center justify-center gap-2
-                    ${(!hasSchedule || status !== 'Active') 
+                    ${(!hasSchedule || status !== 'Active' || computedPaymentStatus === 'unpaid') 
                       ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60' 
                       : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
                     }
                   `}
-                  disabled={!hasSchedule || status !== 'Active'}
+                  disabled={!hasSchedule || status !== 'Active' || computedPaymentStatus === 'unpaid'}
                 >
                   <FaExternalLinkAlt className="h-4 w-4" />
-                  <span>{(!hasSchedule || status !== 'Active') ? 'Course Unavailable' : 'Go to Course'}</span>
+                  <span>{(!hasSchedule || status !== 'Active' || computedPaymentStatus === 'unpaid') ? 'Course Unavailable' : 'Go to Course'}</span>
                 </Button>
 
                 {renderPaymentButton()}
@@ -481,7 +514,6 @@ const CourseCard = ({
         </Card>
       </div>
 
-      {/* Payment Dialog */}
       <PaymentOptionsDialog 
         isOpen={showPaymentDialog}
         onOpenChange={setShowPaymentDialog}
@@ -489,16 +521,15 @@ const CourseCard = ({
         user={currentUser} 
       />
 
-<ProofOfEnrollmentDialog
-  isOpen={showEnrollmentProof}
-  onOpenChange={setShowEnrollmentProof}
-  course={course}
-  studentProfile={profile}
-  onPrint={() => {
-    toast.success("Document ready for printing");
-  }}
-/>
-
+      <ProofOfEnrollmentDialog
+        isOpen={showEnrollmentProof}
+        onOpenChange={setShowEnrollmentProof}
+        course={course}
+        studentProfile={profile}
+        onPrint={() => {
+          toast.success("Document ready for printing");
+        }}
+      />
     </>
   );
 };

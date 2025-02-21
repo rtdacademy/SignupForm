@@ -2,8 +2,28 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import { auth } from '../firebase';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { getDatabase, ref, get, set } from "firebase/database";
+import { Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate, useLocation } from 'react-router-dom';
+
+// Permission level indicators
+export const PERMISSION_INDICATORS = {
+  STAFF: {
+    icon: Shield,
+    label: 'Staff Access Required',
+    description: 'This feature requires RTD Academy staff access'
+  },
+  ADMIN: {
+    icon: ShieldCheck,
+    label: 'Admin Access Required',
+    description: 'This feature requires RTD Academy admin access'
+  },
+  SUPER_ADMIN: {
+    icon: ShieldAlert,
+    label: 'Super Admin Access Required',
+    description: 'This feature requires RTD Academy super admin access'
+  }
+};
 
 // Only keep super admin emails hardcoded for highest level security
 const SUPER_ADMIN_EMAILS = [
@@ -105,15 +125,20 @@ export function AuthProvider({ children }) {
 
   // Ensure staff node includes admin and super admin status
   const ensureStaffNode = async (user, emailKey) => {
+    // Add staff verification at the start of the function
+    if (!checkIsStaff(user)) {
+      console.error("Attempted to create staff node for non-staff user");
+      return false;
+    }
+  
     const db = getDatabase();
     const staffRef = ref(db, `staff/${emailKey}`);
-    const isAdmin = isAdminUser; // Use the state value instead of rechecking
+    const isAdmin = isAdminUser;
     const isSuperAdmin = checkIsSuperAdmin(user);
     
     try {
       const snapshot = await get(staffRef);
       if (!snapshot.exists()) {
-        // Split the displayName into first and last name
         const [firstName = '', lastName = ''] = (user.displayName || '').split(' ');
         
         await set(staffRef, {
@@ -492,6 +517,14 @@ export function AuthProvider({ children }) {
     // Admin access helpers
     hasAdminAccess: () => isStaffUser && isAdminUser,
     hasSuperAdminAccess: () => isStaffUser && isSuperAdminUser,
+
+    // Permission indicators
+  permissionIndicators: PERMISSION_INDICATORS,
+  
+  // Helper functions to check permissions
+  requiresStaffAccess: () => isStaffUser,
+  requiresAdminAccess: () => isStaffUser && isAdminUser,
+  requiresSuperAdminAccess: () => isStaffUser && isSuperAdminUser,
 
     // Migration related values and functions
     isMigratedUser,

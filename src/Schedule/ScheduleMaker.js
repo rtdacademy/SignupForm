@@ -669,7 +669,7 @@ const ScheduleMaker = ({ studentKey, courseId, onClose }) => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Toaster />
+     
       <div className="flex flex-grow">
         <div className="w-full md:w-1/3 p-4">
           <Card className="p-4">

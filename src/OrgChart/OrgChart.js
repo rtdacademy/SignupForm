@@ -1014,7 +1014,7 @@ function OrgChartInner() {
 export default function OrgChart() {
   return (
     <div style={{ width: '100%', height: '100%' }}>
-      <Toaster position="top-right" />
+      
       <ReactFlowProvider>
         <OrgChartInner />
       </ReactFlowProvider>

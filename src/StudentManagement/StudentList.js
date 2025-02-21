@@ -9,6 +9,7 @@ import { ChevronUp, ChevronDown, SortAsc, FileDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { TutorialButton } from '../components/TutorialButton';
 import CustomCSVExport from './CustomCSVExport';
+import MassUpdateDialog from './Dialog/MassUpdateDialog';
 
 // Utility function to generate username
 const generateUsername = (firstName, lastName) => {
@@ -72,7 +73,7 @@ function StudentList({
   const [sortKey, setSortKey] = useState('lastName');
   const [sortOrder, setSortOrder] = useState('asc');
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
-
+  const [isMassUpdateDialogOpen, setIsMassUpdateDialogOpen] = useState(false); 
   // Apply filters and search using useMemo for performance optimization
   
  // Inside the useMemo for filteredStudents in StudentList component
@@ -253,6 +254,7 @@ function StudentList({
       String(student.preferredFirstName || '').toLowerCase().includes(normalizedSearchTerm) ||
       String(student.lastName || '').toLowerCase().includes(normalizedSearchTerm) ||
       String(student.StudentEmail || '').toLowerCase().includes(normalizedSearchTerm) ||
+      String(student.ParentEmail || '').toLowerCase().includes(normalizedSearchTerm) || 
       normalizeASN(student.asn).includes(normalizeASN(searchTerm));
 
     return matchesFilters && matchesSearch;
@@ -427,33 +429,34 @@ function StudentList({
         </div>
 
         {selectedStudents.size > 0 && (
-          <div className="mt-2 flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onSelectedStudentsChange(new Set())}
-              className="text-xs"
-            >
-              Clear Selection
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs flex items-center"
-              asChild
-            >
-              <Button
-  variant="outline"
-  size="sm"
-  className="text-xs flex items-center"
-  onClick={() => setIsExportDialogOpen(true)}
->
-  <FileDown className="w-4 h-4 mr-1" />
-  Export CSV
-</Button>
-            </Button>
-          </div>
-        )}
+  <div className="mt-2 flex items-center space-x-2">
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => onSelectedStudentsChange(new Set())}
+      className="text-xs"
+    >
+      Clear Selection
+    </Button>
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-xs flex items-center"
+      onClick={() => setIsExportDialogOpen(true)}
+    >
+      <FileDown className="w-4 h-4 mr-1" />
+      Export CSV
+    </Button>
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-xs flex items-center"
+      onClick={() => setIsMassUpdateDialogOpen(true)}
+    >
+      Mass Update
+    </Button>
+  </div>
+)}
       </div>
 
       {/* Student List Section */}
@@ -498,6 +501,18 @@ function StudentList({
   onClose={() => setIsExportDialogOpen(false)}
   data={csvData}
 />
+
+<MassUpdateDialog
+  isOpen={isMassUpdateDialogOpen}
+  onClose={() => setIsMassUpdateDialogOpen(false)}
+  selectedStudents={Array.from(selectedStudents).map(id => 
+    studentSummaries.find(student => student.id === id)
+  ).filter(Boolean)}
+  teacherCategories={teacherCategories}
+  categoryTypes={categoryTypes}
+  user_email_key={user_email_key}
+/>
+
 
     </div>
   );

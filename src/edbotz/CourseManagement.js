@@ -59,20 +59,17 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import CourseUnitsManagement from './CourseUnitsManagement';
-import EntityAssistants from './EntityAssistants';
-import AIAssistantSheet from './AIAssistantSheet'; // Added import
 
 const DEFAULT_COURSE = {
   id: 'courseless-assistants',
   title: 'Courseless Assistants',
-  description: 'Central hub for managing standalone AI teaching assistants that can be used across all courses.',
+  description: 'Central hub for managing standalone content that can be used across all courses.',
   isDefault: true,
-  grade: 'N/A',
-  assistants: {}
+  grade: 'N/A'
 };
 
 // CourseHeader Component
-const CourseHeader = ({ course, onEditCourse, onDeleteCourse, onManageAI, onDeleteAssistant }) => {
+const CourseHeader = ({ course, onEditCourse, onDeleteCourse }) => {
   const [showDescription, setShowDescription] = useState(false);
   const isDefaultCourse = course.id === DEFAULT_COURSE.id;
 
@@ -87,9 +84,6 @@ const CourseHeader = ({ course, onEditCourse, onDeleteCourse, onManageAI, onDele
     prose-a:decoration-blue-300 hover:prose-a:decoration-blue-500
     prose-em:text-gray-700 prose-em:font-medium
   `.trim();
-
-    // Debug logging to see the description content
-    console.log('Course Description HTML:', course.description);
 
   return (
     <div className="space-y-4">
@@ -108,7 +102,7 @@ const CourseHeader = ({ course, onEditCourse, onDeleteCourse, onManageAI, onDele
                   <LayoutGrid className="w-5 h-5" />
                 )}
                 <span className="text-sm font-medium">
-                  {isDefaultCourse ? 'Global AI Assistants' : 'Course Overview'}
+                  {isDefaultCourse ? 'Global Content' : 'Course Overview'}
                 </span>
               </div>
               <h1 className="text-2xl font-bold text-gray-900">{course.title}</h1>
@@ -152,28 +146,6 @@ const CourseHeader = ({ course, onEditCourse, onDeleteCourse, onManageAI, onDele
           </div>
         )}
       </div>
-
-      <Card className={isDefaultCourse ? 'border-purple-100' : 'border-blue-100'}>
-        <CardHeader>
-          <div className="flex items-center gap-2 text-blue-600">
-            <Bot className="w-5 h-5" />
-            <CardTitle>
-              {isDefaultCourse ? 'Global AI Assistants' : 'Course Assistants'}
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <EntityAssistants
-            type="course"
-            entityId={course.id}
-            parentId={null}
-            assistants={course.assistants || {}}
-            onManageAI={onManageAI}
-            onDeleteAssistant={onDeleteAssistant}
-            isDefaultCourse={isDefaultCourse}
-          />
-        </CardContent>
-      </Card>
     </div>
   );
 };
@@ -184,21 +156,13 @@ const CourseManagement = () => {
   const [courseData, setCourseData] = useState({
     title: '',
     grade: '',
-    description: '',
-    assistants: {}  
+    description: ''
   });
   const [selectedCourseId, setSelectedCourseId] = useState(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [courseToDelete, setCourseToDelete] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCourseId, setEditingCourseId] = useState(null);
-  const [showAISheet, setShowAISheet] = useState(false);
-  const [currentAIContext, setCurrentAIContext] = useState({
-    type: null,
-    entityId: null,
-    parentId: null,
-    existingAssistantId: null
-  });
 
   const modules = {
     toolbar: [
@@ -241,16 +205,14 @@ const CourseManagement = () => {
     if (courseId) {
       setEditingCourseId(courseId);
       setCourseData({
-        ...courses[courseId],
-        assistants: courses[courseId]?.assistants || {}
+        ...courses[courseId]
       });
     } else {
       setEditingCourseId(null);
       setCourseData({
         title: '',
         grade: '',
-        description: '',
-        assistants: {}
+        description: ''
       });
     }
     setIsDialogOpen(true);
@@ -262,8 +224,7 @@ const CourseManagement = () => {
     setCourseData({
       title: '',
       grade: '',
-      description: '',
-      assistants: {}
+      description: ''
     });
   };
 
@@ -277,8 +238,7 @@ const CourseManagement = () => {
     try {
       const courseDataToSave = {
         ...courseData,
-        updatedAt: new Date().toISOString(),
-        assistants: courseData.assistants || {}
+        updatedAt: new Date().toISOString()
       };
 
       if (editingCourseId) {
@@ -334,96 +294,6 @@ const CourseManagement = () => {
   };
 
   const groupedCourses = getGroupedCourses();
-
-  const handleManageAI = (type, entityId, parentId = null, assistantId = null) => {
-    console.log('Managing AI:', { type, entityId, parentId, assistantId });
-    setCurrentAIContext({
-      type,
-      entityId,
-      parentId,
-      existingAssistantId: assistantId
-    });
-    setShowAISheet(true);
-  };
-
-  const handleAIAssistantSave = async (assistantData) => {
-    const { type, entityId, parentId } = currentAIContext;
-    const db = getDatabase();
-    
-    try {
-      const entityPath = `edbotz/courses/${user.uid}/${entityId}`;
-      
-      // First, get the current state of the entity to preserve existing assistants
-      const entityRef = ref(db, entityPath);
-      const entitySnapshot = await get(entityRef);
-      const entityData = entitySnapshot.val() || {};
-      const existingAssistants = entityData.assistants || {};
-  
-      // Create the updates object
-      const updates = {};
-  
-      // Add the assistant to the assistants collection
-      updates[`edbotz/assistants/${user.uid}/${assistantData.assistantId}`] = assistantData;
-  
-      // Initialize or update assistants object while preserving existing assistants
-      updates[`${entityPath}/assistants`] = {
-        ...existingAssistants,
-        [assistantData.assistantId]: true
-      };
-      updates[`${entityPath}/hasAI`] = true;
-  
-      // Perform all updates atomically
-      await update(ref(db), updates);
-  
-      // Update local state if needed
-      setCourses(prevCourses => ({
-        ...prevCourses,
-        [entityId]: {
-          ...prevCourses[entityId],
-          assistants: {
-            ...(prevCourses[entityId]?.assistants || {}),
-            [assistantData.assistantId]: true
-          },
-          hasAI: true
-        }
-      }));
-
-      setShowAISheet(false);
-    } catch (error) {
-      console.error('Error saving assistant:', error);
-      throw error;
-    }
-  };
-
-  // Handle AI Assistant Delete
-  const handleDeleteAssistant = async (assistantId, type, entityId, parentId) => {
-    if (type === 'course' && entityId === DEFAULT_COURSE.id) {
-      // Handle deletion from default course
-      const db = getDatabase();
-      const assistantRef = ref(db, `edbotz/assistants/${user.uid}/${assistantId}`);
-      const courseAssistantRef = ref(db, `edbotz/courses/${user.uid}/${DEFAULT_COURSE.id}/assistants/${assistantId}`);
-
-      try {
-        await remove(assistantRef);
-        await remove(courseAssistantRef);
-      } catch (error) {
-        console.error("Error deleting assistant:", error);
-      }
-    } else {
-      // Handle regular course assistant deletion
-      const db = getDatabase();
-      const updates = {};
-      
-      updates[`edbotz/assistants/${user.uid}/${assistantId}`] = null;
-      updates[`edbotz/courses/${user.uid}/${entityId}/assistants/${assistantId}`] = null;
-      
-      try {
-        await update(ref(db), updates);
-      } catch (error) {
-        console.error("Error deleting assistant:", error);
-      }
-    }
-  };
 
   return (
     <div className="p-6 mx-auto">
@@ -522,8 +392,8 @@ const CourseManagement = () => {
               // Render only the course header for default course
               <CourseHeader 
                 course={DEFAULT_COURSE}
-                onManageAI={handleManageAI}
-                onDeleteAssistant={handleDeleteAssistant}
+                onEditCourse={null}
+                onDeleteCourse={null}
               />
             ) : (
               // Regular course management with units
@@ -531,16 +401,13 @@ const CourseManagement = () => {
                 courseId={selectedCourseId} 
                 course={{
                   id: selectedCourseId,
-                  ...(courses[selectedCourseId] || {}),
-                  assistants: courses[selectedCourseId]?.assistants || {}
+                  ...(courses[selectedCourseId] || {})
                 }}
                 onEditCourse={() => handleOpenDialog(selectedCourseId)}
                 onDeleteCourse={() => {
                   setCourseToDelete(selectedCourseId);
                   setShowDeleteDialog(true);
                 }}
-                onManageAI={handleManageAI}
-                onDeleteAssistant={handleDeleteAssistant}
               />
             )
           ) : (
@@ -590,10 +457,7 @@ const CourseManagement = () => {
                 <ReactQuill
                   theme="snow"
                   value={courseData.description}
-                  onChange={(content) => {
-                    console.log('Quill content:', content); // Debug log
-                    setCourseData(prev => ({ ...prev, description: content }));
-                  }}
+                  onChange={(content) => setCourseData(prev => ({ ...prev, description: content }))}
                   modules={modules}
                   formats={formats}
                   className="h-[150px] [&_.ql-toolbar]:border-gray-200 [&_.ql-container]:border-gray-200
@@ -630,7 +494,7 @@ const CourseManagement = () => {
             </AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the course
-              and all its associated data, including units, lessons, and AI assistants.
+              and all its associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -644,20 +508,6 @@ const CourseManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* AI Assistant Sheet */}
-      {showAISheet && (
-        <AIAssistantSheet
-          open={showAISheet}
-          onOpenChange={setShowAISheet}
-          onSave={handleAIAssistantSave}
-          type={currentAIContext.type}
-          entityId={currentAIContext.entityId}
-          parentId={currentAIContext.parentId}
-          existingAssistantId={currentAIContext.existingAssistantId}
-          isDefaultCourse={currentAIContext.entityId === DEFAULT_COURSE.id}
-        />
-      )}
     </div>
   );
 };

@@ -537,7 +537,7 @@ const [preparedRecipients, setPreparedRecipients] = useState(null);
 
   return (
     <>
-      <Toaster />
+     
       <Card className="h-full flex flex-col">
       <CardHeader className="border-b">
         <div className="flex items-center justify-between">

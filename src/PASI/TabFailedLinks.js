@@ -4,9 +4,10 @@ import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { AlertCircle, Copy, InfoIcon } from "lucide-react";
+import { AlertCircle, Copy, InfoIcon, PlusCircle } from "lucide-react";
 import { getDatabase, ref, onValue, off, set } from 'firebase/database';
 import { toast } from "sonner";
+import CreateStudent from '../Registration/CreateStudent';
 import {
   Tooltip,
   TooltipContent,
@@ -22,7 +23,7 @@ import {
   PaginationPrevious,
 } from "../components/ui/pagination";
 
-const ITEMS_PER_PAGE = 30;
+const ITEMS_PER_PAGE = 50;
 
 const getErrorBadgeColor = (reason) => {
   switch (reason) {
@@ -95,6 +96,10 @@ const TabFailedLinks = ({ data = { details: [] }, schoolYear }) => {
   const [hasIssues, setHasIssues] = useState({
     multipleEmails: false,
     asnMissing: false
+  });
+  const [createStudentDialog, setCreateStudentDialog] = useState({
+    isOpen: false,
+    data: null
   });
 
   useEffect(() => {
@@ -177,6 +182,22 @@ const TabFailedLinks = ({ data = { details: [] }, schoolYear }) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
     toast.success('Copied to clipboard');
+  };
+
+  const handleCreateStudent = (record) => {
+    const pasiRecord = record.data.pasiRecord;
+    setCreateStudentDialog({
+      isOpen: true,
+      data: {
+        asn: pasiRecord.asn,
+        email: pasiRecord.email,
+        schoolYear: schoolYear,
+        status: pasiRecord.status,
+        studentName: pasiRecord.studentName,
+        courseCode: pasiRecord.courseCode,
+        courseDescription:pasiRecord.courseDescription
+      }
+    });
   };
 
   const renderPagination = () => {
@@ -299,14 +320,24 @@ const TabFailedLinks = ({ data = { details: [] }, schoolYear }) => {
                 <TableCell>{pasiRecord.status}</TableCell>
                 <TableCell>{pasiRecord.value || '-'}</TableCell>
                 <TableCell>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => handleCopyData(pasiRecord.asn)}
-                    title="Copy ASN"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleCopyData(pasiRecord.asn)}
+                      title="Copy ASN"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCreateStudent(record)}
+                      title="Create Student"
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             );
@@ -315,6 +346,12 @@ const TabFailedLinks = ({ data = { details: [] }, schoolYear }) => {
       </Table>
 
       {renderPagination()}
+
+      <CreateStudent
+        isOpen={createStudentDialog.isOpen}
+        onClose={() => setCreateStudentDialog({ isOpen: false, data: null })}
+        {...createStudentDialog.data}
+      />
     </div>
   );
 };

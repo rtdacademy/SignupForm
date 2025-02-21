@@ -13,7 +13,8 @@ import {
   FaRegLightbulb 
 } from 'react-icons/fa';
 import Modal from 'react-modal';
-import Select from 'react-select';
+// Keep react-select for multi-select fields.
+import ReactSelect from 'react-select';
 import { Switch } from '../components/ui/switch';
 import { 
   Sheet, 
@@ -28,7 +29,17 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import CourseUnitsEditor from './CourseUnitsEditor';
 import AddCourseDialog from './AddCourseDialog';
-import DeleteCourseDialog from './DeleteCourseDialog'; // Ensure this component exists
+import DeleteCourseDialog from './DeleteCourseDialog';
+import CourseWeightingDialog from './CourseWeightingDialog';
+
+// Import UI kit Select components for single–value selects
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 
 Modal.setAppElement('#root');
 
@@ -42,23 +53,20 @@ const monthOptions = [
 
 // Helper Functions
 const formatDateForDatabase = (localDate) => {
-  // Convert local date to UTC timestamp
-  // Assume all dates are for midnight Mountain Time (UTC-7)
   const [year, month, day] = localDate.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day, 7)); // 00:00 MT = 07:00 UTC
+  const date = new Date(Date.UTC(year, month - 1, day, 7));
   return {
-    date: date.toISOString(), // Store full UTC timestamp
-    displayDate: localDate,    // Store display date as entered
+    date: date.toISOString(),
+    displayDate: localDate,
     timezone: 'America/Edmonton'
   };
 };
 
 const formatDateForDisplay = (dateString) => {
-  // Convert UTC date back to local date string (YYYY-MM-DD)
   if (!dateString) return '';
   const date = new Date(dateString);
-  return new Date(date.getTime() - (7 * 60 * 60 * 1000)) // Convert UTC to MT
-    .toLocaleDateString('en-CA', { // en-CA gives YYYY-MM-DD format
+  return new Date(date.getTime() - (7 * 60 * 60 * 1000))
+    .toLocaleDateString('en-CA', {
       timeZone: 'America/Edmonton',
       year: 'numeric',
       month: '2-digit',
@@ -119,33 +127,57 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
             <label className="block text-sm font-medium mb-1">Time</label>
             <div className="flex space-x-2 items-center">
               <Select
-                options={timeOptions}
-                value={timeOptions.find(option => option.value === diplomaTime.hour)}
-                onChange={(selected) => handleTimeChange(selected, { name: 'hour' })}
-                isDisabled={!isEditing}
-                className="w-24"
-                classNamePrefix="select"
-                placeholder="Hour"
-              />
+                name="hour"
+                value={diplomaTime.hour}
+                onValueChange={(value) => handleTimeChange({ value }, { name: 'hour' })}
+                disabled={!isEditing}
+              >
+                <SelectTrigger className="w-24">
+                  <SelectValue placeholder="Hour" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timeOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <span>:</span>
               <Select
-                options={minuteOptions}
-                value={minuteOptions.find(option => option.value === diplomaTime.minute)}
-                onChange={(selected) => handleTimeChange(selected, { name: 'minute' })}
-                isDisabled={!isEditing}
-                className="w-24"
-                classNamePrefix="select"
-                placeholder="Min"
-              />
+                name="minute"
+                value={diplomaTime.minute}
+                onValueChange={(value) => handleTimeChange({ value }, { name: 'minute' })}
+                disabled={!isEditing}
+              >
+                <SelectTrigger className="w-24">
+                  <SelectValue placeholder="Min" />
+                </SelectTrigger>
+                <SelectContent>
+                  {minuteOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select
-                options={periodOptions}
-                value={periodOptions.find(option => option.value === diplomaTime.period)}
-                onChange={(selected) => handleTimeChange(selected, { name: 'period' })}
-                isDisabled={!isEditing}
-                className="w-24"
-                classNamePrefix="select"
-                placeholder="AM/PM"
-              />
+                name="period"
+                value={diplomaTime.period}
+                onValueChange={(value) => handleTimeChange({ value }, { name: 'period' })}
+                disabled={!isEditing}
+              >
+                <SelectTrigger className="w-24">
+                  <SelectValue placeholder="AM/PM" />
+                </SelectTrigger>
+                <SelectContent>
+                  {periodOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -153,13 +185,22 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
         <div>
           <label className="block text-sm font-medium mb-1">Month</label>
           <Select
-            options={monthOptions}
-            value={monthOptions.find(option => option.value === diplomaTime.month)}
-            onChange={(selected) => onChange({ ...diplomaTime, month: selected.value })}
-            isDisabled={!isEditing}
-            className="basic-select"
-            classNamePrefix="select"
-          />
+            name="month"
+            value={diplomaTime.month}
+            onValueChange={(value) => onChange({ ...diplomaTime, month: value })}
+            disabled={!isEditing}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select Month" />
+            </SelectTrigger>
+            <SelectContent>
+              {monthOptions.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex items-center justify-between">
@@ -297,6 +338,7 @@ function Courses() {
   const [courses, setCourses] = useState({});
   const [selectedCourseId, setSelectedCourseId] = useState(null);
   const [courseData, setCourseData] = useState({});
+  const [courseWeights, setCourseWeights] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const [staffMembers, setStaffMembers] = useState([]);
@@ -311,18 +353,12 @@ function Courses() {
     { value: 'Custom', label: 'Custom' },
   ];
 
-  const courseTypeOptions = [
-    { value: 'Math', label: 'Math' },
-    { value: 'Science', label: 'Science' },
-    { value: 'Option', label: 'Option' },
-    { value: 'Custom', label: 'Custom' },
-  ];
-
   const diplomaCourseOptions = [
     { value: 'Yes', label: 'Yes' },
     { value: 'No', label: 'No' },
   ];
 
+  // Fetch courses and staff members, and set course weights if available.
   useEffect(() => {
     if (!user || !isStaff(user)) {
       navigate('/login');
@@ -340,39 +376,44 @@ function Courses() {
         if (selectedCourseId) {
           if (!isEditing) {
             setCourseData(data[selectedCourseId]);
+            // Also set course weights if they exist; otherwise, use default values.
+            setCourseWeights(
+              data[selectedCourseId].weights || {
+                lesson: 0.2,
+                assignment: 0.2,
+                exam: 0.6
+              }
+            );
           }
         }
       } else {
         setCourses({});
         setCourseData({});
+        setCourseWeights(null);
       }
     });
 
     // Fetch staff members
-   // Fetch staff members
-const staffRef = ref(db, 'staff');
-const unsubscribeStaff = onValue(staffRef, (snapshot) => {
-  const data = snapshot.val();
-  if (data) {
-    const uniqueStaff = Object.entries(data).map(([key, staffData]) => {
-      // Generate display name from firstName and lastName, fallback to email
-      const fullName = staffData.firstName && staffData.lastName
-        ? `${staffData.firstName} ${staffData.lastName}`
-        : staffData.email;
-        
-      return {
-        value: key,
-        label: fullName,
-        email: staffData.email,
-      };
+    const staffRef = ref(db, 'staff');
+    const unsubscribeStaff = onValue(staffRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const uniqueStaff = Object.entries(data).map(([key, staffData]) => {
+          const fullName = staffData.firstName && staffData.lastName
+            ? `${staffData.firstName} ${staffData.lastName}`
+            : staffData.email;
+          return {
+            value: key,
+            label: fullName,
+            email: staffData.email,
+          };
+        });
+        setStaffMembers(uniqueStaff);
+      } else {
+        setStaffMembers([]);
+      }
     });
-    setStaffMembers(uniqueStaff);
-  } else {
-    setStaffMembers([]);
-  }
-});
 
-    // Cleanup subscriptions on unmount
     return () => {
       unsubscribeCourses();
       unsubscribeStaff();
@@ -392,7 +433,6 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
     };
     setCourseData(updatedData);
 
-    // Update database directly
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
     update(courseRef, { [name]: value })
@@ -405,27 +445,26 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
       });
   };
 
-  const handleSelectChange = (selectedOption, { name }) => {
-    const updatedValue = selectedOption ? selectedOption.value : '';
+  // A simplified handler for single–value UI kit selects
+  const handleSelectChange = (value, name) => {
     const updatedData = {
       ...courseData,
-      [name]: updatedValue,
+      [name]: value,
     };
 
-    // If changing DiplomaCourse to 'No', clear diplomaTimes
-    if (name === 'DiplomaCourse' && updatedValue === 'No') {
+    // Special handling: if DiplomaCourse is set to 'No', clear diplomaTimes.
+    if (name === 'DiplomaCourse' && value === 'No') {
       updatedData.diplomaTimes = null;
     }
 
     setCourseData(updatedData);
 
-    // Update database directly
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
-    const updates = { 
-      [name]: updatedValue,
-      ...(name === 'DiplomaCourse' && updatedValue === 'No' ? { diplomaTimes: null } : {})
-    };
+    const updates = { [name]: value };
+    if (name === 'DiplomaCourse' && value === 'No') {
+      updates.diplomaTimes = null;
+    }
 
     update(courseRef, updates)
       .then(() => {
@@ -445,7 +484,6 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
     };
     setCourseData(updatedData);
 
-    // Update database directly
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
     update(courseRef, { [name]: values })
@@ -465,7 +503,6 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
     };
     setCourseData(updatedData);
 
-    // Update database directly
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
     update(courseRef, { units: newUnits })
@@ -500,7 +537,6 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
     };
     setCourseData(updatedData);
 
-    // Update database directly
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
     update(courseRef, { allowStudentChats: checked })
@@ -513,7 +549,6 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
       });
   };
 
-  // New handleStatsChange function
   const handleStatsChange = (checked) => {
     if (!isEditing) return;
 
@@ -537,12 +572,11 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
     isEditing ? 'border-gray-300' : 'border-gray-200 bg-gray-100'
   } rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm`;
 
-  // Group courses by grade
   const groupedCourses = useMemo(() => {
     const groups = {};
   
     Object.entries(courses)
-      .filter(([courseId]) => courseId !== 'sections') // Filter out Sections entry
+      .filter(([courseId]) => courseId !== 'sections')
       .forEach(([courseId, course]) => {
         const grade = course.grade ? course.grade.trim() : 'Other';
         if (!grade) {
@@ -554,7 +588,6 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
         }
       });
   
-    // Sort courses within each grade by courseId
     Object.keys(groups).forEach(grade => {
       groups[grade].sort((a, b) => {
         const idA = parseInt(a.courseId);
@@ -563,7 +596,6 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
       });
     });
   
-    // Sort the grades, placing "Other" at the end
     const sortedGrades = Object.keys(groups)
       .filter((g) => g !== 'Other')
       .sort((a, b) => {
@@ -595,11 +627,8 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
       await remove(courseRef);
       console.log(`Successfully deleted course: ${selectedCourseForDeletion.title}`);
   
-      // Handle post-deletion state
       setDeleteDialogOpen(false);
       setSelectedCourseForDeletion(null);
-  
-      // Clear selected course data first
       setSelectedCourseId(null);
       setCourseData({});
       
@@ -694,6 +723,75 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
                     <FaEdit className="mr-1" /> Edit Course
                   </button>
                 )}
+        <CourseWeightingDialog
+  courseId={selectedCourseId}
+  courseUnits={courseData.units || []}
+  courseWeights={courseWeights}
+  onWeightsUpdate={(categoryWeights, updatedUnits) => {
+    const db = getDatabase();
+    
+    try {
+      // Validate categoryWeights
+      if (!categoryWeights || typeof categoryWeights !== 'object') {
+        throw new Error('Invalid category weights');
+      }
+
+      // Create clean category weights object ensuring all values are numbers
+      const cleanCategoryWeights = {
+        lesson: Number(categoryWeights.lesson) || 0,
+        assignment: Number(categoryWeights.assignment) || 0,
+        exam: Number(categoryWeights.exam) || 0
+      };
+
+      // Create an update object starting with weights
+      const updates = {
+        [`courses/${selectedCourseId}/weights`]: cleanCategoryWeights
+      };
+
+      // Update unit weights if we have valid units
+      if (Array.isArray(updatedUnits)) {
+        updatedUnits.forEach((unit, unitIndex) => {
+          if (unit?.items && Array.isArray(unit.items)) {
+            unit.items.forEach((item, itemIndex) => {
+              // Ensure weight is a valid number before adding to updates
+              const weight = Number(item.weight);
+              if (!isNaN(weight)) {
+                updates[`courses/${selectedCourseId}/units/${unitIndex}/items/${itemIndex}/weight`] = weight;
+              }
+            });
+          }
+        });
+      }
+
+      // Log the final updates object for debugging
+      console.log('Sending updates:', updates);
+
+// Get a reference to the root of the database
+const rootRef = ref(db);
+
+// Perform the multi-location update using the root reference
+update(rootRef, updates)
+  .then(() => {
+    console.log('Successfully updated course weights');
+    setCourseData(prev => ({
+      ...prev,
+      units: updatedUnits
+    }));
+    setCourseWeights(cleanCategoryWeights);
+  })
+  .catch((error) => {
+    console.error('Firebase update error:', error);
+    alert('An error occurred while updating the course weights.');
+  });
+
+
+    } catch (error) {
+      console.error('Error preparing updates:', error.message, '\nFull error:', error);
+      alert('An error occurred while preparing the updates: ' + error.message);
+    }
+  }}
+  isEditing={isEditing}
+/>
               </div>
             </div>
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
@@ -713,21 +811,48 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
                   />
                 </div>
 
-                {/* LMS Course ID */}
-                {!courseData.modernCourse && (
-                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                    <label className="block text-sm font-medium text-gray-700">
-                      LMS Course ID
-                    </label>
-                    <input
-                      type="text"
-                      name="LMSCourseID"
-                      value={courseData.LMSCourseID || ''}
-                      disabled
-                      className={`mt-1 block w-full p-2 border border-gray-200 bg-gray-100 rounded-md shadow-sm text-sm`}
-                    />
-                  </div>
-                )}
+                {/* LMS Course ID  */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    LMS Course ID
+                  </label>
+                  <input
+                    type="text"
+                    name="LMSCourseID"
+                    value={courseData.LMSCourseID || ''}
+                    disabled
+                    className={`mt-1 block w-full p-2 border border-gray-200 bg-gray-100 rounded-md shadow-sm text-sm`}
+                  />
+                </div>
+                
+                {/* Course Version */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Course Version
+                  </label>
+                  <Select
+                    name="CourseVersion"
+                    value={courseData.modernCourse ? "modern" : "original"}
+                    onValueChange={(value) => {
+                      const updatedData = { ...courseData, modernCourse: value === "modern" };
+                      setCourseData(updatedData);
+                      const db = getDatabase();
+                      const courseRef = ref(db, `courses/${selectedCourseId}`);
+                      update(courseRef, { modernCourse: value === "modern" })
+                        .then(() => console.log('Updated Course Version'))
+                        .catch((error) => alert('Error updating course version'));
+                    }}
+                    disabled={!isEditing}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select course version" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="original">Original</SelectItem>
+                      <SelectItem value="modern">Modern</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {/* Active */}
                 <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
@@ -736,14 +861,21 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
                   </label>
                   <Select
                     name="Active"
-                    options={activeOptions}
-                    value={activeOptions.find(
-                      (option) => option.value === courseData.Active
-                    )}
-                    onChange={handleSelectChange}
-                    isDisabled={!isEditing}
-                    className="mt-1"
-                  />
+                    value={courseData.Active}
+                    onValueChange={(value) => handleSelectChange(value, "Active")}
+                    disabled={!isEditing}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select active status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {courseData.Active === 'Custom' && (
                     <input
                       type="text"
@@ -773,7 +905,7 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
                   </p>
                 </div>
 
-                {/* DiplomaCourse - Full Width Row */}
+                {/* Diploma Course */}
                 <div className="w-full px-2 mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Diploma Course
@@ -782,13 +914,21 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
                     <div className="w-1/3">
                       <Select
                         name="DiplomaCourse"
-                        options={diplomaCourseOptions}
-                        value={diplomaCourseOptions.find(
-                          (option) => option.value === courseData.DiplomaCourse
-                        )}
-                        onChange={handleSelectChange}
-                        isDisabled={!isEditing}
-                      />
+                        value={courseData.DiplomaCourse}
+                        onValueChange={(value) => handleSelectChange(value, "DiplomaCourse")}
+                        disabled={!isEditing}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Diploma Course" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {diplomaCourseOptions.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     {courseData.DiplomaCourse === 'Yes' && (
                       <Sheet>
@@ -828,21 +968,27 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
                   </div>
                 </div>
 
-                {/* CourseType */}
+                {/* Course Type */}
                 <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
                   <label className="block text-sm font-medium text-gray-700">
                     Course Type
                   </label>
                   <Select
                     name="CourseType"
-                    options={courseTypeOptions}
-                    value={courseTypeOptions.find(
-                      (option) => option.value === courseData.CourseType
-                    )}
-                    onChange={handleSelectChange}
-                    isDisabled={!isEditing}
-                    className="mt-1"
-                  />
+                    value={courseData.CourseType || ''}
+                    onValueChange={(value) => handleSelectChange(value, "CourseType")}
+                    disabled={!isEditing}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select course type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Math">Math</SelectItem>
+                      <SelectItem value="Science">Science</SelectItem>
+                      <SelectItem value="Option">Option</SelectItem>
+                      <SelectItem value="Custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {courseData.CourseType === 'Custom' && (
                     <input
                       type="text"
@@ -854,24 +1000,6 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
                       placeholder="Enter custom value"
                     />
                   )}
-                </div>
-
-                {/* NumberGradeBookAssignments */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Number of Gradebook Assignments
-                  </label>
-                  <input
-                    type="number"
-                    name="NumberGradeBookAssignments"
-                    value={courseData.NumberGradeBookAssignments || ''}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className={inputClass}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    This value must match the LMS gradebook in Student View.
-                  </p>
                 </div>
 
                 {/* Number of Hours to Complete */}
@@ -892,7 +1020,6 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
                     Specify the total number of hours required to complete the course.
                   </p>
                 </div>
-                {/* End of Number of Hours to Complete */}
 
                 {/* Grade */}
                 <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
@@ -926,12 +1053,12 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
                   </p>
                 </div>
 
-                {/* Teachers */}
+                {/* Teachers (Using ReactSelect for multi-select) */}
                 <div className="w-full md:w-1/2 lg:w-2/3 px-2 mb-4">
                   <label className="block text-sm font-medium text-gray-700">
                     Teachers
                   </label>
-                  <Select
+                  <ReactSelect
                     isMulti
                     name="Teachers"
                     options={staffMembers}
@@ -946,12 +1073,12 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
                   />
                 </div>
 
-                {/* Support Staff */}
-                <div className="w-full md:w-1/2 lg:w-2/3 px-2 mb-4">
+                {/* Support Staff (Using ReactSelect for multi-select) */}
+                <div className="w-full md:w-1/2 lg=w-2/3 px-2 mb-4">
                   <label className="block text-sm font-medium text-gray-700">
                     Support Staff
                   </label>
-                  <Select
+                  <ReactSelect
                     isMulti
                     name="SupportStaff"
                     options={staffMembers}
@@ -970,7 +1097,7 @@ const unsubscribeStaff = onValue(staffRef, (snapshot) => {
               {/* Course Units Editor */}
               <div className="mt-8">
                 <CourseUnitsEditor
-                 courseId={selectedCourseId}
+                  courseId={selectedCourseId}
                   units={courseData.units || []}
                   onUnitsChange={handleUnitsChange}
                   isEditing={isEditing}

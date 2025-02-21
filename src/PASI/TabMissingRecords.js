@@ -19,7 +19,7 @@ import {
   PaginationPrevious,
 } from "../components/ui/pagination";
 
-const ITEMS_PER_PAGE = 30;
+const ITEMS_PER_PAGE = 50;
 
 const StatusCell = ({ record, studentKey, currentStatus, originalStatus, onStatusChange, onReset }) => {
   const hasChanged = currentStatus !== originalStatus;
@@ -78,6 +78,8 @@ const TabMissingRecords = ({ data = { details: [], total: 0 }, schoolYear }) => 
   const [originalStatuses, setOriginalStatuses] = useState({});
   const [paginatedData, setPaginatedData] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
+  const [recordSchoolYear, setRecordSchoolYear] = useState('');
+  const [activeStatus, setActiveStatus] = useState('');
 
   useEffect(() => {
     const total = Math.ceil(data.details.length / ITEMS_PER_PAGE) || 1;
@@ -88,6 +90,29 @@ const TabMissingRecords = ({ data = { details: [], total: 0 }, schoolYear }) => 
     const endIndex = startIndex + ITEMS_PER_PAGE;
     setPaginatedData(data.details.slice(startIndex, endIndex));
   }, [data.details, currentPage]);
+
+  useEffect(() => {
+    if (!schoolYear) return;
+
+    const db = getDatabase();
+    
+    // Listen for school year
+    const schoolYearRef = ref(db, `pasiSyncReport/schoolYear/${schoolYear}/studentCourseSummariesMissingPasi/details/0/schoolYear`);
+    const schoolYearCallback = onValue(schoolYearRef, (snapshot) => {
+      setRecordSchoolYear(snapshot.val() || '');
+    });
+
+    // Listen for active status
+    const activeStatusRef = ref(db, `pasiSyncReport/schoolYear/${schoolYear}/studentCourseSummariesMissingPasi/details/0/activeStatus`);
+    const activeStatusCallback = onValue(activeStatusRef, (snapshot) => {
+      setActiveStatus(snapshot.val() || '');
+    });
+
+    return () => {
+      off(schoolYearRef, 'value', schoolYearCallback);
+      off(activeStatusRef, 'value', activeStatusCallback);
+    };
+  }, [schoolYear]);
   
   const handleCopyData = (text) => {
     if (!text) return;
@@ -238,6 +263,8 @@ const TabMissingRecords = ({ data = { details: [], total: 0 }, schoolYear }) => 
         <AlertDescription className="ml-2">
           <span className="font-semibold">Missing PASI Records:</span> These are courses in YourWay that don't have any corresponding PASI record.
           Showing {paginatedData.length} of {data.details.length} records.
+          {recordSchoolYear && <span className="ml-2">School Year: {recordSchoolYear}</span>}
+          {activeStatus && <span className="ml-2">State: {activeStatus}</span>}
         </AlertDescription>
       </Alert>
 
@@ -250,6 +277,8 @@ const TabMissingRecords = ({ data = { details: [], total: 0 }, schoolYear }) => 
             <TableHead>ASN</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>School Year</TableHead>
+            <TableHead>State</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -283,6 +312,8 @@ const TabMissingRecords = ({ data = { details: [], total: 0 }, schoolYear }) => 
                     onReset={() => handleResetStatus(studentKey, record.courseId, originalStatus)}
                   />
                 </TableCell>
+                <TableCell>{recordSchoolYear}</TableCell>
+                <TableCell>{activeStatus}</TableCell>
                 <TableCell>
                   <Button 
                     variant="ghost" 

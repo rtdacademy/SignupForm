@@ -13,6 +13,10 @@ import { useAuth } from '../context/AuthContext';
 import { useStudentData } from './hooks/useStudentData';
 import { useNavigate } from 'react-router-dom';
 import { getDatabase, ref, get } from 'firebase/database';
+import ModernCourseViewer from '../courses/CourseViewer/ModernCourseViewer';
+import { useModernCourse } from './hooks/useModernCourse';
+
+
 
 // Constants for triangles
 const TRIANGLE_SIZE = 220;
@@ -202,6 +206,10 @@ const Dashboard = () => {
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
 
   const [forceProfileOpen, setForceProfileOpen] = useState(false);
+
+  const { isModernCourse, loading: courseTypeLoading } = useModernCourse(
+    selectedCourse?.CourseID
+  );
 
   
 
@@ -401,28 +409,44 @@ const missingFields = useMemo(() => {
     );
   }
 
-  if (showLMS && selectedCourse) {
-    return (
-      <div className="flex flex-col h-screen">
-        <DashboardHeader 
-          user={currentUser}
-          onLogout={handleLogout}
-          onBackClick={handleBackClick}
-          showBackButton={true}
-          isEmulating={isEmulating}
-          onStopEmulation={stopEmulation}
-          profile={profile}
+
+
+// Then update your render logic:
+if (showLMS && selectedCourse) {
+  return (
+    <div className="flex flex-col h-screen">
+      <DashboardHeader 
+        user={currentUser}
+        onLogout={handleLogout}
+        onBackClick={handleBackClick}
+        showBackButton={true}
+        isEmulating={isEmulating}
+        onStopEmulation={stopEmulation}
+        profile={profile}
+      />
+      <div className="flex-1">
+        {courseTypeLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <div className="text-gray-600">Loading course...</div>
+          </div>
+        ) : isModernCourse ? (
+          <ModernCourseViewer 
+          courseId={selectedCourse.CourseID}
+          studentCourseData={selectedCourse}
+          profile={profile}  
+          previewMode={false}
         />
-        <div className="flex-1">
+        ) : (
           <LMSWrapper
             courseId={selectedCourse.CourseID}
             courseData={selectedCourse}
             onReturn={handleBackClick}
           />
-        </div>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
     <div className="flex flex-col h-screen">

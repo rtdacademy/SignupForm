@@ -15,7 +15,12 @@ import {
   ArrowRight,     // for Continuing
   XCircle,        // for Incomplete
   ClipboardList,  // for Registered
-  SignalZero      // for Withdrawn
+  SignalZero,      // for Withdrawn
+  CheckCircle2, 
+  AlertCircle, 
+  AlertOctagon, 
+  Archive,
+  MinusCircle
 } from 'lucide-react';
 
 export const PAYMENT_STATUS_OPTIONS = [
@@ -31,28 +36,148 @@ export const getPaymentStatusColor = (status) => {
   return option ? option.color : "#6B7280";  // Default to gray if status not found
 };
 
+export const ALERT_LEVELS = {
+  GREEN: {
+    value: 'green',
+    icon: CheckCircle2,
+    color: '#16A34A'  // Using a consistent green from your existing colors
+  },
+  YELLOW: {
+    value: 'yellow',
+    icon: AlertCircle,
+    color: '#F59E0B'  // Using a consistent yellow from your existing colors
+  },
+  RED: {
+    value: 'red',
+    icon: AlertOctagon,
+    color: '#DC2626'  // Using a consistent red from your existing colors
+  },
+  PURPLE: {
+    value: 'purple',
+    icon: Archive,
+    color: '#9333EA'  // Using a consistent purple from your existing colors
+  },
+  GREY: {
+    value: 'grey',
+    icon: MinusCircle,
+    color: '#6B7280'  // Using Tailwind's gray-500 for consistency
+  }
+};
+
 export const STATUS_OPTIONS = [
-  { value: "Newly Enrolled", color: "#3B82F6", category: "Administrative", allowAutoStatusChange: false },
-  { value: "On Track", color: "#10B981", category: "Progress", allowAutoStatusChange: true },
-  { value: "Rocking it!", color: "#059669", category: "Progress", allowAutoStatusChange: true },
-  { value: "Updated Schedule", color: "#6366F1", category: "Schedule-related", allowAutoStatusChange: true },
-  { value: "Behind", color: "#EF4444", category: "Progress", allowAutoStatusChange: true },
-  { value: "Not Active", color: "#6B7280", category: "Progress", allowAutoStatusChange: true },
-  { value: "No Orientation Yet", color: "#F59E0B", category: "Schedule-related", allowAutoStatusChange: false },
-  { value: "Waiting on Schedule", color: "#8B5CF6", category: "Schedule-related", allowAutoStatusChange: false },
-  { value: "On Hold", color: "#EC4899", category: "Schedule-related", allowAutoStatusChange: false },
-  { value: "Hasn't Started", color: "#9CA3AF", category: "Schedule-related", allowAutoStatusChange: false },
-  { value: "Starting on (Date)", color: "#14B8A6", category: "Administrative", allowAutoStatusChange: false },
-  { value: "Resuming on (date)", color: "#06B6D4", category: "Schedule-related", allowAutoStatusChange: false },
-  { value: "Unenrolled", color: "#DC2626", category: "Progress", allowAutoStatusChange: false },
-  { value: "Final Teacher Approval", color: "#2563EB", category: "Progress", allowAutoStatusChange: false },
-  { value: "Course Completed", color: "#16A34A", category: "Progress", allowAutoStatusChange: false },
-  { value: "Default", color: "#6B7280", category: "Progress", allowAutoStatusChange: false },
-  { value: "Awaiting Response", color: "#D97706", category: "Administrative", allowAutoStatusChange: false },
-  { value: "🔒 Locked Out - No Payment", color: "#7C3AED", category: "Administrative", allowAutoStatusChange: false },
-  { value: "✅ Mark Added to PASI", color: "#059669", category: "Administrative", allowAutoStatusChange: false },
-  { value: "☑️ Removed From PASI (Funded)", color: "#9333EA", category: "Administrative", allowAutoStatusChange: false },
-  { value: "✗ Removed (Not Funded)", color: "#DC2626", category: "Administrative", allowAutoStatusChange: false }
+  //{ value: "Newly Enrolled", color: "#3B82F6", category: "Registration", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.YELLOW.value },
+  { 
+    value: "Starting on (Date)", 
+    color: "#14B8A6", 
+    category: "Progress", 
+    allowAutoStatusChange: false, 
+    alertLevel: ALERT_LEVELS.GREEN,
+    tooltip: "Initial status set after student is registered in PASI system"
+  },
+  { 
+    value: "On Track", 
+    color: "#10B981", 
+    category: "Progress", 
+    allowAutoStatusChange: true, 
+    alertLevel: ALERT_LEVELS.GREEN,
+    tooltip: "Student is within 2 lessons of their scheduled progress"
+  },
+  { 
+    value: "Rocking it!", 
+    color: "#059669", 
+    category: "Progress", 
+    allowAutoStatusChange: true, 
+    alertLevel: ALERT_LEVELS.GREEN,
+    tooltip: "Student is 3 or more lessons ahead of schedule"
+  },
+  { 
+    value: "Final Teacher Approval", 
+    color: "#2563EB", 
+    category: "Progress", 
+    allowAutoStatusChange: false, 
+    alertLevel: ALERT_LEVELS.GREEN,
+    tooltip: "Awaiting teacher review for course completion"
+  },
+  //{ value: "Updated Schedule", color: "#6366F1", category: "Auto", allowAutoStatusChange: true, alertLevel: ALERT_LEVELS.GREEN.value },
+  { 
+    value: "⚠️ Behind", 
+    color: "#FCD34D", 
+    category: "Progress", 
+    allowAutoStatusChange: true, 
+    alertLevel: ALERT_LEVELS.YELLOW,
+    tooltip: "Student is 2-5 lessons behind schedule"
+  },
+  { 
+    value: "❗ Behind", 
+    color: "#EF4444", 
+    category: "Progress", 
+    allowAutoStatusChange: true, 
+    alertLevel: ALERT_LEVELS.RED,
+    tooltip: "Student is 6 or more lessons behind and at risk of removal"
+  },
+  { 
+    value: "Not Active", 
+    color: "#6B7280", 
+    category: "Progress", 
+    allowAutoStatusChange: true, 
+    alertLevel: ALERT_LEVELS.RED,
+    tooltip: "Student hasn't completed any lessons recently and is at risk of removal"
+  },
+  //{ value: "No Orientation Yet", color: "#F59E0B", category: "Schedule-related", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.YELLOW.value },
+  //{ value: "Waiting on Schedule", color: "#8B5CF6", category: "Schedule-related", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.YELLOW.value },
+  //{ value: "On Hold", color: "#EC4899", category: "Schedule-related", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.YELLOW.value },
+  //{ value: "Hasn't Started", color: "#9CA3AF", category: "Schedule-related", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.YELLOW.value },
+  { 
+    value: "Unenrolled", 
+    color: "#DC2626", 
+    category: "Final", 
+    allowAutoStatusChange: false, 
+    alertLevel: ALERT_LEVELS.PURPLE,
+    action: "PENDING_FINALIZATION",
+    activeFutureArchivedValue: "Pending",
+    tooltip: "Student has been removed from the course"
+  },
+  { 
+    value: "Course Completed", 
+    color: "#16A34A", 
+    category: "Final", 
+    allowAutoStatusChange: false, 
+    alertLevel: ALERT_LEVELS.PURPLE,
+    action: "PENDING_FINALIZATION",
+    activeFutureArchivedValue: "Pending",
+    tooltip: "Student has successfully completed all course requirements"
+  },
+  { 
+    value: "Exception", 
+    color: "#6B7280", 
+    category: "Other", 
+    allowAutoStatusChange: true, 
+    alertLevel: ALERT_LEVELS.GREY,
+    tooltip: "Special case status for students with unique circumstances"
+  },
+
+  { 
+    value: "Resuming on (date)", 
+    color: "#06B6D4", 
+    category: "Other", 
+    allowAutoStatusChange: false, 
+    alertLevel: ALERT_LEVELS.GREY,
+    tooltip: "Student is on temporary pause with scheduled return date"
+  },
+  { 
+    value: "Locked Out", 
+    color: "#7C3AED", 
+    category: "Other", 
+    allowAutoStatusChange: false, 
+    alertLevel: ALERT_LEVELS.GREY,
+    tooltip: "Student access has been temporarily suspended"
+  }
+ 
+  //{ value: "Default", color: "#6B7280", category: "Progress", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.YELLOW,tooltip: "Default status when no other status applies"},
+
+  //{ value: "✅ Mark Added to PASI", color: "#059669", category: "Administrative", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.PURPLE.value },
+  //{ value: "☑️ Removed From PASI (Funded)", color: "#9333EA", category: "Administrative", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.PURPLE.value },
+  //{ value: "✗ Removed (Not Funded)", color: "#DC2626", category: "Administrative", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.PURPLE.value }
 ];
 
 export const getStatusColor = (status) => {
@@ -172,6 +297,17 @@ export const COURSE_OPTIONS = [
     courseId: 95,
     pasiCode: "MAT2791"
   },
+  // New Physics 20 Course
+  { 
+    value: "Physics 20",
+    label: "Physics 20", 
+    courseType: "Science",
+    grade: 11,
+    color: "#8B5CF6", // Using the grade 11 color scheme (purple)
+    icon: Beaker,
+    courseId: 137,
+    pasiCode: "SCN2797"
+  },
 
   // Grade 12 Courses - Green theme
   { 
@@ -214,8 +350,6 @@ export const COURSE_OPTIONS = [
     courseId: 93,
     pasiCode: "MAT3211"
   },
-
-
 ];
 
 // Color scheme reference
@@ -264,7 +398,6 @@ export const getCoursesByGrade = () => {
     return acc;
   }, {});
 };
-
 
 export const PASI_COURSES = [
   // Grade 10 Math Courses
@@ -342,6 +475,16 @@ export const PASI_COURSES = [
     grade: 11,
     courseId: [95]
   },
+  // New Grade 11 Science Course: Physics 20
+  {
+    pasiCode: "SCN2797",
+    description: "Physics 20",
+    credits: 5,
+    color: "#8B5CF6", // Same as grade 11 theme (purple)
+    courseType: "Science",
+    grade: 11,
+    courseId: [137]
+  },
 
   // Grade 12 Math Courses
   {
@@ -398,7 +541,7 @@ export const PASI_COURSES = [
     color: "#F97316",
     courseType: "Options",
     grade: 10,
-    courseId: [82, 78, 97, 90, 84, 96, 98, 95, 86, 87, 89, 93, 1111] // All Math courseIds
+    courseId: [82, 78, 97, 90, 84, 96, 98, 95, 86, 87, 89, 93, 1111] 
   },
   {
     pasiCode: "CSE1110",
@@ -425,6 +568,15 @@ export const PASI_COURSES = [
     color: "#F97316",
     courseType: "Options",
     grade: 10,
+    courseId: [1111]
+  },
+  {
+    pasiCode: "CSE2110",
+    description: "Client-side Scripting 3",
+    credits: 1,
+    color: "#F97316",
+    courseType: "Options",
+    grade: 11,
     courseId: [1111]
   },
   {
@@ -474,6 +626,7 @@ export const getPASICoursesByType = () => {
 
 export const ACTIVE_FUTURE_ARCHIVED_OPTIONS = [
   { value: "Active", color: "#10B981" },     // Green
+  { value: "Pending", color: "#8B5CF6" },  //Purple
   { value: "Registration", color: "#3B82F6" }, // Blue
   { value: "Archived", color: "#6B7280" }    // Gray
 ];

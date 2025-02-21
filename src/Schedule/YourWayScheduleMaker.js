@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, forwardRef } from 'react';
 import { getDatabase, ref, get, set } from 'firebase/database';
-import { useAuth } from '../context/AuthContext'; // Add this import
+import { useAuth } from '../context/AuthContext';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import {
@@ -147,43 +147,46 @@ const calculateItemMinutes = (totalMinutes, totalMultiplier, itemMultiplier, ite
     return 120; // 2 hours in minutes
   }
 
-  // For lessons and other types, calculate based on multiplier
+  // For lessons and other types, calculate based on multiplier.
+  // Use the provided multiplier if defined; otherwise, default to 1.
+  const effectiveMultiplier = itemMultiplier !== undefined ? itemMultiplier : 1;
   const minutesPerUnit = totalMinutes / totalMultiplier;
-  return Math.round(minutesPerUnit * (itemMultiplier || 1));
+  return Math.round(minutesPerUnit * effectiveMultiplier);
 };
+
 
 // Function to map event types to colors
 const getEventColor = (type) => {
   switch (type?.toLowerCase()) {
     case 'assignment':
       return {
-        background: 'linear-gradient(to right, #DBEAFE, #93C5FD)', // blue-100 to blue-300
-        color: '#1E3A8A' // blue-900
+        background: 'linear-gradient(to right, #DBEAFE, #93C5FD)',
+        color: '#1E3A8A'
       };
     case 'quiz':
       return {
-        background: 'linear-gradient(to right, #EDE9FE, #C4B5FD)', // violet-100 to violet-300
-        color: '#4C1D95' // violet-900
+        background: 'linear-gradient(to right, #EDE9FE, #C4B5FD)',
+        color: '#4C1D95'
       };
     case 'exam':
       return {
-        background: 'linear-gradient(to right, #E0E7FF, #A5B4FC)', // indigo-100 to indigo-300
-        color: '#312E81' // indigo-900
+        background: 'linear-gradient(to right, #E0E7FF, #A5B4FC)',
+        color: '#312E81'
       };
     case 'reading':
       return {
-        background: 'linear-gradient(to right, #FCE7F3, #F9A8D4)', // pink-100 to pink-300
-        color: '#831843' // pink-900
+        background: 'linear-gradient(to right, #FCE7F3, #F9A8D4)',
+        color: '#831843'
       };
     case 'info':
       return {
-        background: 'linear-gradient(to right, #E5E7EB, #D1D5DB)', // gray-200 to gray-300
-        color: '#1F2937' // gray-800
+        background: 'linear-gradient(to right, #E5E7EB, #D1D5DB)',
+        color: '#1F2937'
       };
     default:
       return {
-        background: 'linear-gradient(to right, #F1F5F9, #CBD5E1)', // slate-100 to slate-300
-        color: '#0F172A' // slate-900
+        background: 'linear-gradient(to right, #F1F5F9, #CBD5E1)',
+        color: '#0F172A'
       };
   }
 };
@@ -193,7 +196,6 @@ const EventComponent = ({ event }) => {
   const type = event.type?.toLowerCase();
   const minutes = event.details.estimatedMinutes;
 
-  // Don't show time for info type
   if (type === 'info') {
     return (
       <div className="text-xs">
@@ -202,7 +204,6 @@ const EventComponent = ({ event }) => {
     );
   }
 
-  // For assignments and exams, show fixed time
   if (type === 'assignment' || type === 'exam') {
     const timeDisplay = type === 'assignment' ? '1h' : '2h';
     return (
@@ -213,7 +214,6 @@ const EventComponent = ({ event }) => {
     );
   }
 
-  // For lessons, show both expected and available time
   if (type === 'lesson') {
     const timeDisplay = minutes >= 60 
       ? `${Math.floor(minutes / 60)}h ${minutes % 60}m`
@@ -227,7 +227,6 @@ const EventComponent = ({ event }) => {
     );
   }
 
-  // Default fallback
   return (
     <div className="text-xs">
       <div>{event.title}</div>
@@ -276,7 +275,7 @@ const CustomToolbar = (toolbar) => {
         </button>
       </div>
       <span className="text-lg font-semibold">{label()}</span>
-      <div></div> {/* Empty div to balance the flex layout */}
+      <div></div>
     </div>
   );
 };
@@ -302,15 +301,14 @@ const FeatureCard = forwardRef(({ title, customHeader, children, className = '' 
 
 const YourWayScheduleMaker = ({
   courseId = null,
-  defaultStartDate = null,
+  //defaultStartDate = null,
   defaultEndDate = null,
   onScheduleSaved = () => {},
 }) => {
-  // Add auth context
-  const { user, user_email_key, authLoading } = useAuth(); // Assuming useAuth provides user and authLoading
+  const { user, user_email_key, authLoading } = useAuth();
 
-  const [startDate, setStartDate] = useState(defaultStartDate);
-  const [endDate, setEndDate] = useState(defaultEndDate);
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(defaultEndDate || getDefaultEndDate(null));
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [courses, setCourses] = useState({});
 
@@ -322,48 +320,43 @@ const YourWayScheduleMaker = ({
   const [loading, setLoading] = useState(true);
   const [courseHours, setCourseHours] = useState(null);
 
-  // Diploma-related state
   const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
   const [diplomaDates, setDiplomaDates] = useState([]);
   const [selectedDiplomaDate, setSelectedDiplomaDate] = useState(null);
   const [alreadyWroteDiploma, setAlreadyWroteDiploma] = useState(false);
 
-  // Custom blockout dates and other states
   const [customBlockoutDates, setCustomBlockoutDates] = useState([]);
   const scheduleRef = useRef(null);
   const [currentCalendarDate, setCurrentCalendarDate] = useState(startDate || new Date());
 
-  // New state for schedule creation
   const [scheduleCreated, setScheduleCreated] = useState(false);
 
-  // New state for managing the popup
   const [showMoreEvents, setShowMoreEvents] = useState(null);
   const [showMoreDate, setShowMoreDate] = useState(null);
 
-  // Add these new state variables near the top of YourWayScheduleMaker component
+  // Modified state for starting assignment
   const [startingAssignmentOptions, setStartingAssignmentOptions] = useState([]);
   const [selectedStartingAssignment, setSelectedStartingAssignment] = useState(null);
+  const [forceAssignmentSelection, setForceAssignmentSelection] = useState(true);
 
-  // New state variable as per user instructions
   const [allCourseItems, setAllCourseItems] = useState([]);
-
-  // New state for existing schedule
   const [hasExistingSchedule, setHasExistingSchedule] = useState(false);
   const [existingSchedule, setExistingSchedule] = useState(null);
   const [scheduleJson, setScheduleJson] = useState(null);
 
+  const getMinEndDate = (startDate) => {
+    return startDate ? addDays(startDate, 15) : addDays(minStartDate, 15);
+  };
+
   useEffect(() => {
-    if (defaultStartDate) {
-      setStartDate(defaultStartDate);
-    }
+  
     if (defaultEndDate) {
       setEndDate(defaultEndDate);
     }
-  }, [defaultStartDate, defaultEndDate]);
+  }, [defaultEndDate]);
 
   useEffect(() => {
     if (courseId) {
-      // Fetch the course data based on courseId
       const fetchCourseById = async (id) => {
         const db = getDatabase();
         const courseRef = ref(db, `courses/${id}`);
@@ -375,8 +368,6 @@ const YourWayScheduleMaker = ({
               id,
               ...courseData,
             });
-
-            // Handle diploma course, course hours, etc.
             handleCourseData(courseData, id);
           } else {
             console.error("Course not found");
@@ -391,12 +382,10 @@ const YourWayScheduleMaker = ({
       };
       fetchCourseById(courseId);
     } else {
-      // If no courseId is provided, fetch all courses for selection
       fetchAllCourses();
     }
   }, [courseId]);
 
-  // Function to fetch all courses for selection
   const fetchAllCourses = async () => {
     const db = getDatabase();
     const coursesRef = ref(db, "courses");
@@ -456,7 +445,6 @@ const YourWayScheduleMaker = ({
     }
   };
 
-  // Function to handle course data after selection or fetching
   const handleCourseData = async (courseData, id) => {
     const isDiploma = courseData.DiplomaCourse === "Yes";
     setIsDiplomaCourse(isDiploma);
@@ -466,7 +454,6 @@ const YourWayScheduleMaker = ({
         ? courseData.diplomaTimes
         : Object.values(courseData.diplomaTimes);
 
-      // Filter for future dates and sort
       const validDates = diplomaTimesArray
         .filter((item) => new Date(item.displayDate) > new Date())
         .sort((a, b) => new Date(a.displayDate) - new Date(b.displayDate));
@@ -474,20 +461,16 @@ const YourWayScheduleMaker = ({
       setDiplomaDates(validDates);
     }
 
-    // Fetch course hours
     if (courseData.NumberOfHours) {
       setCourseHours(courseData.NumberOfHours);
     }
   };
 
-  // Function to encode the email for Firebase path
   const encodeEmailForPath = (email) => {
     return email ? email.replace(/[.#$\[\]]/g, ',') : null;
   };
 
-  // Handle course selection from dropdown
   const handleCourseSelect = async (course) => {
-    // Reset all dependent fields when course changes
     setStartDate(null);
     setEndDate(null);
     setSelectedDiplomaDate(null);
@@ -499,7 +482,6 @@ const YourWayScheduleMaker = ({
     setExistingSchedule(null);
     setScheduleJson(null);
 
-    // Fetch and handle course data
     try {
       const db = getDatabase();
       const courseRef = ref(db, `courses/${course.id}`);
@@ -518,10 +500,10 @@ const YourWayScheduleMaker = ({
   useEffect(() => {
     if (selectedCourse) {
       const expectedTimes = calculateExpectedTimes(selectedCourse, courseHours);
-      // You can set expectedTimes to state or use it directly where needed
     }
   }, [selectedCourse, courseHours]);
 
+  // Modified useEffect for starting assignment options
   useEffect(() => {
     if (selectedCourse) {
       // Flatten all items from all units into a single array
@@ -533,23 +515,23 @@ const YourWayScheduleMaker = ({
       );
       setAllCourseItems(flattenedItems);
       
-      // Create options for the dropdown
+      // Create options for the dropdown (only needed for existing schedules)
       const assignmentOptions = flattenedItems.map((item, index) => ({
         value: index,
         label: item.title,
-        type: item.type
+        type: item.type,
+        unitName: item.unitName
       }));
       setStartingAssignmentOptions(assignmentOptions);
       
-      // Always select first item if no existing schedule
+      // For new schedules, automatically select the first assignment
       if (!hasExistingSchedule && assignmentOptions.length > 0) {
         setSelectedStartingAssignment(assignmentOptions[0]);
+        setForceAssignmentSelection(false);
       } else {
-        // Try to find first lesson as default selection for existing schedules
-        const firstLesson = assignmentOptions.find(option => 
-          option.label.toLowerCase().includes('lesson')
-        );
-        setSelectedStartingAssignment(firstLesson || assignmentOptions[0]);
+        // For existing schedules, clear selection until user chooses
+        setSelectedStartingAssignment(null);
+        setForceAssignmentSelection(true);
       }
     } else {
       setAllCourseItems([]);
@@ -557,37 +539,30 @@ const YourWayScheduleMaker = ({
       setSelectedStartingAssignment(null);
     }
   }, [selectedCourse, hasExistingSchedule]);
-  
 
-  // Update this state whenever scheduleData changes
   useEffect(() => {
     if (scheduleData?.startDate) {
       setCurrentCalendarDate(parseISO(scheduleData.startDate));
     }
   }, [scheduleData]);
 
-  // Calculate minimum start date (2 days from now)
   const minStartDate = startOfDay(addDays(new Date(), 2));
   
-  // Calculate default end date preview (5 months from start)
   const getDefaultEndDate = (startDate) => {
-    if (!startDate) return null;
-    return addMonths(startDate, 5);
+    // If no start date provided, use today's date as reference
+    const referenceDate = startDate || new Date();
+    return addMonths(referenceDate, 5);
   };
 
-  // Function to handle start date changes
   const handleStartDateChange = (date) => {
-    // If end date is set and selected start date is after end date, don't update
     if (endDate && date > endDate) {
       toast.error("Start date cannot be after end date");
       return;
     }
     
     setStartDate(date);
-    // When start date changes, set a default end date 5 months later
     if (date) {
       const newEndDate = getDefaultEndDate(date);
-      // Only set end date if not a diploma course or if "already wrote"
       if (!isDiplomaCourse || alreadyWroteDiploma) {
         setEndDate(newEndDate);
       }
@@ -596,35 +571,31 @@ const YourWayScheduleMaker = ({
     }
   };
 
-  // Function to handle end date changes
   const handleEndDateChange = (date) => {
-    // If start date is set and selected end date is before start date, don't update
     if (startDate && date < startDate) {
       toast.error("End date cannot be before start date");
       return;
     }
+    
+    const minEndDate = getMinEndDate(startDate);
+    if (date < minEndDate) {
+      toast.error("End date must be at least 15 days after start date");
+      return;
+    }
+    
     setEndDate(date);
   };
 
-  // Determine if diploma date selection is allowed
   const canSelectDiplomaDate = selectedCourse && (!isDiplomaCourse || diplomaDates.length > 0);
-  
-  // Determine if start date selection is allowed
   const canSelectStartDate = selectedCourse && 
     (!isDiplomaCourse || alreadyWroteDiploma || selectedDiplomaDate);
-
-  // Determine if end date selection is allowed
   const canSelectEndDate = startDate && 
     (!isDiplomaCourse || alreadyWroteDiploma);
 
-  // Update the isDateExcluded function to include custom blockout dates
   const isDateExcluded = (date) => {
-    // Check weekends if enabled
     if (excludeWeekends && isWeekend(date)) {
       return true;
     }
-
-    // Check custom blockout dates
     return customBlockoutDates.some(range => 
       isWithinInterval(date, { start: range.startDate, end: range.endDate })
     );
@@ -645,15 +616,14 @@ const YourWayScheduleMaker = ({
         setSelectedDiplomaDate(selectedDate);
         setAlreadyWroteDiploma(false);
         
-        // Just parse the ISO date string directly
         const endDate = parseISO(selectedDate.displayDate);
         setEndDate(endDate);
       }
     }
   };
 
-  // Updated distributeItemsAcrossDates function for YourWayScheduleMaker.js
   const distributeItemsAcrossDates = (items, startDate, endDate) => {
+    // Build an array of available dates (skipping weekends / blockouts)
     let currentDate = startOfDay(startDate);
     const endDateTime = startOfDay(endDate);
     const availableDates = [];
@@ -664,56 +634,89 @@ const YourWayScheduleMaker = ({
       }
       currentDate = addDays(currentDate, 1);
     }
-
+  
     if (availableDates.length === 0) {
       toast.error("No available dates to schedule items. Please adjust your break options.");
       return [];
     }
-
+  
     const totalDays = availableDates.length;
     const allItems = items;
-    const totalMultiplier = allItems.reduce((sum, item) => {
-      const type = item.type?.toLowerCase();
-      if (type === 'exam') return sum + 4;
-      if (type === 'assignment') return sum + 2;
-      return sum + (item.multiplier || 1);
-    }, 0);
-
-    let scheduledItems = [];
-    let accumulatedMultiplier = 0;
-    const totalMinutes = courseHours * 60;
-
+  
+    // FIRST PASS: Calculate totalMultiplier for proportional scheduling.
+    // Use the special multiplier for the first lesson.
+    let totalMultiplier = 0;
+    let firstLessonFound = false;
     allItems.forEach((item) => {
       const type = item.type?.toLowerCase();
-      
+      let multiplier;
       if (type === 'exam') {
-        accumulatedMultiplier += 4;
+        multiplier = 4;
       } else if (type === 'assignment') {
-        accumulatedMultiplier += 2;
+        multiplier = 2;
+      } else if (type === 'lesson') {
+        if (!firstLessonFound) {
+          multiplier = 1.5; // Force first lesson to have a multiplier of 1.5
+          firstLessonFound = true;
+        } else {
+          multiplier = item.multiplier !== undefined ? item.multiplier : 1;
+        }
       } else {
-        accumulatedMultiplier += (item.multiplier || 1);
+        multiplier = item.multiplier !== undefined ? item.multiplier : 1;
+      }
+      totalMultiplier += multiplier;
+    });
+  
+    let scheduledItems = [];
+    let accumulatedMultiplier = 0;
+    // Reset the flag for the second pass so that the first lesson is still detected correctly.
+    firstLessonFound = false;
+    const totalMinutes = courseHours * 60; // courseHours is from state
+  
+    // SECOND PASS: Loop through each item and assign a date based on its proportional weight.
+    allItems.forEach((item) => {
+      const type = item.type?.toLowerCase();
+      let multiplier;
+      if (type === 'exam') {
+        multiplier = 4;
+      } else if (type === 'assignment') {
+        multiplier = 2;
+      } else if (type === 'lesson') {
+        if (!firstLessonFound) {
+          multiplier = 1.5; // Again, force the first lesson to use 1.5
+          firstLessonFound = true;
+        } else {
+          multiplier = item.multiplier !== undefined ? item.multiplier : 1;
+        }
+      } else {
+        multiplier = item.multiplier !== undefined ? item.multiplier : 1;
       }
       
+      accumulatedMultiplier += multiplier;
+      
+      // Calculate which available day the item should land on
       const idealDayIndex = Math.floor((accumulatedMultiplier / totalMultiplier) * (totalDays - 1));
       const scheduledDate = availableDates[Math.min(idealDayIndex, totalDays - 1)];
-
+  
+      // Pass the computed multiplier (which for the first lesson is 1.5) into your minutes calculation
       const estimatedMinutes = calculateItemMinutes(
-        totalMinutes, 
-        totalMultiplier, 
-        item.multiplier,
+        totalMinutes,
+        totalMultiplier,
+        multiplier,
         type
       );
-
-      // Keep all original item data and add our schedule-specific fields
+  
       scheduledItems.push({
-        ...item, // Preserves gradebookIndex, sequence, multiplier, etc.
+        ...item,
         date: scheduledDate.toISOString(),
         estimatedMinutes,
       });
     });
-
+  
     return scheduledItems;
   };
+  
+  
 
   const scrollToSchedule = () => {
     setTimeout(() => {
@@ -726,10 +729,16 @@ const YourWayScheduleMaker = ({
     }, 100);
   };
 
-  // Update the handleCreateSchedule function as per user instructions
+  // Modified handleCreateSchedule to enforce starting assignment selection
   const handleCreateSchedule = () => {
     if (!selectedCourse || !startDate || !endDate) {
       toast.error("Please select a course and specify start and end dates");
+      return;
+    }
+
+    if (!selectedStartingAssignment) {
+      toast.error("Please select your starting point in the course");
+      setForceAssignmentSelection(true);
       return;
     }
 
@@ -738,7 +747,6 @@ const YourWayScheduleMaker = ({
       return;
     }
 
-    // Get all items after the selected starting point
     const startingIndex = selectedStartingAssignment?.value || 0;
     const relevantItems = allCourseItems.slice(startingIndex);
 
@@ -759,7 +767,6 @@ const YourWayScheduleMaker = ({
 
     const itemsWithCreation = [scheduleCreationItem, ...relevantItems];
 
-    // Schedule all items
     const scheduledItems = distributeItemsAcrossDates(
       itemsWithCreation,
       utcStartDate,
@@ -768,16 +775,14 @@ const YourWayScheduleMaker = ({
 
     if (scheduledItems.length === 0) return;
 
-    // Group scheduled items back into their original units
     const scheduledUnits = selectedCourse.units.map(unit => ({
       ...unit,
       items: scheduledItems.filter(item => 
-        item.type === 'info' ? false : // Exclude info items from regular units
+        item.type === 'info' ? false :
         unit.items.some(unitItem => unitItem.title === item.title)
       )
     })).filter(unit => unit.items.length > 0);
 
-    // Add Schedule Information unit at the start
     const scheduleInfoItem = scheduledItems.find(item => item.title === 'Schedule Created');
     if (scheduleInfoItem) {
       scheduledUnits.unshift({
@@ -786,14 +791,12 @@ const YourWayScheduleMaker = ({
       });
     }
 
-    // Create final schedule
     const schedule = {
       startDate: utcStartDate.toISOString(),
       endDate: utcEndDate.toISOString(),
       courseId: selectedCourse.id,
       courseTitle: selectedCourse.Title,
       units: scheduledUnits,
-      // Add diploma information if applicable
       diplomaMonth: selectedDiplomaDate ? {
         month: selectedDiplomaDate.month,
         alreadyWrote: false
@@ -808,7 +811,6 @@ const YourWayScheduleMaker = ({
     scrollToSchedule();
   };
 
-  // Function to save the schedule
   const handleSaveSchedule = async () => {
     if (!scheduleData || !courseId || !user_email_key) {
       toast.error("Cannot save schedule. Missing required data.");
@@ -826,16 +828,13 @@ const YourWayScheduleMaker = ({
     const basePath = `students/${encodedEmail}/courses/${courseId}`;
   
     try {
-      // Only update ScheduleStartDate and ScheduleEndDate
       await Promise.all([
         set(ref(db, `${basePath}/ScheduleStartDate`), scheduleData.startDate),
         set(ref(db, `${basePath}/ScheduleEndDate`), scheduleData.endDate),
-        // Remove the line below to prevent overwriting ScheduleJSON
-        // set(ref(db, `${basePath}/ScheduleJSON`), scheduleData),
       ]);
   
-      toast.success("Schedule saved successfully!");
-      onScheduleSaved(scheduleData); // This will call handleScheduleSaved
+     // toast.success("Schedule saved successfully!");
+      onScheduleSaved(scheduleData);
     } catch (error) {
       console.error("Error saving schedule:", error);
       toast.error("Failed to save schedule. Please try again.");
@@ -852,7 +851,7 @@ const YourWayScheduleMaker = ({
         start: parseISO(item.date),
         end: parseISO(item.date),
         type: item.type,
-        details: item, // Updated to include entire item details
+        details: item,
       }))
     );
   };
@@ -862,7 +861,6 @@ const YourWayScheduleMaker = ({
     setIsDialogOpen(true);
   };
 
-  // Diploma Select Section
   const diplomaSelectSection = isDiplomaCourse && (
     <div className="space-y-4">
       <Alert>
@@ -929,101 +927,95 @@ const YourWayScheduleMaker = ({
     </div>
   );
 
+  // Modified section for starting assignment selection
   const startingAssignmentSection = selectedCourse && (
     <div className={`space-y-2 p-4 rounded-lg border ${
       hasExistingSchedule 
         ? 'bg-blue-50/50 border-blue-100' 
         : 'bg-gray-50/50 border-gray-100'
     }`}>
-      <Label className={hasExistingSchedule ? 'text-blue-800' : 'text-gray-800'}>
-        Starting Assignment
+      <Label className={hasExistingSchedule ? 'text-blue-800' : 'text-gray-700'}>
+        {hasExistingSchedule ? 'Current Progress' : 'Starting Point'}
       </Label>
-      <Select
-        value={selectedStartingAssignment?.value?.toString()}
-        onValueChange={(value) => {
-          const option = startingAssignmentOptions.find(opt => opt.value.toString() === value);
-          setSelectedStartingAssignment(option);
-        }}
-        disabled={!hasExistingSchedule}
-      >
-        <SelectTrigger className={`w-full bg-white ${!hasExistingSchedule ? 'opacity-50' : ''}`}>
-          <SelectValue placeholder="Select starting point" />
-        </SelectTrigger>
-        <SelectContent>
-          <ScrollArea className="h-[200px]">
-            {startingAssignmentOptions.map((option) => (
-              <SelectItem 
-                key={option.value} 
-                value={option.value.toString()}
-                className="flex items-center space-x-2"
-              >
-                <span>{option.label}</span>
-                <span className="text-sm text-muted-foreground">({option.type})</span>
-              </SelectItem>
-            ))}
-          </ScrollArea>
-        </SelectContent>
-      </Select>
+      
       {hasExistingSchedule ? (
-        <p className="text-sm text-blue-600">
-          Select the assignment you're currently working on. Your schedule will start from this point.
-        </p>
+        // Only show selection for existing schedules
+        <>
+          <Select
+            value={selectedStartingAssignment?.value?.toString()}
+            onValueChange={(value) => {
+              const option = startingAssignmentOptions.find(opt => opt.value.toString() === value);
+              setSelectedStartingAssignment(option);
+              setForceAssignmentSelection(false);
+            }}
+          >
+            <SelectTrigger className="w-full bg-white">
+              <SelectValue placeholder="Select your current assignment" />
+            </SelectTrigger>
+            <SelectContent>
+              <ScrollArea className="h-[200px]">
+                {startingAssignmentOptions.map((option) => (
+                  <SelectItem 
+                    key={option.value} 
+                    value={option.value.toString()}
+                    className="flex flex-col space-y-1 py-2"
+                  >
+                    <span className="font-medium">{option.label}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {option.unitName} • {option.type}
+                    </span>
+                  </SelectItem>
+                ))}
+              </ScrollArea>
+            </SelectContent>
+          </Select>
+          
+          {forceAssignmentSelection && !selectedStartingAssignment && (
+            <Alert variant="warning" className="mt-2">
+              <AlertDescription className="text-yellow-800">
+                Please select your current progress to continue. This helps ensure your new schedule aligns with where you are in the course.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          <p className="text-sm text-blue-600">
+            Select the assignment you're currently working on to update your schedule from this point forward.
+          </p>
+        </>
       ) : (
-        <p className="text-sm text-gray-600">
-          This is your first schedule. It will start from the beginning of the course.
-        </p>
+        // For new schedules, just show the first assignment as the starting point
+        <>
+          <div className="p-3 bg-white border rounded-md">
+            <div className="font-medium text-gray-900">
+              {selectedStartingAssignment?.label}
+            </div>
+            {selectedStartingAssignment && (
+              <div className="text-sm text-gray-500 mt-1">
+                {selectedStartingAssignment.unitName} • {selectedStartingAssignment.type}
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-gray-600">
+            Your schedule will begin with the first lesson in the course.
+          </p>
+        </>
       )}
     </div>
   );
 
-  // Update the Study Time Required section to check for starting assignment value:
-  const studyTimeRequiredSection = startDate && endDate && courseHours && 
-    (!selectedStartingAssignment || selectedStartingAssignment.value === 0) && (
-    <div className="space-y-4">
-      <div className="p-6 bg-gradient-to-br from-slate-50 to-white rounded-lg border border-slate-200 shadow-sm">
-        <h5 className="font-semibold text-lg mb-3">Study Time Required</h5>
-        <div className="space-y-4">
-          <p className="text-gray-700 leading-relaxed">
-            This is a <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded">{courseHours}-hour</span> course. 
-            Based on your selected schedule, you will need to study approximately{' '}
-            <span className="font-semibold text-purple-600 bg-purple-50 px-2 py-1 rounded">
-              {calculateHoursPerWeek(startDate, endDate, courseHours)}
-            </span>{' '}
-            hours per week.
-          </p>
-          
-          {parseFloat(calculateHoursPerWeek(startDate, endDate, courseHours)) > 20 && (
-            <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-md border border-amber-200">
-              <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
-              <p className="text-amber-700">
-                This schedule may be intensive. Consider extending your end date for a more manageable pace.
-              </p>
-            </div>
-          )}
-          
-          {parseFloat(calculateHoursPerWeek(startDate, endDate, courseHours)) < 3 && (
-            <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-md border border-amber-200">
-              <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
-              <p className="text-amber-700">
-                This schedule is quite spread out. Consider reducing the duration to maintain momentum.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  const isEndDateValid = (date) => {
+    return date && date > new Date();
+  };
 
-  // Add this effect to check for existing schedule
   useEffect(() => {
     if (authLoading || !user || !user_email_key || !courseId) return;
-
+  
     const db = getDatabase();
     const scheduleJSONRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${courseId}/ScheduleJSON`);
     const scheduleRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${courseId}/Schedule`);
     const scheduleStartDateRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${courseId}/ScheduleStartDate`);
     const scheduleEndDateRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${courseId}/ScheduleEndDate`);
-
+  
     const fetchScheduleData = async () => {
       try {
         const [scheduleJSONSnapshot, scheduleSnapshot] = await Promise.all([
@@ -1032,23 +1024,22 @@ const YourWayScheduleMaker = ({
         ]);
         
         setHasExistingSchedule(scheduleJSONSnapshot.exists() || scheduleSnapshot.exists());
-
+  
         if (scheduleJSONSnapshot.exists()) {
           const data = scheduleJSONSnapshot.val();
           setExistingSchedule(data);
           setScheduleJson(data);
           setStartDate(parseISO(data.startDate)); 
-          setEndDate(parseISO(data.endDate));
-
-          if (data.units && data.units.length > 0 && data.units[0].items && data.units[0].items.length > 0) {
-            const firstItem = data.units[0].items[0];
-            const startingAssignmentOption = startingAssignmentOptions.find(option => 
-              option.label === firstItem.title
-            );
-            if (startingAssignmentOption) {
-              setSelectedStartingAssignment(startingAssignmentOption);
-            }
+          
+          // Only set the end date if it's in the future
+          const parsedEndDate = parseISO(data.endDate);
+          if (isEndDateValid(parsedEndDate)) {
+            setEndDate(parsedEndDate);
+          } else {
+            setEndDate(null);
           }
+  
+          // ... rest of the code
         } else {
           const startDateSnapshot = await get(scheduleStartDateRef);
           const endDateSnapshot = await get(scheduleEndDateRef);
@@ -1061,7 +1052,12 @@ const YourWayScheduleMaker = ({
             const parsedEndDate = parseISO(endDateString);
             
             setStartDate(parsedStartDate);
-            setEndDate(parsedEndDate);
+            // Only set the end date if it's in the future
+            if (isEndDateValid(parsedEndDate)) {
+              setEndDate(parsedEndDate);
+            } else {
+              setEndDate(null);
+            }
           }
           setExistingSchedule(null);
         }
@@ -1069,11 +1065,10 @@ const YourWayScheduleMaker = ({
         console.error('Error fetching schedule data:', error);
       }
     };
-
+  
     fetchScheduleData();
   }, [courseId, user, authLoading, user_email_key, startingAssignmentOptions]);
 
-  // Add this effect to update startingAssignmentOptions when existingSchedule changes
   useEffect(() => {
     if (existingSchedule && startingAssignmentOptions.length > 0) {
       const firstItem = existingSchedule.units?.[0]?.items?.[0];
@@ -1088,7 +1083,6 @@ const YourWayScheduleMaker = ({
     }
   }, [existingSchedule, startingAssignmentOptions]);
 
-  // Determine if schedule has been created
   useEffect(() => {
     if (scheduleCreated) {
       // Additional logic if needed when schedule is created
@@ -1119,9 +1113,7 @@ const YourWayScheduleMaker = ({
         }
       >
         <div className="space-y-4 pt-6">
-          {/* Course Selection */}
           {courseId ? (
-            // When courseId is provided, display the selected course and lock it
             <div>
               <Label>Selected Course</Label>
               <p className="text-lg font-semibold">
@@ -1129,7 +1121,6 @@ const YourWayScheduleMaker = ({
               </p>
             </div>
           ) : (
-            // When courseId is null, show the course selection dropdown and allow changing
             <div>
               <Label>Select Course</Label>
               <DropdownMenu>
@@ -1165,28 +1156,40 @@ const YourWayScheduleMaker = ({
             </div>
           )}
 
-          {/* Starting Assignment Section */}
           {startingAssignmentSection}
 
-          {/* Diploma Section */}
           {diplomaSelectSection}
 
-          {/* Date Selection */}
+          {/* Add the alert here */}
+{!endDate && hasExistingSchedule && (
+  <Alert className="mb-4 bg-yellow-50 border-yellow-200">
+    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+    <AlertDescription className="text-yellow-700">
+      Your previous end date has passed. Please select a new end date before choosing your start date.
+    </AlertDescription>
+  </Alert>
+)}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>Start Date</Label>
               <DatePicker
-                selected={startDate}
-                onChange={handleStartDateChange}
-                dateFormat="MMM dd, yyyy"
-                placeholderText="Select start date"
-                className={`w-full border rounded px-3 py-2 mt-1 ${!canSelectStartDate ? 'opacity-50 cursor-not-allowed' : ''}`}
-                minDate={minStartDate}
-                maxDate={endDate} // Add maxDate constraint
-                calendarStartDay={1}
-                withPortal
-                disabled={!canSelectStartDate}
-              />
+  selected={startDate}
+  onChange={handleStartDateChange}
+  dateFormat="MMM dd, yyyy"
+  placeholderText="Select start date"
+  className={`w-full border rounded px-3 py-2 mt-1 ${
+    (!canSelectStartDate || !endDate) ? 'opacity-50 cursor-not-allowed' : ''
+  }`}
+  minDate={minStartDate}
+  maxDate={endDate}
+  calendarStartDay={1}
+  withPortal
+  disabled={!canSelectStartDate || !endDate}
+/>
+{!endDate && (
+  <p className="text-sm text-gray-600 mt-1">Please select an end date first</p>
+)}
               {!canSelectStartDate && isDiplomaCourse && !selectedDiplomaDate && !alreadyWroteDiploma && (
                 <p className="text-sm text-gray-600 mt-1">Please select a diploma date first</p>
               )}
@@ -1194,21 +1197,20 @@ const YourWayScheduleMaker = ({
             <div>
               <Label>End Date</Label>
               <DatePicker
-                selected={endDate}
-                onChange={handleEndDateChange} // Use new handler
-                dateFormat="MMM dd, yyyy"
-                placeholderText="Select end date"
-                className={`w-full border rounded px-3 py-2 mt-1 ${!canSelectEndDate ? 'opacity-50 cursor-not-allowed' : ''}`}
-                minDate={startDate ? startDate : addMonths(minStartDate, 1)} // Update minDate logic
-                maxDate={startDate ? addYears(startDate, 1) : null}
-                disabled={!canSelectEndDate || (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate)}
-                calendarStartDay={1}
-                withPortal
-                monthsShown={1}
-                openToDate={startDate ? getDefaultEndDate(startDate) : null}
-                preventOpenOnFocus={true}
-              />
-              {/* Updated end date message logic */}
+  selected={endDate}
+  onChange={handleEndDateChange}
+  dateFormat="MMM dd, yyyy"
+  placeholderText="Select end date"
+  className={`w-full border rounded px-3 py-2 mt-1 ${!canSelectEndDate ? 'opacity-50 cursor-not-allowed' : ''}`}
+  minDate={startDate ? getMinEndDate(startDate) : getMinEndDate(null)}
+  maxDate={startDate ? addYears(startDate, 1) : null}
+  disabled={!canSelectEndDate || (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate)}
+  calendarStartDay={1}
+  withPortal
+  monthsShown={1}
+  openToDate={startDate ? getDefaultEndDate(startDate) : null}
+  preventOpenOnFocus={true}
+/>
               {isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate ? (
                 <p className="text-sm text-gray-600 mt-1">
                   End date is fixed to your selected diploma date: {format(parseISO(selectedDiplomaDate.displayDate), 'MMM dd, yyyy')}
@@ -1221,56 +1223,47 @@ const YourWayScheduleMaker = ({
             </div>
           </div>
 
-          {/* Combined Study Time and Distribution section */}
-          {studyTimeRequiredSection}
-
           <Accordion type="single" collapsible className="w-full">
-  <AccordionItem value="breaks">
-    <AccordionTrigger className="hover:no-underline">
-      Schedule Breaks & Days Off
-    </AccordionTrigger>
-    <AccordionContent>
-      <div className="space-y-4">
-        {/* Description */}
-        <div className="text-sm text-gray-600">
-          <p>Customize when you'll be taking breaks from your studies. Your schedule will be created around these dates.</p>
-        </div>
-
-        {/* Weekend checkbox */}
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="excludeWeekends"
-            checked={excludeWeekends}
-            onChange={(e) => setExcludeWeekends(e.target.checked)}
-            className="mr-2"
-          />
-          <Label htmlFor="excludeWeekends">Keep Weekends Free</Label>
-        </div>
-        
-        {/* Custom blockout dates */}
-        <div>
-          <Label className="text-base font-medium">Plan Additional Breaks</Label>
-          <p className="text-sm text-gray-600 mt-1 mb-3">
-            Add dates when you won't be studying (e.g., vacations, appointments, or other commitments)
-          </p>
-          <CustomBlockoutDates
-            customBlockoutDates={customBlockoutDates}
-            setCustomBlockoutDates={setCustomBlockoutDates}
-          />
-        </div>
-
-        {customBlockoutDates.length > 0 && (
-          <div className="mt-2 p-3 bg-blue-50 rounded-md">
-            <p className="text-sm text-blue-700">
-              Your schedule will be adjusted to work around these breaks while keeping you on track to complete your course.
-            </p>
-          </div>
-        )}
-      </div>
-    </AccordionContent>
-  </AccordionItem>
-</Accordion>
+            <AccordionItem value="breaks">
+              <AccordionTrigger className="hover:no-underline">
+                Schedule Breaks & Days Off
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-600">
+                    <p>Customize when you'll be taking breaks from your studies. Your schedule will be created around these dates.</p>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="excludeWeekends"
+                      checked={excludeWeekends}
+                      onChange={(e) => setExcludeWeekends(e.target.checked)}
+                      className="mr-2"
+                    />
+                    <Label htmlFor="excludeWeekends">Keep Weekends Free</Label>
+                  </div>
+                  <div>
+                    <Label className="text-base font-medium">Plan Additional Breaks</Label>
+                    <p className="text-sm text-gray-600 mt-1 mb-3">
+                      Add dates when you won't be studying (e.g., vacations, appointments, or other commitments)
+                    </p>
+                    <CustomBlockoutDates
+                      customBlockoutDates={customBlockoutDates}
+                      setCustomBlockoutDates={setCustomBlockoutDates}
+                    />
+                  </div>
+                  {customBlockoutDates.length > 0 && (
+                    <div className="mt-2 p-3 bg-blue-50 rounded-md">
+                      <p className="text-sm text-blue-700">
+                        Your schedule will be adjusted to work around these breaks while keeping you on track to complete your course.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
 
           <Button
             onClick={handleCreateSchedule}
@@ -1289,16 +1282,16 @@ const YourWayScheduleMaker = ({
           className="bg-gradient-to-br from-muted to-background"
         >
           <Tabs defaultValue="calendar" className="w-full">
-            <TabsList className="w-full bg-transparent grid grid-cols-2 gap-4"> {/* Updated styling here */}
+            <TabsList className="w-full bg-transparent grid grid-cols-2 gap-4">
               <TabsTrigger 
                 value="calendar"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white px-8" // Added more horizontal padding
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white px-8"
               >
                 Calendar View
               </TabsTrigger>
               <TabsTrigger 
                 value="list"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white px-8" // Added more horizontal padding
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white px-8"
               >
                 List View
               </TabsTrigger>
@@ -1320,8 +1313,6 @@ const YourWayScheduleMaker = ({
                 showMoreDate={showMoreDate}
                 setShowMoreDate={setShowMoreDate}
               />
-
-              {/* Popup Dialog for showing more events */}
               <Dialog 
                 open={showMoreEvents !== null} 
                 onOpenChange={() => {
@@ -1393,8 +1384,6 @@ const YourWayScheduleMaker = ({
               </ScrollArea>
             </TabsContent>
           </Tabs>
-
-          {/* Add the Save Schedule button */}
           {courseId && (
             <div className="flex justify-end space-x-4 mt-4">
               <Button variant="outline" onClick={() => {
@@ -1411,7 +1400,6 @@ const YourWayScheduleMaker = ({
         </FeatureCard>
       )}
 
-      {/* Updated Dialog component */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1423,7 +1411,6 @@ const YourWayScheduleMaker = ({
                 <div className="space-y-2">
                   <div><strong>Type:</strong> {selectedEvent.type}</div>
                   <div><strong>Date:</strong> {format(parseISO(selectedEvent.date), 'MMM dd, yyyy')}</div>
-                  
                   {selectedEvent.type?.toLowerCase() !== 'info' && (
                     <div className="mt-4">
                       {selectedEvent.type?.toLowerCase() === 'lesson' ? (
@@ -1452,7 +1439,6 @@ const YourWayScheduleMaker = ({
                     </div>
                   )}
                 </div>
-
                 {selectedEvent.type === 'exam' && (
                   <Alert className="bg-blue-50 border-blue-200">
                     <AlertDescription className="text-blue-700">
@@ -1460,7 +1446,6 @@ const YourWayScheduleMaker = ({
                     </AlertDescription>
                   </Alert>
                 )}
-
                 {selectedEvent.type === 'lesson' && (
                   <Alert className="bg-green-50 border-green-200">
                     <AlertDescription className="text-green-700">
@@ -1471,7 +1456,6 @@ const YourWayScheduleMaker = ({
                     </AlertDescription>
                   </Alert>
                 )}
-
                 {selectedEvent.type === 'assignment' && (
                   <Alert className="bg-purple-50 border-purple-200">
                     <AlertDescription className="text-purple-700">
@@ -1488,7 +1472,6 @@ const YourWayScheduleMaker = ({
   );
 };
 
-// Define the EnhancedCalendarView component
 const EnhancedCalendarView = ({ 
   events, 
   localizer, 
@@ -1575,16 +1558,15 @@ const EnhancedCalendarView = ({
               marginBottom: '1px', 
               position: 'relative',
               display: 'block',
-
               whiteSpace: 'nowrap',
               textOverflow: 'ellipsis',
               margin: '1px 0',
               zIndex: 1,
-              minHeight: '20px', 
-              overflow: 'hidden',         // Ensure content does not overflow
-              whiteSpace: 'nowrap',       // Prevent text from wrapping
-              textOverflow: 'ellipsis',   // Add ellipsis for overflowing text
-              maxWidth: '100%',   
+              minHeight: '20px',
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+              textOverflow: 'ellipsis',
+              maxWidth: '100%',
             }
           };
         }}
@@ -1600,15 +1582,14 @@ const EnhancedCalendarView = ({
           event: EventComponent,
           toolbar: CustomToolbar
         }}
-        // Add these props to control event display
-        length={3} // Show max 3 events before showing "+x more"
+        length={3}
         formats={{
-          eventTimeRangeFormat: () => '', // Remove time range display
-          timeGutterFormat: () => '', // Remove time gutter
+          eventTimeRangeFormat: () => '',
+          timeGutterFormat: () => '',
         }}
       />
     </div>
   );
 };
 
-export default YourWayScheduleMaker; 
+export default YourWayScheduleMaker;

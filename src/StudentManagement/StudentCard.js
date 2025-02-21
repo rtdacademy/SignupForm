@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database } from 'lucide-react';
+import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, CheckCircle2, AlertOctagon, Archive } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
-import { getDatabase, ref, set, get, push, remove } from 'firebase/database';
+import { getDatabase, ref, set, get, push, remove, update  } from 'firebase/database';
 import { Button } from "../components/ui/button";
 import { Toggle } from "../components/ui/toggle";
 import {
@@ -20,6 +20,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  DropdownMenuPortal
 } from "../components/ui/dropdown-menu";
 import { Badge } from "../components/ui/badge";
 import ChatApp from '../chat/ChatApp';
@@ -33,6 +34,8 @@ import { TutorialButton } from '../components/TutorialButton';
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import PasiRecordsDialog from './PasiRecordsDialog';
 import AsnIssuesDialog from './AsnIssuesDialog';
+import PendingFinalizationDialog from './Dialog/PendingFinalizationDialog';
+import ResumingOnDialog from './Dialog/ResumingOnDialog';
 
 
 // Map icon names to icon components
@@ -185,6 +188,11 @@ const [autoStatus, setAutoStatus] = useState(student?.autoStatus || false);
 
   const [isAsnIssuesDialogOpen, setIsAsnIssuesDialogOpen] = useState(false);
 
+  const [isPendingFinalizationOpen, setIsPendingFinalizationOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState(null);
+  const [isResumingOnOpen, setIsResumingOnOpen] = useState(false);
+
+
   const checkAsnIssues = useMemo(() => {
     if (!student.asn || !studentAsns) return true;  // Show button if no ASN or no studentAsns data
     
@@ -232,59 +240,110 @@ const [autoStatus, setAutoStatus] = useState(student?.autoStatus || false);
     fetchTeacherNames();
   }, []);
 
-  const handleStatusChange = useCallback(async (newStatus) => {
-    const db = getDatabase();
-    const lastUnderscoreIndex = student.id.lastIndexOf('_');
-    const studentKey = student.id.slice(0, lastUnderscoreIndex);
-    const courseId = student.id.slice(lastUnderscoreIndex + 1);
-    const statusRef = ref(db, `students/${studentKey}/courses/${courseId}/Status/Value`);
-    const autoStatusRef = ref(db, `students/${studentKey}/courses/${courseId}/autoStatus`);
+ // Add this before your updateStatus function
+const validateActiveFutureArchivedValue = useCallback((value) => {
+  if (!value) return true; // No value is valid (not all statuses need to set this)
+  
+  const isValid = ACTIVE_FUTURE_ARCHIVED_OPTIONS.some(option => option.value === value);
+  
+  if (!isValid) {
+    console.error(`Invalid ActiveFutureArchived value: ${value}. Must be one of: ${
+      ACTIVE_FUTURE_ARCHIVED_OPTIONS.map(option => option.value).join(', ')
+    }`);
+  }
+  
+  return isValid;
+}, []);
 
-    try {
-      const previousStatus = statusValue;
+// Then update the updateStatus function
+const updateStatus = useCallback(async (newStatus) => {
+  const db = getDatabase();
+  const lastUnderscoreIndex = student.id.lastIndexOf('_');
+  const studentKey = student.id.slice(0, lastUnderscoreIndex);
+  const courseId = student.id.slice(lastUnderscoreIndex + 1);
+  
+  try {
+    const previousStatus = statusValue;
+    const selectedStatusOption = STATUS_OPTIONS.find(option => option.value === newStatus);
 
-      await set(statusRef, newStatus);
-      setStatusValue(newStatus);
-
-      // Find the selected status option
-      const selectedStatusOption = STATUS_OPTIONS.find(option => option.value === newStatus);
-      
-      // Check if the selected status allows auto status
-      let newAutoStatus;
-      if (selectedStatusOption && selectedStatusOption.allowAutoStatusChange === true) {
-        await set(autoStatusRef, true);
-        setAutoStatus(true);
-        newAutoStatus = true;
-      } else {
-        await set(autoStatusRef, false);
-        setAutoStatus(false);
-        newAutoStatus = false;
-      }
-
-      // Create a new log entry in statusLog
-      const statusLogRef = ref(db, `students/${studentKey}/courses/${courseId}/statusLog`);
-      const newLogRef = push(statusLogRef);
-      await set(newLogRef, {
-        timestamp: new Date().toISOString(),
-        status: newStatus,
-        previousStatus: previousStatus || '',
-        updatedBy: {
-          name: user.displayName || user.email,
-          email: user.email,
-        },
-        updatedByType: 'teacher',
-        autoStatus: newAutoStatus,
-      });
-
-      // If this is part of a multi-select, update other selected students
-      if (isPartOfMultiSelect) {
-        onBulkStatusChange(newStatus, student.id);
-      }
-
-    } catch (error) {
-      console.error("Error updating status:", error);
+    // Validate ActiveFutureArchived value if present
+    if (selectedStatusOption?.activeFutureArchivedValue && 
+        !validateActiveFutureArchivedValue(selectedStatusOption.activeFutureArchivedValue)) {
+      throw new Error(`Invalid ActiveFutureArchived value configured for status: ${newStatus}`);
     }
-  }, [student.id, statusValue, user, isPartOfMultiSelect, onBulkStatusChange]);
+
+    // Start all updates
+    const updates = {};
+    updates[`students/${studentKey}/courses/${courseId}/Status/Value`] = newStatus;
+    
+    // If status has an associated ActiveFutureArchived value, set it
+    if (selectedStatusOption?.activeFutureArchivedValue) {
+      updates[`students/${studentKey}/courses/${courseId}/ActiveFutureArchived/Value`] = 
+        selectedStatusOption.activeFutureArchivedValue;
+    }
+
+    // Rest of your existing updateStatus code...
+    let newAutoStatus;
+    if (selectedStatusOption?.allowAutoStatusChange === true) {
+      updates[`students/${studentKey}/courses/${courseId}/autoStatus`] = true;
+      newAutoStatus = true;
+    } else {
+      updates[`students/${studentKey}/courses/${courseId}/autoStatus`] = false;
+      newAutoStatus = false;
+    }
+
+   
+   // Create status log entry
+const statusLogRef = ref(db, `students/${studentKey}/courses/${courseId}/statusLog`);
+const newLogRef = push(statusLogRef);
+updates[`students/${studentKey}/courses/${courseId}/statusLog/${newLogRef.key}`] = {
+  timestamp: new Date().toISOString(),
+  status: newStatus,
+  previousStatus: previousStatus || '',
+  updatedBy: {
+    name: user.displayName || user.email,
+    email: user.email,
+  },
+  updatedByType: 'teacher',
+  autoStatus: newAutoStatus,
+};
+
+    // Perform all updates atomically
+    const dbRef = ref(db);
+    await update(dbRef, updates);
+
+    // Update local state
+    setStatusValue(newStatus);
+    setAutoStatus(newAutoStatus);
+
+    if (isPartOfMultiSelect) {
+      onBulkStatusChange(newStatus, student.id);
+    }
+
+  } catch (error) {
+    console.error("Error updating status:", error);
+    // You might want to show an error notification to the user here
+  }
+}, [student.id, statusValue, user, isPartOfMultiSelect, onBulkStatusChange, validateActiveFutureArchivedValue]);
+
+const handleStatusChange = useCallback(async (newStatus) => {
+  const selectedStatusOption = STATUS_OPTIONS.find(option => option.value === newStatus);
+  
+  // Check for action first
+  if (selectedStatusOption?.action === "PENDING_FINALIZATION") {
+    setPendingStatus(newStatus);
+    setIsPendingFinalizationOpen(true);
+    return;
+  }
+  
+  // Then check for the specific status value
+  if (selectedStatusOption?.value === "Resuming on (date)") {
+    setIsResumingOnOpen(true);
+    return;
+  }
+
+  await updateStatus(newStatus);
+}, [updateStatus]);
 
   const handleAutoStatusToggle = useCallback(async () => {
     if (!getStatusAllowsAutoStatus(statusValue)) return;
@@ -476,21 +535,33 @@ const [autoStatus, setAutoStatus] = useState(student?.autoStatus || false);
 
   const currentStatusColor = useMemo(() => getStatusColor(statusValue), [statusValue]);
 
-  const StatusOption = React.memo(({ option }) => (
-    <div className="flex items-center w-full">
-      <div 
-        className="w-3 h-3 rounded-full mr-2 flex-shrink-0" 
-        style={{ backgroundColor: option.color }}
-      />
-      <span style={{ color: option.color }}>
-        {option.value === "Starting on (Date)" && student.ScheduleStartDate ? (
-          `Starting on ${format(new Date(student.ScheduleStartDate), 'MMM d, yyyy')}`
-        ) : (
-          option.value
-        )}
-      </span>
-    </div>
-  ));
+  const currentStatusOption = useMemo(() => 
+    STATUS_OPTIONS.find(option => option.value === statusValue),
+    [statusValue]
+  );
+
+  const StatusOption = React.memo(({ option }) => {
+    // Get the alert level icon component
+    const IconComponent = option.alertLevel?.icon || Circle;
+    
+    return (
+      <div className="flex items-center w-full">
+        <div className="flex-shrink-0 mr-2">
+          <IconComponent 
+            className="w-4 h-4" 
+            style={{ color: option.alertLevel?.color || option.color }}
+          />
+        </div>
+        <span style={{ color: option.alertLevel?.color || option.color }}>
+          {option.value === "Starting on (Date)" && student.ScheduleStartDate ? (
+            `Starting on ${format(new Date(student.ScheduleStartDate), 'MMM d, yyyy')}`
+          ) : (
+            option.value
+          )}
+        </span>
+      </div>
+    );
+  });
 
   const isAutoStatusAllowed = useMemo(() => getStatusAllowsAutoStatus(statusValue), [statusValue]);
 
@@ -551,6 +622,17 @@ const [autoStatus, setAutoStatus] = useState(student?.autoStatus || false);
   const findCourseById = (courseId) => {
     return COURSE_OPTIONS.find(course => String(course.courseId) === String(courseId));
   };
+
+  const groupedStatusOptions = useMemo(() => {
+    return STATUS_OPTIONS.reduce((acc, option) => {
+      if (!acc[option.category]) {
+        acc[option.category] = [];
+      }
+      acc[option.category].push(option);
+      return acc;
+    }, {});
+  }, []);
+  
 
   return (
     <>
@@ -698,51 +780,70 @@ const [autoStatus, setAutoStatus] = useState(student?.autoStatus || false);
           {/* Status Dropdown, Last Week Status, and Auto Status Toggle */}
           <div className="flex items-center space-x-2 mb-2">
             <div className="flex-grow">
-              <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-  <Button 
-    variant="outline" 
-    className="w-full justify-between"
-    style={{ borderColor: currentStatusColor, color: currentStatusColor }}
-  >
-    <div className="flex items-center">
-      <div 
-        className="w-3 h-3 rounded-full mr-2" 
-        style={{ backgroundColor: currentStatusColor }}
-      />
-      {statusValue === "Starting on (Date)" && student.ScheduleStartDate ? (
-        `Starting on ${format(new Date(student.ScheduleStartDate), 'MMM d, yyyy')}`
-      ) : (
-        statusValue
-      )}
-    </div>
-    <ChevronDown className="h-4 w-4 opacity-50" />
-  </Button>
-</DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56">
-                  {STATUS_CATEGORIES.map(category => (
-                    <DropdownMenuSub key={category}>
-                      <DropdownMenuSubTrigger className={customHoverStyle}>
-                        {category}
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        {STATUS_OPTIONS.filter(option => option.category === category).map(option => (
-                          <DropdownMenuItem
-                            key={option.value}
-                            onSelect={() => handleStatusChange(option.value)}
-                            className={`${customHoverStyle} hover:bg-opacity-10`}
-                            style={{ 
-                              backgroundColor: option.value === statusValue ? `${option.color}20` : 'transparent',
-                            }}
-                          >
-                            <StatusOption option={option} />
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+           
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button 
+      variant="outline" 
+      className="w-full justify-between"
+      style={{ 
+        borderColor: currentStatusOption?.alertLevel?.color || currentStatusColor,
+        color: currentStatusOption?.alertLevel?.color || currentStatusColor 
+      }}
+    >
+      <div className="flex items-center">
+        {React.createElement(
+          currentStatusOption?.alertLevel?.icon || Circle,
+          { 
+            className: "w-4 h-4 mr-2",
+            style: { 
+              color: currentStatusOption?.alertLevel?.color || currentStatusColor 
+            }
+          }
+        )}
+        {statusValue === "Starting on (Date)" && student.ScheduleStartDate ? (
+          `Starting on ${format(new Date(student.ScheduleStartDate), 'MMM d, yyyy')}`
+        ) : (
+          statusValue
+        )}
+      </div>
+      <ChevronDown className="h-4 w-4 opacity-50" />
+    </Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuPortal>
+    <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto">
+      {Object.entries(groupedStatusOptions).map(([category, options]) => (
+        <div key={category}>
+          <div className="px-2 py-1 text-xs font-bold text-gray-600">
+            {category}
+          </div>
+          {options.map(option => (
+            <Tooltip key={option.value} delayDuration={200}>
+              <TooltipTrigger asChild>
+                <DropdownMenuItem
+                  onSelect={() => handleStatusChange(option.value)}
+                  className={`${customHoverStyle} hover:bg-opacity-10`}
+                  style={{
+                    backgroundColor: option.value === statusValue ? 
+                      `${option.alertLevel?.color || option.color}20` : 
+                      'transparent'
+                  }}
+                >
+                  <StatusOption option={option} />
+                </DropdownMenuItem>
+              </TooltipTrigger>
+              <TooltipContent>
+                {option.tooltip ? option.tooltip : option.value}
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
+      ))}
+    </DropdownMenuContent>
+  </DropdownMenuPortal>
+</DropdownMenu>
+
+
             </div>
 
   {/* SharePoint Status if it exists 
@@ -1089,46 +1190,61 @@ const [autoStatus, setAutoStatus] = useState(student?.autoStatus || false);
             </DialogTitle>
           </DialogHeader>
           <div className="flex-grow overflow-auto">
-            {loadingStatusHistory ? (
-              <div className="text-center">Loading...</div>
-            ) : statusHistory.length > 0 ? (
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr>
-                    <th className="px-2 py-1 text-left">Timestamp</th>
-                    <th className="px-2 py-1 text-left">Status</th>
-                    <th className="px-2 py-1 text-left">Previous Status</th>
-                    <th className="px-2 py-1 text-left">Updated By</th>
-                    {/* Removed Auto Status Column */}
-                  </tr>
-                </thead>
-                <tbody>
-                  {statusHistory.map((logEntry, index) => (
-                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-                      <td className="px-2 py-1">{new Date(logEntry.timestamp).toLocaleString()}</td>
-                      <td className="px-2 py-1">{logEntry.status}</td>
-                      <td className="px-2 py-1">
-                        {typeof logEntry.previousStatus === 'object' && logEntry.previousStatus !== null
-                          ? logEntry.previousStatus.Value
-                          : logEntry.previousStatus}
-                      </td>
-                      <td className="px-2 py-1">
-                        {logEntry.updatedByType === 'teacher' ? (
-                          <>
-                            {logEntry.updatedBy.name} ({logEntry.updatedBy.email})
-                          </>
-                        ) : (
-                          'Auto Status'
-                        )}
-                      </td>
-                      {/* Removed Auto Status Cell */}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {loadingStatusHistory ? (
+  <div className="text-center">Loading...</div>
+) : statusHistory.length > 0 ? (
+  <table className="min-w-full text-sm">
+    <thead>
+      <tr>
+        <th className="px-2 py-1 text-left">Timestamp</th>
+        <th className="px-2 py-1 text-left">Status</th>
+        <th className="px-2 py-1 text-left">Previous Status</th>
+        <th className="px-2 py-1 text-left">Updated By</th>
+        <th className="px-2 py-1 text-left">Type</th>
+      </tr>
+    </thead>
+    <tbody>
+      {statusHistory.map((logEntry, index) => (
+        <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
+          <td className="px-2 py-1">{new Date(logEntry.timestamp).toLocaleString()}</td>
+          <td className="px-2 py-1">{logEntry.status}</td>
+          <td className="px-2 py-1">
+            {typeof logEntry.previousStatus === 'object' && logEntry.previousStatus !== null
+              ? logEntry.previousStatus.Value
+              : logEntry.previousStatus}
+          </td>
+          <td className="px-2 py-1">
+            {logEntry.updatedByType === 'teacher' ? (
+              <>
+                {logEntry.updatedBy.name} ({logEntry.updatedBy.email})
+              </>
             ) : (
-              <div className="text-center">No status history available.</div>
+              'Auto Status'
             )}
+          </td>
+          <td className="px-2 py-1">
+            {logEntry.bulkUpdate && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="inline-flex items-center text-blue-600">
+                      <Users className="h-4 w-4" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Part of a bulk update</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+) : (
+  <div className="text-center">No status history available.</div>
+)}
           </div>
         </DialogContent>
       </Dialog>
@@ -1200,6 +1316,45 @@ const [autoStatus, setAutoStatus] = useState(student?.autoStatus || false);
     []
   }
 />
+
+<PendingFinalizationDialog
+  isOpen={isPendingFinalizationOpen}
+  onOpenChange={setIsPendingFinalizationOpen}
+  status={pendingStatus}
+  studentName={`${student.preferredFirstName || student.firstName} ${student.lastName}`}
+  courseName={student.Course_Value}
+  studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
+  courseId={student.id.slice(student.id.lastIndexOf('_') + 1)}
+  onConfirm={async () => {
+    await updateStatus(pendingStatus);
+    setIsPendingFinalizationOpen(false);
+    setPendingStatus(null);
+  }}
+  onCancel={() => {
+    setIsPendingFinalizationOpen(false);
+    setPendingStatus(null);
+  }}
+/>
+
+<ResumingOnDialog
+  isOpen={isResumingOnOpen}
+  onOpenChange={setIsResumingOnOpen}
+  status="Resuming on (date)"
+  statusValue={statusValue}
+  studentName={`${student.preferredFirstName || student.firstName} ${student.lastName}`}
+  courseName={student.Course_Value}
+  studentEmail={student.StudentEmail} 
+  studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
+  courseId={student.id.slice(student.id.lastIndexOf('_') + 1)}
+  onConfirm={async (date) => {
+    await updateStatus(`Resuming on ${date}`);
+    setIsResumingOnOpen(false);
+  }}
+  onCancel={() => {
+    setIsResumingOnOpen(false);
+  }}
+/>
+
 
     </>
   );

@@ -1,5 +1,4 @@
 // CourseUnitsManagement.jsx
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { getDatabase, ref, update, get, remove } from 'firebase/database';
 import debounce from 'lodash/debounce';
@@ -11,8 +10,6 @@ import {
   GripVertical,
   ChevronDown,
   ChevronUp,
-  Bot,
-  LayoutGrid,
   Library,
   BookOpen
 } from 'lucide-react';
@@ -61,8 +58,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../components/ui/tooltip";
-import AIAssistantSheet from './AIAssistantSheet';
-import EntityAssistants from './EntityAssistants';
 
 // Define lesson types with associated colors
 const LESSON_TYPES = {
@@ -110,7 +105,7 @@ const LESSON_TYPES = {
   }
 };
 
-// Add a custom hook for handling editable content
+// Custom hook for handling editable content
 const useEditableContent = (initialValue, onSave) => {
   const [isEditing, setIsEditing] = useState(false);
   const [draftValue, setDraftValue] = useState(initialValue);
@@ -175,24 +170,13 @@ const EditableRichText = ({ value, onSave, className = "" }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [draftValue, setDraftValue] = useState(value || '');
 
-  // Simple view mode
   if (!isEditing) {
     return (
       <div className="space-y-2">
-        {/* Content Display */}
         <div 
-          className={`
-            prose prose-sm max-w-none bg-white rounded
-            prose-p:my-2 prose-p:leading-relaxed
-            prose-ul:list-disc prose-ul:pl-6
-            prose-ol:list-decimal prose-ol:pl-6
-            prose-li:my-1
-            prose-a:text-blue-600 prose-a:underline
-          `}
+          className="prose prose-sm max-w-none bg-white rounded"
           dangerouslySetInnerHTML={{ __html: value || 'No content yet.' }}
         />
-        
-        {/* Edit Button */}
         <Button
           variant="outline"
           size="sm"
@@ -206,7 +190,6 @@ const EditableRichText = ({ value, onSave, className = "" }) => {
     );
   }
 
-  // Edit mode
   return (
     <div className="space-y-2">
       <ReactQuill
@@ -250,7 +233,7 @@ const EditableRichText = ({ value, onSave, className = "" }) => {
 };
 
 // Course Header Component with Expandable Description
-const CourseHeader = ({ course, onEditCourse, onDeleteCourse, onManageAI, onDeleteAssistant }) => {
+const CourseHeader = ({ course, onEditCourse, onDeleteCourse }) => {
   const [showDescription, setShowDescription] = useState(false);
 
   return (
@@ -260,7 +243,7 @@ const CourseHeader = ({ course, onEditCourse, onDeleteCourse, onManageAI, onDele
           <div className="flex items-start justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-blue-600 mb-2">
-                <LayoutGrid className="w-5 h-5" />
+                <Library className="w-4 h-4" />
                 <span className="text-sm font-medium">Course Overview</span>
               </div>
               <h1 className="text-2xl font-bold text-gray-900">{course.title}</h1>
@@ -295,27 +278,6 @@ const CourseHeader = ({ course, onEditCourse, onDeleteCourse, onManageAI, onDele
           </div>
         )}
       </div>
-
-      <Card className="border-blue-100">
-        <CardHeader>
-          <div className="flex items-center gap-2 text-blue-600">
-            <Bot className="w-5 h-5" />
-            <CardTitle>Course Assistants</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <EntityAssistants
-            type="course"
-            entityId={course.id}
-            parentId={null}
-            assistants={course.assistants || {}}
-            onManageAI={onManageAI}
-            onDeleteAssistant={onDeleteAssistant}
-            isDefaultCourse={false}
-            className=""
-          />
-        </CardContent>
-      </Card>
     </div>
   );
 };
@@ -327,11 +289,9 @@ const SortableLesson = ({
   lesson, 
   onUpdate, 
   onDelete, 
-  onManageAI, 
   isSelected, 
   setSelectedLesson, 
-  setSelectedUnit,
-  onDeleteAssistant
+  setSelectedUnit
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const {
@@ -429,19 +389,6 @@ const SortableLesson = ({
           </Button>
         </div>
 
-        <div className="pl-8">
-          <EntityAssistants
-            type="lesson"
-            entityId={lesson.id}
-            parentId={courseId}
-            assistants={lesson.assistants}
-            onManageAI={onManageAI}
-            onDeleteAssistant={onDeleteAssistant}
-            isDefaultCourse={false}
-            className="bg-white rounded-lg p-4 border border-gray-100"
-          />
-        </div>
-
         {isExpanded && (
           <div className="pl-8 space-y-4">
             <div>
@@ -452,7 +399,6 @@ const SortableLesson = ({
                 className="bg-white"
               />
             </div>
-
             {(['assignment', 'quiz', 'exam'].includes(lesson.type)) && (
               <div>
                 <label className="block text-sm font-medium text-gray-600">Assessment Details</label>
@@ -473,7 +419,6 @@ const SortableLesson = ({
 // CourseUnitsManagement Component
 const CourseUnitsManagement = ({ courseId, course, onEditCourse, onDeleteCourse }) => {
   const { user } = useAuth();
-  // Helper function to ensure we always have an array
   const ensureArray = (possibleArray) => Array.isArray(possibleArray) ? possibleArray : [];
   const [units, setUnits] = useState(ensureArray(course.units));
   const [expandedUnits, setExpandedUnits] = useState(
@@ -488,13 +433,6 @@ const CourseUnitsManagement = ({ courseId, course, onEditCourse, onDeleteCourse 
   const [showDeleteUnitDialog, setShowDeleteUnitDialog] = useState(false);
   const [unitToDelete, setUnitToDelete] = useState(null);
   const [activeId, setActiveId] = useState(null);
-  const [showAISheet, setShowAISheet] = useState(false);
-  const [currentAIContext, setCurrentAIContext] = useState({
-    type: null,
-    entityId: null,
-    parentId: null,
-    existingAssistantId: null
-  });
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -503,7 +441,6 @@ const CourseUnitsManagement = ({ courseId, course, onEditCourse, onDeleteCourse 
     })
   );
 
-  // Handle selection clearing when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest('.card')) {
@@ -525,17 +462,14 @@ const CourseUnitsManagement = ({ courseId, course, onEditCourse, onDeleteCourse 
     }));
   };
 
-  // Updated addLesson function with default type 'general'
   const addLesson = (unitId) => {
     const targetUnit = units.find(u => u.id === unitId);
     const newLesson = {
       id: `lesson-${Date.now()}`,
       title: 'New Item',
-      type: 'general', // Changed default type to 'general'
+      type: 'general',
       sequence: (targetUnit.lessons?.length || 0) + 1,
-      description: '',
-      assistants: {},
-      hasAI: false,
+      description: ''
     };
 
     const updatedUnits = units.map(unit => {
@@ -558,9 +492,7 @@ const CourseUnitsManagement = ({ courseId, course, onEditCourse, onDeleteCourse 
       title: 'New Unit',
       description: '',
       lessons: [],
-      sequence: units.length + 1,
-      hasAI: false, 
-      assistants: {}
+      sequence: units.length + 1
     };
     
     const updatedUnits = [...units, newUnit];
@@ -655,7 +587,6 @@ const CourseUnitsManagement = ({ courseId, course, onEditCourse, onDeleteCourse 
         const newIndex = units.findIndex(u => u.id === over.id);
         const reorderedUnits = arrayMove(units, oldIndex, newIndex);
         
-        // Update sequences
         const updatedUnits = reorderedUnits.map((unit, index) => ({
           ...unit,
           sequence: index + 1
@@ -679,7 +610,6 @@ const CourseUnitsManagement = ({ courseId, course, onEditCourse, onDeleteCourse 
               const newIndex = unit.lessons.findIndex(l => l.id === over.id);
               const reorderedLessons = arrayMove(unit.lessons, oldIndex, newIndex);
               
-              // Update sequences
               const updatedLessons = reorderedLessons.map((lesson, index) => ({
                 ...lesson,
                 sequence: index + 1
@@ -702,238 +632,6 @@ const CourseUnitsManagement = ({ courseId, course, onEditCourse, onDeleteCourse 
     setActiveId(null);
   };
 
-  // Handle AI Assistant Management
-  const handleManageAI = (type, id, parentId = null, assistantId = null) => {
-    let existingAssistantId = null;
-    
-    // Find the existing assistant ID based on the type
-    switch (type) {
-      case 'course':
-        existingAssistantId = course.assistantId;
-        // For course, parentId should be null
-        parentId = null;
-        break;
-      case 'unit':
-        const unit = units.find(u => u.id === id);
-        existingAssistantId = unit?.assistantId;
-        // For unit, parentId should be courseId
-        parentId = courseId;
-        break;
-      case 'lesson':
-        const lessonUnit = units.find(u => u.lessons?.some(l => l.id === id));
-        const lesson = lessonUnit?.lessons?.find(l => l.id === id);
-        existingAssistantId = lesson?.assistantId;
-        // For lesson, parentId should be courseId
-        parentId = courseId;
-        break;
-      case 'assistant':
-        // Handle assistant type if needed
-        break;
-      default:
-        break;
-    }
-  
-    console.log('Setting AI Context:', {
-      type,
-      entityId: id,
-      parentId,
-      existingAssistantId: assistantId || existingAssistantId
-    });
-  
-    setCurrentAIContext({
-      type,
-      entityId: id,
-      parentId, // Now properly set for each type
-      existingAssistantId: assistantId || existingAssistantId
-    });
-    setShowAISheet(true);
-  };
-
-
-  // Handle AI Assistant Save
-  const handleAIAssistantSave = async (assistantData) => {
-    const { type, entityId, parentId } = currentAIContext;
-    const db = getDatabase();
-    
-    try {
-      const entityPath = getEntityPath(type, entityId, parentId);
-      if (!entityPath) {
-        throw new Error('Invalid entity path');
-      }
-  
-      // First, get the current state of the entity to preserve existing assistants
-      const entityRef = ref(db, entityPath);
-      const entitySnapshot = await get(entityRef);
-      const entityData = entitySnapshot.val() || {};
-      const existingAssistants = entityData.assistants || {};
-  
-      // Create the updates object
-      const updates = {};
-  
-      // Add the assistant to the assistants collection
-      updates[`edbotz/assistants/${user.uid}/${assistantData.assistantId}`] = assistantData;
-  
-      // Initialize or update assistants object while preserving existing assistants
-      if (type === 'lesson') {
-        const unit = units.find(u => u.lessons?.some(l => l.id === entityId));
-        if (unit) {
-          const lesson = unit.lessons.find(l => l.id === entityId);
-          if (lesson) {
-            const lessonPath = `edbotz/courses/${user.uid}/${courseId}/units/${units.indexOf(unit)}/lessons/${unit.lessons.indexOf(lesson)}/assistants`;
-            updates[lessonPath] = {
-              ...existingAssistants,
-              [assistantData.assistantId]: true
-            };
-            updates[`edbotz/courses/${user.uid}/${courseId}/units/${units.indexOf(unit)}/lessons/${unit.lessons.indexOf(lesson)}/hasAI`] = true;
-          }
-        }
-      } else {
-        // For course and unit levels
-        updates[`${entityPath}/assistants`] = {
-          ...existingAssistants,
-          [assistantData.assistantId]: true
-        };
-        updates[`${entityPath}/hasAI`] = true;
-      }
-  
-      // Perform all updates atomically
-      await update(ref(db), updates);
-  
-      // Update local state based on type
-      if (type === 'lesson') {
-        setUnits(prevUnits =>
-          prevUnits.map(unit => {
-            if (unit.lessons?.some(l => l.id === entityId)) {
-              return {
-                ...unit,
-                lessons: unit.lessons.map(lesson =>
-                  lesson.id === entityId
-                    ? {
-                        ...lesson,
-                        assistants: {
-                          ...(lesson.assistants || {}),
-                          [assistantData.assistantId]: true
-                        },
-                        hasAI: true
-                      }
-                    : lesson
-                )
-              };
-            }
-            return unit;
-          })
-        );
-      } else if (type === 'unit') {
-        const unitIndex = units.findIndex(u => u.id === entityId);
-        if (unitIndex !== -1) {
-          const updatedUnits = [...units];
-          updatedUnits[unitIndex] = {
-            ...updatedUnits[unitIndex],
-            assistants: {
-              ...(updatedUnits[unitIndex].assistants || {}),
-              [assistantData.assistantId]: true
-            },
-            hasAI: true
-          };
-          setUnits(updatedUnits);
-        }
-      }
-
-      setShowAISheet(false);
-    } catch (error) {
-      console.error('Error saving assistant:', error);
-      throw error;
-    }
-  };
-
-  // Handle delete assistant
-  const handleDeleteAssistant = async (assistantId, type, entityId, parentId) => {
-    const db = getDatabase();
-    
-    try {
-      // 1. Remove assistant from the assistants collection
-      const assistantRef = ref(db, `edbotz/assistants/${user.uid}/${assistantId}`);
-      await remove(assistantRef);
-
-      // 2. Remove assistant reference from the entity
-      const entityPath = getEntityPath(type, entityId, parentId);
-      const entityAssistantRef = ref(db, `${entityPath}/assistants/${assistantId}`);
-      await remove(entityAssistantRef);
-
-      // 3. Update local state
-      if (type === 'unit') {
-        setUnits(prevUnits =>
-          prevUnits.map(unit =>
-            unit.id === entityId
-              ? {
-                  ...unit,
-                  assistants: Object.fromEntries(
-                    Object.entries(unit.assistants || {}).filter(
-                      ([key]) => key !== assistantId
-                    )
-                  )
-                }
-              : unit
-          )
-        );
-      } else if (type === 'lesson') {
-        setUnits(prevUnits =>
-          prevUnits.map(unit => {
-            if (unit.id === parentId) {
-              return {
-                ...unit,
-                lessons: unit.lessons.map(lesson =>
-                  lesson.id === entityId
-                    ? {
-                        ...lesson,
-                        assistants: Object.fromEntries(
-                          Object.entries(lesson.assistants || {}).filter(
-                            ([key]) => key !== assistantId
-                          )
-                        )
-                      }
-                    : lesson
-                )
-              };
-            }
-            return unit;
-          })
-        );
-      }
-    } catch (error) {
-      console.error('Error deleting assistant:', error);
-      // Add proper error handling here
-    }
-  };
-
-  // Helper function to get entity path
-  const getEntityPath = (type, entityId, parentId = null) => {
-    switch (type) {
-      case 'course':
-        return `edbotz/courses/${user.uid}/${courseId}`;
-      case 'unit': {
-        const unitIndex = units.findIndex(u => u.id === entityId);
-        if (unitIndex === -1) return null;
-        return `edbotz/courses/${user.uid}/${courseId}/units/${unitIndex}`;
-      }
-      case 'lesson': {
-        // Find the unit containing the lesson
-        const unit = units.find(u => u.lessons?.some(l => l.id === entityId));
-        if (!unit) return null;
-        
-        const unitIndex = units.findIndex(u => u.id === unit.id);
-        const lessonIndex = unit.lessons.findIndex(l => l.id === entityId);
-        
-        if (unitIndex === -1 || lessonIndex === -1) return null;
-        
-        // Update path to correctly point to the lesson's assistants
-        return `edbotz/courses/${user.uid}/${courseId}/units/${unitIndex}/lessons/${lessonIndex}`;
-      }
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Course Header */}
@@ -941,8 +639,6 @@ const CourseUnitsManagement = ({ courseId, course, onEditCourse, onDeleteCourse 
         course={course} 
         onEditCourse={onEditCourse} 
         onDeleteCourse={onDeleteCourse}
-        onManageAI={handleManageAI}
-        onDeleteAssistant={handleDeleteAssistant}
       />
 
       {/* Units Section */}
@@ -979,13 +675,10 @@ const CourseUnitsManagement = ({ courseId, course, onEditCourse, onDeleteCourse 
                    setShowDeleteUnitDialog(true);
                  }}
                  onAddLesson={addLesson}
-                 onManageAI={handleManageAI}
                  isSelected={selectedUnit === unit.id}
                  setSelectedUnit={setSelectedUnit}
                  setSelectedLesson={setSelectedLesson}
-                 onDeleteAssistant={handleDeleteAssistant}
                >
-                  {/* Lessons Rendering */}
                   <SortableContext
                     items={(unit.lessons || []).map(l => l.id)}
                     strategy={verticalListSortingStrategy}
@@ -999,11 +692,9 @@ const CourseUnitsManagement = ({ courseId, course, onEditCourse, onDeleteCourse 
                           lesson={lesson}
                           onUpdate={updateLesson}
                           onDelete={deleteLesson}
-                          onManageAI={handleManageAI}
                           isSelected={selectedLesson === lesson.id}
                           setSelectedLesson={setSelectedLesson}
                           setSelectedUnit={setSelectedUnit}
-                          onDeleteAssistant={handleDeleteAssistant}
                         />
                       ))}
                     </div>
@@ -1054,22 +745,11 @@ const CourseUnitsManagement = ({ courseId, course, onEditCourse, onDeleteCourse 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Add the AI Assistant Sheet */}
-      <AIAssistantSheet
-        open={showAISheet}
-        onOpenChange={setShowAISheet}
-        onSave={handleAIAssistantSave}
-        type={currentAIContext.type}
-        entityId={currentAIContext.entityId}
-        parentId={currentAIContext.parentId}
-        existingAssistantId={currentAIContext.existingAssistantId}
-      />
     </div>
   );
 };
 
-// SortableUnit Component (unchanged)
+// SortableUnit Component
 const SortableUnit = ({ 
   unit, 
   parentId,
@@ -1078,12 +758,10 @@ const SortableUnit = ({
   onUpdate, 
   onDelete, 
   onAddLesson, 
-  onManageAI, 
   children,
   isSelected,
   setSelectedUnit,
-  setSelectedLesson,
-  onDeleteAssistant
+  setSelectedLesson
 }) => {
   const [showDescription, setShowDescription] = useState(false);
   const {
@@ -1179,43 +857,25 @@ const SortableUnit = ({
         </div>
 
         {(showDescription || isExpanded) && (
-  <div className="pl-8 space-y-4">
-    {showDescription && (
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-600">Unit Description</label>
-        <div 
-          onClick={() => setShowDescription(true)}
-          className={`
-            prose prose-sm max-w-none bg-white rounded p-2 
-            prose-p:my-3 prose-p:leading-relaxed
-            prose-ul:my-3 prose-ul:list-disc prose-ul:pl-6 prose-ul:list-outside
-            prose-ol:my-3 prose-ol:list-decimal prose-ol:pl-6 prose-ol:list-outside
-            prose-li:my-1 prose-li:leading-relaxed prose-li:pl-0
-            prose-a:text-blue-600 prose-a:underline hover:prose-a:text-blue-800
-          `}
-        >
-          <EditableRichText
-            value={unit.description}
-            onSave={handleUpdateDescription}
-            className="bg-white"
-          />
-        </div>
-      </div>
+          <div className="pl-8 space-y-4">
+            {showDescription && (
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-600">Unit Description</label>
+                <div 
+                  onClick={() => setShowDescription(true)}
+                  className="prose prose-sm max-w-none bg-white rounded p-2"
+                >
+                  <EditableRichText
+                    value={unit.description}
+                    onSave={handleUpdateDescription}
+                    className="bg-white"
+                  />
+                </div>
+              </div>
             )}
 
             {isExpanded && (
               <div className="space-y-4">
-                <EntityAssistants
-                  type="unit"
-                  entityId={unit.id}
-                  parentId={parentId}
-                  assistants={unit.assistants}
-                  onManageAI={onManageAI}
-                  onDeleteAssistant={onDeleteAssistant}
-                  isDefaultCourse={false}
-                  className="bg-white rounded-lg p-4 border border-indigo-100"
-                />
-
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2 text-indigo-600">

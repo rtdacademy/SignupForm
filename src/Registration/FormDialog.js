@@ -11,8 +11,10 @@ import StudentRegistrationReview from './StudentRegistrationReview';
 import { cn } from "../lib/utils";
 import { useAuth } from '../context/AuthContext';
 import { getDatabase, ref, get, remove, set } from 'firebase/database';
+import { useConversionTracking } from '../components/hooks/use-conversion-tracking';
 
 const FormDialog = ({ trigger, open, onOpenChange }) => {
+  const trackConversion = useConversionTracking();
   const { user, user_email_key } = useAuth();
   const uid = user?.uid;
   const [loading, setLoading] = useState(true);
@@ -292,6 +294,8 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
           set(studentProfileRef, profileData),
           set(studentCourseRef, courseData)
         ]);
+
+        trackConversion();
   
         // Remove the pendingRegistration node
         await remove(pendingRegRef);

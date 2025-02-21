@@ -15,7 +15,7 @@ import {
   PaginationPrevious,
 } from "../components/ui/pagination";
 
-const ITEMS_PER_PAGE = 30;
+const ITEMS_PER_PAGE = 50;
 
 const TabManualMapping = ({ data = { details: [] }, schoolYear }) => {
   const [currentPage, setCurrentPage] = useState(1);

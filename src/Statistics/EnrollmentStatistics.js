@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import EnrollmentCharts from './EnrollmentCharts'; 
 import EnrollmentTiming from './EnrollmentTiming';
 import RevenueProjections from './RevenueProjections';
+import PrimarySchoolsView from './PrimarySchoolsView';
 
 const getCurrentSchoolYear = () => {
   const today = new Date();
@@ -118,6 +119,7 @@ const EnrollmentStatistics = () => {
           <TabsTrigger value="charts">Overview</TabsTrigger>
           <TabsTrigger value="timing">Enrollment Timing</TabsTrigger>
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
+          <TabsTrigger value="primary">Primary Schools</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
         </TabsList>
         
@@ -137,6 +139,13 @@ const EnrollmentStatistics = () => {
 
         <TabsContent value="revenue" className="space-y-4">
           <RevenueProjections
+            summariesData={summariesData}
+            selectedSchoolYear={selectedSchoolYear}
+          />
+        </TabsContent>
+
+        <TabsContent value="primary" className="space-y-4">
+          <PrimarySchoolsView
             summariesData={summariesData}
             selectedSchoolYear={selectedSchoolYear}
           />

@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { auth, database } from '../firebase';
 import { ref, onValue } from 'firebase/database';
-import {
-  LogOut,
-  Menu,
-  X,
-  Home,
-  BookOpen,
-  Settings,
-  User,
-} from 'lucide-react';
+import { LogOut, Menu, X, Library, Info, Shield, Home } from 'lucide-react';
+import { auth as firebaseAuth } from '../firebase';
+import PoliciesSheet from './documents/PoliciesSheet';
+import HowItWorksSheet from './documents/HowItWorksSheet';
 
 // EdBotz Logo Component
 const EdBotzLogo = () => (
@@ -27,19 +22,18 @@ const EdBotzLogo = () => (
   </div>
 );
 
+// ProfilePicture Component
 const ProfilePicture = ({ photoURL, displayName }) => {
   if (!photoURL) {
     const initials = displayName
-      ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+      ? displayName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
       : '?';
-
     return (
       <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
         {initials}
       </div>
     );
   }
-
   return (
     <img
       src={photoURL}
@@ -56,7 +50,10 @@ const ProfilePicture = ({ photoURL, displayName }) => {
 // EdBotz Header Component
 const EdBotzHeader = ({ userProfile }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isPoliciesOpen, setIsPoliciesOpen] = useState(false);
+  const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSignOut = async () => {
     try {
@@ -67,115 +64,161 @@ const EdBotzHeader = ({ userProfile }) => {
     }
   };
 
-  const navigationItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Courses', href: '/courses', icon: BookOpen },
-    { name: 'Profile', href: '/profile', icon: User },
-    { name: 'Settings', href: '/settings', icon: Settings },
-  ];
+  const isCoursesRoute = location.pathname === '/courses';
+
+  const handleNavigation = () => {
+    if (isCoursesRoute) {
+      navigate('/dashboard');
+    } else {
+      navigate('/courses');
+    }
+  };
 
   return (
-    <header className="bg-white border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* Logo and Desktop Navigation */}
-          <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
+    <>
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            {/* Left side: Logo and Navigation button */}
+            <div className="flex items-center gap-4">
               <EdBotzLogo />
+              <button
+                onClick={handleNavigation}
+                className="hidden md:inline-flex items-center gap-1 px-3 py-2 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors duration-200"
+              >
+                {isCoursesRoute ? (
+                  <>
+                    <Home className="w-5 h-5" />
+                    Home
+                  </>
+                ) : (
+                  <>
+                    <Library className="w-5 h-5" />
+                    Manage Courses
+                  </>
+                )}
+              </button>
             </div>
-            <nav className="hidden md:flex space-x-8 ml-10">
-              {navigationItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.name}
-                    onClick={() => navigate(item.href)}
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-600 hover:text-blue-600 hover:border-blue-500 transition-colors duration-200"
-                  >
-                    <Icon className="w-4 h-4 mr-2" />
-                    {item.name}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
 
-          {/* Profile and Sign Out Button */}
-          <div className="hidden md:flex items-center space-x-4">
-            <div className="flex items-center space-x-3">
+            {/* Right side: Profile, Nav Links, and Sign Out */}
+            <div className="hidden md:flex items-center space-x-6">
+              <div className="flex items-center gap-6">
+                <button
+                  onClick={() => setIsHowItWorksOpen(true)}
+                  className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors"
+                >
+                  How It Works
+                </button>
+                <button
+                  onClick={() => setIsPoliciesOpen(true)}
+                  className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors"
+                >
+                  Policies
+                </button>
+                <div className="h-4 w-px bg-gray-200" />
+                <div className="flex items-center gap-3">
+                  <ProfilePicture
+                    photoURL={userProfile?.photoURL}
+                    displayName={userProfile?.displayName}
+                  />
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      {userProfile?.displayName}
+                    </span>
+                    <button
+                      onClick={handleSignOut}
+                      className="text-gray-500 hover:text-gray-700 transition-colors"
+                      title="Sign Out"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile menu button */}
+            <div className="flex items-center md:hidden">
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
+              >
+                {isOpen ? (
+                  <X className="block h-6 w-6" />
+                ) : (
+                  <Menu className="block h-6 w-6" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile menu */}
+        <div className={`${isOpen ? 'block' : 'hidden'} md:hidden`}>
+          <div className="pt-2 pb-3 space-y-1">
+            <div className="flex items-center px-4 py-2 border-b border-gray-200">
               <ProfilePicture
                 photoURL={userProfile?.photoURL}
                 displayName={userProfile?.displayName}
               />
-              <span className="text-sm font-medium text-gray-700">
+              <span className="ml-3 text-base font-medium text-gray-700">
                 {userProfile?.displayName}
               </span>
             </div>
             <button
+              onClick={handleNavigation}
+              className="flex items-center w-full px-4 py-2 text-base font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50"
+            >
+              {isCoursesRoute ? (
+                <>
+                  <Home className="w-5 h-5 mr-2" />
+                  Home
+                </>
+              ) : (
+                <>
+                  <Library className="w-5 h-5 mr-2" />
+                  Manage Courses
+                </>
+              )}
+            </button>
+            
+            <button
+              onClick={() => setIsHowItWorksOpen(true)}
+              className="flex items-center w-full px-4 py-2 text-base font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50"
+            >
+              <Info className="w-5 h-5 mr-2" />
+              How It Works
+            </button>
+            
+            <button
+              onClick={() => setIsPoliciesOpen(true)}
+              className="flex items-center w-full px-4 py-2 text-base font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50"
+            >
+              <Shield className="w-5 h-5 mr-2" />
+              Policies
+            </button>
+
+            <button
               onClick={handleSignOut}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200"
+              className="flex items-center w-full px-4 py-2 text-base font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50"
             >
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out
             </button>
           </div>
-
-          {/* Mobile menu button */}
-          <div className="flex items-center md:hidden">
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-blue-600 hover:bg-gray-100"
-            >
-              {isOpen ? (
-                <X className="block h-6 w-6" />
-              ) : (
-                <Menu className="block h-6 w-6" />
-              )}
-            </button>
-          </div>
         </div>
-      </div>
+      </header>
 
-      {/* Mobile menu */}
-      <div className={`${isOpen ? 'block' : 'hidden'} md:hidden`}>
-        <div className="pt-2 pb-3 space-y-1">
-          {/* Profile section in mobile menu */}
-          <div className="flex items-center px-4 py-2 border-b border-gray-200">
-            <ProfilePicture
-              photoURL={userProfile?.photoURL}
-              displayName={userProfile?.displayName}
-            />
-            <span className="ml-3 text-base font-medium text-gray-700">
-              {userProfile?.displayName}
-            </span>
-          </div>
-          
-          {navigationItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.name}
-                onClick={() => {
-                  navigate(item.href);
-                  setIsOpen(false);
-                }}
-                className="flex items-center w-full px-4 py-2 text-base font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50"
-              >
-                <Icon className="w-4 h-4 mr-2" />
-                {item.name}
-              </button>
-            );
-          })}
-          <button
-            onClick={handleSignOut}
-            className="flex items-center w-full px-4 py-2 text-base font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </button>
-        </div>
-      </div>
-    </header>
+      {/* Sheets */}
+      <PoliciesSheet 
+        open={isPoliciesOpen} 
+        onOpenChange={setIsPoliciesOpen} 
+      />
+      <HowItWorksSheet 
+        open={isHowItWorksOpen}
+        onOpenChange={setIsHowItWorksOpen}
+      />
+    </>
   );
 };
 
@@ -190,22 +233,12 @@ const EdBotzFooter = () => (
             © {new Date().getFullYear()} EdBotz. All rights reserved.
           </span>
         </div>
-        <div className="flex space-x-6">
-          <a href="/privacy" className="text-sm text-gray-500 hover:text-blue-600">
-            Privacy Policy
-          </a>
-          <a href="/terms" className="text-sm text-gray-500 hover:text-blue-600">
-            Terms of Service
-          </a>
-          <a href="/contact" className="text-sm text-gray-500 hover:text-blue-600">
-            Contact Us
-          </a>
-        </div>
       </div>
     </div>
   </footer>
 );
 
+// Main Layout Component
 const EdBotzLayout = ({ children }) => {
   const [userProfile, setUserProfile] = useState(null);
 
@@ -218,7 +251,6 @@ const EdBotzLayout = ({ children }) => {
           setUserProfile(snapshot.val());
         }
       });
-
       return () => unsubscribe();
     }
   }, []);

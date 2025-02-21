@@ -307,7 +307,7 @@ const PASIDataUpload = () => {
 
   return (
     <>
-      <Toaster position="top-center" richColors />
+    
       <Card className="w-full">
         <CardHeader>
           <CardTitle>PASI Records Upload</CardTitle>

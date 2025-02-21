@@ -130,14 +130,14 @@ const formatDiplomaDate = (dateObj) => {
 
 // === Utility Functions for Student Types ===
 
+// Now, we no longer want to show school selection for Summer School students.
 const shouldShowSchoolSelection = (studentType) => {
-  return studentType === 'Non-Primary' || studentType === 'Home Education' || studentType === 'Summer School';
+  return studentType === 'Non-Primary' || studentType === 'Home Education';
 };
 
 const isHomeEducation = (studentType) => {
   return studentType === 'Home Education';
 };
-
 
 // === Summer Date Checker ===
 const isDateInSummer = (date) => {
@@ -199,8 +199,7 @@ const NonPrimaryStudentForm = forwardRef(({
   const [error, setError] = useState(null);
   const [hasASN, setHasASN] = useState(true);
 
- 
-const countryOptions = useMemo(() => countryList().getData(), []);
+  const countryOptions = useMemo(() => countryList().getData(), []);
 
   const [documentUrls, setDocumentUrls] = useState({
     passport: '',
@@ -291,8 +290,6 @@ const countryOptions = useMemo(() => countryList().getData(), []);
       }
     };
 
-
-   
     console.log('Initial form data:', formData);
     return formData;
   };
@@ -334,56 +331,54 @@ const countryOptions = useMemo(() => countryList().getData(), []);
   }, [studentType]);
   
 
- // Fetch profile data
-useEffect(() => {
-  const fetchProfileData = async () => {
-    if (!user_email_key) return;
+  // Fetch profile data
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (!user_email_key) return;
 
-    try {
-      const db = getDatabase();
-      const profileRef = databaseRef(db, `students/${user_email_key}/profile`);
-      const snapshot = await get(profileRef);
+      try {
+        const db = getDatabase();
+        const profileRef = databaseRef(db, `students/${user_email_key}/profile`);
+        const snapshot = await get(profileRef);
 
-      if (snapshot.exists()) {
-        setProfileData(snapshot.val());
+        if (snapshot.exists()) {
+          setProfileData(snapshot.val());
 
-        // Update form data with profile data
-        setFormData(prev => ({
-          ...prev,
-          firstName: snapshot.val().firstName || prev.firstName,
-          lastName: snapshot.val().lastName || prev.lastName,
-          phoneNumber: snapshot.val().StudentPhone || prev.phoneNumber,
-          gender: snapshot.val().gender || prev.gender,  // FIXED LINE
-          birthday: snapshot.val().birthday || prev.birthday,
-          albertaStudentNumber: snapshot.val().asn || prev.albertaStudentNumber,
-          parentFirstName: snapshot.val().ParentFirstName || prev.parentFirstName,
-          parentLastName: snapshot.val().ParentLastName || prev.parentLastName,
-          parentPhone: snapshot.val().ParentPhone_x0023_ || prev.parentPhone,
-          parentEmail: snapshot.val().ParentEmail || prev.parentEmail,
-          country: snapshot.val().internationalDocuments?.countryOfOrigin || prev.country,
-        }));
-
-        // Set document URLs if they exist
-        if (snapshot.val().internationalDocuments) {
-          setDocumentUrls(prev => ({
+          // Update form data with profile data
+          setFormData(prev => ({
             ...prev,
-            passport: snapshot.val().internationalDocuments.passport || '',
-            additionalID: snapshot.val().internationalDocuments.additionalID || '',
-            residencyProof: snapshot.val().internationalDocuments.residencyProof || ''
+            firstName: snapshot.val().firstName || prev.firstName,
+            lastName: snapshot.val().lastName || prev.lastName,
+            phoneNumber: snapshot.val().StudentPhone || prev.phoneNumber,
+            gender: snapshot.val().gender || prev.gender,  // FIXED LINE
+            birthday: snapshot.val().birthday || prev.birthday,
+            albertaStudentNumber: snapshot.val().asn || prev.albertaStudentNumber,
+            parentFirstName: snapshot.val().ParentFirstName || prev.parentFirstName,
+            parentLastName: snapshot.val().ParentLastName || prev.parentLastName,
+            parentPhone: snapshot.val().ParentPhone_x0023_ || prev.parentPhone,
+            parentEmail: snapshot.val().ParentEmail || prev.parentEmail,
+            country: snapshot.val().internationalDocuments?.countryOfOrigin || prev.country,
           }));
+
+          // Set document URLs if they exist
+          if (snapshot.val().internationalDocuments) {
+            setDocumentUrls(prev => ({
+              ...prev,
+              passport: snapshot.val().internationalDocuments.passport || '',
+              additionalID: snapshot.val().internationalDocuments.additionalID || '',
+              residencyProof: snapshot.val().internationalDocuments.residencyProof || ''
+            }));
+          }
         }
+      } catch (err) {
+        console.error('Error fetching profile data:', err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error('Error fetching profile data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  fetchProfileData();
-}, [user_email_key]);
-
-  
+    fetchProfileData();
+  }, [user_email_key]);
 
   // Determine which fields should be read-only
   const readOnlyFields = useMemo(() => {
@@ -467,8 +462,6 @@ useEffect(() => {
     }
   };
 
-
-
   // Handle form field changes with functional updates
   const handleFormChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -479,14 +472,11 @@ useEffect(() => {
         [name]: value
       };
 
-     
-      
       return newData;
     });
 
     handleBlur(name);
   }, [handleBlur]);
-
 
   const handleCountryChange = (selectedOption) => {
     handleFormChange({
@@ -497,7 +487,6 @@ useEffect(() => {
     });
   };
 
-  
   const handleDocumentUpload = (type, url) => {
     setDocumentUrls(prev => ({
       ...prev,
@@ -516,7 +505,6 @@ useEffect(() => {
       return newData;
     });
   };
-
 
   // Handle date changes
   const handleDateChange = (date) => {
@@ -739,8 +727,8 @@ useEffect(() => {
     const nextSchoolYear = getNextSchoolYear();
 
     console.log('Enrollment year effect - current month:', currentMonth);
-  console.log('Current school year:', currentSchoolYear);
-  console.log('Next school year:', nextSchoolYear);
+    console.log('Current school year:', currentSchoolYear);
+    console.log('Next school year:', nextSchoolYear);
 
     let availableYears = [];
     let message = '';
@@ -998,7 +986,6 @@ useEffect(() => {
     return valid;
   }, [formData.startDate, formData.endDate, isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate]);
 
-
   useEffect(() => {
     const debouncedValidation = _.debounce(() => {
       // Replace the old phone validation logic with the simpler version
@@ -1035,8 +1022,6 @@ useEffect(() => {
     );
   };
 
-
-
   // Handle course selection changes
   const handleCourseChange = async (e) => {
     const { value } = e.target;
@@ -1070,23 +1055,23 @@ useEffect(() => {
     updateAgeInfo();
   }, [formData.birthday, formData.enrollmentYear]);
 
-// Update preferredFirstName when usePreferredFirstName or firstName changes
-useEffect(() => {
-  if (profileData?.preferredFirstName) {
-    // If there's a preferred name in the profile, use it and show the checkbox
-    setUsePreferredFirstName(true);
-    setFormData(prevData => ({
-      ...prevData,
-      preferredFirstName: profileData.preferredFirstName
-    }));
-  } else if (!usePreferredFirstName) {
-    // If checkbox is unchecked and no preferred name in profile, use firstName
-    setFormData(prevData => ({
-      ...prevData,
-      preferredFirstName: prevData.firstName
-    }));
-  }
-}, [usePreferredFirstName, formData.firstName, profileData]);
+  // Update preferredFirstName when usePreferredFirstName or firstName changes
+  useEffect(() => {
+    if (profileData?.preferredFirstName) {
+      // If there's a preferred name in the profile, use it and show the checkbox
+      setUsePreferredFirstName(true);
+      setFormData(prevData => ({
+        ...prevData,
+        preferredFirstName: profileData.preferredFirstName
+      }));
+    } else if (!usePreferredFirstName) {
+      // If checkbox is unchecked and no preferred name in profile, use firstName
+      setFormData(prevData => ({
+        ...prevData,
+        preferredFirstName: prevData.firstName
+      }));
+    }
+  }, [usePreferredFirstName, formData.firstName, profileData]);
 
   // Update validation status
   useEffect(() => {
@@ -1261,41 +1246,39 @@ useEffect(() => {
               </div>
 
               <div className="space-y-4">
-  
-  {readOnlyFields.gender ? (
-    renderReadOnlyField('gender', formData.gender, 'Gender')
-  ) : (
-    <div className="space-y-2">
-      <label className="text-sm font-medium">
-        Gender <span className="text-red-500">*</span>
-      </label>
-      <select
-        name="gender"
-        value={formData.gender}
-        onChange={handleFormChange}
-        onBlur={() => handleBlur('gender')}
-        className={`w-full p-2 border rounded-md ${
-          touched.gender && errors.gender ? 'border-red-500' : 'border-gray-300'
-        }`}
-        required
-      >
-        <option value="">Select gender</option>
-        <option value="male">Male</option>
-        <option value="female">Female</option>
-        <option value="prefer-not-to-say">Prefer not to say</option>
-      </select>
-      <ValidationFeedback
-        isValid={touched.gender && !errors.gender}
-        message={
-          touched.gender
-            ? errors.gender || validationRules.gender.successMessage
-            : null
-        }
-      />
-    </div>
-  )}
-  
-</div>
+                {readOnlyFields.gender ? (
+                  renderReadOnlyField('gender', formData.gender, 'Gender')
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Gender <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="gender"
+                      value={formData.gender}
+                      onChange={handleFormChange}
+                      onBlur={() => handleBlur('gender')}
+                      className={`w-full p-2 border rounded-md ${
+                        touched.gender && errors.gender ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      required
+                    >
+                      <option value="">Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="prefer-not-to-say">Prefer not to say</option>
+                    </select>
+                    <ValidationFeedback
+                      isValid={touched.gender && !errors.gender}
+                      message={
+                        touched.gender
+                          ? errors.gender || validationRules.gender.successMessage
+                          : null
+                      }
+                    />
+                  </div>
+                )}
+              </div>
 
               {/* Email Field */}
               <div className="space-y-2">
@@ -1308,53 +1291,53 @@ useEffect(() => {
                 />
               </div>
 
-             {/* Phone Field */}
-{readOnlyFields.phoneNumber ? (
-  renderReadOnlyField('phoneNumber', formData.phoneNumber, 'Phone Number')
-) : (
-  <div className="space-y-2">
-    <label className="text-sm font-medium">
-      Phone Number <span className="text-red-500">*</span>
-    </label>
-    <PhoneInput
-      country={studentType === 'International Student' ? undefined : "ca"}
-      value={formData.phoneNumber}
-      onChange={(value, country, e, formattedValue) => {
-        handleFormChange({
-          target: {
-            name: 'phoneNumber',
-            value: formattedValue
-          }
-        });
-      }}
-      onBlur={() => handleBlur('phoneNumber')}
-      inputClass={`w-full p-2 border rounded-md ${
-        touched.phoneNumber && errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
-      }`}
-      containerClass="phone-input-container"
-      buttonClass="phone-input-button"
-      preferredCountries={studentType === 'International Student' ? [] : ["ca"]}
-      priority={studentType === 'International Student' ? {} : { ca: 0, us: 1 }}
-      enableSearch={studentType === 'International Student'}
-      searchPlaceholder="Search country..."
-      autoFormat={true}
-      required
-    />
-    <ValidationFeedback
-      isValid={touched.phoneNumber && !errors.phoneNumber}
-      message={
-        touched.phoneNumber
-          ? errors.phoneNumber || validationRules.phoneNumber.successMessage
-          : null
-      }
-    />
-    {studentType === 'International Student' && (
-      <p className="text-sm text-gray-500">
-        Please select your country code and enter your phone number
-      </p>
-    )}
-  </div>
-)}
+              {/* Phone Field */}
+              {readOnlyFields.phoneNumber ? (
+                renderReadOnlyField('phoneNumber', formData.phoneNumber, 'Phone Number')
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Phone Number <span className="text-red-500">*</span>
+                  </label>
+                  <PhoneInput
+                    country={studentType === 'International Student' ? undefined : "ca"}
+                    value={formData.phoneNumber}
+                    onChange={(value, country, e, formattedValue) => {
+                      handleFormChange({
+                        target: {
+                          name: 'phoneNumber',
+                          value: formattedValue
+                        }
+                      });
+                    }}
+                    onBlur={() => handleBlur('phoneNumber')}
+                    inputClass={`w-full p-2 border rounded-md ${
+                      touched.phoneNumber && errors.phoneNumber ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    containerClass="phone-input-container"
+                    buttonClass="phone-input-button"
+                    preferredCountries={studentType === 'International Student' ? [] : ["ca"]}
+                    priority={studentType === 'International Student' ? {} : { ca: 0, us: 1 }}
+                    enableSearch={studentType === 'International Student'}
+                    searchPlaceholder="Search country..."
+                    autoFormat={true}
+                    required
+                  />
+                  <ValidationFeedback
+                    isValid={touched.phoneNumber && !errors.phoneNumber}
+                    message={
+                      touched.phoneNumber
+                        ? errors.phoneNumber || validationRules.phoneNumber.successMessage
+                        : null
+                    }
+                  />
+                  {studentType === 'International Student' && (
+                    <p className="text-sm text-gray-500">
+                      Please select your country code and enter your phone number
+                    </p>
+                  )}
+                </div>
+              )}
               {/* Birthday Section */}
               {readOnlyFields.birthday ? (
                 renderReadOnlyField('birthday', formData.birthday, 'Birthday')
@@ -1369,18 +1352,18 @@ useEffect(() => {
                     Birthday <span className="text-red-500">*</span>
                   </label>
                   <DatePicker
-  selected={formData.birthday ? utcToLocal(formData.birthday) : null}
-  onChange={handleDateChange}
-  maxDate={new Date()}
-  showYearDropdown
-  scrollableYearDropdown
-  yearDropdownItemNumber={100}
-  openToDate={getInitialBirthdayDate()}
-  className={`w-full p-2 border rounded-md ${
-    touched.birthday && errors.birthday ? 'border-red-500' : 'border-gray-300'
-  }`}
-  onBlur={() => handleBlur('birthday')}
-/>
+                    selected={formData.birthday ? utcToLocal(formData.birthday) : null}
+                    onChange={handleDateChange}
+                    maxDate={new Date()}
+                    showYearDropdown
+                    scrollableYearDropdown
+                    yearDropdownItemNumber={100}
+                    openToDate={getInitialBirthdayDate()}
+                    className={`w-full p-2 border rounded-md ${
+                      touched.birthday && errors.birthday ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    onBlur={() => handleBlur('birthday')}
+                  />
                   <ValidationFeedback
                     isValid={touched.birthday && !errors.birthday}
                     message={
@@ -1393,129 +1376,124 @@ useEffect(() => {
               )}
 
               {/* Alberta Student Number (ASN) Section */}
-{readOnlyFields.albertaStudentNumber ? (
-  renderReadOnlyField('albertaStudentNumber', formData.albertaStudentNumber, 'Alberta Student Number (ASN)')
-) : (
-  <div className="space-y-2">
-    <h4 className="text-md font-medium">
-      Alberta Student Number (ASN)
-      {(!studentType === 'International Student' || hasASN) && <span className="text-red-500">*</span>}
-    </h4>
+              {readOnlyFields.albertaStudentNumber ? (
+                renderReadOnlyField('albertaStudentNumber', formData.albertaStudentNumber, 'Alberta Student Number (ASN)')
+              ) : (
+                <div className="space-y-2">
+                  <h4 className="text-md font-medium">
+                    Alberta Student Number (ASN)
+                    {(!studentType === 'International Student' || hasASN) && <span className="text-red-500">*</span>}
+                  </h4>
 
-    {/* Display different messages based on student type */}
-    {studentType === 'International Student' ? (
-      <p className="text-sm text-gray-600">
-        If you have previously studied in Alberta, you may have an ASN.{' '}
-        <a
-          href="https://learnerregistry.ae.alberta.ca/Home/StartLookup"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-800"
-        >
-          Click here to check
-        </a>. If you do not have an ASN, please check the box below.
-      </p>
-    ) : (
-      <p className="text-sm text-gray-600">
-        Any student that has taken a course in Alberta has an ASN.{' '}
-        <a
-          href="https://learnerregistry.ae.alberta.ca/Home/StartLookup"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:text-blue-800"
-        >
-          Click here to easily find yours
-        </a>.
-      </p>
-    )}
+                  {/* Display different messages based on student type */}
+                  {studentType === 'International Student' ? (
+                    <p className="text-sm text-gray-600">
+                      If you have previously studied in Alberta, you may have an ASN.{' '}
+                      <a
+                        href="https://learnerregistry.ae.alberta.ca/Home/StartLookup"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        Click here to check
+                      </a>. If you do not have an ASN, please check the box below.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-600">
+                      Any student that has taken a course in Alberta has an ASN.{' '}
+                      <a
+                        href="https://learnerregistry.ae.alberta.ca/Home/StartLookup"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        Click here to easily find yours
+                      </a>.
+                    </p>
+                  )}
 
-    {/* Checkbox for international students to indicate they don't have an ASN */}
-    {studentType === 'International Student' && (
-      <div className="flex items-center space-x-2 mt-2">
-        <input
-          type="checkbox"
-          id="noASN"
-          checked={!hasASN}
-          onChange={(e) => {
-            setHasASN(!e.target.checked);
-            if (e.target.checked) {
-              // Clear ASN value when they indicate they don't have one
-              handleFormChange({
-                target: {
-                  name: 'albertaStudentNumber',
-                  value: ''
-                }
-              });
-            }
-            handleBlur('albertaStudentNumber');
-          }}
-        />
-        <label htmlFor="noASN" className="text-sm">
-          I do not have an Alberta Student Number (ASN)
-        </label>
-      </div>
-    )}
+                  {/* Checkbox for international students to indicate they don't have an ASN */}
+                  {studentType === 'International Student' && (
+                    <div className="flex items-center space-x-2 mt-2">
+                      <input
+                        type="checkbox"
+                        id="noASN"
+                        checked={!hasASN}
+                        onChange={(e) => {
+                          setHasASN(!e.target.checked);
+                          if (e.target.checked) {
+                            // Clear ASN value when they indicate they don't have one
+                            handleFormChange({
+                              target: {
+                                name: 'albertaStudentNumber',
+                                value: ''
+                              }
+                            });
+                          }
+                          handleBlur('albertaStudentNumber');
+                        }}
+                      />
+                      <label htmlFor="noASN" className="text-sm">
+                        I do not have an Alberta Student Number (ASN)
+                      </label>
+                    </div>
+                  )}
 
-    {/* Show ASN input only if the student has an ASN */}
-    {hasASN && (
-      <>
-        <input
-          type="text"
-          id="albertaStudentNumber"
-          name="albertaStudentNumber"
-          value={formData.albertaStudentNumber}
-          onChange={handleASNChange}
-          onBlur={() => handleBlur('albertaStudentNumber')}
-          className={`w-full p-2 border rounded-md ${
-            touched.albertaStudentNumber && errors.albertaStudentNumber 
-              ? 'border-red-500 focus:ring-red-500' 
-              : 'border-gray-300 focus:ring-blue-500'
-          }`}
-          placeholder="####-####-#"
-          maxLength={11} // Account for the two hyphens
-        />
-        <ValidationFeedback
-          isValid={touched.albertaStudentNumber && !errors.albertaStudentNumber}
-          message={
-            touched.albertaStudentNumber
-              ? errors.albertaStudentNumber || validationRules.albertaStudentNumber.successMessage
-              : null
-          }
-        />
-      </>
-    )}
+                  {/* Show ASN input only if the student has an ASN */}
+                  {hasASN && (
+                    <>
+                      <input
+                        type="text"
+                        id="albertaStudentNumber"
+                        name="albertaStudentNumber"
+                        value={formData.albertaStudentNumber}
+                        onChange={handleASNChange}
+                        onBlur={() => handleBlur('albertaStudentNumber')}
+                        className={`w-full p-2 border rounded-md ${
+                          touched.albertaStudentNumber && errors.albertaStudentNumber 
+                            ? 'border-red-500 focus:ring-red-500' 
+                            : 'border-gray-300 focus:ring-blue-500'
+                        }`}
+                        placeholder="####-####-#"
+                        maxLength={11} // Account for the two hyphens
+                      />
+                      <ValidationFeedback
+                        isValid={touched.albertaStudentNumber && !errors.albertaStudentNumber}
+                        message={
+                          touched.albertaStudentNumber
+                            ? errors.albertaStudentNumber || validationRules.albertaStudentNumber.successMessage
+                            : null
+                        }
+                      />
+                    </>
+                  )}
 
-    {/* Message to international students who don't have an ASN */}
-    {studentType === 'International Student' && !hasASN && (
-      <Alert className="bg-gray-100 text-gray-700 border-gray-300">
-      <AlertDescription>
-        <strong className="block mb-2">Important Information for International Students</strong>
-        Since you do not currently have an Alberta Student Number (ASN), one will be automatically generated for you when we add you to Alberta's PASI system during enrollment. Once this process is complete, your ASN will appear in your profile.
-        <br />
-        <br />
-        This number is essential for your schooling in Alberta, so please keep it safe for future reference.
-      </AlertDescription>
-    </Alert>
-    
-    
-    )}
-  </div>
-)}
-
+                  {/* Message to international students who don't have an ASN */}
+                  {studentType === 'International Student' && !hasASN && (
+                    <Alert className="bg-gray-100 text-gray-700 border-gray-300">
+                      <AlertDescription>
+                        <strong className="block mb-2">Important Information for International Students</strong>
+                        Since you do not currently have an Alberta Student Number (ASN), one will be automatically generated for you when we add you to Alberta's PASI system during enrollment. Once this process is complete, your ASN will appear in your profile.
+                        <br />
+                        <br />
+                        This number is essential for your schooling in Alberta, so please keep it safe for future reference.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
 
               {/* School/Home Education Selection Section */}
               {shouldShowSchoolSelection(studentType) && (
                 <div className="space-y-2">
                   <div className="mb-2">
                     <label className="text-sm font-medium">
-                      {isHomeEducation(studentType) ? 'Home Education Provider' : (studentType === 'Summer School' ? 'Summer School Provider' : 'Current School')} <span className="text-red-500">*</span>
+                      {isHomeEducation(studentType) ? 'Home Education Provider' : 'Current School'} <span className="text-red-500">*</span>
                     </label>
                     <p className="text-sm text-gray-600">
                       {isHomeEducation(studentType)
                         ? 'Search for your home education provider'
-                        : (studentType === 'Summer School'
-                          ? 'Search for your summer school provider'
-                          : 'Start typing the name of your school, and then select it from the list')}
+                        : 'Start typing the name of your school, and then select it from the list'}
                     </p>
                   </div>
 
@@ -1543,7 +1521,6 @@ useEffect(() => {
                             currentSchool: '',
                             schoolAddress: null
                           }));
-                          
                         }
                       }}
                     />
@@ -1564,17 +1541,12 @@ useEffect(() => {
                               location: addressDetails.location
                             }
                           }));
-
-                          // Save to pending registration immediately after school address selection
-                         
                         } else {
                           setFormData(prev => ({
                             ...prev,
                             currentSchool: '',
                             schoolAddress: null
                           }));
-
-                          
                         }
                       }}
                       required
@@ -1591,110 +1563,110 @@ useEffect(() => {
 
               {/* Parent Information Section */}
               {user18OrOlder ? (
-  <div className="space-y-6">
-    <h4 className="text-md font-medium">Parent/Guardian Information (Optional)</h4>
-    <p className="text-sm text-gray-600">
-      As you are 18 or older, parent/guardian information is optional.
-    </p>
+                <div className="space-y-6">
+                  <h4 className="text-md font-medium">Parent/Guardian Information (Optional)</h4>
+                  <p className="text-sm text-gray-600">
+                    As you are 18 or older, parent/guardian information is optional.
+                  </p>
 
-    <div className="grid grid-cols-2 gap-4">
-      {readOnlyFields.parentFirstName ? (
-        renderReadOnlyField('parentFirstName', formData.parentFirstName, 'Parent First Name')
-      ) : (
-        <CapitalizedInput
-          label="Parent First Name"
-          name="parentFirstName"
-          value={formData.parentFirstName}
-          onChange={handleFormChange}
-          onBlur={() => handleBlur('parentFirstName')}
-          error={touched.parentFirstName && errors.parentFirstName}
-          touched={touched.parentFirstName}
-          required={false}
-          successMessage={touched.parentFirstName && !errors.parentFirstName ? validationRules.parentFirstName.successMessage : null}
-        />
-      )}
+                  <div className="grid grid-cols-2 gap-4">
+                    {readOnlyFields.parentFirstName ? (
+                      renderReadOnlyField('parentFirstName', formData.parentFirstName, 'Parent First Name')
+                    ) : (
+                      <CapitalizedInput
+                        label="Parent First Name"
+                        name="parentFirstName"
+                        value={formData.parentFirstName}
+                        onChange={handleFormChange}
+                        onBlur={() => handleBlur('parentFirstName')}
+                        error={touched.parentFirstName && errors.parentFirstName}
+                        touched={touched.parentFirstName}
+                        required={false}
+                        successMessage={touched.parentFirstName && !errors.parentFirstName ? validationRules.parentFirstName.successMessage : null}
+                      />
+                    )}
 
-      {readOnlyFields.parentLastName ? (
-        renderReadOnlyField('parentLastName', formData.parentLastName, 'Parent Last Name')
-      ) : (
-        <CapitalizedInput
-          label="Parent Last Name"
-          name="parentLastName"
-          value={formData.parentLastName}
-          onChange={handleFormChange}
-          onBlur={() => handleBlur('parentLastName')}
-          error={touched.parentLastName && errors.parentLastName}
-          touched={touched.parentLastName}
-          required={false}
-          successMessage={touched.parentLastName && !errors.parentLastName ? validationRules.parentLastName.successMessage : null}
-        />
-      )}
-    </div>
+                    {readOnlyFields.parentLastName ? (
+                      renderReadOnlyField('parentLastName', formData.parentLastName, 'Parent Last Name')
+                    ) : (
+                      <CapitalizedInput
+                        label="Parent Last Name"
+                        name="parentLastName"
+                        value={formData.parentLastName}
+                        onChange={handleFormChange}
+                        onBlur={() => handleBlur('parentLastName')}
+                        error={touched.parentLastName && errors.parentLastName}
+                        touched={touched.parentLastName}
+                        required={false}
+                        successMessage={touched.parentLastName && !errors.parentLastName ? validationRules.parentLastName.successMessage : null}
+                      />
+                    )}
+                  </div>
 
-    {readOnlyFields.parentPhone ? (
-      renderReadOnlyField('parentPhone', formData.parentPhone, 'Parent Phone Number')
-    ) : (
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Parent Phone Number</label>
-        <PhoneInput
-          country={"ca"}
-          value={formData.parentPhone}
-          onChange={(value, country, e, formattedValue) => {
-            handleFormChange({
-              target: {
-                name: 'parentPhone',
-                value: formattedValue
-              }
-            });
-          }}
-          onBlur={() => handleBlur('parentPhone')}
-          inputClass={`w-full p-2 border rounded-md ${
-            touched.parentPhone && errors.parentPhone ? 'border-red-500' : 'border-gray-300'
-          }`}
-          containerClass="phone-input-container"
-          buttonClass="phone-input-button"
-          preferredCountries={["ca"]}
-          priority={{ ca: 0, us: 1 }}
-        />
-        <ValidationFeedback
-          isValid={touched.parentPhone && !errors.parentPhone}
-          message={
-            touched.parentPhone
-              ? errors.parentPhone || validationRules.parentPhone.successMessage
-              : null
-          }
-        />
-      </div>
-    )}
+                  {readOnlyFields.parentPhone ? (
+                    renderReadOnlyField('parentPhone', formData.parentPhone, 'Parent Phone Number')
+                  ) : (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Parent Phone Number</label>
+                      <PhoneInput
+                        country={"ca"}
+                        value={formData.parentPhone}
+                        onChange={(value, country, e, formattedValue) => {
+                          handleFormChange({
+                            target: {
+                              name: 'parentPhone',
+                              value: formattedValue
+                            }
+                          });
+                        }}
+                        onBlur={() => handleBlur('parentPhone')}
+                        inputClass={`w-full p-2 border rounded-md ${
+                          touched.parentPhone && errors.parentPhone ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        containerClass="phone-input-container"
+                        buttonClass="phone-input-button"
+                        preferredCountries={["ca"]}
+                        priority={{ ca: 0, us: 1 }}
+                      />
+                      <ValidationFeedback
+                        isValid={touched.parentPhone && !errors.parentPhone}
+                        message={
+                          touched.parentPhone
+                            ? errors.parentPhone || validationRules.parentPhone.successMessage
+                            : null
+                        }
+                      />
+                    </div>
+                  )}
 
-    {readOnlyFields.parentEmail ? (
-      renderReadOnlyField('parentEmail', formData.parentEmail, 'Parent Email')
-    ) : (
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Parent Email</label>
-        <input
-          type="email"
-          id="parentEmail"
-          name="parentEmail"
-          value={formData.parentEmail}
-          onChange={handleFormChange}
-          onBlur={() => handleBlur('parentEmail')}
-          className={`w-full p-2 border rounded-md ${
-            touched.parentEmail && errors.parentEmail ? 'border-red-500' : 'border-gray-300'
-          }`}
-        />
-        <ValidationFeedback
-          isValid={touched.parentEmail && !errors.parentEmail}
-          message={
-            touched.parentEmail
-              ? errors.parentEmail || validationRules.parentEmail.successMessage
-              : null
-          }
-        />
-      </div>
-    )}
-  </div>
-) : (
+                  {readOnlyFields.parentEmail ? (
+                    renderReadOnlyField('parentEmail', formData.parentEmail, 'Parent Email')
+                  ) : (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Parent Email</label>
+                      <input
+                        type="email"
+                        id="parentEmail"
+                        name="parentEmail"
+                        value={formData.parentEmail}
+                        onChange={handleFormChange}
+                        onBlur={() => handleBlur('parentEmail')}
+                        className={`w-full p-2 border rounded-md ${
+                          touched.parentEmail && errors.parentEmail ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                      />
+                      <ValidationFeedback
+                        isValid={touched.parentEmail && !errors.parentEmail}
+                        message={
+                          touched.parentEmail
+                            ? errors.parentEmail || validationRules.parentEmail.successMessage
+                            : null
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
                 <div className="space-y-6">
                   <h4 className="text-md font-medium">Parent/Guardian Information (Required)</h4>
                   <p className="text-sm text-gray-600">
@@ -1736,52 +1708,51 @@ useEffect(() => {
                   </div>
 
                   {readOnlyFields.parentPhone ? (
-  renderReadOnlyField('parentPhone', formData.parentPhone, 'Parent Phone Number')
-) : (
-  <div className="space-y-2">
-    <label className="text-sm font-medium">
-      Parent Phone Number <span className="text-red-500">*</span>
-    </label>
-    <PhoneInput
-      country={studentType === 'International Student' ? undefined : "ca"}
-      value={formData.parentPhone}
-      onChange={(value, country, e, formattedValue) => {
-        handleFormChange({
-          target: {
-            name: 'parentPhone',
-            value: formattedValue
-          }
-        });
-      }}
-      onBlur={() => handleBlur('parentPhone')}
-      inputClass={`w-full p-2 border rounded-md ${
-        touched.parentPhone && errors.parentPhone ? 'border-red-500' : 'border-gray-300'
-      }`}
-      containerClass="phone-input-container"
-      buttonClass="phone-input-button"
-      preferredCountries={studentType === 'International Student' ? [] : ["ca"]}
-      priority={studentType === 'International Student' ? {} : { ca: 0, us: 1 }}
-      enableSearch={studentType === 'International Student'}
-      searchPlaceholder="Search country..."
-      autoFormat={true}
-      required
-    />
-    <ValidationFeedback
-      isValid={touched.parentPhone && !errors.parentPhone}
-      message={
-        touched.parentPhone
-          ? errors.parentPhone || validationRules.parentPhone.successMessage
-          : null
-      }
-    />
-    {studentType === 'International Student' && (
-      <p className="text-sm text-gray-500">
-        Please select your country code and enter your parent's phone number
-      </p>
-    )}
-  </div>
-)}
-
+                    renderReadOnlyField('parentPhone', formData.parentPhone, 'Parent Phone Number')
+                  ) : (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        Parent Phone Number <span className="text-red-500">*</span>
+                      </label>
+                      <PhoneInput
+                        country={studentType === 'International Student' ? undefined : "ca"}
+                        value={formData.parentPhone}
+                        onChange={(value, country, e, formattedValue) => {
+                          handleFormChange({
+                            target: {
+                              name: 'parentPhone',
+                              value: formattedValue
+                            }
+                          });
+                        }}
+                        onBlur={() => handleBlur('parentPhone')}
+                        inputClass={`w-full p-2 border rounded-md ${
+                          touched.parentPhone && errors.parentPhone ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        containerClass="phone-input-container"
+                        buttonClass="phone-input-button"
+                        preferredCountries={studentType === 'International Student' ? [] : ["ca"]}
+                        priority={studentType === 'International Student' ? {} : { ca: 0, us: 1 }}
+                        enableSearch={studentType === 'International Student'}
+                        searchPlaceholder="Search country..."
+                        autoFormat={true}
+                        required
+                      />
+                      <ValidationFeedback
+                        isValid={touched.parentPhone && !errors.parentPhone}
+                        message={
+                          touched.parentPhone
+                            ? errors.parentPhone || validationRules.parentPhone.successMessage
+                            : null
+                        }
+                      />
+                      {studentType === 'International Student' && (
+                        <p className="text-sm text-gray-500">
+                          Please select your country code and enter your parent's phone number
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {readOnlyFields.parentEmail ? (
                     renderReadOnlyField('parentEmail', formData.parentEmail, 'Parent Email')
@@ -1828,42 +1799,40 @@ useEffect(() => {
             </CardHeader>
             <CardContent className="grid gap-6">
 
-              
-             {/* Enrollment Year */}
-<div className="space-y-2">
-  <label className="text-sm font-medium">
-    Enrollment Year <span className="text-red-500">*</span>
-  </label>
-  <select
-    name="enrollmentYear"
-    value={formData.enrollmentYear}
-    onChange={handleFormChange}
-    onBlur={() => handleBlur('enrollmentYear')}
-    className={`w-full p-2 border rounded-md ${
-      touched.enrollmentYear && errors.enrollmentYear ? 'border-red-500' : 'border-gray-300'
-    }`}
-    required
-  >
-    <option value="">Select enrollment year</option>
-    {availableEnrollmentYears.map((year) => (
-      <option key={year} value={year}>
-        {year === getCurrentSchoolYear()
-          ? `Current School Year (${year})`
-          : `Next School Year (${year})`}
-      </option>
-    ))}
-  </select>
-  <ValidationFeedback
-    isValid={touched.enrollmentYear && !errors.enrollmentYear}
-    message={
-      touched.enrollmentYear
-        ? errors.enrollmentYear || validationRules.enrollmentYear.successMessage
-        : null
-    }
-  />
-  <p className="text-sm text-gray-500">{enrollmentYearMessage}</p>
-</div>
-
+              {/* Enrollment Year */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Enrollment Year <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="enrollmentYear"
+                  value={formData.enrollmentYear}
+                  onChange={handleFormChange}
+                  onBlur={() => handleBlur('enrollmentYear')}
+                  className={`w-full p-2 border rounded-md ${
+                    touched.enrollmentYear && errors.enrollmentYear ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  required
+                >
+                  <option value="">Select enrollment year</option>
+                  {availableEnrollmentYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year === getCurrentSchoolYear()
+                        ? `Current School Year (${year})`
+                        : `Next School Year (${year})`}
+                    </option>
+                  ))}
+                </select>
+                <ValidationFeedback
+                  isValid={touched.enrollmentYear && !errors.enrollmentYear}
+                  message={
+                    touched.enrollmentYear
+                      ? errors.enrollmentYear || validationRules.enrollmentYear.successMessage
+                      : null
+                  }
+                />
+                <p className="text-sm text-gray-500">{enrollmentYearMessage}</p>
+              </div>
 
               {/* Course Selection */}
               <div className="space-y-2">
@@ -1985,23 +1954,23 @@ useEffect(() => {
                     error={dateErrors.startDate}
                   />
 
-<DatePickerWithInfo
-  label="Completion Date"
-  selected={formData.endDate}
-  onChange={handleEndDateChange}
-  minDate={getMinEndDate(formData.startDate)}
-  maxDate={getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)}
-  disabled={!formData.startDate}
-  readOnly={isEndDateReadOnly}
-  helpText={
-    isDiplomaCourse && !alreadyWroteDiploma
-      ? "Automatically set to your diploma exam date"
-      : "Recommended 5 months for course completion"
-  }
-  error={dateErrors.endDate}
-  studentType={studentType}
-  startDate={formData.startDate} 
-/>
+                  <DatePickerWithInfo
+                    label="Completion Date"
+                    selected={formData.endDate}
+                    onChange={handleEndDateChange}
+                    minDate={getMinEndDate(formData.startDate)}
+                    maxDate={getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)}
+                    disabled={!formData.startDate}
+                    readOnly={isEndDateReadOnly}
+                    helpText={
+                      isDiplomaCourse && !alreadyWroteDiploma
+                        ? "Automatically set to your diploma exam date"
+                        : "Recommended 5 months for course completion"
+                    }
+                    error={dateErrors.endDate}
+                    studentType={studentType}
+                    startDate={formData.startDate} 
+                  />
                 </div>
 
                 {!formData.startDate && (
@@ -2050,57 +2019,54 @@ useEffect(() => {
             </CardContent>
           </Card>
 
-
           {studentType === 'International Student' && (
-  <>
-    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
-      <CardHeader>
-        <h3 className="text-md font-semibold">Country Information</h3>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Country of Origin <span className="text-red-500">*</span>
-          </label>
-          {readOnlyFields.country ? (
-            <input
-              type="text"
-              value={formData.country}
-              className="w-full p-2 border rounded-md bg-gray-50 cursor-not-allowed"
-              readOnly
-            />
-          ) : (
-            <Select
-              options={countryOptions}
-              value={countryOptions.find(option => option.value === formData.country)}
-              onChange={handleCountryChange}
-              className={touched.country && errors.country ? 'border-red-500' : ''}
-              placeholder="Select your country"
-            />
+            <>
+              <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
+                <CardHeader>
+                  <h3 className="text-md font-semibold">Country Information</h3>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Country of Origin <span className="text-red-500">*</span>
+                    </label>
+                    {readOnlyFields.country ? (
+                      <input
+                        type="text"
+                        value={formData.country}
+                        className="w-full p-2 border rounded-md bg-gray-50 cursor-not-allowed"
+                        readOnly
+                      />
+                    ) : (
+                      <Select
+                        options={countryOptions}
+                        value={countryOptions.find(option => option.value === formData.country)}
+                        onChange={handleCountryChange}
+                        className={touched.country && errors.country ? 'border-red-500' : ''}
+                        placeholder="Select your country"
+                      />
+                    )}
+                    {readOnlyFields.country && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        Country of origin cannot be changed as it's already set in your profile
+                      </p>
+                    )}
+                    {touched.country && errors.country && (
+                      <ValidationFeedback
+                        isValid={false}
+                        message={errors.country}
+                      />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <InternationalDocuments
+                onUploadComplete={handleDocumentUpload}
+                initialDocuments={documentUrls} 
+              />
+            </>
           )}
-          {readOnlyFields.country && (
-            <p className="text-sm text-gray-500 mt-2">
-              Country of origin cannot be changed as it's already set in your profile
-            </p>
-          )}
-          {touched.country && errors.country && (
-            <ValidationFeedback
-              isValid={false}
-              message={errors.country}
-            />
-          )}
-        </div>
-      </CardContent>
-    </Card>
-    
-    <InternationalDocuments
-      onUploadComplete={handleDocumentUpload}
-      initialDocuments={documentUrls} 
-    />
-  </>
-)}
-
-
 
           {/* Additional Information Card */}
           <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
@@ -2129,14 +2095,14 @@ useEffect(() => {
 
           {/* Eligibility Alert */}
           {!isEligible && studentType !== 'Adult Student' && (
-  <Alert className="bg-red-50 border-red-200">
-    <AlertTriangle className="h-4 w-4 text-red-600" />
-    <AlertDescription className="text-sm text-red-700">
-      You are not eligible to continue with the registration because you are over 20 years old.
-      Please choose a different birthday or select 'Cancel' and register as an Adult Student.
-    </AlertDescription>
-  </Alert>
-)}
+            <Alert className="bg-red-50 border-red-200">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-sm text-red-700">
+                You are not eligible to continue with the registration because you are over 20 years old.
+                Please choose a different birthday or select 'Cancel' and register as an Adult Student.
+              </AlertDescription>
+            </Alert>
+          )}
         </>
       )}
     </div>

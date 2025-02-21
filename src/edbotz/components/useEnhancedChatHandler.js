@@ -54,9 +54,8 @@ const useEnhancedChatHandler = (scrollToBottom, initialMessage = null) => {
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   const handleSendMessage = useCallback(async (inputMessage) => {
-   console.log('handleSendMessage called with:', inputMessage);
+    console.log('handleSendMessage called with:', inputMessage);
     const chatSession = currentChatRef.current;
-   //console.log('Current chat session:', chatSession);
     if (!inputMessage.trim()) {
       console.warn('Input message is empty or whitespace');
       return;
@@ -111,7 +110,7 @@ const useEnhancedChatHandler = (scrollToBottom, initialMessage = null) => {
           }
 
           const text = chunk.text();
-         console.log('Received chunk text:', text);
+          console.log('Received chunk text:', text);
           if (text) {
             accumulatedText += text;
             setMessages(prev =>
@@ -145,15 +144,25 @@ const useEnhancedChatHandler = (scrollToBottom, initialMessage = null) => {
       await attemptStream();
     } catch (err) {
       console.error('Chat error:', err);
-      setError(`Failed to send message. Please try again in a few moments.`);
-
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === aiMessageId
-            ? { ...msg, text: "I apologize, but I'm experiencing technical difficulties. Please try again in a few minutes." }
-            : msg
-        )
-      );
+      if (err.message && (err.message.includes('SAFETY') || err.message.includes('PROHIBITED_CONTENT'))) {
+        setError("I'm sorry, I cannot respond because my safety filters blocked your request. Please try rephrasing your prompt.");
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === aiMessageId
+              ? { ...msg, text: "I'm sorry, I cannot respond because my safety filters blocked your request. Please try rephrasing your prompt." }
+              : msg
+          )
+        );
+      } else {
+        setError("Failed to send message. Please try again in a few moments.");
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === aiMessageId
+              ? { ...msg, text: "I apologize, but I'm experiencing technical difficulties. Please try again in a few minutes." }
+              : msg
+          )
+        );
+      }
     } finally {
       setIsLoading(false);
       setIsStreaming(false);

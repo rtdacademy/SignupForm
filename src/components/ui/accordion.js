@@ -1,3 +1,4 @@
+// components/ui/accordion.jsx
 import * as React from "react"
 import * as AccordionPrimitive from "@radix-ui/react-accordion"
 import { ChevronDown } from "lucide-react"
@@ -17,7 +18,7 @@ const AccordionItem = React.forwardRef(({ className, ...props }, ref) => (
 ))
 AccordionItem.displayName = "AccordionItem"
 
-const AccordionTrigger = React.forwardRef(({ className, children, ...props }, ref) => (
+const AccordionTrigger = React.forwardRef(({ className, children, showExpandText = false, ...props }, ref) => (
   <AccordionPrimitive.Header className="flex">
     <AccordionPrimitive.Trigger
       ref={ref}
@@ -32,12 +33,14 @@ const AccordionTrigger = React.forwardRef(({ className, children, ...props }, re
     >
       <span className="flex items-center gap-2">
         {children}
-        <span 
-          className="text-sm text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity data-[state=open]:hidden"
-          data-state={props["data-state"]}
-        >
-          Click to expand
-        </span>
+        {showExpandText && (
+          <span 
+            className="text-sm text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity data-[state=open]:hidden"
+            data-state={props["data-state"]}
+          >
+            Click to expand
+          </span>
+        )}
       </span>
       <ChevronDown className="h-5 w-5 shrink-0 text-slate-500 transition-transform duration-200 group-hover:text-slate-700" />
     </AccordionPrimitive.Trigger>
@@ -56,7 +59,7 @@ const AccordionContent = React.forwardRef(({ className, children, ...props }, re
     )}
     {...props}
   >
-    <div className="px-6 py-4">
+    <div className="px-1 py-1">
       {children}
     </div>
   </AccordionPrimitive.Content>

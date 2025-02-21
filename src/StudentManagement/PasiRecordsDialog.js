@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { getDatabase, ref, query, orderByChild, equalTo, onValue, push, update, remove } from 'firebase/database';
+import { getDatabase, ref, query, orderByChild, equalTo, onValue, push, update, get } from 'firebase/database';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "../components/ui/table";
-import { Database, Link as LinkIcon, Unlink, AlertCircle } from "lucide-react";
+import { Database, Link as LinkIcon, Unlink, AlertCircle, Lock } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Alert, AlertDescription } from "../components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { format } from 'date-fns';
 import { toast } from "sonner";
 import { sanitizeEmail } from '../utils/sanitizeEmail';
@@ -19,25 +20,23 @@ const PasiRecordsDialog = ({
   student,
 }) => {
   const [pasiRecords, setPasiRecords] = useState([]);
-  const [pasiLinks, setPasiLinks] = useState({});
+  const [allPasiLinks, setAllPasiLinks] = useState({});
   const [loading, setLoading] = useState(true);
   const [linking, setLinking] = useState(false);
 
   const studentCourseSummaryKey = `${sanitizeEmail(student.StudentEmail)}_${courseId}`;
 
-  // Fetch PASI records and their links
   useEffect(() => {
     if (!isOpen || !studentAsn) return;
 
     const db = getDatabase();
     
-    // Fetch PASI records
+    // Fetch PASI records for this student
     const pasiRef = ref(db, 'pasiRecords');
     const pasiQuery = query(pasiRef, orderByChild('asn'), equalTo(studentAsn));
     
-    // Fetch existing links for this student course
+    // Fetch ALL links to check for existing links
     const linksRef = ref(db, 'pasiLinks');
-    const linksQuery = query(linksRef, orderByChild('studentCourseSummaryKey'), equalTo(studentCourseSummaryKey));
     
     setLoading(true);
     
@@ -53,15 +52,15 @@ const PasiRecordsDialog = ({
       }
     });
 
-    const unsubscribeLinks = onValue(linksQuery, (snapshot) => {
+    const unsubscribeLinks = onValue(linksRef, (snapshot) => {
       if (snapshot.exists()) {
         const links = Object.entries(snapshot.val()).reduce((acc, [linkId, linkData]) => {
           acc[linkData.pasiRecordId] = { ...linkData, linkId };
           return acc;
         }, {});
-        setPasiLinks(links);
+        setAllPasiLinks(links);
       } else {
-        setPasiLinks({});
+        setAllPasiLinks({});
       }
       setLoading(false);
     });
@@ -77,35 +76,84 @@ const PasiRecordsDialog = ({
     const db = getDatabase();
     
     try {
-      // Generate a new link ID
       const newLinkRef = push(ref(db, 'pasiLinks'));
       const linkId = newLinkRef.key;
       const studentKey = sanitizeEmail(student.StudentEmail);
       
-      // Create updates object
       const updates = {};
+      const linkedAt = new Date().toISOString();
       
-      // Add the link record with the new studentKey property
+      // Format school year for the report paths
+      const schoolYearWithUnderscore = pasiRecord.schoolYear.replace('/', '_');
+      const manualMappingPath = `pasiSyncReport/schoolYear/${schoolYearWithUnderscore}/newLinks/needsManualCourseMapping`;
+      const failedPath = `pasiSyncReport/schoolYear/${schoolYearWithUnderscore}/newLinks/failed`;
+      
+      // Get current manual mapping report data
+      const manualMappingRef = ref(db, manualMappingPath);
+      const manualMappingSnapshot = await get(manualMappingRef);
+      
+      if (manualMappingSnapshot.exists()) {
+        const reportData = manualMappingSnapshot.val();
+        // Filter out records matching ASN and courseCode
+        const updatedReportData = Object.entries(reportData)
+          .filter(([key, value]) => !(
+            value.asn === studentAsn && 
+            value.courseCode === pasiRecord.courseCode
+          ))
+          .reduce((acc, [key, value]) => {
+            acc[key] = value;
+            return acc;
+          }, {});
+        
+        updates[manualMappingPath] = updatedReportData;
+      }
+
+      // Get current failed links report data
+      const failedRef = ref(db, failedPath);
+      const failedSnapshot = await get(failedRef);
+      
+      if (failedSnapshot.exists()) {
+        const failedData = failedSnapshot.val();
+        // Create the pattern to match: {asn}_{courseCode}
+        const recordPattern = `${studentAsn}_${pasiRecord.courseCode.toLowerCase()}`;
+        
+        // Filter out records where pasiRecordId starts with the pattern
+        const updatedFailedData = Object.entries(failedData)
+          .filter(([key, value]) => {
+            const [recordAsn, recordCourseCode] = value.pasiRecordId.split('_');
+            const currentPattern = `${recordAsn}_${recordCourseCode.toLowerCase()}`;
+            return currentPattern !== recordPattern;
+          })
+          .reduce((acc, [key, value]) => {
+            acc[key] = value;
+            return acc;
+          }, {});
+        
+        updates[failedPath] = updatedFailedData;
+      }
+            
       updates[`pasiLinks/${linkId}`] = {
         pasiRecordId: pasiRecord.id,
         studentCourseSummaryKey: `${studentKey}_${courseId}`,
-        studentKey: studentKey,  // Add this new property
-        linkedAt: new Date().toISOString()
+        studentKey: studentKey,
+        linkedAt,
+        schoolYear: pasiRecord.schoolYear
       };
       
-      // Add PASI data to student course summaries
       updates[`studentCourseSummaries/${studentKey}_${courseId}/pasiRecords/${pasiRecord.courseCode}`] = {
         courseDescription: pasiRecord.courseDescription,
         creditsAttempted: pasiRecord.creditsAttempted,
         period: pasiRecord.period,
         schoolYear: pasiRecord.schoolYear,
         studentName: pasiRecord.studentName,
-        linkId: linkId
+        linkId: linkId,
+        linkedAt
       };
+      
+      updates[`pasiRecords/${pasiRecord.id}/linked`] = true;
+      updates[`pasiRecords/${pasiRecord.id}/linkedAt`] = linkedAt;
   
-      // Perform all updates atomically
       await update(ref(db), updates);
-  
       toast.success("Successfully linked PASI record");
     } catch (error) {
       console.error("Error linking PASI record:", error);
@@ -120,20 +168,15 @@ const PasiRecordsDialog = ({
     const db = getDatabase();
     
     try {
-      const linkData = pasiLinks[pasiRecord.id];
+      const linkData = allPasiLinks[pasiRecord.id];
       if (!linkData) throw new Error("Link not found");
 
       const updates = {};
       
-      // Remove the link record
       updates[`pasiLinks/${linkData.linkId}`] = null;
-      
-      // Remove PASI data from student course summaries
       updates[`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${pasiRecord.courseCode}`] = null;
 
-      // Perform all updates atomically
       await update(ref(db), updates);
-
       toast.success("Successfully unlinked PASI record");
     } catch (error) {
       console.error("Error unlinking PASI record:", error);
@@ -150,6 +193,54 @@ const PasiRecordsDialog = ({
     } catch (error) {
       return dateString;
     }
+  };
+
+  const renderActionButton = (record) => {
+    const existingLink = allPasiLinks[record.id];
+    
+    if (!existingLink) {
+      return (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleLink(record)}
+          disabled={linking}
+        >
+          <LinkIcon className="w-4 h-4 mr-2" />
+          Link
+        </Button>
+      );
+    }
+
+    if (existingLink.studentCourseSummaryKey === studentCourseSummaryKey) {
+      return (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleUnlink(record)}
+          disabled={linking}
+        >
+          <Unlink className="w-4 h-4 mr-2" />
+          Unlink
+        </Button>
+      );
+    }
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="inline-flex items-center">
+              <Lock className="w-4 h-4 text-gray-400" />
+              <span className="ml-2 text-gray-400">Linked to another course</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>This PASI record is already linked to another course</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   };
 
   return (
@@ -205,27 +296,7 @@ const PasiRecordsDialog = ({
                     <TableCell>{record.creditsAttempted}</TableCell>
                     <TableCell className="capitalize">{record.period}</TableCell>
                     <TableCell className="text-right">
-                      {pasiLinks[record.id] ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleUnlink(record)}
-                          disabled={linking}
-                        >
-                          <Unlink className="w-4 h-4 mr-2" />
-                          Unlink
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleLink(record)}
-                          disabled={linking}
-                        >
-                          <LinkIcon className="w-4 h-4 mr-2" />
-                          Link
-                        </Button>
-                      )}
+                      {renderActionButton(record)}
                     </TableCell>
                   </TableRow>
                 ))}

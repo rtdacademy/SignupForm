@@ -6,84 +6,126 @@ if (!admin.apps.length) {
     admin.initializeApp();
 }
 
-exports.addSchoolYearToPasiLinks = functions.https.onRequest(async (req, res) => {
-    // Only allow POST requests
-    if (req.method !== 'POST') {
-        res.status(405).send('Method Not Allowed');
-        return;
-    }
+// Configure with 2GB memory and 540 second timeout
+const runtimeOpts = {
+  timeoutSeconds: 540,
+  memory: '2GB'
+};
 
+/**
+ * HTTP triggered function to update primarySchoolName in studentCourseSummaries
+ */
+const primarySchoolNameUpdate = functions
+  .runWith(runtimeOpts)
+  .https.onRequest(async (req, res) => {
     const db = admin.database();
-    const pasiLinksRef = db.ref('pasiLinks');
-
+    let successCount = 0;
+    let errorCount = 0;
+    const batchSize = 300; 
+    let lastProcessedStudent = null;
+    
     try {
-        // Get all pasiLinks records
-        const pasiLinksSnapshot = await pasiLinksRef.once('value');
-        const updates = {};
-        let updateCount = 0;
-        let errorCount = 0;
-        const errors = [];
+      // Create a query for students, ordered by key for pagination
+      let studentsQuery = db.ref('students').orderByKey();
+      
+      // If we have a last processed student, start after that one
+      if (req.query.lastStudent) {
+        studentsQuery = studentsQuery.startAfter(req.query.lastStudent);
+      }
+      
+      // Limit the query to our batch size
+      studentsQuery = studentsQuery.limitToFirst(batchSize);
+      
+      const studentsSnapshot = await studentsQuery.once('value');
+      const students = studentsSnapshot.val();
+      
+      if (!students) {
+        return res.status(200).json({
+          message: 'No more students to process',
+          totalProcessed: successCount,
+          errors: errorCount,
+          complete: true
+        });
+      }
 
-        // Process each link
-        for (const [linkId, linkData] of Object.entries(pasiLinksSnapshot.val() || {})) {
-            try {
-                if (!linkData.studentCourseSummaryKey) {
-                    throw new Error('Missing studentCourseSummaryKey');
-                }
+      // Process each student
+      for (const studentId of Object.keys(students)) {
+        lastProcessedStudent = studentId;
+        const coursesSnapshot = await db
+          .ref(`students/${studentId}/courses`)
+          .once('value');
+        const courses = coursesSnapshot.val();
 
-                // Get the corresponding student course summary
-                const summarySnapshot = await db.ref(`studentCourseSummaries/${linkData.studentCourseSummaryKey}`)
-                    .once('value');
-                
-                const summary = summarySnapshot.val();
-                if (!summary || !summary.School_x0020_Year_Value) {
-                    throw new Error('Summary or school year not found');
-                }
+        if (!courses) continue;
 
-                // Update the schoolYear in pasiLinks
-                updates[`${linkId}/schoolYear`] = summary.School_x0020_Year_Value;
-                updateCount++;
+        // Process each course for the student
+        for (const courseId of Object.keys(courses)) {
+          try {
+            // Get the primarySchoolName
+            const primarySchoolNameSnap = await db
+              .ref(`students/${studentId}/courses/${courseId}/primarySchoolName`)
+              .once('value');
+            const primarySchoolName = primarySchoolNameSnap.val();
 
-            } catch (error) {
-                errorCount++;
-                errors.push({
-                    linkId,
-                    error: error.message,
-                    data: linkData
-                });
-            }
-        }
+            // Update the studentCourseSummaries
+            await db
+              .ref(`studentCourseSummaries/${studentId}_${courseId}/primarySchoolName`)
+              .set(primarySchoolName || '');
 
-        if (Object.keys(updates).length === 0) {
-            res.status(200).json({
-                status: 'success',
-                message: 'No records found to update',
-                recordsUpdated: 0,
-                errorCount,
-                errors
+            successCount++;
+          } catch (error) {
+            errorCount++;
+            console.error(
+              `Error processing student ${studentId} course ${courseId}: ${error.message}`
+            );
+            
+            // Log the error
+            await db.ref('errorLogs/primarySchoolNameUpdate').push({
+              studentId,
+              courseId,
+              error: error.message,
+              stack: error.stack,
+              timestamp: admin.database.ServerValue.TIMESTAMP
             });
-            return;
+          }
         }
+      }
 
-        // Perform the batch update
-        await pasiLinksRef.update(updates);
+      // Return progress and next batch token
+      const response = {
+        message: 'Batch processed successfully',
+        totalProcessed: successCount,
+        errors: errorCount,
+        lastStudent: lastProcessedStudent,
+        complete: Object.keys(students).length < batchSize
+      };
 
-        // Log success and return response
-        console.log(`Successfully updated ${updateCount} pasiLinks records`);
-        res.status(200).json({
-            status: 'success',
-            message: 'Successfully updated schoolYear property in pasiLinks records',
-            recordsUpdated: updateCount,
-            errorCount,
-            errors
-        });
+      // If there are more students to process, include continuation instructions
+      if (!response.complete) {
+        response.nextBatchUrl = 
+          `https://us-central1-rtd-academy.cloudfunctions.net/primarySchoolNameUpdate?lastStudent=${lastProcessedStudent}`;
+      }
 
+      res.status(200).json(response);
     } catch (error) {
-        console.error('Error updating pasiLinks:', error);
-        res.status(500).json({
-            status: 'error',
-            message: 'Failed to update pasiLinks records',
-            error: error.message
-        });
+      console.error('Major error in primarySchoolNameUpdate:', error);
+      
+      // Log the major error
+      await db.ref('errorLogs/primarySchoolNameUpdate').push({
+        error: error.message,
+        stack: error.stack,
+        timestamp: admin.database.ServerValue.TIMESTAMP,
+        lastProcessedStudent
+      });
+
+      res.status(500).json({
+        error: 'Internal server error',
+        message: error.message,
+        lastStudent: lastProcessedStudent
+      });
     }
-});
+  });
+
+module.exports = {
+  primarySchoolNameUpdate
+};
