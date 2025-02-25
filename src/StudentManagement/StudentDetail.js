@@ -6,7 +6,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Sheet, SheetContent } from "../components/ui/sheet";
-import { Calendar, Split } from 'lucide-react';
+import { Calendar, Split, IdCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
@@ -28,7 +28,7 @@ import InternationalDocuments from './InternationalDocuments';
 import { useUserPreferences } from '../context/UserPreferencesContext';
 import PaymentInfo from './PaymentInfo'; 
 import PASIManager from './PASIManager';
-import StudentGradesDisplay from './StudentGradesDisplay'; // Import the new component
+import StudentGradesDisplay from './StudentGradesDisplay';
 
 const getColorFromInitials = (initials) => {
   const colors = [
@@ -67,9 +67,9 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
   const [newLMSId, setNewLMSId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLMSStudentID, setLocalLMSStudentID] = useState(studentSummary?.LMSStudentID || null);
-  const [isEditingLMSId, setIsEditingLMSId] = useState(false);
+  const [isLMSIdDialogOpen, setIsLMSIdDialogOpen] = useState(false);
 
-const [comparisonTab, setComparisonTab] = useState("unified");
+  const [comparisonTab, setComparisonTab] = useState("unified");
   const lmsId = studentData?.courses?.[courseId]?.LMSStudentID || "";
 
   // New refs and state for dynamic font sizing
@@ -116,6 +116,19 @@ const [comparisonTab, setComparisonTab] = useState("unified");
       
       if (result.data.success) {
         setLocalLMSStudentID(result.data.lmsId);
+        
+        // Update the student data with the new LMS ID
+        setStudentData(prev => ({
+          ...prev,
+          courses: {
+            ...prev.courses,
+            [courseId]: {
+              ...prev.courses[courseId],
+              LMSStudentID: result.data.lmsId
+            }
+          }
+        }));
+        
         toast.success("Successfully fetched and updated LMS Student ID");
       } else {
         toast.error(result.data.message || "Failed to fetch LMS ID");
@@ -135,16 +148,29 @@ const [comparisonTab, setComparisonTab] = useState("unified");
     const db = getDatabase();
   
     try {
-      // 1. Update the student's LMS Student ID
+      // Update the student's LMS Student ID
       await update(
         ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}/courses/${courseId}`),
         {
           LMSStudentID: newLMSId
         }
       );
+      
+      // Update local state
+      setStudentData(prev => ({
+        ...prev,
+        courses: {
+          ...prev.courses,
+          [courseId]: {
+            ...prev.courses[courseId],
+            LMSStudentID: newLMSId
+          }
+        }
+      }));
   
       toast.success('LMS Student ID updated successfully');
       setNewLMSId('');
+      setIsLMSIdDialogOpen(false);
     } catch (error) {
       console.error('Error updating LMS Student ID:', error);
       toast.error('Failed to update LMS Student ID. Please try again.');
@@ -537,7 +563,7 @@ const [comparisonTab, setComparisonTab] = useState("unified");
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsEditingLMSId(true)}
+              onClick={() => setIsLMSIdDialogOpen(true)}
               className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white mt-2"
             >
               Set LMS Student ID
@@ -638,7 +664,7 @@ const [comparisonTab, setComparisonTab] = useState("unified");
         <div className="flex items-center justify-center h-full">
           <div className="text-center text-gray-500">
             <p className="mb-2">No LMS Student ID assigned</p>
-            <p className="text-sm">Click "Edit LMS ID" to add an ID</p>
+            <p className="text-sm">Click the LMS ID button to add an ID</p>
           </div>
         </div>
       );
@@ -675,11 +701,11 @@ const [comparisonTab, setComparisonTab] = useState("unified");
           onValueChange={setComparisonTab}
           className="flex-1 flex flex-col h-full"
         >
-         <TabsList className="grid w-full grid-cols-3 mb-4">
-  <TabsTrigger value="unified">YourWay Schedule</TabsTrigger>
-  <TabsTrigger value="gradebook">Gradebook</TabsTrigger>
-  <TabsTrigger value="schedule">Legacy Schedule</TabsTrigger>
-</TabsList>
+          <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsTrigger value="unified">YourWay Schedule</TabsTrigger>
+            <TabsTrigger value="gradebook">Gradebook</TabsTrigger>
+            <TabsTrigger value="schedule">Legacy Schedule</TabsTrigger>
+          </TabsList>
           
           <TabsContent value="gradebook" className="flex-1 h-full">
             {lmsId ? (
@@ -698,7 +724,7 @@ const [comparisonTab, setComparisonTab] = useState("unified");
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setIsEditingLMSId(true)}
+                    onClick={() => setIsLMSIdDialogOpen(true)}
                     className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white mt-2"
                   >
                     Set LMS Student ID
@@ -726,16 +752,14 @@ const [comparisonTab, setComparisonTab] = useState("unified");
             )}
           </TabsContent>
 
-          
-<TabsContent value="unified" className="flex-1 h-full">
-  <StudentGradesDisplay
-    studentKey={sanitizeEmail(studentSummary.StudentEmail)}
-    courseId={courseId}
-    useSheet={false}
-    className="h-full"
-  />
-</TabsContent>
-
+          <TabsContent value="unified" className="flex-1 h-full">
+            <StudentGradesDisplay
+              studentKey={sanitizeEmail(studentSummary.StudentEmail)}
+              courseId={courseId}
+              useSheet={false}
+              className="h-full"
+            />
+          </TabsContent>
         </Tabs>
       </div>
     );
@@ -780,6 +804,8 @@ const [comparisonTab, setComparisonTab] = useState("unified");
         {/* Desktop Header Layout */}
         {!isMobile && (
           <div ref={containerRef} className="flex items-center w-full gap-4">
+         
+            
             {/* Tabs - Fixed width and always visible */}
             <div className="flex-none">
               <ToggleGroup 
@@ -851,25 +877,40 @@ const [comparisonTab, setComparisonTab] = useState("unified");
 
         {/* Mobile Layout */}
         {isMobile && (
-          <RadioGroup
-            value={visibleSections}
-            onValueChange={handleToggleSection}
-            className="grid grid-cols-2 gap-1.5 w-full"
-          >
-            {getAvailableTabs().map(tab => (
-              <div key={tab} className="relative">
-                <RadioGroupItem value={tab} id={tab} className="peer sr-only" />
-                <Label
-                  htmlFor={tab}
-                  className="flex items-center justify-center px-2 py-1.5 w-full rounded-md border border-[#40b3b3] bg-white text-[#40b3b3] cursor-pointer transition-all peer-data-[state=checked]:bg-[#40b3b3] peer-data-[state=checked]:text-white hover:bg-[#40b3b3]/10"
-                >
-                  <span className="text-xs font-medium text-center whitespace-nowrap">
-                    {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
-                  </span>
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
+          <>
+            {/* LMS ID Button for mobile */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsLMSIdDialogOpen(true)}
+              className="flex items-center justify-center text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white w-full mb-2"
+            >
+              <IdCard className="h-4 w-4 mr-2" />
+              {studentData?.courses?.[courseId]?.LMSStudentID ? 
+                `LMS ID: ${studentData.courses[courseId].LMSStudentID}` : 
+                "Set LMS ID"}
+            </Button>
+            
+            <RadioGroup
+              value={visibleSections}
+              onValueChange={handleToggleSection}
+              className="grid grid-cols-2 gap-1.5 w-full"
+            >
+              {getAvailableTabs().map(tab => (
+                <div key={tab} className="relative">
+                  <RadioGroupItem value={tab} id={tab} className="peer sr-only" />
+                  <Label
+                    htmlFor={tab}
+                    className="flex items-center justify-center px-2 py-1.5 w-full rounded-md border border-[#40b3b3] bg-white text-[#40b3b3] cursor-pointer transition-all peer-data-[state=checked]:bg-[#40b3b3] peer-data-[state=checked]:text-white hover:bg-[#40b3b3]/10"
+                  >
+                    <span className="text-xs font-medium text-center whitespace-nowrap">
+                      {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
+                    </span>
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </>
         )}
       </div>
 
@@ -929,14 +970,14 @@ const [comparisonTab, setComparisonTab] = useState("unified");
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-semibold text-[#1fa6a7]">Grades & Progress</h4>
                   <Button
-  variant="outline"
-  size="sm"
-  onClick={() => setIsComparisonSheetOpen(true)}
-  className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
->
-  <Split className="h-4 w-4 mr-2" />
-  View All Formats
-</Button>
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsComparisonSheetOpen(true)}
+                    className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                  >
+                    <Split className="h-4 w-4 mr-2" />
+                    View All Formats
+                  </Button>
                 </div>
                 {renderGradesContent()}
               </CardContent>
@@ -975,106 +1016,10 @@ const [comparisonTab, setComparisonTab] = useState("unified");
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="font-semibold text-[#1fa6a7]">Gradebook</h4>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditingLMSId(true)}
-                    className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white"
-                  >
-                    Edit LMS ID: {studentData?.courses?.[courseId]?.LMSStudentID}
-                  </Button>
                 </div>
                 {renderGradebookContent()}
               </CardContent>
             </Card>
-            
-            <Dialog open={isEditingLMSId} onOpenChange={setIsEditingLMSId}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>LMS Student ID</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  {!studentSummary?.LMSStudentID ? (
-                    <>
-                      {/* Auto-fetch section */}
-                      <div className="p-4 bg-gray-50 rounded-lg">
-                        <p className="text-sm text-gray-600 mb-3">
-                          Click below to automatically fetch the student's LMS ID using their email:
-                        </p>
-                        <Button
-                          onClick={handleFetchLMSId}
-                          disabled={isSubmitting}
-                          className="w-full bg-[#40b3b3] text-white hover:bg-[#379999] disabled:bg-gray-300"
-                        >
-                          {isSubmitting ? (
-                            <span className="flex items-center justify-center">
-                              <span className="animate-spin mr-2">⟳</span>
-                              Fetching...
-                            </span>
-                          ) : (
-                            'Fetch LMS ID from Edge'
-                          )}
-                        </Button>
-                        <div className="mt-2 flex items-center justify-between text-sm text-gray-500">
-                          <span>Using email:</span>
-                          <code className="px-2 py-1 bg-white rounded border">
-                            {studentSummary.StudentEmail}
-                          </code>
-                        </div>
-                      </div>
-
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-white px-2 text-gray-500">or enter manually</span>
-                        </div>
-                      </div>
-                    </>
-                  ) : null}
-
-                  {/* Manual entry section */}
-                  <div className="space-y-4">
-                    <div className="flex space-x-2">
-                      <input
-                        type="text"
-                        value={newLMSId || ''}
-                        onChange={(e) => setNewLMSId(e.target.value)}
-                        placeholder="Enter LMS Student ID"
-                        className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#40b3b3] focus:border-transparent"
-                        disabled={isSubmitting}
-                      />
-                      <Button
-                        onClick={() => {
-                          handleSubmitLMSId();
-                          setIsEditingLMSId(false);
-                        }}
-                        disabled={!newLMSId && !studentSummary?.LMSStudentID || isSubmitting}
-                        className="bg-[#40b3b3] text-white hover:bg-[#379999] disabled:bg-gray-300"
-                      >
-                        Save
-                      </Button>
-                    </div>
-                    
-                    <div className="flex justify-between items-center text-sm">
-                      <a 
-                        href="https://edge.rtdacademy.com/util/utils.php?form=lookup"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[#40b3b3] hover:text-[#379999] flex items-center"
-                      >
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                        Look up ID manually
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
         )}
 
@@ -1124,6 +1069,87 @@ const [comparisonTab, setComparisonTab] = useState("unified");
           </div>
         )}
       </div>
+
+      {/* LMS Student ID Dialog - Unified single dialog for all sections */}
+      <Dialog open={isLMSIdDialogOpen} onOpenChange={setIsLMSIdDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>LMS Student ID</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Auto-fetch section */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-3">
+                Click below to automatically fetch the student's LMS ID using their email:
+              </p>
+              <Button
+                onClick={handleFetchLMSId}
+                disabled={isSubmitting}
+                className="w-full bg-[#40b3b3] text-white hover:bg-[#379999] disabled:bg-gray-300"
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center">
+                    <span className="animate-spin mr-2">⟳</span>
+                    Fetching...
+                  </span>
+                ) : (
+                  'Fetch LMS ID from Edge'
+                )}
+              </Button>
+              <div className="mt-2 flex items-center justify-between text-sm text-gray-500">
+                <span>Using email:</span>
+                <code className="px-2 py-1 bg-white rounded border">
+                  {studentSummary.StudentEmail}
+                </code>
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-500">or enter manually</span>
+              </div>
+            </div>
+
+            {/* Manual entry section */}
+            <div className="space-y-4">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newLMSId || ''}
+                  onChange={(e) => setNewLMSId(e.target.value)}
+                  placeholder="Enter LMS Student ID"
+                  className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#40b3b3] focus:border-transparent"
+                  disabled={isSubmitting}
+                />
+                <Button
+                  onClick={handleSubmitLMSId}
+                  disabled={!newLMSId || isSubmitting}
+                  className="bg-[#40b3b3] text-white hover:bg-[#379999] disabled:bg-gray-300"
+                >
+                  Save
+                </Button>
+              </div>
+              
+              <div className="flex justify-between items-center text-sm">
+                <a 
+                  href="https://edge.rtdacademy.com/util/utils.php?form=lookup"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#40b3b3] hover:text-[#379999] flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Look up ID manually
+                </a>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Additional Sheets and Dialogs */}
       <>

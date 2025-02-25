@@ -884,8 +884,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
     </TooltipContent>
   </Tooltip>
 
-{/* Auto Status Toggle */}
-{/*
+
 <Toggle
   pressed={autoStatus}
   onPressedChange={handleAutoStatusToggle}
@@ -900,7 +899,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
     <X className="h-3 w-3 text-red-500 ml-1" />
   )}
 </Toggle>
-*/}
+
           </div>
 
         {/* Category Selection */}

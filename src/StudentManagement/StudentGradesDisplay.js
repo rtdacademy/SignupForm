@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { getDatabase, ref, get, onValue } from 'firebase/database'
+import { getDatabase, ref, onValue } from 'firebase/database'
 import { getFunctions, httpsCallable } from 'firebase/functions'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet'
 import { Progress } from '../components/ui/progress'
@@ -18,9 +18,9 @@ import {
   PieChart,
   History,
   RefreshCw,
-  ChevronDown,
-  ChevronRight,
-  Info
+  Info,
+  Percent,
+  BarChart
 } from 'lucide-react'
 import {
   Accordion,
@@ -36,7 +36,6 @@ import {
 } from '../components/ui/tooltip'
 import { Button } from '../components/ui/button'
 import { ALERT_LEVELS } from '../config/DropdownOptions'
-import { getStatusColor } from '../config/DropdownOptions'
 import { format, fromUnixTime, formatDistanceToNow } from 'date-fns'
 
 const typeColors = {
@@ -117,86 +116,110 @@ const CourseOverviewCard = ({
       (normalizedSchedule?.totalItems || 1)) *
       100
   ) || 0
+  
+  // Current grade and with zeros
+  const currentGrade = Math.round(normalizedSchedule?.marks?.overall?.omitMissing) || 0
+  const gradeWithZeros = Math.round(normalizedSchedule?.marks?.overall?.withZeros) || 0
+  
+  // Lesson offset
+  const lessonsOffset = scheduleAdherence?.lessonsOffset || 0
+  const isAhead = lessonsOffset > 0
 
   return (
     <Accordion type="single" collapsible className="mb-8 w-full">
       <AccordionItem value="overview" className="border-blue-200 bg-blue-50 rounded-lg shadow-md">
-        <div className="px-4 py-3 flex flex-col">
-          {/* Always visible part */}
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-blue-900">
-              {courseData?.Title || 'Untitled Course'}
-            </h3>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8" 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRefresh();
-                    }}
-                    disabled={refreshing}
-                  >
-                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Refresh normalized schedule</p>
-                  {lastUpdated && (
-                    <p className="text-xs mt-1">
-                      Last updated: {format(lastUpdated, 'MMM d, yyyy h:mm a')}
-                    </p>
-                  )}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          
-          {/* Progress bar with improved styling */}
-          <div className="space-y-1 mt-2">
-            <div className="flex justify-between text-sm">
-              <span className="font-medium text-blue-800">Course Progress</span>
-              <span className="font-medium text-blue-800">{progressPercentage}%</span>
-            </div>
-            <Progress
-              value={progressPercentage}
-              className="h-3 bg-blue-100"
-              style={{
-                "--progress-background": "rgb(219 234 254)",
-                "--progress-foreground": `linear-gradient(90deg, rgba(37,99,235,1) 0%, rgba(79,70,229,1) 100%)`,
-              }}
-            />
-          </div>
-          
-          {/* Basic course info row */}
-          <div className="grid grid-cols-2 gap-4 mt-3">
-            {schedule && (
-              <div className="flex items-center gap-2 text-sm text-gray-700">
-                <Calendar className="w-4 h-4 text-blue-700" />
-                <span>
-                  {format(new Date(schedule.startDate), 'MMM d')} -{' '}
-                  {format(new Date(schedule.endDate), 'MMM d, yyyy')}
-                </span>
-              </div>
-            )}
-            
-            <div className="flex justify-end">
+        <div className="px-4 py-3">
+          {/* Header row with title and key metrics */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* Left side: Title and refresh button */}
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-blue-900">
+                {courseData?.Title || 'Untitled Course'}
+              </h3>
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger className="flex items-center gap-2 text-sm">
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7 ml-1" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRefresh();
+                      }}
+                      disabled={refreshing}
+                    >
+                      <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Refresh normalized schedule</p>
+                    {lastUpdated && (
+                      <p className="text-xs mt-1">
+                        Last updated: {format(lastUpdated, 'MMM d, yyyy h:mm a')}
+                      </p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            
+            {/* Right side: Key metrics row */}
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              {/* Current Grade */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger className="flex items-center gap-1">
                     <PieChart className="w-4 h-4 text-blue-700" />
-                    <span className="font-medium">
-                      {Math.round(normalizedSchedule?.marks?.overall?.omitMissing) || 0}%
+                    <span className="font-medium">{currentGrade}%</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Current grade (omitting missing)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              {/* Grade with zeros */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger className="flex items-center gap-1">
+                    <BarChart className="w-4 h-4 text-purple-700" />
+                    <span className="font-medium">{gradeWithZeros}%</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Grade with zeros included</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              {/* Course completion percentage */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger className="flex items-center gap-1">
+                    <Percent className="w-4 h-4 text-green-700" />
+                    <span className="font-medium">{progressPercentage}%</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Course completion percentage</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              {/* Lesson offset */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger className="flex items-center gap-1">
+                    {isAhead ? (
+                      <TrendingUp className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <TrendingDown className="w-4 h-4 text-red-600" />
+                    )}
+                    <span className={isAhead ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                      {Math.abs(lessonsOffset)} {Math.abs(lessonsOffset) === 1 ? 'lesson' : 'lessons'}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <div className="space-y-1">
-                      <p>Current grade: {Math.round(normalizedSchedule?.marks?.overall?.omitMissing) || 0}%</p>
-                      <p>Grade with zeros: {Math.round(normalizedSchedule?.marks?.overall?.withZeros) || 0}%</p>
-                    </div>
+                    {isAhead ? 'Ahead of schedule' : 'Behind schedule'}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -212,64 +235,71 @@ const CourseOverviewCard = ({
         {/* Expandable content */}
         <AccordionContent className="px-4 py-3 bg-white border-t border-blue-100">
           <div className="space-y-4">
-            {/* Schedule adherence info */}
+            {/* Progress bar */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-blue-800">Course Progress</span>
+                <span className="font-medium text-blue-800">{progressPercentage}%</span>
+              </div>
+              <Progress
+                value={progressPercentage}
+                className="h-3 bg-blue-100"
+                style={{
+                  "--progress-background": "rgb(219 234 254)",
+                  "--progress-foreground": `linear-gradient(90deg, rgba(37,99,235,1) 0%, rgba(79,70,229,1) 100%)`,
+                }}
+              />
+            </div>
+            
+            {/* Basic course info row */}
+            <div className="grid grid-cols-2 gap-4">
+              {schedule && (
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <Calendar className="w-4 h-4 text-blue-700" />
+                  <span>
+                    {format(new Date(schedule.startDate), 'MMM d')} -{' '}
+                    {format(new Date(schedule.endDate), 'MMM d, yyyy')}
+                  </span>
+                </div>
+              )}
+              
+              {lastActiveDate && (
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <History className="w-4 h-4 text-blue-700" />
+                  <span>
+                    Last active {formatDistanceToNow(lastActiveDate, { addSuffix: true })}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* Schedule adherence and data updates */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold text-gray-700">Schedule Adherence</h4>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger className="flex items-center gap-2 text-sm">
-                      <AlertIcon
-                        style={{ color: alertLevel.color }}
-                        className="w-4 h-4"
-                      />
-                      {scheduleAdherence?.lessonsOffset > 0 ? (
-                        <TrendingUp className="w-4 h-4 text-green-600" />
-                      ) : (
-                        <TrendingDown className="w-4 h-4 text-red-600" />
-                      )}
-                      <span
-                        className={
-                          scheduleAdherence?.lessonsOffset > 0
-                            ? 'text-green-600'
-                            : 'text-red-600'
-                        }
-                      >
-                        {Math.abs(scheduleAdherence?.lessonsOffset)} lessons
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {scheduleAdherence?.lessonsOffset > 0
-                        ? `Ahead by ${scheduleAdherence.lessonsOffset} lessons`
-                        : `Behind by ${Math.abs(
-                            scheduleAdherence?.lessonsOffset || 0
-                          )} lessons`}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
-                {lastActiveDate && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger className="flex items-center gap-2 text-sm text-gray-600">
-                        <History className="w-4 h-4" />
-                        <span>
-                          Last active{' '}
-                          {formatDistanceToNow(lastActiveDate, {
-                            addSuffix: true,
-                          })}
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Last completed:{' '}
-                        {format(lastActiveDate, 'MMM d, yyyy h:mm a')}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
+                <div className="flex items-center gap-2 text-sm">
+                  <AlertIcon
+                    style={{ color: alertLevel.color }}
+                    className="w-4 h-4"
+                  />
+                  <span style={{ color: alertLevel.color }}>
+                    {alertLevel.label || 'Unknown Status'}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-2 text-sm">
+                  {isAhead ? (
+                    <TrendingUp className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <TrendingDown className="w-4 h-4 text-red-600" />
+                  )}
+                  <span className={isAhead ? 'text-green-600' : 'text-red-600'}>
+                    {isAhead ? 'Ahead by' : 'Behind by'} {Math.abs(lessonsOffset)} {Math.abs(lessonsOffset) === 1 ? 'lesson' : 'lessons'}
+                  </span>
+                </div>
               </div>
               
-              {/* Additional information */}
+              {/* Data updates */}
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold text-gray-700">Data Updates</h4>
                 {lastUpdated && (
@@ -305,13 +335,13 @@ const CourseOverviewCard = ({
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                   <span className="text-sm">
-                    Current Grade: <span className="font-semibold">{Math.round(normalizedSchedule?.marks?.overall?.omitMissing) || 0}%</span>
+                    Current Grade: <span className="font-semibold">{currentGrade}%</span>
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-purple-500"></div>
                   <span className="text-sm">
-                    With Zeros: <span className="font-semibold">{Math.round(normalizedSchedule?.marks?.overall?.withZeros) || 0}%</span>
+                    With Zeros: <span className="font-semibold">{gradeWithZeros}%</span>
                   </span>
                 </div>
                 {normalizedSchedule?.marks?.exam && (
@@ -649,116 +679,89 @@ const StudentGradesDisplay = ({
 }) => {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [normalizedSchedule, setNormalizedSchedule] = useState(
-    initialNormalizedSchedule
-  )
+  const [normalizedSchedule, setNormalizedSchedule] = useState(initialNormalizedSchedule)
   const [courseData, setCourseData] = useState(null)
   const [studentCourseData, setStudentCourseData] = useState(null)
 
-  // Function to generate normalized schedule via cloud function
-  const generateNormalizedSchedule = async (forceUpdate = false) => {
-    try {
-      setRefreshing(true)
-      const functions = getFunctions()
-      const generateScheduleFn = httpsCallable(functions, 'generateNormalizedSchedule')
-      
-      console.log(`Calling generateNormalizedSchedule cloud function for ${studentKey}/${courseId}`)
-      
-      const result = await generateScheduleFn({
-        studentKey,
-        courseId,
-        forceUpdate
-      })
-      
-      console.log('Cloud function result:', result.data)
-      return result.data
-    } catch (error) {
-      console.error('Error calling generate normalized schedule function:', error)
-      throw error
-    } finally {
-      setRefreshing(false)
-    }
-  }
-
   useEffect(() => {
-    console.group('🔄 StudentGradesDisplay Initialization')
-    console.log('Props received:', { studentKey, courseId, initialNormalizedSchedule })
-
     if (!studentKey || !courseId) {
-      console.warn('Missing required props')
-      console.groupEnd()
+      console.warn('Missing required props: studentKey or courseId')
+      setLoading(false)
       return
     }
 
+    console.log('Setting up data listeners for', studentKey, courseId)
+    
     const db = getDatabase()
     const studentCourseRef = ref(db, `students/${studentKey}/courses/${courseId}`)
-    const normalizedScheduleRef = ref(
-      db,
-      `students/${studentKey}/courses/${courseId}/normalizedSchedule`
-    )
+    const normalizedScheduleRef = ref(db, `students/${studentKey}/courses/${courseId}/normalizedSchedule`)
     const courseRef = ref(db, `courses/${courseId}`)
 
-    // Set up listeners for student course data and course data
+    // Listen for student course data
     const studentCourseUnsubscribe = onValue(studentCourseRef, (snapshot) => {
       if (snapshot.exists()) {
         const studentData = snapshot.val()
-        console.log('📚 Fetched student course data:', studentData)
+        console.log('Fetched student course data')
         setStudentCourseData(studentData)
       } else {
-        console.error('❌ No course data found for student')
-        setLoading(false)
+        console.log('No course data found for student')
       }
     })
 
+    // Listen for course data
     const courseUnsubscribe = onValue(courseRef, (snapshot) => {
       if (snapshot.exists()) {
         const courseInfo = snapshot.val()
-        console.log('📚 Fetched course info:', courseInfo)
+        console.log('Fetched course info')
         setCourseData(courseInfo)
       } else {
-        console.warn('⚠ No course info found at /courses/{courseId}')
-        setLoading(false)
+        console.log('No course info found')
       }
     })
 
-    // Set up listener for normalized schedule
-    const normalizedScheduleUnsubscribe = onValue(normalizedScheduleRef, async (snapshot) => {
+    // Listen for normalized schedule
+    const normalizedScheduleUnsubscribe = onValue(normalizedScheduleRef, (snapshot) => {
+      setLoading(false)
       if (snapshot.exists()) {
-        console.log('📋 Fetched existing normalized schedule')
+        console.log('Fetched normalized schedule')
         const scheduleData = snapshot.val()
         setNormalizedSchedule(scheduleData)
-        setLoading(false)
       } else {
-        console.log('🆕 No existing normalized schedule found, generating one...')
-        // Call cloud function to generate a new normalized schedule
-        try {
-          await generateNormalizedSchedule(false)
-          // The onValue listener will catch the new value once it's written
-        } catch (error) {
-          console.error('Failed to generate normalized schedule:', error)
-          setLoading(false)
-        }
+        console.log('No normalized schedule available')
+        setNormalizedSchedule(null)
       }
     })
 
-    // Cleanup listeners on unmount
+    // Cleanup listeners
     return () => {
-      console.log('🧹 Cleaning up listeners')
       studentCourseUnsubscribe()
       courseUnsubscribe()
       normalizedScheduleUnsubscribe()
     }
   }, [studentKey, courseId])
 
-  // Function to force refresh the normalized schedule
+  // Function to request normalized schedule update via cloud function
   const handleRefresh = async () => {
     if (refreshing) return
     
     try {
-      await generateNormalizedSchedule(true)
-      // The listener will update the UI when the new data is available
+      setRefreshing(true)
+      const functions = getFunctions()
+      const updateScheduleFn = httpsCallable(functions, 'generateNormalizedSchedule')
+      
+      console.log(`Requesting normalized schedule update for ${studentKey}/${courseId}`)
+      
+      await updateScheduleFn({
+        studentKey,
+        courseId,
+        forceUpdate: true
+      })
+      
+      console.log('Update request sent successfully')
     } catch (error) {
-      console.error('Error refreshing normalized schedule:', error)
+      console.error('Error requesting normalized schedule update:', error)
+    } finally {
+      setRefreshing(false)
     }
   }
 
@@ -776,7 +779,7 @@ const StudentGradesDisplay = ({
   if (useSheet) {
     return (
       <Sheet open={isOpen} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-[90%] sm:w-[600px] p-0">
+       <SheetContent side="right" className="w-[90%] sm:w-[600px] p-0">
           <SheetHeader className="p-4 border-b">
             <SheetTitle>Student Grades</SheetTitle>
           </SheetHeader>

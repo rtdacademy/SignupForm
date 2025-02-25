@@ -1,6 +1,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('./utils');
+const { updateStudentAutoStatus } = require('./autoStatus');
 
 // Initialize Firebase Admin SDK if not already initialized
 if (admin.apps.length === 0) {

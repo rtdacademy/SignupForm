@@ -18,27 +18,53 @@ const ERROR_TYPES = {
   existingLinksFailed: {
     title: "Existing Links Failed",
     description: "These are records that already have a link in pasiLinks but encountered an error during validation. This could happen if a PASI record was removed but the link still exists, or if a student course was deleted but the link remains.",
-    getCount: (results) => results?.existingLinks?.failed?.filter(Boolean)?.length || 0
+    getCount: (results) => {
+      const data = results?.existingLinks?.failed;
+      if (!data) return 0;
+      if (Array.isArray(data)) return data.filter(Boolean).length;
+      return typeof data === 'object' ? Object.keys(data).length : 0;
+    }
   },
   newLinksFailed: {
     title: "New Links Failed",
     description: "These are PASI records that aren't linked yet and failed during the linking attempt. This usually happens when a PASI record has no email/ASN, or when we can't find a matching student course in YourWay.",
-    getCount: (results) => results?.newLinks?.failed?.filter(Boolean)?.length || 0
+    getCount: (results) => {
+      const data = results?.newLinks?.failed;
+      if (!data) return 0;
+      if (Array.isArray(data)) return data.filter(Boolean).length;
+      return typeof data === 'object' ? Object.keys(data).length : 0;
+    }
   },
+
   needsManualMapping: {
     title: "Needs Manual Course Mapping",
     description: "These are PASI records where we can't automatically map the PASI course code to your internal course ID. This requires manual intervention to create the correct course mapping.",
-    getCount: (results) => results?.newLinks?.needsManualCourseMapping?.filter(Boolean)?.length || 0
+    getCount: (results) => {
+      const data = results?.newLinks?.needsManualCourseMapping;
+      if (!data) return 0;
+      if (Array.isArray(data)) return data.filter(Boolean).length;
+      return typeof data === 'object' ? Object.keys(data).length : 0;
+    }
   },
   statusMismatches: {
     title: "Status Mismatches",
     description: "These records have incompatible statuses between YourWay and PASI. For example, a course marked as 'Active' in PASI shouldn't be marked as 'Completed' in YourWay.",
-    getCount: (results) => results?.statusMismatches?.details?.filter(Boolean)?.length || 0
-  },
+     getCount: (results) => {
+    const data = results?.statusMismatches?.details;
+    if (!data) return 0;
+    if (Array.isArray(data)) return data.filter(Boolean).length;
+    return typeof data === 'object' ? Object.keys(data).length : 0;
+  }
+},
   missingPasiRecords: {
     title: "Missing PASI Records",
     description: "These are courses in YourWay that don't have any corresponding PASI record. This could mean the course hasn't been registered in PASI yet, or there might be a synchronization issue.",
-    getCount: (results) => results?.studentCourseSummariesMissingPasi?.details?.filter(Boolean)?.length || 0
+    getCount: (results) => {
+      const data = results?.studentCourseSummariesMissingPasi?.details;
+      if (!data) return 0;
+      if (Array.isArray(data)) return data.filter(Boolean).length;
+      return typeof data === 'object' ? Object.keys(data).length : 0;
+    }
   }
 };
 

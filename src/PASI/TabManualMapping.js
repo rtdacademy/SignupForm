@@ -47,18 +47,33 @@ const TabManualMapping = ({ data = { details: [] }, schoolYear }) => {
     const categoryRef = ref(db, `teacherCategories/info@rtdacademy,com/PASI_Course_Link/name`);
     
     const unsubscribe = onValue(mappingRef, (snapshot) => {
-      const data = snapshot.val() || [];
-      setMappingRecords(data);
+      const rawData = snapshot.val();
+      let dataArray = [];
+      
+      // Convert to array if needed
+      if (rawData) {
+        if (typeof rawData === 'object' && !Array.isArray(rawData)) {
+          // Convert object to array of values
+          dataArray = Object.keys(rawData).map(key => ({
+            ...rawData[key],
+            key // Store the key for reference if needed
+          }));
+        } else if (Array.isArray(rawData)) {
+          dataArray = rawData;
+        }
+      }
+      
+      setMappingRecords(dataArray);
       
       // Update pagination
-      const total = Math.ceil(data.length / ITEMS_PER_PAGE) || 1;
+      const total = Math.ceil(dataArray.length / ITEMS_PER_PAGE) || 1;
       setTotalPages(total);
       setCurrentPage(prev => Math.min(prev, total));
       
       // Update paginated data
       const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
       const endIndex = startIndex + ITEMS_PER_PAGE;
-      setPaginatedData(data.slice(startIndex, endIndex));
+      setPaginatedData(dataArray.slice(startIndex, endIndex));
     });
 
     // Get category name
@@ -169,7 +184,7 @@ const TabManualMapping = ({ data = { details: [] }, schoolYear }) => {
         </TableHeader>
         <TableBody>
           {paginatedData.map((record, index) => (
-            <TableRow key={index}>
+            <TableRow key={record.key || index}>
               <TableCell>{record.courseCode}</TableCell>
               <TableCell>{record.asn}</TableCell>
               <TableCell>{record.email}</TableCell>

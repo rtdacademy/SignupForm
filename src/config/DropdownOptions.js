@@ -106,7 +106,7 @@ export const STATUS_OPTIONS = [
     category: "Progress", 
     allowAutoStatusChange: true, 
     alertLevel: ALERT_LEVELS.YELLOW,
-    tooltip: "Student is 2-5 lessons behind schedule"
+    tooltip: "Student is 2-4 lessons behind schedule"
   },
   { 
     value: "❗ Behind", 
@@ -114,7 +114,7 @@ export const STATUS_OPTIONS = [
     category: "Progress", 
     allowAutoStatusChange: true, 
     alertLevel: ALERT_LEVELS.RED,
-    tooltip: "Student is 6 or more lessons behind and at risk of removal"
+    tooltip: "Student is 5 or more lessons behind and at risk of removal"
   },
   { 
     value: "Not Active", 
