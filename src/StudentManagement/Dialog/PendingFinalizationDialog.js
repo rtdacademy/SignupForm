@@ -106,9 +106,11 @@ const PendingFinalizationDialog = ({
           (isUnenrolled && metFundingRequirements === "no") ? null : Number(finalMark),
         [`students/${studentKey}/courses/${courseId}/ActiveFutureArchived/Value`]: "Pending",
         [`students/${studentKey}/courses/${courseId}/MetFundingRequirements`]: 
-          isUnenrolled ? (metFundingRequirements === "yes") : null
+          isUnenrolled ? (metFundingRequirements === "yes") : null,
+        // Add Status/Value update here
+        [`students/${studentKey}/courses/${courseId}/Status/Value`]: status
       };
-    
+  
       await update(ref(db), updates);
       await onConfirm();
       
@@ -118,7 +120,7 @@ const PendingFinalizationDialog = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [isUnenrolled, finalMark, comment, studentKey, courseId, userName, onConfirm, metFundingRequirements]);
+  }, [isUnenrolled, finalMark, comment, studentKey, courseId, userName, onConfirm, metFundingRequirements, status]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -141,15 +143,15 @@ const PendingFinalizationDialog = ({
         <Alert className="mt-4">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Setting the student status to {status} will change the state value from 'Active' to 'Pending Finalization'. 
-            To see both Active and Pending Finalization in your list, ensure these filters are set.
+            Setting the student status to {status} will change the state value from 'Active' to 'Pending'. 
+            To see both Active and Pending in your list, ensure these filters are set.
           </AlertDescription>
         </Alert>
 
         <div className="mt-6 space-y-4">
           {isUnenrolled && (
             <div className="space-y-2">
-              <Label>Did the student complete at least 50% of the course or receive a final mark of 25% or greater?</Label>
+              <Label>Did the student receive a final mark of 25% or greater for the entire course?</Label>
               <RadioGroup
                 value={metFundingRequirements}
                 onValueChange={setMetFundingRequirements}

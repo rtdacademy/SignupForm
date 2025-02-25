@@ -21,7 +21,8 @@ const edgeFunctions = require('./edge');
 const asnFunctions = require('./asnSync');
 const pasiFunctions = require('./pasi');
 const httpFunctions = require('./httpTrigger');
-const speechFunctions = require('./speech'); // Add this line
+const speechFunctions = require('./speech'); 
+const normalizedScheduleFunctions = require('./normalizedSchedule');
 
 // Export gradebook functions
 exports.updateGradebookData = gradebookFunctions.updateGradebookData;
@@ -97,3 +98,8 @@ exports.textToSpeech = speechFunctions.textToSpeech;
 exports.streamTextToSpeech = speechFunctions.streamTextToSpeech; 
 
 exports.primarySchoolNameUpdate = httpFunctions.primarySchoolNameUpdate; 
+
+
+exports.onGradeUpdateTriggerNormalizedSchedule = normalizedScheduleFunctions.onGradeUpdateTriggerNormalizedSchedule;
+exports.generateNormalizedSchedule = normalizedScheduleFunctions.generateNormalizedSchedule;
+exports.onLMSStudentIDAssignedTriggerSchedule = normalizedScheduleFunctions.onLMSStudentIDAssignedTriggerSchedule;

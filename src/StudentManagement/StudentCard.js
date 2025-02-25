@@ -266,6 +266,11 @@ const updateStatus = useCallback(async (newStatus) => {
     const previousStatus = statusValue;
     const selectedStatusOption = STATUS_OPTIONS.find(option => option.value === newStatus);
 
+    // Don't proceed with status update if delay is true
+    if (selectedStatusOption?.delay) {
+      return;
+    }
+
     // Validate ActiveFutureArchived value if present
     if (selectedStatusOption?.activeFutureArchivedValue && 
         !validateActiveFutureArchivedValue(selectedStatusOption.activeFutureArchivedValue)) {
@@ -274,6 +279,8 @@ const updateStatus = useCallback(async (newStatus) => {
 
     // Start all updates
     const updates = {};
+    
+    // Only update Status/Value if not delayed
     updates[`students/${studentKey}/courses/${courseId}/Status/Value`] = newStatus;
     
     // If status has an associated ActiveFutureArchived value, set it
@@ -282,7 +289,7 @@ const updateStatus = useCallback(async (newStatus) => {
         selectedStatusOption.activeFutureArchivedValue;
     }
 
-    // Rest of your existing updateStatus code...
+    // Handle auto status changes
     let newAutoStatus;
     if (selectedStatusOption?.allowAutoStatusChange === true) {
       updates[`students/${studentKey}/courses/${courseId}/autoStatus`] = true;
@@ -292,32 +299,33 @@ const updateStatus = useCallback(async (newStatus) => {
       newAutoStatus = false;
     }
 
-   
-   // Create status log entry
-const statusLogRef = ref(db, `students/${studentKey}/courses/${courseId}/statusLog`);
-const newLogRef = push(statusLogRef);
-updates[`students/${studentKey}/courses/${courseId}/statusLog/${newLogRef.key}`] = {
-  timestamp: new Date().toISOString(),
-  status: newStatus,
-  previousStatus: previousStatus || '',
-  updatedBy: {
-    name: user.displayName || user.email,
-    email: user.email,
-  },
-  updatedByType: 'teacher',
-  autoStatus: newAutoStatus,
-};
+    // Create status log entry
+    const statusLogRef = ref(db, `students/${studentKey}/courses/${courseId}/statusLog`);
+    const newLogRef = push(statusLogRef);
+    updates[`students/${studentKey}/courses/${courseId}/statusLog/${newLogRef.key}`] = {
+      timestamp: new Date().toISOString(),
+      status: newStatus,
+      previousStatus: previousStatus || '',
+      updatedBy: {
+        name: user.displayName || user.email,
+        email: user.email,
+      },
+      updatedByType: 'teacher',
+      autoStatus: newAutoStatus,
+    };
 
-    // Perform all updates atomically
-    const dbRef = ref(db);
-    await update(dbRef, updates);
+    // Only perform updates if there are changes to make
+    if (Object.keys(updates).length > 0) {
+      const dbRef = ref(db);
+      await update(dbRef, updates);
 
-    // Update local state
-    setStatusValue(newStatus);
-    setAutoStatus(newAutoStatus);
+      // Update local state
+      setStatusValue(newStatus);
+      setAutoStatus(newAutoStatus);
 
-    if (isPartOfMultiSelect) {
-      onBulkStatusChange(newStatus, student.id);
+      if (isPartOfMultiSelect) {
+        onBulkStatusChange(newStatus, student.id);
+      }
     }
 
   } catch (error) {
@@ -541,7 +549,6 @@ const handleStatusChange = useCallback(async (newStatus) => {
   );
 
   const StatusOption = React.memo(({ option }) => {
-    // Get the alert level icon component
     const IconComponent = option.alertLevel?.icon || Circle;
     
     return (
@@ -553,11 +560,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
           />
         </div>
         <span style={{ color: option.alertLevel?.color || option.color }}>
-          {option.value === "Starting on (Date)" && student.ScheduleStartDate ? (
-            `Starting on ${format(new Date(student.ScheduleStartDate), 'MMM d, yyyy')}`
-          ) : (
-            option.value
-          )}
+          {option.value}
         </span>
       </div>
     );
@@ -783,32 +786,34 @@ const handleStatusChange = useCallback(async (newStatus) => {
            
 <DropdownMenu>
   <DropdownMenuTrigger asChild>
-    <Button 
-      variant="outline" 
-      className="w-full justify-between"
-      style={{ 
-        borderColor: currentStatusOption?.alertLevel?.color || currentStatusColor,
-        color: currentStatusOption?.alertLevel?.color || currentStatusColor 
-      }}
-    >
-      <div className="flex items-center">
-        {React.createElement(
-          currentStatusOption?.alertLevel?.icon || Circle,
-          { 
-            className: "w-4 h-4 mr-2",
-            style: { 
-              color: currentStatusOption?.alertLevel?.color || currentStatusColor 
-            }
-          }
-        )}
-        {statusValue === "Starting on (Date)" && student.ScheduleStartDate ? (
-          `Starting on ${format(new Date(student.ScheduleStartDate), 'MMM d, yyyy')}`
-        ) : (
-          statusValue
-        )}
-      </div>
-      <ChevronDown className="h-4 w-4 opacity-50" />
-    </Button>
+  <Button 
+  variant="outline" 
+  className="w-full justify-between"
+  style={{ 
+    borderColor: currentStatusOption?.alertLevel?.color || currentStatusColor,
+    color: currentStatusOption?.alertLevel?.color || currentStatusColor 
+  }}
+>
+  <div className="flex items-center">
+    {React.createElement(
+      currentStatusOption?.alertLevel?.icon || Circle,
+      { 
+        className: "w-4 h-4 mr-2",
+        style: { 
+          color: currentStatusOption?.alertLevel?.color || currentStatusColor 
+        }
+      }
+    )}
+    {statusValue === "Resuming on (date)" && student.resumingOnDate ? (
+      `Resuming on ${format(new Date(student.resumingOnDate), 'MMM d, yyyy')}`
+    ) : statusValue === "Starting on (Date)" && student.ScheduleStartDate ? (
+      `Starting on ${format(new Date(student.ScheduleStartDate), 'MMM d, yyyy')}`
+    ) : (
+      statusValue
+    )}
+  </div>
+  <ChevronDown className="h-4 w-4 opacity-50" />
+</Button>
   </DropdownMenuTrigger>
   <DropdownMenuPortal>
     <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto">
@@ -1325,8 +1330,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
   courseName={student.Course_Value}
   studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
   courseId={student.id.slice(student.id.lastIndexOf('_') + 1)}
-  onConfirm={async () => {
-    await updateStatus(pendingStatus);
+  onConfirm={() => {
     setIsPendingFinalizationOpen(false);
     setPendingStatus(null);
   }}
@@ -1346,8 +1350,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
   studentEmail={student.StudentEmail} 
   studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
   courseId={student.id.slice(student.id.lastIndexOf('_') + 1)}
-  onConfirm={async (date) => {
-    await updateStatus(`Resuming on ${date}`);
+  onConfirm={async () => {
     setIsResumingOnOpen(false);
   }}
   onCancel={() => {

@@ -1,5 +1,3 @@
-// Courses.js
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { getDatabase, ref, onValue, update, remove } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
@@ -10,7 +8,8 @@ import {
   FaPlus, 
   FaTrash, 
   FaClock, 
-  FaRegLightbulb 
+  FaRegLightbulb,
+  FaLink
 } from 'react-icons/fa';
 import Modal from 'react-modal';
 // Keep react-select for multi-select fields.
@@ -568,6 +567,26 @@ function Courses() {
       });
   };
 
+  // Handler for the LTI Links checkbox
+  const handleLtiLinksChange = (checked) => {
+    if (!isEditing) return;
+
+    const db = getDatabase();
+    const courseRef = ref(db, `courses/${selectedCourseId}`);
+    update(courseRef, { ltiLinksComplete: checked })
+      .then(() => {
+        console.log('Successfully updated ltiLinksComplete');
+        setCourseData(prev => ({
+          ...prev,
+          ltiLinksComplete: checked
+        }));
+      })
+      .catch((error) => {
+        console.error('Error updating ltiLinksComplete:', error);
+        alert('An error occurred while updating LTI links status.');
+      });
+  };
+
   const inputClass = `mt-1 block w-full p-2 border ${
     isEditing ? 'border-gray-300' : 'border-gray-200 bg-gray-100'
   } rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm`;
@@ -672,6 +691,12 @@ function Courses() {
                               title="Modern Course"
                             />
                           )}
+                          {course.ltiLinksComplete && (
+                            <FaLink 
+                              className={`${selectedCourseId === courseId ? 'text-white' : 'text-green-500'}`} 
+                              title="LTI Links Complete"
+                            />
+                          )}
                           <span>{course.Title || `Course ID: ${courseId}`}</span>
                         </div>
                         <button
@@ -713,6 +738,12 @@ function Courses() {
                     <span className="text-sm font-medium">Modern Course</span>
                   </div>
                 )}
+                {courseData?.ltiLinksComplete && (
+                  <div className="flex items-center gap-1 text-green-500" title="LTI Links Complete">
+                    <FaLink />
+                    <span className="text-sm font-medium">LTI Links Complete</span>
+                  </div>
+                )}
               </div>
               <div className="flex items-center space-x-2">
                 {!isEditing && (
@@ -723,75 +754,75 @@ function Courses() {
                     <FaEdit className="mr-1" /> Edit Course
                   </button>
                 )}
-        <CourseWeightingDialog
-  courseId={selectedCourseId}
-  courseUnits={courseData.units || []}
-  courseWeights={courseWeights}
-  onWeightsUpdate={(categoryWeights, updatedUnits) => {
-    const db = getDatabase();
-    
-    try {
-      // Validate categoryWeights
-      if (!categoryWeights || typeof categoryWeights !== 'object') {
-        throw new Error('Invalid category weights');
-      }
+                <CourseWeightingDialog
+                  courseId={selectedCourseId}
+                  courseUnits={courseData.units || []}
+                  courseWeights={courseWeights}
+                  onWeightsUpdate={(categoryWeights, updatedUnits) => {
+                    const db = getDatabase();
+                    
+                    try {
+                      // Validate categoryWeights
+                      if (!categoryWeights || typeof categoryWeights !== 'object') {
+                        throw new Error('Invalid category weights');
+                      }
 
-      // Create clean category weights object ensuring all values are numbers
-      const cleanCategoryWeights = {
-        lesson: Number(categoryWeights.lesson) || 0,
-        assignment: Number(categoryWeights.assignment) || 0,
-        exam: Number(categoryWeights.exam) || 0
-      };
+                      // Create clean category weights object ensuring all values are numbers
+                      const cleanCategoryWeights = {
+                        lesson: Number(categoryWeights.lesson) || 0,
+                        assignment: Number(categoryWeights.assignment) || 0,
+                        exam: Number(categoryWeights.exam) || 0
+                      };
 
-      // Create an update object starting with weights
-      const updates = {
-        [`courses/${selectedCourseId}/weights`]: cleanCategoryWeights
-      };
+                      // Create an update object starting with weights
+                      const updates = {
+                        [`courses/${selectedCourseId}/weights`]: cleanCategoryWeights
+                      };
 
-      // Update unit weights if we have valid units
-      if (Array.isArray(updatedUnits)) {
-        updatedUnits.forEach((unit, unitIndex) => {
-          if (unit?.items && Array.isArray(unit.items)) {
-            unit.items.forEach((item, itemIndex) => {
-              // Ensure weight is a valid number before adding to updates
-              const weight = Number(item.weight);
-              if (!isNaN(weight)) {
-                updates[`courses/${selectedCourseId}/units/${unitIndex}/items/${itemIndex}/weight`] = weight;
-              }
-            });
-          }
-        });
-      }
+                      // Update unit weights if we have valid units
+                      if (Array.isArray(updatedUnits)) {
+                        updatedUnits.forEach((unit, unitIndex) => {
+                          if (unit?.items && Array.isArray(unit.items)) {
+                            unit.items.forEach((item, itemIndex) => {
+                              // Ensure weight is a valid number before adding to updates
+                              const weight = Number(item.weight);
+                              if (!isNaN(weight)) {
+                                updates[`courses/${selectedCourseId}/units/${unitIndex}/items/${itemIndex}/weight`] = weight;
+                              }
+                            });
+                          }
+                        });
+                      }
 
-      // Log the final updates object for debugging
-      console.log('Sending updates:', updates);
+                      // Log the final updates object for debugging
+                      console.log('Sending updates:', updates);
 
-// Get a reference to the root of the database
-const rootRef = ref(db);
+                      // Get a reference to the root of the database
+                      const rootRef = ref(db);
 
-// Perform the multi-location update using the root reference
-update(rootRef, updates)
-  .then(() => {
-    console.log('Successfully updated course weights');
-    setCourseData(prev => ({
-      ...prev,
-      units: updatedUnits
-    }));
-    setCourseWeights(cleanCategoryWeights);
-  })
-  .catch((error) => {
-    console.error('Firebase update error:', error);
-    alert('An error occurred while updating the course weights.');
-  });
+                      // Perform the multi-location update using the root reference
+                      update(rootRef, updates)
+                        .then(() => {
+                          console.log('Successfully updated course weights');
+                          setCourseData(prev => ({
+                            ...prev,
+                            units: updatedUnits
+                          }));
+                          setCourseWeights(cleanCategoryWeights);
+                        })
+                        .catch((error) => {
+                          console.error('Firebase update error:', error);
+                          alert('An error occurred while updating the course weights.');
+                        });
 
 
-    } catch (error) {
-      console.error('Error preparing updates:', error.message, '\nFull error:', error);
-      alert('An error occurred while preparing the updates: ' + error.message);
-    }
-  }}
-  isEditing={isEditing}
-/>
+                    } catch (error) {
+                      console.error('Error preparing updates:', error.message, '\nFull error:', error);
+                      alert('An error occurred while preparing the updates: ' + error.message);
+                    }
+                  }}
+                  isEditing={isEditing}
+                />
               </div>
             </div>
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
@@ -902,6 +933,22 @@ update(rootRef, updates)
                   </label>
                   <p className="text-xs text-gray-500 mt-1">
                     Enable to display course statistics to students
+                  </p>
+                </div>
+
+                {/* LTI Links Switch - NEW FEATURE */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                    <span>LTI Links Complete</span>
+                    <Switch
+                      checked={courseData.ltiLinksComplete || false}
+                      onCheckedChange={handleLtiLinksChange}
+                      disabled={!isEditing}
+                      className="ml-2"
+                    />
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Indicate that all LTI links have been created for this course
                   </p>
                 </div>
 

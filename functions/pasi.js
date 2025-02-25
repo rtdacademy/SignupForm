@@ -57,8 +57,12 @@ const initialResults = {
 
 // New helper function for status validation
 function validateStatusConsistency(pasiRecord, summary, linkId = null) {
-  // Early return if course code matches excluded codes
-  if (pasiRecord.courseCode === 'COM1255' || pasiRecord.courseCode === 'INF2020') {
+  // Early return if course code is in excluded list or maps to courseId 1111
+  if (
+    pasiRecord.courseCode === 'COM1255' || 
+    pasiRecord.courseCode === 'INF2020' ||
+    PASI_TO_COURSE_MAP[pasiRecord.courseCode] === 1111
+  ) {
     return {
       updates: {},
       mismatch: { found: false, details: {} }
@@ -78,7 +82,7 @@ function validateStatusConsistency(pasiRecord, summary, linkId = null) {
       asn: summary.asn,
       courseCode: pasiRecord.courseCode,
       courseDescription: pasiRecord.courseDescription,
-      id:pasiRecord.id
+      id: pasiRecord.id
     }
   };
 
@@ -117,11 +121,11 @@ async function findMissingPasiRecords(summaries) {
   const updates = {};
   
   Object.entries(summaries).forEach(([key, summary]) => {
-    // Check ActiveFutureArchived_Value first
-    const activeStatus = summary.ActiveFutureArchived_Value;
-    if (activeStatus !== 'Active' && activeStatus !== 'Archived') {
-      return; // Skip if not Active or Archived
-    }
+     // Skip if ActiveFutureArchived_Value is 'Registration'
+     const activeStatus = summary.ActiveFutureArchived_Value;
+     if (activeStatus === 'Registration') {
+       return;
+     }
     
     // Skip records marked as removed
     if (summary.Status_Value === "✗ Removed (Not Funded)") {
@@ -253,6 +257,10 @@ exports.syncPasiRecordsV2 = functions
     results.initiatedBy = userEmail;
 
     try {
+
+// Clear system categories first
+await db.ref('systemCategories').remove();
+
       // Fetch filtered data in parallel
       const [linksSnapshot, pasiSnapshot, summariesSnapshot] = await Promise.all([
         db.ref('pasiLinks').once('value'),

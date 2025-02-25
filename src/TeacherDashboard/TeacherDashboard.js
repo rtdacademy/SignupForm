@@ -12,19 +12,17 @@ import {
   Settings,
   ChevronRight,
   ChevronLeft,
-  Layout,
-  Grid,
   Link,
   DollarSign,
   CalendarPlus,
   Bell,
   Menu,
-  Bot,
   Mail,
   Handshake,
   Upload,
   FilePenLine,
-  Shield
+  Shield,
+  Grid
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import Courses from '../courses/Courses';
@@ -33,7 +31,6 @@ import ExternalLinks from '../ExternalLinks/ExternalLinks';
 import ContractorInvoiceSummary from '../Admin/ContractorInvoiceSummary';
 import IcsUpload from '../Schedule/IcsUpload';
 import Notifications from '../Notifications/Notifications';
-import AIChatApp from '../AI/AIChatApp';
 import TemplateManager from '../StudentManagement/TemplateManager';
 import PricingComponent from '../config/PricingComponent';
 import OrgChart from '../OrgChart/OrgChart';
@@ -44,8 +41,6 @@ import IMathASGradeImporter from './IMathASGradeImporter';
 import LTIManagement from '../LTI/LTIManagement';
 import EnrollmentStatistics from '../Statistics/EnrollmentStatistics'; 
 import DataVerification from '../PASI/DataVerification';
-
-
 
 function TeacherDashboard() {
   const { user, isStaff, hasAdminAccess } = useAuth();
@@ -102,15 +97,10 @@ function TeacherDashboard() {
     return <ChatApp />;
   }, []);
 
-  const memoizedAIChatApp = useMemo(() => {
-    return <AIChatApp />;
-  }, []);
-
   // Update navItems to be dynamic based on admin access
   const navItems = useMemo(() => {
     const baseItems = [
       { icon: Grid, label: 'React Dashboard', key: 'react-dashboard' },
-      { icon: Layout, label: 'PowerApps Dashboard', key: 'powerapps-dashboard' },
       { 
         icon: Bell, 
         label: 'Notifications', 
@@ -119,7 +109,6 @@ function TeacherDashboard() {
         indicatorCount: unreadChatsCount
       },
       { icon: MessageSquare, label: 'Chats', key: 'chat' },
-      { icon: Bot, label: 'AI Chat', key: 'ai-chat' },
       { icon: FilePenLine, label: 'Email Templates', key: 'templates' },
       { icon: BookOpen, label: 'Courses', key: 'courses' },
       { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
@@ -138,7 +127,6 @@ function TeacherDashboard() {
         subItems: [
           { icon: DollarSign, label: 'Pricing', key: 'pricing' },
           { icon: BarChart2, label: 'Reports', key: 'reports' },
-          
           { icon: Handshake, label: 'Contractor Invoices', key: 'contractor-invoices' },
           { icon: Upload, label: 'IMathAS Import', key: 'imathas-import' },
           { icon: Link, label: 'LTI Management', key: 'lti-management' }  
@@ -159,21 +147,11 @@ function TeacherDashboard() {
     switch (activeSection) {
       case 'chat':
         return memoizedChatApp;
-      case 'ai-chat':
-        return memoizedAIChatApp;
       case 'courses':
         return <Courses />;
       case 'students':
       case 'react-dashboard':
         return <StudentManagement isFullScreen={isFullScreen} onFullScreenToggle={toggleFullScreen} />;
-      case 'powerapps-dashboard':
-        return (
-          <iframe
-            src="https://apps.powerapps.com/play/e42ed678-5bbd-43fc-8c9c-e15ff3b181a8?source=iframe"
-            title="Teacher Portal PowerApp"
-            className="w-full h-full border-none rounded-lg"
-          />
-        );
       case 'external-links':
         return <ExternalLinks />;
       case 'calendar-creator':
@@ -188,32 +166,30 @@ function TeacherDashboard() {
         return <TemplateManager defaultOpen={true} />;
       case 'org-chart':
         return <OrgChart />;
-        case 'imathas-import':  
-  return <IMathASGradeImporter />;
-          case 'lti-management':
-  return <LTIManagement />;
-  case 'enrollment-stats':
-    return <EnrollmentStatistics />;
-    case 'data-verification':
-  return <DataVerification />;
-        default:
-          return null;
+      case 'imathas-import':  
+        return <IMathASGradeImporter />;
+      case 'lti-management':
+        return <LTIManagement />;
+      case 'enrollment-stats':
+        return <EnrollmentStatistics />;
+      case 'data-verification':
+        return <DataVerification />;
+      default:
+        return null;
     }
   };
 
-  // Update handleNavItemClick to handle unauthorized access attempts
   const handleNavItemClick = (key) => {
     const adminOnlySections = ['pricing', 'reports', 'contractor-invoices', 'sso-testing'];
 
     if (adminOnlySections.includes(key) && !hasAdminAccess()) {
-      // Optionally show a toast or alert here
       alert('Access Denied. You do not have the necessary permissions to access this section.');
       return;
     }
 
     setActiveSection(activeSection === key ? null : key);
     setIsFullScreen(false);
-    setIsChatExpanded(key === 'chat' || key === 'ai-chat');
+    setIsChatExpanded(key === 'chat');
   };
 
   const toggleFullScreen = () => {

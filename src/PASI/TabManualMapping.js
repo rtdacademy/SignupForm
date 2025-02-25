@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Button } from "../components/ui/button";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { AlertCircle, Copy, ExternalLink } from "lucide-react";
+import { AlertCircle, Copy, ExternalLink, Link2 } from "lucide-react";
 import { getDatabase, ref, onValue, off } from 'firebase/database';
 import { toast } from "sonner";
 import {
@@ -14,8 +14,21 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "../components/ui/pagination";
+import CourseLinkingDialog from './CourseLinkingDialog';
 
 const ITEMS_PER_PAGE = 50;
+
+const PASI_URL = 'https://extranet.education.alberta.ca/PASI/PASIprep/view-student';
+
+const formatASNForURL = (asn) => {
+  return asn ? asn.replace(/-/g, '') : '';
+};
+
+const handleOpenPASI = (asn) => {
+  const formattedASN = formatASNForURL(asn);
+  const url = `${PASI_URL}/${formattedASN}`;
+  window.open(url, 'pasiWindow');
+};
 
 const TabManualMapping = ({ data = { details: [] }, schoolYear }) => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -23,6 +36,8 @@ const TabManualMapping = ({ data = { details: [] }, schoolYear }) => {
   const [totalPages, setTotalPages] = useState(1);
   const [mappingRecords, setMappingRecords] = useState([]);
   const [categoryName, setCategoryName] = useState('');
+  const [isLinkingDialogOpen, setIsLinkingDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState(null);
 
   useEffect(() => {
     if (!schoolYear) return;
@@ -65,6 +80,16 @@ const TabManualMapping = ({ data = { details: [] }, schoolYear }) => {
 
   const handleOpenDashboard = () => {
     window.open('https://yourway.rtdacademy.com/teacher-dashboard', '_blank');
+  };
+
+  const handleOpenLinkingDialog = (record) => {
+    setSelectedRecord(record);
+    setIsLinkingDialogOpen(true);
+  };
+
+  const handleCloseLinkingDialog = () => {
+    setIsLinkingDialogOpen(false);
+    setSelectedRecord(null);
   };
 
   const renderPagination = () => {
@@ -158,14 +183,32 @@ const TabManualMapping = ({ data = { details: [] }, schoolYear }) => {
                 </Badge>
               </TableCell>
               <TableCell>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => handleCopyData(record.asn)}
-                  title="Copy ASN"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleCopyData(record.asn)}
+                    title="Copy ASN"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleOpenPASI(record.asn)}
+                    title="Open in PASI"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleOpenLinkingDialog(record)}
+                    title="Link Course"
+                  >
+                    <Link2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))}
@@ -173,6 +216,12 @@ const TabManualMapping = ({ data = { details: [] }, schoolYear }) => {
       </Table>
 
       {renderPagination()}
+
+      <CourseLinkingDialog
+        isOpen={isLinkingDialogOpen}
+        onClose={handleCloseLinkingDialog}
+        record={selectedRecord}
+      />
     </div>
   );
 };

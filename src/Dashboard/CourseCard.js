@@ -43,6 +43,9 @@ import CreateScheduleButton from './CreateScheduleButton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '../components/ui/sheet';
 import ProofOfEnrollmentDialog from './ProofOfEnrollmentDialog';
 
+// Keep the enforcement date constant
+const PAYMENT_ENFORCEMENT_DATE = new Date('2024-11-22');
+
 const getStatusColor = (status) => {
   switch (status) {
     case 'Active':
@@ -107,22 +110,33 @@ const CourseCard = ({
 
   const [showEnrollmentProof, setShowEnrollmentProof] = useState(false);
 
-  // Compute the effective payment status.
-  // If course.payment_status.status is already set, use it.
-  // Otherwise, if the student is adult or international and 9+ days have passed since course.Created,
-  // mark the status as "unpaid".
+  // Update computedPaymentStatus to silently handle legacy courses
   const computedPaymentStatus = (() => {
+    // Skip payment enforcement for courses created before Nov 22, 2024
+    if (course.Created) {
+      const createdDate = new Date(course.Created);
+      if (createdDate < PAYMENT_ENFORCEMENT_DATE) {
+        return 'paid'; // Just treat legacy courses as paid instead of using 'grandfathered'
+      }
+    }
+
+    // Existing payment status logic for newer courses
     if (course.payment_status && course.payment_status.status) {
       return course.payment_status.status;
     }
+    
+    // Only check trial period for courses created after enforcement date
     if ((isAdultStudent || isInternationalStudent) && course.Created) {
       const createdDate = new Date(course.Created);
-      const today = new Date();
-      const diffDays = Math.floor((today - createdDate) / (1000 * 3600 * 24));
-      if (diffDays >= 9) {
-        return 'unpaid';
+      if (createdDate >= PAYMENT_ENFORCEMENT_DATE) {
+        const today = new Date();
+        const diffDays = Math.floor((today - createdDate) / (1000 * 3600 * 24));
+        if (diffDays >= 9) {
+          return 'unpaid';
+        }
       }
     }
+    
     return null;
   })();
 
@@ -167,73 +181,50 @@ const CourseCard = ({
     setShowScheduleConfirmDialog(true);
   };
   
-  // Updated handleGoToCourse to block access if payment is required or trial period expired.
+  // Simplify handleGoToCourse to just check schedule and status
   const handleGoToCourse = () => {
     if (!hasSchedule) {
       toast.error("Please create a schedule before accessing the course");
       return;
     }
+    
+    const createdDate = new Date(course.Created);
+    // For courses before cutoff date, only check if course is Active
+    if (createdDate < PAYMENT_ENFORCEMENT_DATE) {
+      if (status !== 'Active') {
+        toast.error("You cannot access the course until it has been activated");
+        return;
+      }
+      if (onGoToCourse) {
+        onGoToCourse(course);
+      }
+      return;
+    }
+  
+    // For newer courses, check both active status and payment
     if (status !== 'Active' || computedPaymentStatus === 'unpaid') {
       toast.error("You cannot access the course until it has been activated and payment completed");
       return;
     }
+    
     if (onGoToCourse) {
       onGoToCourse(course);
     }
   };
 
-  const renderRegistrationMessage = () => {
-    if (status !== 'Registration') return null;
-  
-    return (
-      <Alert className="mb-4 bg-blue-50 border-blue-200">
-        <FaEnvelope className="h-4 w-4 text-blue-500" />
-        <AlertDescription className="text-blue-700">
-          <p className="font-medium mb-2">Registration Steps:</p>
-          <div className="space-y-3">
-            <div className="flex items-start gap-2">
-              <div className="mt-1 flex-shrink-0">
-                {hasSchedule ? (
-                  <FaCheckCircle className="h-4 w-4 text-green-500" />
-                ) : (
-                  <div className="h-4 w-4 border-2 border-blue-300 rounded-full" />
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-medium">Create Your Schedule</p>
-                {!hasSchedule && (
-                  <p className="text-xs text-blue-600 mt-1">
-                    Please create your schedule using the button below
-                  </p>
-                )}
-              </div>
-            </div>
-  
-            <div className="flex items-start gap-2">
-              <div className="mt-1 flex-shrink-0">
-                <div className="h-4 w-4 border-2 border-blue-300 rounded-full flex items-center justify-center">
-                  <div className="h-2 w-2 bg-blue-300 rounded-full animate-pulse" />
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium">Registration Processing</p>
-                <p className="text-xs text-blue-600 mt-1">
-                  Your registration is being processed by our registrar (up to 2 business days). 
-                  You'll receive an email when complete, and the "Go to Course" button will become active.
-                </p>
-              </div>
-            </div>
-          </div>
-        </AlertDescription>
-      </Alert>
-    );
-  };
-
-  // Updated payment button uses the computed payment status.
+  // Update renderPaymentButton to hide payment UI for legacy courses
   const renderPaymentButton = () => {
     const isAdultOrInternational = isAdultStudent || isInternationalStudent;
     
     if (!isAdultOrInternational) return null;
+
+    // Hide payment button for legacy courses
+    if (course.Created) {
+      const createdDate = new Date(course.Created);
+      if (createdDate < PAYMENT_ENFORCEMENT_DATE) {
+        return null;
+      }
+    }
     
     if (!computedPaymentStatus) {
       return (
@@ -351,6 +342,53 @@ const CourseCard = ({
           </Dialog>
         )}
       </>
+    );
+  };
+
+  const renderRegistrationMessage = () => {
+    if (status !== 'Registration') return null;
+  
+    return (
+      <Alert className="mb-4 bg-blue-50 border-blue-200">
+        <FaEnvelope className="h-4 w-4 text-blue-500" />
+        <AlertDescription className="text-blue-700">
+          <p className="font-medium mb-2">Registration Steps:</p>
+          <div className="space-y-3">
+            <div className="flex items-start gap-2">
+              <div className="mt-1 flex-shrink-0">
+                {hasSchedule ? (
+                  <FaCheckCircle className="h-4 w-4 text-green-500" />
+                ) : (
+                  <div className="h-4 w-4 border-2 border-blue-300 rounded-full" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium">Create Your Schedule</p>
+                {!hasSchedule && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Please create your schedule using the button below
+                  </p>
+                )}
+              </div>
+            </div>
+  
+            <div className="flex items-start gap-2">
+              <div className="mt-1 flex-shrink-0">
+                <div className="h-4 w-4 border-2 border-blue-300 rounded-full flex items-center justify-center">
+                  <div className="h-2 w-2 bg-blue-300 rounded-full animate-pulse" />
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Registration Processing</p>
+                <p className="text-xs text-blue-600 mt-1">
+                  Your registration is being processed by our registrar (up to 2 business days). 
+                  You'll receive an email when complete, and the "Go to Course" button will become active.
+                </p>
+              </div>
+            </div>
+          </div>
+        </AlertDescription>
+      </Alert>
     );
   };
 

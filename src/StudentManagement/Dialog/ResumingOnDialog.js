@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +32,7 @@ const ResumingOnDialog = ({
   courseName,
   studentKey,
   courseId,
-  studentEmail, // Add studentEmail prop
+  studentEmail,
   onConfirm,
   onCancel
 }) => {
@@ -41,6 +41,22 @@ const ResumingOnDialog = ({
   const [selectedDate, setSelectedDate] = useState(null);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Reset state when dialog opens/closes or student changes
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedDate(null);
+      setComment('');
+      setIsSubmitting(false);
+    }
+  }, [isOpen, studentKey]);
+
+  const handleClose = useCallback(() => {
+    setSelectedDate(null);
+    setComment('');
+    setIsSubmitting(false);
+    onCancel();
+  }, [onCancel]);
 
   const handleSubmit = useCallback(async () => {
     if (!selectedDate) {
@@ -64,9 +80,13 @@ const ResumingOnDialog = ({
   
       // Create new note
       const now = new Date();
-      const formattedDate = format(selectedDate, 'MMM d, yyyy');
-      const noteContent = `Resuming On ${formattedDate}\nComment: ${comment}`;
-      const formattedDbDate = format(selectedDate, 'yyyy-MM-dd');
+      const formattedDisplayDate = format(selectedDate, 'MMM d, yyyy');
+      const noteContent = `Resuming On ${formattedDisplayDate}\nComment: ${comment}`;
+      
+      // Create UTC date at 07:00:00
+      const utcDate = new Date(selectedDate);
+      utcDate.setUTCHours(7, 0, 0, 0);
+      const formattedDbDate = utcDate.toISOString();
   
       const newNote = {
         author: userName,
@@ -85,7 +105,6 @@ const ResumingOnDialog = ({
       Object.keys(existingResumingDates).forEach(date => {
         if (existingResumingDates[date]?.[studentKey]) {
           delete existingResumingDates[date][studentKey];
-          // Remove the date node if it's empty
           if (Object.keys(existingResumingDates[date]).length === 0) {
             delete existingResumingDates[date];
           }
@@ -93,19 +112,19 @@ const ResumingOnDialog = ({
       });
   
       // Add new resuming date entry
-      if (!existingResumingDates[formattedDbDate]) {
-        existingResumingDates[formattedDbDate] = {};
+      const dateKey = format(utcDate, 'yyyy-MM-dd'); // Use date-only key for the resumingDates object
+      if (!existingResumingDates[dateKey]) {
+        existingResumingDates[dateKey] = {};
       }
-      existingResumingDates[formattedDbDate][studentKey] = {
+      existingResumingDates[dateKey][studentKey] = {
         courseId,
         studentEmail
       };
   
       // Create status log entry
-      const statusLogRef = ref(db, `students/${studentKey}/courses/${courseId}/statusLog/${Date.now()}`);
       const statusLogEntry = {
         timestamp: now.toISOString(),
-        status: `Resuming on ${formattedDbDate}`,
+        status: "Resuming on (date)",
         previousStatus: statusValue || '',
         updatedBy: {
           name: userName,
@@ -119,7 +138,7 @@ const ResumingOnDialog = ({
       const updates = {
         [`students/${studentKey}/courses/${courseId}/jsonStudentNotes`]: [newNote, ...existingNotes],
         [`students/${studentKey}/courses/${courseId}/resumingOnDate`]: formattedDbDate,
-        [`students/${studentKey}/courses/${courseId}/Status/Value`]: `Resuming on ${formattedDbDate}`,
+        [`students/${studentKey}/courses/${courseId}/Status/Value`]: "Resuming on (date)",
         [`students/${studentKey}/courses/${courseId}/statusLog/${Date.now()}`]: statusLogEntry,
         ['notificationDates/resumingDates']: existingResumingDates
       };
@@ -130,6 +149,10 @@ const ResumingOnDialog = ({
       // Call onConfirm callback with the date
       await onConfirm(formattedDbDate);
       
+      // Reset state after successful submission
+      setSelectedDate(null);
+      setComment('');
+      
     } catch (error) {
       console.error('Error updating resuming date:', error);
       alert('An error occurred while saving the data.');
@@ -139,7 +162,15 @@ const ResumingOnDialog = ({
   }, [selectedDate, comment, studentKey, courseId, studentEmail, userName, user.email, statusValue, onConfirm]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog 
+      open={isOpen} 
+      onOpenChange={(open) => {
+        if (!open) {
+          handleClose();
+        }
+        onOpenChange(open);
+      }}
+    >
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>Select Resuming Date</DialogTitle>
@@ -177,6 +208,7 @@ const ResumingOnDialog = ({
                 </Button>
               }
               dateFormat="MM/dd/yyyy"
+              minDate={new Date()}
             />
           </div>
 
@@ -195,7 +227,7 @@ const ResumingOnDialog = ({
         <DialogFooter className="mt-6">
           <Button
             variant="outline"
-            onClick={onCancel}
+            onClick={handleClose}
             disabled={isSubmitting}
           >
             Cancel

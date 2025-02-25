@@ -171,6 +171,12 @@ const updateStudentCourseSummary = functions.database
         .once('value');
       const primarySchoolName = primarySchoolNameSnap.val() || '';
 
+      // Get resumingOnDate
+      const resumingOnDateSnap = await db
+        .ref(`students/${studentId}/courses/${courseId}/resumingOnDate`)
+        .once('value');
+      const resumingOnDate = resumingOnDateSnap.val() || '';
+
       const summary = {
         Status_Value: newValue.Status?.Value || '',
         Status_SharepointValue: newValue.Status?.SharepointValue || '',
@@ -183,7 +189,8 @@ const updateStudentCourseSummary = functions.database
         PercentCompleteGradebook: newValue.PercentCompleteGradebook || 0,
         Created: newValue.Created || null,
         hasSchedule: hasSchedule,
-        primarySchoolName: primarySchoolName, // Add primarySchoolName to summary
+        primarySchoolName: primarySchoolName,
+        resumingOnDate: resumingOnDate, // Add resumingOnDate to summary
         
         // Profile fields
         LastSync: profile.LastSync || '',

@@ -4,11 +4,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Button } from "../components/ui/button";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { AlertCircle, RotateCw, Copy, FileText } from "lucide-react";
+import { AlertCircle, RotateCw, Copy, FileText, ExternalLink, GraduationCap } from "lucide-react";
 import { getDatabase, ref, set, onValue, off } from 'firebase/database';
 import { toast } from "sonner";
-import { STATUS_OPTIONS, getStatusColor } from '../config/DropdownOptions';
+import { STATUS_OPTIONS, getStatusColor, COURSE_OPTIONS } from '../config/DropdownOptions';
 import PASIRecordDialog from './PASIRecordDialog';
+import StudentGradesDisplay from '../StudentManagement/StudentGradesDisplay';
 import {
   Pagination,
   PaginationContent,
@@ -19,6 +20,32 @@ import {
 } from "../components/ui/pagination";
 
 const ITEMS_PER_PAGE = 50;
+const PASI_URL = 'https://extranet.education.alberta.ca/PASI/PASIprep/view-student';
+
+// Helper function to get course information
+const getCourseInfo = (courseId) => {
+  const course = COURSE_OPTIONS.find(course => course.courseId === parseInt(courseId));
+  return course || { value: 'Unknown Course', color: '#666666' };
+};
+
+// Helper function to format ASN for PASI URL
+const formatASNForURL = (asn) => {
+  return asn ? asn.replace(/-/g, '') : '';
+};
+
+const CourseCell = ({ courseId }) => {
+  const courseInfo = getCourseInfo(courseId);
+  return (
+    <div className="flex items-center gap-2">
+      <span style={{ color: courseInfo.color }}>
+        {courseInfo.value}
+      </span>
+      <span className="text-xs text-muted-foreground">
+        ({courseInfo.pasiCode || 'No PASI Code'})
+      </span>
+    </div>
+  );
+};
 
 const TabStatusMismatches = ({ data = { details: [] }, schoolYear }) => {
   const [studentStatuses, setStudentStatuses] = useState({});
@@ -26,6 +53,9 @@ const TabStatusMismatches = ({ data = { details: [] }, schoolYear }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [paginatedData, setPaginatedData] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
+  const [pasiWindowName, setPasiWindowName] = useState('pasiWindow');
+  // New state for grades display
+  const [selectedGradesData, setSelectedGradesData] = useState(null);
 
   const getStudentKeyFromSummaryKey = (summaryKey) => {
     return summaryKey.split('_')[0];
@@ -35,6 +65,12 @@ const TabStatusMismatches = ({ data = { details: [] }, schoolYear }) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
     toast.success('Copied to clipboard');
+  };
+
+  const handleOpenPASI = (asn) => {
+    const formattedASN = formatASNForURL(asn);
+    const url = `${PASI_URL}/${formattedASN}`;
+    window.open(url, pasiWindowName);
   };
 
   const handleStatusChange = async (studentKey, courseId, newStatus) => {
@@ -58,15 +94,15 @@ const TabStatusMismatches = ({ data = { details: [] }, schoolYear }) => {
     }
   };
 
+  const handleViewGrades = (studentKey, courseId) => {
+    setSelectedGradesData({ studentKey, courseId });
+  };
+
   useEffect(() => {
-    // Calculate total pages
     const total = Math.ceil(data.details.length / ITEMS_PER_PAGE) || 1;
     setTotalPages(total);
-
-    // Ensure currentPage is within bounds
     setCurrentPage((prev) => Math.min(prev, total));
-
-    // Update paginated data when page changes or data changes
+    
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
     setPaginatedData(data.details.slice(startIndex, endIndex));
@@ -76,7 +112,6 @@ const TabStatusMismatches = ({ data = { details: [] }, schoolYear }) => {
     const db = getDatabase();
     const listeners = {};
 
-    // Only set up listeners for visible items
     paginatedData.forEach(mismatch => {
       const studentKey = getStudentKeyFromSummaryKey(mismatch.summaryKey);
       const statusPath = `students/${studentKey}/courses/${mismatch.courseId}/Status/Value`;
@@ -102,46 +137,6 @@ const TabStatusMismatches = ({ data = { details: [] }, schoolYear }) => {
       });
     };
   }, [paginatedData]);
-
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-
-    const pageNumbers = [];
-    for (let i = 1; i <= totalPages; i++) {
-      pageNumbers.push(i);
-    }
-
-    return (
-      <Pagination className="mt-4">
-        <PaginationContent>
-          <PaginationItem>
-            <PaginationPrevious 
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-            />
-          </PaginationItem>
-          
-          {pageNumbers.map((page) => (
-            <PaginationItem key={page}>
-              <PaginationLink
-                isActive={currentPage === page}
-                onClick={() => setCurrentPage(page)}
-              >
-                {page}
-              </PaginationLink>
-            </PaginationItem>
-          ))}
-
-          <PaginationItem>
-            <PaginationNext
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-            />
-          </PaginationItem>
-        </PaginationContent>
-      </Pagination>
-    );
-  };
 
   const StatusCell = ({ mismatch, studentKey }) => {
     const statusKey = `${studentKey}_${mismatch.courseId}`;
@@ -197,6 +192,41 @@ const TabStatusMismatches = ({ data = { details: [] }, schoolYear }) => {
     );
   };
 
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <Pagination className="mt-4">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious 
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+            />
+          </PaginationItem>
+          
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <PaginationItem key={page}>
+              <PaginationLink
+                isActive={currentPage === page}
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </PaginationLink>
+            </PaginationItem>
+          ))}
+
+          <PaginationItem>
+            <PaginationNext
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <Alert>
@@ -225,7 +255,9 @@ const TabStatusMismatches = ({ data = { details: [] }, schoolYear }) => {
             return (
               <TableRow key={index}>
                 <TableCell>{mismatch.studentName}</TableCell>
-                <TableCell>{mismatch.courseDescription}</TableCell>
+                <TableCell>
+                  <CourseCell courseId={mismatch.courseId} />
+                </TableCell>
                 <TableCell>
                   <StatusCell mismatch={mismatch} studentKey={studentKey} />
                 </TableCell>
@@ -249,6 +281,22 @@ const TabStatusMismatches = ({ data = { details: [] }, schoolYear }) => {
                     >
                       <FileText className="h-4 w-4" />
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleOpenPASI(mismatch.asn)}
+                      title="Open in PASI"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleViewGrades(studentKey, mismatch.courseId)}
+                      title="View Grades"
+                    >
+                      <GraduationCap className="h-4 w-4" />
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -260,11 +308,20 @@ const TabStatusMismatches = ({ data = { details: [] }, schoolYear }) => {
       {renderPagination()}
 
       <PASIRecordDialog
-  isOpen={!!selectedPasiRecord}
-  onClose={() => setSelectedPasiRecord(null)}
-  pasiRecordId={selectedPasiRecord}
-  schoolYear={schoolYear}
-/>
+        isOpen={!!selectedPasiRecord}
+        onClose={() => setSelectedPasiRecord(null)}
+        pasiRecordId={selectedPasiRecord}
+        schoolYear={schoolYear}
+      />
+
+      {/* Grades Display Sheet */}
+      <StudentGradesDisplay
+        studentKey={selectedGradesData?.studentKey}
+        courseId={selectedGradesData?.courseId}
+        isOpen={!!selectedGradesData}
+        onOpenChange={(open) => !open && setSelectedGradesData(null)}
+        useSheet={true}
+      />
     </div>
   );
 };

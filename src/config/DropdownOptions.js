@@ -73,6 +73,7 @@ export const STATUS_OPTIONS = [
     allowAutoStatusChange: false, 
     alertLevel: ALERT_LEVELS.GREEN,
     tooltip: "Initial status set after student is registered in PASI system"
+    
   },
   { 
     value: "On Track", 
@@ -135,7 +136,8 @@ export const STATUS_OPTIONS = [
     alertLevel: ALERT_LEVELS.PURPLE,
     action: "PENDING_FINALIZATION",
     activeFutureArchivedValue: "Pending",
-    tooltip: "Student has been removed from the course"
+    tooltip: "Student has been removed from the course",
+    delay:true
   },
   { 
     value: "Course Completed", 
@@ -145,7 +147,8 @@ export const STATUS_OPTIONS = [
     alertLevel: ALERT_LEVELS.PURPLE,
     action: "PENDING_FINALIZATION",
     activeFutureArchivedValue: "Pending",
-    tooltip: "Student has successfully completed all course requirements"
+    tooltip: "Student has successfully completed all course requirements",
+    delay:true
   },
   { 
     value: "Exception", 
@@ -162,7 +165,8 @@ export const STATUS_OPTIONS = [
     category: "Other", 
     allowAutoStatusChange: false, 
     alertLevel: ALERT_LEVELS.GREY,
-    tooltip: "Student is on temporary pause with scheduled return date"
+    tooltip: "Student is on temporary pause with scheduled return date",
+    delay:true
   },
   { 
     value: "Locked Out", 

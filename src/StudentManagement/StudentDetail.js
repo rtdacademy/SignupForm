@@ -6,7 +6,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Sheet, SheetContent } from "../components/ui/sheet";
-import { Calendar } from 'lucide-react';
+import { Calendar, Split } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { useMode, MODES } from '../context/ModeContext';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import StudentDetailsSheet from './StudentDetailsSheet';
 import ScheduleMaker from '../Schedule/ScheduleMaker';
 import StudentNotes from './StudentNotes';
@@ -27,6 +28,7 @@ import InternationalDocuments from './InternationalDocuments';
 import { useUserPreferences } from '../context/UserPreferencesContext';
 import PaymentInfo from './PaymentInfo'; 
 import PASIManager from './PASIManager';
+import StudentGradesDisplay from './StudentGradesDisplay'; // Import the new component
 
 const getColorFromInitials = (initials) => {
   const colors = [
@@ -46,6 +48,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
   const [loading, setLoading] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+  const [isComparisonSheetOpen, setIsComparisonSheetOpen] = useState(false);
   const [notes, setNotes] = useState([]);
   const { user } = useAuth();
   const [visibleSections, setVisibleSections] = useState(isMobile ? 'notes' : ['notes']);
@@ -53,6 +56,8 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
   const [assignedStaff, setAssignedStaff] = useState([]);
   const [courseId, setCourseId] = useState(null);
   const [courseTitle, setCourseTitle] = useState('');
+  const [courseData, setCourseData] = useState(null); // Store the course data 
+  const [ltiLinksComplete, setLtiLinksComplete] = useState(false); // Track ltiLinksComplete status
   const prevDataRef = useRef();
   const [jsonGradebookSchedule, setJsonGradebookSchedule] = useState(null);
   const [scheduleJSON, setScheduleJSON] = useState(null);
@@ -63,6 +68,8 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLMSStudentID, setLocalLMSStudentID] = useState(studentSummary?.LMSStudentID || null);
   const [isEditingLMSId, setIsEditingLMSId] = useState(false);
+
+const [comparisonTab, setComparisonTab] = useState("unified");
   const lmsId = studentData?.courses?.[courseId]?.LMSStudentID || "";
 
   // New refs and state for dynamic font sizing
@@ -136,8 +143,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
         }
       );
   
-
-  
       toast.success('LMS Student ID updated successfully');
       setNewLMSId('');
     } catch (error) {
@@ -148,7 +153,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
     }
   };
 
-  // Updated getAvailableTabs function to include 'edge-admin'
+  // Updated getAvailableTabs function to handle ltiLinksComplete course
   const getAvailableTabs = () => {
     // If no student data or no courses, return minimal tabs
     if (!studentData || !studentData.courses || !courseId || !studentData.courses[courseId]) {
@@ -175,7 +180,11 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
     } else {
       // Non-registration mode tabs
       const baseTabs = ['notes'];
-      if (studentData.courses[courseId].jsonGradebookSchedule) {
+      
+      // If course has ltiLinksComplete, show grades tab instead of schedule/gradebook
+      if (ltiLinksComplete) {
+        return [...baseTabs, 'grades', 'more-info'];
+      } else if (studentData.courses[courseId].jsonGradebookSchedule) {
         return [...baseTabs, 'progress', 'more-info'];
       } else {
         return [...baseTabs, 'schedule', 'gradebook', 'more-info'];
@@ -184,10 +193,10 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
   };
 
   // Right inside StudentDetail:
-useEffect(() => {
-  console.log("StudentDetail MOUNTED (or re-mounted)");
-  return () => console.log("StudentDetail UNMOUNTED");
-}, []);
+  useEffect(() => {
+    console.log("StudentDetail MOUNTED (or re-mounted)");
+    return () => console.log("StudentDetail UNMOUNTED");
+  }, []);
 
 
   useEffect(() => {
@@ -212,7 +221,7 @@ useEffect(() => {
         setVisibleSections(availableTabs);
       }
     }
-  }, [currentMode, studentData, courseId, isMobile, preferences]);
+  }, [currentMode, studentData, courseId, isMobile, preferences, ltiLinksComplete]); // Add ltiLinksComplete as dependency
 
   useEffect(() => {
     if (!studentSummary) {
@@ -254,13 +263,23 @@ useEffect(() => {
             setCourseId(selectedCourseId);
             const courseData = data.courses[selectedCourseId];
 
-            const courseTitleRef = ref(db, `courses/${selectedCourseId}/Title`);
+            // Fetch additional course information including ltiLinksComplete
+            const courseFetchRef = ref(db, `courses/${selectedCourseId}`);
             try {
-              const courseSnapshot = await get(courseTitleRef);
-              setCourseTitle(courseSnapshot.exists() ? courseSnapshot.val() : 'Unknown Course');
+              const courseSnapshot = await get(courseFetchRef);
+              if (courseSnapshot.exists()) {
+                const fullCourseData = courseSnapshot.val();
+                setCourseData(fullCourseData);
+                setCourseTitle(fullCourseData.Title || 'Unknown Course');
+                setLtiLinksComplete(!!fullCourseData.ltiLinksComplete); // Set ltiLinksComplete flag
+              } else {
+                setCourseTitle('Unknown Course');
+                setLtiLinksComplete(false);
+              }
             } catch (error) {
-              console.error('Error fetching course title:', error);
+              console.error('Error fetching course data:', error);
               setCourseTitle('Unknown Course');
+              setLtiLinksComplete(false);
             }
 
             setJsonGradebookSchedule(courseData.jsonGradebookSchedule || null);
@@ -310,6 +329,7 @@ useEffect(() => {
             setScheduleJSON(null);
             setJsonGradebook(null);
             setNotes([]);
+            setLtiLinksComplete(false);
           }
 
           if (prevDataRef.current) {
@@ -324,6 +344,7 @@ useEffect(() => {
         // Student data doesn't exist
         setStudentData(null);
         setCourseId(null);
+        setLtiLinksComplete(false);
       }
       setLoading(false);
     });
@@ -506,6 +527,38 @@ useEffect(() => {
     );
   };
 
+  // New render function for StudentGradesDisplay
+  const renderGradesContent = () => {
+    if (!studentData?.courses[courseId]?.LMSStudentID) {
+      return (
+        <div className="flex items-center justify-center h-full p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="text-center text-yellow-700">
+            <p className="mb-2">LMS Student ID is required for displaying grades</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditingLMSId(true)}
+              className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white mt-2"
+            >
+              Set LMS Student ID
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-full">
+        <StudentGradesDisplay
+          studentKey={sanitizeEmail(studentSummary.StudentEmail)}
+          courseId={courseId}
+          useSheet={false}
+          className="h-full"
+        />
+      </div>
+    );
+  };
+
   // New render function for Edge Admin content
   const renderEdgeAdminContent = () => {
     const handleOpenSearchTab = () => {
@@ -595,13 +648,95 @@ useEffect(() => {
   
     return (
       <div className="w-full h-full min-h-[500px] relative">
-       
         <iframe
           src={gradebookUrl}
           className="w-full h-full absolute inset-0 border-0"
           title="Student Gradebook"
           allow="fullscreen"
         />
+      </div>
+    );
+  };
+
+  // Render the comparison sheet content
+  const renderComparisonSheetContent = () => {
+    const courseData = studentData?.courses[courseId];
+    const gradebookUrl = `https://edge.rtdacademy.com/course/gradebook.php?cid=${studentSummary?.CourseID}&stu=${lmsId}`;
+
+    return (
+      <div className="h-full flex flex-col">
+        <h2 className="text-xl font-bold mb-4 flex items-center">
+          <Split className="h-5 w-5 mr-2" />
+          Student Progress Views
+        </h2>
+        
+        <Tabs
+          value={comparisonTab}
+          onValueChange={setComparisonTab}
+          className="flex-1 flex flex-col h-full"
+        >
+         <TabsList className="grid w-full grid-cols-3 mb-4">
+  <TabsTrigger value="unified">YourWay Schedule</TabsTrigger>
+  <TabsTrigger value="gradebook">Gradebook</TabsTrigger>
+  <TabsTrigger value="schedule">Legacy Schedule</TabsTrigger>
+</TabsList>
+          
+          <TabsContent value="gradebook" className="flex-1 h-full">
+            {lmsId ? (
+              <div className="w-full h-full min-h-[600px] relative">
+                <iframe
+                  src={gradebookUrl}
+                  className="w-full h-full absolute inset-0 border-0"
+                  title="Student Gradebook"
+                  allow="fullscreen"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center text-gray-500">
+                  <p className="mb-2">No LMS Student ID assigned</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditingLMSId(true)}
+                    className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white mt-2"
+                  >
+                    Set LMS Student ID
+                  </Button>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="schedule" className="flex-1 h-full overflow-auto">
+            {courseData?.ScheduleJSON ? (
+              <ScheduleDisplay 
+                scheduleJSON={courseData.ScheduleJSON}
+                readOnly={true}
+              />
+            ) : courseData?.Schedule ? (
+              <div 
+                className="legacy-schedule" 
+                dangerouslySetInnerHTML={{ __html: courseData.Schedule }}
+              />
+            ) : (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-700">No schedule available</p>
+              </div>
+            )}
+          </TabsContent>
+
+          
+<TabsContent value="unified" className="flex-1 h-full">
+  <StudentGradesDisplay
+    studentKey={sanitizeEmail(studentSummary.StudentEmail)}
+    courseId={courseId}
+    useSheet={false}
+    className="h-full"
+  />
+</TabsContent>
+
+        </Tabs>
       </div>
     );
   };
@@ -703,12 +838,10 @@ useEffect(() => {
                       style={{ fontSize: `${nameFontSize}px` }}
                     >
                       {(studentData?.profile.preferredFirstName || studentData?.profile.firstName || '') + ' ' + (studentData?.profile.lastName || '')}
-
                     </h2>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{(studentData?.profile.preferredFirstName || studentData?.profile.firstName || '') + ' ' + (studentData?.profile.lastName || '')}
-                    </p>
+                    <p>{(studentData?.profile.preferredFirstName || studentData?.profile.firstName || '') + ' ' + (studentData?.profile.lastName || '')}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -788,8 +921,31 @@ useEffect(() => {
           </div>
         )}
 
+        {/* Grades Section - New section for ltiLinksComplete courses */}
+        {isSectionVisible('grades') && ltiLinksComplete && (
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-[#1fa6a7]">Grades & Progress</h4>
+                  <Button
+  variant="outline"
+  size="sm"
+  onClick={() => setIsComparisonSheetOpen(true)}
+  className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+>
+  <Split className="h-4 w-4 mr-2" />
+  View All Formats
+</Button>
+                </div>
+                {renderGradesContent()}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Progress Section */}
-        {isSectionVisible('progress') && studentData?.courses[courseId]?.jsonGradebookSchedule && (
+        {isSectionVisible('progress') && studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
           <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
@@ -800,8 +956,8 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Schedule Section */}
-        {isSectionVisible('schedule') && !studentData?.courses[courseId]?.jsonGradebookSchedule && (
+        {/* Schedule Section - Only shown for non-ltiLinksComplete courses */}
+        {isSectionVisible('schedule') && !studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
           <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
@@ -812,14 +968,13 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Gradebook Section */}
-        {isSectionVisible('gradebook') && !studentData?.courses[courseId]?.jsonGradebookSchedule && (
+        {/* Gradebook Section - Only shown for non-ltiLinksComplete courses */}
+        {isSectionVisible('gradebook') && !studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
           <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="font-semibold text-[#1fa6a7]">Gradebook</h4>
-
                   
                   <Button
                     variant="outline"
@@ -829,7 +984,6 @@ useEffect(() => {
                   >
                     Edit LMS ID: {studentData?.courses?.[courseId]?.LMSStudentID}
                   </Button>
-                  
                 </div>
                 {renderGradebookContent()}
               </CardContent>
@@ -954,26 +1108,26 @@ useEffect(() => {
           </div>
         )}
 
- {/* PASI Section - Add here */}
- {currentMode === MODES.REGISTRATION && isSectionVisible('pasi') && (
-    <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
-      <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
-        <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-          <h4 className="font-semibold mb-2 text-[#1fa6a7]">PASI Management</h4>
-          <PASIManager 
-  studentData={studentData} 
-  courseId={courseId} 
-  assignedStaff={assignedStaff} 
-/>
-        </CardContent>
-      </Card>
-    </div>
-  )}
-
+        {/* PASI Section */}
+        {currentMode === MODES.REGISTRATION && isSectionVisible('pasi') && (
+          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+                <h4 className="font-semibold mb-2 text-[#1fa6a7]">PASI Management</h4>
+                <PASIManager 
+                  studentData={studentData} 
+                  courseId={courseId} 
+                  assignedStaff={assignedStaff} 
+                />
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
 
       {/* Additional Sheets and Dialogs */}
       <>
+        {/* Student Details Sheet */}
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetContent side="right" className="w-full md:w-2/3 bg-gray-50">
             <StudentDetailsSheet 
@@ -987,6 +1141,16 @@ useEffect(() => {
           </SheetContent>
         </Sheet>
 
+        {/* Comparison Sheet - Wide Sheet for Side by Side Comparison */}
+        <Sheet open={isComparisonSheetOpen} onOpenChange={setIsComparisonSheetOpen}>
+          <SheetContent side="right" className="w-[95%] max-w-5xl p-6 overflow-hidden">
+            <div className="h-full flex flex-col">
+              {renderComparisonSheetContent()}
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Schedule Dialog */}
         <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
           <DialogContent className="max-w-6xl w-full h-[90vh] overflow-auto bg-gray-50">
             <DialogHeader>
@@ -996,8 +1160,7 @@ useEffect(() => {
                   Schedule Maker
                 </DialogTitle>
                 <div className="text-sm text-gray-700 text-center sm:text-left">
-                  <p><strong>Student:</strong> {(studentData?.profile.preferredFirstName || studentData?.profile.firstName || '') + ' ' + (studentData?.profile.lastName || '')}
-                  </p>
+                  <p><strong>Student:</strong> {(studentData?.profile.preferredFirstName || studentData?.profile.firstName || '') + ' ' + (studentData?.profile.lastName || '')}</p>
                   <p><strong>Course:</strong> {courseTitle}</p>
                 </div>
               </div>

@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { FaLink } from 'react-icons/fa';
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
-import { Switch } from "../components/ui/switch";
 import { Loader2 } from "lucide-react";
 import { useAuth } from '../context/AuthContext';
 import { getDatabase, ref, onValue, off } from 'firebase/database';
@@ -30,27 +29,35 @@ const IMathASSetup = ({ item, courseId, unitIndex, itemIndex, onItemChange, isEd
     });
   };
 
+  // Reset deepLinkData when courseId or item changes
+  useEffect(() => {
+    setDeepLinkData(null);
+  }, [courseId, item]);
+
   // Listen for deep link data
   useEffect(() => {
-    if (!item.lti?.deep_link_id) return;
-
     const db = getDatabase();
-    const deepLinkRef = ref(db, `lti/deep_links/${item.lti.deep_link_id}`);
+    let deepLinkRef;
 
-    const handleDeepLinkUpdate = (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setDeepLinkData(data);
-      } else {
-        setDeepLinkData(null);
-      }
-    };
+    if (item.lti?.deep_link_id) {
+      deepLinkRef = ref(db, `lti/deep_links/${item.lti.deep_link_id}`);
+      
+      const handleDeepLinkUpdate = (snapshot) => {
+        const data = snapshot.val();
+        setDeepLinkData(data || null);
+      };
 
-    onValue(deepLinkRef, handleDeepLinkUpdate);
+      onValue(deepLinkRef, handleDeepLinkUpdate);
 
-    return () => {
-      off(deepLinkRef, 'value', handleDeepLinkUpdate);
-    };
+      return () => {
+        if (deepLinkRef) {
+          off(deepLinkRef, 'value');
+        }
+      };
+    } else {
+      // Explicitly clear deepLinkData when there's no deep_link_id
+      setDeepLinkData(null);
+    }
   }, [item.lti?.deep_link_id]);
 
   // Function to handle messages from the popup window
@@ -61,9 +68,7 @@ const IMathASSetup = ({ item, courseId, unitIndex, itemIndex, onItemChange, isEd
       const linkData = event.data.links?.[0];
       if (linkData) {
         onItemChange(unitIndex, itemIndex, 'lti', {
-          ...(item.lti || {}),
-          enabled: true,
-          deep_link_id: item.lti.deep_link_id,
+          deep_link_id: item.lti?.deep_link_id || `${courseId}-${crypto.randomUUID()}`,
           resource_link_id: linkData.resource_link_id,
           title: linkData.title,
           url: linkData.url
@@ -75,7 +80,7 @@ const IMathASSetup = ({ item, courseId, unitIndex, itemIndex, onItemChange, isEd
       }
       setLoading(false);
     }
-  }, [onItemChange, unitIndex, itemIndex, popupWindow, item.lti]);
+  }, [onItemChange, unitIndex, itemIndex, popupWindow, item.lti, courseId]);
 
   // Set up and clean up message listener
   useEffect(() => {
@@ -98,8 +103,14 @@ const IMathASSetup = ({ item, courseId, unitIndex, itemIndex, onItemChange, isEd
         throw new Error('User not authenticated');
       }
 
+      const deep_link_id = item.lti?.deep_link_id || `${courseId}-${crypto.randomUUID()}`;
+      
+      // If this is the first setup, set the deep_link_id
       if (!item.lti?.deep_link_id) {
-        throw new Error('Missing deep_link_id');
+        onItemChange(unitIndex, itemIndex, 'lti', {
+          ...(item.lti || {}),
+          deep_link_id
+        });
       }
 
       setLoading(true);
@@ -109,7 +120,7 @@ const IMathASSetup = ({ item, courseId, unitIndex, itemIndex, onItemChange, isEd
         user_id: user.uid,
         course_id: courseId,
         role: 'instructor',
-        deep_link_id: item.lti.deep_link_id,
+        deep_link_id,
         allow_direct_login: "1",
         firstname: user.displayName?.split(' ')[0] || '',
         lastname: user.displayName?.split(' ').slice(1).join(' ') || '',
@@ -160,39 +171,16 @@ const IMathASSetup = ({ item, courseId, unitIndex, itemIndex, onItemChange, isEd
     }
   }, [handleLTILaunch]);
 
-  if (!isEditing && !item.lti?.enabled) {
+  if (item.type === 'info') {
     return null;
   }
 
   return (
     <div className="flex flex-col space-y-2 mt-2 px-8">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Switch 
-            checked={item.lti?.enabled || false}
-            onCheckedChange={(checked) => {
-              if (checked) {
-                // When enabling, use existing deep_link_id if it exists, otherwise generate new one
-                const deep_link_id = item.lti?.deep_link_id || `${courseId}-${crypto.randomUUID()}`;
-                onItemChange(unitIndex, itemIndex, 'lti', {
-                  ...(item.lti || {}), // Preserve any other existing lti data
-                  enabled: true,
-                  deep_link_id
-                });
-              } else {
-                // When disabling, keep all existing lti data but set enabled to false
-                onItemChange(unitIndex, itemIndex, 'lti', {
-                  ...item.lti,
-                  enabled: false
-                });
-              }
-            }}
-            disabled={!isEditing}
-          />
-          <span className="font-medium">Enable IMathAS Integration</span>
-        </div>
+        <span className="font-medium">IMathAS Integration</span>
         
-        {isEditing && item.lti?.enabled && !deepLinkData && (
+        {isEditing && !deepLinkData && (
           <Button
             onClick={handleLTILaunch}
             variant="outline"
@@ -214,64 +202,60 @@ const IMathASSetup = ({ item, courseId, unitIndex, itemIndex, onItemChange, isEd
         )}
       </div>
 
-      {item.lti?.enabled && (
-        <>
-          {deepLinkData ? (
-            <div className="bg-green-50 p-4 rounded-md space-y-2">
-              <p className="text-green-700 flex items-center gap-2">
-                <FaLink className="w-4 h-4" />
-                IMathAS Assessment Connected
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="font-medium">Title:</span> {deepLinkData.title}
-                </div>
-                <div>
-                  <span className="font-medium">Course ID:</span> {deepLinkData.course_id}
-                </div>
-                <div>
-                  <span className="font-medium">Assessment ID:</span> {deepLinkData.assessment_id}
-                </div>
-                <div>
-                  <span className="font-medium">Max Score:</span> {deepLinkData.lineItem?.scoreMaximum || 'N/A'}
-                </div>
-                <div className="col-span-2">
-                  <span className="font-medium">Created:</span> {formatDate(deepLinkData.created)}
-                </div>
-              </div>
-              {isEditing && (
-                <div className="mt-4">
-                  <Button
-                    onClick={handleReconfigure}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Update Assessment Settings
-                  </Button>
-                  <p className="text-xs text-gray-600 mt-2">
-                    Updating will modify the assessment settings for all students.
-                    Existing student data will be preserved.
-                  </p>
-                </div>
-              )}
+      {deepLinkData ? (
+        <div className="bg-green-50 p-4 rounded-md space-y-2">
+          <p className="text-green-700 flex items-center gap-2">
+            <FaLink className="w-4 h-4" />
+            IMathAS Assessment Connected
+          </p>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <span className="font-medium">Title:</span> {deepLinkData.title}
             </div>
-          ) : (
-            <Alert>
-              <AlertDescription>
-                {isEditing ? 
-                  "Click the \"Setup IMathAS Assessment\" button to configure this assessment in IMathAS." :
-                  "This assessment hasn't been configured in IMathAS yet."
-                }
-              </AlertDescription>
-            </Alert>
+            <div>
+              <span className="font-medium">Course ID:</span> {deepLinkData.course_id}
+            </div>
+            <div>
+              <span className="font-medium">Assessment ID:</span> {deepLinkData.assessment_id}
+            </div>
+            <div>
+              <span className="font-medium">Max Score:</span> {deepLinkData.lineItem?.scoreMaximum || 'N/A'}
+            </div>
+            <div className="col-span-2">
+              <span className="font-medium">Created:</span> {formatDate(deepLinkData.created)}
+            </div>
+          </div>
+          {isEditing && (
+            <div className="mt-4">
+              <Button
+                onClick={handleReconfigure}
+                variant="outline"
+                size="sm"
+              >
+                Update Assessment Settings
+              </Button>
+              <p className="text-xs text-gray-600 mt-2">
+                Updating will modify the assessment settings for all students.
+                Existing student data will be preserved.
+              </p>
+            </div>
           )}
+        </div>
+      ) : (
+        <Alert>
+          <AlertDescription>
+            {isEditing ? 
+              "Click the \"Setup IMathAS Assessment\" button to configure this assessment in IMathAS." :
+              "This assessment hasn't been configured in IMathAS yet."
+            }
+          </AlertDescription>
+        </Alert>
+      )}
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-        </>
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
     </div>
   );

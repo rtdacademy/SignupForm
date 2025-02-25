@@ -22,6 +22,7 @@ import {
   Clock as ClockIcon,
   PlayCircle,
   Target,
+  Info,
 } from 'lucide-react';
 import ProgressSection from '../components/ProgressSection';
 
@@ -48,6 +49,8 @@ const getTitleAccentColor = (type) => {
 };
 
 const sanitizeHTML = (html) => {
+  if (!html || typeof html !== 'string') return '';
+  
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = html;
 
@@ -88,7 +91,6 @@ const TimeDetails = ({ startTime, lastChange }) => {
 
 const CourseNavigation = ({
   courseTitle,
-  schedule,
   normalizedSchedule,
   findScheduleItem,
   onItemSelect,
@@ -96,29 +98,33 @@ const CourseNavigation = ({
   studentCourseData,
   courseData,
   previewMode,
+  isInitialSchedule = false,
 }) => {
   useEffect(() => {
     console.group('%c[CourseNavigation] Rendering with data:', 'color: #06b6d4; font-weight: bold;');
     console.log('normalizedSchedule:', normalizedSchedule);
     console.log('Student Course Data:', studentCourseData);
+    console.log('Is Initial Schedule:', isInitialSchedule);
     console.groupEnd();
-  }, [normalizedSchedule, studentCourseData]);
+  }, [normalizedSchedule, studentCourseData, isInitialSchedule]);
 
   const renderItem = (item, unitIdx, itemIdx) => {
-    if (item.type === 'info' && item.title === 'Schedule Created') {
+    // Safety check for item
+    if (!item || !item.title || item.type === 'info' && item.title === 'Schedule Created') {
       return null;
     }
 
     const scheduleItem = findScheduleItem?.(item);
-    const isCurrentScheduled = item.globalIndex === normalizedSchedule?.scheduleAdherence?.currentScheduledIndex;
-    const isCurrentProgress = item.globalIndex === (normalizedSchedule?.scheduleAdherence?.currentCompletedIndex + 1);
-    const isCompleted = item.globalIndex <= normalizedSchedule?.scheduleAdherence?.currentCompletedIndex;
+    const isCurrentScheduled = normalizedSchedule?.scheduleAdherence && 
+                               item.globalIndex === normalizedSchedule.scheduleAdherence.currentScheduledIndex;
+    const isCurrentProgress = normalizedSchedule?.scheduleAdherence && 
+                              item.globalIndex === (normalizedSchedule.scheduleAdherence.currentCompletedIndex + 1);
+    const isCompleted = item.assessmentData !== undefined;
     const sanitizedTitle = { __html: sanitizeHTML(item.title) };
     
     const hasScore = item.assessmentData?.scorePercent !== undefined;
     const startTime = item.assessmentData?.startTime;
     const lastChange = item.assessmentData?.lastChange;
-    const gradebookData = scheduleItem?.gradebookData?.grade;
 
     const getScoreDisplay = () => {
       if (hasScore) {
@@ -128,14 +134,17 @@ const CourseNavigation = ({
           className: 'bg-blue-100 text-blue-800',
         };
       }
-      if (gradebookData?.percentage !== undefined) {
+      
+      // For initial schedule, show a special indicator for the first item
+      if (isInitialSchedule && item.globalIndex === 0) {
         return {
-          label: `${gradebookData.percentage.toFixed(1)}%`,
-          className: 'bg-blue-100 text-blue-800',
+          label: 'Start Here',
+          className: 'bg-blue-200 text-blue-900 font-medium',
         };
       }
+      
       return {
-        label: item.type,
+        label: item.type || 'unknown',
         className: typeColors[item.type] || 'bg-gray-100 text-gray-800',
       };
     };
@@ -143,6 +152,9 @@ const CourseNavigation = ({
     const scoreDisplay = getScoreDisplay();
 
     const getCardBorderClass = () => {
+      if (isInitialSchedule && item.globalIndex === 0) {
+        return 'border-blue-500 border-2 bg-blue-50';
+      }
       if (isCurrentProgress) return 'border-purple-500 border-2 bg-purple-50';
       if (isCurrentScheduled) return 'border-green-500 border-2 bg-green-50';
       return '';
@@ -150,7 +162,7 @@ const CourseNavigation = ({
 
     return (
       <Card
-        key={`${unitIdx}-${itemIdx}-${item.sequence}`}
+        key={`${unitIdx}-${itemIdx}-${item.sequence || itemIdx}`}
         className={`mb-2 shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer
           ${getCardBorderClass()}
           ${isCompleted ? 'bg-gray-50' : ''}`}
@@ -159,7 +171,19 @@ const CourseNavigation = ({
         <CardContent className="p-3">
           <div className="flex justify-between items-start">
             <div className="flex-grow flex items-start gap-2">
-              {isCurrentProgress && (
+              {isInitialSchedule && item.globalIndex === 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <PlayCircle className="text-blue-600 mt-1" size={16} />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Start your course here</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {isCurrentProgress && !isInitialSchedule && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger>
@@ -171,7 +195,7 @@ const CourseNavigation = ({
                   </Tooltip>
                 </TooltipProvider>
               )}
-              {isCurrentScheduled && (
+              {isCurrentScheduled && !isInitialSchedule && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger>
@@ -192,10 +216,10 @@ const CourseNavigation = ({
                   dangerouslySetInnerHTML={sanitizedTitle}
                 />
                 <div className="flex flex-wrap gap-2 ml-2">
-                  {(item.date || scheduleItem?.date) && (
+                  {item.date && (
                     <div className="flex items-center gap-1 text-xs text-gray-500">
                       <CalendarDays size={12} />
-                      <span>Due: {format(parseISO(item.date || scheduleItem?.date), 'MMM d, yyyy')}</span>
+                      <span>Due: {format(parseISO(item.date), 'MMM d, yyyy')}</span>
                     </div>
                   )}
                   {(startTime || lastChange) && (
@@ -227,9 +251,11 @@ const CourseNavigation = ({
   };
 
   const sectionedUnits = useMemo(() => {
-    const filteredUnits = normalizedSchedule?.units || [];
+    if (!normalizedSchedule?.units) return {};
+    
+    const filteredUnits = normalizedSchedule.units.filter(unit => unit && Array.isArray(unit.items));
     return filteredUnits.reduce((acc, unit) => {
-      if (unit.name === 'Schedule Information') return acc;
+      if (!unit || unit.name === 'Schedule Information') return acc;
       const section = unit.section || "1";
       if (!acc[section]) {
         acc[section] = [];
@@ -243,22 +269,51 @@ const CourseNavigation = ({
 
   // Find both current and scheduled units
   const currentProgressUnit = useMemo(() => {
-    if (!scheduleAdherence?.currentCompletedIndex) return null;
-    return normalizedSchedule?.units?.find(unit =>
-      unit.items?.some(item => item.globalIndex === (scheduleAdherence.currentCompletedIndex + 1))
+    if (isInitialSchedule && normalizedSchedule?.units && normalizedSchedule.units.length > 0) {
+      // For initial schedule, just return the first unit
+      return normalizedSchedule.units[0];
+    }
+    
+    if (!scheduleAdherence?.currentCompletedIndex || !normalizedSchedule?.units) return null;
+    return normalizedSchedule.units.find(unit =>
+      unit && unit.items && unit.items.some(item => 
+        item && item.globalIndex === (scheduleAdherence.currentCompletedIndex + 1)
+      )
     );
-  }, [normalizedSchedule, scheduleAdherence]);
+  }, [normalizedSchedule, scheduleAdherence, isInitialSchedule]);
+
+  // Get start and end dates from normalized schedule
+  const getScheduleDates = () => {
+    if (!normalizedSchedule?.units || previewMode) return null;
+    
+    // Find the earliest and latest dates in the schedule
+    const allDates = normalizedSchedule.units
+      .flatMap(unit => unit.items || [])
+      .filter(item => item && item.date)
+      .map(item => new Date(item.date));
+    
+    if (allDates.length === 0) return null;
+    
+    const startDate = new Date(Math.min(...allDates));
+    const endDate = new Date(Math.max(...allDates));
+    
+    return {
+      startDate: format(startDate, 'MMM d'),
+      endDate: format(endDate, 'MMM d, yyyy')
+    };
+  };
+
+  const scheduleDates = getScheduleDates();
 
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-gray-200 bg-gray-50">
         <h2 className="font-semibold text-xl text-gray-800 mb-2">{courseTitle}</h2>
-        {schedule && !previewMode && (
+        {scheduleDates && !previewMode && (
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Calendar className="w-4 h-4" />
             <span>
-              {format(parseISO(schedule.startDate), 'MMM d')} -{' '}
-              {format(parseISO(schedule.endDate), 'MMM d, yyyy')}
+              {scheduleDates.startDate} - {scheduleDates.endDate}
             </span>
           </div>
         )}
@@ -266,7 +321,21 @@ const CourseNavigation = ({
 
       <ScrollArea className="flex-1 w-full">
         <div className="p-4">
-          {schedule && !previewMode && (
+          {isInitialSchedule && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Info className="text-blue-600 h-5 w-5 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-blue-800 mb-1">Welcome to Your Course</h3>
+                  <p className="text-sm text-blue-700">
+                    Start with your first lesson to begin tracking your progress through the course.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        
+          {normalizedSchedule && !previewMode && studentCourseData && !isInitialSchedule && (
             <div className="mb-6">
               <ProgressSection
                 totalAssignments={courseData?.NumberGradeBookAssignments}
@@ -275,9 +344,9 @@ const CourseNavigation = ({
                 isOnTrack={!scheduleAdherence?.isBehind}
                 status={studentCourseData?.Status?.Value}
                 autoStatus={studentCourseData?.autoStatus}
-                currentMark={Math.round(
-                  studentCourseData?.jsonGradebookSchedule?.overallTotals?.percentage ?? 0
-                )}
+                currentMark={normalizedSchedule.marks?.overall?.withZeros 
+                  ? Math.round(normalizedSchedule.marks.overall.withZeros) 
+                  : 0}
                 statusLog={studentCourseData?.statusLog}
               />
             </div>
@@ -301,10 +370,18 @@ const CourseNavigation = ({
                   defaultValue={currentProgressUnit ? `unit-${currentProgressUnit.sequence}` : undefined}
                 >
                   {sectionUnits.map((unit) => {
+                    if (!unit || !unit.sequence) return null;
+                    
                     const isCurrentUnit = currentProgressUnit?.sequence === unit.sequence;
+                    
+                    // Find the correct index for this unit
+                    const unitIndex = normalizedSchedule.units.findIndex(u => 
+                      u && u.sequence === unit.sequence
+                    );
+                    
                     return (
                       <AccordionItem
-                        key={unit.sequence}
+                        key={`unit-${unit.sequence}`}
                         value={`unit-${unit.sequence}`}
                         className={
                           isCurrentUnit ? 'border-purple-200 bg-purple-50 rounded-lg' : ''
@@ -323,15 +400,16 @@ const CourseNavigation = ({
                                 isCurrentUnit ? 'text-purple-800' : 'text-gray-900'
                               }`}
                             >
-                              {unit.name}
+                              {unit.name || `Unit ${unit.sequence}`}
                             </span>
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="px-4">
                           <div className="space-y-2">
-                            {unit.items?.map((item, itemIdx) =>
-                              item && renderItem(item, unit.sequence - 1, itemIdx)
-                            )}
+                            {unit.items?.map((item, itemIdx) => {
+                              if (!item) return null;
+                              return renderItem(item, unitIndex, itemIdx);
+                            })}
                           </div>
                         </AccordionContent>
                       </AccordionItem>

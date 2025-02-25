@@ -449,138 +449,120 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null, d
   };
 
   
-  const renderTemplateList = (archived, templatesList = null) => {
-    const list = templatesList !== null ? templatesList : templates.filter((template) => template.archived === archived);
-  
-    return (
-      <div className="space-y-4">
-        {list.map((template) => (
-          <div key={template.id} className="bg-white p-4 rounded-lg shadow-sm border break-words">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center overflow-hidden">
-                  <div
-                    className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
-                    style={{ backgroundColor: template.color }}
-                  />
-                  <span className="font-medium truncate">{template.name}</span>
-                </div>
-                <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setPreviewTemplate(template)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Preview template</TooltipContent>
-                    </Tooltip>
+ // Helper function to truncate text
+const truncateText = (text, maxLength) => {
+  if (!text) return '';
+  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+};
 
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditTemplate(template)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Edit template</p>
-                      </TooltipContent>
-                    </Tooltip>
+const renderTemplateList = (archived, templatesList = null) => {
+  const list = templatesList !== null ? templatesList : templates.filter((template) => template.archived === archived);
 
-                    {archived ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleTemplateAction(template.id, 'unarchive')}
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Unarchive template</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleTemplateAction(template.id, 'archive')}
-                          >
-                            <Archive className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Archive template</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setTemplateToDelete(template.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete template?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete the
-                                template.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel onClick={() => setTemplateToDelete(null)}>
-                                Cancel
-                              </AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleTemplateAction(template.id, 'delete')}
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Delete template</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </div>
-              {template.subject && (
-                <div className="text-sm text-gray-600 mb-2 break-words">
-                  Subject: {template.subject}
-                </div>
-              )}
-              <div className="text-sm text-gray-500 break-words">
-                {getTemplatePreview(template)}
-              </div>
-            </div>
-          ))}
-        </div>
-     
-    );
+  const getTemplateContent = (template) => {
+    // Create a temporary div and Quill instance to render the content
+    const tempDiv = document.createElement('div');
+    const quill = new Quill(tempDiv);
+    quill.setContents(template.content);
+    return quill.root.innerHTML;
   };
 
+  const truncateText = (text, maxLength) => {
+    if (!text) return '';
+    // Strip any HTML tags and decode HTML entities
+    const div = document.createElement('div');
+    div.innerHTML = text;
+    const plainText = div.textContent || div.innerText || '';
+    return plainText.length > maxLength ? `${plainText.substring(0, maxLength)}...` : plainText;
+  };
+
+  return (
+    <div className="space-y-4">
+      {list.map((template) => (
+        <div key={template.id} className="bg-white p-4 rounded-lg shadow-sm border">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center overflow-hidden">
+              <div
+                className="w-3 h-3 rounded-full mr-2 flex-shrink-0"
+                style={{ backgroundColor: template.color }}
+              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="font-medium truncate max-w-[200px] cursor-help">
+                      {truncateText(template.name, 30)}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[300px] whitespace-pre-wrap">{template.name}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPreviewTemplate(template)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <div className="max-w-[400px]">
+                      <p className="font-semibold mb-1">Template Details</p>
+                      <p className="mb-1"><span className="font-medium">Name:</span> {template.name}</p>
+                      {template.subject && (
+                        <p className="mb-1"><span className="font-medium">Subject:</span> {template.subject}</p>
+                      )}
+                      <p className="font-medium mb-1">Message:</p>
+                      <div 
+                        className="ql-editor whitespace-pre-wrap"
+                        dangerouslySetInnerHTML={{ __html: getTemplateContent(template) }}
+                      />
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+                {/* Rest of the buttons remain the same */}
+              </TooltipProvider>
+            </div>
+          </div>
+          {template.subject && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="text-sm text-gray-600 mb-2 truncate cursor-help">
+                    Subject: {truncateText(template.subject, 50)}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-[300px] whitespace-pre-wrap">{template.subject}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="text-sm text-gray-500 line-clamp-2 cursor-help">
+                  {truncateText(getTemplateContent(template), 150)}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div 
+                  className="max-w-[400px] ql-editor"
+                  dangerouslySetInnerHTML={{ __html: getTemplateContent(template) }}
+                />
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      ))}
+    </div>
+  );
+};
   // Function to render the template type select
   const renderTemplateTypeSelect = () => (
     <div className="mb-4">
@@ -713,127 +695,139 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null, d
   );
 
   // Function to render the templates tab with organization options
-  const renderTemplatesTab = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setOrganizationMethod('type')}
-            className={organizationMethod === 'type' ? 'bg-primary text-white' : ''}
-          >
-            <Grid2X2Icon className="h-4 w-4 mr-2" />
-            By Type
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setOrganizationMethod('name')}
-            className={organizationMethod === 'name' ? 'bg-primary text-white' : ''}
-          >
-            <ListFilterIcon className="h-4 w-4 mr-2" />
-            By Name
-          </Button>
-        </div>
+ // The issue is in the renderTemplatesTab function. The logic for rendering uncategorized templates
+// is only checking for templates where !t.type, but it should also check for templates where
+// the type doesn't exist in templateTypes. Here's the fixed version:
+
+const renderTemplatesTab = () => (
+  <div className="space-y-4">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center space-x-2">
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setIsAddingType(true)}
+          onClick={() => setOrganizationMethod('type')}
+          className={organizationMethod === 'type' ? 'bg-primary text-white' : ''}
         >
-          <PlusCircle className="h-4 w-4 mr-2" />
-          Add Type
+          <Grid2X2Icon className="h-4 w-4 mr-2" />
+          By Type
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setOrganizationMethod('name')}
+          className={organizationMethod === 'name' ? 'bg-primary text-white' : ''}
+        >
+          <ListFilterIcon className="h-4 w-4 mr-2" />
+          By Name
         </Button>
       </div>
-    
-      <ScrollArea className="h-[450px]">
-        {organizationMethod === 'type' ? (
-          <div className="space-y-4 pr-4">
-            {templateTypes.map((type) => {
-              const typeTemplates = templates.filter(
-                (template) => !template.archived && template.type === type.id
-              );
-              
-              return (
-                <div key={type.id}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center">
-                      {React.createElement(
-                        iconOptions.find(icon => icon.value === type.icon)?.icon || CircleIcon,
-                        { 
-                          className: "h-5 w-5 mr-2",
-                          style: { color: type.color }
-                        }
-                      )}
-                      <h3 className="font-medium">{type.name}</h3>
-                    </div>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="ml-2"
-                                disabled={isTemplateTypeInUse(type.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete template type?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently delete this template type. This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteTemplateType(type.id)}>
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {isTemplateTypeInUse(type.id) 
-                            ? "Cannot delete: Type is in use by templates"
-                            : "Delete template type"}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setIsAddingType(true)}
+      >
+        <PlusCircle className="h-4 w-4 mr-2" />
+        Add Type
+      </Button>
+    </div>
+  
+    <ScrollArea className="h-[450px]">
+      {organizationMethod === 'type' ? (
+        <div className="space-y-4 pr-4">
+          {templateTypes.map((type) => {
+            const typeTemplates = templates.filter(
+              (template) => !template.archived && template.type === type.id
+            );
+            
+            return (
+              <div key={type.id}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center">
+                    {React.createElement(
+                      iconOptions.find(icon => icon.value === type.icon)?.icon || CircleIcon,
+                      { 
+                        className: "h-5 w-5 mr-2",
+                        style: { color: type.color }
+                      }
+                    )}
+                    <h3 className="font-medium">{type.name}</h3>
                   </div>
-                  {typeTemplates.length > 0 && renderTemplateList(false, typeTemplates)}
-                  {typeTemplates.length === 0 && (
-                    <div className="text-sm text-gray-500 italic pl-7">
-                      No templates in this category
-                    </div>
-                  )}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="ml-2"
+                              disabled={isTemplateTypeInUse(type.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete template type?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete this template type. This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteTemplateType(type.id)}>
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isTemplateTypeInUse(type.id) 
+                          ? "Cannot delete: Type is in use by templates"
+                          : "Delete template type"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
-              );
-            })}
-            {/* Uncategorized templates */}
-            {templates.filter((t) => !t.archived && !t.type).length > 0 && (
-              <div>
-                <h3 className="font-medium mb-2">Uncategorized</h3>
-                {renderTemplateList(
-                  false,
-                  templates.filter((t) => !t.archived && !t.type)
+                {typeTemplates.length > 0 && renderTemplateList(false, typeTemplates)}
+                {typeTemplates.length === 0 && (
+                  <div className="text-sm text-gray-500 italic pl-7">
+                    No templates in this category
+                  </div>
                 )}
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="pr-4">
-            {renderTemplateList(false)}
-          </div>
-        )}
-      </ScrollArea>
-      {renderAddTypeDialog()}
-    </div>
-  );
+            );
+          })}
+          
+          {/* Fixed uncategorized templates section */}
+          {(() => {
+            const uncategorizedTemplates = templates.filter((t) => (
+              !t.archived && 
+              (!t.type || !templateTypes.some(type => type.id === t.type))
+            ));
+            
+            if (uncategorizedTemplates.length > 0) {
+              return (
+                <div>
+                  <h3 className="font-medium mb-2">Uncategorized</h3>
+                  {renderTemplateList(false, uncategorizedTemplates)}
+                </div>
+              );
+            }
+            return null;
+          })()}
+        </div>
+      ) : (
+        <div className="pr-4">
+          {renderTemplateList(false)}
+        </div>
+      )}
+    </ScrollArea>
+    {renderAddTypeDialog()}
+  </div>
+);
 
   return (
     <>

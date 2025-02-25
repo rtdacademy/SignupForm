@@ -4,7 +4,7 @@ import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { AlertCircle, Copy, InfoIcon, PlusCircle } from "lucide-react";
+import { AlertCircle, Copy, InfoIcon, PlusCircle, ExternalLink } from "lucide-react";
 import { getDatabase, ref, onValue, off, set } from 'firebase/database';
 import { toast } from "sonner";
 import CreateStudent from '../Registration/CreateStudent';
@@ -24,6 +24,18 @@ import {
 } from "../components/ui/pagination";
 
 const ITEMS_PER_PAGE = 50;
+
+const PASI_URL = 'https://extranet.education.alberta.ca/PASI/PASIprep/view-student';
+
+const formatASNForURL = (asn) => {
+  return asn ? asn.replace(/-/g, '') : '';
+};
+
+const handleOpenPASI = (asn) => {
+  const formattedASN = formatASNForURL(asn);
+  const url = `${PASI_URL}/${formattedASN}`;
+  window.open(url, 'pasiWindow');
+};
 
 const getErrorBadgeColor = (reason) => {
   switch (reason) {
@@ -195,7 +207,7 @@ const TabFailedLinks = ({ data = { details: [] }, schoolYear }) => {
         status: pasiRecord.status,
         studentName: pasiRecord.studentName,
         courseCode: pasiRecord.courseCode,
-        courseDescription:pasiRecord.courseDescription
+        courseDescription: pasiRecord.courseDescription
       }
     });
   };
@@ -328,6 +340,14 @@ const TabFailedLinks = ({ data = { details: [] }, schoolYear }) => {
                       title="Copy ASN"
                     >
                       <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleOpenPASI(pasiRecord.asn)}
+                      title="Open in PASI"
+                    >
+                      <ExternalLink className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"

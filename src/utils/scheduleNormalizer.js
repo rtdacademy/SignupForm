@@ -203,15 +203,23 @@ const decompressData = async (base64String) => {
  * Fetches LTI deep link information
  */
 const fetchLtiDeepLinkInfo = async (deep_link_id) => {
-  if (!deep_link_id) return null;
+  console.group(`Fetching LTI Info for ${deep_link_id}`);
+  if (!deep_link_id) {
+    console.warn('No deep_link_id provided');
+    console.groupEnd();
+    return null;
+  }
 
   const db = getDatabase();
   const deepLinkRef = ref(db, `lti/deep_links/${deep_link_id}`);
 
   try {
     const snapshot = await get(deepLinkRef);
+    console.log('LTI Info snapshot exists:', snapshot.exists());
     if (snapshot.exists()) {
       const data = snapshot.val();
+      console.log('LTI Info data:', data);
+      console.groupEnd();
       return {
         url: data.url,
         assessment_id: data.assessment_id,
@@ -220,8 +228,9 @@ const fetchLtiDeepLinkInfo = async (deep_link_id) => {
       };
     }
   } catch (error) {
-    console.error(`Error fetching LTI info for ${deep_link_id}:`, error);
+    console.error(`Error fetching LTI info:`, error);
   }
+  console.groupEnd();
   return null;
 };
 
@@ -229,19 +238,32 @@ const fetchLtiDeepLinkInfo = async (deep_link_id) => {
  * Fetches assessment grades
  */
 const fetchAssessmentGrades = async (assessment_id, LMSStudentID) => {
-  if (!assessment_id || !LMSStudentID) return null;
+  console.group(`Fetching Assessment Grades`);
+  console.log('Parameters:', { assessment_id, LMSStudentID });
+  
+  if (!assessment_id || !LMSStudentID) {
+    console.warn('Missing required parameters');
+    console.groupEnd();
+    return null;
+  }
 
   const db = getDatabase();
   const gradesRef = ref(db, `imathas_grades/${assessment_id}_${LMSStudentID}`);
+  console.log('Grades path:', `imathas_grades/${assessment_id}_${LMSStudentID}`);
 
   try {
     const snapshot = await get(gradesRef);
+    console.log('Grades snapshot exists:', snapshot.exists());
     if (snapshot.exists()) {
-      return snapshot.val();
+      const data = snapshot.val();
+      console.log('Grade data:', data);
+      console.groupEnd();
+      return data;
     }
   } catch (error) {
-    console.error(`Error fetching grades for assessment ${assessment_id}:`, error);
+    console.error(`Error fetching grades:`, error);
   }
+  console.groupEnd();
   return null;
 };
 
@@ -437,41 +459,34 @@ export const normalizeScheduleData = async (
 
   const result = await Promise.all(
     courseUnits.map(async (courseUnit, unitIndex) => {
-      // Determine if this unit is before, current, or after our active unit
-      const isBeforeCurrentUnit = courseUnit.sequence < currentUnitSequence;
-      const isCurrentUnit = courseUnit.sequence === currentUnitSequence;
-      
       // Find matching schedule unit if it exists
       const scheduleUnit = activeUnits.find(u => u.sequence === courseUnit.sequence);
 
       // Process items based on unit status
       const processedItems = await Promise.all(
         courseUnit.items.map(async (courseItem, itemIndex) => {
-          // Initialize base item from course data
+          console.group(`Processing Item: ${courseItem.title}`);
+          
+          // Find matching schedule item
+          const scheduleItem = scheduleUnit?.items?.find(i => i.title === courseItem.title);
+          console.log('Found schedule item:', scheduleItem);
+
+          // Initialize base item from course data with schedule information
           const baseItem = {
             ...courseItem,
             globalIndex: globalIndex++,
             unitIndex,
             unitName: courseUnit.name,
+            date: scheduleItem?.date, // Add scheduled date
             weight: courseItem.weight !== undefined
               ? courseItem.weight
               : (globalWeights ? globalWeights[courseItem.type] : 1)
           };
 
-          // If we're in or after the current unit, and have schedule data, merge it
-          if (!isBeforeCurrentUnit && scheduleUnit) {
-            const scheduleItem = scheduleUnit.items.find(item => item.sequence === courseItem.sequence);
-            if (scheduleItem) {
-              Object.assign(baseItem, {
-                date: scheduleItem.date,
-                estimatedMinutes: scheduleItem.estimatedMinutes
-              });
-            }
-          }
-
           // If this item has LTI enabled, process its data
           if (courseItem.lti?.enabled && courseItem.lti?.deep_link_id) {
             const ltiInfo = await fetchLtiDeepLinkInfo(courseItem.lti.deep_link_id);
+
             if (ltiInfo) {
               const initialGrades = await fetchAssessmentGrades(
                 ltiInfo.assessment_id,
@@ -482,7 +497,7 @@ export const normalizeScheduleData = async (
                 const processedItem = await processAssessmentData(
                   initialGrades,
                   ltiInfo,
-                  baseItem
+                  baseItem // Now includes schedule date
                 );
 
                 if (processedItem) {
@@ -490,6 +505,7 @@ export const normalizeScheduleData = async (
                   if (onUpdate) {
                     onUpdate(unitIndex, itemIndex, processedItem);
                   }
+                  console.groupEnd();
                   return processedItem;
                 }
               }
@@ -497,7 +513,9 @@ export const normalizeScheduleData = async (
           }
 
           // Add to all items and return
+          console.log('Returning base item with date:', baseItem.date);
           allItems.push(baseItem);
+          console.groupEnd();
           return baseItem;
         })
       );
@@ -517,7 +535,7 @@ export const normalizeScheduleData = async (
   // Get status and alert level from courseData
   const currentStatus = courseData.Status?.Value || 'Default';
   const statusOption = STATUS_OPTIONS.find(option => option.value === currentStatus);
-  const alertLevel = statusOption?.alertLevel || 'yellow'; // Default to yellow if not found
+  const alertLevel = statusOption?.alertLevel || 'yellow';
 
   // Add status and alert level to schedule adherence
   scheduleAdherence.status = currentStatus;
