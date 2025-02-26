@@ -2,10 +2,100 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('./utils');
 const { updateStudentAutoStatus } = require('./autoStatus');
+const fetch = require('node-fetch'); // Make sure this is included in your package.json
 
 // Initialize Firebase Admin SDK if not already initialized
 if (admin.apps.length === 0) {
   admin.initializeApp();
+}
+
+/**
+ * Utility function to log events to the database
+ */
+async function logEvent(eventType, data, isSuccess = true) {
+  try {
+    const db = admin.database();
+    const logRef = db.ref('logs/events').push();
+    
+    await logRef.set({
+      timestamp: admin.database.ServerValue.TIMESTAMP,
+      eventType,
+      isSuccess,
+      ...data
+    });
+  } catch (error) {
+    console.error('Failed to log event:', error);
+  }
+}
+
+/**
+ * Fetch LMSStudentID from edge system
+ */
+async function fetchLMSStudentID(studentEmail, courseId) {
+  console.log(`Attempting to fetch LMSStudentID for ${studentEmail} in course ${courseId}`);
+  
+  try {
+    // Send request to edge system
+    const response = await fetch('https://edge.rtdacademy.com/return_data_to_yourway.php', {
+      method: 'POST',
+      body: JSON.stringify({ email: studentEmail }),
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+
+    const responseText = await response.text();
+    console.log('Raw response:', responseText);
+
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (e) {
+      console.error('Failed to parse response:', e);
+      throw new Error('Invalid response from Edge system');
+    }
+
+    console.log('Parsed result:', result);
+
+    if (!result.success) {
+      console.log('Edge system returned error:', result.message);
+      throw new Error(result.message || 'Failed to fetch LMS ID');
+    }
+
+    const db = admin.database();
+    const sanitizedEmail = sanitizeEmail(studentEmail);
+    
+    const updates = {};
+    updates[`students/${sanitizedEmail}/courses/${courseId}/LMSStudentID`] = result.user.id;
+    
+    const summaryRef = db.ref(`studentCourseSummaries/${sanitizedEmail}_${courseId}`);
+    const summarySnapshot = await summaryRef.once('value');
+    const currentToggle = summarySnapshot.exists() ? summarySnapshot.val().toggle : false;
+    
+    updates[`studentCourseSummaries/${sanitizedEmail}_${courseId}/toggle`] = !currentToggle;
+
+    await db.ref().update(updates);
+    
+    await logEvent('LMS Student ID Fetch', {
+      email: studentEmail,
+      courseId: courseId,
+      status: 'success',
+      lmsId: result.user.id
+    });
+
+    console.log(`Successfully fetched and saved LMSStudentID ${result.user.id} for ${studentEmail}`);
+    return result.user.id;
+
+  } catch (error) {
+    await logEvent('LMS Student ID Fetch Error', {
+      email: studentEmail,
+      courseId: courseId,
+      error: error.message
+    }, false);
+    
+    console.error(`Failed to fetch LMSStudentID for ${studentEmail}:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -73,12 +163,35 @@ const generateNormalizedSchedule = functions.https.onCall(async (data, context) 
     const studentCourseData = studentCourseSnapshot.val();
     const courseData = courseSnapshot.val();
     
-    // Ensure student has LMSStudentID
-    if (!studentCourseData.LMSStudentID) {
-      throw new functions.https.HttpsError(
-        'failed-precondition',
-        'No LMSStudentID found for student'
-      );
+    // Check for LMSStudentID and fetch it if missing
+    let lmsStudentID = studentCourseData.LMSStudentID;
+    
+    if (!lmsStudentID) {
+      console.log(`No LMSStudentID found for student ${studentKey} in course ${courseId}, attempting to fetch it`);
+      
+      // Get student email from studentCourseSummaries
+      const summaryRef = db.ref(`studentCourseSummaries/${studentKey}_${courseId}`);
+      const summarySnapshot = await summaryRef.once('value');
+      
+      if (!summarySnapshot.exists() || !summarySnapshot.val().StudentEmail) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'Cannot fetch LMSStudentID: Student email not found in summary'
+        );
+      }
+      
+      const studentEmail = summarySnapshot.val().StudentEmail;
+      
+      try {
+        // Try to fetch LMSStudentID from edge system
+        lmsStudentID = await fetchLMSStudentID(studentEmail, courseId);
+        console.log(`Successfully fetched LMSStudentID: ${lmsStudentID}`);
+      } catch (error) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Failed to fetch LMSStudentID: ${error.message}`
+        );
+      }
     }
     
     // Ensure course and schedule data exists
@@ -100,7 +213,7 @@ const generateNormalizedSchedule = functions.https.onCall(async (data, context) 
     const normalizedSchedule = await normalizeScheduleData(
       studentCourseData.ScheduleJSON.units,
       courseData,
-      studentCourseData.LMSStudentID,
+      lmsStudentID,
       studentKey,
       courseId,
       courseData.weights
@@ -126,6 +239,14 @@ const generateNormalizedSchedule = functions.https.onCall(async (data, context) 
     updates[`studentCourseSummaries/${studentKey}_${courseId}/lastNormalizedSchedSync`] = timestamp;
     
     await db.ref().update(updates);
+    
+    // Check and update auto-status
+    try {
+      await updateStudentAutoStatus(db, studentKey, courseId, safeNormalized.scheduleAdherence);
+      console.log(`Auto-status check completed for student: ${studentKey}, course: ${courseId}`);
+    } catch (error) {
+      console.warn(`Auto-status update failed, but continuing: ${error.message}`);
+    }
     
     console.log(`Successfully generated normalized schedule for student: ${studentKey}, course: ${courseId}`);
     
@@ -199,7 +320,7 @@ const onGradeUpdateTriggerNormalizedSchedule = functions.database
       
       // Step 4: Generate the normalized schedule
       // We can reuse the core schedule generation logic by calling the internal function directly
-      await generateNormalizedScheduleInternal(studentKey, courseId);
+      await generateNormalizedScheduleInternal(studentKey, courseId, gradeData.userId);
       
       console.log(`Successfully completed normalized schedule generation for ${studentKey} in ${courseId}`);
       return null;
@@ -261,7 +382,7 @@ const onLMSStudentIDAssignedTriggerSchedule = functions.database
       console.log(`Student ${hasSchedule ? 'already has' : 'does not have'} a normalized schedule`);
       
       // Generate or regenerate the normalized schedule now that we have an LMSStudentID
-      await generateNormalizedScheduleInternal(studentKey, courseId);
+      await generateNormalizedScheduleInternal(studentKey, courseId, newLMSStudentID);
       
       console.log(`Successfully generated normalized schedule for student ${studentKey} in course ${courseId} after LMSStudentID assignment`);
       return null;
@@ -285,7 +406,7 @@ const onLMSStudentIDAssignedTriggerSchedule = functions.database
 /**
  * Internal implementation of schedule generation used by both cloud functions
  */
-async function generateNormalizedScheduleInternal(studentKey, courseId) {
+async function generateNormalizedScheduleInternal(studentKey, courseId, providedLMSStudentID = null) {
   console.log(`Starting normalized schedule generation for student: ${studentKey}, course: ${courseId}`);
   
   // Set up database references
@@ -314,10 +435,31 @@ async function generateNormalizedScheduleInternal(studentKey, courseId) {
   const studentCourseData = studentCourseSnapshot.val();
   const courseData = courseSnapshot.val();
   
-  // Ensure student has LMSStudentID
-  if (!studentCourseData.LMSStudentID) {
-    console.error('No LMSStudentID found for student');
-    return null;
+  // Check for LMSStudentID and use provided one or fetch if missing
+  let lmsStudentID = providedLMSStudentID || studentCourseData.LMSStudentID;
+  
+  if (!lmsStudentID) {
+    console.log(`No LMSStudentID found for student ${studentKey} in course ${courseId}, attempting to fetch it`);
+    
+    // Get student email from studentCourseSummaries
+    const summaryRef = db.ref(`studentCourseSummaries/${studentKey}_${courseId}`);
+    const summarySnapshot = await summaryRef.once('value');
+    
+    if (!summarySnapshot.exists() || !summarySnapshot.val().StudentEmail) {
+      console.error('Cannot fetch LMSStudentID: Student email not found in summary');
+      return null;
+    }
+    
+    const studentEmail = summarySnapshot.val().StudentEmail;
+    
+    try {
+      // Try to fetch LMSStudentID from edge system
+      lmsStudentID = await fetchLMSStudentID(studentEmail, courseId);
+      console.log(`Successfully fetched LMSStudentID: ${lmsStudentID}`);
+    } catch (error) {
+      console.error(`Failed to fetch LMSStudentID: ${error.message}`);
+      return null;
+    }
   }
   
   // Ensure course and schedule data exists
@@ -335,7 +477,7 @@ async function generateNormalizedScheduleInternal(studentKey, courseId) {
   const normalizedSchedule = await normalizeScheduleData(
     studentCourseData.ScheduleJSON.units,
     courseData,
-    studentCourseData.LMSStudentID,
+    lmsStudentID,
     studentKey,
     courseId,
     courseData.weights
@@ -359,6 +501,14 @@ async function generateNormalizedScheduleInternal(studentKey, courseId) {
   updates[`studentCourseSummaries/${studentKey}_${courseId}/lastNormalizedSchedSync`] = timestamp;
   
   await db.ref().update(updates);
+  
+  // Check and update auto-status
+  try {
+    await updateStudentAutoStatus(db, studentKey, courseId, safeNormalized.scheduleAdherence);
+    console.log(`Auto-status check completed for student: ${studentKey}, course: ${courseId}`);
+  } catch (error) {
+    console.warn(`Auto-status update failed after schedule generation: ${error.message}`);
+  }
   
   console.log(`Successfully generated normalized schedule for student: ${studentKey}, course: ${courseId}`);
   
@@ -634,6 +784,15 @@ async function normalizeScheduleData(
     marks: calculateCourseMarks(filteredResult, courseData.weights)
   };
 
+  // Try to update auto-status based on schedule adherence
+  try {
+    const db = admin.database();
+    await updateStudentAutoStatus(db, studentEmailKey, courseId, scheduleAdherence);
+    console.log(`Auto-status check completed for student: ${studentEmailKey}, course: ${courseId}`);
+  } catch (error) {
+    console.warn(`Auto-status update failed, but continuing with schedule normalization: ${error.message}`);
+  }
+
   return finalResult;
 }
 
@@ -645,7 +804,7 @@ async function batchFetchLtiInfo(deepLinkIds) {
   if (!deepLinkIds || deepLinkIds.length === 0) {
     return {};
   }
-
+ 
   const db = admin.database();
   const resultMap = {};
   
@@ -673,17 +832,17 @@ async function batchFetchLtiInfo(deepLinkIds) {
   }
   
   return resultMap;
-}
-
-/**
+ }
+ 
+ /**
  * Batch fetch assessment grades for multiple assessment IDs
  * @returns {Object} Map of assessment_id_LMSStudentID to grades
  */
-async function batchFetchAssessmentGrades(assessmentIds, LMSStudentID) {
+ async function batchFetchAssessmentGrades(assessmentIds, LMSStudentID) {
   if (!assessmentIds || assessmentIds.length === 0 || !LMSStudentID) {
     return {};
   }
-
+ 
   const db = admin.database();
   const resultMap = {};
   
@@ -709,20 +868,20 @@ async function batchFetchAssessmentGrades(assessmentIds, LMSStudentID) {
   }
   
   return resultMap;
-}
-
-/**
+ }
+ 
+ /**
  * Processes assessment data with grades and LTI info
  */
-function processAssessmentData(assessmentGrades, ltiInfo, baseItem) {
+ function processAssessmentData(assessmentGrades, ltiInfo, baseItem) {
   if (!assessmentGrades || !ltiInfo) return null;
-
+ 
   const scoreMaximum = parseFloat(ltiInfo.scoreMaximum);
   const score = parseFloat(assessmentGrades.score);
   const scorePercent = scoreMaximum > 0 ? ((score / scoreMaximum) * 100).toFixed(1) : 0;
-
+ 
   // Skip decompressing scoreddata as it's not needed for normalization
-
+ 
   return {
     ...baseItem,
     url: ltiInfo.url,
@@ -741,18 +900,18 @@ function processAssessmentData(assessmentGrades, ltiInfo, baseItem) {
       version: assessmentGrades.version,
     },
   };
-}
-
-/**
+ }
+ 
+ /**
  * Calculates schedule adherence metrics
  */
-function calculateScheduleAdherence(allItems) {
+ function calculateScheduleAdherence(allItems) {
   const today = new Date();
   let currentScheduledIndex = -1;
   let currentCompletedIndex = -1;
   let hasInconsistentProgress = false;
   let lastCompletedDate = null;
-
+ 
   for (let i = 0; i < allItems.length; i++) {
     const itemDate = new Date(allItems[i].date);
     if (itemDate > today) {
@@ -760,20 +919,20 @@ function calculateScheduleAdherence(allItems) {
       break;
     }
   }
-
+ 
   if (currentScheduledIndex === -1) {
     currentScheduledIndex = allItems.length - 1;
   }
-
+ 
   let previouslyCompleted = true;
   for (let i = 0; i < allItems.length; i++) {
     const item = allItems[i];
     const isCompleted = !!item.assessmentData;
-
+ 
     if (isCompleted) {
       currentCompletedIndex = i;
       lastCompletedDate = new Date(item.assessmentData.lastChange * 1000);
-
+ 
       if (!previouslyCompleted) {
         hasInconsistentProgress = true;
       }
@@ -781,9 +940,9 @@ function calculateScheduleAdherence(allItems) {
       previouslyCompleted = false;
     }
   }
-
+ 
   const lessonsOffset = currentCompletedIndex - currentScheduledIndex;
-
+ 
   return {
     currentScheduledIndex,
     currentCompletedIndex,
@@ -796,12 +955,12 @@ function calculateScheduleAdherence(allItems) {
     currentScheduledItem: allItems[currentScheduledIndex],
     currentCompletedItem: allItems[currentCompletedIndex],
   };
-}
-
-/**
+ }
+ 
+ /**
  * Calculates course marks based on normalized units
  */
-function calculateCourseMarks(normalizedUnits, weights) {
+ function calculateCourseMarks(normalizedUnits, weights) {
   // Initialize marks structure
   const marks = {
     overall: {
@@ -838,7 +997,7 @@ function calculateCourseMarks(normalizedUnits, weights) {
       }
     }
   };
-
+ 
   // First pass: Collect all items and their weights by category
   normalizedUnits.forEach(unit => {
     unit.items.forEach(item => {
@@ -855,14 +1014,14 @@ function calculateCourseMarks(normalizedUnits, weights) {
       const isCompleted = item.assessmentData != null;
       const score = isCompleted ? item.assessmentData.scorePercent / 100 : 0;
       const weight = item.weight || 0; // Ensure weight is never undefined
-
+ 
       // Store item data
       categoryStats.items.push({
         isCompleted,
         score,
         weight
       });
-
+ 
       // Track category totals
       categoryStats.weightPossible += weight;
       
@@ -872,7 +1031,7 @@ function calculateCourseMarks(normalizedUnits, weights) {
       }
     });
   });
-
+ 
   // Calculate category marks
   Object.keys(marks.byCategory).forEach(category => {
     const stats = marks.byCategory[category];
@@ -881,13 +1040,13 @@ function calculateCourseMarks(normalizedUnits, weights) {
     stats.withZeros = stats.weightPossible > 0 
       ? (stats.weightAchieved / stats.weightPossible) * 100 
       : 0;
-
+ 
     // Calculate omitMissing - handle zero completed items
     if (stats.completed > 0) {
       const completedItemsWeight = stats.items
         .filter(item => item.isCompleted)
         .reduce((sum, item) => sum + (item.weight || 0), 0);
-
+ 
       // Only calculate if we have valid weights
       if (completedItemsWeight > 0) {
         const weightedSum = stats.items
@@ -896,7 +1055,7 @@ function calculateCourseMarks(normalizedUnits, weights) {
             const adjustedWeight = (item.weight || 0) / completedItemsWeight;
             return sum + (item.score * adjustedWeight);
           }, 0);
-
+ 
         stats.omitMissing = weightedSum * 100;
       } else {
         stats.omitMissing = 0;
@@ -905,7 +1064,7 @@ function calculateCourseMarks(normalizedUnits, weights) {
       stats.omitMissing = 0;
     }
   });
-
+ 
   // Calculate overall marks
   let totalWeightAchieved = 0;
   let totalWeightPossible = 0;
@@ -933,23 +1092,23 @@ function calculateCourseMarks(normalizedUnits, weights) {
       totalWeightPossible += (item.weight || 0) * categoryWeight;
     });
   });
-
+ 
   // Calculate withZeros - handle division by zero
   marks.overall.withZeros = totalWeightPossible > 0 
     ? (totalWeightAchieved / totalWeightPossible) * 100 
     : 0;
-
+ 
   // Calculate omitMissing - handle zero completed items
   if (overallCompletedItems.length > 0) {
     const totalCompletedWeight = overallCompletedItems.reduce((sum, item) => 
       sum + ((item.weight || 0) * (item.categoryWeight || 0)), 0);
-
+ 
     if (totalCompletedWeight > 0) {
       const weightedSum = overallCompletedItems.reduce((sum, item) => {
         const adjustedWeight = ((item.weight || 0) * (item.categoryWeight || 0)) / totalCompletedWeight;
         return sum + (item.score * adjustedWeight);
       }, 0);
-
+ 
       marks.overall.omitMissing = weightedSum * 100;
     } else {
       marks.overall.omitMissing = 0;
@@ -957,14 +1116,14 @@ function calculateCourseMarks(normalizedUnits, weights) {
   } else {
     marks.overall.omitMissing = 0;
   }
-
+ 
   // Final safety check to ensure no NaN values
   Object.keys(marks.overall).forEach(key => {
     if (isNaN(marks.overall[key])) {
       marks.overall[key] = 0;
     }
   });
-
+ 
   Object.keys(marks.byCategory).forEach(category => {
     Object.keys(marks.byCategory[category]).forEach(key => {
       if (typeof marks.byCategory[category][key] === 'number' && isNaN(marks.byCategory[category][key])) {
@@ -972,15 +1131,15 @@ function calculateCourseMarks(normalizedUnits, weights) {
       }
     });
   });
-
+ 
   return marks;
-}
-
-/**
+ }
+ 
+ /**
  * Helper function to recursively remove any fields whose value is `undefined`
  * Firebase does not allow `undefined` values
  */
-function removeUndefined(obj) {
+ function removeUndefined(obj) {
   if (Array.isArray(obj)) {
     return obj.map(removeUndefined);
   } else if (obj !== null && typeof obj === 'object') {
@@ -993,11 +1152,11 @@ function removeUndefined(obj) {
     return newObj;
   }
   return obj;
-}
-
-// Export all functions
-module.exports = {
+ }
+ 
+ // Export all functions
+ module.exports = {
   generateNormalizedSchedule,
   onGradeUpdateTriggerNormalizedSchedule,
   onLMSStudentIDAssignedTriggerSchedule
-};
+ };
