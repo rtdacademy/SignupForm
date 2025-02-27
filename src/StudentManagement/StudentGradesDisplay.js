@@ -452,7 +452,7 @@ const GradesContent = ({
       item.globalIndex === scheduleAdherence.currentScheduledIndex
     // If you do NOT want to highlight the next item, remove the +1:
     const isCurrentProgress =
-      item.globalIndex === scheduleAdherence.currentCompletedIndex + 1
+      item.globalIndex === scheduleAdherence.currentCompletedIndex 
     const isCompleted =
       item.globalIndex <= scheduleAdherence.currentCompletedIndex
 
@@ -499,18 +499,18 @@ const GradesContent = ({
         <CardContent className="p-3">
           <div className="flex justify-between items-start">
             <div className="flex-grow flex items-start gap-2">
-              {isCurrentProgress && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <PlayCircle className="text-purple-600 mt-1" size={16} />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Current Progress Position</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+            {isCurrentProgress && (
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger>
+        <PlayCircle className="text-purple-600 mt-1" size={16} />
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>Last Completed Item</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+)}
               {isCurrentScheduled && (
                 <TooltipProvider>
                   <Tooltip>

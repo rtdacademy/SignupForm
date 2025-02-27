@@ -314,12 +314,12 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
             exp: Math.floor(Date.now() / 1000) + 3600,
             iss: ISSUER,
             aud: client_id,
-
+        
             // Standard LTI user claims
             given_name: launchData.firstname || '',
             family_name: launchData.lastname || '',
             email: launchData.email || '',
-
+        
             // LIS claims for user details
             "https://purl.imsglobal.org/spec/lti/claim/lis": {
                 "person_sourcedid": login_hint,
@@ -327,7 +327,7 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
                 "person_name_family": launchData.lastname || '',
                 "person_contact_email_primary": launchData.email || ''
             },
-
+        
             // LTI required claims
             "https://purl.imsglobal.org/spec/lti/claim/version": "1.3.0",
             "https://purl.imsglobal.org/spec/lti/claim/deployment_id": DEPLOYMENT_ID,
@@ -336,14 +336,47 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
                     ? "http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor"
                     : "http://purl.imsglobal.org/vocab/lis/v2/institution/person#Student"
             ],
-
-            // Context claim
-            "https://purl.imsglobal.org/spec/lti/claim/context": {
-                "id": launchData.course_id,
-                "label": `Course ${launchData.course_id}`,
-                "title": `Course ${launchData.course_id}`,
-                "type": ["http://purl.imsglobal.org/vocab/lis/v2/course#CourseSection"]
-            },
+        };
+        
+        // Add this code right after the payload definition
+        // Determine context label and title to use
+        let contextLabel = `Course ${launchData.course_id}`;
+        let contextTitle = `Course ${launchData.course_id}`;
+        
+        // For students, try to get a custom title from their data
+        if (launchData.role === 'student' && launchData.email) {
+            const sanitizedEmail = sanitizeEmail(launchData.email);
+            try {
+                const schoolYearRef = db.ref(`students/${sanitizedEmail}/courses/${launchData.course_id}/School_x0020_Year/Value`);
+                const schoolYearSnapshot = await schoolYearRef.once('value');
+                
+                if (schoolYearSnapshot.exists() && schoolYearSnapshot.val()) {
+                    // Use school year as the context title if available
+                    contextTitle = schoolYearSnapshot.val();
+                    contextLabel = schoolYearSnapshot.val();
+                    
+                    await logEvent('Context Info', {
+                        email: launchData.email,
+                        courseId: launchData.course_id,
+                        schoolYear: contextTitle
+                    });
+                }
+            } catch (error) {
+                await logEvent('School Year Fetch Error', {
+                    email: launchData.email,
+                    courseId: launchData.course_id,
+                    error: error.message
+                }, false);
+                // Continue with default values if there's an error
+            }
+        }
+        
+        // Then add the context claim to the payload
+        payload["https://purl.imsglobal.org/spec/lti/claim/context"] = {
+            "id": launchData.course_id,
+            "label": contextLabel,
+            "title": contextTitle,
+            "type": ["http://purl.imsglobal.org/vocab/lis/v2/course#CourseSection"]
         };
 
         // Add role-specific claims and target link URIs

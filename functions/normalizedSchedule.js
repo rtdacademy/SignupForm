@@ -677,10 +677,11 @@ async function normalizeScheduleData(
   }
   
   // Step 1: Collect all LTI deep_link_ids across all course items
+  // MODIFIED: Removed enabled check, just check if deep_link_id exists
   const ltiDeepLinkIds = [];
   courseUnits.forEach(unit => {
     unit.items.forEach(item => {
-      if (item.lti?.enabled && item.lti?.deep_link_id) {
+      if (item.lti?.deep_link_id) {
         ltiDeepLinkIds.push(item.lti.deep_link_id);
       }
     });
@@ -730,8 +731,8 @@ async function normalizeScheduleData(
             : (globalWeights ? globalWeights[courseItem.type] : 1)
         };
 
-        // If this item has LTI enabled, retrieve its pre-fetched data
-        if (courseItem.lti?.enabled && courseItem.lti?.deep_link_id) {
+        // MODIFIED: Removed enabled check, just check if deep_link_id exists
+        if (courseItem.lti?.deep_link_id) {
           const ltiInfo = ltiInfoMap[courseItem.lti.deep_link_id];
 
           if (ltiInfo && ltiInfo.assessment_id) {

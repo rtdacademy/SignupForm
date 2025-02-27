@@ -17,7 +17,7 @@ function determineAutoStatus(scheduleAdherence) {
   
   const { lessonsOffset, lastCompletedDate } = scheduleAdherence;
   
-  // Check for inactivity (no activity in last 14 days)
+  // First priority: Check for activity timeout
   if (lastCompletedDate) {
     const lastCompletedTimestamp = typeof lastCompletedDate === 'string' 
       ? new Date(lastCompletedDate).getTime() 
@@ -30,10 +30,10 @@ function determineAutoStatus(scheduleAdherence) {
     }
   }
   
-  // Determine status based on lessons offset
+  // Second priority: Determine status based on lessons offset
   if (lessonsOffset >= 3) {
     return "Rocking it!";
-  } else if (lessonsOffset >= -1) {
+  } else if (lessonsOffset >= -2) {  // Changed from -1 to -2
     return "On Track";
   } else if (lessonsOffset >= -4) {
     return "⚠️ Behind";

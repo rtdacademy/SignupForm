@@ -210,7 +210,18 @@ const [autoStatus, setAutoStatus] = useState(student?.autoStatus || false);
   }, [student.asn, studentAsns]);
  
 
-
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return 'No timestamp available';
+    try {
+      const date = new Date(timestamp);
+      return format(date, 'MMM d, yyyy h:mm a');
+    } catch (error) {
+      console.error("Error formatting timestamp:", error);
+      return 'Invalid timestamp';
+    }
+  };
+  
+ 
 
 
   useEffect(() => {
@@ -333,6 +344,31 @@ const updateStatus = useCallback(async (newStatus) => {
     // You might want to show an error notification to the user here
   }
 }, [student.id, statusValue, user, isPartOfMultiSelect, onBulkStatusChange, validateActiveFutureArchivedValue]);
+
+const isStatusEligibleForAutoChange = useCallback((statusValue) => {
+  const statusOption = STATUS_OPTIONS.find(option => option.value === statusValue);
+  return statusOption?.allowAutoStatusChange === true;
+}, []);
+
+const isCurrentStatusEligibleForAutoChange = useCallback((currentStatusValue) => {
+  const statusOption = STATUS_OPTIONS.find(option => option.value === currentStatusValue);
+  return statusOption?.allowAutoStatusChange === true;
+}, []);
+
+
+const handleAutoStatusButtonClick = useCallback(async (e) => {
+  e.stopPropagation(); // Prevent card click
+  
+  // Only proceed if there's an auto status value and it's eligible for auto change
+  if (!student.autoStatus_Value || !isStatusEligibleForAutoChange(student.autoStatus_Value)) {
+    return;
+  }
+  
+  // Use the existing updateStatus function to update the status
+  await updateStatus(student.autoStatus_Value);
+}, [student.autoStatus_Value, isStatusEligibleForAutoChange, updateStatus]);
+
+
 
 const handleStatusChange = useCallback(async (newStatus) => {
   const selectedStatusOption = STATUS_OPTIONS.find(option => option.value === newStatus);
@@ -870,6 +906,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
   )}
   */}
   {/* Last Week Status */}
+   {/* 
   <Tooltip delayDuration={200}>
     <TooltipTrigger asChild>
       <div className="flex-shrink-0 text-center cursor-help" style={{ minWidth: '50px' }}>
@@ -883,24 +920,103 @@ const handleStatusChange = useCallback(async (newStatus) => {
       Last Week's Status
     </TooltipContent>
   </Tooltip>
+*/}
 
-
-<Toggle
-  pressed={autoStatus}
-  onPressedChange={handleAutoStatusToggle}
-  size="sm"
-  className={`h-10 px-2 flex items-center justify-center ${!isAutoStatusAllowed ? 'opacity-50 cursor-not-allowed' : ''}`}
-  disabled={!isAutoStatusAllowed}
->
-  <span className="text-[10px] leading-tight">Auto</span>
-  {autoStatus ? (
-    <Zap className="h-3 w-3 text-yellow-500 ml-1" />
-  ) : (
-    <X className="h-3 w-3 text-red-500 ml-1" />
-  )}
-</Toggle>
 
           </div>
+
+
+          {/* New Auto Status Suggestion Row */}
+        {/* New Auto Status Suggestion Row */}
+<div className="flex items-center space-x-2 mb-2">
+  {student.autoStatus_Value ? (
+    <TooltipProvider>
+      <Tooltip delayDuration={200}>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-grow flex items-center justify-start h-9 px-3"
+            style={{
+              borderColor: isStatusEligibleForAutoChange(student.autoStatus_Value) && isCurrentStatusEligibleForAutoChange(statusValue) ? '#6366F1' : '#9CA3AF',
+              backgroundColor: isStatusEligibleForAutoChange(student.autoStatus_Value) && isCurrentStatusEligibleForAutoChange(statusValue) ? '#EEF2FF' : '#F3F4F6',
+              color: isStatusEligibleForAutoChange(student.autoStatus_Value) && isCurrentStatusEligibleForAutoChange(statusValue) ? '#4F46E5' : '#6B7280',
+              cursor: isStatusEligibleForAutoChange(student.autoStatus_Value) && isCurrentStatusEligibleForAutoChange(statusValue) ? 'pointer' : 'not-allowed',
+            }}
+            onClick={handleAutoStatusButtonClick}
+            disabled={!isStatusEligibleForAutoChange(student.autoStatus_Value) || !isCurrentStatusEligibleForAutoChange(statusValue)}
+          >
+            {isCurrentStatusEligibleForAutoChange(statusValue) ? (
+              <>
+                <Zap className={`h-4 w-4 mr-2 ${isStatusEligibleForAutoChange(student.autoStatus_Value) ? 'text-indigo-500' : 'text-gray-400'}`} />
+                <span className="font-medium">Suggested: {student.autoStatus_Value}</span>
+                {isStatusEligibleForAutoChange(student.autoStatus_Value) && (
+                  <span className="ml-2 text-xs text-indigo-400">(Click to apply)</span>
+                )}
+              </>
+            ) : (
+              <>
+                <CircleSlash className="h-4 w-4 mr-2 text-gray-400" />
+                <span className="font-medium">Cannot auto-update current status</span>
+              </>
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[300px] p-3">
+          <div className="space-y-2">
+            <div className="font-semibold">Auto Status Suggestion</div>
+            <div className="text-xs text-gray-500">
+              Generated on: {student.autoStatus_timestamp ? 
+                formatTimestamp(student.autoStatus_timestamp) : 
+                'No timestamp available'}
+            </div>
+            <div className="text-xs">
+              {isCurrentStatusEligibleForAutoChange(statusValue) ? (
+                <>
+                  This status is automatically suggested based on the student's activity and progress.
+                  {isStatusEligibleForAutoChange(student.autoStatus_Value) ? (
+                    <p className="mt-1 text-indigo-500 font-medium">Click to apply this status.</p>
+                  ) : (
+                    <p className="mt-1 text-amber-500">This status requires manual assignment.</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-amber-500 font-medium">Current status: "{statusValue}"</p>
+                  <p className="mt-1">This status cannot be automatically updated. You must manually change the status before auto-suggestions can be applied.</p>
+                </>
+              )}
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  ) : (
+    <div className="flex-grow">
+      <div className="text-xs text-gray-500 italic">No auto status suggestion available</div>
+    </div>
+  )}
+
+
+
+
+ {/* 
+  <Toggle
+    pressed={autoStatus}
+    onPressedChange={handleAutoStatusToggle}
+    size="sm"
+    className={`h-9 px-2 flex items-center justify-center ${!isAutoStatusAllowed ? 'opacity-50 cursor-not-allowed' : ''}`}
+    disabled={!isAutoStatusAllowed}
+  >
+    <span className="text-[10px] leading-tight">Auto</span>
+    {autoStatus ? (
+      <Zap className="h-3 w-3 text-yellow-500 ml-1" />
+    ) : (
+      <X className="h-3 w-3 text-red-500 ml-1" />
+    )}
+  </Toggle>
+  */}
+</div>
 
         {/* Category Selection */}
 <div className="mt-2 flex items-center">

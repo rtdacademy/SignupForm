@@ -6,7 +6,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Sheet, SheetContent } from "../components/ui/sheet";
-import { Calendar, Split, IdCard } from 'lucide-react';
+import { Calendar, Split, IdCard, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
@@ -76,6 +76,9 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
   const nameRef = useRef(null);
   const containerRef = useRef(null);
   const [nameFontSize, setNameFontSize] = useState(24); // Starting font size for text-2xl
+
+  // Check if student has a schedule
+  const hasSchedule = !!studentData?.courses?.[courseId]?.ScheduleJSON;
 
   const handleStudentStatsChange = (checked) => {
     const db = getDatabase();
@@ -477,20 +480,25 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
     }
   };
 
+  // Create Schedule Button component
+  const CreateScheduleButton = () => (
+    <Button 
+      variant="default" 
+      size="sm" 
+      onClick={() => setIsScheduleDialogOpen(true)}
+      className="w-full flex items-center justify-center bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors mb-4"
+    >
+      <Calendar className="h-4 w-4 mr-2" />
+      {hasSchedule ? "Update Schedule" : "Create Schedule"}
+    </Button>
+  );
+
   const renderScheduleContent = () => {
     const courseData = studentData?.courses[courseId];
 
     return (
       <div className="space-y-4">
-        <Button 
-          variant="default" 
-          size="sm" 
-          onClick={() => setIsScheduleDialogOpen(true)}
-          className="w-full flex items-center justify-center bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors"
-        >
-          <Calendar className="h-4 w-4 mr-2" />
-          Schedule Maker
-        </Button>
+        <CreateScheduleButton />
         
         {courseData?.ScheduleJSON ? (
           <ScheduleDisplay 
@@ -516,15 +524,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
     
     return (
       <div className="space-y-4">
-        <Button 
-          variant="default" 
-          size="sm" 
-          onClick={() => setIsScheduleDialogOpen(true)}
-          className="w-full flex items-center justify-center bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors"
-        >
-          <Calendar className="h-4 w-4 mr-2" />
-          Schedule Maker
-        </Button>
+        <CreateScheduleButton />
 
         <div className="flex items-center justify-between p-2 border rounded-lg bg-gray-50">
           <TooltipProvider>
@@ -553,7 +553,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
     );
   };
 
-  // New render function for StudentGradesDisplay
+  // Updated render function for StudentGradesDisplay
   const renderGradesContent = () => {
     if (!studentData?.courses[courseId]?.LMSStudentID) {
       return (
@@ -569,6 +569,30 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
               Set LMS Student ID
             </Button>
           </div>
+        </div>
+      );
+    }
+
+    // Check if student has a schedule
+    if (!hasSchedule) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center mb-4 text-amber-600">
+            <AlertTriangle className="h-6 w-6 mr-2" />
+            <h3 className="text-lg font-medium">Schedule Required</h3>
+          </div>
+          <p className="text-center text-yellow-700 mb-4">
+            Student needs a schedule to track progress properly. Please create a schedule first.
+          </p>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setIsScheduleDialogOpen(true)}
+            className="bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors"
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Create Schedule
+          </Button>
         </div>
       );
     }
@@ -753,12 +777,33 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
           </TabsContent>
 
           <TabsContent value="unified" className="flex-1 h-full">
-            <StudentGradesDisplay
-              studentKey={sanitizeEmail(studentSummary.StudentEmail)}
-              courseId={courseId}
-              useSheet={false}
-              className="h-full"
-            />
+            {!hasSchedule ? (
+              <div className="flex flex-col items-center justify-center h-full p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center mb-4 text-amber-600">
+                  <AlertTriangle className="h-6 w-6 mr-2" />
+                  <h3 className="text-lg font-medium">Schedule Required</h3>
+                </div>
+                <p className="text-center text-yellow-700 mb-4">
+                  A schedule is needed to view the YourWay schedule. Please create one first.
+                </p>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setIsScheduleDialogOpen(true)}
+                  className="bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors"
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Create Schedule
+                </Button>
+              </div>
+            ) : (
+              <StudentGradesDisplay
+                studentKey={sanitizeEmail(studentSummary.StudentEmail)}
+                courseId={courseId}
+                useSheet={false}
+                className="h-full"
+              />
+            )}
           </TabsContent>
         </Tabs>
       </div>
@@ -912,6 +957,30 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
             </RadioGroup>
           </>
         )}
+
+        {/* Global Create Schedule Button that appears when no schedule exists */}
+        {!hasSchedule && currentMode !== MODES.REGISTRATION && (
+          <div className="w-full bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center">
+            <div className="flex-1">
+              <div className="flex items-center text-amber-600 mb-1">
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                <span className="font-medium">No Schedule Found</span>
+              </div>
+              <p className="text-sm text-yellow-700">
+                Student needs a schedule to track progress properly. Some features might be limited without it.
+              </p>
+            </div>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setIsScheduleDialogOpen(true)}
+              className="ml-3 bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors flex-shrink-0"
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Create Schedule
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Main Content Sections */}
@@ -969,15 +1038,28 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-semibold text-[#1fa6a7]">Grades & Progress</h4>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsComparisonSheetOpen(true)}
-                    className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
-                  >
-                    <Split className="h-4 w-4 mr-2" />
-                    View All Formats
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsLMSIdDialogOpen(true)}
+                      className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                    >
+                      <IdCard className="h-4 w-4 mr-1" />
+                      {studentData?.courses?.[courseId]?.LMSStudentID ? 
+                        `ID: ${studentData.courses[courseId].LMSStudentID}` : 
+                        "Set LMS ID"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsComparisonSheetOpen(true)}
+                      className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                    >
+                      <Split className="h-4 w-4 mr-1" />
+                      View All
+                    </Button>
+                  </div>
                 </div>
                 {renderGradesContent()}
               </CardContent>
