@@ -29,7 +29,7 @@ import DatePicker from 'react-datepicker';
 import "react-phone-input-2/lib/style.css";
 import "react-datepicker/dist/react-datepicker.css";
 import SchoolAddressPicker from '../components/SchoolAddressPicker';
-import HomeSchoolSelector from '../components/HomeSchoolSelector'; // Import HomeSchoolSelector
+import HomeSchoolSelector from '../components/HomeSchoolSelector'; 
 import CapitalizedInput from '../components/CapitalizedInput';
 import { getDatabase, ref as databaseRef, get, set } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -636,56 +636,61 @@ const NonPrimaryStudentForm = forwardRef(({
     onValidationChange(isValid && isEligible && validateDates());
   }, [isValid, isEligible, onValidationChange]);
 
-  // Fetch courses from Firebase
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        setCoursesLoading(true);
-        const db = getDatabase();
-        const coursesRef = databaseRef(db, 'courses');
-        const snapshot = await get(coursesRef);
+// Fetch courses from Firebase
+useEffect(() => {
+  const fetchCourses = async () => {
+    try {
+      setCoursesLoading(true);
+      const db = getDatabase();
+      const coursesRef = databaseRef(db, 'courses');
+      const snapshot = await get(coursesRef);
 
-        if (snapshot.exists()) {
-          const coursesData = [];
-          snapshot.forEach((childSnapshot) => {
-            const courseId = childSnapshot.key;
+      if (snapshot.exists()) {
+        const coursesData = [];
+        snapshot.forEach((childSnapshot) => {
+          const courseId = childSnapshot.key;
 
-            // Skip the 'sections' node
-            if (courseId === 'sections') {
-              return;
-            }
+          // Skip the 'sections' node
+          if (courseId === 'sections') {
+            return;
+          }
 
-            const courseData = childSnapshot.val();
+          const courseData = childSnapshot.val();
 
-            // Ensure 'Title' exists to determine if it's a course
-            if (!courseData.Title) {
-              return;
-            }
+          // Ensure 'Title' exists to determine if it's a course
+          if (!courseData.Title) {
+            return;
+          }
 
-            coursesData.push({
-              id: courseId,
-              title: courseData.Title,
-              DiplomaCourse: courseData.DiplomaCourse,
-              diplomaTimes: courseData.diplomaTimes || []
-            });
+          // Only include courses with Active status set to "Current"
+          if (courseData.Active !== "Current") {
+            return;
+          }
+
+          coursesData.push({
+            id: courseId,
+            title: courseData.Title,
+            DiplomaCourse: courseData.DiplomaCourse,
+            diplomaTimes: courseData.diplomaTimes || []
           });
+        });
 
-          coursesData.sort((a, b) => a.title.localeCompare(b.title));
-          setCourses(coursesData);
-        } else {
-          setCoursesError('No courses found');
-        }
-      } catch (err) {
-        console.error('Error fetching courses:', err);
-        setCoursesError('Error loading courses');
-      } finally {
-        setCoursesLoading(false);
-        setLoading(false);
+        coursesData.sort((a, b) => a.title.localeCompare(b.title));
+        setCourses(coursesData);
+      } else {
+        setCoursesError('No courses found');
       }
-    };
+    } catch (err) {
+      console.error('Error fetching courses:', err);
+      setCoursesError('Error loading courses');
+    } finally {
+      setCoursesLoading(false);
+      setLoading(false);
+    }
+  };
 
-    fetchCourses();
-  }, []);
+  fetchCourses();
+}, []);
 
   // Fetch enrolled courses with their statuses for the student
   useEffect(() => {

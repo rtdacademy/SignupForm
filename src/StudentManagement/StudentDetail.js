@@ -6,7 +6,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Sheet, SheetContent } from "../components/ui/sheet";
-import { Calendar, Split, IdCard, AlertTriangle } from 'lucide-react';
+import { Calendar, Split, IdCard, AlertTriangle, Edit } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
@@ -493,6 +493,54 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
     </Button>
   );
 
+  // NEW LMS ID Button Component
+  const LMSIdButton = ({ compact = false, className = "" }) => (
+    <Button
+      variant={compact ? "outline" : "default"}
+      size="sm"
+      onClick={() => setIsLMSIdDialogOpen(true)}
+      className={`text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white ${className}`}
+    >
+      <IdCard className="h-4 w-4 mr-1" />
+      {studentData?.courses?.[courseId]?.LMSStudentID 
+        ? (compact 
+            ? `ID: ${studentData.courses[courseId].LMSStudentID}` 
+            : `LMS ID: ${studentData.courses[courseId].LMSStudentID} (Edit)`)
+        : "Set LMS ID"}
+      {!compact && studentData?.courses?.[courseId]?.LMSStudentID && <Edit className="h-3 w-3 ml-1" />}
+    </Button>
+  );
+
+  // Added function to render the gradebook container with LMS button
+  const renderGradebookContainer = (gradebookUrl) => {
+    if (!lmsId) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="text-center text-yellow-700">
+            <p className="mb-4">LMS Student ID is required to view the gradebook</p>
+            <LMSIdButton className="mx-auto" />
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex justify-end mb-2">
+          <LMSIdButton compact={true} />
+        </div>
+        <div className="w-full h-full min-h-[500px] relative">
+          <iframe
+            src={gradebookUrl}
+            className="w-full h-full absolute inset-0 border-0"
+            title="Student Gradebook"
+            allow="fullscreen"
+          />
+        </div>
+      </div>
+    );
+  };
+
   const renderScheduleContent = () => {
     const courseData = studentData?.courses[courseId];
 
@@ -560,14 +608,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
         <div className="flex items-center justify-center h-full p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <div className="text-center text-yellow-700">
             <p className="mb-2">LMS Student ID is required for displaying grades</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsLMSIdDialogOpen(true)}
-              className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white mt-2"
-            >
-              Set LMS Student ID
-            </Button>
+            <LMSIdButton className="mx-auto mt-2" />
           </div>
         </div>
       );
@@ -599,6 +640,9 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
 
     return (
       <div className="h-full">
+        <div className="flex justify-end mb-2">
+         
+        </div>
         <StudentGradesDisplay
           studentKey={sanitizeEmail(studentSummary.StudentEmail)}
           courseId={courseId}
@@ -672,9 +716,8 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
     );
   };
 
-  // Modify your renderGradebookContent function to include the fetch button
+  // Updated renderGradebookContent with LMS ID button integration
   const renderGradebookContent = () => {
-   
     if (!studentSummary?.CourseID) {
       return (
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -683,42 +726,24 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
       );
     }
   
-    if (!lmsId) {
-      return (
-        <div className="flex items-center justify-center h-full">
-          <div className="text-center text-gray-500">
-            <p className="mb-2">No LMS Student ID assigned</p>
-            <p className="text-sm">Click the LMS ID button to add an ID</p>
-          </div>
-        </div>
-      );
-    }
-   
     const gradebookUrl = `https://edge.rtdacademy.com/course/gradebook.php?cid=${studentSummary?.CourseID}&stu=${lmsId}`;
-  
-    return (
-      <div className="w-full h-full min-h-[500px] relative">
-        <iframe
-          src={gradebookUrl}
-          className="w-full h-full absolute inset-0 border-0"
-          title="Student Gradebook"
-          allow="fullscreen"
-        />
-      </div>
-    );
+    return renderGradebookContainer(gradebookUrl);
   };
 
-  // Render the comparison sheet content
+  // Render the comparison sheet content - updated with LMS ID button
   const renderComparisonSheetContent = () => {
     const courseData = studentData?.courses[courseId];
     const gradebookUrl = `https://edge.rtdacademy.com/course/gradebook.php?cid=${studentSummary?.CourseID}&stu=${lmsId}`;
 
     return (
       <div className="h-full flex flex-col">
-        <h2 className="text-xl font-bold mb-4 flex items-center">
-          <Split className="h-5 w-5 mr-2" />
-          Student Progress Views
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold flex items-center">
+            <Split className="h-5 w-5 mr-2" />
+            Student Progress Views
+          </h2>
+          <LMSIdButton compact={true} />
+        </div>
         
         <Tabs
           value={comparisonTab}
@@ -730,29 +755,26 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
             <TabsTrigger value="gradebook">Gradebook</TabsTrigger>
             <TabsTrigger value="schedule">Legacy Schedule</TabsTrigger>
           </TabsList>
-          
           <TabsContent value="gradebook" className="flex-1 h-full">
-            {lmsId ? (
-              <div className="w-full h-full min-h-[600px] relative">
-                <iframe
-                  src={gradebookUrl}
-                  className="w-full h-full absolute inset-0 border-0"
-                  title="Student Gradebook"
-                  allow="fullscreen"
-                />
+            {!lmsId ? (
+              <div className="flex items-center justify-center h-full p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="text-center text-yellow-700">
+                  <p className="mb-4">LMS Student ID is required to view the gradebook</p>
+                  <LMSIdButton className="mx-auto" />
+                </div>
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center text-gray-500">
-                  <p className="mb-2">No LMS Student ID assigned</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsLMSIdDialogOpen(true)}
-                    className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white mt-2"
-                  >
-                    Set LMS Student ID
-                  </Button>
+              <div className="flex flex-col h-full">
+                <div className="flex justify-end mb-2">
+                 
+                </div>
+                <div className="w-full h-full min-h-[600px] relative">
+                  <iframe
+                    src={gradebookUrl}
+                    className="w-full h-full absolute inset-0 border-0"
+                    title="Student Gradebook"
+                    allow="fullscreen"
+                  />
                 </div>
               </div>
             )}
@@ -797,12 +819,17 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
                 </Button>
               </div>
             ) : (
-              <StudentGradesDisplay
-                studentKey={sanitizeEmail(studentSummary.StudentEmail)}
-                courseId={courseId}
-                useSheet={false}
-                className="h-full"
-              />
+              <div className="flex flex-col h-full">
+                <div className="flex justify-end mb-2">
+                  <LMSIdButton compact={true} />
+                </div>
+                <StudentGradesDisplay
+                  studentKey={sanitizeEmail(studentSummary.StudentEmail)}
+                  courseId={courseId}
+                  useSheet={false}
+                  className="h-full"
+                />
+              </div>
             )}
           </TabsContent>
         </Tabs>
@@ -917,6 +944,8 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
                 </Tooltip>
               </TooltipProvider>
             </div>
+            
+         
           </div>
         )}
 
@@ -1039,17 +1068,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-semibold text-[#1fa6a7]">Grades & Progress</h4>
                   <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsLMSIdDialogOpen(true)}
-                      className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
-                    >
-                      <IdCard className="h-4 w-4 mr-1" />
-                      {studentData?.courses?.[courseId]?.LMSStudentID ? 
-                        `ID: ${studentData.courses[courseId].LMSStudentID}` : 
-                        "Set LMS ID"}
-                    </Button>
+                  <LMSIdButton compact={true} />
                     <Button
                       variant="outline"
                       size="sm"
@@ -1072,7 +1091,10 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
           <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                <h4 className="font-semibold mb-2 text-[#1fa6a7]">Progress</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-[#1fa6a7]">Progress</h4>
+                 
+                </div>
                 {renderProgressContent()}
               </CardContent>
             </Card>
@@ -1084,7 +1106,10 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
           <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                <h4 className="font-semibold mb-2 text-[#1fa6a7]">Schedule</h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-[#1fa6a7]">Schedule</h4>
+                 
+                </div>
                 {renderScheduleContent()}
               </CardContent>
             </Card>
@@ -1096,7 +1121,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
           <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-2">
                   <h4 className="font-semibold text-[#1fa6a7]">Gradebook</h4>
                 </div>
                 {renderGradebookContent()}

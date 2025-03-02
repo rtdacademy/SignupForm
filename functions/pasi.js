@@ -24,7 +24,6 @@ const ValidationRules = {
         "☑️ Removed From PASI (Funded)",
         "Course Completed",
         "Unenrolled"
-
       ]
     }
   }
@@ -43,7 +42,17 @@ const initialResults = {
     processed: 0,
     created: 0,
     needsManualCourseMapping: [],
-    failed: []
+    failed: [],
+    // New diagnostic counters (won't affect existing structure)
+    _diagnostic: {
+      attemptedWithNoLinkedProperty: 0,
+      attemptedWithLinkedFalse: 0,
+      failedByLinkedStatus: {
+        linkedFalse: 0,
+        noLinkedProperty: 0,
+        other: 0
+      }
+    }
   },
   studentCourseSummariesMissingPasi: {
     total: 0,
@@ -257,9 +266,8 @@ exports.syncPasiRecordsV2 = functions
     results.initiatedBy = userEmail;
 
     try {
-
-// Clear system categories first
-await db.ref('systemCategories').remove();
+      // Clear system categories first
+      await db.ref('systemCategories').remove();
 
       // Fetch filtered data in parallel
       const [linksSnapshot, pasiSnapshot, summariesSnapshot] = await Promise.all([
@@ -277,6 +285,12 @@ await db.ref('systemCategories').remove();
       const links = linksSnapshot.val() || {};
       const pasiRecords = pasiSnapshot.val() || {};
       const summaries = summariesSnapshot.val() || {};
+
+      // Diagnostic logging
+      console.log(`Total PASI records: ${Object.keys(pasiRecords).length}`);
+      console.log(`Records with linked=false: ${Object.values(pasiRecords).filter(r => r.linked === false).length}`);
+      console.log(`Records with no linked property: ${Object.values(pasiRecords).filter(r => r.linked === undefined).length}`);
+      console.log(`Records with linked=true: ${Object.values(pasiRecords).filter(r => r.linked === true).length}`);
 
       // Process existing links
       const existingLinksUpdates = await processExistingLinksParallel(
@@ -323,13 +337,24 @@ await db.ref('systemCategories').remove();
         }
       };
 
+      // Remove diagnostic information before storing in the report
+      // to maintain backward compatibility
+      const reportResults = JSON.parse(JSON.stringify(results));
+      delete reportResults.newLinks._diagnostic;
+
       // First, update the school year report separately
       await db.ref(`pasiSyncReport/schoolYear/${schoolYearWithUnderscore}`).set({
-        ...results,
+        ...reportResults,
         lastSync: {
           timestamp: linkedAt,
           initiatedBy: userEmail
         }
+      });
+
+      // Add diagnostic information to a separate location
+      await db.ref(`pasiSyncReport/diagnostics/${schoolYearWithUnderscore}`).set({
+        timestamp: linkedAt,
+        diagnostic: results.newLinks._diagnostic
       });
 
       // Merge all remaining updates
@@ -349,7 +374,7 @@ await db.ref('systemCategories').remove();
       return {
         success: true,
         message: 'PASI sync completed successfully',
-        results
+        results: results
       };
 
     } catch (error) {
@@ -361,6 +386,7 @@ await db.ref('systemCategories').remove();
       );
     }
   });
+
 /**
  * Helper function to process existing links in parallel
  */
@@ -467,27 +493,56 @@ async function processExistingLinksParallel(links, pasiRecords, summaries, linke
  */
 async function processUnlinkedRecordsParallel(pasiRecords, summaries, linkedAt, results) {
   const updates = {};
-  const unlinkedRecords = Object.entries(pasiRecords)
- 
-  .filter(([id, record]) => {
-    // If linked is explicitly true, exclude the record
-    if (record.linked === true) {
-      return false;
+  const db = admin.database();
+  
+  // First, get all existing links to determine which PASI records are already linked
+  const existingLinksSnapshot = await db.ref('pasiLinks').once('value');
+  const existingLinks = existingLinksSnapshot.val() || {};
+  
+  // Create a set of PASI record IDs that are already linked
+  const linkedPasiRecordIds = new Set();
+  Object.values(existingLinks).forEach(link => {
+    linkedPasiRecordIds.add(link.pasiRecordId);
+  });
+  
+  // Filter out PASI records that are already linked in pasiLinks
+  const unlinkedRecords = Object.entries(pasiRecords).filter(([pasiRecordId]) => {
+    return !linkedPasiRecordIds.has(pasiRecordId);
+  });
+
+  console.log(`Found ${linkedPasiRecordIds.size} already linked PASI records`);
+  console.log(`Processing ${unlinkedRecords.length} unlinked PASI records`);
+
+  // Count records by linked status
+  unlinkedRecords.forEach(([_, record]) => {
+    if (record.linked === false) {
+      results.newLinks._diagnostic.attemptedWithLinkedFalse++;
+    } else if (record.linked === undefined) {
+      results.newLinks._diagnostic.attemptedWithNoLinkedProperty++;
     }
-    // Include if linked is false or undefined
-    return true;
   });
 
   // Add standardized error handling function
   const addFailedRecord = (results, pasiRecordId, reason, pasiRecord, additionalData = {}) => {
-    results.newLinks.failed.push({
+    const failedRecord = {
       pasiRecordId,
       reason,
       data: {
         pasiRecord,
         ...additionalData
       }
-    });
+    };
+    
+    results.newLinks.failed.push(failedRecord);
+    
+    // Count failures by linked status for diagnostics
+    if (pasiRecord.linked === false) {
+      results.newLinks._diagnostic.failedByLinkedStatus.linkedFalse++;
+    } else if (pasiRecord.linked === undefined) {
+      results.newLinks._diagnostic.failedByLinkedStatus.noLinkedProperty++;
+    } else {
+      results.newLinks._diagnostic.failedByLinkedStatus.other++;
+    }
   };
 
   const processPromises = unlinkedRecords.map(async ([pasiRecordId, pasiRecord]) => {
@@ -611,7 +666,7 @@ async function handleUnknownCourse(pasiRecord, pasiRecordId, studentKey, summari
     });
   }
 
-  // Only add to needsManualCourseMapping if not already linked
+  // Always add to needsManualCourseMapping to maintain original behavior
   results.newLinks.needsManualCourseMapping.push({
     pasiRecordId,
     courseCode: pasiRecord.courseCode,

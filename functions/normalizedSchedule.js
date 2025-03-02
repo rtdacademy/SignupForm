@@ -263,6 +263,7 @@ const generateNormalizedSchedule = functions.https.onCall(async (data, context) 
 
 /**
  * Cloud function triggered when a grade is created or updated in the imathas_grades node
+ * Uses lightweight updates when possible to reduce database reads
  */
 const onGradeUpdateTriggerNormalizedSchedule = functions.database
   .ref('/imathas_grades/{gradeKey}')
@@ -305,7 +306,7 @@ const onGradeUpdateTriggerNormalizedSchedule = functions.database
         return null;
       }
       
-      console.log(`Course ${courseId} has ltiLinksComplete, proceeding with schedule generation`);
+      console.log(`Course ${courseId} has ltiLinksComplete, proceeding with schedule update`);
       
       // Step 3: Find the student using LMSStudentID and courseId
       const studentInfo = await findStudentForCourse(gradeData.userId, courseId);
@@ -318,11 +319,30 @@ const onGradeUpdateTriggerNormalizedSchedule = functions.database
       const { studentKey, studentEmail } = studentInfo;
       console.log(`Found student: ${studentEmail} (${studentKey}) for course: ${courseId}`);
       
-      // Step 4: Generate the normalized schedule
-      // We can reuse the core schedule generation logic by calling the internal function directly
-      await generateNormalizedScheduleInternal(studentKey, courseId, gradeData.userId);
+      // Step 4: Check if normalized schedule already exists
+      const normalizedScheduleRef = db.ref(`students/${studentKey}/courses/${courseId}/normalizedSchedule`);
+      const normalizedScheduleSnapshot = await normalizedScheduleRef.once('value');
       
-      console.log(`Successfully completed normalized schedule generation for ${studentKey} in ${courseId}`);
+      if (normalizedScheduleSnapshot.exists()) {
+        console.log(`Normalized schedule exists, performing lightweight update`);
+        
+        // Use lightweight update when schedule already exists
+        await updateNormalizedScheduleForGradeChange(
+          db,
+          studentKey,
+          courseId,
+          gradeData.assessmentId,
+          gradeData,
+          normalizedScheduleSnapshot.val()
+        );
+      } else {
+        console.log(`No normalized schedule found, performing full generation`);
+        
+        // Fall back to full generation if no schedule exists
+        await generateNormalizedScheduleInternal(studentKey, courseId, gradeData.userId);
+      }
+      
+      console.log(`Successfully completed schedule update for ${studentKey} in ${courseId}`);
       return null;
     } catch (error) {
       console.error('Error processing grade:', error);
@@ -338,6 +358,288 @@ const onGradeUpdateTriggerNormalizedSchedule = functions.database
       throw error;
     }
   });
+
+/**
+ * Lightweight update for normalized schedule when a grade changes
+ * Only updates the specific assessment and recalculates completion metrics
+ */
+/**
+ * Lightweight update for normalized schedule when a grade changes
+ * Only updates the specific assessment and recalculates completion metrics
+ */
+async function updateNormalizedScheduleForGradeChange(
+  db,
+  studentKey,
+  courseId,
+  assessmentId,
+  gradeData,
+  existingSchedule
+) {
+  console.log(`Starting lightweight update for assessment ${assessmentId}`);
+  
+  try {
+    // Get the LTI data for this assessment
+    let ltiInfo = null;
+    const ltiSnapshot = await db.ref('lti/deep_links')
+      .orderByChild('assessment_id')
+      .equalTo(assessmentId)
+      .once('value');
+    
+    const ltiData = ltiSnapshot.val();
+    if (ltiData) {
+      const ltiKey = Object.keys(ltiData)[0];
+      ltiInfo = ltiData[ltiKey];
+    } else {
+      // Try with numeric assessment ID if string search failed
+      const assessmentIdNum = Number(assessmentId);
+      if (!isNaN(assessmentIdNum)) {
+        const ltiNumSnapshot = await db.ref('lti/deep_links')
+          .orderByChild('assessment_id')
+          .equalTo(assessmentIdNum)
+          .once('value');
+        
+        const ltiNumData = ltiNumSnapshot.val();
+        if (ltiNumData) {
+          const ltiKey = Object.keys(ltiNumData)[0];
+          ltiInfo = ltiNumData[ltiKey];
+        }
+      }
+    }
+    
+    if (!ltiInfo) {
+      console.log(`Could not find LTI info for assessment ${assessmentId}, falling back to full generation`);
+      return await generateNormalizedScheduleInternal(studentKey, courseId, gradeData.userId);
+    }
+    
+    // Find the item in the normalized schedule that corresponds to this assessment
+    let targetItem = null;
+    let targetUnit = null;
+    let targetItemIndex = -1;
+    
+    // Create a deep copy of the existing schedule to modify
+    const updatedSchedule = JSON.parse(JSON.stringify(existingSchedule));
+    
+    // Find the assessment in the units
+    for (let i = 0; i < updatedSchedule.units.length; i++) {
+      const unit = updatedSchedule.units[i];
+      for (let j = 0; j < unit.items.length; j++) {
+        const item = unit.items[j];
+        if (item.lti?.deep_link_id === ltiInfo.id || 
+            (item.assessment_id && (item.assessment_id == assessmentId))) {
+          targetItem = item;
+          targetUnit = unit;
+          targetItemIndex = j;
+          break;
+        }
+      }
+      if (targetItem) break;
+    }
+    
+    if (!targetItem) {
+      console.log(`Could not find item for assessment ${assessmentId} in normalized schedule, falling back to full generation`);
+      return await generateNormalizedScheduleInternal(studentKey, courseId, gradeData.userId);
+    }
+    
+    console.log(`Found target item in unit ${targetUnit.name}, updating assessment data`);
+    
+    // Ensure target item has a type property which is critical for marks calculation
+    if (!targetItem.type) {
+      console.warn(`Item missing required 'type' property for marks calculation, attempting to identify type`);
+      
+      // Try to determine the type from other properties or set a default
+      if (targetItem.title?.toLowerCase().includes('exam') || 
+          targetItem.title?.toLowerCase().includes('test') || 
+          targetItem.title?.toLowerCase().includes('quiz')) {
+        targetItem.type = 'exam';
+      } else if (targetItem.title?.toLowerCase().includes('assignment') || 
+                targetItem.title?.toLowerCase().includes('project')) {
+        targetItem.type = 'assignment';
+      } else {
+        targetItem.type = 'lesson'; // Default type
+      }
+      
+      console.log(`Set item type to: ${targetItem.type}`);
+    }
+    
+    // Process assessment data for this item
+    const scoreMaximum = parseFloat(ltiInfo.scoreMaximum) || 100;
+    const score = parseFloat(gradeData.score);
+    const scorePercent = scoreMaximum > 0 ? ((score / scoreMaximum) * 100).toFixed(1) : 0;
+    
+    // Log the old score if it exists for comparison
+    if (targetItem.assessmentData) {
+      console.log(`Previous score: ${targetItem.assessmentData.scorePercent}%, New score: ${scorePercent}%`);
+    } else {
+      console.log(`New assessment completion with score: ${scorePercent}%`);
+    }
+    
+    // Update assessment data
+    targetItem.assessmentData = {
+      ...gradeData,
+      scoreMaximum,
+      scorePercent: parseFloat(scorePercent),
+      score,
+      status: gradeData.status,
+      startTime: gradeData.startTime,
+      timeOnTask: gradeData.timeOnTask,
+      lastChange: gradeData.lastChange,
+      version: gradeData.version,
+    };
+    
+    // Add other properties that might be missing
+    targetItem.url = ltiInfo.url;
+    targetItem.assessment_id = assessmentId;
+    targetItem.course_id = courseId;
+    targetItem.scoreMaximum = scoreMaximum;
+    
+    // Now we need to recalculate:
+    // 1. Schedule adherence
+    // 2. Course marks
+    
+    // Get all items with dates for recalculation of schedule adherence
+    const allItems = [];
+    updatedSchedule.units.forEach(unit => {
+      unit.items.forEach(item => {
+        allItems.push(item);
+      });
+    });
+    
+    // Calculate new schedule adherence
+    const today = new Date();
+    let currentScheduledIndex = -1;
+    let currentCompletedIndex = -1;
+    
+    // Find currentScheduledIndex (where student should be based on date)
+    for (let i = 0; i < allItems.length; i++) {
+      const itemDate = allItems[i].date ? new Date(allItems[i].date) : null;
+      if (itemDate && itemDate > today) {
+        currentScheduledIndex = Math.max(0, i - 1);
+        break;
+      }
+    }
+    
+    if (currentScheduledIndex === -1) {
+      currentScheduledIndex = allItems.length - 1;
+    }
+    
+    // Find currentCompletedIndex (furthest completed lesson)
+    let previouslyCompleted = true;
+    let hasInconsistentProgress = false;
+    let lastCompletedDate = null;
+    
+    for (let i = 0; i < allItems.length; i++) {
+      const item = allItems[i];
+      const isCompleted = !!item.assessmentData;
+      
+      if (isCompleted) {
+        currentCompletedIndex = i;
+        const changeTime = item.assessmentData.lastChange * 1000;
+        const itemCompletedDate = new Date(changeTime);
+        
+        if (!lastCompletedDate || itemCompletedDate > lastCompletedDate) {
+          lastCompletedDate = itemCompletedDate;
+        }
+        
+        if (!previouslyCompleted) {
+          hasInconsistentProgress = true;
+        }
+      } else {
+        previouslyCompleted = false;
+      }
+    }
+    
+    const lessonsOffset = currentCompletedIndex - currentScheduledIndex;
+    
+    // Update the schedule adherence
+    updatedSchedule.scheduleAdherence = {
+      currentScheduledIndex,
+      currentCompletedIndex,
+      lessonsOffset,
+      hasInconsistentProgress,
+      lastCompletedDate,
+      isOnSchedule: lessonsOffset === 0,
+      isAhead: lessonsOffset > 0,
+      isBehind: lessonsOffset < 0,
+      currentScheduledItem: allItems[currentScheduledIndex],
+      currentCompletedItem: allItems[currentCompletedIndex],
+      status: existingSchedule.scheduleAdherence.status
+    };
+    
+    // Verify weights exist before calculation
+    if (!updatedSchedule.weights) {
+      console.warn("No weights found in updatedSchedule, using existingSchedule.weights");
+      updatedSchedule.weights = existingSchedule.weights;
+    }
+    
+    if (!updatedSchedule.weights) {
+      console.warn("No weights found in either schedule, attempting to fetch from course");
+      // Fallback to fetching weights from course if not in schedule
+      try {
+        const courseRef = await db.ref(`courses/${courseId}`).once('value');
+        const courseData = courseRef.val();
+        if (courseData && courseData.weights) {
+          updatedSchedule.weights = courseData.weights;
+          console.log("Successfully fetched weights from course data");
+        } else {
+          console.warn("No weights found in course data, using default weights");
+          // Create default weights if all else fails
+          updatedSchedule.weights = {
+            lesson: 1,
+            assignment: 1,
+            exam: 1
+          };
+        }
+      } catch (error) {
+        console.error("Error fetching course weights:", error);
+        // Create default weights if all else fails
+        updatedSchedule.weights = {
+          lesson: 1,
+          assignment: 1,
+          exam: 1
+        };
+      }
+    }
+    
+    // Log weights before calculation to help with debugging
+    console.log(`Calculating course marks with weights:`, 
+                JSON.stringify(updatedSchedule.weights));
+    console.log(`Units count: ${updatedSchedule.units.length}`);
+    console.log(`Total items count: ${allItems.length}`);
+    
+    // Recalculate course marks
+    updatedSchedule.marks = calculateCourseMarks(updatedSchedule.units, updatedSchedule.weights);
+    
+    // Log the calculated marks to verify
+    console.log(`Marks calculation complete. Overall with zeros: ${updatedSchedule.marks.overall.withZeros.toFixed(1)}%, 
+                Overall omitting missing: ${updatedSchedule.marks.overall.omitMissing.toFixed(1)}%`);
+    
+    // Update timestamp
+    updatedSchedule.lastUpdated = Date.now();
+    
+    // Write updates to the database
+    await db.ref(`students/${studentKey}/courses/${courseId}/normalizedSchedule`).set(updatedSchedule);
+    
+    // Update last sync timestamp in summary
+    await db.ref(`studentCourseSummaries/${studentKey}_${courseId}/lastNormalizedSchedSync`).set(updatedSchedule.lastUpdated);
+    
+    // Check and update auto-status
+    try {
+      await updateStudentAutoStatus(db, studentKey, courseId, updatedSchedule.scheduleAdherence);
+      console.log(`Auto-status check completed for student: ${studentKey}, course: ${courseId}`);
+    } catch (error) {
+      console.warn(`Auto-status update failed, but continuing: ${error.message}`);
+    }
+    
+    console.log(`Successfully updated normalized schedule for assessment ${assessmentId}`);
+    return true;
+  } catch (error) {
+    console.error(`Error in lightweight update for assessment ${assessmentId}:`, error);
+    
+    // If lightweight update fails, fall back to full generation
+    console.log('Falling back to full schedule generation');
+    return await generateNormalizedScheduleInternal(studentKey, courseId, gradeData.userId);
+  }
+}
 
 /**
  * Cloud function triggered when a student gets assigned an LMSStudentID
@@ -906,44 +1208,110 @@ async function batchFetchLtiInfo(deepLinkIds) {
  /**
  * Calculates schedule adherence metrics
  */
- function calculateScheduleAdherence(allItems) {
+/**
+ * Calculates schedule adherence metrics with improved handling for out-of-sequence 
+ * completion and zero-scored assignments
+ */
+function calculateScheduleAdherence(allItems) {
   const today = new Date();
   let currentScheduledIndex = -1;
   let currentCompletedIndex = -1;
   let hasInconsistentProgress = false;
   let lastCompletedDate = null;
- 
+
+  // Step 1: Find scheduled position (where should they be based on date)
   for (let i = 0; i < allItems.length; i++) {
-    const itemDate = new Date(allItems[i].date);
-    if (itemDate > today) {
-      currentScheduledIndex = Math.max(0, i - 1);
-      break;
+    // Check if item has a valid date
+    if (!allItems[i].date) continue;
+    
+    try {
+      const itemDate = new Date(allItems[i].date);
+      // Verify we have a valid date object
+      if (isNaN(itemDate.getTime())) continue;
+      
+      if (itemDate > today) {
+        currentScheduledIndex = Math.max(0, i - 1);
+        break;
+      }
+    } catch (e) {
+      console.warn(`Invalid date format for item at index ${i}`);
+      continue;
     }
   }
- 
+
+  // If no future-dated items were found, student should be at the end
   if (currentScheduledIndex === -1) {
     currentScheduledIndex = allItems.length - 1;
   }
- 
-  let previouslyCompleted = true;
+
+  // Step 2: Find furthest meaningful completion (excluding zero scores)
+  // Track completed items for visualization
+  const completedItems = [];
+  
   for (let i = 0; i < allItems.length; i++) {
     const item = allItems[i];
-    const isCompleted = !!item.assessmentData;
- 
+    
+    // Check if the item has assessment data AND meaningful completion
+    // Consider an item completed only if it has a non-zero score
+    const hasAssessmentData = !!item.assessmentData;
+    const score = hasAssessmentData ? parseFloat(item.assessmentData.scorePercent || 0) : 0;
+    const isCompleted = hasAssessmentData && score > 0;
+    
     if (isCompleted) {
-      currentCompletedIndex = i;
-      lastCompletedDate = new Date(item.assessmentData.lastChange * 1000);
- 
-      if (!previouslyCompleted) {
-        hasInconsistentProgress = true;
+      // Update the furthest completed index
+      currentCompletedIndex = Math.max(currentCompletedIndex, i);
+      
+      // Track this completed item
+      completedItems.push({
+        index: i,
+        title: item.title || `Item ${i}`,
+        score: score,
+        date: item.assessmentData.lastChange 
+          ? new Date(item.assessmentData.lastChange * 1000) 
+          : null
+      });
+      
+      // Track the latest completion date
+      if (item.assessmentData.lastChange) {
+        const completionDate = new Date(item.assessmentData.lastChange * 1000);
+        if (!lastCompletedDate || completionDate > lastCompletedDate) {
+          lastCompletedDate = completionDate;
+        }
       }
-    } else {
-      previouslyCompleted = false;
     }
   }
- 
-  const lessonsOffset = currentCompletedIndex - currentScheduledIndex;
- 
+
+  // If no items with meaningful scores were found, set to -1 for easy detection
+  if (currentCompletedIndex === -1) {
+    console.log("No meaningfully completed items found (items with scores > 0)");
+  }
+
+  // Step 3: Detect non-sequential completion by checking for gaps
+  // Sort completed items by index to see if there are gaps between them
+  completedItems.sort((a, b) => a.index - b.index);
+  
+  if (completedItems.length > 1) {
+    for (let i = 1; i < completedItems.length; i++) {
+      // Check if there's a gap larger than 1 between consecutive completed items
+      if (completedItems[i].index - completedItems[i-1].index > 1) {
+        hasInconsistentProgress = true;
+        break;
+      }
+    }
+    
+    // Also check if there are uncompleted items before the first completed item
+    if (completedItems[0].index > 0) {
+      hasInconsistentProgress = true;
+    }
+  }
+
+  // Step 4: Calculate the lessons offset
+  // If no items were completed, default to maximum behind state
+  const lessonsOffset = currentCompletedIndex === -1 
+    ? -currentScheduledIndex // Most behind possible
+    : currentCompletedIndex - currentScheduledIndex;
+
+  // Step 5: Prepare the full adherence object
   return {
     currentScheduledIndex,
     currentCompletedIndex,
@@ -953,10 +1321,11 @@ async function batchFetchLtiInfo(deepLinkIds) {
     isOnSchedule: lessonsOffset === 0,
     isAhead: lessonsOffset > 0,
     isBehind: lessonsOffset < 0,
-    currentScheduledItem: allItems[currentScheduledIndex],
-    currentCompletedItem: allItems[currentCompletedIndex],
+    currentScheduledItem: allItems[currentScheduledIndex] || null,
+    currentCompletedItem: currentCompletedIndex >= 0 ? allItems[currentCompletedIndex] : null,
+   
   };
- }
+}
  
  /**
  * Calculates course marks based on normalized units
@@ -1154,10 +1523,371 @@ async function batchFetchLtiInfo(deepLinkIds) {
   }
   return obj;
  }
- 
- // Export all functions
- module.exports = {
+
+
+/**
+ * Cloud function scheduled to run daily to update all students' schedule adherence metrics
+ * This is a lightweight alternative to running full normalization for everyone each night
+ */
+const updateDailyScheduleAdherence = functions.pubsub
+  .schedule('every day 05:45') // Run at 5:45 AM every day
+  .timeZone('America/Edmonton') // Adjust to your timezone
+  .onRun(async (context) => {
+    const db = admin.database();
+    const today = new Date();
+    console.log(`Starting daily schedule adherence update: ${today.toISOString()}`);
+    
+    try {
+      // Get only active student course summaries
+      console.log('Fetching only active students...');
+      const summariesRef = db.ref('studentCourseSummaries')
+        .orderByChild('ActiveFutureArchived_Value')
+        .equalTo('Active');
+      
+      const summariesSnapshot = await summariesRef.once('value');
+      const summaries = summariesSnapshot.val() || {};
+      
+      console.log(`Found ${Object.keys(summaries).length} active student courses to process`);
+      
+      let processedCount = 0;
+      let updatedCount = 0;
+      const batchSize = 100; // Process in batches to avoid memory issues
+      const updateBatches = [];
+      let currentBatch = {};
+      let currentBatchSize = 0;
+      
+      // Process each active student course summary
+      for (const [key, summary] of Object.entries(summaries)) {
+        // Skip if necessary data is missing
+        if (!summary.StudentEmail || !summary.CourseID) continue;
+        
+        const [studentKey, courseId] = key.split('_');
+        if (!studentKey || !courseId) continue;
+        
+        // Get student's normalized schedule
+        const scheduleRef = db.ref(`students/${studentKey}/courses/${courseId}/normalizedSchedule`);
+        const scheduleSnapshot = await scheduleRef.once('value');
+        
+        if (!scheduleSnapshot.exists()) continue;
+        
+        const normalizedSchedule = scheduleSnapshot.val();
+        if (!normalizedSchedule || !normalizedSchedule.units || !normalizedSchedule.scheduleAdherence) continue;
+        
+        // Rest of the processing logic remains the same
+        // ...
+        
+        // Get all items with dates for recalculation
+        const allItems = [];
+        normalizedSchedule.units.forEach(unit => {
+          unit.items.forEach(item => {
+            if (item.date) {
+              allItems.push({...item});
+            }
+          });
+        });
+        
+        // Skip if no dated items
+        if (allItems.length === 0) continue;
+        
+        // Sort items by date
+        allItems.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        // Recalculate current scheduled index based on today's date
+        let newScheduledIndex = -1;
+        for (let i = 0; i < allItems.length; i++) {
+          const itemDate = new Date(allItems[i].date);
+          if (itemDate > today) {
+            newScheduledIndex = Math.max(0, i - 1);
+            break;
+          }
+        }
+        
+        if (newScheduledIndex === -1) {
+          newScheduledIndex = allItems.length - 1;
+        }
+        
+        // Get current completed index (unchanged)
+        const currentCompletedIndex = normalizedSchedule.scheduleAdherence.currentCompletedIndex;
+        
+        // Calculate new lessons offset
+        const newLessonsOffset = currentCompletedIndex - newScheduledIndex;
+        
+        // Skip if nothing changed
+        if (newScheduledIndex === normalizedSchedule.scheduleAdherence.currentScheduledIndex &&
+            newLessonsOffset === normalizedSchedule.scheduleAdherence.lessonsOffset) {
+          continue;
+        }
+        
+  // Update only the changed values
+const newAdherence = {
+  ...normalizedSchedule.scheduleAdherence,
+  currentScheduledIndex: newScheduledIndex,
+  lessonsOffset: newLessonsOffset,
+  isOnSchedule: newLessonsOffset === 0,
+  isAhead: newLessonsOffset > 0,
+  isBehind: newLessonsOffset < 0,
+  currentScheduledItem: allItems[newScheduledIndex],
+};
+
+// ADDED: Recalculate marks using already loaded data
+const updatedMarks = calculateCourseMarks(normalizedSchedule.units, normalizedSchedule.weights);
+
+// Queue the updates in batches
+currentBatch[`students/${studentKey}/courses/${courseId}/normalizedSchedule/scheduleAdherence`] = newAdherence;
+currentBatch[`students/${studentKey}/courses/${courseId}/normalizedSchedule/lastUpdated`] = admin.database.ServerValue.TIMESTAMP;
+// ADDED: Update marks in the same batch
+currentBatch[`students/${studentKey}/courses/${courseId}/normalizedSchedule/marks`] = updatedMarks;
+        
+        
+        currentBatchSize++;
+        
+        // Create new batch if current one is full
+        if (currentBatchSize >= batchSize) {
+          updateBatches.push(db.ref().update(currentBatch));
+          currentBatch = {};
+          currentBatchSize = 0;
+        }
+        
+        processedCount++;
+        updatedCount++;
+
+        // Log progress occasionally
+        if (processedCount % 100 === 0) {
+          console.log(`Processed ${processedCount} active student courses so far...`);
+        }
+      }
+      
+      // Process any remaining updates
+      if (currentBatchSize > 0) {
+        updateBatches.push(db.ref().update(currentBatch));
+      }
+      
+      // Wait for all batches to complete
+      await Promise.all(updateBatches);
+      
+      // Log event for tracking
+      await logEvent('Daily Schedule Update', {
+        processedCount,
+        updatedCount,
+        date: today.toISOString(),
+        activeStudentsOnly: true
+      });
+      
+      // Now update auto-status for everyone since schedule adherence changed
+      console.log('Schedule updates complete, now updating auto-statuses...');
+      
+      // Only update auto-status for active students that we changed
+      // This is more efficient than calling processAllAutoStatuses()
+      if (updatedCount > 0) {
+        // Option 1: Update only for the specific students we modified
+        console.log('Using optimized auto-status update for modified students only');
+        const statusResult = { updated: 0 };
+        
+        // For each course we updated, update its auto-status
+        for (const [key, summary] of Object.entries(summaries)) {
+          const [studentKey, courseId] = key.split('_');
+          if (!studentKey || !courseId) continue;
+          
+          // Get the updated adherence data
+          const scheduleRef = db.ref(`students/${studentKey}/courses/${courseId}/normalizedSchedule/scheduleAdherence`);
+          const adherenceSnapshot = await scheduleRef.once('value');
+          
+          if (adherenceSnapshot.exists()) {
+            const scheduleAdherence = adherenceSnapshot.val();
+            const result = await updateStudentAutoStatus(db, studentKey, courseId, scheduleAdherence);
+            
+            if (result !== null) {
+              statusResult.updated++;
+            }
+          }
+        }
+        
+        console.log(`Auto-status updates complete: ${statusResult.updated} updates`);
+      } else {
+        console.log('No schedule changes detected, skipping auto-status updates');
+      }
+      
+      console.log(`Daily schedule update complete. Processed: ${processedCount}, Updated: ${updatedCount}`);
+      
+      return {
+        success: true,
+        processed: processedCount,
+        updated: updatedCount
+      };
+    } catch (error) {
+      console.error('Error in daily schedule update:', error);
+      
+      // Log error to database
+      await db.ref('errorLogs/updateDailyScheduleAdherence').push({
+        error: error.message,
+        stack: error.stack,
+        timestamp: admin.database.ServerValue.TIMESTAMP,
+      });
+      
+      throw error;
+    }
+  });
+
+
+ /**
+ * Cloud function to update normalized schedules for a batch of students in parallel
+ */
+const batchUpdateNormalizedSchedules = functions.runWith({
+  timeoutSeconds: 540,  // Maximum 9 minutes
+  memory: '1GB'
+}).https.onCall(async (data, context) => {
+  // Extract parameters
+  const { students, forceUpdate = false } = data;
+  
+  if (!students || !Array.isArray(students) || students.length === 0) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'You must provide an array of students'
+    );
+  }
+  
+  // Increased limit to 200 students as requested
+  if (students.length > 200) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Maximum 200 students can be processed in a single batch. Please reduce the selection and try again.'
+    );
+  }
+  
+  console.log(`Starting parallel batch update for ${students.length} students`);
+  const db = admin.database();
+  
+  // Create batch ID for tracking
+  const batchId = db.ref('scheduleBatches').push().key;
+  const batchRef = db.ref(`scheduleBatches/${batchId}`);
+  
+  // Initialize batch status
+  await batchRef.set({
+    status: 'processing',
+    total: students.length,
+    completed: 0,
+    successful: 0,
+    failed: 0,
+    startTime: admin.database.ServerValue.TIMESTAMP,
+    students: students.map(s => ({
+      studentKey: s.studentKey,
+      courseId: s.courseId,
+      status: 'pending'
+    }))
+  });
+  
+  // Process all students in parallel
+  const results = await Promise.allSettled(
+    students.map(async (student, index) => {
+      try {
+        // Get student and course info
+        const { studentKey, courseId } = student;
+        
+        if (!studentKey || !courseId) {
+          throw new Error('Missing studentKey or courseId');
+        }
+        
+        // Update student status in batch
+        await batchRef.child('students').child(index).update({
+          status: 'processing'
+        });
+        
+        // Call internal function to generate schedule
+        const result = await generateNormalizedScheduleInternal(studentKey, courseId, null, forceUpdate);
+        
+        if (!result) {
+          throw new Error('Failed to generate schedule');
+        }
+        
+        // Update status in batch
+        await batchRef.child('students').child(index).update({
+          status: 'completed',
+          timestamp: admin.database.ServerValue.TIMESTAMP
+        });
+        
+        // Update batch counts
+        await batchRef.update({
+          completed: admin.database.ServerValue.increment(1),
+          successful: admin.database.ServerValue.increment(1)
+        });
+        
+        return {
+          studentKey,
+          courseId,
+          success: true,
+          timestamp: result.timestamp
+        };
+      } catch (error) {
+        // Update status in batch
+        await batchRef.child('students').child(index).update({
+          status: 'error',
+          error: error.message
+        });
+        
+        // Update batch counts
+        await batchRef.update({
+          completed: admin.database.ServerValue.increment(1),
+          failed: admin.database.ServerValue.increment(1)
+        });
+        
+        return {
+          studentKey: student.studentKey,
+          courseId: student.courseId,
+          success: false,
+          error: error.message
+        };
+      }
+    })
+  );
+  
+  // Prepare final results
+  const finalResults = {
+    successful: [],
+    failed: []
+  };
+  
+  // Process results
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      const value = result.value;
+      if (value.success) {
+        finalResults.successful.push(value);
+      } else {
+        finalResults.failed.push(value);
+      }
+    } else {
+      finalResults.failed.push({
+        studentKey: students[index].studentKey,
+        courseId: students[index].courseId,
+        success: false,
+        error: result.reason?.message || 'Unknown error'
+      });
+    }
+  });
+  
+  // Update final batch status
+  await batchRef.update({
+    status: 'completed',
+    endTime: admin.database.ServerValue.TIMESTAMP
+  });
+  
+  console.log(`Batch update completed: ${finalResults.successful.length} successful, ${finalResults.failed.length} failed`);
+  
+  // Return batch ID and summary
+  return {
+    batchId,
+    total: students.length,
+    successful: finalResults.successful.length,
+    failed: finalResults.failed.length,
+    results: finalResults
+  };
+});
+
+// Export all functions
+module.exports = {
   generateNormalizedSchedule,
   onGradeUpdateTriggerNormalizedSchedule,
-  onLMSStudentIDAssignedTriggerSchedule
- };
+  onLMSStudentIDAssignedTriggerSchedule,
+  updateDailyScheduleAdherence,
+  batchUpdateNormalizedSchedules
+};

@@ -18,7 +18,7 @@ const CourseLinkingDialog = ({ isOpen, onClose, record }) => {
   const [studentRecords, setStudentRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [linking, setLinking] = useState(false);
+  const [linkingId, setLinkingId] = useState(null);
 
   useEffect(() => {
     const fetchStudentRecords = async () => {
@@ -172,7 +172,7 @@ const CourseLinkingDialog = ({ isOpen, onClose, record }) => {
       console.error("Error linking PASI record:", error);
       toast.error("Failed to link PASI record");
     } finally {
-      setLinking(false);
+      setLinkingId(null);
     }
   };
 
@@ -223,18 +223,18 @@ const CourseLinkingDialog = ({ isOpen, onClose, record }) => {
                     <TableCell>{studentRecord.schoolYear}</TableCell>
                     <TableCell>{studentRecord.studentType}</TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        onClick={() => handleLink(studentRecord)}
-                        disabled={linking}
-                      >
-                        {linking ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        ) : (
-                          <Link2 className="h-4 w-4 mr-2" />
-                        )}
-                        Link
-                      </Button>
+                    <Button
+  size="sm"
+  onClick={() => handleLink(studentRecord)}
+  disabled={linkingId !== null}
+>
+  {linkingId === studentRecord.id ? (
+    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+  ) : (
+    <Link2 className="h-4 w-4 mr-2" />
+  )}
+  Link
+</Button>
                     </TableCell>
                   </TableRow>
                 ))}

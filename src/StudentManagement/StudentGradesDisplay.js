@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { getDatabase, ref, onValue } from 'firebase/database'
 import { getFunctions, httpsCallable } from 'firebase/functions'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet'
@@ -20,7 +20,11 @@ import {
   RefreshCw,
   Info,
   Percent,
-  BarChart
+  BarChart,
+  ZapIcon, 
+  InfoIcon, 
+  Bell,
+  Split
 } from 'lucide-react'
 import {
   Accordion,
@@ -37,7 +41,45 @@ import {
 import { Button } from '../components/ui/button'
 import { ALERT_LEVELS } from '../config/DropdownOptions'
 import { format, fromUnixTime, formatDistanceToNow } from 'date-fns'
+import NewFeatureDialog from './Dialog/NewFeatureDialog' 
+import { useUserPreferences } from '../context/UserPreferencesContext' 
 
+// Feature info configuration
+const FEATURE_ID = 'unifiedProgressTracking';
+const FEATURE_INFO = {
+  title: 'New Schedule View',
+  description: '',
+  icon: ZapIcon,
+  sections: [
+    {
+      title: 'All-in-One Progress View',
+      icon: Target,
+      content: 'This new view combines both the student\'s schedule and gradebook in one place, so you can now see grades and progress at a glance.'
+    },
+    {
+      title: 'Schedule Tracking',
+      icon: BookOpen,
+      content: 'The system now automatically determines what lesson each student is on and compares it to where they should be based on their schedule.'
+    },
+    {
+      title: 'Auto Status Suggestions',
+      icon: ZapIcon,
+      content: 'Based on this data, the system now generates status suggestions that you can review and apply with a single click on the student card.'
+    },
+    {
+      title: 'Need the Old View?',
+      icon: Split, // or SplitSquareHorizontal
+      content: 'You can see the old layout by clicking the “View All” button in the top-right corner.'
+    }
+  ],
+  note: `Note: This feature is currently available for courses with LTI integration, and we’re working on expanding it to all courses.
+Staff members should consider this feature to be in BETA and compare the auto status values to each student’s actual gradebook.
+Over time, our goal is to gain enough confidence to allow the system to automatically set these statuses in most cases.`
+};
+
+
+
+// Helper styles for different item types
 const typeColors = {
   lesson: 'bg-blue-100 text-blue-800',
   assignment: 'bg-green-100 text-green-800',
@@ -88,50 +130,41 @@ const CourseOverviewCard = ({
   scheduleAdherence,
   normalizedSchedule,
   onRefresh,
-  refreshing
+  refreshing,
 }) => {
-  // Use optional chaining to avoid errors if scheduleAdherence is null/undefined
   const alertLevelKey = scheduleAdherence?.alertLevel?.toUpperCase()
   const alertLevel = ALERT_LEVELS[alertLevelKey] || ALERT_LEVELS.GREY
   const AlertIcon = alertLevel.icon
 
-  // Use new Date(...) for non-ISO strings
   const lastActiveDate = scheduleAdherence?.lastCompletedDate
     ? new Date(scheduleAdherence.lastCompletedDate)
     : null
 
-  // Last updated timestamp
   const lastUpdated = normalizedSchedule?.lastUpdated 
     ? new Date(normalizedSchedule.lastUpdated)
     : null
-    
-  // Last assessment import timestamp
+
   const lastAssessmentImport = scheduleAdherence?.currentCompletedItem?.assessmentData?.importedAt
     ? new Date(scheduleAdherence.currentCompletedItem.assessmentData.importedAt)
     : null
 
-  // Calculate progress percentage
   const progressPercentage = Math.round(
     (scheduleAdherence?.currentCompletedIndex /
       (normalizedSchedule?.totalItems || 1)) *
       100
   ) || 0
   
-  // Current grade and with zeros
   const currentGrade = Math.round(normalizedSchedule?.marks?.overall?.omitMissing) || 0
   const gradeWithZeros = Math.round(normalizedSchedule?.marks?.overall?.withZeros) || 0
   
-  // Lesson offset
   const lessonsOffset = scheduleAdherence?.lessonsOffset || 0
-  const isAhead = lessonsOffset > 0
+  const isAhead = lessonsOffset > -1
 
   return (
     <Accordion type="single" collapsible className="mb-8 w-full">
       <AccordionItem value="overview" className="border-blue-200 bg-blue-50 rounded-lg shadow-md">
         <div className="px-4 py-3">
-          {/* Header row with title and key metrics */}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            {/* Left side: Title and refresh button */}
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold text-blue-900">
                 {courseData?.Title || 'Untitled Course'}
@@ -164,9 +197,7 @@ const CourseOverviewCard = ({
               </TooltipProvider>
             </div>
             
-            {/* Right side: Key metrics row */}
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              {/* Current Grade */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger className="flex items-center gap-1">
@@ -179,7 +210,6 @@ const CourseOverviewCard = ({
                 </Tooltip>
               </TooltipProvider>
               
-              {/* Grade with zeros */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger className="flex items-center gap-1">
@@ -192,7 +222,6 @@ const CourseOverviewCard = ({
                 </Tooltip>
               </TooltipProvider>
               
-              {/* Course completion percentage */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger className="flex items-center gap-1">
@@ -205,7 +234,6 @@ const CourseOverviewCard = ({
                 </Tooltip>
               </TooltipProvider>
               
-              {/* Lesson offset */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger className="flex items-center gap-1">
@@ -227,15 +255,12 @@ const CourseOverviewCard = ({
           </div>
         </div>
         
-        {/* Accordion trigger */}
         <AccordionTrigger className="px-4 py-2 text-blue-900 hover:no-underline hover:bg-blue-100 group rounded-b-lg transition-all">
           <span className="text-sm font-medium">View detailed information</span>
         </AccordionTrigger>
         
-        {/* Expandable content */}
         <AccordionContent className="px-4 py-3 bg-white border-t border-blue-100">
           <div className="space-y-4">
-            {/* Progress bar */}
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-blue-800">Course Progress</span>
@@ -251,7 +276,6 @@ const CourseOverviewCard = ({
               />
             </div>
             
-            {/* Basic course info row */}
             <div className="grid grid-cols-2 gap-4">
               {schedule && (
                 <div className="flex items-center gap-2 text-sm text-gray-700">
@@ -273,19 +297,10 @@ const CourseOverviewCard = ({
               )}
             </div>
             
-            {/* Schedule adherence and data updates */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold text-gray-700">Schedule Adherence</h4>
-                <div className="flex items-center gap-2 text-sm">
-                  <AlertIcon
-                    style={{ color: alertLevel.color }}
-                    className="w-4 h-4"
-                  />
-                  <span style={{ color: alertLevel.color }}>
-                    {alertLevel.label || 'Unknown Status'}
-                  </span>
-                </div>
+             
                 
                 <div className="flex items-center gap-2 text-sm">
                   {isAhead ? (
@@ -299,7 +314,6 @@ const CourseOverviewCard = ({
                 </div>
               </div>
               
-              {/* Data updates */}
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold text-gray-700">Data Updates</h4>
                 {lastUpdated && (
@@ -328,7 +342,6 @@ const CourseOverviewCard = ({
               </div>
             </div>
             
-            {/* Grade details */}
             <div>
               <h4 className="text-sm font-semibold text-gray-700 mb-2">Performance Details</h4>
               <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-lg">
@@ -375,7 +388,8 @@ const GradesContent = ({
   studentCourseData,
   normalizedSchedule,
   onRefresh,
-  refreshing
+  refreshing,
+  onShowFeatureInfo
 }) => {
   // 1) If still loading, show spinner
   if (loading) {
@@ -386,7 +400,7 @@ const GradesContent = ({
           <p className="text-gray-600">Loading grades...</p>
         </div>
       </div>
-    )
+    );
   }
 
   // 2) If no schedule yet, show a placeholder
@@ -403,12 +417,24 @@ const GradesContent = ({
           Generate Schedule
         </Button>
       </div>
-    )
+    );
   }
 
+  // New feature info button
+  const FeatureInfoButton = () => (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={onShowFeatureInfo}
+      className="absolute top-2 right-2 h-8 w-8 rounded-full p-0 text-blue-600 bg-blue-50 hover:bg-blue-100"
+    >
+      <InfoIcon className="h-4 w-4" />
+    </Button>
+  );
+
   // Now that we're sure normalizedSchedule exists:
-  const scheduleAdherence = normalizedSchedule.scheduleAdherence || {}
-  const schedule = studentCourseData?.jsonGradebookSchedule
+  const scheduleAdherence = normalizedSchedule.scheduleAdherence || {};
+  const schedule = studentCourseData?.jsonGradebookSchedule;
 
   const currentProgressUnit = useMemo(() => {
     if (!scheduleAdherence.currentCompletedIndex) return null
@@ -420,7 +446,6 @@ const GradesContent = ({
     )
   }, [normalizedSchedule, scheduleAdherence])
 
-  // Group units by section
   const sectionedUnits = useMemo(() => {
     const filteredUnits = normalizedSchedule?.units || []
     return filteredUnits.reduce((acc, unit) => {
@@ -450,9 +475,8 @@ const GradesContent = ({
     const scheduleItem = findScheduleItem(item)
     const isCurrentScheduled =
       item.globalIndex === scheduleAdherence.currentScheduledIndex
-    // If you do NOT want to highlight the next item, remove the +1:
     const isCurrentProgress =
-      item.globalIndex === scheduleAdherence.currentCompletedIndex 
+      item.globalIndex === scheduleAdherence.currentCompletedIndex
     const isCompleted =
       item.globalIndex <= scheduleAdherence.currentCompletedIndex
 
@@ -499,18 +523,18 @@ const GradesContent = ({
         <CardContent className="p-3">
           <div className="flex justify-between items-start">
             <div className="flex-grow flex items-start gap-2">
-            {isCurrentProgress && (
-  <TooltipProvider>
-    <Tooltip>
-      <TooltipTrigger>
-        <PlayCircle className="text-purple-600 mt-1" size={16} />
-      </TooltipTrigger>
-      <TooltipContent>
-        <p>Last Completed Item</p>
-      </TooltipContent>
-    </Tooltip>
-  </TooltipProvider>
-)}
+              {isCurrentProgress && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <PlayCircle className="text-purple-600 mt-1" size={16} />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Last Completed Item</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               {isCurrentScheduled && (
                 <TooltipProvider>
                   <Tooltip>
@@ -533,12 +557,12 @@ const GradesContent = ({
                   {item.title}
                 </div>
                 <div className="flex flex-wrap gap-2 ml-2">
-                  {(item.date || scheduleItem?.date) && (
+                  {(item.date || findScheduleItem(item)?.date) && (
                     <div className="flex items-center gap-1 text-xs text-gray-500">
                       <CalendarDays size={12} />
                       <span>
                         {format(
-                          new Date(item.date || scheduleItem?.date),
+                          new Date(item.date || findScheduleItem(item)?.date),
                           'MMM d, yyyy'
                         )}
                       </span>
@@ -568,7 +592,6 @@ const GradesContent = ({
                 </div>
               </div>
             </div>
-
             <Badge
               className={`${scoreDisplay.className} text-xs ml-2 shrink-0 hover:bg-transparent hover:text-inherit`}
             >
@@ -582,7 +605,10 @@ const GradesContent = ({
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-4 space-y-6">
+      <div className="p-4 space-y-6 relative">
+        {/* Add Feature Info Button near the top */}
+        <FeatureInfoButton />
+        
         <CourseOverviewCard
           courseData={courseData}
           studentCourseData={studentCourseData}
@@ -631,21 +657,11 @@ const GradesContent = ({
                         <div className="flex items-center gap-2">
                           <div
                             className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-700 font-medium
-                              ${
-                                isCurrentUnit
-                                  ? 'bg-purple-100'
-                                  : 'bg-gray-100'
-                              }`}
+                              ${isCurrentUnit ? 'bg-purple-100' : 'bg-gray-100'}`}
                           >
                             {unit.sequence}
                           </div>
-                          <span
-                            className={`font-semibold ${
-                              isCurrentUnit
-                                ? 'text-purple-800'
-                                : 'text-gray-900'
-                            }`}
-                          >
+                          <span className={`font-semibold ${isCurrentUnit ? 'text-purple-800' : 'text-gray-900'}`}>
                             {unit.name}
                           </span>
                         </div>
@@ -677,11 +693,28 @@ const StudentGradesDisplay = ({
   useSheet = true,
   className = '',
 }) => {
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [normalizedSchedule, setNormalizedSchedule] = useState(initialNormalizedSchedule)
-  const [courseData, setCourseData] = useState(null)
-  const [studentCourseData, setStudentCourseData] = useState(null)
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [normalizedSchedule, setNormalizedSchedule] = useState(initialNormalizedSchedule);
+  const [courseData, setCourseData] = useState(null);
+  const [studentCourseData, setStudentCourseData] = useState(null);
+  
+  // New state for feature info dialog
+  const [showFeatureInfo, setShowFeatureInfo] = useState(false);
+  
+  // Get user preferences
+  const { preferences } = useUserPreferences();
+
+  useEffect(() => {
+    // Only show dialog if user hasn't seen it before
+    const hasSeenFeature = preferences?.seenFeatures?.[FEATURE_ID];
+    if (!hasSeenFeature) {
+      setShowFeatureInfo(true);
+    }
+  }, [preferences]);
+
+
+
 
   useEffect(() => {
     if (!studentKey || !courseId) {
@@ -697,7 +730,6 @@ const StudentGradesDisplay = ({
     const normalizedScheduleRef = ref(db, `students/${studentKey}/courses/${courseId}/normalizedSchedule`)
     const courseRef = ref(db, `courses/${courseId}`)
 
-    // Listen for student course data
     const studentCourseUnsubscribe = onValue(studentCourseRef, (snapshot) => {
       if (snapshot.exists()) {
         const studentData = snapshot.val()
@@ -708,7 +740,6 @@ const StudentGradesDisplay = ({
       }
     })
 
-    // Listen for course data
     const courseUnsubscribe = onValue(courseRef, (snapshot) => {
       if (snapshot.exists()) {
         const courseInfo = snapshot.val()
@@ -719,7 +750,6 @@ const StudentGradesDisplay = ({
       }
     })
 
-    // Listen for normalized schedule
     const normalizedScheduleUnsubscribe = onValue(normalizedScheduleRef, (snapshot) => {
       setLoading(false)
       if (snapshot.exists()) {
@@ -732,7 +762,6 @@ const StudentGradesDisplay = ({
       }
     })
 
-    // Cleanup listeners
     return () => {
       studentCourseUnsubscribe()
       courseUnsubscribe()
@@ -740,7 +769,6 @@ const StudentGradesDisplay = ({
     }
   }, [studentKey, courseId])
 
-  // Function to request normalized schedule update via cloud function
   const handleRefresh = async () => {
     if (refreshing) return
     
@@ -766,30 +794,77 @@ const StudentGradesDisplay = ({
   }
 
   const content = (
-    <GradesContent
-      loading={loading}
-      courseData={courseData}
-      studentCourseData={studentCourseData}
-      normalizedSchedule={normalizedSchedule}
-      onRefresh={handleRefresh}
-      refreshing={refreshing}
-    />
+    <>
+      <GradesContent
+        loading={loading}
+        courseData={courseData}
+        studentCourseData={studentCourseData}
+        normalizedSchedule={normalizedSchedule}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+        onShowFeatureInfo={() => setShowFeatureInfo(true)}
+      />
+      
+     {/* Feature Info Dialog with new component */}
+     <NewFeatureDialog 
+        isOpen={showFeatureInfo} 
+        onOpenChange={setShowFeatureInfo}
+        featureId={FEATURE_ID}
+        {...FEATURE_INFO}
+      />
+    </>
   )
 
-  if (useSheet) {
-    return (
-      <Sheet open={isOpen} onOpenChange={onOpenChange}>
-       <SheetContent side="right" className="w-[90%] sm:w-[600px] p-0">
-          <SheetHeader className="p-4 border-b">
-            <SheetTitle>Student Grades</SheetTitle>
-          </SheetHeader>
-          <div className="h-[calc(100vh-80px)]">{content}</div>
-        </SheetContent>
-      </Sheet>
-    )
-  }
+    // Determine if we should show the NEW badge
+    const shouldShowNewBadge = !preferences?.seenFeatures?.[FEATURE_ID];
 
-  return <div className={`h-full ${className}`}>{content}</div>
+    if (useSheet) {
+      return (
+        <Sheet open={isOpen} onOpenChange={onOpenChange}>
+          <SheetContent side="right" className="w-[90%] sm:w-[600px] p-0">
+            <SheetHeader className="p-4 border-b">
+              <SheetTitle className="flex items-center">
+                Student Grades
+                {shouldShowNewBadge && (
+                  <Badge className="ml-2 bg-blue-600 text-white text-xs py-0.5 px-1.5 rounded-full">
+                    NEW
+                  </Badge>
+                )}
+              </SheetTitle>
+            </SheetHeader>
+            <div className="h-[calc(100vh-80px)]">{content}</div>
+          </SheetContent>
+        </Sheet>
+      );
+    }
+
+    return (
+      <div className={`h-full relative ${className}`}>
+        {/* "NEW" feature badge for non-sheet view */}
+        {shouldShowNewBadge && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2 z-10 h-8 px-2 py-0 bg-blue-600 text-white hover:bg-blue-700 rounded-full flex items-center"
+                  onClick={() => setShowFeatureInfo(true)}
+                >
+                  <Bell className="h-3 w-3 mr-1" />
+                  <span className="text-xs font-bold">NEW</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Click to learn about the new unified progress tracking</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        
+        {content}
+      </div>
+  )
 }
 
 export default StudentGradesDisplay

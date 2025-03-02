@@ -499,34 +499,111 @@ const renderTemplateList = (archived, templatesList = null) => {
               </TooltipProvider>
             </div>
             <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setPreviewTemplate(template)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div className="max-w-[400px]">
-                      <p className="font-semibold mb-1">Template Details</p>
-                      <p className="mb-1"><span className="font-medium">Name:</span> {template.name}</p>
-                      {template.subject && (
-                        <p className="mb-1"><span className="font-medium">Subject:</span> {template.subject}</p>
-                      )}
-                      <p className="font-medium mb-1">Message:</p>
-                      <div 
-                        className="ql-editor whitespace-pre-wrap"
-                        dangerouslySetInnerHTML={{ __html: getTemplateContent(template) }}
-                      />
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-                {/* Rest of the buttons remain the same */}
-              </TooltipProvider>
+      
+<TooltipProvider>
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setPreviewTemplate(template)}
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent>
+      <div className="max-w-[400px]">
+        <p className="font-semibold mb-1">Template Details</p>
+        <p className="mb-1"><span className="font-medium">Name:</span> {template.name}</p>
+        {template.subject && (
+          <p className="mb-1"><span className="font-medium">Subject:</span> {template.subject}</p>
+        )}
+        <p className="font-medium mb-1">Message:</p>
+        <div 
+          className="ql-editor whitespace-pre-wrap"
+          dangerouslySetInnerHTML={{ __html: getTemplateContent(template) }}
+        />
+      </div>
+    </TooltipContent>
+  </Tooltip>
+
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => handleEditTemplate(template)}
+      >
+        <Pencil className="h-4 w-4" />
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent>Edit template</TooltipContent>
+  </Tooltip>
+
+  {archived ? (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleTemplateAction(template.id, 'unarchive')}
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Unarchive template</TooltipContent>
+    </Tooltip>
+  ) : (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleTemplateAction(template.id, 'archive')}
+        >
+          <Archive className="h-4 w-4" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>Archive template</TooltipContent>
+    </Tooltip>
+  )}
+
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setTemplateToDelete(template.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              template.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setTemplateToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleTemplateAction(template.id, 'delete')}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </TooltipTrigger>
+    <TooltipContent>Delete template</TooltipContent>
+  </Tooltip>
+</TooltipProvider>
             </div>
           </div>
           {template.subject && (
