@@ -34,6 +34,7 @@
     "@radix-ui/react-toggle-group": "^1.1.0",
     "@radix-ui/react-tooltip": "^1.1.2",
     "@reactflow/node-resizer": "^2.2.14",
+    "@tanstack/react-virtual": "^3.13.2",
     "@webcomponents/webcomponentsjs": "^2.8.0",
     "@xyflow/react": "^12.3.6",
     "class-variance-authority": "^0.7.0",

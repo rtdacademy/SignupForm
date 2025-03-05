@@ -6,6 +6,9 @@ import EnrollmentCharts from './EnrollmentCharts';
 import EnrollmentTiming from './EnrollmentTiming';
 import RevenueProjections from './RevenueProjections';
 import PrimarySchoolsView from './PrimarySchoolsView';
+import UserActivity from './UserActivity';
+import PermissionIndicator from '../context/PermissionIndicator';
+import { useAuth } from '../context/AuthContext';
 
 const getCurrentSchoolYear = () => {
   const today = new Date();
@@ -24,6 +27,8 @@ const EnrollmentStatistics = () => {
   const [schoolYears, setSchoolYears] = useState([]);
   const [selectedSchoolYear, setSelectedSchoolYear] = useState(getCurrentSchoolYear());
   const [activeTab, setActiveTab] = useState("charts");
+  const { requiresAdminAccess } = useAuth();
+  const isAdmin = requiresAdminAccess();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -81,6 +86,13 @@ const EnrollmentStatistics = () => {
     setSelectedSchoolYear(event.target.value);
   };
 
+  // Check if a tab with admin access is currently active but user doesn't have admin rights
+  useEffect(() => {
+    if (!isAdmin && (activeTab === "revenue" || activeTab === "user-activity")) {
+      setActiveTab("charts");
+    }
+  }, [isAdmin, activeTab]);
+
   if (loading) {
     return (
       <Alert>
@@ -118,8 +130,19 @@ const EnrollmentStatistics = () => {
         <TabsList>
           <TabsTrigger value="charts">Overview</TabsTrigger>
           <TabsTrigger value="timing">Enrollment Timing</TabsTrigger>
-          <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="primary">Primary Schools</TabsTrigger>
+          
+          {/* Admin-only tabs with permission indicators */}
+          <TabsTrigger value="revenue" disabled={!isAdmin} className="relative">
+            Revenue
+            {!isAdmin && <PermissionIndicator type="ADMIN" className="ml-1" />}
+          </TabsTrigger>
+          
+          <TabsTrigger value="user-activity" disabled={!isAdmin} className="relative">
+            User Activity
+            {!isAdmin && <PermissionIndicator type="ADMIN" className="ml-1" />}
+          </TabsTrigger>
+          
           <TabsTrigger value="details">Details</TabsTrigger>
         </TabsList>
         
@@ -137,18 +160,34 @@ const EnrollmentStatistics = () => {
           />
         </TabsContent>
 
-        <TabsContent value="revenue" className="space-y-4">
-          <RevenueProjections
-            summariesData={summariesData}
-            selectedSchoolYear={selectedSchoolYear}
-          />
-        </TabsContent>
-
         <TabsContent value="primary" className="space-y-4">
           <PrimarySchoolsView
             summariesData={summariesData}
             selectedSchoolYear={selectedSchoolYear}
           />
+        </TabsContent>
+
+        {/* Admin-only content */}
+        <TabsContent value="revenue" className="space-y-4">
+          {isAdmin ? (
+            <RevenueProjections
+              summariesData={summariesData}
+              selectedSchoolYear={selectedSchoolYear}
+            />
+          ) : (
+            <AdminAccessRequired />
+          )}
+        </TabsContent>
+
+        <TabsContent value="user-activity" className="space-y-4">
+          {isAdmin ? (
+            <UserActivity
+              summariesData={summariesData}
+              selectedSchoolYear={selectedSchoolYear}
+            />
+          ) : (
+            <AdminAccessRequired />
+          )}
         </TabsContent>
         
         <TabsContent value="details">
@@ -157,6 +196,22 @@ const EnrollmentStatistics = () => {
           </div>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+};
+
+// Component to show when admin access is required but not available
+const AdminAccessRequired = () => {
+  const { PERMISSION_INDICATORS } = useAuth();
+  const Icon = PERMISSION_INDICATORS.ADMIN.icon;
+  
+  return (
+    <div className="flex flex-col items-center justify-center p-8 text-center">
+      <Icon className="h-12 w-12 text-muted-foreground mb-4" />
+      <h3 className="text-lg font-semibold mb-2">{PERMISSION_INDICATORS.ADMIN.label}</h3>
+      <p className="text-muted-foreground max-w-md">
+        {PERMISSION_INDICATORS.ADMIN.description}. Please contact an administrator if you need access to this feature.
+      </p>
     </div>
   );
 };

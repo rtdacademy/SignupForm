@@ -23,6 +23,7 @@ const pasiFunctions = require('./pasi');
 const httpFunctions = require('./httpTrigger');
 const speechFunctions = require('./speech'); 
 const normalizedScheduleFunctions = require('./normalizedSchedule');
+const pasiRecordsFunctions = require('./pasiRecords');
 
 // Export gradebook functions
 exports.updateGradebookData = gradebookFunctions.updateGradebookData;
@@ -106,3 +107,6 @@ exports.onLMSStudentIDAssignedTriggerSchedule = normalizedScheduleFunctions.onLM
 exports.updateDailyScheduleAdherence = normalizedScheduleFunctions.updateDailyScheduleAdherence;
 exports.batchUpdateNormalizedSchedules = normalizedScheduleFunctions.batchUpdateNormalizedSchedules;
 
+
+exports.cleanupDeletedPasiRecord = pasiRecordsFunctions.cleanupDeletedPasiRecord;
+exports.cleanupOrphanedPasiLinks = pasiRecordsFunctions.cleanupOrphanedPasiLinks;

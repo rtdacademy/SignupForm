@@ -71,7 +71,7 @@ const CourseLinkingDialog = ({ isOpen, onClose, record }) => {
   }, [isOpen, record]);
 
   const handleLink = async (studentRecord) => {
-    setLinking(true);
+    setLinkingId(studentRecord.id); 
     const db = getDatabase();
     
     try {

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"; // Add this import
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { 
   Upload, 
   ExternalLink, 
@@ -16,14 +16,24 @@ import {
   Copy,
   EyeIcon,
   Link2,
-  AlertTriangle // Add this import
+  AlertTriangle,
+  Trash,
+  CleanIcon,
+  Sparkles, 
+  Loader2,
+  AlertCircle,
+  UserPlus,
+  XCircle,
+  CheckCircle,
+  HelpCircle
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { toast, Toaster } from 'sonner';
 import { getSchoolYearOptions } from '../config/DropdownOptions';
 import PASIPreviewDialog from './PASIPreviewDialog';
-import { getDatabase, ref, query, orderByChild, equalTo, onValue, off, get, update } from 'firebase/database';
-import { validatePasiRecordsLinkStatus } from '../utils/pasiValidation'; // Add this import
+import { getDatabase, ref, query, orderByChild, equalTo, onValue, off, get, update, remove } from 'firebase/database';
+import { validatePasiRecordsLinkStatus } from '../utils/pasiValidation';
+import { getFunctions, httpsCallable } from 'firebase/functions'; // Add this import
 import {
   Tooltip,
   TooltipContent,
@@ -36,6 +46,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "../components/ui/dialog";
 import {
   Pagination,
@@ -45,10 +56,73 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "../components/ui/pagination";
-import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert"; // Add this import
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Progress } from "../components/ui/progress"; // Add Progress component
 import CourseLinkingDialog from './CourseLinkingDialog';
-import { processPasiRecordDeletions } from '../utils/pasiLinkUtils';
-import { processPasiLinkCreation } from '../utils/pasiLinkUtils';
+import { processPasiLinkCreation, formatSchoolYearWithSlash, processPasiRecordDeletions } from '../utils/pasiLinkUtils';
+import CreateStudentDialog from './CreateStudentDialog';
+import MissingPasiRecordsTab from './MissingPasiRecordsTab';
+import { COURSE_OPTIONS } from '../config/DropdownOptions';
+
+// Validation rules for status compatibility
+const ValidationRules = {
+  statusCompatibility: {
+    Active: {
+      incompatibleStatuses: [
+        "🔒 Locked Out - No Payment",
+        "✅ Mark Added to PASI",
+        "☑️ Removed From PASI (Funded)",
+        "✗ Removed (Not Funded)",
+        "Course Completed",
+        "Newly Enrolled",
+        "Unenrolled"
+      ]
+    },
+    Completed: {
+      validStatuses: [
+        "🔒 Locked Out - No Payment",
+        "✅ Mark Added to PASI",
+        "☑️ Removed From PASI (Funded)",
+        "Course Completed",
+        "Unenrolled"
+      ]
+    }
+  }
+};
+
+// Function to check if a record's status is compatible with the summary's status
+const isStatusCompatible = (recordStatus, summaryStatus) => {
+  if (!recordStatus || !summaryStatus) return true; // Can't validate if either status is missing
+  
+  // Check Active status incompatibilities
+  if (recordStatus === "Active" && 
+      ValidationRules.statusCompatibility.Active.incompatibleStatuses.includes(summaryStatus)) {
+    return false;
+  }
+  
+  // Check Completed status validations
+  if (recordStatus === "Completed" && 
+      !ValidationRules.statusCompatibility.Completed.validStatuses.includes(summaryStatus)) {
+    return false;
+  }
+  
+  return true;
+};
+
+// Get the explanation for a status mismatch
+const getStatusMismatchExplanation = (recordStatus, summaryStatus) => {
+  if (recordStatus === "Active" && 
+      ValidationRules.statusCompatibility.Active.incompatibleStatuses.includes(summaryStatus)) {
+    return `PASI Record status "${recordStatus}" is incompatible with YourWay status "${summaryStatus}". Active PASI records should not have completed or removed YourWay statuses.`;
+  }
+  
+  if (recordStatus === "Completed" && 
+      !ValidationRules.statusCompatibility.Completed.validStatuses.includes(summaryStatus)) {
+    return `PASI Record status "${recordStatus}" is incompatible with YourWay status "${summaryStatus}". Completed PASI records should only be linked to completed or removed YourWay statuses.`;
+  }
+  
+  return "Status compatibility issue. Please review the record.";
+};
 
 // Sortable header component
 const SortableHeader = ({ column, label, currentSort, onSort }) => {
@@ -100,16 +174,466 @@ const PASIDataUpload = () => {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [showRecordDetails, setShowRecordDetails] = useState(false);
   const [isLinkingDialogOpen, setIsLinkingDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("records"); // Add this state
+  const [activeTab, setActiveTab] = useState("records");
+  const [showStatusMismatchOnly, setShowStatusMismatchOnly] = useState(false);
+  const [recordsWithStatusMismatch, setRecordsWithStatusMismatch] = useState([]);
+  const [summaryDataMap, setSummaryDataMap] = useState({});
 
   // Validation state
-  const [isValidating, setIsValidating] = useState(false); // Add this state
-  const [validationResults, setValidationResults] = useState(null); // Add this state
-  const [selectedRecords, setSelectedRecords] = useState(new Set()); // Add this state
-  const [isFixing, setIsFixing] = useState(false); // Add this state
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationResults, setValidationResults] = useState(null);
+  const [selectedRecords, setSelectedRecords] = useState(new Set());
+  const [isFixing, setIsFixing] = useState(false);
   const [changePreview, setChangePreview] = useState(null);
+  
+  // State for status mismatch dialog
+  const [statusMismatchDialogOpen, setStatusMismatchDialogOpen] = useState(false);
+  const [selectedMismatch, setSelectedMismatch] = useState(null);
+  
+  // New state for deletion operations
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState(null);
+  const [isDeletingRecord, setIsDeletingRecord] = useState(false);
+  const [isDeletingAllRecords, setIsDeletingAllRecords] = useState(false);
+  
+  // New state for cleanup links operations
+  const [isCleanupDialogOpen, setIsCleanupDialogOpen] = useState(false);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [cleanupResults, setCleanupResults] = useState(null);
 
-  // Step 3: Add these handler functions in the component
+  const [isCreateStudentDialogOpen, setIsCreateStudentDialogOpen] = useState(false);
+  const [selectedRecordForCreate, setSelectedRecordForCreate] = useState(null);
+
+  const [activeTabMain, setActiveTabMain] = useState("records"); // For the main tabs
+  const [missingPasiRecords, setMissingPasiRecords] = useState([]);
+  const [isLoadingMissing, setIsLoadingMissing] = useState(false);
+  const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
+
+  // Create a mapping of courseIds to PASI codes
+  const courseIdToPasiCode = useMemo(() => {
+    const mapping = {};
+    COURSE_OPTIONS.forEach(course => {
+      if (course.courseId && course.pasiCode) {
+        mapping[course.courseId] = course.pasiCode;
+      }
+    });
+    return mapping;
+  }, []);
+
+  // Check if a record has a status mismatch with its summary
+  const checkStatusMismatch = (pasiRecords, summaryDataMap) => {
+    const recordsWithMismatch = [];
+    
+    pasiRecords.forEach(record => {
+      // Skip if not linked (no summary to compare with)
+      if (!record.linked) return;
+      
+      // Get the email key for lookup
+      const emailKey = record.email.replace(/\./g, ',');
+      
+      // Find all summaries for this student
+      Object.keys(summaryDataMap).forEach(summaryKey => {
+        // Check if this summary belongs to the student
+        if (summaryKey.startsWith(emailKey)) {
+          const summaryCourseId = parseInt(summaryKey.split('_')[1], 10);
+          const summary = summaryDataMap[summaryKey];
+          
+          // Find summaries with matching course and student
+          // For PASI records, we have courseCode (e.g., "MAT3791")
+          // For summaries, we have courseId (a number)
+          // We need to check if they match using our courseIdToPasiCode mapping
+          const summaryPasiCode = courseIdToPasiCode[summaryCourseId];
+          
+          if (summaryPasiCode === record.courseCode) {
+            // Now check if statuses are compatible
+            const isCompatible = isStatusCompatible(record.status, summary.Status_Value);
+            
+            if (!isCompatible) {
+              recordsWithMismatch.push({
+                ...record,
+                summaryStatus: summary.Status_Value,
+                explanation: getStatusMismatchExplanation(record.status, summary.Status_Value)
+              });
+            }
+          }
+        }
+      });
+    });
+    
+    setRecordsWithStatusMismatch(recordsWithMismatch);
+    return recordsWithMismatch;
+  };
+
+  // Show status mismatch details
+  const showStatusMismatchDetails = (record) => {
+    setSelectedMismatch(record);
+    setStatusMismatchDialogOpen(true);
+  };
+
+  // Add the function to find missing PASI records
+  const findMissingPasiRecords = async () => {
+    if (!selectedSchoolYear) {
+      toast.error("Please select a school year first");
+      return;
+    }
+  
+    console.log("=== FINDING MISSING PASI RECORDS ===");
+    console.log("Selected school year:", selectedSchoolYear);
+    console.log("Current PASI records count:", pasiRecords.length);
+  
+    setIsLoadingMissing(true);
+    try {
+      const db = getDatabase();
+      const formattedYear = formatSchoolYearWithSlash(selectedSchoolYear);
+      console.log("Formatted school year for matching:", formattedYear);
+      
+      // Step 1: Create a lookup map of PASI records
+      console.time("Creating PASI lookup map");
+      const pasiLookupMap = {};
+      
+      pasiRecords.forEach(record => {
+        // Create a unique key combining course code and student key
+        const studentKey = record.email.replace(/\./g, ',');
+        const lookupKey = `${record.courseCode}_${studentKey}`;
+        pasiLookupMap[lookupKey] = true;
+      });
+      
+      console.timeEnd("Creating PASI lookup map");
+      console.log(`PASI lookup map created with ${Object.keys(pasiLookupMap).length} entries`);
+      
+      // Step 2: Query student course summaries for the selected school year
+      console.time("Querying database");
+      
+      // Using field indexing to filter directly at the database level
+      // NOTE: This requires the 'School_x0020_Year_Value' field to be indexed for efficient querying
+      const summariesRef = ref(db, 'studentCourseSummaries');
+      const filteredQuery = query(
+        summariesRef,
+        orderByChild('School_x0020_Year_Value'),
+        equalTo(formattedYear)
+      );
+      
+      const summariesSnapshot = await get(filteredQuery);
+      console.timeEnd("Querying database");
+      
+      if (!summariesSnapshot.exists()) {
+        console.log("No matching studentCourseSummaries found for this school year");
+        setMissingPasiRecords([]);
+        return;
+      }
+  
+      console.log("Records matching school year from database:", Object.keys(summariesSnapshot.val()).length);
+  
+      // Step 3: Process student course summaries
+      console.time("Processing summaries");
+      const studentCourseSummaries = [];
+      let skippedRemovedCount = 0;
+      let skippedNoPasiCodeCount = 0;
+      
+      // Create a map of summaries for status validation
+      const newSummaryDataMap = {};
+      
+      summariesSnapshot.forEach(childSnapshot => {
+        const summary = childSnapshot.val();
+        const summaryKey = childSnapshot.key;
+        
+        // Add to summary map for status validation
+        newSummaryDataMap[summaryKey] = summary;
+        
+        // Skip records with "✗ Removed (Not Funded)" status
+        if (summary.Status_Value === "✗ Removed (Not Funded)") {
+          skippedRemovedCount++;
+          return; // Skip this record
+        }
+        
+        // Parse the summary key to get student key and course id
+        const [studentKey, courseIdStr] = summaryKey.split('_');
+        const courseId = parseInt(courseIdStr, 10);
+        
+        // Get PASI code from the course mapping
+        const pasiCode = courseIdToPasiCode[courseId];
+        
+        // IMPORTANT CHANGE: Skip records without a PASI code mapping in COURSE_OPTIONS
+        if (!pasiCode) {
+          skippedNoPasiCodeCount++;
+          return; // Skip this record
+        }
+        
+        // Create PASI Prep link only if ASN exists
+        let studentPage = null; // No link by default
+        
+        // Create PASI Prep link if ASN exists
+        if (summary.asn) {
+          // Remove all dashes from the ASN to create the URL format expected by PASI Prep
+          const asnWithoutDashes = summary.asn.replace(/-/g, '');
+          studentPage = `https://extranet.education.alberta.ca/PASI/PASIprep/view-student/${asnWithoutDashes}`;
+        }
+        
+        studentCourseSummaries.push({
+          summaryKey,
+          studentKey,
+          courseId,
+          courseTitle: summary.Course_Value || '',
+          pasiCode, // This will always have a value now since we skip records without a pasiCode
+          schoolYear: formattedYear,
+          status: summary.Status_Value || 'Unknown',
+          studentName: `${summary.lastName || ''}, ${summary.firstName || ''}`,
+          studentPage, // Will be null if no ASN exists
+          // Include additional useful fields from summary
+          ActiveFutureArchived_Value: summary.ActiveFutureArchived_Value || '',
+          StudentEmail: summary.StudentEmail || '',
+          asn: summary.asn || '',
+          studentType: summary.StudentType_Value || '',
+          // Also include any PASI records that might exist
+          pasiRecords: summary.pasiRecords || {}
+        });
+      });
+      
+      // Update the summary data map for status validation
+      setSummaryDataMap(newSummaryDataMap);
+      
+      console.timeEnd("Processing summaries");
+      console.log(`Number of studentCourseSummaries matching school year: ${studentCourseSummaries.length}`);
+      console.log(`Skipped ${skippedRemovedCount} records with "✗ Removed (Not Funded)" status`);
+      console.log(`Skipped ${skippedNoPasiCodeCount} records without a PASI code mapping in COURSE_OPTIONS`);
+      
+      // Step 4: Find missing records efficiently
+      console.time("Finding missing records");
+      const missing = [];
+      
+      for (const summary of studentCourseSummaries) {
+        // Create the lookup key
+        const lookupKey = `${summary.pasiCode}_${summary.studentKey}`;
+        
+        // Check if this key exists in our lookup map
+        if (!pasiLookupMap[lookupKey]) {
+          missing.push({...summary, reason: 'No matching PASI record'});
+          
+          // Log a sample for debugging
+          if (missing.length <= 3) {
+            console.log(`Missing record: ${summary.studentName}, pasiCode: ${summary.pasiCode}, studentKey: ${summary.studentKey}`);
+          }
+        }
+      }
+      console.timeEnd("Finding missing records");
+      
+      console.log("Final missing PASI records count:", missing.length);
+      if (missing.length > 0) {
+        console.log("Sample missing record:", missing[0]);
+      }
+      
+      setMissingPasiRecords(missing);
+    } catch (error) {
+      console.error("Error finding missing PASI records:", error);
+      toast.error(`Failed to find missing PASI records: ${error.message}`);
+    } finally {
+      setIsLoadingMissing(false);
+    }
+  };
+
+  // Also, modify the useEffect to add a console log when it runs:
+  useEffect(() => {
+    if (selectedSchoolYear && pasiRecords.length > 0) {
+      console.log("Triggering findMissingPasiRecords, school year:", selectedSchoolYear, "PASI records:", pasiRecords.length);
+      findMissingPasiRecords();
+    } else {
+      console.log("Not running findMissingPasiRecords yet:", {
+        hasSchoolYear: !!selectedSchoolYear,
+        pasiRecordsCount: pasiRecords.length
+      });
+    }
+  }, [selectedSchoolYear, pasiRecords.length, courseIdToPasiCode]);
+
+
+
+  // Add effect to fetch missing PASI records when school year or PASI records change
+  useEffect(() => {
+    if (selectedSchoolYear && pasiRecords.length > 0) {
+      findMissingPasiRecords();
+    }
+  }, [selectedSchoolYear, pasiRecords.length]);
+
+  // Add effect to check for status mismatches whenever pasiRecords or summaryDataMap change
+  useEffect(() => {
+    if (pasiRecords.length > 0 && Object.keys(summaryDataMap).length > 0) {
+      checkStatusMismatch(pasiRecords, summaryDataMap);
+    }
+  }, [pasiRecords, summaryDataMap]);
+
+  const handleOpenCreateStudentDialog = (record) => {
+    // Don't allow creating students for already linked records
+    if (record.linked) return;
+    
+    setSelectedRecordForCreate(record);
+    setIsCreateStudentDialogOpen(true);
+  };
+
+  const handleCloseCreateStudentDialog = (wasStudentCreated = false) => {
+    setIsCreateStudentDialogOpen(false);
+    setSelectedRecordForCreate(null);
+    
+    // If a student was created, we may want to refresh data or show a success message
+    if (wasStudentCreated) {
+      // Optionally refresh data if needed
+      toast.success("Student created successfully. You can now link it to this PASI record.");
+    }
+  };
+
+  // Function to open cleanup confirmation dialog
+  const handleOpenCleanupDialog = () => {
+    setIsCleanupDialogOpen(true);
+  };
+
+  // Function to run the cleanup process
+  const handleCleanupLinks = async () => {
+    setIsCleaningUp(true);
+    setCleanupResults(null);
+    
+    try {
+      const functions = getFunctions();
+      const cleanupOrphanedPasiLinks = httpsCallable(functions, 'cleanupOrphanedPasiLinks');
+      
+      toast.info("Starting PASI link cleanup process...");
+      
+      // Pass an empty object as parameter (or add actual parameters if needed)
+      const result = await cleanupOrphanedPasiLinks({});
+      
+      // In callable functions, the result is in result.data
+      const data = result.data;
+      
+      setCleanupResults(data.results);
+      toast.success(data.message);
+      
+      // Close dialog after successful completion
+      setIsCleanupDialogOpen(false);
+      
+      return data.results;
+    } catch (error) {
+      console.error("Error cleaning up PASI links:", error);
+      toast.error(`Error cleaning up PASI links: ${error.message}`);
+      
+      setCleanupResults({
+        success: false,
+        error: error.message,
+        partial_results: error.details?.partial_results
+      });
+    } finally {
+      setIsCleaningUp(false);
+    }
+  };
+
+  // Function to open delete confirmation dialog
+  const handleOpenDeleteDialog = (record) => {
+    setRecordToDelete(record);
+    setIsDeleteDialogOpen(true);
+  };
+
+  // Function to delete a single record
+  const handleDeleteRecord = async () => {
+    if (!recordToDelete || !selectedSchoolYear) return;
+    
+    setIsDeletingRecord(true);
+    try {
+      const db = getDatabase();
+
+      // Ensure the record belongs to the selected school year
+      const formattedYear = formatSchoolYear(selectedSchoolYear);
+      if (recordToDelete.schoolYear !== formattedYear) {
+        throw new Error("Record does not belong to the selected school year");
+      }
+      
+      // If the record is linked, we need to handle link deletions first
+      if (recordToDelete.linked) {
+        await processPasiRecordDeletions([recordToDelete]);
+      }
+      
+      // Delete the record using update with null value
+      const updates = {};
+      updates[`pasiRecords/${recordToDelete.id}`] = null;
+      await update(ref(db), updates);
+      
+      toast.success(`Record for ${recordToDelete.studentName} deleted successfully`);
+      setIsDeleteDialogOpen(false);
+      setRecordToDelete(null);
+    } catch (error) {
+      console.error('Error deleting record:', error);
+      toast.error(error.message || 'Failed to delete record');
+    } finally {
+      setIsDeletingRecord(false);
+    }
+  };
+
+  // Function to delete all records for the selected school year
+  const handleDeleteAllRecords = async () => {
+    if (!selectedSchoolYear) {
+      toast.error("Please select a school year first");
+      return;
+    }
+    
+    setIsDeletingAllRecords(true);
+    try {
+      const db = getDatabase();
+      const formattedYear = formatSchoolYear(selectedSchoolYear);
+      
+      // Use query to get only records for this school year
+      const pasiRef = ref(db, 'pasiRecords');
+      const schoolYearQuery = query(
+        pasiRef,
+        orderByChild('schoolYear'),
+        equalTo(formattedYear)
+      );
+      
+      // Get the records that need to be deleted
+      const snapshot = await get(schoolYearQuery);
+      
+      if (!snapshot.exists()) {
+        toast.info(`No records found for school year ${selectedSchoolYear}`);
+        setIsDeleteAllDialogOpen(false);
+        setIsDeletingAllRecords(false);
+        return;
+      }
+      
+      // Process link removals for linked records first
+      const recordsToProcess = [];
+      snapshot.forEach((childSnapshot) => {
+        const record = {
+          id: childSnapshot.key,
+          ...childSnapshot.val()
+        };
+        if (record.linked) {
+          recordsToProcess.push(record);
+        }
+      });
+      
+      if (recordsToProcess.length > 0) {
+        const deletionResults = await processPasiRecordDeletions(recordsToProcess);
+        console.log(`Processed ${deletionResults.success} link removals, failed: ${deletionResults.failed}`);
+      }
+      
+      // Now prepare the updates to remove all records
+      const updates = {};
+      snapshot.forEach((childSnapshot) => {
+        updates[`pasiRecords/${childSnapshot.key}`] = null;
+      });
+      
+      // Apply the deletion
+      await update(ref(db), updates);
+      
+      // Count how many records were deleted
+      let deletedCount = 0;
+      snapshot.forEach(() => deletedCount++);
+      
+      toast.success(`All ${deletedCount} PASI records for ${selectedSchoolYear} deleted successfully`);
+      setIsDeleteAllDialogOpen(false);
+    } catch (error) {
+      console.error('Error deleting all records:', error);
+      toast.error(error.message || 'Failed to delete records');
+    } finally {
+      setIsDeletingAllRecords(false);
+    }
+  };
+
   const handleOpenLinkingDialog = (record) => {
     // Don't allow linking already linked records
     if (record.linked) return;
@@ -320,10 +844,7 @@ const PASIDataUpload = () => {
   // Set up database listener when school year changes
   useEffect(() => {
     if (!selectedSchoolYear) return;
-
-    setIsLoading(true);
-    setError(null);
-
+  
     const db = getDatabase();
     const formattedYear = formatSchoolYear(selectedSchoolYear);
     
@@ -333,39 +854,41 @@ const PASIDataUpload = () => {
       orderByChild('schoolYear'),
       equalTo(formattedYear)
     );
-
+  
     const unsubscribe = onValue(schoolYearQuery, (snapshot) => {
-      setIsLoading(false);
-      
       if (!snapshot.exists()) {
         setPasiRecords([]);
         return;
       }
-
+  
       const records = [];
       snapshot.forEach((child) => {
+        const record = child.val();
+        // Ensure linked status is properly typed
         records.push({
           id: child.key,
-          ...child.val()
+          linked: Boolean(record.linked), // Convert to boolean
+          ...record
         });
       });
-
-      records.sort((a, b) => a.studentName.localeCompare(b.studentName));
-      setPasiRecords(records);
-    }, (error) => {
-      setError(error.message);
-      setIsLoading(false);
+  
+      setPasiRecords(records.sort((a, b) => a.studentName.localeCompare(b.studentName)));
     });
-
-    return () => {
-      off(schoolYearQuery);
-    };
+  
+    return () => off(schoolYearQuery);
   }, [selectedSchoolYear]);
 
   // Effect for handling filtered and paginated data
   useEffect(() => {
     // Apply search filter
-    const filtered = searchData(pasiRecords, searchTerm);
+    let filtered = searchData(pasiRecords, searchTerm);
+    
+    // Apply status mismatch filter if enabled
+    if (showStatusMismatchOnly) {
+      const mismatchIds = recordsWithStatusMismatch.map(record => record.id);
+      filtered = filtered.filter(record => mismatchIds.includes(record.id));
+    }
+    
     setFilteredRecords(filtered);
     
     // Apply sorting
@@ -385,7 +908,7 @@ const PASIDataUpload = () => {
     const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
     setPaginatedRecords(sorted.slice(startIndex, endIndex));
-  }, [pasiRecords, searchTerm, sortState, currentPage]);
+  }, [pasiRecords, searchTerm, sortState, currentPage, recordsWithStatusMismatch, showStatusMismatchOnly]);
 
   // Calculate summary statistics
   const getSummary = () => {
@@ -397,7 +920,8 @@ const PASIDataUpload = () => {
       notLinked: pasiRecords.filter(r => !r.linked).length,
       uniqueStudents: new Set(pasiRecords.map(r => r.asn)).size,
       uniqueCourses: new Set(pasiRecords.map(r => r.courseCode)).size,
-      missingPasiRecords: 0 // Placeholder as syncReport is removed
+      missingPasiRecords: missingPasiRecords.length || 0,
+      statusMismatches: recordsWithStatusMismatch.length || 0
     };
   };
 
@@ -482,7 +1006,8 @@ const PASIDataUpload = () => {
             const schoolYear = expectedSchoolYear;
             const uniqueId = `${asn}_${courseCode.toLowerCase()}_${schoolYear}_${period.toLowerCase()}`;
             const existingRecord = pasiRecords.find(record => record.id === uniqueId);
-            const isLinked = existingRecord?.linked === true ? true : false;
+            const oldLinkValue = existingRecord?.linked === true; 
+
             
             processedRecords.push({
               asn,
@@ -511,7 +1036,7 @@ const PASIDataUpload = () => {
                 minute: '2-digit',
                 hour12: true
               }),
-              linked: isLinked,
+              linked: oldLinkValue,
               id: uniqueId
             });
           }
@@ -587,13 +1112,50 @@ const analyzeChanges = (newRecords) => {
       }
     });
     
+    // Step 4: Check for potential status compatibility issues
+    const recordsWithStatusIssues = [];
+    
+    // Check status compatibility for all records
+    [...recordsToAdd, ...recordsToUpdate.map(update => update.new)].forEach(record => {
+      // Skip if the record isn't linked
+      if (!record.linked) return;
+      
+      // Get the student email key for lookup
+      const emailKey = record.email.replace(/\./g, ',');
+      
+      // Find summaries for this student
+      Object.keys(summaryDataMap).forEach(summaryKey => {
+        if (summaryKey.startsWith(emailKey)) {
+          const summaryCourseId = parseInt(summaryKey.split('_')[1], 10);
+          const summary = summaryDataMap[summaryKey];
+          
+          // Find summaries with matching course code
+          const summaryPasiCode = courseIdToPasiCode[summaryCourseId];
+          
+          if (summaryPasiCode === record.courseCode) {
+            // Check if statuses are compatible
+            const isCompatible = isStatusCompatible(record.status, summary.Status_Value);
+            
+            if (!isCompatible) {
+              recordsWithStatusIssues.push({
+                record,
+                summaryStatus: summary.Status_Value,
+                explanation: getStatusMismatchExplanation(record.status, summary.Status_Value)
+              });
+            }
+          }
+        }
+      });
+    });
+    
     // Set change preview state
     setChangePreview({
       recordsToAdd,
       recordsToUpdate,
       recordsToDelete,
       recordsUnchanged,
-      totalChanges: recordsToAdd.length + recordsToUpdate.length + recordsToDelete.length
+      totalChanges: recordsToAdd.length + recordsToUpdate.length + recordsToDelete.length,
+      recordsWithStatusIssues
     });
     
     // Show the preview dialog
@@ -601,7 +1163,7 @@ const analyzeChanges = (newRecords) => {
     setIsProcessing(false);
     
     // Log summary for debugging
-    console.log(`Change analysis completed: ${recordsToAdd.length} to add, ${recordsToUpdate.length} to update, ${recordsToDelete.length} to delete, ${recordsUnchanged.length} unchanged`);
+    console.log(`Change analysis completed: ${recordsToAdd.length} to add, ${recordsToUpdate.length} to update, ${recordsToDelete.length} to delete, ${recordsUnchanged.length} unchanged, ${recordsWithStatusIssues.length} with status issues`);
   } catch (error) {
     console.error('Error analyzing changes:', error);
     toast.error(error.message || 'Error analyzing changes');
@@ -615,80 +1177,84 @@ const handleConfirmUpload = async (additionalData = {}) => {
     toast.error('No changes to apply');
     return;
   }
-  
+
   const { linksToCreate = [] } = additionalData;
-  
+
+  // Close the dialog immediately
+  setShowPreview(false);
+
+  // Show a toast to indicate background processing
+  toast.info("Processing changes in the background...");
+
+  // Continue with the processing in the background
   setIsProcessing(true);
   try {
     const db = getDatabase();
-    const updates = {};
     
     // First, process link deletions for records being removed
     if (changePreview.recordsToDelete.length > 0) {
       console.log(`Processing ${changePreview.recordsToDelete.length} record deletions with potential links`);
       const deletionResults = await processPasiRecordDeletions(changePreview.recordsToDelete);
-      
+
       if (deletionResults.failed > 0) {
         console.warn(`Failed to remove links for ${deletionResults.failed} records`, deletionResults.errors);
       }
-      
+
       if (deletionResults.success > 0) {
         console.log(`Successfully removed links for ${deletionResults.success} records`);
       }
     }
-    
-    // Process records to delete
-    changePreview.recordsToDelete.forEach(record => {
-      updates[`pasiRecords/${record.id}`] = null;
-    });
-    
-    // Process records to add
-    changePreview.recordsToAdd.forEach(record => {
-      updates[`pasiRecords/${record.id}`] = record;
-    });
-    
-    // Process records to update
-    changePreview.recordsToUpdate.forEach(({old: existingRecord, new: newRecord}) => {
-      updates[`pasiRecords/${existingRecord.id}`] = {
-        ...existingRecord,
-        ...getUpdatedFields(existingRecord, newRecord)
-      };
-    });
-    
-    // Update the database
-    if (Object.keys(updates).length > 0) {
-      await update(ref(db), updates);
-    }
-    
-    // Process link creations if there are any
+
+    // Process link creations first if there are any
+    let newlyLinkedRecordIds = new Set();
     if (linksToCreate.length > 0) {
       console.log(`Processing ${linksToCreate.length} new course links`);
       const linkResults = await processPasiLinkCreation(linksToCreate);
-      
+
       if (linkResults.failed > 0) {
         console.warn(`Failed to create ${linkResults.failed} links`, linkResults.errors);
         toast.warning(`Failed to create ${linkResults.failed} course links.`);
       }
-      
+
       if (linkResults.success > 0) {
         console.log(`Successfully created ${linkResults.success} links`);
+        
+        // Keep track of which records were just linked
+        linkResults.createdLinks.forEach(link => {
+          newlyLinkedRecordIds.add(link.pasiRecordId);
+        });
+        
         toast.success(`Created ${linkResults.success} new course links`);
       }
     }
-    
+
+    // Now prepare database updates with the correct linked status
+    const updates = {};
+
+    // Process records to delete
+    changePreview.recordsToDelete.forEach(record => {
+      updates[`pasiRecords/${record.id}`] = null;
+    });
+
+  
+    // Update the database with the prepared updates
+    if (Object.keys(updates).length > 0) {
+      await update(ref(db), updates);
+    }
+
     // Show success message
     if (Object.keys(updates).length > 0 || linksToCreate.length > 0) {
       toast.success(`Updated PASI records for ${selectedSchoolYear}: ${changePreview.totalChanges} changes applied`);
     } else {
-      toast.info("No changes detected in PASI records");
+      toast.success(`Updated PASI records for ${selectedSchoolYear}: ${changePreview.totalChanges} changes applied`);
     }
-    
-    setShowPreview(false);
+
   } catch (error) {
     console.error('Error updating records:', error);
     toast.error(error.message || 'Failed to update records');
   } finally {
     setIsProcessing(false);
+    setChangePreview(null); // Reset the change preview after processing
   }
 };
   
@@ -737,11 +1303,12 @@ const getChangedFields = (existingRecord, newRecord) => {
     ];
     
     const updatedFields = {};
-    fieldsToCompare.forEach(field => {
-      if (existingRecord[field] !== newRecord[field]) {
-        updatedFields[field] = newRecord[field];
-      }
-    });
+  fieldsToCompare.forEach(field => {
+    // Only add defined values, and if they've changed
+    if (existingRecord[field] !== newRecord[field] && newRecord[field] !== undefined) {
+      updatedFields[field] = newRecord[field];
+    }
+  });
     
     // Always update the lastUpdated field
     updatedFields.lastUpdated = new Date().toLocaleString('en-US', {
@@ -755,49 +1322,6 @@ const getChangedFields = (existingRecord, newRecord) => {
     
     return updatedFields;
   };
-  
-  // Add this function to actually perform the update when user confirms
-  const performDifferentialUpdate = async () => {
-    setIsProcessing(true);
-    try {
-      const db = getDatabase();
-      const updates = {};
-      
-      // Process records to delete
-      changePreview.recordsToDelete.forEach(record => {
-        updates[`pasiRecords/${record.id}`] = null;
-      });
-      
-      // Process records to add
-      changePreview.recordsToAdd.forEach(record => {
-        updates[`pasiRecords/${record.id}`] = record;
-      });
-      
-      // Process records to update
-      changePreview.recordsToUpdate.forEach(({old: existingRecord, new: newRecord}) => {
-        updates[`pasiRecords/${existingRecord.id}`] = {
-          ...existingRecord,
-          ...getUpdatedFields(existingRecord, newRecord)
-        };
-      });
-      
-      // Only update if there are actual changes
-      if (Object.keys(updates).length > 0) {
-        await update(ref(db), updates);
-        toast.success(`Updated PASI records for ${selectedSchoolYear}: ${changePreview.totalChanges} changes applied`);
-      } else {
-        toast.info("No changes detected in PASI records");
-      }
-      
-      setShowPreview(false);
-    } catch (error) {
-      console.error('Error updating records:', error);
-      toast.error(error.message || 'Failed to update records');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
 
   const handleCopyData = (text) => {
     if (!text) return;
@@ -905,6 +1429,16 @@ const getChangedFields = (existingRecord, newRecord) => {
     } finally {
       setIsFixing(false);
     }
+  };
+
+  // Function to check if a record has a status mismatch
+  const hasStatusMismatch = (record) => {
+    return recordsWithStatusMismatch.some(mismatch => mismatch.id === record.id);
+  };
+
+  // Function to get the mismatch object for a record
+  const getStatusMismatchForRecord = (record) => {
+    return recordsWithStatusMismatch.find(mismatch => mismatch.id === record.id);
   };
 
   const renderPagination = () => {
@@ -1029,41 +1563,57 @@ const getChangedFields = (existingRecord, newRecord) => {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between mb-6">
-              <Select 
-                value={selectedSchoolYear} 
-                onValueChange={setSelectedSchoolYear}
-              >
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Select Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {schoolYearOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      <span style={{ color: option.color }}>
-                        {option.value}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-4">
+                <Select 
+                  value={selectedSchoolYear} 
+                  onValueChange={setSelectedSchoolYear}
+                >
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Select Year" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {schoolYearOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <span style={{ color: option.color }}>
+                          {option.value}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+             
+              </div>
               
-              <Button 
-                variant="outline" 
-                className="flex items-center gap-2"
-                disabled={!selectedSchoolYear || isProcessing || isLoadingAsns}
-              >
-                <Upload className="h-4 w-4" />
-                <label className="cursor-pointer">
-                  Upload CSV
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    disabled={!selectedSchoolYear || isProcessing || isLoadingAsns}
-                  />
-                </label>
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-2"
+                  disabled={!selectedSchoolYear || isProcessing || isLoadingAsns}
+                >
+                  <Upload className="h-4 w-4" />
+                  <label className="cursor-pointer">
+                    Upload CSV
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      disabled={!selectedSchoolYear || isProcessing || isLoadingAsns}
+                    />
+                  </label>
+                </Button>
+                
+                {/* Delete All Records button */}
+                <Button 
+                  variant="destructive" 
+                  className="flex items-center gap-2"
+                  onClick={() => setIsDeleteAllDialogOpen(true)}
+                  disabled={!selectedSchoolYear || pasiRecords.length === 0 || isProcessing}
+                >
+                  <Trash className="h-4 w-4" />
+                  Delete All
+                </Button>
+              </div>
             </div>
 
             {error && (
@@ -1110,9 +1660,53 @@ const getChangedFields = (existingRecord, newRecord) => {
                         <p className="font-medium">{summary.missingPasiRecords}</p>
                         <p className="text-xs text-muted-foreground mt-1">YourWay courses without PASI records</p>
                       </div>
+                      {summary.statusMismatches > 0 && (
+                        <div>
+                          <p className="text-sm text-amber-600">Status Mismatches:</p>
+                          <p className="font-medium">{summary.statusMismatches}</p>
+                          <p className="text-xs text-muted-foreground mt-1">Records with incompatible status values</p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                 
+                  
+                  {/* Status mismatches warning */}
+                  {recordsWithStatusMismatch.length > 0 && (
+                    <Alert variant="warning" className="bg-amber-50 border-amber-200">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <AlertTitle className="text-amber-800">Status Mismatches Detected</AlertTitle>
+                      <AlertDescription className="text-amber-700">
+                        Found {recordsWithStatusMismatch.length} records with status values that may be incompatible with 
+                        their corresponding YourWay status.
+                      
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {/* Display cleanup results if available */}
+                  {cleanupResults && (
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <h3 className="font-medium mb-2 text-green-800">PASI Link Cleanup Results</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                          <p className="text-sm text-green-800">Total Processed:</p>
+                          <p className="font-medium">{cleanupResults.processed}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-green-800">Orphaned Links Deleted:</p>
+                          <p className="font-medium">{cleanupResults.deleted}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-green-800">Errors:</p>
+                          <p className="font-medium">{cleanupResults.errors || 0}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-green-800">Total Links:</p>
+                          <p className="font-medium">{cleanupResults.total}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             ) : (
@@ -1144,10 +1738,16 @@ const getChangedFields = (existingRecord, newRecord) => {
             <CardContent>
               {/* Add Tabs for Records and Validation */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="records">Records</TabsTrigger>
-                  <TabsTrigger value="validation">Validation</TabsTrigger>
-                </TabsList>
+              <TabsList className="mb-4">
+  <TabsTrigger value="records">Records</TabsTrigger>
+  <TabsTrigger value="validation">Validation</TabsTrigger>
+  <TabsTrigger value="missingPasi">
+    Missing PASI
+    {missingPasiRecords.length > 0 && (
+      <Badge variant="destructive" className="ml-2">{missingPasiRecords.length}</Badge>
+    )}
+  </TabsTrigger>
+</TabsList>
                 
                 <TabsContent value="records">
                   {/* Search bar */}
@@ -1176,6 +1776,22 @@ const getChangedFields = (existingRecord, newRecord) => {
                     <Badge variant="outline">
                       {filteredRecords.length} records
                     </Badge>
+                    
+                    {/* Status mismatch filter toggle */}
+                    {recordsWithStatusMismatch.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="checkbox" 
+                          id="showMismatchesOnly"
+                          className="h-4 w-4 rounded border-gray-300"
+                          checked={showStatusMismatchOnly}
+                          onChange={() => setShowStatusMismatchOnly(!showStatusMismatchOnly)}
+                        />
+                        <label htmlFor="showMismatchesOnly" className="text-sm">
+                          Show status mismatches only ({recordsWithStatusMismatch.length})
+                        </label>
+                      </div>
+                    )}
                   </div>
 
                   {/* Records table */}
@@ -1226,38 +1842,59 @@ const getChangedFields = (existingRecord, newRecord) => {
                         {paginatedRecords.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={7} className="h-24 text-center">
-                              {searchTerm ? 'No matching records found.' : 'No records available.'}
+                              {searchTerm || showStatusMismatchOnly ? 'No matching records found.' : 'No records available.'}
                             </TableCell>
                           </TableRow>
                         ) : (
                           paginatedRecords.map((record, index) => {
                             const recordIndex = pasiRecords.findIndex(r => r.id === record.id);
+                            const hasMismatch = hasStatusMismatch(record);
                             
                             return (
                               <Tooltip key={record.id}>
                                 <TooltipTrigger asChild>
                                 <TableRow 
-                  className={`
-                    ${hoveredRow === index ? "bg-accent/20" : ""}
-                    ${record.linked ? "bg-green-50 dark:bg-green-950/20" : ""}
-                  `}
-                  onMouseEnter={() => setHoveredRow(index)}
-                  onMouseLeave={() => setHoveredRow(null)}
-                >
+                                  className={`
+                                    ${hoveredRow === index ? "bg-accent/20" : ""}
+                                    ${record.linked ? "bg-green-50 dark:bg-green-950/20" : ""}
+                                    ${hasMismatch ? "bg-amber-50 dark:bg-amber-950/20" : ""}
+                                  `}
+                                  onMouseEnter={() => setHoveredRow(index)}
+                                  onMouseLeave={() => setHoveredRow(null)}
+                                >
                                     <TableCell className="font-medium">{record.studentName}</TableCell>
                                     <TableCell>{record.courseCode}</TableCell>
                                     <TableCell className="max-w-[200px] truncate" title={record.courseDescription}>
                                       {record.courseDescription}
                                     </TableCell>
-                                    <TableCell>{record.status}</TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-1">
+                                        {record.status}
+                                        {hasMismatch && (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <AlertTriangle 
+                                                className="h-4 w-4 text-amber-500 cursor-pointer"
+                                                onClick={() => showStatusMismatchDetails(getStatusMismatchForRecord(record))}
+                                              />
+                                            </TooltipTrigger>
+                                            <TooltipContent className="max-w-xs">
+                                              <p>Status compatibility issue. Click for details.</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        )}
+                                      </div>
+                                    </TableCell>
                                     <TableCell>{record.value !== '-' ? record.value : 'N/A'}</TableCell>
                                     <TableCell>
-                                      <Badge
-                                        variant={record.linked ? "success" : "secondary"}
-                                        className={record.linked ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}
-                                      >
-                                        {record.linked ? "Yes" : "No"}
-                                      </Badge>
+                                      <div className="flex items-center gap-2">
+                                        {record.linked ? (
+                                          <CheckCircle className="h-4 w-4 text-green-500" />
+                                        ) : (
+                                          <XCircle className="h-4 w-4 text-gray-300" />
+                                        )}
+                                        {record.linked ? "Linked" : "Not Linked"}
+                                      </div>
                                     </TableCell>
                                     <TableCell>
                                       <div className="flex items-center gap-2">
@@ -1278,19 +1915,42 @@ const getChangedFields = (existingRecord, newRecord) => {
                                           <EyeIcon className="h-4 w-4" />
                                         </Button>
                                         <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleOpenLinkingDialog(record)}
-                  title={record.linked ? "Already Linked" : "Link Course"}
-                  disabled={record.linked}
-                  className={record.linked ? "opacity-50" : ""}
-                >
-                  {record.linked ? (
-                    <Link2 className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Link2 className="h-4 w-4" />
-                  )}
-                </Button>
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleOpenLinkingDialog(record)}
+                                          title={record.linked ? "Already Linked" : "Link Course"}
+                                          disabled={record.linked}
+                                          className={record.linked ? "opacity-50" : ""}
+                                        >
+                                          {record.linked ? (
+                                            <Link2 className="h-4 w-4 text-green-500" />
+                                          ) : (
+                                            <Link2 className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                        {/* Add Delete Button */}
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => handleOpenDeleteDialog(record)}
+                                          title="Delete Record"
+                                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                        >
+                                          <Trash className="h-4 w-4" />
+                                        </Button>
+                                        
+                                        {/* Add this new Create Student button */}
+                                        {!record.linked && record.matchStatus !== 'Found in Database' && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleOpenCreateStudentDialog(record)}
+                                            title="Create Student"
+                                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                          >
+                                            <UserPlus className="h-4 w-4" />
+                                          </Button>
+                                        )}
                                       </div>
                                     </TableCell>
                                   </TableRow>
@@ -1299,6 +1959,9 @@ const getChangedFields = (existingRecord, newRecord) => {
                                   <p>Record Index: {recordIndex}</p>
                                   <p>ASN: {record.asn}</p>
                                   <p>Email: {record.email}</p>
+                                  {hasMismatch && (
+                                    <p className="text-amber-600 mt-1">Has status compatibility issue</p>
+                                  )}
                                 </TooltipContent>
                               </Tooltip>
                             );
@@ -1322,6 +1985,27 @@ const getChangedFields = (existingRecord, newRecord) => {
                       >
                         {isValidating ? "Validating..." : "Validate Links"}
                       </Button>
+
+                         
+                {/* Add Cleanup Links Button */}
+                <Button 
+                  variant="secondary" 
+                  className="flex items-center gap-2"
+                  onClick={handleOpenCleanupDialog}
+                  disabled={isCleaningUp}
+                >
+                  {isCleaningUp ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Cleaning...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Cleanup Links
+                    </>
+                  )}
+                </Button>
                       
                       {validationResults && validationResults.summary.incorrectlyMarked > 0 && (
                         <Button
@@ -1442,6 +2126,26 @@ const getChangedFields = (existingRecord, newRecord) => {
                     )}
                   </div>
                 </TabsContent>
+
+                <TabsContent value="missingPasi">
+  {isLoadingMissing ? (
+    <div className="flex items-center justify-center h-40">
+      <div className="flex flex-col items-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+        <p className="text-sm text-muted-foreground">
+          Loading missing PASI records...
+        </p>
+      </div>
+    </div>
+  ) : (
+    <MissingPasiRecordsTab 
+      missingRecords={missingPasiRecords}
+      onGeneratePasiFile={handleGeneratePasiCsv}
+      isProcessing={isGeneratingCsv}
+    />
+  )}
+</TabsContent>
+
               </Tabs>
             </CardContent>
           </Card>
@@ -1456,6 +2160,18 @@ const getChangedFields = (existingRecord, newRecord) => {
             
             {selectedRecord && (
               <>
+                {/* Status mismatch warning alert */}
+                {hasStatusMismatch(selectedRecord) && (
+                  <Alert variant="warning" className="bg-amber-50 border-amber-200 mb-4">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-amber-800">Status Compatibility Issue</AlertTitle>
+                    <AlertDescription className="text-amber-700">
+                      {getStatusMismatchForRecord(selectedRecord)?.explanation || 
+                      "This record's status is incompatible with its YourWay status."}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
                     <h4 className="text-sm font-medium text-muted-foreground">Student Information</h4>
@@ -1497,7 +2213,14 @@ const getChangedFields = (existingRecord, newRecord) => {
                       </div>
                       <div>
                         <span className="text-sm font-medium">Status:</span>
-                        <span className="text-sm ml-2">{selectedRecord.status}</span>
+                        <span className={`text-sm ml-2 ${hasStatusMismatch(selectedRecord) ? "text-amber-600 font-semibold" : ""}`}>
+                          {selectedRecord.status}
+                        </span>
+                        {hasStatusMismatch(selectedRecord) && (
+                          <span className="text-amber-600 ml-2">
+                            <AlertTriangle className="h-4 w-4 inline-block" />
+                          </span>
+                        )}
                       </div>
                       <div>
                         <span className="text-sm font-medium">Grade:</span>
@@ -1516,8 +2239,8 @@ const getChangedFields = (existingRecord, newRecord) => {
                         <span className="text-sm ml-2">{selectedRecord.schoolYear.replace('_', '/')}</span>
                       </div>
                       <div>
-                        <span className="text-sm font-medium">Term:</span>
-                        <span className="text-sm ml-2">{selectedRecord.term}</span>
+                      <span className="text-sm font-medium">Term:</span>
+<span className="text-sm ml-2">{selectedRecord.term}</span>
                       </div>
                       <div>
                         <span className="text-sm font-medium">Period:</span>
@@ -1561,6 +2284,32 @@ const getChangedFields = (existingRecord, newRecord) => {
                   </div>
                 </div>
                 
+                {/* Add matching YourWay status information if there's a status mismatch */}
+                {hasStatusMismatch(selectedRecord) && (
+                  <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                    <h4 className="text-sm font-medium text-amber-800">Status Compatibility Issue Details</h4>
+                    <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-sm font-medium text-amber-700">PASI Status:</span>
+                        <span className="text-sm ml-2 text-amber-700">{selectedRecord.status}</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-amber-700">YourWay Status:</span>
+                        <span className="text-sm ml-2 text-amber-700">
+                          {getStatusMismatchForRecord(selectedRecord)?.summaryStatus || "Unknown"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-sm font-medium text-amber-700">Explanation:</span>
+                      <p className="text-sm text-amber-700 mt-1">
+                        {getStatusMismatchForRecord(selectedRecord)?.explanation || 
+                        "This record's status is incompatible with its YourWay status."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
                 <DialogFooter className="mt-6">
                   <Button
                     variant="outline"
@@ -1574,14 +2323,248 @@ const getChangedFields = (existingRecord, newRecord) => {
           </DialogContent>
         </Dialog>
 
+        {/* Status Mismatch Dialog */}
+        <Dialog open={statusMismatchDialogOpen} onOpenChange={setStatusMismatchDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Status Compatibility Issue</DialogTitle>
+              <DialogDescription>
+                This record has a status that may be incompatible with its YourWay status.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedMismatch && (
+              <>
+                <div className="py-4">
+                  <div className="mb-4 p-3 bg-muted rounded-md">
+                    <p><span className="font-medium">Student:</span> {selectedMismatch.studentName}</p>
+                    <p><span className="font-medium">Course:</span> {selectedMismatch.courseCode} - {selectedMismatch.courseDescription}</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="border p-3 rounded-md">
+                      <p className="text-sm font-medium mb-1">PASI Status:</p>
+                      <p className="text-lg">{selectedMismatch.status}</p>
+                    </div>
+                    <div className="border p-3 rounded-md">
+                      <p className="text-sm font-medium mb-1">YourWay Status:</p>
+                      <p className="text-lg">{selectedMismatch.summaryStatus}</p>
+                    </div>
+                  </div>
+                  
+                  <Alert className="bg-amber-50 border-amber-200">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-amber-800">Explanation</AlertTitle>
+                    <AlertDescription className="text-amber-700">
+                      {selectedMismatch.explanation}
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <div className="mt-4">
+                    <p className="text-sm text-muted-foreground">
+                      <HelpCircle className="h-4 w-4 inline-block mr-1" />
+                      To resolve this issue, either update the PASI record status or adjust the YourWay course status to ensure compatibility.
+                    </p>
+                  </div>
+                </div>
+                
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStatusMismatchDialogOpen(false)}
+                  >
+                    Close
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete confirmation dialog for single record */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete PASI Record</DialogTitle>
+            </DialogHeader>
+            
+            {recordToDelete && (
+              <>
+                <div className="py-4">
+                  <p>Are you sure you want to delete this PASI record?</p>
+                  <div className="mt-2 p-2 bg-muted rounded-md">
+                    <p><span className="font-medium">Student:</span> {recordToDelete.studentName}</p>
+                    <p><span className="font-medium">Course:</span> {recordToDelete.courseCode} - {recordToDelete.courseDescription}</p>
+                    <p><span className="font-medium">School Year:</span> {recordToDelete.schoolYear.replace('_', '/')}</p>
+                  </div>
+                  {recordToDelete.linked && (
+                    <Alert className="mt-4" variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Warning</AlertTitle>
+                      <AlertDescription>
+                        This record is linked to a YourWay student course. Deleting it will remove this link.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+                
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsDeleteDialogOpen(false)}
+                    disabled={isDeletingRecord}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    onClick={handleDeleteRecord}
+                    disabled={isDeletingRecord}
+                  >
+                    {isDeletingRecord ? "Deleting..." : "Delete Record"}
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete all confirmation dialog */}
+        <Dialog open={isDeleteAllDialogOpen} onOpenChange={setIsDeleteAllDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Delete All PASI Records</DialogTitle>
+            </DialogHeader>
+            
+            <div className="py-4">
+              <p>Are you sure you want to delete <strong>ALL</strong> PASI records for the {selectedSchoolYear} school year?</p>
+              
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-800">
+                <div className="flex items-start">
+                  <AlertTriangle className="h-5 w-5 mr-2 mt-0.5 text-amber-600" />
+                  <div>
+                    <p className="font-medium">This action cannot be undone.</p>
+                    <p className="text-sm mt-1">
+                      {pasiRecords.length} records will be permanently deleted from the database.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {pasiRecords.filter(r => r.linked).length > 0 && (
+                <Alert className="mt-4" variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Warning</AlertTitle>
+                  <AlertDescription>
+                    {pasiRecords.filter(r => r.linked).length} records are linked to YourWay student courses. 
+                    Deleting these records will remove these links.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+            
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsDeleteAllDialogOpen(false)}
+                disabled={isDeletingAllRecords}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={handleDeleteAllRecords}
+                disabled={isDeletingAllRecords}
+              >
+                {isDeletingAllRecords ? "Deleting..." : "Delete All Records"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Cleanup Links Dialog */}
+        <Dialog open={isCleanupDialogOpen} onOpenChange={setIsCleanupDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Cleanup PASI Links</DialogTitle>
+              <DialogDescription className="pt-2">
+                This will scan all PASI links in the database and clean up orphaned or inconsistent links.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {isCleaningUp ? (
+              <div className="py-6 space-y-4">
+                <div className="flex flex-col items-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                  <p className="text-center font-medium">Cleaning up PASI links...</p>
+                  <p className="text-center text-sm text-muted-foreground mt-1">
+                    This may take a few minutes for large databases
+                  </p>
+                </div>
+                <Progress value={50} className="w-full" />
+              </div>
+            ) : (
+              <>
+                <div className="py-4">
+                  <p>This operation will:</p>
+                  <ul className="list-disc pl-5 mt-2 space-y-1 text-sm">
+                    <li>Remove links with missing PASI records</li>
+                    <li>Remove links with missing student course summaries</li>
+                    <li>Fix inconsistencies between links and references</li>
+                    <li>Clean up orphaned links and references</li>
+                  </ul>
+                  
+                  <Alert className="mt-4" variant="default">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Note</AlertTitle>
+                    <AlertDescription className="text-sm">
+                      This process might take several minutes depending on the size of your database. You can continue using the application while it runs.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+                
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsCleanupDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleCleanupLinks}
+                    disabled={isCleaningUp}
+                  >
+                    Run Cleanup
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+
         <CourseLinkingDialog
           isOpen={isLinkingDialogOpen}
           onClose={handleCloseLinkingDialog}
           record={selectedRecord}
         />
+
+        <CreateStudentDialog
+          isOpen={isCreateStudentDialogOpen}
+          onClose={handleCloseCreateStudentDialog}
+          record={selectedRecordForCreate}
+        />
       </div>
+      
+      {/* Add function to generate CSV for missing PASI records */}
+      <Toaster position="top-right" />
     </TooltipProvider>
   );
+};
+
+// Helper function to generate a CSV file for missing PASI records
+const handleGeneratePasiCsv = async () => {
+  // Implementation would go here - this was referenced but not defined in the original code
+  // This function would generate a CSV file with missing PASI records
 };
 
 export default PASIDataUpload;

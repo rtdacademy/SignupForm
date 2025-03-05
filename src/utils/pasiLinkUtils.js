@@ -1,4 +1,3 @@
-
 import { getDatabase, ref, push, set, update, query, orderByChild, equalTo, get } from 'firebase/database';
 import { PASI_COURSES } from '../config/DropdownOptions';
 /**
@@ -43,74 +42,142 @@ export const findPasiLinkByRecordId = async (pasiRecordId) => {
 };
 
 /**
- * Removes a PASI record link from the student course summary and the links collection
- * @param {string} pasiRecordId - The ID of the PASI record being deleted
- * @returns {Promise<boolean>} True if a link was found and removed, false otherwise
- */
-export const removePasiRecordLink = async (pasiRecordId) => {
-  try {
-    const link = await findPasiLinkByRecordId(pasiRecordId);
-    
-    if (!link) {
-      console.log(`No link found for PASI record: ${pasiRecordId}`);
-      return false;
-    }
-    
-    const { linkId, data } = link;
-    const { studentCourseSummaryKey, courseCode } = data;
-    
-    if (!studentCourseSummaryKey || !courseCode) {
-      console.error('Invalid link data:', data);
-      return false;
-    }
-    
-    const db = getDatabase();
-    const updates = {};
-    
-    // Remove the PASI record reference from the student course summary
-    updates[`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${courseCode}`] = null;
-    
-    // Remove the link itself
-    updates[`pasiLinks/${linkId}`] = null;
-    
-    await update(ref(db), updates);
-    
-    console.log(`Successfully removed PASI link: ${linkId} for record: ${pasiRecordId}`);
-    return true;
-  } catch (error) {
-    console.error('Error removing PASI record link:', error);
-    throw error;
-  }
-};
-
-/**
  * Process a batch of PASI records for deletion, removing any associated links
  * @param {Array<object>} recordsToDelete - Array of PASI records being deleted
  * @returns {Promise<{success: number, failed: number}>} Results of the operation
  */
 export const processPasiRecordDeletions = async (recordsToDelete) => {
+  if (!recordsToDelete || recordsToDelete.length === 0) {
+    return { success: 0, failed: 0, errors: [] };
+  }
+
   const results = {
     success: 0,
     failed: 0,
     errors: []
   };
   
-  for (const record of recordsToDelete) {
-    try {
-      const removed = await removePasiRecordLink(record.id);
-      if (removed) {
+  try {
+    const db = getDatabase();
+    
+    // Group records by batches to avoid exceeding Firebase limits
+    const BATCH_SIZE = 100;
+    const recordBatches = [];
+    
+    for (let i = 0; i < recordsToDelete.length; i += BATCH_SIZE) {
+      recordBatches.push(recordsToDelete.slice(i, i + BATCH_SIZE));
+    }
+    
+    // Process each batch
+    for (const batch of recordBatches) {
+      // Step 1: Get all pasiRecordIds for this batch
+      const pasiRecordIds = batch.map(record => record.id);
+      
+      // Step 2: Find all links in a single batch query using a complex query
+      // This is much more efficient than querying one by one
+      const linkData = await findPasiLinksByRecordIds(pasiRecordIds);
+      
+      // Step 3: Prepare a single update operation for all changes
+      const updates = {};
+      
+      // Add record unlink updates
+      Object.values(linkData).forEach(link => {
+        // Mark the PASI record as unlinked
+        updates[`pasiRecords/${link.pasiRecordId}/linked`] = false;
+        updates[`pasiRecords/${link.pasiRecordId}/linkedAt`] = null;
+        
+        // Remove reference from student course summary
+        if (link.studentCourseSummaryKey && link.courseCode) {
+          updates[`studentCourseSummaries/${link.studentCourseSummaryKey}/pasiRecords/${link.courseCode}`] = null;
+        }
+        
+        // Remove the link itself
+        updates[`pasiLinks/${link.linkId}`] = null;
+        
         results.success++;
+      });
+      
+      // Step 4: Apply all updates in a single operation if we have any
+      if (Object.keys(updates).length > 0) {
+        await update(ref(db), updates);
       }
-    } catch (error) {
-      results.failed++;
-      results.errors.push({
-        recordId: record.id,
-        error: error.message
+      
+      // Track records that didn't have links to delete
+      const linkedRecordIds = new Set(Object.keys(linkData).map(key => linkData[key].pasiRecordId));
+      const unlinkedRecords = pasiRecordIds.filter(id => !linkedRecordIds.has(id));
+      
+      // These records had no links to remove (which is not an error)
+      unlinkedRecords.forEach(() => {
+        results.success++;
       });
     }
+    
+    return results;
+  } catch (error) {
+    console.error('Error in batch deletion of PASI links:', error);
+    results.errors.push({
+      batchError: true,
+      error: error.message
+    });
+    return results;
+  }
+};
+
+/**
+ * Find multiple PASI links by a list of PASI record IDs efficiently
+ * @param {Array<string>} pasiRecordIds - List of PASI record IDs to find links for
+ * @returns {Object} Object with linkId as keys and link data as values
+ */
+export const findPasiLinksByRecordIds = async (pasiRecordIds) => {
+  if (!pasiRecordIds || pasiRecordIds.length === 0) {
+    return {};
   }
   
-  return results;
+  try {
+    const db = getDatabase();
+    const links = {};
+    
+    // Process in smaller batches to avoid hitting Firebase limits
+    const BATCH_SIZE = 25;
+    
+    for (let i = 0; i < pasiRecordIds.length; i += BATCH_SIZE) {
+      const batchIds = pasiRecordIds.slice(i, i + BATCH_SIZE);
+      
+      // We need to make individual queries since Firebase doesn't support 
+      // querying for multiple values in a single field
+      const queries = batchIds.map(id => {
+        const pasiLinksRef = ref(db, 'pasiLinks');
+        return query(
+          pasiLinksRef,
+          orderByChild('pasiRecordId'),
+          equalTo(id)
+        );
+      });
+      
+      // Execute all queries concurrently
+      const results = await Promise.all(queries.map(q => get(q)));
+      
+      // Process query results
+      results.forEach(snapshot => {
+        if (snapshot.exists()) {
+          snapshot.forEach(childSnapshot => {
+            const linkData = childSnapshot.val();
+            links[childSnapshot.key] = {
+              linkId: childSnapshot.key,
+              pasiRecordId: linkData.pasiRecordId,
+              studentCourseSummaryKey: linkData.studentCourseSummaryKey,
+              courseCode: linkData.courseCode
+            };
+          });
+        }
+      });
+    }
+    
+    return links;
+  } catch (error) {
+    console.error('Error finding PASI links by record IDs:', error);
+    throw error;
+  }
 };
 
 /**
@@ -300,11 +367,12 @@ export const formatSchoolYearWithSlash = (schoolYear) => {
 };
 
 /**
- * Process a batch of PASI links to create
+ * Process a batch of PASI links to create with improved batch processing and progress feedback
  * @param {Array<object>} linksToCreate - Array of link data objects
- * @returns {Promise<{success: number, failed: number, errors: Array}>} Results of the operation
+ * @param {Function} updateProgress - Optional callback for progress updates (receives percentage and batch info)
+ * @returns {Promise<{success: number, failed: number, errors: Array, createdLinks: Array}>} Results of the operation
  */
-export const processPasiLinkCreation = async (linksToCreate) => {
+export const processPasiLinkCreation = async (linksToCreate, updateProgress = null) => {
   const results = {
     success: 0,
     failed: 0,
@@ -312,21 +380,202 @@ export const processPasiLinkCreation = async (linksToCreate) => {
     createdLinks: []
   };
   
-  for (const linkData of linksToCreate) {
-    try {
-      const linkId = await createPasiLink(linkData);
-      results.success++;
-      results.createdLinks.push({
-        pasiRecordId: linkData.pasiRecordId,
-        linkId
+  if (!linksToCreate || linksToCreate.length === 0) {
+    return results;
+  }
+  
+  try {
+    const db = getDatabase();
+    
+    // Process in larger batches for better efficiency
+    const BATCH_SIZE = 100; // Increased from 50 to 100
+    const totalBatches = Math.ceil(linksToCreate.length / BATCH_SIZE);
+    
+    // Pre-fetch all PASI records to avoid individual lookups
+    console.log(`Pre-fetching PASI records for ${linksToCreate.length} links`);
+    const allPasiRecordIds = [...new Set(linksToCreate.map(link => link.pasiRecordId))];
+    const pasiRecordsMap = {};
+    
+    // Fetch in sub-batches to avoid hitting Firebase limits
+    const FETCH_BATCH_SIZE = 200;
+    for (let i = 0; i < allPasiRecordIds.length; i += FETCH_BATCH_SIZE) {
+      const idsBatch = allPasiRecordIds.slice(i, i + FETCH_BATCH_SIZE);
+      const fetchPromises = idsBatch.map(id => get(ref(db, `pasiRecords/${id}`)));
+      const snapshots = await Promise.all(fetchPromises);
+      
+      snapshots.forEach((snapshot, index) => {
+        pasiRecordsMap[idsBatch[index]] = snapshot.exists() ? snapshot.val() : null;
       });
-    } catch (error) {
-      results.failed++;
-      results.errors.push({
-        linkData,
-        error: error.message
-      });
+      
+      // Update prefetch progress if callback provided
+      if (updateProgress) {
+        const prefetchProgress = Math.round((i + FETCH_BATCH_SIZE) / allPasiRecordIds.length * 25); // Use 25% for prefetch
+        updateProgress(prefetchProgress, { phase: 'prefetch', completed: i + idsBatch.length, total: allPasiRecordIds.length });
+      }
     }
+    
+    console.log(`Completed pre-fetching ${Object.keys(pasiRecordsMap).length} PASI records`);
+    
+    // Process links in batches
+    for (let i = 0; i < linksToCreate.length; i += BATCH_SIZE) {
+      const batch = linksToCreate.slice(i, i + BATCH_SIZE);
+      const batchUpdates = {};
+      const batchResults = [];
+      const currentBatchNumber = Math.floor(i / BATCH_SIZE) + 1;
+      
+      console.log(`Processing batch ${currentBatchNumber}/${totalBatches} (${batch.length} links)`);
+      
+      // Prepare updates for all links in this batch
+      for (const linkData of batch) {
+        try {
+          const {
+            pasiRecordId,
+            studentCourseSummaryKey,
+            studentKey,
+            schoolYear,
+            courseCode,
+            courseDescription,
+            creditsAttempted,
+            period,
+            studentName
+          } = linkData;
+          
+          if (!pasiRecordId || !studentCourseSummaryKey || !courseCode) {
+            throw new Error('Missing required fields for PASI link creation');
+          }
+          
+          // Generate a new link ID
+          const newLinkRef = push(ref(db, 'pasiLinks'));
+          const linkId = newLinkRef.key;
+          const linkedAt = new Date().toISOString();
+          
+          // Create the link object
+          const link = {
+            linkedAt,
+            pasiRecordId,
+            schoolYear,
+            studentCourseSummaryKey,
+            studentKey: studentKey || parseStudentKeyFromSummaryKey(studentCourseSummaryKey),
+            courseCode
+          };
+          
+          // Create the record to add to the student course summary
+          const pasiRecordLink = {
+            courseDescription: courseDescription || '',
+            creditsAttempted: creditsAttempted || '',
+            linkId,
+            linkedAt,
+            period: period || '',
+            schoolYear,
+            studentName: studentName || ''
+          };
+          
+          // Add to batch updates
+          batchUpdates[`pasiLinks/${linkId}`] = link;
+          batchUpdates[`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${courseCode}`] = pasiRecordLink;
+          
+          // Check if the PASI record exists using our prefetched data
+          const existingRecord = pasiRecordsMap[pasiRecordId];
+          
+          if (existingRecord) {
+            // Record exists, so we can update the linked property
+            batchUpdates[`pasiRecords/${pasiRecordId}/linked`] = true;
+            batchUpdates[`pasiRecords/${pasiRecordId}/linkedAt`] = linkedAt;
+          } else {
+            // Record doesn't exist, create a minimal record
+            console.log(`PASI record ${pasiRecordId} not found, creating minimal record`);
+            batchUpdates[`pasiRecords/${pasiRecordId}`] = {
+              id: pasiRecordId,
+              linked: true,
+              linkedAt: linkedAt,
+              schoolYear: schoolYear || '',
+              courseCode: courseCode || '',
+              courseDescription: courseDescription || '',
+              studentName: studentName || '',
+              period: period || '',
+              createdAt: linkedAt
+            };
+          }
+          
+          // Track this link in results
+          batchResults.push({
+            pasiRecordId,
+            linkId,
+            success: true
+          });
+          
+        } catch (error) {
+          // Track failures
+          results.failed++;
+          results.errors.push({
+            linkData,
+            error: error.message
+          });
+          
+          batchResults.push({
+            pasiRecordId: linkData.pasiRecordId,
+            success: false,
+            error: error.message
+          });
+        }
+      }
+      
+      // Apply all updates in a single operation if there are any
+      if (Object.keys(batchUpdates).length > 0) {
+        try {
+          await update(ref(db), batchUpdates);
+          
+          // Process successful results
+          batchResults.forEach(result => {
+            if (result.success) {
+              results.success++;
+              results.createdLinks.push({
+                pasiRecordId: result.pasiRecordId,
+                linkId: result.linkId
+              });
+            }
+          });
+          
+          // Calculate progress percentage (25-100% range, saving first 25% for prefetch)
+          if (updateProgress) {
+            const progressPercent = 25 + Math.round((currentBatchNumber / totalBatches) * 75);
+            updateProgress(progressPercent, { 
+              phase: 'linking',
+              batch: currentBatchNumber, 
+              totalBatches, 
+              batchSize: batch.length,
+              success: batchResults.filter(r => r.success).length,
+              failed: batchResults.filter(r => !r.success).length
+            });
+          }
+          
+          console.log(`Completed batch ${currentBatchNumber}/${totalBatches}: ${batchResults.filter(r => r.success).length} successful, ${batchResults.filter(r => !r.success).length} failed`);
+          
+        } catch (batchError) {
+          console.error('Error applying batch updates:', batchError);
+          
+          // Mark all links in this batch as failed
+          batchResults.forEach(result => {
+            if (result.success) {
+              results.failed++;
+              results.errors.push({
+                linkData: linksToCreate.find(l => l.pasiRecordId === result.pasiRecordId),
+                error: batchError.message
+              });
+            }
+          });
+        }
+      }
+    }
+    
+    console.log(`Completed all batches: ${results.success} successful, ${results.failed} failed`);
+    
+  } catch (error) {
+    console.error('Error in batch processing of PASI links:', error);
+    results.errors.push({
+      batchError: true,
+      error: error.message
+    });
   }
   
   return results;

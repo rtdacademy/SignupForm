@@ -504,7 +504,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
       <IdCard className="h-4 w-4 mr-1" />
       {studentData?.courses?.[courseId]?.LMSStudentID 
         ? (compact 
-            ? `ID: ${studentData.courses[courseId].LMSStudentID}` 
+            ? `${studentData.courses[courseId].LMSStudentID}` 
             : `LMS ID: ${studentData.courses[courseId].LMSStudentID} (Edit)`)
         : "Set LMS ID"}
       {!compact && studentData?.courses?.[courseId]?.LMSStudentID && <Edit className="h-3 w-3 ml-1" />}
@@ -1065,21 +1065,31 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
           <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
             <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
               <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-semibold text-[#1fa6a7]">Grades & Progress</h4>
-                  <div className="flex space-x-2">
-                  <LMSIdButton compact={true} />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsComparisonSheetOpen(true)}
-                      className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
-                    >
-                      <Split className="h-4 w-4 mr-1" />
-                      View All
-                    </Button>
-                  </div>
-                </div>
+          
+<div className="flex items-center justify-between mb-2">
+  <h4 className="font-semibold text-[#1fa6a7]">Progress</h4>
+  <div className="flex space-x-2">
+    <LMSIdButton compact={true} />
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => setIsScheduleDialogOpen(true)}
+      className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+    >
+      <Calendar className="h-4 w-4 mr-1" />
+      {hasSchedule ? "" : "Create"}
+    </Button>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => setIsComparisonSheetOpen(true)}
+      className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+    >
+      <Split className="h-4 w-4 mr-1" />
+      All
+    </Button>
+  </div>
+</div>
                 {renderGradesContent()}
               </CardContent>
             </Card>
