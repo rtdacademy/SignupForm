@@ -64,6 +64,7 @@ import CreateStudentDialog from './CreateStudentDialog';
 import MissingPasiRecordsTab from './MissingPasiRecordsTab';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
 
+
 // Validation rules for status compatibility
 const ValidationRules = {
   statusCompatibility: {
@@ -90,9 +91,17 @@ const ValidationRules = {
   }
 };
 
+// Replace both functions below with these updated versions
 // Function to check if a record's status is compatible with the summary's status
-const isStatusCompatible = (recordStatus, summaryStatus) => {
+const isStatusCompatible = (recordStatus, summaryStatus, activeFutureArchived) => {
   if (!recordStatus || !summaryStatus) return true; // Can't validate if either status is missing
+  
+  // Special case: If Completed and Unenrolled, check ActiveFutureArchived_Value
+  if (recordStatus === "Completed" && 
+      summaryStatus === "Unenrolled") {
+    // Only compatible if ActiveFutureArchived_Value is "Archived"
+    return activeFutureArchived === "Archived";
+  }
   
   // Check Active status incompatibilities
   if (recordStatus === "Active" && 
@@ -100,8 +109,9 @@ const isStatusCompatible = (recordStatus, summaryStatus) => {
     return false;
   }
   
-  // Check Completed status validations
+  // Check Completed status validations (excluding the special case we handled above)
   if (recordStatus === "Completed" && 
+      summaryStatus !== "Unenrolled" && // Skip Unenrolled since we handled it above
       !ValidationRules.statusCompatibility.Completed.validStatuses.includes(summaryStatus)) {
     return false;
   }
@@ -110,7 +120,14 @@ const isStatusCompatible = (recordStatus, summaryStatus) => {
 };
 
 // Get the explanation for a status mismatch
-const getStatusMismatchExplanation = (recordStatus, summaryStatus) => {
+const getStatusMismatchExplanation = (recordStatus, summaryStatus, activeFutureArchived) => {
+  // Special case for Completed and Unenrolled with wrong ActiveFutureArchived value
+  if (recordStatus === "Completed" && 
+      summaryStatus === "Unenrolled" && 
+      activeFutureArchived !== "Archived") {
+    return `PASI Record status "${recordStatus}" is compatible with YourWay status "${summaryStatus}" only when the YourWay State is "Archived". Current State: "${activeFutureArchived || 'Not Set'}"`;
+  }
+  
   if (recordStatus === "Active" && 
       ValidationRules.statusCompatibility.Active.incompatibleStatuses.includes(summaryStatus)) {
     return `PASI Record status "${recordStatus}" is incompatible with YourWay status "${summaryStatus}". Active PASI records should not have completed or removed YourWay statuses.`;
@@ -152,6 +169,7 @@ const SortableHeader = ({ column, label, currentSort, onSort }) => {
 const ITEMS_PER_PAGE = 100;
 
 const PASIDataUpload = () => {
+ 
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('');
   const [schoolYearOptions, setSchoolYearOptions] = useState([]);
   const [pasiRecords, setPasiRecords] = useState([]);
@@ -210,6 +228,100 @@ const PASIDataUpload = () => {
   const [isLoadingMissing, setIsLoadingMissing] = useState(false);
   const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
 
+  
+// Add this to your PASIDataUpload component
+const getYourWayState = (record) => {
+  if (!record || !record.linked) return "Not Linked";
+  
+  // Use the direct summaryKey if available
+  if (record.summaryKey && summaryDataMap[record.summaryKey]) {
+    const summary = summaryDataMap[record.summaryKey];
+    return summary.ActiveFutureArchived_Value || "Not Set";
+  }
+  
+  // Fallback to the old way of matching if summaryKey is not stored
+  // Get the email key for lookup
+  const emailKey = record.email.replace(/\./g, ',');
+  
+  // Find all summaries for this student
+  for (const summaryKey in summaryDataMap) {
+    if (summaryKey.startsWith(emailKey)) {
+      const summaryCourseId = parseInt(summaryKey.split('_')[1], 10);
+      const summary = summaryDataMap[summaryKey];
+      
+      // Get course IDs for this PASI code
+      const pasiCourseIds = getCourseIdsForPasiCode(record.courseCode) || [];
+      
+      // Check if this course ID matches any of the possible IDs for this PASI code
+      if (pasiCourseIds.includes(summaryCourseId)) {
+        // Found matching summary, return its state
+        return summary.ActiveFutureArchived_Value || "Not Set";
+      }
+    }
+  }
+  
+  return "Unknown";
+};
+
+const StateEditCell = ({ record }) => {
+  const [state, setState] = useState(record.summaryState || 'Not Set');
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  const needsArchived = record.needsArchived;
+  
+  const handleUpdate = async () => {
+    if (!record.studentKey || !record.courseId) {
+      toast.error("Missing student key or course ID");
+      return;
+    }
+    
+    setIsUpdating(true);
+    try {
+      await updateCourseState(record.studentKey, record.courseId, state);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  // For non-editable cases or if not a mismatch that needs archived
+  if (!needsArchived) {
+    return <span>{record.summaryState || 'Not Set'}</span>;
+  }
+  
+  return (
+    <div className="flex items-center gap-2">
+      <Select 
+        value={state} 
+        onValueChange={setState}
+        disabled={isUpdating}
+      >
+        <SelectTrigger className="h-8 w-[120px]">
+          <SelectValue placeholder="Select State" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="Active">Active</SelectItem>
+          <SelectItem value="Future">Future</SelectItem>
+          <SelectItem value="Archived">Archived</SelectItem>
+        </SelectContent>
+      </Select>
+      
+      <Button 
+        size="sm" 
+        variant="outline"
+        onClick={handleUpdate}
+        disabled={isUpdating || state === record.summaryState}
+        className="h-8 px-2"
+      >
+        {isUpdating ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          "Update"
+        )}
+      </Button>
+    </div>
+  );
+};
+
   // Create a mapping of courseIds to PASI codes
   const courseIdToPasiCode = useMemo(() => {
     const mapping = {};
@@ -222,54 +334,115 @@ const PASIDataUpload = () => {
   }, []);
 
   // Check if a record has a status mismatch with its summary
-  const checkStatusMismatch = (pasiRecords, summaryDataMap) => {
-    const recordsWithMismatch = [];
-    
-    pasiRecords.forEach(record => {
-      // Skip if not linked (no summary to compare with)
-      if (!record.linked) return;
-      
-      // Get the email key for lookup
-      const emailKey = record.email.replace(/\./g, ',');
-      
-      // Find all summaries for this student
-      Object.keys(summaryDataMap).forEach(summaryKey => {
-        // Check if this summary belongs to the student
-        if (summaryKey.startsWith(emailKey)) {
-          const summaryCourseId = parseInt(summaryKey.split('_')[1], 10);
-          const summary = summaryDataMap[summaryKey];
-          
-          // Find summaries with matching course and student
-          // For PASI records, we have courseCode (e.g., "MAT3791")
-          // For summaries, we have courseId (a number)
-          // We need to check if they match using our courseIdToPasiCode mapping
-          const summaryPasiCode = courseIdToPasiCode[summaryCourseId];
-          
-          if (summaryPasiCode === record.courseCode) {
-            // Now check if statuses are compatible
-            const isCompatible = isStatusCompatible(record.status, summary.Status_Value);
-            
-            if (!isCompatible) {
-              recordsWithMismatch.push({
-                ...record,
-                summaryStatus: summary.Status_Value,
-                explanation: getStatusMismatchExplanation(record.status, summary.Status_Value)
-              });
-            }
-          }
-        }
-      });
-    });
-    
-    setRecordsWithStatusMismatch(recordsWithMismatch);
-    return recordsWithMismatch;
-  };
 
-  // Show status mismatch details
+  // Function to show status mismatch details
   const showStatusMismatchDetails = (record) => {
     setSelectedMismatch(record);
     setStatusMismatchDialogOpen(true);
   };
+
+const checkStatusMismatch = (pasiRecords, summaryDataMap) => {
+  const recordsWithMismatch = [];
+  
+  pasiRecords.forEach(record => {
+    // Skip if not linked (no summary to compare with)
+    if (!record.linked) return;
+    
+    // Get the email key for lookup
+    const emailKey = record.email.replace(/\./g, ',');
+    
+    // Find all summaries for this student
+    Object.keys(summaryDataMap).forEach(summaryKey => {
+      // Check if this summary belongs to the student
+      if (summaryKey.startsWith(emailKey)) {
+        const summaryCourseId = parseInt(summaryKey.split('_')[1], 10);
+        const summary = summaryDataMap[summaryKey];
+        
+        // Find summaries with matching course and student
+        // For PASI records, we have courseCode (e.g., "MAT3791")
+        // For summaries, we have courseId (a number)
+        // We need to check if they match using our courseIdToPasiCode mapping
+        const summaryPasiCode = courseIdToPasiCode[summaryCourseId];
+        
+        if (summaryPasiCode === record.courseCode) {
+          // Now check if statuses are compatible, including ActiveFutureArchived value
+          const isCompatible = isStatusCompatible(
+            record.status, 
+            summary.Status_Value,
+            summary.ActiveFutureArchived_Value
+          );
+          
+          if (!isCompatible) {
+            recordsWithMismatch.push({
+              ...record,
+              summaryStatus: summary.Status_Value,
+              summaryState: summary.ActiveFutureArchived_Value || 'Not Set',
+              summaryKey, // Store the summaryKey for later use
+              studentKey: summaryKey.split('_')[0], // Extract the studentKey
+              courseId: summaryCourseId.toString(), // Store courseId as string
+              needsArchived: record.status === "Completed" && 
+                             summary.Status_Value === "Unenrolled" && 
+                             summary.ActiveFutureArchived_Value !== "Archived",
+              explanation: getStatusMismatchExplanation(
+                record.status, 
+                summary.Status_Value,
+                summary.ActiveFutureArchived_Value
+              )
+            });
+          }
+        }
+      }
+    });
+  });
+  
+  setRecordsWithStatusMismatch(recordsWithMismatch);
+  return recordsWithMismatch;
+};
+
+
+
+
+// Add this new function to update the ActiveFutureArchived_Value
+const updateCourseState = async (studentKey, courseId, newState) => {
+  try {
+    const db = getDatabase();
+    
+    // Path to update the ActiveFutureArchived/Value for this student course
+    const updatePath = `students/${studentKey}/courses/${courseId}/ActiveFutureArchived/Value`;
+    const updates = {};
+    updates[updatePath] = newState;
+    
+    await update(ref(db), updates);
+    
+    // Update the local summaryDataMap to reflect the change
+    setSummaryDataMap(prevMap => {
+      const updatedMap = {...prevMap};
+      const summaryKey = `${studentKey}_${courseId}`;
+      
+      if (updatedMap[summaryKey]) {
+        updatedMap[summaryKey] = {
+          ...updatedMap[summaryKey],
+          ActiveFutureArchived_Value: newState
+        };
+      }
+      
+      return updatedMap;
+    });
+    
+    // Re-run the status mismatch check to update the UI
+    const updatedMismatches = checkStatusMismatch(pasiRecords, summaryDataMap);
+    
+    toast.success(`Updated state to "${newState}" successfully`);
+    
+    return true;
+  } catch (error) {
+    console.error("Error updating state:", error);
+    toast.error(`Failed to update state: ${error.message}`);
+    return false;
+  }
+};
+
+
 
   // Add the function to find missing PASI records
   const findMissingPasiRecords = async () => {
@@ -1539,27 +1712,7 @@ const getChangedFields = (existingRecord, newRecord) => {
         <Card className="w-full">
           <CardHeader>
             <CardTitle>PASI Records Upload</CardTitle>
-            <div className="space-y-4 text-sm text-muted-foreground">
-              <div>
-                <h3 className="font-medium text-foreground mb-2">Process Overview</h3>
-                <p>Follow these steps to upload and manage PASI student records:</p>
-                <ol className="list-decimal list-inside space-y-2 mt-2">
-                  <li>Visit the <a 
-                    href="https://extranet.education.alberta.ca/PASI/PASIprep/course-enrolment/list" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline inline-flex items-center gap-1"
-                  >
-                    PASI Prep Course Enrollment List <ExternalLink className="h-3 w-3" />
-                  </a></li>
-                  <li>Select the current school year in PASI Prep</li>
-                  <li>Export the data as a CSV file</li>
-                  <li>Upload the CSV file using the button below</li>
-                  <li>Review and confirm the data in the preview window</li>
-                  <li>Once uploaded, go to the Sync Report page to sync with local records</li>
-                </ol>
-              </div>
-            </div>
+           
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between mb-6">
@@ -1797,47 +1950,51 @@ const getChangedFields = (existingRecord, newRecord) => {
                   {/* Records table */}
                   <div className="rounded-md border">
                     <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <SortableHeader 
-                            column="studentName" 
-                            label="Student Name" 
-                            currentSort={sortState} 
-                            onSort={handleSort} 
-                          />
-                          <SortableHeader 
-                            column="courseCode" 
-                            label="Course Code" 
-                            currentSort={sortState} 
-                            onSort={handleSort} 
-                          />
-                          <SortableHeader 
-                            column="courseDescription" 
-                            label="Description" 
-                            currentSort={sortState} 
-                            onSort={handleSort} 
-                          />
-                          <SortableHeader 
-                            column="status" 
-                            label="Status" 
-                            currentSort={sortState} 
-                            onSort={handleSort} 
-                          />
-                          <SortableHeader 
-                            column="value" 
-                            label="Grade" 
-                            currentSort={sortState} 
-                            onSort={handleSort} 
-                          />
-                          <SortableHeader 
-                            column="linked" 
-                            label="Linked" 
-                            currentSort={sortState} 
-                            onSort={handleSort} 
-                          />
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
+                    <TableHeader>
+  <TableRow>
+    <SortableHeader 
+      column="studentName" 
+      label="Student Name" 
+      currentSort={sortState} 
+      onSort={handleSort} 
+    />
+    <SortableHeader 
+      column="courseCode" 
+      label="Course Code" 
+      currentSort={sortState} 
+      onSort={handleSort} 
+    />
+    <SortableHeader 
+      column="courseDescription" 
+      label="Description" 
+      currentSort={sortState} 
+      onSort={handleSort} 
+    />
+    <SortableHeader 
+      column="status" 
+      label="Status" 
+      currentSort={sortState} 
+      onSort={handleSort} 
+    />
+    <SortableHeader 
+      column="value" 
+      label="Grade" 
+      currentSort={sortState} 
+      onSort={handleSort} 
+    />
+    <SortableHeader 
+      column="linked" 
+      label="Linked" 
+      currentSort={sortState} 
+      onSort={handleSort} 
+    />
+    
+    {/* Always show the state column */}
+    <TableHead className="bg-blue-50 text-blue-800">YourWay State</TableHead>
+    
+    <TableHead>Actions</TableHead>
+  </TableRow>
+</TableHeader>
                       <TableBody>
                         {paginatedRecords.length === 0 ? (
                           <TableRow>
@@ -1854,14 +2011,14 @@ const getChangedFields = (existingRecord, newRecord) => {
                               <Tooltip key={record.id}>
                                 <TooltipTrigger asChild>
                                 <TableRow 
-                                  className={`
-                                    ${hoveredRow === index ? "bg-accent/20" : ""}
-                                    ${record.linked ? "bg-green-50 dark:bg-green-950/20" : ""}
-                                    ${hasMismatch ? "bg-amber-50 dark:bg-amber-950/20" : ""}
-                                  `}
-                                  onMouseEnter={() => setHoveredRow(index)}
-                                  onMouseLeave={() => setHoveredRow(null)}
-                                >
+  className={`
+    ${hoveredRow === index ? "bg-accent/20" : ""}
+    ${record.linked ? "bg-green-50 dark:bg-green-950/20" : ""}
+    ${hasMismatch ? "bg-amber-50 dark:bg-amber-950/20" : ""}
+  `}
+  onMouseEnter={() => setHoveredRow(index)}
+  onMouseLeave={() => setHoveredRow(null)}
+>
                                     <TableCell className="font-medium">{record.studentName}</TableCell>
                                     <TableCell>{record.courseCode}</TableCell>
                                     <TableCell className="max-w-[200px] truncate" title={record.courseDescription}>
@@ -1872,16 +2029,16 @@ const getChangedFields = (existingRecord, newRecord) => {
                                         {record.status}
                                         {hasMismatch && (
                                           <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <AlertTriangle 
-                                                className="h-4 w-4 text-amber-500 cursor-pointer"
-                                                onClick={() => showStatusMismatchDetails(getStatusMismatchForRecord(record))}
-                                              />
-                                            </TooltipTrigger>
-                                            <TooltipContent className="max-w-xs">
-                                              <p>Status compatibility issue. Click for details.</p>
-                                            </TooltipContent>
-                                          </Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <AlertTriangle 
+                                              className="h-4 w-4 text-amber-500 cursor-pointer"
+                                              onClick={() => showStatusMismatchDetails(getStatusMismatchForRecord(record))}
+                                            />
+                                          </TooltipTrigger>
+                                          <TooltipContent className="max-w-xs">
+                                            <p>Status compatibility issue. Click for details.</p>
+                                          </TooltipContent>
+                                        </Tooltip>
                                         )}
                                       </div>
                                     </TableCell>
@@ -1896,6 +2053,15 @@ const getChangedFields = (existingRecord, newRecord) => {
                                         {record.linked ? "Linked" : "Not Linked"}
                                       </div>
                                     </TableCell>
+
+                                    <TableCell className="bg-blue-50 text-blue-800">
+  {hasMismatch ? (
+    <StateEditCell record={getStatusMismatchForRecord(record)} />
+  ) : (
+    getYourWayState(record)
+  )}
+</TableCell>
+
                                     <TableCell>
                                       <div className="flex items-center gap-2">
                                         <Button
@@ -1953,6 +2119,9 @@ const getChangedFields = (existingRecord, newRecord) => {
                                         )}
                                       </div>
                                     </TableCell>
+
+
+
                                   </TableRow>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -2323,63 +2492,84 @@ const getChangedFields = (existingRecord, newRecord) => {
           </DialogContent>
         </Dialog>
 
-        {/* Status Mismatch Dialog */}
-        <Dialog open={statusMismatchDialogOpen} onOpenChange={setStatusMismatchDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Status Compatibility Issue</DialogTitle>
-              <DialogDescription>
-                This record has a status that may be incompatible with its YourWay status.
-              </DialogDescription>
-            </DialogHeader>
-            
-            {selectedMismatch && (
-              <>
-                <div className="py-4">
-                  <div className="mb-4 p-3 bg-muted rounded-md">
-                    <p><span className="font-medium">Student:</span> {selectedMismatch.studentName}</p>
-                    <p><span className="font-medium">Course:</span> {selectedMismatch.courseCode} - {selectedMismatch.courseDescription}</p>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="border p-3 rounded-md">
-                      <p className="text-sm font-medium mb-1">PASI Status:</p>
-                      <p className="text-lg">{selectedMismatch.status}</p>
-                    </div>
-                    <div className="border p-3 rounded-md">
-                      <p className="text-sm font-medium mb-1">YourWay Status:</p>
-                      <p className="text-lg">{selectedMismatch.summaryStatus}</p>
-                    </div>
-                  </div>
-                  
-                  <Alert className="bg-amber-50 border-amber-200">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    <AlertTitle className="text-amber-800">Explanation</AlertTitle>
-                    <AlertDescription className="text-amber-700">
-                      {selectedMismatch.explanation}
-                    </AlertDescription>
-                  </Alert>
-                  
-                  <div className="mt-4">
-                    <p className="text-sm text-muted-foreground">
-                      <HelpCircle className="h-4 w-4 inline-block mr-1" />
-                      To resolve this issue, either update the PASI record status or adjust the YourWay course status to ensure compatibility.
-                    </p>
-                  </div>
-                </div>
-                
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => setStatusMismatchDialogOpen(false)}
-                  >
-                    Close
-                  </Button>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+
+{/* Status Mismatch Dialog */}
+<Dialog open={statusMismatchDialogOpen} onOpenChange={setStatusMismatchDialogOpen}>
+  <DialogContent className="sm:max-w-md">
+    <DialogHeader>
+      <DialogTitle>Status Compatibility Issue</DialogTitle>
+      <DialogDescription>
+        This record has a status that may be incompatible with its YourWay status.
+      </DialogDescription>
+    </DialogHeader>
+    
+    {selectedMismatch && (
+      <>
+        <div className="py-4">
+          <div className="mb-4 p-3 bg-muted rounded-md">
+            <p><span className="font-medium">Student:</span> {selectedMismatch.studentName}</p>
+            <p><span className="font-medium">Course:</span> {selectedMismatch.courseCode} - {selectedMismatch.courseDescription}</p>
+          </div>
+          
+          {/* Update this grid to include the state */}
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="border p-3 rounded-md">
+              <p className="text-sm font-medium mb-1">PASI Status:</p>
+              <p className="text-lg">{selectedMismatch.status}</p>
+            </div>
+            <div className="border p-3 rounded-md">
+              <p className="text-sm font-medium mb-1">YourWay Status:</p>
+              <p className="text-lg">{selectedMismatch.summaryStatus}</p>
+            </div>
+            <div className="border p-3 rounded-md bg-blue-50">
+              <p className="text-sm font-medium mb-1 text-blue-800">YourWay State:</p>
+              <p className="text-lg text-blue-800">{selectedMismatch.summaryState || 'Not Set'}</p>
+            </div>
+          </div>
+          
+          <Alert className="bg-amber-50 border-amber-200">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-800">Explanation</AlertTitle>
+            <AlertDescription className="text-amber-700">
+              {selectedMismatch.explanation}
+            </AlertDescription>
+          </Alert>
+          
+          {/* Add state update UI if needed */}
+          {selectedMismatch.needsArchived && (
+            <div className="mt-4 p-3 border border-blue-200 rounded-md bg-blue-50">
+              <h3 className="text-sm font-medium text-blue-800 mb-2">Required Action</h3>
+              <p className="text-sm text-blue-700">
+                Set the YourWay State to "Archived" to resolve this issue.
+              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <StateEditCell record={selectedMismatch} />
+              </div>
+            </div>
+          )}
+          
+          <div className="mt-4">
+            <p className="text-sm text-muted-foreground">
+              <HelpCircle className="h-4 w-4 inline-block mr-1" />
+              {selectedMismatch.needsArchived 
+                ? "Set the YourWay State to 'Archived' to resolve this issue."
+                : "To resolve this issue, either update the PASI record status or adjust the YourWay course status."}
+            </p>
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setStatusMismatchDialogOpen(false)}
+          >
+            Close
+          </Button>
+        </DialogFooter>
+      </>
+    )}
+  </DialogContent>
+</Dialog>
 
         {/* Delete confirmation dialog for single record */}
         <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

@@ -27,6 +27,7 @@ import MigrationLogin from './migration/MigrationLogin';
 import ModernCourseViewer from './courses/CourseViewer/ModernCourseViewer';
 import CourseEditor from './courses/CourseEditor/CourseEditor';
 import EmployeePortal from './TeacherDashboard/EmployeePortal';
+import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -60,12 +61,17 @@ const EdBotzProtectedRoute = ({ children }) => {
 function MainApp() {
   const { user, loading, isStaff } = useAuth();
 
+    // Enable debug info in development mode or with a query parameter
+    const isDebugMode = process.env.NODE_ENV === 'development' || 
+    new URLSearchParams(window.location.search).has('debug');
+
   if (loading) {
     return <div>Loading...</div>;
   }
 
   return (
     <div className="App">
+       {user && <SessionTimeoutWarning showDebugInfo={isDebugMode} />}
       <Routes>
 
       <Route 

@@ -164,6 +164,7 @@ const CourseLinkingDialog = ({ isOpen, onClose, record }) => {
       // Update PASI record status
       updates[`pasiRecords/${pasiRecord.id}/linked`] = true;
       updates[`pasiRecords/${pasiRecord.id}/linkedAt`] = linkedAt;
+      updates[`pasiRecords/${pasiRecord.id}/summaryKey`] = `${studentKey}_${studentRecord.courseId}`;
 
       await update(ref(db), updates);
       toast.success("Successfully linked PASI record");

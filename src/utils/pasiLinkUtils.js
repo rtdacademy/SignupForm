@@ -345,6 +345,7 @@ export const createPasiLink = async (linkData) => {
     updates[`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${courseCode}`] = pasiRecordLink;
     updates[`pasiRecords/${pasiRecordId}/linked`] = true;
     updates[`pasiRecords/${pasiRecordId}/linkedAt`] = linkedAt;
+    updates[`pasiRecords/${pasiRecordId}/summaryKey`] = studentCourseSummaryKey;
     
     // Perform the update
     await update(ref(db), updates);
@@ -481,8 +482,11 @@ export const processPasiLinkCreation = async (linksToCreate, updateProgress = nu
             // Record exists, so we can update the linked property
             batchUpdates[`pasiRecords/${pasiRecordId}/linked`] = true;
             batchUpdates[`pasiRecords/${pasiRecordId}/linkedAt`] = linkedAt;
+            
+            // Add this line to store the summaryKey
+            batchUpdates[`pasiRecords/${pasiRecordId}/summaryKey`] = studentCourseSummaryKey;
           } else {
-            // Record doesn't exist, create a minimal record
+            // Record doesn't exist, creating minimal record
             console.log(`PASI record ${pasiRecordId} not found, creating minimal record`);
             batchUpdates[`pasiRecords/${pasiRecordId}`] = {
               id: pasiRecordId,
@@ -493,7 +497,9 @@ export const processPasiLinkCreation = async (linksToCreate, updateProgress = nu
               courseDescription: courseDescription || '',
               studentName: studentName || '',
               period: period || '',
-              createdAt: linkedAt
+              createdAt: linkedAt,
+              // Add this line to store the summaryKey
+              summaryKey: studentCourseSummaryKey
             };
           }
           

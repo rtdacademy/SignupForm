@@ -40,7 +40,7 @@ import NavItemWithIndicator from '../Notifications/NavItemWithIndicator';
 import IMathASGradeImporter from './IMathASGradeImporter';
 import LTIManagement from '../LTI/LTIManagement';
 import EnrollmentStatistics from '../Statistics/EnrollmentStatistics'; 
-import DataVerification from '../PASI/DataVerification';
+import PASIDataUpload from '../PASI/PASIDataUpload';
 
 function TeacherDashboard() {
   const { user, isStaff, hasAdminAccess } = useAuth();
@@ -115,7 +115,7 @@ function TeacherDashboard() {
       { icon: Link, label: 'Links', key: 'external-links' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
       { icon: BarChart2, label: 'Enrollment Stats', key: 'enrollment-stats' },
-      { icon: Shield, label: 'Data Verification', key: 'data-verification' },
+      { icon: Shield, label: 'PASI Data Upload', key: 'pasi-data-upload' },
     ];
 
     // Only add admin items if user has admin access
@@ -172,8 +172,8 @@ function TeacherDashboard() {
         return <LTIManagement />;
       case 'enrollment-stats':
         return <EnrollmentStatistics />;
-      case 'data-verification':
-        return <DataVerification />;
+      case 'pasi-data-upload':
+        return <PASIDataUpload />;
       default:
         return null;
     }

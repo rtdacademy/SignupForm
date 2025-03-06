@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { auth } from '../firebase';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { getDatabase, ref, get, set } from "firebase/database";
@@ -31,6 +31,24 @@ const SUPER_ADMIN_EMAILS = [
   'stan@rtdacademy.com'
 ];
 
+// Session timeout configuration (in milliseconds)
+// Test values for development (shorter for easier testing)
+const TEST_SESSION_TIMEOUT = 30 * 60 * 1000; // 2 minutes for testing
+const TEST_STAFF_SESSION_TIMEOUT = 30 * 60 * 1000; // 2 minutes for testing
+
+// Production values
+const PROD_SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes by default
+const PROD_STAFF_SESSION_TIMEOUT = 60 * 60 * 1000; // 60 minutes for staff
+
+// Use shorter timeouts in development mode
+const SESSION_TIMEOUT = process.env.NODE_ENV === 'development' 
+  ? TEST_SESSION_TIMEOUT 
+  : PROD_SESSION_TIMEOUT;
+
+const STAFF_SESSION_TIMEOUT = process.env.NODE_ENV === 'development'
+  ? TEST_STAFF_SESSION_TIMEOUT
+  : PROD_STAFF_SESSION_TIMEOUT;
+
 const AuthContext = createContext();
 
 export function useAuth() {
@@ -53,6 +71,13 @@ export function AuthProvider({ children }) {
   const [emulatedUser, setEmulatedUser] = useState(null);
   const [emulatedUserEmailKey, setEmulatedUserEmailKey] = useState(null);
   const [isEmulating, setIsEmulating] = useState(false);
+
+  // Session timeout states and refs
+  const inactivityTimeoutRef = useRef(null);
+  const userActivityTracking = useRef({
+    lastActivity: Date.now(),
+    isActive: true
+  });
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -101,6 +126,62 @@ export function AuthProvider({ children }) {
   const checkIsSuperAdmin = (user) => {
     return user && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
   };
+
+  // Session timeout handling
+  const resetInactivityTimeout = useCallback(() => {
+    if (!user) return;
+
+    // Clear any existing timeout
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+    }
+
+    // Set timeout based on user type
+    const timeoutDuration = isStaffUser ? STAFF_SESSION_TIMEOUT : SESSION_TIMEOUT;
+    
+    inactivityTimeoutRef.current = setTimeout(() => {
+      console.log('User inactive for too long, signing out...');
+      signOut();
+    }, timeoutDuration);
+
+    // Update last activity timestamp
+    userActivityTracking.current.lastActivity = Date.now();
+    userActivityTracking.current.isActive = true;
+  }, [user, isStaffUser]);
+
+  // Track user activity
+  const trackActivity = useCallback(() => {
+    if (!user) return;
+    
+    // Reset the timeout on user activity
+    resetInactivityTimeout();
+  }, [user, resetInactivityTimeout]);
+
+  // Set up activity tracking
+  useEffect(() => {
+    if (!user) return;
+
+    // Initialize timeout when user logs in
+    resetInactivityTimeout();
+
+    // Add event listeners to track user activity
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    
+    activityEvents.forEach(event => {
+      document.addEventListener(event, trackActivity, { passive: true });
+    });
+
+    // Clean up event listeners
+    return () => {
+      if (inactivityTimeoutRef.current) {
+        clearTimeout(inactivityTimeoutRef.current);
+      }
+      
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, trackActivity);
+      });
+    };
+  }, [user, trackActivity, resetInactivityTimeout]);
 
   // Fetch admin emails (only called after staff authentication)
   const fetchAdminEmails = async () => {
@@ -293,12 +374,21 @@ export function AuthProvider({ children }) {
   // Updated auth state change handler
   useEffect(() => {
     let isMounted = true;
-
+    let authTimeout = null;
+  
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       try {
+        // Clear any pending timeout
+        if (authTimeout) {
+          clearTimeout(authTimeout);
+        }
+        
         if (currentUser) {
           const emailKey = sanitizeEmail(currentUser.email);
           const staffStatus = checkIsStaff(currentUser);
+          
+          // Add a guard to prevent processing if component unmounted
+          if (!isMounted) return;
           
           let dataCreated = false;
           if (staffStatus) {
@@ -323,8 +413,11 @@ export function AuthProvider({ children }) {
                 setUserEmailKey(emailKey);
                 setIsStaffUser(true);
                 
+                // Add a small delay before navigation to ensure state is updated
                 if (location.pathname.toLowerCase() === '/staff-login') {
-                  navigate('/teacher-dashboard');
+                  authTimeout = setTimeout(() => {
+                    if (isMounted) navigate('/teacher-dashboard');
+                  }, 500);
                 }
               }
             }
@@ -337,8 +430,11 @@ export function AuthProvider({ children }) {
               setIsAdminUser(false);
               setIsSuperAdminUser(false);
               
+              // Add a small delay before navigation to ensure state is updated
               if (location.pathname.toLowerCase() === '/login') {
-                navigate('/dashboard');
+                authTimeout = setTimeout(() => {
+                  if (isMounted) navigate('/dashboard');
+                }, 500);
               }
             }
           }
@@ -356,15 +452,19 @@ export function AuthProvider({ children }) {
             setIsEmulating(false);
             setIsMigratedUser(false);
             setAdminEmails([]);
-
+  
             const currentPath = location.pathname;
             if (!isPublicRoute(currentPath)) {
-              if (currentPath.toLowerCase().includes('teacher') || 
-                  currentPath.toLowerCase() === '/courses') {
-                navigate('/staff-login');
-              } else {
-                navigate('/login');
-              }
+              authTimeout = setTimeout(() => {
+                if (isMounted) {
+                  if (currentPath.toLowerCase().includes('teacher') || 
+                      currentPath.toLowerCase() === '/courses') {
+                    navigate('/staff-login');
+                  } else {
+                    navigate('/login');
+                  }
+                }
+              }, 300);
             }
           }
         }
@@ -390,17 +490,25 @@ export function AuthProvider({ children }) {
         }
       }
     });
-
+  
     return () => {
       isMounted = false;
       unsubscribe();
+      if (authTimeout) clearTimeout(authTimeout);
     };
   }, [navigate, location.pathname]);
 
   const signOut = async () => {
     try {
       const wasStaff = isStaffUser;
-      await firebaseSignOut(auth);
+      
+      // Clear any existing timeout
+      if (inactivityTimeoutRef.current) {
+        clearTimeout(inactivityTimeoutRef.current);
+        inactivityTimeoutRef.current = null;
+      }
+      
+      // First reset all state variables
       setUser(null);
       setUserEmailKey(null);
       setIsStaffUser(false);
@@ -414,12 +522,30 @@ export function AuthProvider({ children }) {
       setIsMigratedUser(false);
       setAdminEmails([]);
       
+      // Clear localStorage items used for session management
+      localStorage.removeItem('rtd_last_activity_timestamp');
+      localStorage.removeItem('rtd_scheduled_logout_time');
+      
+      // Then sign out of Firebase
+      await firebaseSignOut(auth);
+      
+      // Wait a moment to ensure everything is cleaned up
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Navigate after cleanup is complete
       navigate(wasStaff ? '/staff-login' : '/login');
     } catch (error) {
       console.error("Error signing out:", error);
+      
+      // Force a clean state even if there's an error
+      setUser(null);
+      setUserEmailKey(null);
+      navigate('/login');
+      
       throw error;
     }
   };
+  
 
   const isStaff = (user) => {
     return checkIsStaff(user);
@@ -478,6 +604,24 @@ export function AuthProvider({ children }) {
     return snapshot.exists();
   };
 
+  // Manual function to check and refresh session
+  const refreshSession = () => {
+    if (user) {
+      resetInactivityTimeout();
+    }
+  };
+
+  // Function to get remaining session time
+  const getRemainingSessionTime = () => {
+    if (!user) return 0;
+    
+    const timeoutDuration = isStaffUser ? STAFF_SESSION_TIMEOUT : SESSION_TIMEOUT;
+    const elapsedTime = Date.now() - userActivityTracking.current.lastActivity;
+    const remainingTime = Math.max(0, timeoutDuration - elapsedTime);
+    
+    return remainingTime;
+  };
+
   const value = {
     // Original auth values
     user,
@@ -493,6 +637,11 @@ export function AuthProvider({ children }) {
     courseTeachers,
     staffMembers,
     getTeacherForCourse,
+    
+    // Session timeout values and functions
+    refreshSession,
+    getRemainingSessionTime,
+    sessionTimeout: isStaffUser ? STAFF_SESSION_TIMEOUT : SESSION_TIMEOUT,
     
     // Emulation values 
     emulatedUser,
@@ -519,12 +668,12 @@ export function AuthProvider({ children }) {
     hasSuperAdminAccess: () => isStaffUser && isSuperAdminUser,
 
     // Permission indicators
-  permissionIndicators: PERMISSION_INDICATORS,
-  
-  // Helper functions to check permissions
-  requiresStaffAccess: () => isStaffUser,
-  requiresAdminAccess: () => isStaffUser && isAdminUser,
-  requiresSuperAdminAccess: () => isStaffUser && isSuperAdminUser,
+    permissionIndicators: PERMISSION_INDICATORS,
+    
+    // Helper functions to check permissions
+    requiresStaffAccess: () => isStaffUser,
+    requiresAdminAccess: () => isStaffUser && isAdminUser,
+    requiresSuperAdminAccess: () => isStaffUser && isSuperAdminUser,
 
     // Migration related values and functions
     isMigratedUser,
