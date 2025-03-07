@@ -228,6 +228,22 @@ const PASIDataUpload = () => {
   const [isLoadingMissing, setIsLoadingMissing] = useState(false);
   const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
 
+  const countActualMissingRecords = (records) => {
+    if (!records || records.length === 0) return 0;
+    
+    return records.filter(record => {
+      // Check if it's an archived/unenrolled-like record
+      const isArchived = record.ActiveFutureArchived_Value === "Archived";
+      const isUnenrolledLikeStatus = 
+        record.status === "Unenrolled" || 
+        record.status === "✅ Mark Added to PASI" || 
+        record.status === "☑️ Removed From PASI (Funded)";
+        
+      // We want to count records that are NOT archived/unenrolled-like
+      return !(isArchived && isUnenrolledLikeStatus);
+    }).length;
+  };
+
   // Create this function in your component
   const combineRecordsWithSummaries = (records, summariesMap) => {
     return records.map(record => {
@@ -1948,11 +1964,13 @@ const getChangedFields = (existingRecord, newRecord) => {
   <TabsTrigger value="records">Records</TabsTrigger>
   <TabsTrigger value="validation">Validation</TabsTrigger>
   <TabsTrigger value="missingPasi">
-    Missing PASI
-    {missingPasiRecords.length > 0 && (
-      <Badge variant="destructive" className="ml-2">{missingPasiRecords.length}</Badge>
-    )}
-  </TabsTrigger>
+  Missing PASI
+  {missingPasiRecords.length > 0 && (
+    <Badge variant="destructive" className="ml-2">
+      {countActualMissingRecords(missingPasiRecords)}
+    </Badge>
+  )}
+</TabsTrigger>
 </TabsList>
                 
                 <TabsContent value="records">

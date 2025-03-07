@@ -4,7 +4,7 @@ import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../components/ui/pagination";
-import { Search, X, FileUp, ExternalLink, Copy, Eye, AlertTriangle, Files } from 'lucide-react';
+import { Search, X, FileUp, ExternalLink, Copy, Eye, AlertTriangle, Files, Archive } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
@@ -27,6 +27,23 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
   const [fullStudentData, setFullStudentData] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [showOnlyIssues, setShowOnlyIssues] = useState(false);
+  // New state for showing only Archived/Unenrolled records
+  const [showOnlyArchivedUnenrolled, setShowOnlyArchivedUnenrolled] = useState(false);
+  
+// 1. Update the isArchivedUnenrolled helper function
+const isArchivedUnenrolled = (record) => {
+  // Check if state is "Archived"
+  const isArchived = record.ActiveFutureArchived_Value === "Archived";
+  
+  // Check if status is any of the "unenrolled-like" statuses
+  const isUnenrolledLikeStatus = 
+    record.status === "Unenrolled" || 
+    record.status === "✅ Mark Added to PASI" || 
+    record.status === "☑️ Removed From PASI (Funded)";
+    
+  // Return true if both conditions are met
+  return isArchived && isUnenrolledLikeStatus;
+};
   
   // Process records to find duplicates and validate ASNs
   const processedRecords = useMemo(() => {
@@ -58,27 +75,37 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
         ...record,
         isAsnValid,
         isDuplicate,
-        hasIssues: !isAsnValid || isDuplicate
+        hasIssues: !isAsnValid || isDuplicate,
+        isArchivedUnenrolled: isArchivedUnenrolled(record)
       };
     });
   }, [missingRecords]);
   
-  // Count records with issues
-  const issueStats = useMemo(() => {
+  // Count records with issues and Archived/Unenrolled
+  const stats = useMemo(() => {
     const invalidAsn = processedRecords.filter(r => !r.isAsnValid).length;
     const duplicates = processedRecords.filter(r => r.isDuplicate).length;
     const totalIssues = processedRecords.filter(r => r.hasIssues).length;
+    const archivedUnenrolled = processedRecords.filter(r => r.isArchivedUnenrolled).length;
     
-    return { invalidAsn, duplicates, totalIssues };
+    return { invalidAsn, duplicates, totalIssues, archivedUnenrolled };
   }, [processedRecords]);
 
-  // Filter records based on search term and issues filter
+  // Filter records based on search term, issues filter, and archived/unenrolled filter
   const filteredRecords = useMemo(() => {
     let filtered = processedRecords;
     
-    // Apply issues filter if enabled
-    if (showOnlyIssues) {
-      filtered = filtered.filter(record => record.hasIssues);
+    // Apply archived/unenrolled filter if enabled
+    if (showOnlyArchivedUnenrolled) {
+      filtered = filtered.filter(record => isArchivedUnenrolled(record));
+    } else {
+      // Exclude archived/unenrolled records from normal view
+      filtered = filtered.filter(record => !isArchivedUnenrolled(record));
+      
+      // Apply issues filter if enabled
+      if (showOnlyIssues) {
+        filtered = filtered.filter(record => record.hasIssues);
+      }
     }
     
     // Apply search filter if there's a search term
@@ -97,7 +124,7 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
     }
     
     return filtered;
-  }, [processedRecords, searchTerm, showOnlyIssues]);
+  }, [processedRecords, searchTerm, showOnlyIssues, showOnlyArchivedUnenrolled]);
 
   // Sort records
   const sortedRecords = useMemo(() => {
@@ -139,7 +166,7 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [showOnlyIssues, searchTerm]);
+  }, [showOnlyIssues, showOnlyArchivedUnenrolled, searchTerm]);
 
   // Handle column sorting
   const handleSort = (column) => {
@@ -360,23 +387,26 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-center">
             <div>
               <p className="text-sm font-medium text-amber-800">
-                {missingRecords.length} YourWay courses without PASI records
+                {missingRecords.length - stats.archivedUnenrolled} YourWay courses without PASI records
+                {stats.archivedUnenrolled > 0 && (
+                  <span className="text-gray-600"> (excluding {stats.archivedUnenrolled} Archived/Unenrolled)</span>
+                )}
               </p>
               <p className="text-xs text-amber-700 mt-1">
                 These courses need to be registered in PASI to ensure complete records
               </p>
-              {issueStats.totalIssues > 0 && (
+              {stats.totalIssues > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {issueStats.invalidAsn > 0 && (
+                  {stats.invalidAsn > 0 && (
                     <Badge variant="destructive" className="flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3" />
-                      {issueStats.invalidAsn} Invalid ASNs
+                      {stats.invalidAsn} Invalid ASNs
                     </Badge>
                   )}
-                  {issueStats.duplicates > 0 && (
+                  {stats.duplicates > 0 && (
                     <Badge variant="destructive" className="flex items-center gap-1">
                       <Files className="h-3 w-3" />
-                      {issueStats.duplicates} Duplicates
+                      {stats.duplicates} Duplicates
                     </Badge>
                   )}
                 </div>
@@ -411,15 +441,31 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <Switch 
-              id="show-issues" 
-              checked={showOnlyIssues}
-              onCheckedChange={setShowOnlyIssues}
-            />
-            <Label htmlFor="show-issues" className="text-sm cursor-pointer">
-              Show only records with issues
-            </Label>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Switch 
+                id="show-issues" 
+                checked={showOnlyIssues}
+                onCheckedChange={setShowOnlyIssues}
+                disabled={showOnlyArchivedUnenrolled}
+              />
+              <Label htmlFor="show-issues" className="text-sm cursor-pointer">
+                Show only records with issues
+              </Label>
+            </div>
+            
+            {/* New toggle for Archived/Unenrolled records */}
+            <div className="flex items-center gap-2">
+              <Switch 
+                id="show-archived-unenrolled" 
+                checked={showOnlyArchivedUnenrolled}
+                onCheckedChange={setShowOnlyArchivedUnenrolled}
+              />
+              <Label htmlFor="show-archived-unenrolled" className="text-sm cursor-pointer flex items-center">
+                <Archive className="h-4 w-4 mr-1 text-blue-600" />
+                Show Archived/Unenrolled ({stats.archivedUnenrolled})
+              </Label>
+            </div>
           </div>
           
           <Badge variant="outline">
@@ -447,14 +493,16 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
               {paginatedRecords.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="h-24 text-center">
-                    {searchTerm || showOnlyIssues ? 'No matching records found.' : 'No records available.'}
+                    {searchTerm || showOnlyIssues || showOnlyArchivedUnenrolled ? 'No matching records found.' : 'No records available.'}
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedRecords.map((record) => (
                   <TableRow 
                     key={record.summaryKey} 
-                    className={`hover:bg-muted/40 ${record.isDuplicate ? 'bg-yellow-50' : ''}`}
+                    className={`hover:bg-muted/40 
+                      ${record.isDuplicate ? 'bg-yellow-50' : ''}
+                      ${record.isArchivedUnenrolled ? 'bg-blue-50' : ''}`}
                   >
                     <TableCell className="font-medium">{record.studentName || 'N/A'}</TableCell>
                     <TableCell>{record.courseTitle || 'N/A'}</TableCell>
@@ -469,13 +517,23 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
                     </TableCell>
                     <TableCell>
                       <Badge 
-                        variant={record.ActiveFutureArchived_Value === 'Active' ? 'default' : 'secondary'}
-                        className={record.ActiveFutureArchived_Value === 'Active' ? 'bg-green-100 text-green-800 hover:bg-green-200' : ''}
+                        variant={record.ActiveFutureArchived_Value === 'Active' ? 'default' : 
+                               record.ActiveFutureArchived_Value === 'Archived' ? 'outline' : 'secondary'}
+                        className={record.ActiveFutureArchived_Value === 'Active' ? 'bg-green-100 text-green-800 hover:bg-green-200' : 
+                                   record.ActiveFutureArchived_Value === 'Archived' ? 'bg-blue-100 text-blue-800 border-blue-300' : ''}
                       >
                         {record.ActiveFutureArchived_Value || 'N/A'}
                       </Badge>
                     </TableCell>
-                    <TableCell>{record.status || 'N/A'}</TableCell>
+                    <TableCell>
+                      {record.isArchivedUnenrolled ? (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-300">
+                          {record.status}
+                        </Badge>
+                      ) : (
+                        record.status || 'N/A'
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="font-mono">
                         {record.pasiCode || 'N/A'}
@@ -563,6 +621,21 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
                   </div>
                 ) : (
                   <div className="space-y-6">
+                    {/* Special notice for Archived/Unenrolled records */}
+                    {selectedRecord.isArchivedUnenrolled && (
+                      <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
+                        <div className="flex items-start">
+                          <Archive className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
+                          <div>
+                            <h3 className="text-sm font-medium text-blue-800">Archived and Unenrolled Record</h3>
+                            <p className="text-sm text-blue-700 mt-1">
+                              This student course has been archived and unenrolled. It is not considered a missing PASI record.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     {/* Issue warning banners */}
                     {selectedRecord.hasIssues && (
                       <div className="space-y-2">
@@ -641,11 +714,26 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
                         </div>
                         <div>
                           <p className="text-sm font-medium">State</p>
-                          <p className="text-sm">{selectedRecord.ActiveFutureArchived_Value || 'N/A'}</p>
+                          <p className="text-sm">
+                            <Badge 
+                              variant={selectedRecord.ActiveFutureArchived_Value === 'Archived' ? 'outline' : 'secondary'}
+                              className={selectedRecord.ActiveFutureArchived_Value === 'Archived' ? 'bg-blue-100 text-blue-800 border-blue-300' : ''}
+                            >
+                              {selectedRecord.ActiveFutureArchived_Value || 'N/A'}
+                            </Badge>
+                          </p>
                         </div>
                         <div>
                           <p className="text-sm font-medium">Status</p>
-                          <p className="text-sm">{selectedRecord.status || 'N/A'}</p>
+                          <p className="text-sm">
+                            {selectedRecord.isArchivedUnenrolled ? (
+                              <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-300">
+                                {selectedRecord.status || 'N/A'}
+                              </Badge>
+                            ) : (
+                              selectedRecord.status || 'N/A'
+                            )}
+                          </p>
                         </div>
                         <div>
                           <p className="text-sm font-medium">Summary Key</p>
