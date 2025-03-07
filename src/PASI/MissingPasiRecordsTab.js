@@ -9,16 +9,18 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../com
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { ScrollArea } from "../components/ui/scroll-area";
-import { getDatabase, ref, get } from 'firebase/database';
+import { getDatabase, ref, get, update } from 'firebase/database';
 import { Switch } from "../components/ui/switch";
 import { Label } from "../components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { ACTIVE_FUTURE_ARCHIVED_OPTIONS } from "../config/DropdownOptions";
 
 const ITEMS_PER_PAGE = 100;
 
 // ASN validation regex
 const ASN_REGEX = /^\d{4}-\d{4}-\d{1}$/;
 
-const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessing }) => {
+const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessing, onRecordUpdated }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [sortState, setSortState] = useState({ column: 'studentName', direction: 'asc' });
@@ -27,8 +29,9 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
   const [fullStudentData, setFullStudentData] = useState(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [showOnlyIssues, setShowOnlyIssues] = useState(false);
-  // New state for showing only Archived/Unenrolled records
   const [showOnlyArchivedUnenrolled, setShowOnlyArchivedUnenrolled] = useState(false);
+  const [updatingStates, setUpdatingStates] = useState({});
+  const [modifiedStates, setModifiedStates] = useState({});
   
 // 1. Update the isArchivedUnenrolled helper function
 const isArchivedUnenrolled = (record) => {
@@ -44,6 +47,66 @@ const isArchivedUnenrolled = (record) => {
   // Return true if both conditions are met
   return isArchived && isUnenrolledLikeStatus;
 };
+
+  // Function to parse student key from summary key
+  const parseStudentKeyFromSummary = (summaryKey) => {
+    if (!summaryKey) return null;
+    
+    // Remove the prefix
+    const withoutPrefix = summaryKey.replace('/studentCourseSummaries/', '');
+    
+    // Find the last underscore which separates studentKey from courseId
+    const lastUnderscoreIndex = withoutPrefix.lastIndexOf('_');
+    if (lastUnderscoreIndex === -1) return null;
+    
+    // Extract the studentKey
+    return withoutPrefix.substring(0, lastUnderscoreIndex);
+  };
+
+  // Handle state change for a record
+  const handleStateChange = async (newValue, record) => {
+    const studentKey = parseStudentKeyFromSummary(record.summaryKey);
+    const courseId = record.courseId;
+    
+    if (!studentKey || !courseId) {
+      toast.error("Unable to update state: Missing student or course information");
+      return;
+    }
+    
+    // Set loading state for this record
+    setUpdatingStates(prev => ({ ...prev, [record.summaryKey]: true }));
+    
+    try {
+      const db = getDatabase();
+      const updates = {};
+      updates[`/students/${studentKey}/courses/${courseId}/ActiveFutureArchived/Value`] = newValue;
+      
+      await update(ref(db), updates);
+      
+      // Update local state to reflect change immediately
+      setModifiedStates(prev => ({
+        ...prev,
+        [record.summaryKey]: newValue
+      }));
+      
+      toast.success(`State updated to ${newValue}`);
+      
+      // Notify parent component to refresh data if callback exists
+      if (onRecordUpdated) {
+        onRecordUpdated();
+      }
+    } catch (error) {
+      console.error("Error updating state:", error);
+      toast.error("Failed to update state");
+    } finally {
+      // Clear loading state
+      setUpdatingStates(prev => {
+        const updated = { ...prev };
+        delete updated[record.summaryKey];
+        return updated;
+      });
+    }
+  };
   
   // Process records to find duplicates and validate ASNs
   const processedRecords = useMemo(() => {
@@ -71,15 +134,19 @@ const isArchivedUnenrolled = (record) => {
       const isDuplicate = record.asn && record.courseId && 
         duplicateMarker[`${record.courseId}_${record.asn}`];
         
+      // Apply any modified states
+      const effectiveState = modifiedStates[record.summaryKey] || record.ActiveFutureArchived_Value;
+      
       return {
         ...record,
         isAsnValid,
         isDuplicate,
         hasIssues: !isAsnValid || isDuplicate,
-        isArchivedUnenrolled: isArchivedUnenrolled(record)
+        isArchivedUnenrolled: isArchivedUnenrolled({...record, ActiveFutureArchived_Value: effectiveState}),
+        ActiveFutureArchived_Value: effectiveState
       };
     });
-  }, [missingRecords]);
+  }, [missingRecords, modifiedStates]);
   
   // Count records with issues and Archived/Unenrolled
   const stats = useMemo(() => {
@@ -379,6 +446,12 @@ const isArchivedUnenrolled = (record) => {
       .join(' ');
   };
 
+  // Get state color based on value
+  const getStateColor = (value) => {
+    const option = ACTIVE_FUTURE_ARCHIVED_OPTIONS.find(opt => opt.value === value);
+    return option ? option.color : "#6B7280"; // Default to gray if not found
+  };
+
   return (
     <TooltipProvider>
       <div className="space-y-4">
@@ -450,7 +523,7 @@ const isArchivedUnenrolled = (record) => {
                 disabled={showOnlyArchivedUnenrolled}
               />
               <Label htmlFor="show-issues" className="text-sm cursor-pointer">
-                Show only records with issues
+                Show only students with data issues
               </Label>
             </div>
             
@@ -473,132 +546,166 @@ const isArchivedUnenrolled = (record) => {
           </Badge>
         </div>
 
-        {/* Table */}
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <SortableHeader column="studentName" label="Student Name" />
-                <SortableHeader column="courseTitle" label="Course" />
-                <SortableHeader column="StudentEmail" label="Student Email" />
-                <SortableHeader column="asn" label="ASN" />
-                <SortableHeader column="studentType" label="Student Type" />
-                <SortableHeader column="ActiveFutureArchived_Value" label="State" />
-                <SortableHeader column="status" label="Status" />
-                <SortableHeader column="pasiCode" label="PASI Code" />
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedRecords.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center">
-                    {searchTerm || showOnlyIssues || showOnlyArchivedUnenrolled ? 'No matching records found.' : 'No records available.'}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedRecords.map((record) => (
-                  <TableRow 
-                    key={record.summaryKey} 
-                    className={`hover:bg-muted/40 
-                      ${record.isDuplicate ? 'bg-yellow-50' : ''}
-                      ${record.isArchivedUnenrolled ? 'bg-blue-50' : ''}`}
-                  >
-                    <TableCell className="font-medium">{record.studentName || 'N/A'}</TableCell>
-                    <TableCell>{record.courseTitle || 'N/A'}</TableCell>
-                    <TableCell>
-                      <span className="text-xs">{record.StudentEmail || 'N/A'}</span>
-                    </TableCell>
-                    <TableCell>{getAsnDisplay(record)}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">
-                        {getStudentTypeDisplay(record.studentType)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant={record.ActiveFutureArchived_Value === 'Active' ? 'default' : 
-                               record.ActiveFutureArchived_Value === 'Archived' ? 'outline' : 'secondary'}
-                        className={record.ActiveFutureArchived_Value === 'Active' ? 'bg-green-100 text-green-800 hover:bg-green-200' : 
-                                   record.ActiveFutureArchived_Value === 'Archived' ? 'bg-blue-100 text-blue-800 border-blue-300' : ''}
-                      >
-                        {record.ActiveFutureArchived_Value || 'N/A'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {record.isArchivedUnenrolled ? (
-                        <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-300">
-                          {record.status}
-                        </Badge>
-                      ) : (
-                        record.status || 'N/A'
+       {/* Table */}
+<div className="rounded-md border border-blue-200">
+  <Table className="bg-blue-50">
+    <TableHeader className="bg-blue-100">
+      <TableRow>
+        <SortableHeader column="studentName" label="Student Name" />
+        <SortableHeader column="courseTitle" label="Course" />
+        <SortableHeader column="StudentEmail" label="Student Email" />
+        <SortableHeader column="asn" label="ASN" />
+        <SortableHeader column="studentType" label="Student Type" />
+        <SortableHeader column="ActiveFutureArchived_Value" label="State" />
+        <SortableHeader column="status" label="Status" />
+        <SortableHeader column="pasiCode" label="PASI Code" />
+        <TableHead>Actions</TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      {paginatedRecords.length === 0 ? (
+        <TableRow>
+          <TableCell colSpan={9} className="h-24 text-center text-blue-600 bg-blue-50">
+            {searchTerm || showOnlyIssues || showOnlyArchivedUnenrolled ? 'No matching records found.' : 'No records available.'}
+          </TableCell>
+        </TableRow>
+      ) : (
+        paginatedRecords.map((record) => (
+          <TableRow 
+            key={record.summaryKey} 
+            className={`hover:bg-blue-100 bg-blue-50 border-b border-blue-200
+              ${record.isDuplicate ? 'bg-blue-100' : ''}`}
+          >
+            <TableCell className="font-medium text-blue-800">{record.studentName || 'N/A'}</TableCell>
+            <TableCell className="text-blue-800">{record.courseTitle || 'N/A'}</TableCell>
+            <TableCell className="text-blue-800">
+              <span className="text-xs">{record.StudentEmail || 'N/A'}</span>
+            </TableCell>
+            <TableCell className="text-blue-800">{getAsnDisplay(record)}</TableCell>
+            <TableCell>
+              <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300">
+                {getStudentTypeDisplay(record.studentType)}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <Select 
+                defaultValue={record.ActiveFutureArchived_Value || ""}
+                value={record.ActiveFutureArchived_Value || ""}
+                onValueChange={(value) => handleStateChange(value, record)}
+                disabled={updatingStates[record.summaryKey]}
+              >
+                <SelectTrigger className="w-[140px] border-blue-300 bg-blue-50 text-blue-800">
+                  {updatingStates[record.summaryKey] ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-solid border-current border-r-transparent mr-2" />
+                      <span>Updating...</span>
+                    </div>
+                  ) : (
+                    <SelectValue>
+                      {record.ActiveFutureArchived_Value && (
+                        <div className="flex items-center">
+                          <div 
+                            className="w-3 h-3 rounded-full mr-2" 
+                            style={{ backgroundColor: getStateColor(record.ActiveFutureArchived_Value) }}
+                          />
+                          {record.ActiveFutureArchived_Value}
+                        </div>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-mono">
-                        {record.pasiCode || 'N/A'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleCopy(record.asn)}
-                              title="Copy ASN"
-                              disabled={!record.asn}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Copy ASN</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openStudentDetails(record)}
-                              title="View Details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>View Details</p>
-                          </TooltipContent>
-                        </Tooltip>
-
-                        {record.studentPage && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => window.open(record.studentPage, '_blank')}
-                                title="View in PASI Prep"
-                              >
-                                <ExternalLink className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>View in PASI Prep</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
+                    </SelectValue>
+                  )}
+                </SelectTrigger>
+                <SelectContent className="bg-blue-50 border-blue-300">
+                  {ACTIVE_FUTURE_ARCHIVED_OPTIONS.map(option => (
+                    <SelectItem 
+                      key={option.value} 
+                      value={option.value}
+                      className="hover:bg-blue-100 focus:bg-blue-100"
+                    >
+                      <div className="flex items-center">
+                        <div 
+                          className="w-3 h-3 rounded-full mr-2" 
+                          style={{ backgroundColor: option.color }}
+                        />
+                        {option.value}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </TableCell>
+            <TableCell>
+              <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-300">
+                {record.status || 'N/A'}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <Badge variant="outline" className="font-mono bg-blue-50 text-blue-800 border-blue-300">
+                {record.pasiCode || 'N/A'}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopy(record.asn)}
+                      title="Copy ASN"
+                      disabled={!record.asn}
+                      className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-blue-50 border-blue-300 text-blue-800">
+                    <p>Copy ASN</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openStudentDetails(record)}
+                      title="View Details"
+                      className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-blue-50 border-blue-300 text-blue-800">
+                    <p>View Details</p>
+                  </TooltipContent>
+                </Tooltip>
+
+                {record.studentPage && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => window.open(record.studentPage, '_blank')}
+                        title="View in PASI Prep"
+                        className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-blue-50 border-blue-300 text-blue-800">
+                      <p>View in PASI Prep</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </TableCell>
+          </TableRow>
+        ))
+      )}
+    </TableBody>
+  </Table>
+</div>
 
         {/* Pagination */}
         {renderPagination()}
@@ -715,12 +822,13 @@ const isArchivedUnenrolled = (record) => {
                         <div>
                           <p className="text-sm font-medium">State</p>
                           <p className="text-sm">
-                            <Badge 
-                              variant={selectedRecord.ActiveFutureArchived_Value === 'Archived' ? 'outline' : 'secondary'}
-                              className={selectedRecord.ActiveFutureArchived_Value === 'Archived' ? 'bg-blue-100 text-blue-800 border-blue-300' : ''}
-                            >
+                            <div className="flex items-center">
+                              <div 
+                                className="w-3 h-3 rounded-full mr-2" 
+                                style={{ backgroundColor: getStateColor(selectedRecord.ActiveFutureArchived_Value) }}
+                              />
                               {selectedRecord.ActiveFutureArchived_Value || 'N/A'}
-                            </Badge>
+                            </div>
                           </p>
                         </div>
                         <div>

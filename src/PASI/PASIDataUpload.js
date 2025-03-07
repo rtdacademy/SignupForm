@@ -56,6 +56,12 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "../components/ui/pagination";
+import { 
+  Accordion, 
+  AccordionContent, 
+  AccordionItem, 
+  AccordionTrigger 
+} from "../components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Progress } from "../components/ui/progress"; // Add Progress component
 import CourseLinkingDialog from './CourseLinkingDialog';
@@ -227,6 +233,7 @@ const PASIDataUpload = () => {
   const [missingPasiRecords, setMissingPasiRecords] = useState([]);
   const [isLoadingMissing, setIsLoadingMissing] = useState(false);
   const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
+  const [summaryAccordionValue, setSummaryAccordionValue] = useState("");
 
   const countActualMissingRecords = (records) => {
     if (!records || records.length === 0) return 0;
@@ -1844,98 +1851,120 @@ const getChangedFields = (existingRecord, newRecord) => {
               </div>
             )}
 
-            {isLoading ? (
-              <div className="text-center p-4">Loading...</div>
-            ) : pasiRecords.length > 0 ? (
-              summary && (
-                <div className="space-y-6">
-                  <div className="p-4 bg-muted rounded-lg">
-                    <h3 className="font-medium mb-4">Current Records Summary</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total Records:</p>
-                        <p className="font-medium">{summary.total}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Total number of course enrollments in PASI</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600">Linked Records:</p>
-                        <p className="font-medium">{summary.linked}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Records successfully matched to YourWay students</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-red-600">Not Linked:</p>
-                        <p className="font-medium">{summary.notLinked}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Records pending matching with YourWay students</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Unique Students:</p>
-                        <p className="font-medium">{summary.uniqueStudents}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Total number of individual students</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Unique Courses:</p>
-                        <p className="font-medium">{summary.uniqueCourses}</p>
-                        <p className="text-xs text-muted-foreground mt-1">Total number of distinct courses</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Missing PASI Records:</p>
-                        <p className="font-medium">{summary.missingPasiRecords}</p>
-                        <p className="text-xs text-muted-foreground mt-1">YourWay courses without PASI records</p>
-                      </div>
-                      {summary.statusMismatches > 0 && (
-                        <div>
-                          <p className="text-sm text-amber-600">Status Mismatches:</p>
-                          <p className="font-medium">{summary.statusMismatches}</p>
-                          <p className="text-xs text-muted-foreground mt-1">Records with incompatible status values</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Status mismatches warning */}
-                  {recordsWithStatusMismatch.length > 0 && (
-                    <Alert variant="warning" className="bg-amber-50 border-amber-200">
-                      <AlertTriangle className="h-4 w-4 text-amber-600" />
-                      <AlertTitle className="text-amber-800">Status Mismatches Detected</AlertTitle>
-                      <AlertDescription className="text-amber-700">
-                        Found {recordsWithStatusMismatch.length} records with status values that may be incompatible with 
-                        their corresponding YourWay status.
-                      
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  
-                  {/* Display cleanup results if available */}
-                  {cleanupResults && (
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <h3 className="font-medium mb-2 text-green-800">PASI Link Cleanup Results</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div>
-                          <p className="text-sm text-green-800">Total Processed:</p>
-                          <p className="font-medium">{cleanupResults.processed}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-green-800">Orphaned Links Deleted:</p>
-                          <p className="font-medium">{cleanupResults.deleted}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-green-800">Errors:</p>
-                          <p className="font-medium">{cleanupResults.errors || 0}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-green-800">Total Links:</p>
-                          <p className="font-medium">{cleanupResults.total}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            ) : (
-              <div className="text-center p-4 text-muted-foreground">
-                No PASI records found for {selectedSchoolYear}
+{isLoading ? (
+  <div className="text-center p-4">Loading...</div>
+) : pasiRecords.length > 0 ? (
+  summary && (
+    <div className="space-y-6">
+      <Accordion 
+        type="single" 
+        collapsible 
+        value={summaryAccordionValue} 
+        onValueChange={setSummaryAccordionValue}
+        className="w-full"
+      >
+        <AccordionItem value="summary" className="border-none">
+          <AccordionTrigger className="p-4 bg-muted hover:bg-muted/80 rounded-lg flex justify-between">
+            <h3 className="font-medium text-left">Current Records Summary</h3>
+          </AccordionTrigger>
+          <AccordionContent className="pt-2 px-4 pb-4 bg-muted rounded-b-lg border-t">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Records:</p>
+                <p className="font-medium">{summary.total}</p>
+                <p className="text-xs text-muted-foreground mt-1">Total number of course enrollments in PASI</p>
               </div>
-            )}
+              <div>
+                <p className="text-sm text-green-600">Linked Records:</p>
+                <p className="font-medium">{summary.linked}</p>
+                <p className="text-xs text-muted-foreground mt-1">Records successfully matched to YourWay students</p>
+              </div>
+              <div>
+                <p className="text-sm text-red-600">Not Linked:</p>
+                <p className="font-medium">{summary.notLinked}</p>
+                <p className="text-xs text-muted-foreground mt-1">Records pending matching with YourWay students</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Unique Students:</p>
+                <p className="font-medium">{summary.uniqueStudents}</p>
+                <p className="text-xs text-muted-foreground mt-1">Total number of individual students</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Unique Courses:</p>
+                <p className="font-medium">{summary.uniqueCourses}</p>
+                <p className="text-xs text-muted-foreground mt-1">Total number of distinct courses</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Missing PASI Records:</p>
+                <p className="font-medium">{summary.missingPasiRecords}</p>
+                <p className="text-xs text-muted-foreground mt-1">YourWay courses without PASI records</p>
+              </div>
+              {summary.statusMismatches > 0 && (
+                <div>
+                  <p className="text-sm text-amber-600">Status Mismatches:</p>
+                  <p className="font-medium">{summary.statusMismatches}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Records with incompatible status values</p>
+                </div>
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+      
+  {/* Status mismatches warning */}
+{recordsWithStatusMismatch.length > 0 && (
+  <Alert variant="warning" className="bg-amber-50 border-amber-200">
+    <AlertTriangle className="h-4 w-4 text-amber-600" />
+    <AlertTitle className="text-amber-800">Status Mismatches Detected</AlertTitle>
+    <AlertDescription className="text-amber-700">
+      Found {recordsWithStatusMismatch.length} records with status values that may be incompatible with 
+      their corresponding YourWay status.
+    </AlertDescription>
+  </Alert>
+)}
+
+{/* Missing PASI records warning */}
+{countActualMissingRecords(missingPasiRecords) > 0 && (
+  <Alert variant="warning" className="bg-amber-50 border-amber-200 mt-4">
+    <AlertTriangle className="h-4 w-4 text-amber-600" />
+    <AlertTitle className="text-amber-800">Missing PASI Records</AlertTitle>
+    <AlertDescription className="text-amber-700">
+      Found {countActualMissingRecords(missingPasiRecords)} YourWay courses that need to be registered in PASI.
+    </AlertDescription>
+  </Alert>
+)}
+      
+      {/* Display cleanup results if available */}
+      {cleanupResults && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+          <h3 className="font-medium mb-2 text-green-800">PASI Link Cleanup Results</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-green-800">Total Processed:</p>
+              <p className="font-medium">{cleanupResults.processed}</p>
+            </div>
+            <div>
+              <p className="text-sm text-green-800">Orphaned Links Deleted:</p>
+              <p className="font-medium">{cleanupResults.deleted}</p>
+            </div>
+            <div>
+              <p className="text-sm text-green-800">Errors:</p>
+              <p className="font-medium">{cleanupResults.errors || 0}</p>
+            </div>
+            <div>
+              <p className="text-sm text-green-800">Total Links:</p>
+              <p className="font-medium">{cleanupResults.total}</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+) : (
+  <div className="text-center p-4 text-muted-foreground">
+    No PASI records found for {selectedSchoolYear}
+  </div>
+)}
           </CardContent>
       
           <PASIPreviewDialog 
@@ -1962,7 +1991,7 @@ const getChangedFields = (existingRecord, newRecord) => {
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="mb-4">
   <TabsTrigger value="records">Records</TabsTrigger>
-  <TabsTrigger value="validation">Validation</TabsTrigger>
+  
   <TabsTrigger value="missingPasi">
   Missing PASI
   {missingPasiRecords.length > 0 && (
@@ -1971,6 +2000,7 @@ const getChangedFields = (existingRecord, newRecord) => {
     </Badge>
   )}
 </TabsTrigger>
+<TabsTrigger value="validation">Validation</TabsTrigger>
 </TabsList>
                 
                 <TabsContent value="records">
@@ -2253,8 +2283,29 @@ const getChangedFields = (existingRecord, newRecord) => {
                   {renderPagination()}
                 </TabsContent>
                 
-                {/* Validation Tab Content */}
-                <TabsContent value="validation">
+   
+
+                <TabsContent value="missingPasi">
+  {isLoadingMissing ? (
+    <div className="flex items-center justify-center h-40">
+      <div className="flex flex-col items-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+        <p className="text-sm text-muted-foreground">
+          Loading missing PASI records...
+        </p>
+      </div>
+    </div>
+  ) : (
+    <MissingPasiRecordsTab 
+      missingRecords={missingPasiRecords}
+      onGeneratePasiFile={handleGeneratePasiCsv}
+      isProcessing={isGeneratingCsv}
+    />
+  )}
+</TabsContent>
+
+             {/* Validation Tab Content */}
+             <TabsContent value="validation">
                   <div className="space-y-6">
                     <div className="flex items-center gap-4 mb-6">
                       <Button
@@ -2404,25 +2455,6 @@ const getChangedFields = (existingRecord, newRecord) => {
                     )}
                   </div>
                 </TabsContent>
-
-                <TabsContent value="missingPasi">
-  {isLoadingMissing ? (
-    <div className="flex items-center justify-center h-40">
-      <div className="flex flex-col items-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-        <p className="text-sm text-muted-foreground">
-          Loading missing PASI records...
-        </p>
-      </div>
-    </div>
-  ) : (
-    <MissingPasiRecordsTab 
-      missingRecords={missingPasiRecords}
-      onGeneratePasiFile={handleGeneratePasiCsv}
-      isProcessing={isGeneratingCsv}
-    />
-  )}
-</TabsContent>
 
               </Tabs>
             </CardContent>
