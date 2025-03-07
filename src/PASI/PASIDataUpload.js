@@ -480,33 +480,16 @@ const updateCourseState = async (studentKey, courseId, newState) => {
   
     console.log("=== FINDING MISSING PASI RECORDS ===");
     console.log("Selected school year:", selectedSchoolYear);
-    console.log("Current PASI records count:", pasiRecords.length);
-  
+    
     setIsLoadingMissing(true);
     try {
       const db = getDatabase();
       const formattedYear = formatSchoolYearWithSlash(selectedSchoolYear);
       console.log("Formatted school year for matching:", formattedYear);
       
-      // Step 1: Create a lookup map of PASI records
-      console.time("Creating PASI lookup map");
-      const pasiLookupMap = {};
-      
-      pasiRecords.forEach(record => {
-        // Create a unique key combining course code and student key
-        const studentKey = record.email.replace(/\./g, ',');
-        const lookupKey = `${record.courseCode}_${studentKey}`;
-        pasiLookupMap[lookupKey] = true;
-      });
-      
-      console.timeEnd("Creating PASI lookup map");
-      console.log(`PASI lookup map created with ${Object.keys(pasiLookupMap).length} entries`);
-      
-      // Step 2: Query student course summaries for the selected school year
+      // Step 1: Query student course summaries for the selected school year
       console.time("Querying database");
       
-      // Using field indexing to filter directly at the database level
-      // NOTE: This requires the 'School_x0020_Year_Value' field to be indexed for efficient querying
       const summariesRef = ref(db, 'studentCourseSummaries');
       const filteredQuery = query(
         summariesRef,
@@ -525,11 +508,10 @@ const updateCourseState = async (studentKey, courseId, newState) => {
   
       console.log("Records matching school year from database:", Object.keys(summariesSnapshot.val()).length);
   
-      // Step 3: Process student course summaries
+      // Step 2: Process student course summaries
       console.time("Processing summaries");
       const studentCourseSummaries = [];
       let skippedRemovedCount = 0;
-      let skippedNoPasiCodeCount = 0;
       
       // Create a map of summaries for status validation
       const newSummaryDataMap = {};
@@ -552,20 +534,11 @@ const updateCourseState = async (studentKey, courseId, newState) => {
         const courseId = parseInt(courseIdStr, 10);
         
         // Get PASI code from the course mapping
-        const pasiCode = courseIdToPasiCode[courseId];
-        
-        // IMPORTANT CHANGE: Skip records without a PASI code mapping in COURSE_OPTIONS
-        if (!pasiCode) {
-          skippedNoPasiCodeCount++;
-          return; // Skip this record
-        }
+        const pasiCode = courseIdToPasiCode[courseId] || '';
         
         // Create PASI Prep link only if ASN exists
-        let studentPage = null; // No link by default
-        
-        // Create PASI Prep link if ASN exists
+        let studentPage = null;
         if (summary.asn) {
-          // Remove all dashes from the ASN to create the URL format expected by PASI Prep
           const asnWithoutDashes = summary.asn.replace(/-/g, '');
           studentPage = `https://extranet.education.alberta.ca/PASI/PASIprep/view-student/${asnWithoutDashes}`;
         }
@@ -575,17 +548,15 @@ const updateCourseState = async (studentKey, courseId, newState) => {
           studentKey,
           courseId,
           courseTitle: summary.Course_Value || '',
-          pasiCode, // This will always have a value now since we skip records without a pasiCode
+          pasiCode,
           schoolYear: formattedYear,
           status: summary.Status_Value || 'Unknown',
           studentName: `${summary.lastName || ''}, ${summary.firstName || ''}`,
-          studentPage, // Will be null if no ASN exists
-          // Include additional useful fields from summary
+          studentPage,
           ActiveFutureArchived_Value: summary.ActiveFutureArchived_Value || '',
           StudentEmail: summary.StudentEmail || '',
           asn: summary.asn || '',
           studentType: summary.StudentType_Value || '',
-          // Also include any PASI records that might exist
           pasiRecords: summary.pasiRecords || {}
         });
       });
@@ -596,23 +567,19 @@ const updateCourseState = async (studentKey, courseId, newState) => {
       console.timeEnd("Processing summaries");
       console.log(`Number of studentCourseSummaries matching school year: ${studentCourseSummaries.length}`);
       console.log(`Skipped ${skippedRemovedCount} records with "✗ Removed (Not Funded)" status`);
-      console.log(`Skipped ${skippedNoPasiCodeCount} records without a PASI code mapping in COURSE_OPTIONS`);
       
-      // Step 4: Find missing records efficiently
+      // Step 3: Find missing records - SIMPLIFIED APPROACH
       console.time("Finding missing records");
       const missing = [];
       
       for (const summary of studentCourseSummaries) {
-        // Create the lookup key
-        const lookupKey = `${summary.pasiCode}_${summary.studentKey}`;
-        
-        // Check if this key exists in our lookup map
-        if (!pasiLookupMap[lookupKey]) {
-          missing.push({...summary, reason: 'No matching PASI record'});
+        // Check if the summary has pasiRecords property with any entries
+        if (!summary.pasiRecords || Object.keys(summary.pasiRecords).length === 0) {
+          missing.push({...summary, reason: 'No PASI records found'});
           
           // Log a sample for debugging
           if (missing.length <= 3) {
-            console.log(`Missing record: ${summary.studentName}, pasiCode: ${summary.pasiCode}, studentKey: ${summary.studentKey}`);
+            console.log(`Missing record: ${summary.studentName}, courseId: ${summary.courseId}, studentKey: ${summary.studentKey}`);
           }
         }
       }
