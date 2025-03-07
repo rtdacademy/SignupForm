@@ -83,75 +83,41 @@ const PasiRecordsDialog = ({
       const updates = {};
       const linkedAt = new Date().toISOString();
       
-      // Format school year for the report paths
-      const schoolYearWithUnderscore = pasiRecord.schoolYear.replace('/', '_');
-      const manualMappingPath = `pasiSyncReport/schoolYear/${schoolYearWithUnderscore}/newLinks/needsManualCourseMapping`;
-      const failedPath = `pasiSyncReport/schoolYear/${schoolYearWithUnderscore}/newLinks/failed`;
+      // Format school year correctly if needed
+      const schoolYearWithUnderscore = pasiRecord.schoolYear.includes('/') 
+        ? pasiRecord.schoolYear.replace('/', '_') 
+        : pasiRecord.schoolYear;
       
-      // Get current manual mapping report data
-      const manualMappingRef = ref(db, manualMappingPath);
-      const manualMappingSnapshot = await get(manualMappingRef);
+      // Create the summaryKey
+      const summaryKey = `${studentKey}_${courseId}`;
       
-      if (manualMappingSnapshot.exists()) {
-        const reportData = manualMappingSnapshot.val();
-        // Filter out records matching ASN and courseCode
-        const updatedReportData = Object.entries(reportData)
-          .filter(([key, value]) => !(
-            value.asn === studentAsn && 
-            value.courseCode === pasiRecord.courseCode
-          ))
-          .reduce((acc, [key, value]) => {
-            acc[key] = value;
-            return acc;
-          }, {});
-        
-        updates[manualMappingPath] = updatedReportData;
-      }
-
-      // Get current failed links report data
-      const failedRef = ref(db, failedPath);
-      const failedSnapshot = await get(failedRef);
-      
-      if (failedSnapshot.exists()) {
-        const failedData = failedSnapshot.val();
-        // Create the pattern to match: {asn}_{courseCode}
-        const recordPattern = `${studentAsn}_${pasiRecord.courseCode.toLowerCase()}`;
-        
-        // Filter out records where pasiRecordId starts with the pattern
-        const updatedFailedData = Object.entries(failedData)
-          .filter(([key, value]) => {
-            const [recordAsn, recordCourseCode] = value.pasiRecordId.split('_');
-            const currentPattern = `${recordAsn}_${recordCourseCode.toLowerCase()}`;
-            return currentPattern !== recordPattern;
-          })
-          .reduce((acc, [key, value]) => {
-            acc[key] = value;
-            return acc;
-          }, {});
-        
-        updates[failedPath] = updatedFailedData;
-      }
-            
+      // Add the link to pasiLinks
       updates[`pasiLinks/${linkId}`] = {
         pasiRecordId: pasiRecord.id,
-        studentCourseSummaryKey: `${studentKey}_${courseId}`,
+        studentCourseSummaryKey: summaryKey,
         studentKey: studentKey,
         linkedAt,
-        schoolYear: pasiRecord.schoolYear
+        schoolYear: schoolYearWithUnderscore,
+        courseCode: pasiRecord.courseCode
       };
       
-      updates[`studentCourseSummaries/${studentKey}_${courseId}/pasiRecords/${pasiRecord.courseCode}`] = {
+      // Update student course summary
+      updates[`studentCourseSummaries/${summaryKey}/pasiRecords/${pasiRecord.courseCode}`] = {
         courseDescription: pasiRecord.courseDescription,
         creditsAttempted: pasiRecord.creditsAttempted,
         period: pasiRecord.period,
-        schoolYear: pasiRecord.schoolYear,
+        schoolYear: pasiRecord.schoolYear.includes('/') 
+          ? pasiRecord.schoolYear 
+          : pasiRecord.schoolYear.replace('_', '/'),
         studentName: pasiRecord.studentName,
         linkId: linkId,
         linkedAt
       };
       
+      // Update PASI record with link status and summaryKey
       updates[`pasiRecords/${pasiRecord.id}/linked`] = true;
       updates[`pasiRecords/${pasiRecord.id}/linkedAt`] = linkedAt;
+      updates[`pasiRecords/${pasiRecord.id}/summaryKey`] = summaryKey;
   
       await update(ref(db), updates);
       toast.success("Successfully linked PASI record");
@@ -173,8 +139,16 @@ const PasiRecordsDialog = ({
 
       const updates = {};
       
+      // Remove link
       updates[`pasiLinks/${linkData.linkId}`] = null;
+      
+      // Remove reference from student course summary
       updates[`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${pasiRecord.courseCode}`] = null;
+      
+      // Update PASI record
+      updates[`pasiRecords/${pasiRecord.id}/linked`] = false;
+      updates[`pasiRecords/${pasiRecord.id}/linkedAt`] = null;
+      updates[`pasiRecords/${pasiRecord.id}/summaryKey`] = null;
 
       await update(ref(db), updates);
       toast.success("Successfully unlinked PASI record");

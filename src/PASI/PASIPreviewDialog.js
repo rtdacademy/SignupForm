@@ -22,8 +22,9 @@ import {
   formatSchoolYearWithSlash, 
   parseStudentKeyFromSummaryKey, 
   checkCourseCodeMapping,
-  processPasiLinkCreation,    // Add this
-  processPasiRecordDeletions  // Add this
+  processPasiLinkCreation,   
+  processPasiRecordDeletions,
+  findPasiLinkByRecordId 
 } from '../utils/pasiLinkUtils';
 
 // Helper to parse a student's full name (assumed to be "LastName, FirstName")
@@ -710,7 +711,7 @@ const handleConfirmUpload = async (additionalData = {}) => {
     toast.error('No changes to apply');
     return;
   }
-  
+  const linkedRecordSummaryKeys = new Map(); 
   const { linksToCreate = [] } = additionalData;
   
   // Close the dialog immediately
@@ -805,10 +806,24 @@ const handleConfirmUpload = async (additionalData = {}) => {
       
       // Track successfully linked record IDs
       if (linkResults.createdLinks && linkResults.createdLinks.length > 0) {
-        linkResults.createdLinks.forEach(link => {
-          if (link && link.pasiRecordId) {
+        // Fetch the link details to get the summaryKeys
+        const linkDetails = await Promise.all(
+          linkResults.createdLinks.map(async link => {
+            const linkData = await findPasiLinkByRecordId(link.pasiRecordId);
+            return { 
+              pasiRecordId: link.pasiRecordId, 
+              summaryKey: linkData?.data?.studentCourseSummaryKey 
+            };
+          })
+        );
+        
+        linkDetails.forEach(link => {
+          if (link.pasiRecordId) {
             linkedRecordIds.add(link.pasiRecordId);
-            console.log(`Marking record ${link.pasiRecordId} as linked`);
+            if (link.summaryKey) {
+              linkedRecordSummaryKeys.set(link.pasiRecordId, link.summaryKey);
+            }
+            console.log(`Marking record ${link.pasiRecordId} as linked with summaryKey ${link.summaryKey || 'unknown'}`);
           }
         });
       }
@@ -923,7 +938,8 @@ const handleConfirmUpload = async (additionalData = {}) => {
       const recordWithLinked = {
         ...record,
         linked: isLinked,
-        linkedAt: isLinked ? new Date().toISOString() : null
+        linkedAt: isLinked ? new Date().toISOString() : null,
+        summaryKey: linkedRecordSummaryKeys.get(record.id)
       };
       
       currentBatch[`pasiRecords/${record.id}`] = recordWithLinked;
@@ -955,7 +971,8 @@ const handleConfirmUpload = async (additionalData = {}) => {
         ...existingRecord,
         ...updatedFields,
         linked: isLinked,
-        linkedAt: isLinked ? (existingRecord.linkedAt || new Date().toISOString()) : null
+        linkedAt: isLinked ? (existingRecord.linkedAt || new Date().toISOString()) : null,
+        summaryKey: linkedRecordSummaryKeys.get(existingRecord.id) || existingRecord.summaryKey
       };
       
       // Flush when batch is full

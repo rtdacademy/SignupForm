@@ -59,10 +59,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Progress } from "../components/ui/progress"; // Add Progress component
 import CourseLinkingDialog from './CourseLinkingDialog';
-import { processPasiLinkCreation, formatSchoolYearWithSlash, processPasiRecordDeletions } from '../utils/pasiLinkUtils';
+import { processPasiLinkCreation, formatSchoolYearWithSlash, processPasiRecordDeletions, getCourseIdsForPasiCode } from '../utils/pasiLinkUtils';
 import CreateStudentDialog from './CreateStudentDialog';
 import MissingPasiRecordsTab from './MissingPasiRecordsTab';
-import { COURSE_OPTIONS } from '../config/DropdownOptions';
+import { COURSE_OPTIONS, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
 
 
 // Validation rules for status compatibility
@@ -228,36 +228,37 @@ const PASIDataUpload = () => {
   const [isLoadingMissing, setIsLoadingMissing] = useState(false);
   const [isGeneratingCsv, setIsGeneratingCsv] = useState(false);
 
+  // Create this function in your component
+  const combineRecordsWithSummaries = (records, summariesMap) => {
+    return records.map(record => {
+      // Get summary data if available
+      const summary = record.summaryKey && summariesMap[record.summaryKey] 
+        ? summariesMap[record.summaryKey] 
+        : null;
+      
+      return {
+        ...record,
+        // Add summary fields directly to the record object for filtering
+        courseID: summary?.CourseID || null,
+        statusValue: summary?.Status_Value || null,
+        studentType: summary?.StudentType_Value || null,
+        // Add other fields you might need later
+        summaryState: summary?.ActiveFutureArchived_Value || 'Not Set',
+        // Original summary object for any other data
+        summary: summary
+      };
+    });
+  };
+
   
 // Add this to your PASIDataUpload component
 const getYourWayState = (record) => {
   if (!record || !record.linked) return "Not Linked";
   
-  // Use the direct summaryKey if available
+  // Use the summaryKey to directly access the summary
   if (record.summaryKey && summaryDataMap[record.summaryKey]) {
     const summary = summaryDataMap[record.summaryKey];
     return summary.ActiveFutureArchived_Value || "Not Set";
-  }
-  
-  // Fallback to the old way of matching if summaryKey is not stored
-  // Get the email key for lookup
-  const emailKey = record.email.replace(/\./g, ',');
-  
-  // Find all summaries for this student
-  for (const summaryKey in summaryDataMap) {
-    if (summaryKey.startsWith(emailKey)) {
-      const summaryCourseId = parseInt(summaryKey.split('_')[1], 10);
-      const summary = summaryDataMap[summaryKey];
-      
-      // Get course IDs for this PASI code
-      const pasiCourseIds = getCourseIdsForPasiCode(record.courseCode) || [];
-      
-      // Check if this course ID matches any of the possible IDs for this PASI code
-      if (pasiCourseIds.includes(summaryCourseId)) {
-        // Found matching summary, return its state
-        return summary.ActiveFutureArchived_Value || "Not Set";
-      }
-    }
   }
   
   return "Unknown";
@@ -269,15 +270,24 @@ const StateEditCell = ({ record }) => {
   
   const needsArchived = record.needsArchived;
   
-  const handleUpdate = async () => {
+  const handleStateChange = async (newState) => {
     if (!record.studentKey || !record.courseId) {
       toast.error("Missing student key or course ID");
       return;
     }
     
+    // Don't update if the state hasn't changed
+    if (newState === record.summaryState) return;
+    
+    setState(newState);
     setIsUpdating(true);
+    
     try {
-      await updateCourseState(record.studentKey, record.courseId, state);
+      await updateCourseState(record.studentKey, record.courseId, newState);
+    } catch (error) {
+      // If update fails, revert to the original state
+      setState(record.summaryState || 'Not Set');
+      toast.error(`Failed to update state: ${error.message}`);
     } finally {
       setIsUpdating(false);
     }
@@ -289,35 +299,29 @@ const StateEditCell = ({ record }) => {
   }
   
   return (
-    <div className="flex items-center gap-2">
+    <div className="relative">
       <Select 
         value={state} 
-        onValueChange={setState}
+        onValueChange={handleStateChange}
         disabled={isUpdating}
       >
         <SelectTrigger className="h-8 w-[120px]">
-          <SelectValue placeholder="Select State" />
+          <div className="flex items-center">
+            <SelectValue placeholder="Select State" />
+            {isUpdating && <Loader2 className="h-3 w-3 animate-spin ml-2" />}
+          </div>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="Active">Active</SelectItem>
-          <SelectItem value="Future">Future</SelectItem>
-          <SelectItem value="Archived">Archived</SelectItem>
+          {ACTIVE_FUTURE_ARCHIVED_OPTIONS.map(option => (
+            <SelectItem 
+              key={option.value} 
+              value={option.value}
+            >
+              <span style={{ color: option.color }}>{option.value}</span>
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
-      
-      <Button 
-        size="sm" 
-        variant="outline"
-        onClick={handleUpdate}
-        disabled={isUpdating || state === record.summaryState}
-        className="h-8 px-2"
-      >
-        {isUpdating ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
-        ) : (
-          "Update"
-        )}
-      </Button>
     </div>
   );
 };
@@ -738,74 +742,97 @@ const updateCourseState = async (studentKey, courseId, newState) => {
   };
 
   // Function to delete all records for the selected school year
-  const handleDeleteAllRecords = async () => {
-    if (!selectedSchoolYear) {
-      toast.error("Please select a school year first");
+ // Function to delete all records for the selected school year in batches
+const handleDeleteAllRecords = async () => {
+  if (!selectedSchoolYear) {
+    toast.error("Please select a school year first");
+    return;
+  }
+  
+  setIsDeletingAllRecords(true);
+  try {
+    const db = getDatabase();
+    const formattedYear = formatSchoolYear(selectedSchoolYear);
+    
+    // Use query to get only records for this school year
+    const pasiRef = ref(db, 'pasiRecords');
+    const schoolYearQuery = query(
+      pasiRef,
+      orderByChild('schoolYear'),
+      equalTo(formattedYear)
+    );
+    
+    // Get the records that need to be deleted
+    const snapshot = await get(schoolYearQuery);
+    
+    if (!snapshot.exists()) {
+      toast.info(`No records found for school year ${selectedSchoolYear}`);
+      setIsDeleteAllDialogOpen(false);
+      setIsDeletingAllRecords(false);
       return;
     }
     
-    setIsDeletingAllRecords(true);
-    try {
-      const db = getDatabase();
-      const formattedYear = formatSchoolYear(selectedSchoolYear);
+    // Convert the snapshot to an array of records
+    const records = [];
+    snapshot.forEach((childSnapshot) => {
+      records.push({
+        id: childSnapshot.key,
+        ...childSnapshot.val()
+      });
+    });
+    
+    // Count how many records we're deleting
+    const totalRecords = records.length;
+    let deletedCount = 0;
+    
+    // Process in batches to avoid Firebase limits
+    const BATCH_SIZE = 200; // Adjust this number based on Firebase limits
+    const batches = [];
+    
+    // Split records into batches
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+      batches.push(records.slice(i, i + BATCH_SIZE));
+    }
+    
+    // Process each batch sequentially
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      const batchNumber = i + 1;
+      const totalBatches = batches.length;
       
-      // Use query to get only records for this school year
-      const pasiRef = ref(db, 'pasiRecords');
-      const schoolYearQuery = query(
-        pasiRef,
-        orderByChild('schoolYear'),
-        equalTo(formattedYear)
-      );
-      
-      // Get the records that need to be deleted
-      const snapshot = await get(schoolYearQuery);
-      
-      if (!snapshot.exists()) {
-        toast.info(`No records found for school year ${selectedSchoolYear}`);
-        setIsDeleteAllDialogOpen(false);
-        setIsDeletingAllRecords(false);
-        return;
-      }
-      
-      // Process link removals for linked records first
-      const recordsToProcess = [];
-      snapshot.forEach((childSnapshot) => {
-        const record = {
-          id: childSnapshot.key,
-          ...childSnapshot.val()
-        };
-        if (record.linked) {
-          recordsToProcess.push(record);
-        }
+      // Show progress toast
+      toast.info(`Processing batch ${batchNumber}/${totalBatches}...`, {
+        id: `batch-${batchNumber}`,
+        duration: 3000
       });
       
-      if (recordsToProcess.length > 0) {
-        const deletionResults = await processPasiRecordDeletions(recordsToProcess);
-        console.log(`Processed ${deletionResults.success} link removals, failed: ${deletionResults.failed}`);
-      }
-      
-      // Now prepare the updates to remove all records
+      // Prepare updates for this batch
       const updates = {};
-      snapshot.forEach((childSnapshot) => {
-        updates[`pasiRecords/${childSnapshot.key}`] = null;
+      batch.forEach((record) => {
+        updates[`pasiRecords/${record.id}`] = null;
       });
       
-      // Apply the deletion
+      // Apply the batch deletion
       await update(ref(db), updates);
       
-      // Count how many records were deleted
-      let deletedCount = 0;
-      snapshot.forEach(() => deletedCount++);
+      // Update count
+      deletedCount += batch.length;
       
-      toast.success(`All ${deletedCount} PASI records for ${selectedSchoolYear} deleted successfully`);
-      setIsDeleteAllDialogOpen(false);
-    } catch (error) {
-      console.error('Error deleting all records:', error);
-      toast.error(error.message || 'Failed to delete records');
-    } finally {
-      setIsDeletingAllRecords(false);
+      // Small delay between batches to reduce load
+      if (i < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
     }
-  };
+    
+    toast.success(`All ${deletedCount} PASI records for ${selectedSchoolYear} deleted successfully`);
+    setIsDeleteAllDialogOpen(false);
+  } catch (error) {
+    console.error('Error deleting all records:', error);
+    toast.error(error.message || 'Failed to delete records');
+  } finally {
+    setIsDeletingAllRecords(false);
+  }
+};
 
   const handleOpenLinkingDialog = (record) => {
     // Don't allow linking already linked records
@@ -836,117 +863,139 @@ const updateCourseState = async (studentKey, courseId, newState) => {
   }, []);
 
   // Sort data function
-  const sortData = (data, column, direction) => {
-    return [...data].sort((a, b) => {
-      // Get comparable values based on column
-      let aValue, bValue;
-      
-      switch (column) {
-        case 'studentName':
-          aValue = a.studentName || '';
-          bValue = b.studentName || '';
-          break;
-        case 'courseCode':
-          aValue = a.courseCode || '';
-          bValue = b.courseCode || '';
-          break;
-        case 'courseDescription':
-          aValue = a.courseDescription || '';
-          bValue = b.courseDescription || '';
-          break;
-        case 'status':
-          aValue = a.status || '';
-          bValue = b.status || '';
-          break;
-        case 'linked':
-          aValue = a.linked ? 'yes' : 'no';
-          bValue = b.linked ? 'yes' : 'no';
-          break;
-        case 'value':
-          aValue = a.value || '';
-          bValue = b.value || '';
-          break;
-        case 'assignmentDate':
-          aValue = a.assignmentDate || '';
-          bValue = b.assignmentDate || '';
-          break;
-        case 'exitDate':
-          aValue = a.exitDate || '';
-          bValue = b.exitDate || '';
-          break;
-        case 'period':
-          aValue = a.period || '';
-          bValue = b.period || '';
-          break;
-        case 'term':
-          aValue = a.term || '';
-          bValue = b.term || '';
-          break;
-        case 'asn':
-          aValue = a.asn || '';
-          bValue = b.asn || '';
-          break;
-        case 'email':
-          aValue = a.email || '';
-          bValue = b.email || '';
-          break;
-        default:
-          aValue = a[column] || '';
-          bValue = b[column] || '';
-      }
-      
-      // String comparison for text values
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return direction === 'asc' 
-          ? aValue.localeCompare(bValue) 
-          : bValue.localeCompare(aValue);
-      }
-      
-      // Numeric comparison for numbers
-      return direction === 'asc' 
-        ? (aValue > bValue ? 1 : -1) 
-        : (aValue < bValue ? 1 : -1);
-    });
-  };
-
-  // Search data function
-  const searchData = (data, term) => {
-    if (!term.trim()) return data;
+// Sort data function
+const sortData = (data, column, direction) => {
+  return [...data].sort((a, b) => {
+    // Get comparable values based on column
+    let aValue, bValue;
     
-    const lowerTerm = term.toLowerCase().trim();
-    return data.filter(record => {
-      // Search in student name
-      const studentName = (record.studentName || '').toLowerCase();
+    switch (column) {
+      // Existing cases
+      case 'studentName':
+        aValue = a.studentName || '';
+        bValue = b.studentName || '';
+        break;
+      case 'courseCode':
+        aValue = a.courseCode || '';
+        bValue = b.courseCode || '';
+        break;
+      case 'courseDescription':
+        aValue = a.courseDescription || '';
+        bValue = b.courseDescription || '';
+        break;
+      case 'status':
+        aValue = a.status || '';
+        bValue = b.status || '';
+        break;
+      case 'linked':
+        aValue = a.linked ? 'yes' : 'no';
+        bValue = b.linked ? 'yes' : 'no';
+        break;
+      case 'value':
+        aValue = a.value || '';
+        bValue = b.value || '';
+        break;
+      case 'assignmentDate':
+        aValue = a.assignmentDate || '';
+        bValue = b.assignmentDate || '';
+        break;
+      case 'exitDate':
+        aValue = a.exitDate || '';
+        bValue = b.exitDate || '';
+        break;
+      case 'period':
+        aValue = a.period || '';
+        bValue = b.period || '';
+        break;
+      case 'term':
+        aValue = a.term || '';
+        bValue = b.term || '';
+        break;
+      case 'asn':
+        aValue = a.asn || '';
+        bValue = b.asn || '';
+        break;
+      case 'email':
+        aValue = a.email || '';
+        bValue = b.email || '';
+        break;
       
-      // Search in course code and description
-      const courseCode = (record.courseCode || '').toLowerCase();
-      const courseDescription = (record.courseDescription || '').toLowerCase();
-      
-      // Search in ASN and email
-      const asn = (record.asn || '').toLowerCase();
-      const email = (record.email || '').toLowerCase();
-      
-      // Search in status and other fields
-      const status = (record.status || '').toLowerCase();
-      const value = (record.value || '').toLowerCase();
-      
-      // Split name to check first and last name separately
-      const nameParts = studentName.split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-      
-      // Check if the search term matches any of these fields
-      return studentName.includes(lowerTerm) || 
-             courseCode.includes(lowerTerm) || 
-             courseDescription.includes(lowerTerm) ||
-             asn.includes(lowerTerm) ||
-             email.includes(lowerTerm) ||
-             status.includes(lowerTerm) ||
-             value.includes(lowerTerm) ||
-             firstName.includes(lowerTerm) || 
-             lastName.includes(lowerTerm);
-    });
-  };
+      // New columns from summary data
+      case 'courseID':
+        aValue = a.courseID || 0;
+        bValue = b.courseID || 0;
+        break;
+      case 'statusValue':
+        aValue = a.statusValue || '';
+        bValue = b.statusValue || '';
+        break;
+      case 'studentType':
+        aValue = a.studentType || '';
+        bValue = b.studentType || '';
+        break;
+      case 'summaryState':
+        aValue = a.summaryState || '';
+        bValue = b.summaryState || '';
+        break;
+      default:
+        aValue = a[column] || '';
+        bValue = b[column] || '';
+    }
+    
+    // String comparison for text values
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return direction === 'asc' 
+        ? aValue.localeCompare(bValue) 
+        : bValue.localeCompare(aValue);
+    }
+    
+    // Numeric comparison for numbers
+    return direction === 'asc' 
+      ? (aValue > bValue ? 1 : -1) 
+      : (aValue < bValue ? 1 : -1);
+  });
+};
+
+// Search data function
+const searchData = (data, term) => {
+  if (!term.trim()) return data;
+  
+  const lowerTerm = term.toLowerCase().trim();
+  return data.filter(record => {
+    // Original fields
+    const studentName = (record.studentName || '').toLowerCase();
+    const courseCode = (record.courseCode || '').toLowerCase();
+    const courseDescription = (record.courseDescription || '').toLowerCase();
+    const asn = (record.asn || '').toLowerCase();
+    const email = (record.email || '').toLowerCase();
+    const status = (record.status || '').toLowerCase();
+    const value = (record.value || '').toLowerCase();
+    
+    // Added fields from summary
+    const courseID = record.courseID ? String(record.courseID).toLowerCase() : '';
+    const statusValue = (record.statusValue || '').toLowerCase();
+    const studentType = (record.studentType || '').toLowerCase();
+    
+    // Split name to check first and last name separately
+    const nameParts = studentName.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    
+    // Check if the search term matches any of these fields
+    return studentName.includes(lowerTerm) || 
+           courseCode.includes(lowerTerm) || 
+           courseDescription.includes(lowerTerm) ||
+           asn.includes(lowerTerm) ||
+           email.includes(lowerTerm) ||
+           status.includes(lowerTerm) ||
+           value.includes(lowerTerm) ||
+           firstName.includes(lowerTerm) || 
+           lastName.includes(lowerTerm) ||
+           courseID.includes(lowerTerm) ||
+           statusValue.includes(lowerTerm) ||
+           studentType.includes(lowerTerm);
+  });
+};
 
   // Handle sort column change
   const handleSort = (column) => {
@@ -1051,37 +1100,41 @@ const updateCourseState = async (studentKey, courseId, newState) => {
     return () => off(schoolYearQuery);
   }, [selectedSchoolYear]);
 
-  // Effect for handling filtered and paginated data
-  useEffect(() => {
-    // Apply search filter
-    let filtered = searchData(pasiRecords, searchTerm);
-    
-    // Apply status mismatch filter if enabled
-    if (showStatusMismatchOnly) {
-      const mismatchIds = recordsWithStatusMismatch.map(record => record.id);
-      filtered = filtered.filter(record => mismatchIds.includes(record.id));
-    }
-    
-    setFilteredRecords(filtered);
-    
-    // Apply sorting
-    const sorted = sortData(filtered, sortState.column, sortState.direction);
-    
-    // Calculate pagination
-    const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE) || 1;
-    setTotalPages(totalPages);
-    
-    // Make sure current page is valid
-    const validPage = Math.min(currentPage, totalPages);
-    if (validPage !== currentPage) {
-      setCurrentPage(validPage);
-    }
-    
-    // Create paginated data
-    const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    setPaginatedRecords(sorted.slice(startIndex, endIndex));
-  }, [pasiRecords, searchTerm, sortState, currentPage, recordsWithStatusMismatch, showStatusMismatchOnly]);
+  // Updated effect for handling filtered and paginated data
+useEffect(() => {
+  // Apply search filter
+  let filtered = searchData(pasiRecords, searchTerm);
+  
+  // Apply status mismatch filter if enabled
+  if (showStatusMismatchOnly) {
+    const mismatchIds = recordsWithStatusMismatch.map(record => record.id);
+    filtered = filtered.filter(record => mismatchIds.includes(record.id));
+  }
+  
+  // Combine records with summary data - this is the key addition
+  const combinedRecords = combineRecordsWithSummaries(filtered, summaryDataMap);
+  
+  // Set filtered records using the combined data
+  setFilteredRecords(combinedRecords);
+  
+  // Apply sorting
+  const sorted = sortData(combinedRecords, sortState.column, sortState.direction);
+  
+  // Calculate pagination
+  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE) || 1;
+  setTotalPages(totalPages);
+  
+  // Make sure current page is valid
+  const validPage = Math.min(currentPage, totalPages);
+  if (validPage !== currentPage) {
+    setCurrentPage(validPage);
+  }
+  
+  // Create paginated data
+  const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  setPaginatedRecords(sorted.slice(startIndex, endIndex));
+}, [pasiRecords, searchTerm, sortState, currentPage, recordsWithStatusMismatch, showStatusMismatchOnly, summaryDataMap]);
 
   // Calculate summary statistics
   const getSummary = () => {
@@ -1949,195 +2002,233 @@ const getChangedFields = (existingRecord, newRecord) => {
 
                   {/* Records table */}
                   <div className="rounded-md border">
-                    <Table>
-                    <TableHeader>
-  <TableRow>
-    <SortableHeader 
-      column="studentName" 
-      label="Student Name" 
-      currentSort={sortState} 
-      onSort={handleSort} 
-    />
-    <SortableHeader 
-      column="courseCode" 
-      label="Course Code" 
-      currentSort={sortState} 
-      onSort={handleSort} 
-    />
-    <SortableHeader 
-      column="courseDescription" 
-      label="Description" 
-      currentSort={sortState} 
-      onSort={handleSort} 
-    />
-    <SortableHeader 
-      column="status" 
-      label="Status" 
-      currentSort={sortState} 
-      onSort={handleSort} 
-    />
-    <SortableHeader 
-      column="value" 
-      label="Grade" 
-      currentSort={sortState} 
-      onSort={handleSort} 
-    />
-    <SortableHeader 
-      column="linked" 
-      label="Linked" 
-      currentSort={sortState} 
-      onSort={handleSort} 
-    />
-    
-    {/* Always show the state column */}
-    <TableHead className="bg-blue-50 text-blue-800">YourWay State</TableHead>
-    
-    <TableHead>Actions</TableHead>
-  </TableRow>
-</TableHeader>
-                      <TableBody>
-                        {paginatedRecords.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={7} className="h-24 text-center">
-                              {searchTerm || showStatusMismatchOnly ? 'No matching records found.' : 'No records available.'}
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          paginatedRecords.map((record, index) => {
-                            const recordIndex = pasiRecords.findIndex(r => r.id === record.id);
-                            const hasMismatch = hasStatusMismatch(record);
-                            
-                            return (
-                              <Tooltip key={record.id}>
-                                <TooltipTrigger asChild>
-                                <TableRow 
-  className={`
-    ${hoveredRow === index ? "bg-accent/20" : ""}
-    ${record.linked ? "bg-green-50 dark:bg-green-950/20" : ""}
-    ${hasMismatch ? "bg-amber-50 dark:bg-amber-950/20" : ""}
-  `}
-  onMouseEnter={() => setHoveredRow(index)}
-  onMouseLeave={() => setHoveredRow(null)}
->
-                                    <TableCell className="font-medium">{record.studentName}</TableCell>
-                                    <TableCell>{record.courseCode}</TableCell>
-                                    <TableCell className="max-w-[200px] truncate" title={record.courseDescription}>
-                                      {record.courseDescription}
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className="flex items-center gap-1">
-                                        {record.status}
-                                        {hasMismatch && (
-                                          <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <AlertTriangle 
-                                              className="h-4 w-4 text-amber-500 cursor-pointer"
-                                              onClick={() => showStatusMismatchDetails(getStatusMismatchForRecord(record))}
-                                            />
-                                          </TooltipTrigger>
-                                          <TooltipContent className="max-w-xs">
-                                            <p>Status compatibility issue. Click for details.</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                        )}
-                                      </div>
-                                    </TableCell>
-                                    <TableCell>{record.value !== '-' ? record.value : 'N/A'}</TableCell>
-                                    <TableCell>
-                                      <div className="flex items-center gap-2">
-                                        {record.linked ? (
-                                          <CheckCircle className="h-4 w-4 text-green-500" />
-                                        ) : (
-                                          <XCircle className="h-4 w-4 text-gray-300" />
-                                        )}
-                                        {record.linked ? "Linked" : "Not Linked"}
-                                      </div>
-                                    </TableCell>
+                  <Table>
+  <TableHeader>
+    <TableRow>
+      <SortableHeader 
+        column="studentName" 
+        label="Student Name" 
+        currentSort={sortState} 
+        onSort={handleSort} 
+      />
+      <SortableHeader 
+        column="courseCode" 
+        label="Course Code" 
+        currentSort={sortState} 
+        onSort={handleSort} 
+      />
+      <SortableHeader 
+        column="courseDescription" 
+        label="Description" 
+        currentSort={sortState} 
+        onSort={handleSort} 
+      />
+      <SortableHeader 
+        column="status" 
+        label="PASI Status" 
+        currentSort={sortState} 
+        onSort={handleSort} 
+      />
+      <SortableHeader 
+        column="value" 
+        label="Grade" 
+        currentSort={sortState} 
+        onSort={handleSort} 
+      />
+      <SortableHeader 
+        column="linked" 
+        label="Linked" 
+        currentSort={sortState} 
+        onSort={handleSort} 
+      />
+      
+      {/* YourWay columns with consistent blue styling */}
+      <SortableHeader 
+        column="courseID" 
+        label="Course ID" 
+        currentSort={sortState} 
+        onSort={handleSort}
+        className="bg-blue-50 text-blue-800" 
+      />
+      <SortableHeader 
+        column="statusValue" 
+        label="Status" 
+        currentSort={sortState} 
+        onSort={handleSort}
+        className="bg-blue-50 text-blue-800" 
+      />
+      <SortableHeader 
+        column="studentType" 
+        label="Student Type" 
+        currentSort={sortState} 
+        onSort={handleSort}
+        className="bg-blue-50 text-blue-800" 
+      />
+      
+      {/* YourWay State column - now sortable */}
+      <SortableHeader 
+        column="summaryState" 
+        label="State" 
+        currentSort={sortState} 
+        onSort={handleSort}
+        className="bg-blue-50 text-blue-800" 
+      />
+      
+      <TableHead>Actions</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    {paginatedRecords.length === 0 ? (
+      <TableRow>
+        <TableCell colSpan={11} className="h-24 text-center">
+          {searchTerm || showStatusMismatchOnly ? 'No matching records found.' : 'No records available.'}
+        </TableCell>
+      </TableRow>
+    ) : (
+      paginatedRecords.map((record, index) => {
+        const recordIndex = pasiRecords.findIndex(r => r.id === record.id);
+        const hasMismatch = hasStatusMismatch(record);
+        
+        return (
+          <Tooltip key={record.id}>
+            <TooltipTrigger asChild>
+              <TableRow 
+                className={`
+                  ${hoveredRow === index ? "bg-accent/20" : ""}
+                  ${record.linked ? "bg-green-50 dark:bg-green-950/20" : ""}
+                  ${hasMismatch ? "bg-amber-50 dark:bg-amber-950/20" : ""}
+                `}
+                onMouseEnter={() => setHoveredRow(index)}
+                onMouseLeave={() => setHoveredRow(null)}
+              >
+                <TableCell>{record.studentName}</TableCell>
+                <TableCell>{record.courseCode}</TableCell>
+                <TableCell className="max-w-[200px] truncate" title={record.courseDescription}>
+                  {record.courseDescription}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    {record.status}
+                    {hasMismatch && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <AlertTriangle 
+                            className="h-4 w-4 text-amber-500 cursor-pointer"
+                            onClick={() => showStatusMismatchDetails(getStatusMismatchForRecord(record))}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Status compatibility issue. Click for details.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>{record.value !== '-' ? record.value : 'N/A'}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    {record.linked ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-gray-300" />
+                    )}
+                    {record.linked ? "Linked" : "Not Linked"}
+                  </div>
+                </TableCell>
 
-                                    <TableCell className="bg-blue-50 text-blue-800">
-  {hasMismatch ? (
-    <StateEditCell record={getStatusMismatchForRecord(record)} />
-  ) : (
-    getYourWayState(record)
-  )}
-</TableCell>
+                {/* YourWay data columns with consistent blue styling */}
+                <TableCell className="bg-blue-50 text-blue-800">
+                  {record.courseID || 'N/A'}
+                </TableCell>
+                <TableCell className="bg-blue-50 text-blue-800">
+                  {record.statusValue || 'N/A'}
+                </TableCell>
+                <TableCell className="bg-blue-50 text-blue-800">
+                  {record.studentType || 'N/A'}
+                </TableCell>
 
-                                    <TableCell>
-                                      <div className="flex items-center gap-2">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => handleCopyData(record.asn)}
-                                          title="Copy ASN"
-                                        >
-                                          <Copy className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => handleViewRecordDetails(record)}
-                                          title="View Details"
-                                        >
-                                          <EyeIcon className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => handleOpenLinkingDialog(record)}
-                                          title={record.linked ? "Already Linked" : "Link Course"}
-                                          disabled={record.linked}
-                                          className={record.linked ? "opacity-50" : ""}
-                                        >
-                                          {record.linked ? (
-                                            <Link2 className="h-4 w-4 text-green-500" />
-                                          ) : (
-                                            <Link2 className="h-4 w-4" />
-                                          )}
-                                        </Button>
-                                        {/* Add Delete Button */}
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => handleOpenDeleteDialog(record)}
-                                          title="Delete Record"
-                                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                        >
-                                          <Trash className="h-4 w-4" />
-                                        </Button>
-                                        
-                                        {/* Add this new Create Student button */}
-                                        {!record.linked && record.matchStatus !== 'Found in Database' && (
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleOpenCreateStudentDialog(record)}
-                                            title="Create Student"
-                                            className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
-                                          >
-                                            <UserPlus className="h-4 w-4" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </TableCell>
+                {/* YourWay State column */}
+                <TableCell className="bg-blue-50 text-blue-800">
+                  {hasMismatch ? (
+                    <StateEditCell record={getStatusMismatchForRecord(record)} />
+                  ) : (
+                    record.summaryState || 'Not Set'
+                  )}
+                </TableCell>
 
-
-
-                                  </TableRow>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Record Index: {recordIndex}</p>
-                                  <p>ASN: {record.asn}</p>
-                                  <p>Email: {record.email}</p>
-                                  {hasMismatch && (
-                                    <p className="text-amber-600 mt-1">Has status compatibility issue</p>
-                                  )}
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          })
-                        )}
-                      </TableBody>
-                    </Table>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopyData(record.asn)}
+                      title="Copy ASN"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewRecordDetails(record)}
+                      title="View Details"
+                    >
+                      <EyeIcon className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleOpenLinkingDialog(record)}
+                      title={record.linked ? "Already Linked" : "Link Course"}
+                      disabled={record.linked}
+                      className={record.linked ? "opacity-50" : ""}
+                    >
+                      {record.linked ? (
+                        <Link2 className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Link2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                    {/* Delete Button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleOpenDeleteDialog(record)}
+                      title="Delete Record"
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                    
+                    {/* Create Student button */}
+                    {!record.linked && record.matchStatus !== 'Found in Database' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenCreateStudentDialog(record)}
+                        title="Create Student"
+                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Record Index: {recordIndex}</p>
+              <p>ASN: {record.asn}</p>
+              <p>Email: {record.email}</p>
+              {hasMismatch && (
+                <p className="text-amber-600 mt-1">Has status compatibility issue</p>
+              )}
+            </TooltipContent>
+          </Tooltip>
+        );
+      })
+    )}
+  </TableBody>
+</Table>
                   </div>
 
                   {/* Pagination */}
