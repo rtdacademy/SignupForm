@@ -4,7 +4,7 @@ import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../components/ui/pagination";
-import { Search, X, FileUp, ExternalLink, Copy, Eye, AlertTriangle, Files, Archive } from 'lucide-react';
+import { Search, X, FileUp, ExternalLink, Copy, Eye, AlertTriangle, Files, Archive, CalendarRange, CheckCircle, ClipboardList } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
@@ -14,6 +14,8 @@ import { Switch } from "../components/ui/switch";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { ACTIVE_FUTURE_ARCHIVED_OPTIONS, STUDENT_TYPE_OPTIONS, STATUS_OPTIONS } from "../config/DropdownOptions";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 
 const ITEMS_PER_PAGE = 100;
 
@@ -32,21 +34,108 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
   const [showOnlyArchivedUnenrolled, setShowOnlyArchivedUnenrolled] = useState(false);
   const [updatingStates, setUpdatingStates] = useState({});
   const [modifiedStates, setModifiedStates] = useState({});
+  const [activeFilterTab, setActiveFilterTab] = useState("missing");
   
-// 1. Update the isArchivedUnenrolled helper function
-const isArchivedUnenrolled = (record) => {
-  // Check if state is "Archived"
-  const isArchived = record.ActiveFutureArchived_Value === "Archived";
-  
-  // Check if status is any of the "unenrolled-like" statuses
-  const isUnenrolledLikeStatus = 
-    record.status === "Unenrolled" || 
-    record.status === "✅ Mark Added to PASI" || 
-    record.status === "☑️ Removed From PASI (Funded)";
+  // Format date helper function
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
     
-  // Return true if both conditions are met
-  return isArchived && isUnenrolledLikeStatus;
-};
+    try {
+      const date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) return 'Invalid Date';
+      
+      // Format as "Mon DD, YYYY" (e.g., "Feb 21, 2025")
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return 'Invalid Date';
+    }
+  };
+
+  // Get formatted status with real dates if applicable
+  const getFormattedStatus = (record) => {
+    if (!record.status) return 'N/A';
+    
+    // For "Starting on (Date)" format
+    if (record.status === "Starting on (Date)" && record.ScheduleStartDate) {
+      const formattedDate = formatDate(record.ScheduleStartDate);
+      return `Starting on (${formattedDate})`;
+    }
+    
+    // For "Resuming on (date)" format
+    if (record.status === "Resuming on (date)" && record.resumingOnDate) {
+      const formattedDate = formatDate(record.resumingOnDate);
+      return `Resuming on (${formattedDate})`;
+    }
+    
+    return record.status;
+  };
+
+  // Function to check if a date is more than 2 months in the future
+  const isWithinTwoMonths = (dateString) => {
+    if (!dateString) return false;
+    
+    try {
+      const date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) return false;
+      
+      // Get today's date
+      const today = new Date();
+      
+      // Calculate date 2 months in the future
+      const twoMonthsFuture = new Date();
+      twoMonthsFuture.setMonth(today.getMonth() + 2);
+      
+      // The date is MORE than 2 months away if it's after the twoMonthsFuture date
+      return date > twoMonthsFuture;
+    } catch (error) {
+      console.error("Error checking date range:", error);
+      return false;
+    }
+  };
+
+  // Function to check if a record has upcoming start/resume date
+  const hasUpcomingDate = (record) => {
+    // Check for "Starting on (Date)" with upcoming ScheduleStartDate
+    if (record.status === "Starting on (Date)" && record.ScheduleStartDate) {
+      return isWithinTwoMonths(record.ScheduleStartDate);
+    }
+    
+    // Check for "Resuming on (date)" with upcoming resumingOnDate
+    if (record.status === "Resuming on (date)" && record.resumingOnDate) {
+      return isWithinTwoMonths(record.resumingOnDate);
+    }
+    
+    return false;
+  };
+
+  // isArchivedUnenrolled helper function
+  const isArchivedUnenrolled = (record) => {
+    // Check if state is "Archived"
+    const isArchived = record.ActiveFutureArchived_Value === "Archived";
+    
+    // Check if status is any of the "unenrolled-like" statuses
+    const isUnenrolledLikeStatus = 
+      record.status === "Unenrolled" || 
+      record.status === "✅ Mark Added to PASI" || 
+      record.status === "☑️ Removed From PASI (Funded)";
+      
+    // Return true if both conditions are met
+    return isArchived && isUnenrolledLikeStatus;
+  };
+
+  // isRegistration helper function - NEW!
+  const isRegistration = (record) => {
+    return record.status === "Newly Enrolled" && record.ActiveFutureArchived_Value === "Registration";
+  };
 
   // Function to parse student key from summary key
   const parseStudentKeyFromSummary = (summaryKey) => {
@@ -137,13 +226,21 @@ const isArchivedUnenrolled = (record) => {
       // Apply any modified states
       const effectiveState = modifiedStates[record.summaryKey] || record.ActiveFutureArchived_Value;
       
+      const hasUpcomingStartResumeDate = hasUpcomingDate(record);
+      
+      // Add isRegistration flag
+      const isRegistrationRecord = isRegistration({...record, ActiveFutureArchived_Value: effectiveState});
+      
       return {
         ...record,
         isAsnValid,
         isDuplicate,
         hasIssues: !isAsnValid || isDuplicate,
         isArchivedUnenrolled: isArchivedUnenrolled({...record, ActiveFutureArchived_Value: effectiveState}),
-        ActiveFutureArchived_Value: effectiveState
+        isRegistration: isRegistrationRecord,
+        ActiveFutureArchived_Value: effectiveState,
+        formattedStatus: getFormattedStatus(record),
+        hasUpcomingStartResumeDate
       };
     });
   }, [missingRecords, modifiedStates]);
@@ -154,25 +251,63 @@ const isArchivedUnenrolled = (record) => {
     const duplicates = processedRecords.filter(r => r.isDuplicate).length;
     const totalIssues = processedRecords.filter(r => r.hasIssues).length;
     const archivedUnenrolled = processedRecords.filter(r => r.isArchivedUnenrolled).length;
+    const withUpcomingDates = processedRecords.filter(r => r.hasUpcomingStartResumeDate).length;
+    const registrationRecords = processedRecords.filter(r => r.isRegistration).length;
     
-    return { invalidAsn, duplicates, totalIssues, archivedUnenrolled };
+    // Count records that aren't archived/unenrolled, don't have upcoming dates, and aren't in registration
+    const actualMissing = processedRecords.filter(r => 
+      !r.isArchivedUnenrolled && 
+      !r.hasUpcomingStartResumeDate && 
+      !r.isRegistration
+    ).length;
+    
+    return { 
+      invalidAsn, 
+      duplicates, 
+      totalIssues, 
+      archivedUnenrolled, 
+      withUpcomingDates,
+      registrationRecords,
+      actualMissing
+    };
   }, [processedRecords]);
 
-  // Filter records based on search term, issues filter, and archived/unenrolled filter
+  // Filter records based on active tab and search term
   const filteredRecords = useMemo(() => {
     let filtered = processedRecords;
     
-    // Apply archived/unenrolled filter if enabled
-    if (showOnlyArchivedUnenrolled) {
-      filtered = filtered.filter(record => isArchivedUnenrolled(record));
-    } else {
-      // Exclude archived/unenrolled records from normal view
-      filtered = filtered.filter(record => !isArchivedUnenrolled(record));
-      
-      // Apply issues filter if enabled
-      if (showOnlyIssues) {
+    // Apply filters based on active tab
+    switch(activeFilterTab) {
+      case "archived":
+        // Show only archived/unenrolled records
+        filtered = filtered.filter(record => record.isArchivedUnenrolled);
+        break;
+      case "issues":
+        // Show only records with issues
         filtered = filtered.filter(record => record.hasIssues);
-      }
+        break;
+      case "upcoming":
+        // Show only records with upcoming start/resume dates
+        filtered = filtered.filter(record => record.hasUpcomingStartResumeDate);
+        break;
+      case "registration":
+        // Show only registration records (NEW!)
+        filtered = filtered.filter(record => record.isRegistration);
+        break;
+      case "missing":
+      default:
+        // Filter out archived/unenrolled records and registration records (UPDATED!)
+        filtered = filtered.filter(record => 
+          !record.isArchivedUnenrolled && 
+          !record.hasUpcomingStartResumeDate && 
+          !record.isRegistration
+        );
+        
+        // Apply issues filter if enabled in "missing" tab
+        if (showOnlyIssues) {
+          filtered = filtered.filter(record => record.hasIssues);
+        }
+        break;
     }
     
     // Apply search filter if there's a search term
@@ -185,13 +320,14 @@ const isArchivedUnenrolled = (record) => {
         (record.StudentEmail || '').toLowerCase().includes(searchLower) ||
         (record.ActiveFutureArchived_Value || '').toLowerCase().includes(searchLower) ||
         (record.status || '').toLowerCase().includes(searchLower) ||
+        (record.formattedStatus || '').toLowerCase().includes(searchLower) ||
         (record.studentType || '').toLowerCase().includes(searchLower) ||
         (record.asn || '').toLowerCase().includes(searchLower)
       );
     }
     
     return filtered;
-  }, [processedRecords, searchTerm, showOnlyIssues, showOnlyArchivedUnenrolled]);
+  }, [processedRecords, searchTerm, showOnlyIssues, activeFilterTab]);
 
   // Sort records
   const sortedRecords = useMemo(() => {
@@ -233,7 +369,7 @@ const isArchivedUnenrolled = (record) => {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [showOnlyIssues, showOnlyArchivedUnenrolled, searchTerm]);
+  }, [showOnlyIssues, showOnlyArchivedUnenrolled, searchTerm, activeFilterTab]);
 
   // Handle column sorting
   const handleSort = (column) => {
@@ -286,7 +422,7 @@ const isArchivedUnenrolled = (record) => {
     return option ? option.color : "#6B7280"; // Default to gray if not found
   };
 
-  // NEW: Get student type info including color, icon, and description
+  // Get student type info including color, icon, and description
   const getStudentTypeInfo = (studentType) => {
     if (!studentType) return { 
       color: "#6B7280", 
@@ -313,7 +449,7 @@ const isArchivedUnenrolled = (record) => {
     };
   };
 
-  // NEW: Get status info including color, icon, and tooltip
+  // Get status info including color, icon, and tooltip
   const getStatusInfo = (status) => {
     if (!status) return { 
       color: "#6B7280", 
@@ -321,15 +457,23 @@ const isArchivedUnenrolled = (record) => {
       tooltip: "Status not specified" 
     };
     
+    // For "Starting on" or "Resuming on" with dates, extract the base status
+    let baseStatus = status;
+    if (status.startsWith("Starting on ")) {
+      baseStatus = "Starting on (Date)";
+    } else if (status.startsWith("Resuming on ")) {
+      baseStatus = "Resuming on (date)";
+    }
+    
     // Try to find an exact match first
     let option = STATUS_OPTIONS.find(opt => 
-      opt.value === status
+      opt.value === baseStatus
     );
     
     // If no exact match, try partial matching
     if (!option) {
       option = STATUS_OPTIONS.find(opt => 
-        status.includes(opt.value)
+        baseStatus.includes(opt.value)
       );
     }
     
@@ -477,12 +621,6 @@ const isArchivedUnenrolled = (record) => {
     );
   };
 
-  // Extract PASI course codes from pasiRecords if available
-  const extractPasiCodes = (record) => {
-    if (!record.pasiRecords) return [];
-    return Object.keys(record.pasiRecords);
-  };
-
   // Get ASN display with validation indicator
   const getAsnDisplay = (record) => {
     if (!record.asn) {
@@ -506,41 +644,154 @@ const isArchivedUnenrolled = (record) => {
     return <span className="font-mono">{record.asn}</span>;
   };
 
+  // Function to get upcoming date label with countdown
+  const getUpcomingDateLabel = (record) => {
+    let date = null;
+    
+    if (record.status === "Starting on (Date)" && record.ScheduleStartDate) {
+      date = new Date(record.ScheduleStartDate);
+    } else if (record.status === "Resuming on (date)" && record.resumingOnDate) {
+      date = new Date(record.resumingOnDate);
+    }
+    
+    if (!date || isNaN(date.getTime())) {
+      return null;
+    }
+    
+    // Today's date at midnight
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Calculate difference in days
+    const diffTime = date.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    let badgeClass = "bg-blue-100 text-blue-800 border-blue-200";
+    if (diffDays <= 7) {
+      badgeClass = "bg-amber-100 text-amber-800 border-amber-200";
+    } else if (diffDays <= 14) {
+      badgeClass = "bg-yellow-100 text-yellow-800 border-yellow-200";
+    }
+    
+    return (
+      <Badge className={`flex items-center gap-1 ${badgeClass}`}>
+        <CalendarRange className="h-3 w-3" />
+        {diffDays === 0 ? "Today" : diffDays === 1 ? "Tomorrow" : `${diffDays} days`}
+      </Badge>
+    );
+  };
+
   return (
     <TooltipProvider>
       <div className="space-y-4">
-        {/* Header section with count and generate button */}
-        <div className="flex justify-between">
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-center">
-            <div>
-              <p className="text-sm font-medium text-amber-800">
-                {missingRecords.length - stats.archivedUnenrolled} YourWay courses without PASI records
-                {stats.archivedUnenrolled > 0 && (
-                  <span className="text-gray-600"> (excluding {stats.archivedUnenrolled} Archived/Unenrolled)</span>
-                )}
-              </p>
-              <p className="text-xs text-amber-700 mt-1">
-                These courses need to be registered in PASI to ensure complete records
-              </p>
-              {stats.totalIssues > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {stats.invalidAsn > 0 && (
-                    <Badge variant="destructive" className="flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      {stats.invalidAsn} Invalid ASNs
-                    </Badge>
-                  )}
-                  {stats.duplicates > 0 && (
-                    <Badge variant="destructive" className="flex items-center gap-1">
-                      <Files className="h-3 w-3" />
-                      {stats.duplicates} Duplicates
-                    </Badge>
-                  )}
+        {/* Header section with count and filters */}
+        <Card className="w-full">
+          <CardHeader className="pb-2">
+            <CardTitle>Missing PASI Records</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md flex items-center">
+                <div>
+                  <p className="text-sm font-medium text-amber-800">
+                    {stats.actualMissing} YourWay courses without PASI records
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    These courses need to be registered in PASI to ensure complete records
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {stats.invalidAsn > 0 && (
+                      <Badge variant="destructive" className="flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        {stats.invalidAsn} Invalid ASNs
+                      </Badge>
+                    )}
+                    {stats.duplicates > 0 && (
+                      <Badge variant="destructive" className="flex items-center gap-1">
+                        <Files className="h-3 w-3" />
+                        {stats.duplicates} Duplicates
+                      </Badge>
+                    )}
+                    {stats.archivedUnenrolled > 0 && (
+                      <Badge variant="secondary" className="flex items-center gap-1">
+                        <Archive className="h-3 w-3" />
+                        {stats.archivedUnenrolled} Archived/Unenrolled
+                      </Badge>
+                    )}
+                    {stats.withUpcomingDates > 0 && (
+                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 text-blue-800 border-blue-200">
+                        <CalendarRange className="h-3 w-3" />
+                        {stats.withUpcomingDates} Future
+                      </Badge>
+                    )}
+                    {stats.registrationRecords > 0 && (
+                      <Badge variant="outline" className="flex items-center gap-1 bg-green-50 text-green-800 border-green-200">
+                        <ClipboardList className="h-3 w-3" />
+                        {stats.registrationRecords} Registration
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-              )}
+              </div>
+
+              {/* Filter tabs */}
+              <Tabs value={activeFilterTab} onValueChange={setActiveFilterTab} className="w-full">
+                <TabsList className="w-full grid grid-cols-5">
+                  <TabsTrigger value="missing">
+                    Missing
+                    <Badge variant="secondary" className="ml-2">
+                      {stats.actualMissing}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="registration">
+                    Registration
+                    <Badge variant="secondary" className="ml-2">
+                      {stats.registrationRecords}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="upcoming">
+                    Future
+                    <Badge variant="secondary" className="ml-2">
+                      {stats.withUpcomingDates}
+                    </Badge>
+                  </TabsTrigger>
+                
+                  <TabsTrigger value="archived">
+                    Archived
+                    <Badge variant="secondary" className="ml-2">
+                      {stats.archivedUnenrolled}
+                    </Badge>
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="missing" className="mt-3">
+                  <div className="flex flex-wrap items-center gap-4 p-2 bg-slate-50 rounded-md">
+                    <div className="flex items-center gap-2">
+                      <Switch 
+                        id="show-issues" 
+                        checked={showOnlyIssues}
+                        onCheckedChange={setShowOnlyIssues}
+                      />
+                      <Label htmlFor="show-issues" className="text-sm cursor-pointer flex items-center">
+                        <AlertTriangle className="h-4 w-4 mr-1 text-red-500" />
+                        Show only students with data issues
+                      </Label>
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="registration" className="mt-3">
+                  <div className="flex flex-wrap items-center gap-4 p-3 bg-green-50 border border-green-100 rounded-md">
+                    <div className="text-sm text-green-800">
+                      <p className="font-medium">Registration Records</p>
+                      <p className="mt-1">These are newly enrolled students</p>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Search and filter area */}
         <div className="flex items-center justify-between space-x-2 mb-4">
@@ -565,33 +816,6 @@ const isArchivedUnenrolled = (record) => {
                   <span className="sr-only">Clear search</span>
                 </Button>
               )}
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Switch 
-                id="show-issues" 
-                checked={showOnlyIssues}
-                onCheckedChange={setShowOnlyIssues}
-                disabled={showOnlyArchivedUnenrolled}
-              />
-              <Label htmlFor="show-issues" className="text-sm cursor-pointer">
-                Show only students with data issues
-              </Label>
-            </div>
-            
-            {/* New toggle for Archived/Unenrolled records */}
-            <div className="flex items-center gap-2">
-              <Switch 
-                id="show-archived-unenrolled" 
-                checked={showOnlyArchivedUnenrolled}
-                onCheckedChange={setShowOnlyArchivedUnenrolled}
-              />
-              <Label htmlFor="show-archived-unenrolled" className="text-sm cursor-pointer flex items-center">
-                <Archive className="h-4 w-4 mr-1 text-blue-600" />
-                Show Archived/Unenrolled ({stats.archivedUnenrolled})
-              </Label>
             </div>
           </div>
           
@@ -620,7 +844,7 @@ const isArchivedUnenrolled = (record) => {
               {paginatedRecords.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="h-24 text-center text-blue-600 bg-blue-50">
-                    {searchTerm || showOnlyIssues || showOnlyArchivedUnenrolled ? 'No matching records found.' : 'No records available.'}
+                    {searchTerm || activeFilterTab !== "missing" ? 'No matching records found.' : 'No records available.'}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -628,23 +852,63 @@ const isArchivedUnenrolled = (record) => {
                   // Get student type info for styling
                   const studentTypeInfo = getStudentTypeInfo(record.studentType);
                   
-                  // Get status info for styling
-                  const statusInfo = getStatusInfo(record.status);
+                  // Get status info for styling based on formatted status
+                  const statusInfo = getStatusInfo(record.formattedStatus);
                   
                   // Create Icon component if available
                   const StudentTypeIcon = studentTypeInfo.icon;
                   const StatusIcon = statusInfo.icon;
                   
+                  // Get upcoming date badge if applicable
+                  const upcomingDateBadge = record.hasUpcomingStartResumeDate ? getUpcomingDateLabel(record) : null;
+                  
+                  // Determine styling based on record type
+                  const isArchived = record.isArchivedUnenrolled;
+                  const isRegistration = record.isRegistration;
+                  
+                  let rowClass = "hover:bg-blue-100 bg-blue-50 border-b border-blue-200";
+                  if (isArchived) {
+                    rowClass = "bg-slate-100 text-slate-600 border-b border-slate-200 hover:bg-slate-200";
+                  } else if (isRegistration) {
+                    rowClass = "bg-green-50 border-b border-green-100 hover:bg-green-100";
+                  } else if (record.hasUpcomingStartResumeDate) {
+                    rowClass = "bg-blue-50 border-b border-blue-100 hover:bg-blue-100";
+                  } else if (record.isDuplicate) {
+                    rowClass = "bg-blue-100 border-b border-blue-200 hover:bg-blue-200";
+                  }
+                  
                   return (
-                    <TableRow 
-                      key={record.summaryKey} 
-                      className={`hover:bg-blue-100 bg-blue-50 border-b border-blue-200
-                        ${record.isDuplicate ? 'bg-blue-100' : ''}`}
-                    >
-                      <TableCell className="font-medium text-blue-800">{record.studentName || 'N/A'}</TableCell>
+                    <TableRow key={record.summaryKey} className={rowClass}>
+                      <TableCell className="font-medium text-blue-800">
+                        <div className="flex items-center">
+                          {record.studentName || 'N/A'}
+                          {isArchived && (
+                            <Badge variant="outline" className="ml-2 bg-slate-200 text-slate-700">
+                              Archived
+                            </Badge>
+                          )}
+                          {isRegistration && (
+                            <Badge variant="outline" className="ml-2 bg-green-100 text-green-800 border-green-200">
+                              Registration
+                            </Badge>
+                          )}
+                          {record.hasUpcomingStartResumeDate && upcomingDateBadge && (
+                            <div className="ml-2">{upcomingDateBadge}</div>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-blue-800">{record.courseTitle || 'N/A'}</TableCell>
-                      <TableCell className="text-blue-800">
-                        <span className="text-xs">{record.StudentEmail || 'N/A'}</span>
+                      <TableCell className="text-blue-800 max-w-[200px]">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-xs truncate block overflow-hidden text-ellipsis">
+                              {record.StudentEmail || 'N/A'}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-blue-50 border-blue-300 text-blue-800">
+                            <p>{record.StudentEmail || 'N/A'}</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </TableCell>
                       <TableCell className="text-blue-800">{getAsnDisplay(record)}</TableCell>
                       <TableCell>
@@ -727,11 +991,17 @@ const isArchivedUnenrolled = (record) => {
                               }}
                             >
                               {StatusIcon && <StatusIcon className="h-3 w-3" />}
-                              {record.status || 'N/A'}
+                              {record.formattedStatus}
                             </Badge>
                           </TooltipTrigger>
                           <TooltipContent className="bg-blue-50 border-blue-300 text-blue-800 max-w-xs">
                             <p>{statusInfo.tooltip}</p>
+                            {(record.status === "Starting on (Date)" && record.ScheduleStartDate) && (
+                              <p className="mt-1">Start Date: {formatDate(record.ScheduleStartDate)}</p>
+                            )}
+                            {(record.status === "Resuming on (date)" && record.resumingOnDate) && (
+                              <p className="mt-1">Resume Date: {formatDate(record.resumingOnDate)}</p>
+                            )}
                           </TooltipContent>
                         </Tooltip>
                       </TableCell>
@@ -835,6 +1105,43 @@ const isArchivedUnenrolled = (record) => {
                             <h3 className="text-sm font-medium text-blue-800">Archived and Unenrolled Record</h3>
                             <p className="text-sm text-blue-700 mt-1">
                               This student course has been archived and unenrolled. It is not considered a missing PASI record.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Special notice for Registration records */}
+                    {selectedRecord.isRegistration && (
+                      <div className="bg-green-50 border-l-4 border-green-500 p-4">
+                        <div className="flex items-start">
+                          <ClipboardList className="h-5 w-5 text-green-600 mr-2 mt-0.5" />
+                          <div>
+                            <h3 className="text-sm font-medium text-green-800">Registration Record</h3>
+                            <p className="text-sm text-green-700 mt-1">
+                              This student has recently enrolled and is still in the registration process. This course will be added to PASI after the initial assessment is complete.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Special notice for Upcoming Start/Resume Date */}
+                    {selectedRecord.hasUpcomingStartResumeDate && (
+                      <div className="bg-blue-50 border-l-4 border-blue-500 p-4">
+                        <div className="flex items-start">
+                          <CalendarRange className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
+                          <div>
+                            <h3 className="text-sm font-medium text-blue-800">Upcoming Course</h3>
+                            <p className="text-sm text-blue-700 mt-1">
+                              {selectedRecord.status === "Starting on (Date)" ? (
+                                <>This student is scheduled to start on {formatDate(selectedRecord.ScheduleStartDate)}.</>
+                              ) : (
+                                <>This student is scheduled to resume on {formatDate(selectedRecord.resumingOnDate)}.</>
+                              )}
+                            </p>
+                            <p className="text-sm text-blue-700 mt-1">
+                              This course will be registered in PASI as the scheduled date approaches.
                             </p>
                           </div>
                         </div>
@@ -951,14 +1258,14 @@ const isArchivedUnenrolled = (record) => {
                           <p className="text-sm font-medium">Status</p>
                           <div className="mt-1">
                             {(() => {
-                              const statusInfo = getStatusInfo(selectedRecord.status);
+                              const statusInfo = getStatusInfo(selectedRecord.formattedStatus);
                               const StatusIcon = statusInfo.icon;
                               return (
                                 <Tooltip>
                                   <TooltipTrigger>
                                     <div className="flex items-center">
                                       {StatusIcon && <StatusIcon className="h-4 w-4 mr-1" style={{ color: statusInfo.color }} />}
-                                      <span className="text-sm">{selectedRecord.status || 'N/A'}</span>
+                                      <span className="text-sm">{selectedRecord.formattedStatus}</span>
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent>
@@ -983,6 +1290,47 @@ const isArchivedUnenrolled = (record) => {
                         )}
                       </div>
                     </div>
+
+                    {/* Display scheduled dates if available */}
+                    {(selectedRecord.ScheduleStartDate || selectedRecord.resumingOnDate) && (
+                      <div className="border rounded-lg p-4 bg-blue-50">
+                        <h3 className="font-semibold mb-3">Schedule Information</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          {selectedRecord.ScheduleStartDate && (
+                            <div>
+                              <p className="text-sm font-medium text-blue-800">Schedule Start Date</p>
+                              <p className="text-sm text-blue-700">
+                                {formatDate(selectedRecord.ScheduleStartDate)}
+                                {selectedRecord.status === "Starting on (Date)" && selectedRecord.hasUpcomingStartResumeDate && (
+                                  <Badge className="ml-2 bg-blue-100 text-blue-800 border-blue-200">
+                                    Upcoming
+                                  </Badge>
+                                )}
+                              </p>
+                            </div>
+                          )}
+                          {selectedRecord.resumingOnDate && (
+                            <div>
+                              <p className="text-sm font-medium text-blue-800">Resuming Date</p>
+                              <p className="text-sm text-blue-700">
+                                {formatDate(selectedRecord.resumingOnDate)}
+                                {selectedRecord.status === "Resuming on (date)" && selectedRecord.hasUpcomingStartResumeDate && (
+                                  <Badge className="ml-2 bg-blue-100 text-blue-800 border-blue-200">
+                                    Upcoming
+                                  </Badge>
+                                )}
+                              </p>
+                            </div>
+                          )}
+                          {selectedRecord.ScheduleEndDate && (
+                            <div>
+                              <p className="text-sm font-medium text-blue-800">Schedule End Date</p>
+                              <p className="text-sm text-blue-700">{formatDate(selectedRecord.ScheduleEndDate)}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Display additional data if available */}
                     {fullStudentData && (
@@ -1073,20 +1421,20 @@ const isArchivedUnenrolled = (record) => {
                           </div>
                         )}
 
-                     {/* Auto Status if available */}
-{fullStudentData.autoStatus && (
-  <div className="border rounded-lg p-4">
-    <h3 className="font-semibold mb-3">Auto Status</h3>
-    <div className="grid grid-cols-2 gap-4">
-      {Object.entries(fullStudentData.autoStatus).map(([key, value]) => (
-        <div key={key}>
-          <p className="text-sm font-medium">{key}</p>
-          <p className="text-sm">{value?.toString() || 'N/A'}</p>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+                        {/* Auto Status if available */}
+                        {fullStudentData.autoStatus && (
+                          <div className="border rounded-lg p-4">
+                            <h3 className="font-semibold mb-3">Auto Status</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                              {Object.entries(fullStudentData.autoStatus).map(([key, value]) => (
+                                <div key={key}>
+                                  <p className="text-sm font-medium">{key}</p>
+                                  <p className="text-sm">{value?.toString() || 'N/A'}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>

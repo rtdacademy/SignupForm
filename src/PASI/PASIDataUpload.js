@@ -274,22 +274,55 @@ const toggleAllGroups = (expand) => {
   setExpandedGroups(newState);
 };
 
-
-  const countActualMissingRecords = (records) => {
-    if (!records || records.length === 0) return 0;
+const countActualMissingRecords = (records) => {
+  if (!records || records.length === 0) return 0;
+  
+  return records.filter(record => {
+    // Check if it's an archived/unenrolled-like record
+    const isArchived = record.ActiveFutureArchived_Value === "Archived";
+    const isUnenrolledLikeStatus = 
+      record.status === "Unenrolled" || 
+      record.status === "✅ Mark Added to PASI" || 
+      record.status === "☑️ Removed From PASI (Funded)";
     
-    return records.filter(record => {
-      // Check if it's an archived/unenrolled-like record
-      const isArchived = record.ActiveFutureArchived_Value === "Archived";
-      const isUnenrolledLikeStatus = 
-        record.status === "Unenrolled" || 
-        record.status === "✅ Mark Added to PASI" || 
-        record.status === "☑️ Removed From PASI (Funded)";
-        
-      // We want to count records that are NOT archived/unenrolled-like
-      return !(isArchived && isUnenrolledLikeStatus);
-    }).length;
-  };
+    // Check if it has future start/resume date (more than 2 months away)
+    const hasFutureDate = 
+      (record.status === "Starting on (Date)" && record.ScheduleStartDate && isWithinTwoMonths(record.ScheduleStartDate)) ||
+      (record.status === "Resuming on (date)" && record.resumingOnDate && isWithinTwoMonths(record.resumingOnDate));
+    
+    // Check if it's a registration record (newly enrolled student in registration process)
+    const isRegistration = record.status === "Newly Enrolled" && record.ActiveFutureArchived_Value === "Registration";
+    
+    // We only want to count records that are NOT archived/unenrolled-like, 
+    // don't have future dates, and are NOT in registration
+    return !(isArchived && isUnenrolledLikeStatus) && !hasFutureDate && !isRegistration;
+  }).length;
+};
+
+// Updated function - despite the name, it now checks if date is MORE than 2 months away
+const isWithinTwoMonths = (dateString) => {
+  if (!dateString) return false;
+  
+  try {
+    const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) return false;
+    
+    // Get today's date
+    const today = new Date();
+    
+    // Calculate date 2 months in the future
+    const twoMonthsFuture = new Date();
+    twoMonthsFuture.setMonth(today.getMonth() + 2);
+    
+    // The date is MORE than 2 months away if it's after the twoMonthsFuture date
+    return date > twoMonthsFuture;
+  } catch (error) {
+    console.error("Error checking date range:", error);
+    return false;
+  }
+};
 
   // Create this function in your component
   const combineRecordsWithSummaries = (records, summariesMap) => {
@@ -609,57 +642,99 @@ const updateCourseState = async (studentKey, courseId, newState) => {
       console.log("Records matching school year from database:", Object.keys(summariesSnapshot.val()).length);
   
       // Step 2: Process student course summaries
-      console.time("Processing summaries");
-      const studentCourseSummaries = [];
-      let skippedRemovedCount = 0;
-      
-      // Create a map of summaries for status validation
-      const newSummaryDataMap = {};
-      
-      summariesSnapshot.forEach(childSnapshot => {
-        const summary = childSnapshot.val();
-        const summaryKey = childSnapshot.key;
-        
-        // Add to summary map for status validation
-        newSummaryDataMap[summaryKey] = summary;
-        
-        // Skip records with "✗ Removed (Not Funded)" status
-        if (summary.Status_Value === "✗ Removed (Not Funded)") {
-          skippedRemovedCount++;
-          return; // Skip this record
-        }
-        
-        // Parse the summary key to get student key and course id
-        const [studentKey, courseIdStr] = summaryKey.split('_');
-        const courseId = parseInt(courseIdStr, 10);
-        
-        // Get PASI code from the course mapping
-        const pasiCode = courseIdToPasiCode[courseId] || '';
-        
-        // Create PASI Prep link only if ASN exists
-        let studentPage = null;
-        if (summary.asn) {
-          const asnWithoutDashes = summary.asn.replace(/-/g, '');
-          studentPage = `https://extranet.education.alberta.ca/PASI/PASIprep/view-student/${asnWithoutDashes}`;
-        }
-        
-        studentCourseSummaries.push({
-          summaryKey,
-          studentKey,
-          courseId,
-          courseTitle: summary.Course_Value || '',
-          pasiCode,
-          schoolYear: formattedYear,
-          status: summary.Status_Value || 'Unknown',
-          studentName: `${summary.lastName || ''}, ${summary.firstName || ''}`,
-          studentPage,
-          ActiveFutureArchived_Value: summary.ActiveFutureArchived_Value || '',
-          StudentEmail: summary.StudentEmail || '',
-          asn: summary.asn || '',
-          studentType: summary.StudentType_Value || '',
-          pasiRecords: summary.pasiRecords || {}
-        });
-      });
+console.time("Processing summaries");
+const studentCourseSummaries = [];
+let skippedRemovedCount = 0;
+
+// Create a map of summaries for status validation
+const newSummaryDataMap = {};
+
+summariesSnapshot.forEach(childSnapshot => {
+  const summary = childSnapshot.val();
+  const summaryKey = childSnapshot.key;
+  
+  // Add to summary map for status validation
+  newSummaryDataMap[summaryKey] = summary;
+  
+  // Skip records with "✗ Removed (Not Funded)" status
+  if (summary.Status_Value === "✗ Removed (Not Funded)") {
+    skippedRemovedCount++;
+    return; // Skip this record
+  }
+  
+  // Parse the summary key to get student key and course id
+  const [studentKey, courseIdStr] = summaryKey.split('_');
+  const courseId = parseInt(courseIdStr, 10);
+  
+  // Get PASI code from the course mapping
+  const pasiCode = courseIdToPasiCode[courseId] || '';
+  
+  // Create PASI Prep link only if ASN exists
+  let studentPage = null;
+  if (summary.asn) {
+    const asnWithoutDashes = summary.asn.replace(/-/g, '');
+    studentPage = `https://extranet.education.alberta.ca/PASI/PASIprep/view-student/${asnWithoutDashes}`;
+  }
+  
+  // Include all properties from the summary
+  studentCourseSummaries.push({
+    // Base properties needed for record identification
+    summaryKey,
+    studentKey,
+    courseId,
+    courseTitle: summary.Course_Value || '',
+    pasiCode,
+    schoolYear: formattedYear,
+    status: summary.Status_Value || 'Unknown',
+    studentName: `${summary.lastName || ''}, ${summary.firstName || ''}`,
+    studentPage,
+    
+    // Include all other properties from the summary
+    ActiveFutureArchived_Value: summary.ActiveFutureArchived_Value || '',
+    CourseID: summary.CourseID || courseId, // Use parsed courseId as fallback
+    Course_Value: summary.Course_Value || '',
+    Created: summary.Created || '',
+    DiplomaMonthChoices_Value: summary.DiplomaMonthChoices_Value || '',
+    LMSStudentID: summary.LMSStudentID || '',
+    LastSync: summary.LastSync || '',
+    ParentEmail: summary.ParentEmail || '',
+    ParentFirstName: summary.ParentFirstName || '',
+    ParentLastName: summary.ParentLastName || '',
+    ParentPhone_x0023_: summary.ParentPhone_x0023_ || '',
+    PercentCompleteGradebook: summary.PercentCompleteGradebook || 0,
+    PercentScheduleComplete: summary.PercentScheduleComplete || 0,
+    ScheduleEndDate: summary.ScheduleEndDate || '',
+    ScheduleStartDate: summary.ScheduleStartDate || '',
+    School_x0020_Year_Value: summary.School_x0020_Year_Value || '',
+    StatusCompare: summary.StatusCompare || '',
+    Status_SharepointValue: summary.Status_SharepointValue || '',
+    Status_Value: summary.Status_Value || '',
+    StudentEmail: summary.StudentEmail || '',
+    StudentPhone: summary.StudentPhone || '',
+    StudentType_Value: summary.StudentType_Value || '',
+    studentType: summary.StudentType_Value || '',
+    age: summary.age || 0,
+    asn: summary.asn || '',
+    autoStatus: summary.autoStatus || null,
+    birthday: summary.birthday || '',
+    categories: summary.categories || {},
+    firstName: summary.firstName || '',
+    gender: summary.gender || '',
+    grade: summary.grade || 0,
+    hasSchedule: summary.hasSchedule || false,
+    inOldSharePoint: summary.inOldSharePoint || false,
+    lastName: summary.lastName || '',
+    lastUpdated: summary.lastUpdated || 0,
+    originalEmail: summary.originalEmail || '',
+    pasiRecords: summary.pasiRecords || {},
+    preferredFirstName: summary.preferredFirstName || '',
+    primarySchoolName: summary.primarySchoolName || '',
+    resumingOnDate: summary.resumingOnDate || '',
+    section: summary.section || '',
+    toggle: summary.toggle || false,
+    uid: summary.uid || ''
+  });
+});
       
       // Update the summary data map for status validation
       setSummaryDataMap(newSummaryDataMap);
@@ -667,23 +742,22 @@ const updateCourseState = async (studentKey, courseId, newState) => {
       console.timeEnd("Processing summaries");
       console.log(`Number of studentCourseSummaries matching school year: ${studentCourseSummaries.length}`);
       console.log(`Skipped ${skippedRemovedCount} records with "✗ Removed (Not Funded)" status`);
-      
       // Step 3: Find missing records - SIMPLIFIED APPROACH
-      console.time("Finding missing records");
-      const missing = [];
-      
-      for (const summary of studentCourseSummaries) {
-        // Check if the summary has pasiRecords property with any entries
-        if (!summary.pasiRecords || Object.keys(summary.pasiRecords).length === 0) {
-          missing.push({...summary, reason: 'No PASI records found'});
-          
-          // Log a sample for debugging
-          if (missing.length <= 3) {
-            console.log(`Missing record: ${summary.studentName}, courseId: ${summary.courseId}, studentKey: ${summary.studentKey}`);
-          }
-        }
-      }
-      console.timeEnd("Finding missing records");
+console.time("Finding missing records");
+const missing = [];
+
+for (const summary of studentCourseSummaries) {
+  // Check if the summary has pasiRecords property with any entries
+  if (!summary.pasiRecords || Object.keys(summary.pasiRecords).length === 0) {
+    missing.push({...summary, reason: 'No PASI records found'});
+    
+    // Log a sample for debugging
+    if (missing.length <= 3) {
+      console.log(`Missing record: ${summary.studentName}, courseId: ${summary.courseId}, studentKey: ${summary.studentKey}`);
+    }
+  }
+}
+console.timeEnd("Finding missing records");
       
       console.log("Final missing PASI records count:", missing.length);
       if (missing.length > 0) {
