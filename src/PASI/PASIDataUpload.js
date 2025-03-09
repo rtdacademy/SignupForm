@@ -2408,7 +2408,7 @@ const getChangedFields = (existingRecord, newRecord) => {
           
           sortedAsns.forEach(asn => {
             const group = groups[asn];
-            const isExpanded = expandedGroups[asn] !== false; // Default to expanded
+           const isExpanded = expandedGroups[asn] === true; // Default to collapsed
             
             // Filter records for this ASN
             const groupRecords = paginatedRecords.filter(record => record.asn === asn);
