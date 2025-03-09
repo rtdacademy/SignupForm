@@ -712,24 +712,7 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
                         {stats.duplicates} Duplicates
                       </Badge>
                     )}
-                    {stats.archivedUnenrolled > 0 && (
-                      <Badge variant="secondary" className="flex items-center gap-1">
-                        <Archive className="h-3 w-3" />
-                        {stats.archivedUnenrolled} Archived/Unenrolled
-                      </Badge>
-                    )}
-                    {stats.withUpcomingDates > 0 && (
-                      <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 text-blue-800 border-blue-200">
-                        <CalendarRange className="h-3 w-3" />
-                        {stats.withUpcomingDates} Future
-                      </Badge>
-                    )}
-                    {stats.registrationRecords > 0 && (
-                      <Badge variant="outline" className="flex items-center gap-1 bg-green-50 text-green-800 border-green-200">
-                        <ClipboardList className="h-3 w-3" />
-                        {stats.registrationRecords} Registration
-                      </Badge>
-                    )}
+                 
                   </div>
                 </div>
               </div>
@@ -737,12 +720,12 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
               {/* Filter tabs */}
               <Tabs value={activeFilterTab} onValueChange={setActiveFilterTab} className="w-full">
                 <TabsList className="w-full grid grid-cols-5">
-                  <TabsTrigger value="missing">
-                    Missing
-                    <Badge variant="secondary" className="ml-2">
-                      {stats.actualMissing}
-                    </Badge>
-                  </TabsTrigger>
+                <TabsTrigger value="missing">
+  Missing
+  <Badge variant="destructive" className="ml-2 bg-red-100 hover:bg-red-100 text-red-600">
+    {stats.actualMissing}
+  </Badge>
+</TabsTrigger>
                   <TabsTrigger value="registration">
                     Registration
                     <Badge variant="secondary" className="ml-2">
@@ -765,29 +748,54 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
                 </TabsList>
                 
                 <TabsContent value="missing" className="mt-3">
-                  <div className="flex flex-wrap items-center gap-4 p-2 bg-slate-50 rounded-md">
-                    <div className="flex items-center gap-2">
-                      <Switch 
-                        id="show-issues" 
-                        checked={showOnlyIssues}
-                        onCheckedChange={setShowOnlyIssues}
-                      />
-                      <Label htmlFor="show-issues" className="text-sm cursor-pointer flex items-center">
-                        <AlertTriangle className="h-4 w-4 mr-1 text-red-500" />
-                        Show only students with data issues
-                      </Label>
-                    </div>
-                  </div>
-                </TabsContent>
+  <div className="flex flex-wrap items-center gap-4 p-3 bg-amber-50 border border-amber-100 rounded-md">
+    <div className="text-sm text-amber-800">
+      <p className="font-medium">Missing PASI Records</p>
+      <p className="mt-1">These students should definitely have a PASI record attached based on their status and state. They require immediate attention to ensure complete educational records.</p>
+    </div>
+  </div>
+  <div className="flex flex-wrap items-center gap-4 p-2 bg-slate-50 rounded-md mt-2">
+    <div className="flex items-center gap-2">
+      <Switch 
+        id="show-issues" 
+        checked={showOnlyIssues}
+        onCheckedChange={setShowOnlyIssues}
+      />
+      <Label htmlFor="show-issues" className="text-sm cursor-pointer flex items-center">
+        <AlertTriangle className="h-4 w-4 mr-1 text-red-500" />
+        Show only students with data issues
+      </Label>
+    </div>
+  </div>
+</TabsContent>
                 
-                <TabsContent value="registration" className="mt-3">
-                  <div className="flex flex-wrap items-center gap-4 p-3 bg-green-50 border border-green-100 rounded-md">
-                    <div className="text-sm text-green-800">
-                      <p className="font-medium">Registration Records</p>
-                      <p className="mt-1">These are newly enrolled students</p>
-                    </div>
-                  </div>
-                </TabsContent>
+<TabsContent value="registration" className="mt-3">
+  <div className="flex flex-wrap items-center gap-4 p-3 bg-green-50 border border-green-100 rounded-md">
+    <div className="text-sm text-green-800">
+      <p className="font-medium">Registration Records</p>
+      <p className="mt-1">These are newly enrolled students who have recently registered. The Students are NOT considered "missing" </p>
+    </div>
+  </div>
+</TabsContent>
+
+<TabsContent value="upcoming" className="mt-3">
+  <div className="flex flex-wrap items-center gap-4 p-3 bg-blue-50 border border-blue-100 rounded-md">
+    <div className="text-sm text-blue-800">
+      <p className="font-medium">Future Start Records</p>
+      <p className="mt-1">These students have a "Starting on" or "Resuming on" date that is more than 2 months from today. They will not be considered "Missing" until their start date is within 2 months.</p>
+    </div>
+  </div>
+</TabsContent>
+
+<TabsContent value="archived" className="mt-3">
+  <div className="flex flex-wrap items-center gap-4 p-3 bg-slate-50 border border-slate-200 rounded-md">
+    <div className="text-sm text-slate-800">
+      <p className="font-medium">Archived Records</p>
+      <p className="mt-1">These students have a status of "Unenrolled" and a state of "Archived". These records were removed from PASI but are retained in YourWay for record-keeping purposes. These Students are NOT considered "missing".</p>
+    </div>
+  </div>
+</TabsContent>
+
               </Tabs>
             </div>
           </CardContent>

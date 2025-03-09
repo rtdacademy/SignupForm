@@ -248,6 +248,8 @@ const PASIDataUpload = () => {
   const [expandedGroups, setExpandedGroups] = useState({});
   const [isGradebookSheetOpen, setIsGradebookSheetOpen] = useState(false);
 const [selectedGradebookRecord, setSelectedGradebookRecord] = useState(null);
+const [studentCourseSummaries, setStudentCourseSummaries] = useState([]);
+const [isLoadingCourseSummaries, setIsLoadingCourseSummaries] = useState(true);
 
 const handleOpenGradebook = (record) => {
   setSelectedGradebookRecord(record);
@@ -604,187 +606,70 @@ const updateCourseState = async (studentKey, courseId, newState) => {
 
 
 
-  // Add the function to find missing PASI records
-  const findMissingPasiRecords = async () => {
+const findMissingPasiRecords = () => {
+  if (!selectedSchoolYear || studentCourseSummaries.length === 0) {
     if (!selectedSchoolYear) {
       toast.error("Please select a school year first");
-      return;
     }
+    return;
+  }
+
+  console.log("=== FINDING MISSING PASI RECORDS ===");
+  console.log("Selected school year:", selectedSchoolYear);
+  console.log("Using real-time student course summaries:", studentCourseSummaries.length);
   
-    console.log("=== FINDING MISSING PASI RECORDS ===");
-    console.log("Selected school year:", selectedSchoolYear);
-    
-    setIsLoadingMissing(true);
-    try {
-      const db = getDatabase();
-      const formattedYear = formatSchoolYearWithSlash(selectedSchoolYear);
-      console.log("Formatted school year for matching:", formattedYear);
-      
-      // Step 1: Query student course summaries for the selected school year
-      console.time("Querying database");
-      
-      const summariesRef = ref(db, 'studentCourseSummaries');
-      const filteredQuery = query(
-        summariesRef,
-        orderByChild('School_x0020_Year_Value'),
-        equalTo(formattedYear)
-      );
-      
-      const summariesSnapshot = await get(filteredQuery);
-      console.timeEnd("Querying database");
-      
-      if (!summariesSnapshot.exists()) {
-        console.log("No matching studentCourseSummaries found for this school year");
-        setMissingPasiRecords([]);
-        return;
+  setIsLoadingMissing(true);
+  try {
+    // Step 1: We already have the student course summaries from our listener
+    console.log("Records matching school year from real-time data:", studentCourseSummaries.length);
+
+    // Step 3: Find missing records - SIMPLIFIED APPROACH
+    console.time("Finding missing records");
+    const missing = [];
+
+    for (const summary of studentCourseSummaries) {
+      // Check if the summary has pasiRecords property with any entries
+      if (!summary.pasiRecords || Object.keys(summary.pasiRecords).length === 0) {
+        missing.push({...summary, reason: 'No PASI records found'});
+        
+        // Log a sample for debugging
+        if (missing.length <= 3) {
+          console.log(`Missing record: ${summary.studentName}, courseId: ${summary.courseId}, studentKey: ${summary.studentKey}`);
+        }
       }
-  
-      console.log("Records matching school year from database:", Object.keys(summariesSnapshot.val()).length);
-  
-      // Step 2: Process student course summaries
-console.time("Processing summaries");
-const studentCourseSummaries = [];
-let skippedRemovedCount = 0;
-
-// Create a map of summaries for status validation
-const newSummaryDataMap = {};
-
-summariesSnapshot.forEach(childSnapshot => {
-  const summary = childSnapshot.val();
-  const summaryKey = childSnapshot.key;
-  
-  // Add to summary map for status validation
-  newSummaryDataMap[summaryKey] = summary;
-  
-  // Skip records with "✗ Removed (Not Funded)" status
-  if (summary.Status_Value === "✗ Removed (Not Funded)") {
-    skippedRemovedCount++;
-    return; // Skip this record
-  }
-  
-  // Parse the summary key to get student key and course id
-  const [studentKey, courseIdStr] = summaryKey.split('_');
-  const courseId = parseInt(courseIdStr, 10);
-  
-  // Get PASI code from the course mapping
-  const pasiCode = courseIdToPasiCode[courseId] || '';
-  
-  // Create PASI Prep link only if ASN exists
-  let studentPage = null;
-  if (summary.asn) {
-    const asnWithoutDashes = summary.asn.replace(/-/g, '');
-    studentPage = `https://extranet.education.alberta.ca/PASI/PASIprep/view-student/${asnWithoutDashes}`;
-  }
-  
-  // Include all properties from the summary
-  studentCourseSummaries.push({
-    // Base properties needed for record identification
-    summaryKey,
-    studentKey,
-    courseId,
-    courseTitle: summary.Course_Value || '',
-    pasiCode,
-    schoolYear: formattedYear,
-    status: summary.Status_Value || 'Unknown',
-    studentName: `${summary.lastName || ''}, ${summary.firstName || ''}`,
-    studentPage,
+    }
+    console.timeEnd("Finding missing records");
     
-    // Include all other properties from the summary
-    ActiveFutureArchived_Value: summary.ActiveFutureArchived_Value || '',
-    CourseID: summary.CourseID || courseId, // Use parsed courseId as fallback
-    Course_Value: summary.Course_Value || '',
-    Created: summary.Created || '',
-    DiplomaMonthChoices_Value: summary.DiplomaMonthChoices_Value || '',
-    LMSStudentID: summary.LMSStudentID || '',
-    LastSync: summary.LastSync || '',
-    ParentEmail: summary.ParentEmail || '',
-    ParentFirstName: summary.ParentFirstName || '',
-    ParentLastName: summary.ParentLastName || '',
-    ParentPhone_x0023_: summary.ParentPhone_x0023_ || '',
-    PercentCompleteGradebook: summary.PercentCompleteGradebook || 0,
-    PercentScheduleComplete: summary.PercentScheduleComplete || 0,
-    ScheduleEndDate: summary.ScheduleEndDate || '',
-    ScheduleStartDate: summary.ScheduleStartDate || '',
-    School_x0020_Year_Value: summary.School_x0020_Year_Value || '',
-    StatusCompare: summary.StatusCompare || '',
-    Status_SharepointValue: summary.Status_SharepointValue || '',
-    Status_Value: summary.Status_Value || '',
-    StudentEmail: summary.StudentEmail || '',
-    StudentPhone: summary.StudentPhone || '',
-    StudentType_Value: summary.StudentType_Value || '',
-    studentType: summary.StudentType_Value || '',
-    age: summary.age || 0,
-    asn: summary.asn || '',
-    autoStatus: summary.autoStatus || null,
-    birthday: summary.birthday || '',
-    categories: summary.categories || {},
-    firstName: summary.firstName || '',
-    gender: summary.gender || '',
-    grade: summary.grade || 0,
-    hasSchedule: summary.hasSchedule || false,
-    inOldSharePoint: summary.inOldSharePoint || false,
-    lastName: summary.lastName || '',
-    lastUpdated: summary.lastUpdated || 0,
-    originalEmail: summary.originalEmail || '',
-    pasiRecords: summary.pasiRecords || {},
-    preferredFirstName: summary.preferredFirstName || '',
-    primarySchoolName: summary.primarySchoolName || '',
-    resumingOnDate: summary.resumingOnDate || '',
-    section: summary.section || '',
-    toggle: summary.toggle || false,
-    uid: summary.uid || ''
-  });
-});
-      
-      // Update the summary data map for status validation
-      setSummaryDataMap(newSummaryDataMap);
-      
-      console.timeEnd("Processing summaries");
-      console.log(`Number of studentCourseSummaries matching school year: ${studentCourseSummaries.length}`);
-      console.log(`Skipped ${skippedRemovedCount} records with "✗ Removed (Not Funded)" status`);
-      // Step 3: Find missing records - SIMPLIFIED APPROACH
-console.time("Finding missing records");
-const missing = [];
-
-for (const summary of studentCourseSummaries) {
-  // Check if the summary has pasiRecords property with any entries
-  if (!summary.pasiRecords || Object.keys(summary.pasiRecords).length === 0) {
-    missing.push({...summary, reason: 'No PASI records found'});
+    console.log("Final missing PASI records count:", missing.length);
+    if (missing.length > 0) {
+      console.log("Sample missing record:", missing[0]);
+    }
     
-    // Log a sample for debugging
-    if (missing.length <= 3) {
-      console.log(`Missing record: ${summary.studentName}, courseId: ${summary.courseId}, studentKey: ${summary.studentKey}`);
-    }
+    setMissingPasiRecords(missing);
+  } catch (error) {
+    console.error("Error finding missing PASI records:", error);
+    toast.error(`Failed to find missing PASI records: ${error.message}`);
+  } finally {
+    setIsLoadingMissing(false);
   }
-}
-console.timeEnd("Finding missing records");
-      
-      console.log("Final missing PASI records count:", missing.length);
-      if (missing.length > 0) {
-        console.log("Sample missing record:", missing[0]);
-      }
-      
-      setMissingPasiRecords(missing);
-    } catch (error) {
-      console.error("Error finding missing PASI records:", error);
-      toast.error(`Failed to find missing PASI records: ${error.message}`);
-    } finally {
-      setIsLoadingMissing(false);
-    }
-  };
+};
 
-  // Also, modify the useEffect to add a console log when it runs:
-  useEffect(() => {
-    if (selectedSchoolYear && pasiRecords.length > 0) {
-      console.log("Triggering findMissingPasiRecords, school year:", selectedSchoolYear, "PASI records:", pasiRecords.length);
-      findMissingPasiRecords();
-    } else {
-      console.log("Not running findMissingPasiRecords yet:", {
-        hasSchoolYear: !!selectedSchoolYear,
-        pasiRecordsCount: pasiRecords.length
-      });
-    }
-  }, [selectedSchoolYear, pasiRecords.length, courseIdToPasiCode]);
+useEffect(() => {
+  // Only run when both datasets are loaded and we have a selected school year
+  if (selectedSchoolYear && pasiRecords.length > 0 && !isLoadingCourseSummaries) {
+    console.log("Triggering findMissingPasiRecords, school year:", selectedSchoolYear, 
+      "PASI records:", pasiRecords.length,
+      "Student course summaries:", studentCourseSummaries.length);
+    findMissingPasiRecords();
+  } else {
+    console.log("Not running findMissingPasiRecords yet:", {
+      hasSchoolYear: !!selectedSchoolYear,
+      pasiRecordsCount: pasiRecords.length,
+      courseSummariesLoaded: !isLoadingCourseSummaries,
+      courseSummariesCount: studentCourseSummaries.length
+    });
+  }
+}, [selectedSchoolYear, pasiRecords.length, isLoadingCourseSummaries, studentCourseSummaries.length]);
 
 
 
@@ -797,10 +682,10 @@ console.timeEnd("Finding missing records");
 
   // Add effect to check for status mismatches whenever pasiRecords or summaryDataMap change
   useEffect(() => {
-    if (pasiRecords.length > 0 && Object.keys(summaryDataMap).length > 0) {
+    if (pasiRecords.length > 0 && Object.keys(summaryDataMap).length > 0 && !isLoadingCourseSummaries) {
       checkStatusMismatch(pasiRecords, summaryDataMap);
     }
-  }, [pasiRecords, summaryDataMap]);
+  }, [pasiRecords, summaryDataMap, isLoadingCourseSummaries]);
 
   const handleOpenCreateStudentDialog = (record) => {
     // Don't allow creating students for already linked records
@@ -1399,7 +1284,141 @@ useEffect(() => {
   setPaginatedRecords(sorted.slice(startIndex, endIndex));
 }, [pasiRecords, searchTerm, sortState, currentPage, recordsWithStatusMismatch, showStatusMismatchOnly, summaryDataMap]);
 
-  // Calculate summary statistics
+ // Set up database listener for student course summaries when school year changes
+useEffect(() => {
+  if (!selectedSchoolYear) return;
+
+  setIsLoadingCourseSummaries(true);
+  
+  const db = getDatabase();
+  const formattedYear = formatSchoolYearWithSlash(selectedSchoolYear);
+  
+  const summariesRef = ref(db, 'studentCourseSummaries');
+  const filteredQuery = query(
+    summariesRef,
+    orderByChild('School_x0020_Year_Value'),
+    equalTo(formattedYear)
+  );
+
+  console.log(`Setting up listener for studentCourseSummaries with school year: ${formattedYear}`);
+  
+  const unsubscribe = onValue(filteredQuery, (snapshot) => {
+    if (!snapshot.exists()) {
+      setStudentCourseSummaries([]);
+      setSummaryDataMap({});
+      setIsLoadingCourseSummaries(false);
+      return;
+    }
+
+    const summaries = [];
+    const newSummaryDataMap = {};
+    
+    snapshot.forEach((childSnapshot) => {
+      const summary = childSnapshot.val();
+      const summaryKey = childSnapshot.key;
+      
+      // Add to summary map for status validation
+      newSummaryDataMap[summaryKey] = summary;
+      
+      // Skip records with "✗ Removed (Not Funded)" status
+      if (summary.Status_Value === "✗ Removed (Not Funded)") {
+        return; // Skip this record
+      }
+      
+      // Parse the summary key to get student key and course id
+      const [studentKey, courseIdStr] = summaryKey.split('_');
+      const courseId = parseInt(courseIdStr, 10);
+      
+      // Get PASI code from the course mapping
+      const pasiCode = courseIdToPasiCode[courseId] || '';
+      
+      // Create PASI Prep link only if ASN exists
+      let studentPage = null;
+      if (summary.asn) {
+        const asnWithoutDashes = summary.asn.replace(/-/g, '');
+        studentPage = `https://extranet.education.alberta.ca/PASI/PASIprep/view-student/${asnWithoutDashes}`;
+      }
+      
+      summaries.push({
+        // Base properties needed for record identification
+        summaryKey,
+        studentKey,
+        courseId,
+        courseTitle: summary.Course_Value || '',
+        pasiCode,
+        schoolYear: formattedYear,
+        status: summary.Status_Value || 'Unknown',
+        studentName: `${summary.lastName || ''}, ${summary.firstName || ''}`,
+        studentPage,
+        
+        // Include all other properties from the summary
+        ActiveFutureArchived_Value: summary.ActiveFutureArchived_Value || '',
+        CourseID: summary.CourseID || courseId, // Use parsed courseId as fallback
+        Course_Value: summary.Course_Value || '',
+        Created: summary.Created || '',
+        DiplomaMonthChoices_Value: summary.DiplomaMonthChoices_Value || '',
+        LMSStudentID: summary.LMSStudentID || '',
+        LastSync: summary.LastSync || '',
+        ParentEmail: summary.ParentEmail || '',
+        ParentFirstName: summary.ParentFirstName || '',
+        ParentLastName: summary.ParentLastName || '',
+        ParentPhone_x0023_: summary.ParentPhone_x0023_ || '',
+        PercentCompleteGradebook: summary.PercentCompleteGradebook || 0,
+        PercentScheduleComplete: summary.PercentScheduleComplete || 0,
+        ScheduleEndDate: summary.ScheduleEndDate || '',
+        ScheduleStartDate: summary.ScheduleStartDate || '',
+        School_x0020_Year_Value: summary.School_x0020_Year_Value || '',
+        StatusCompare: summary.StatusCompare || '',
+        Status_SharepointValue: summary.Status_SharepointValue || '',
+        Status_Value: summary.Status_Value || '',
+        StudentEmail: summary.StudentEmail || '',
+        StudentPhone: summary.StudentPhone || '',
+        StudentType_Value: summary.StudentType_Value || '',
+        studentType: summary.StudentType_Value || '',
+        age: summary.age || 0,
+        asn: summary.asn || '',
+        autoStatus: summary.autoStatus || null,
+        birthday: summary.birthday || '',
+        categories: summary.categories || {},
+        firstName: summary.firstName || '',
+        gender: summary.gender || '',
+        grade: summary.grade || 0,
+        hasSchedule: summary.hasSchedule || false,
+        inOldSharePoint: summary.inOldSharePoint || false,
+        lastName: summary.lastName || '',
+        lastUpdated: summary.lastUpdated || 0,
+        originalEmail: summary.originalEmail || '',
+        pasiRecords: summary.pasiRecords || {},
+        preferredFirstName: summary.preferredFirstName || '',
+        primarySchoolName: summary.primarySchoolName || '',
+        resumingOnDate: summary.resumingOnDate || '',
+        section: summary.section || '',
+        toggle: summary.toggle || false,
+        uid: summary.uid || ''
+      });
+    });
+    
+    // Update state with the fetched data
+    setStudentCourseSummaries(summaries);
+    setSummaryDataMap(newSummaryDataMap);
+    setIsLoadingCourseSummaries(false);
+    
+    console.log(`Loaded ${summaries.length} student course summaries`);
+  }, (error) => {
+    console.error("Error fetching student course summaries:", error);
+    toast.error(`Failed to load student course summaries: ${error.message}`);
+    setIsLoadingCourseSummaries(false);
+  });
+
+  // Clean up the listener when the component unmounts or school year changes
+  return () => {
+    console.log("Removing student course summaries listener");
+    unsubscribe();
+  };
+}, [selectedSchoolYear, courseIdToPasiCode]);
+
+
+// Calculate summary statistics
   const getSummary = () => {
     if (!pasiRecords.length) return null;
 
@@ -2091,8 +2110,11 @@ const getChangedFields = (existingRecord, newRecord) => {
               </div>
             )}
 
-{isLoading ? (
-  <div className="text-center p-4">Loading...</div>
+{isLoading || isLoadingCourseSummaries ? (
+  <div className="text-center p-4">
+    <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+    <p>{isLoading ? "Loading PASI records..." : "Loading student course summaries..."}</p>
+  </div>
 ) : pasiRecords.length > 0 ? (
   summary && (
     <div className="space-y-6">
@@ -2235,7 +2257,7 @@ const getChangedFields = (existingRecord, newRecord) => {
   <TabsTrigger value="missingPasi">
   Missing PASI
   {missingPasiRecords.length > 0 && (
-    <Badge variant="destructive" className="ml-2">
+     <Badge variant="destructive" className="ml-2 bg-red-100 hover:bg-red-100 text-red-600">
       {countActualMissingRecords(missingPasiRecords)}
     </Badge>
   )}
