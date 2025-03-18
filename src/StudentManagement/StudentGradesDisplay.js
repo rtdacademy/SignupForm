@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { getDatabase, ref, onValue } from 'firebase/database'
+import { getDatabase, ref, onValue, get } from 'firebase/database'
 import { getFunctions, httpsCallable } from 'firebase/functions'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet'
 import { Progress } from '../components/ui/progress'
@@ -24,7 +24,8 @@ import {
   ZapIcon, 
   InfoIcon, 
   Bell,
-  Split
+  Split,
+  FileText
 } from 'lucide-react'
 import {
   Accordion,
@@ -69,15 +70,68 @@ const FEATURE_INFO = {
     {
       title: 'Need the Old View?',
       icon: Split, // or SplitSquareHorizontal
-      content: 'You can see the old layout by clicking the “View All” button in the top-right corner.'
+      content: 'You can see the old layout by clicking the "View All" button in the top-right corner.'
     }
   ],
-  note: `Note: This feature is currently available for courses with LTI integration, and we’re working on expanding it to all courses.
-Staff members should consider this feature to be in BETA and compare the auto status values to each student’s actual gradebook.
+  note: `Note: This feature is currently available for courses with LTI integration, and we're working on expanding it to all courses.
+Staff members should consider this feature to be in BETA and compare the auto status values to each student's actual gradebook.
 Over time, our goal is to gain enough confidence to allow the system to automatically set these statuses in most cases.`
 };
 
+// New component for Last Activity Button
+const LastActivityButton = ({ lastChange, onClick }) => {
+  if (!lastChange) return null;
+  
+  const date = fromUnixTime(lastChange);
+  const formattedDate = format(date, 'MMM d, yyyy h:mm a');
+  const relativeTime = formatDistanceToNow(date, { addSuffix: true });
+  
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button 
+            variant="ghost" 
+            className="flex items-center gap-1 h-7 px-2 text-blue-700 hover:bg-blue-50"
+            onClick={onClick}
+          >
+            <History className="h-4 w-4" />
+            <span className="text-sm font-medium">{relativeTime}</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Last activity: {formattedDate}</p>
+          <p className="text-xs text-gray-500 mt-1">Click to view full history</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
+// New component for Activity Log Sheet with iframe
+const ActivityLogSheet = ({ isOpen, onOpenChange, courseId, lmsStudentId }) => {
+  const actionLogUrl = `https://edge.rtdacademy.com/course/viewactionlog.php?cid=${courseId}&uid=${lmsStudentId}&from=gb`;
+  
+  return (
+    <Sheet open={isOpen} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-[95%] sm:w-[800px] p-0">
+        <SheetHeader className="p-4 border-b">
+          <SheetTitle className="flex items-center">
+            <FileText className="h-5 w-5 mr-2 text-blue-600" />
+            Student Activity Log
+          </SheetTitle>
+        </SheetHeader>
+        <div className="h-[calc(100vh-80px)]">
+          <iframe 
+            src={actionLogUrl} 
+            className="w-full h-full border-0" 
+            title="Student Activity Log" 
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+};
 
 // Helper styles for different item types
 const typeColors = {
@@ -131,6 +185,7 @@ const CourseOverviewCard = ({
   normalizedSchedule,
   onRefresh,
   refreshing,
+  onOpenActionLog,
 }) => {
   const alertLevelKey = scheduleAdherence?.alertLevel?.toUpperCase()
   const alertLevel = ALERT_LEVELS[alertLevelKey] || ALERT_LEVELS.GREY
@@ -147,6 +202,8 @@ const CourseOverviewCard = ({
   const lastAssessmentImport = scheduleAdherence?.currentCompletedItem?.assessmentData?.importedAt
     ? new Date(scheduleAdherence.currentCompletedItem.assessmentData.importedAt)
     : null
+    
+  const lastActivity = scheduleAdherence?.currentCompletedItem?.assessmentData?.lastChange
 
   const progressPercentage = Math.round(
     (scheduleAdherence?.currentCompletedIndex /
@@ -164,94 +221,105 @@ const CourseOverviewCard = ({
     <Accordion type="single" collapsible className="mb-8 w-full">
       <AccordionItem value="overview" className="border-blue-200 bg-blue-50 rounded-lg shadow-md">
         <div className="px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-semibold text-blue-900">
                 {courseData?.Title || 'Untitled Course'}
               </h3>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7 ml-1" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRefresh();
-                      }}
-                      disabled={refreshing}
-                    >
-                      <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Refresh normalized schedule</p>
-                    {lastUpdated && (
-                      <p className="text-xs mt-1">
-                        Last updated: {format(lastUpdated, 'MMM d, yyyy h:mm a')}
-                      </p>
-                    )}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+
+              <div className="flex items-center ml-2">
+        {/* Add the LastActivity button here */}
+        {lastActivity && (
+          <LastActivityButton 
+            lastChange={lastActivity} 
+            onClick={onOpenActionLog} 
+          />
+        )}
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRefresh();
+                }}
+                disabled={refreshing}
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Refresh normalized schedule</p>
+              {lastUpdated && (
+                <p className="text-xs mt-1">
+                  Last updated: {format(lastUpdated, 'MMM d, yyyy h:mm a')}
+                </p>
+              )}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    </div>
+  </div>
             
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger className="flex items-center gap-1">
-                    <PieChart className="w-4 h-4 text-blue-700" />
-                    <span className="font-medium">{currentGrade}%</span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Current grade (omitting missing)</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger className="flex items-center gap-1">
-                    <BarChart className="w-4 h-4 text-purple-700" />
-                    <span className="font-medium">{gradeWithZeros}%</span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Grade with zeros included</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger className="flex items-center gap-1">
-                    <Percent className="w-4 h-4 text-green-700" />
-                    <span className="font-medium">{progressPercentage}%</span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Course completion percentage</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger className="flex items-center gap-1">
-                    {isAhead ? (
-                      <TrendingUp className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 text-red-600" />
-                    )}
-                    <span className={isAhead ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                      {Math.abs(lessonsOffset)} {Math.abs(lessonsOffset) === 1 ? 'lesson' : 'lessons'}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isAhead ? 'Ahead of schedule' : 'Behind schedule'}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger className="flex items-center gap-1">
+                  <PieChart className="w-4 h-4 text-blue-700" />
+                  <span className="font-medium">{currentGrade}%</span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Current grade (omitting missing)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger className="flex items-center gap-1">
+                  <BarChart className="w-4 h-4 text-purple-700" />
+                  <span className="font-medium">{gradeWithZeros}%</span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Grade with zeros included</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger className="flex items-center gap-1">
+                  <Percent className="w-4 h-4 text-green-700" />
+                  <span className="font-medium">{progressPercentage}%</span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Course completion percentage</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger className="flex items-center gap-1">
+                  {isAhead ? (
+                    <TrendingUp className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <TrendingDown className="w-4 h-4 text-red-600" />
+                  )}
+                  <span className={isAhead ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                    {Math.abs(lessonsOffset)} {Math.abs(lessonsOffset) === 1 ? 'lesson' : 'lessons'}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isAhead ? 'Ahead of schedule' : 'Behind schedule'}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
         
@@ -389,7 +457,8 @@ const GradesContent = ({
   normalizedSchedule,
   onRefresh,
   refreshing,
-  onShowFeatureInfo
+  onShowFeatureInfo,
+  onOpenActionLog
 }) => {
   // 1) If still loading, show spinner
   if (loading) {
@@ -617,6 +686,7 @@ const GradesContent = ({
           normalizedSchedule={normalizedSchedule}
           onRefresh={onRefresh}
           refreshing={refreshing}
+          onOpenActionLog={onOpenActionLog}
         />
 
         {Object.entries(sectionedUnits)
@@ -698,9 +768,11 @@ const StudentGradesDisplay = ({
   const [normalizedSchedule, setNormalizedSchedule] = useState(initialNormalizedSchedule);
   const [courseData, setCourseData] = useState(null);
   const [studentCourseData, setStudentCourseData] = useState(null);
+  const [lmsStudentId, setLmsStudentId] = useState(null);
   
-  // New state for feature info dialog
+  // New state for feature info dialog and action log sheet
   const [showFeatureInfo, setShowFeatureInfo] = useState(false);
+  const [actionLogOpen, setActionLogOpen] = useState(false);
   
   // Get user preferences
   const { preferences } = useUserPreferences();
@@ -712,9 +784,6 @@ const StudentGradesDisplay = ({
       setShowFeatureInfo(true);
     }
   }, [preferences]);
-
-
-
 
   useEffect(() => {
     if (!studentKey || !courseId) {
@@ -729,6 +798,7 @@ const StudentGradesDisplay = ({
     const studentCourseRef = ref(db, `students/${studentKey}/courses/${courseId}`)
     const normalizedScheduleRef = ref(db, `students/${studentKey}/courses/${courseId}/normalizedSchedule`)
     const courseRef = ref(db, `courses/${courseId}`)
+    const lmsStudentIdRef = ref(db, `students/${studentKey}/courses/${courseId}/LMSStudentID`)
 
     const studentCourseUnsubscribe = onValue(studentCourseRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -761,11 +831,22 @@ const StudentGradesDisplay = ({
         setNormalizedSchedule(null)
       }
     })
+    
+    // Fetch LMS Student ID
+    const lmsStudentIdUnsubscribe = onValue(lmsStudentIdRef, (snapshot) => {
+      if (snapshot.exists()) {
+        console.log('Fetched LMS Student ID')
+        setLmsStudentId(snapshot.val())
+      } else {
+        console.log('No LMS Student ID found')
+      }
+    })
 
     return () => {
       studentCourseUnsubscribe()
       courseUnsubscribe()
       normalizedScheduleUnsubscribe()
+      lmsStudentIdUnsubscribe()
     }
   }, [studentKey, courseId])
 
@@ -792,6 +873,15 @@ const StudentGradesDisplay = ({
       setRefreshing(false)
     }
   }
+  
+  // Handler for opening the action log
+  const handleOpenActionLog = () => {
+    if (!lmsStudentId) {
+      console.error('LMS Student ID not available');
+      return;
+    }
+    setActionLogOpen(true);
+  };
 
   const content = (
     <>
@@ -803,14 +893,23 @@ const StudentGradesDisplay = ({
         onRefresh={handleRefresh}
         refreshing={refreshing}
         onShowFeatureInfo={() => setShowFeatureInfo(true)}
+        onOpenActionLog={handleOpenActionLog}
       />
       
-     {/* Feature Info Dialog with new component */}
-     <NewFeatureDialog 
+      {/* Feature Info Dialog */}
+      <NewFeatureDialog 
         isOpen={showFeatureInfo} 
         onOpenChange={setShowFeatureInfo}
         featureId={FEATURE_ID}
         {...FEATURE_INFO}
+      />
+      
+      {/* Activity Log Sheet with iframe */}
+      <ActivityLogSheet 
+        isOpen={actionLogOpen}
+        onOpenChange={setActionLogOpen}
+        courseId={courseId}
+        lmsStudentId={lmsStudentId}
       />
     </>
   )

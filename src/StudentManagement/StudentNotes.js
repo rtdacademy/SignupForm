@@ -16,6 +16,11 @@ import {
   Mail,
   ChevronDown,
   ChevronUp,
+  Star,
+  Filter,
+  Maximize2,
+  Info,
+  Bell,
   // Icons for statuses
   CheckCircle2,
   Eye,
@@ -33,6 +38,39 @@ import {
 } from '../components/ui/dialog';
 import { useAuth } from '../context/AuthContext';
 import { ScrollArea } from '../components/ui/scroll-area';
+import { Badge } from '../components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
+import NewFeatureDialog from './Dialog/NewFeatureDialog';
+import { useUserPreferences } from '../context/UserPreferencesContext';
+
+// Feature info configuration
+const FEATURE_ID = 'importantNotesFeature';
+
+const FEATURE_CUTOFF_DATE = new Date('2025-04-13T23:59:59'); 
+const FEATURE_INFO = {
+  title: 'New Notes Features',
+  description: '',
+  icon: Star,
+  sections: [
+    {
+      title: 'Important Notes',
+      icon: Star,
+      content: 'You can now mark important notes with a star. These notes are highlighted and can be filtered to quickly find critical information.'
+    },
+    {
+      title: 'Notes Filtering',
+      icon: Filter,
+      content: 'Use the tabs at the top to switch between viewing all notes or just the important ones.'
+    },
+    {
+      title: 'Expanded View',
+      icon: Maximize2,
+      content: 'When viewing notes in the expanded panel, you have more space to read and manage student notes.'
+    }
+  ],
+  note: 'This feature helps ensure important student information doesn\'t get lost as more notes are added. Try marking key information as important to make it easier to find later.'
+};
 
 /**
  * Tailwind badge classes based on the email status.
@@ -105,23 +143,39 @@ function formatRecipientTimestamp(timestampInSeconds) {
 }
 
 /**
- * Formats standard note timestamps (ISO strings) into a friendly date/time.
- * (Different from the SendGrid integer timestamps.)
+ * Formats standard note timestamps (ISO strings) into a compact friendly date/time.
  */
 function formatTimestamp(timestamp) {
   // Handle any "Legacy Note" scenario
   if (timestamp === 'Legacy Note') return timestamp;
 
-  // For standard notes, assume an ISO string, e.g. "2023-06-24T15:52:00.000Z"
+  // Check if the timestamp is a numeric string (milliseconds timestamp)
+  if (/^\d+$/.test(timestamp)) {
+    timestamp = parseInt(timestamp);
+  }
+
+  // For standard notes
   const date = new Date(timestamp);
-  return date.toLocaleString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric'
+  
+  // Get day of week (3 letters)
+  const dayOfWeek = date.toLocaleString('en-US', { weekday: 'short' });
+  
+  // Get month (3 letters)
+  const month = date.toLocaleString('en-US', { month: 'short' });
+  
+  // Get day and year
+  const day = date.getDate();
+  const year = date.getFullYear().toString().slice(2); // Just the last 2 digits
+  
+  // Get time
+  const time = date.toLocaleString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    hour12: true 
   });
+
+  // Format: "Mon, Mar 3/25 at 10:59 AM"
+  return `${dayOfWeek}, ${month} ${day}/${year} at ${time}`;
 }
 
 /**
@@ -135,6 +189,7 @@ function formatTimestamp(timestamp) {
  * - showAddButton (boolean): Whether to show "Add Note" button
  * - allowEdit (boolean): Whether to allow editing/deleting notes
  * - singleNoteMode (boolean): If true, only one text area for the first note
+ * - isExpanded (boolean): If true, component is rendered in expanded view (sheet)
  */
 const StudentNotes = ({
   studentEmail,
@@ -144,12 +199,15 @@ const StudentNotes = ({
   showAddButton = true,
   allowEdit = true,
   singleNoteMode = false,
+  isExpanded = false,
 }) => {
   const [notes, setNotes] = useState(initialNotes);
   const [newNoteContent, setNewNoteContent] = useState('');
+  const [newNoteIsImportant, setNewNoteIsImportant] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState(null);
+  const [activeTab, setActiveTab] = useState('all');
 
   // For expanding/collapsing the actual email HTML/text
   const [expandedEmails, setExpandedEmails] = useState({});
@@ -158,18 +216,49 @@ const StudentNotes = ({
   // Store the tracking data from /sendGridTracking/{emailId} in real time
   const [emailTracking, setEmailTracking] = useState({});
 
+  // Feature info dialog state
+  const [showFeatureInfo, setShowFeatureInfo] = useState(false);
+  
+  // Get user preferences
+  const { preferences, updatePreferences } = useUserPreferences();
+
   const { user } = useAuth();
 
-  // A ref to store unsubscribes for each emailId so we don’t attach multiple listeners
+  // A ref to store unsubscribes for each emailId so we don't attach multiple listeners
   const unsubscribeMapRef = useRef({});
+  const containerRef = useRef(null);
+
+  // --------------------------------------------------------------------------
+  // Check if user has seen this feature before
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    const hasSeenFeature = preferences?.seenFeatures?.[FEATURE_ID];
+    const currentDate = new Date();
+    const isWithinNotificationPeriod = currentDate <= FEATURE_CUTOFF_DATE;
+    
+    // Only show if: 
+    // 1. User hasn't seen it yet
+    // 2. We're still within the notification period
+    // 3. Not in single note mode
+    if (!hasSeenFeature && isWithinNotificationPeriod && !singleNoteMode) {
+      setShowFeatureInfo(true);
+    }
+  }, [preferences, singleNoteMode]);
 
   // --------------------------------------------------------------------------
   // Load initial notes, handle single-note mode
   // --------------------------------------------------------------------------
   useEffect(() => {
-    setNotes(initialNotes);
-    if (singleNoteMode && initialNotes.length > 0) {
-      setNewNoteContent(initialNotes[0].content);
+    // Ensure all notes have the isImportant property
+    const notesWithImportant = initialNotes.map(note => ({
+      ...note,
+      isImportant: note.isImportant || false
+    }));
+    
+    setNotes(notesWithImportant);
+    if (singleNoteMode && notesWithImportant.length > 0) {
+      setNewNoteContent(notesWithImportant[0].content);
+      setNewNoteIsImportant(notesWithImportant[0].isImportant || false);
     }
   }, [initialNotes, singleNoteMode]);
 
@@ -210,7 +299,13 @@ const StudentNotes = ({
 
     // Cleanup when notes array changes or component unmounts
     return () => {
-      // Optionally remove any listeners for emailIds we no longer need
+      // Clean up listeners
+      Object.values(unsubscribeMapRef.current).forEach(unsubscribe => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      });
+      unsubscribeMapRef.current = {};
     };
   }, [notes]);
 
@@ -248,7 +343,8 @@ const StudentNotes = ({
       content: newNoteContent.trim(),
       timestamp: new Date().toISOString(),
       author: user.displayName || user.email,
-      noteType: '📝'
+      noteType: '📝',
+      isImportant: newNoteIsImportant
     };
 
     // Fetch current notes
@@ -260,16 +356,25 @@ const StudentNotes = ({
     const snapshot = await get(notesRef);
     const currentNotes = snapshot.val() || [];
 
-    const mergedNotes = [newNote, ...currentNotes];
+    // Ensure all notes have the isImportant property
+    const notesWithImportant = currentNotes.map(note => ({
+      ...note,
+      isImportant: note.isImportant || false
+    }));
+
+    const mergedNotes = [newNote, ...notesWithImportant];
     await updateStudentNotesInDatabase(mergedNotes);
 
     setNotes(mergedNotes);
     setNewNoteContent('');
+    setNewNoteIsImportant(false);
   };
 
-  const handleEditNote = async (noteId, updatedContent) => {
+  const handleEditNote = async (noteId, updatedContent, isImportant) => {
     const updatedNotes = notes.map((note) =>
-      note.id === noteId ? { ...note, content: updatedContent } : note
+      note.id === noteId 
+        ? { ...note, content: updatedContent, isImportant: isImportant } 
+        : note
     );
 
     await updateStudentNotesInDatabase(updatedNotes);
@@ -288,7 +393,7 @@ const StudentNotes = ({
   const handleNoteContentChange = (content) => {
     setNewNoteContent(content);
     if (singleNoteMode && onNotesUpdate && notes.length > 0) {
-      onNotesUpdate([{ ...notes[0], content }]);
+      onNotesUpdate([{ ...notes[0], content, isImportant: newNoteIsImportant }]);
     }
   };
 
@@ -317,6 +422,18 @@ const StudentNotes = ({
         console.error('Error fetching email:', error);
       }
     }
+  };
+
+  // --------------------------------------------------------------------------
+  // Toggle Important Status
+  // --------------------------------------------------------------------------
+  const toggleImportantStatus = async (note) => {
+    const updatedNotes = notes.map((n) =>
+      n.id === note.id ? { ...n, isImportant: !n.isImportant } : n
+    );
+
+    await updateStudentNotesInDatabase(updatedNotes);
+    setNotes(updatedNotes);
   };
 
   // --------------------------------------------------------------------------
@@ -448,137 +565,276 @@ const StudentNotes = ({
     );
   };
 
+  // Filter notes based on the active tab
+  const filteredNotes = notes.filter(note => {
+    if (activeTab === 'important') {
+      return note.isImportant;
+    }
+    return true; // 'all' tab shows everything
+  });
+
+  // Get count for the important filter
+  const importantNotesCount = notes.filter(note => note.isImportant).length;
+
+  // Determine if we should show the NEW badge
+  const shouldShowNewBadge = !preferences?.seenFeatures?.[FEATURE_ID] && 
+                           new Date() <= FEATURE_CUTOFF_DATE && 
+                           !singleNoteMode;
+
   // --------------------------------------------------------------------------
   // Main Render
   // --------------------------------------------------------------------------
   return (
-    <div className="space-y-4 flex flex-col h-full">
+    <div className={`flex flex-col ${isExpanded ? 'h-full overflow-hidden' : 'space-y-2'}`} ref={containerRef}>
       {/* SINGLE NOTE MODE */}
       {singleNoteMode ? (
-        <Textarea
-          value={newNoteContent}
-          onChange={(e) => handleNoteContentChange(e.target.value)}
-          className="mb-2"
-          readOnly={!allowEdit}
-        />
-      ) : (
-        <>
-          <Textarea
-            placeholder="Add a note..."
-            value={newNoteContent}
-            onChange={(e) => setNewNoteContent(e.target.value)}
-            className="mb-2"
-          />
-          {showAddButton && (
-            <Button onClick={handleAddNote} className="mb-2">
-              Add Note
+        <div className="flex flex-col">
+          <div className="flex items-center mb-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setNewNoteIsImportant(!newNoteIsImportant)}
+              className={`p-0 h-6 w-6 ${newNoteIsImportant ? 'text-yellow-500' : 'text-gray-400'}`}
+              title="Mark as important"
+            >
+              <Star className={`h-4 w-4 ${newNoteIsImportant ? 'fill-yellow-500' : ''}`} />
             </Button>
+          </div>
+          <Textarea
+            value={newNoteContent}
+            onChange={(e) => handleNoteContentChange(e.target.value)}
+            className="mb-2"
+            readOnly={!allowEdit}
+          />
+        </div>
+      ) : (
+        <div className={`flex flex-col ${isExpanded ? 'h-full' : ''}`}>
+          {/* "NEW" Feature Badge */}
+          {shouldShowNewBadge && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2 z-10 h-8 px-2 py-0 bg-blue-600 text-white hover:bg-blue-700 rounded-full flex items-center"
+                    onClick={() => setShowFeatureInfo(true)}
+                  >
+                    <Bell className="h-3 w-3 mr-1" />
+                    <span className="text-xs font-bold">NEW</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Click to learn about the new notes features</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
-        </>
-      )}
 
-      {/* NOTES LIST (only when NOT in single-note mode) */}
-      {!singleNoteMode && (
-        <ScrollArea className="flex-grow">
-          <div className="space-y-4 pr-4">
-            {notes.map((note) => {
-              const isEmailNote = note.metadata?.type === 'email' && note.metadata?.emailId;
-              const noteId = note.id;
-              const emailId = note.metadata?.emailId;
+          {/* ADD NOTE SECTION */}
+          <div className="flex mb-1 space-x-1 items-center flex-shrink-0">
+            <Textarea
+              placeholder="Add a note..."
+              value={newNoteContent}
+              onChange={(e) => setNewNoteContent(e.target.value)}
+              className="text-sm min-h-8"
+              size="sm"
+            />
+            <div className="flex flex-col space-y-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setNewNoteIsImportant(!newNoteIsImportant)}
+                className={`p-0 h-6 w-6 ${newNoteIsImportant ? 'text-yellow-500' : 'text-gray-400'}`}
+                title="Mark as important"
+              >
+                <Star className={`h-4 w-4 ${newNoteIsImportant ? 'fill-yellow-500' : ''}`} />
+              </Button>
+              
+              {showAddButton && (
+                <Button 
+                  onClick={handleAddNote} 
+                  size="sm" 
+                  className="h-6 text-xs px-4 py-0 w-16"
+                >
+                  Add
+                </Button>
+              )}
+            </div>
+          </div>
 
-              // For the dropdown label (only icon, no text)
-              let studentStatusIconOnly = null;
-              if (isEmailNote && emailTracking[emailId]?.recipients) {
-                const stEmail = sanitizeEmail(studentEmail);
-                const studentObj = emailTracking[emailId].recipients[stEmail];
-                if (studentObj && studentObj.status) {
-                  studentStatusIconOnly = getStatusIcon(studentObj.status);
-                }
-              }
+          {/* FILTER TABS */}
+          <Tabs 
+            defaultValue="all" 
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className={`w-full ${isExpanded ? 'flex flex-col flex-1 overflow-hidden' : ''}`}
+          >
+            <TabsList className="grid grid-cols-2 mb-2 w-full flex-shrink-0">
+              <TabsTrigger value="all" className="flex justify-center items-center">
+                All Notes
+                <Badge variant="secondary" className="ml-2">{notes.length}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="important" className="flex justify-center items-center">
+                Important
+                <Badge variant="secondary" className="ml-2">{importantNotesCount}</Badge>
+              </TabsTrigger>
+            </TabsList>
 
-              return (
-                <div key={noteId} className="p-4 bg-gray-100 rounded relative">
-                  {/* Edit/Delete Controls */}
-                  {allowEdit && noteId !== 'legacy-note' && (
-                    <div className="absolute top-2 right-2 flex space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setEditingNote(note)}
-                        className="text-gray-500 hover:text-gray-700"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setNoteToDelete(note);
-                          setIsDeleteDialogOpen(true);
-                        }}
-                        className="text-gray-500 hover:text-red-500"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+            {/* NOTES LIST */}
+            <TabsContent 
+              value={activeTab} 
+              className={`mt-0 ${isExpanded ? 'flex-1 overflow-hidden' : ''}`}
+            >
+              <ScrollArea 
+                className={`pr-4 ${isExpanded ? 'h-[calc(100vh-250px)]' : 'h-[350px]'}`}
+              >
+                <div className="space-y-2 pb-24">
+                  {filteredNotes.length === 0 ? (
+                    <div className="text-center text-gray-500 p-2 text-sm">
+                      {activeTab === 'important' 
+                        ? 'No important notes yet' 
+                        : 'No notes found'}
                     </div>
-                  )}
+                  ) : (
+                    filteredNotes.map((note) => {
+                      const isEmailNote = note.metadata?.type === 'email' && note.metadata?.emailId;
+                      const noteId = note.id;
+                      const emailId = note.metadata?.emailId;
+                      const isImportant = note.isImportant || false;
 
-                  {/* Note Header */}
-                  <p className="text-sm font-semibold">
-                    {note.noteType} - {formatTimestamp(note.timestamp)}
-                    {note.author ? ` - ${note.author}` : ''}
-                  </p>
-                  <p className="text-sm text-gray-700 whitespace-pre-line mt-1">
-                    {note.content}
-                  </p>
+                      // For the dropdown label (only icon, no text)
+                      let studentStatusIconOnly = null;
+                      if (isEmailNote && emailTracking[emailId]?.recipients) {
+                        const stEmail = sanitizeEmail(studentEmail);
+                        const studentObj = emailTracking[emailId].recipients[stEmail];
+                        if (studentObj && studentObj.status) {
+                          studentStatusIconOnly = getStatusIcon(studentObj.status);
+                        }
+                      }
 
-                  {/* Email-related controls/content */}
-                  {isEmailNote && (
-                    <>
-                      {/* Expand/Collapse email content + show icon only */}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2 flex items-center"
-                        onClick={() => toggleEmailView(noteId, emailId)}
-                      >
-                        <Mail className="h-4 w-4 mr-2" />
-                        {expandedEmails[noteId] ? (
-                          <>
-                            Hide Email
-                            {/* Icon for the student's status (no text) */}
-                            {studentStatusIconOnly && (
-                              <span className="ml-2">{studentStatusIconOnly}</span>
-                            )}
-                            <ChevronUp className="h-4 w-4 ml-2" />
-                          </>
-                        ) : (
-                          <>
-                            View Email
-                            {/* Icon for the student's status (no text) */}
-                            {studentStatusIconOnly && (
-                              <span className="ml-2">{studentStatusIconOnly}</span>
-                            )}
-                            <ChevronDown className="h-4 w-4 ml-2" />
-                          </>
-                        )}
-                      </Button>
+                      return (
+                        <div 
+                          key={noteId} 
+                          className={`p-2 rounded relative ${
+                            isImportant 
+                              ? 'bg-yellow-50 border-l-4 border-yellow-400' 
+                              : 'bg-gray-100'
+                          }`}
+                        >
+                          {/* Compact Header with Important/Controls */}
+                          <div className="flex justify-between items-start">
+                          <p className="text-sm font-medium leading-tight">
+  {note.noteType} - {formatTimestamp(note.timestamp)}{' '}
+  {note.author ? `- ${note.author.split('@')[0]}` : ''}
+</p>
+                            
+                            {/* Controls as a compact row */}
+                            <div className="flex space-x-1">
+                              {allowEdit && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => toggleImportantStatus(note)}
+                                    className={`p-0 h-6 w-6 ${isImportant ? 'text-yellow-500' : 'text-gray-400'}`}
+                                    title={isImportant ? "Unmark as important" : "Mark as important"}
+                                  >
+                                    <Star className={`h-4 w-4 ${isImportant ? 'fill-yellow-500' : ''}`} />
+                                  </Button>
+                                  
+                                  {noteId !== 'legacy-note' && (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setEditingNote({...note, isImportant: isImportant})}
+                                        className="p-0 h-6 w-6 text-gray-500"
+                                        title="Edit note"
+                                      >
+                                        <Edit2 className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => {
+                                          setNoteToDelete(note);
+                                          setIsDeleteDialogOpen(true);
+                                        }}
+                                        className="p-0 h-6 w-6 text-gray-500"
+                                        title="Delete note"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Note content */}
+                          <p className="text-sm text-gray-700 whitespace-pre-line mt-1">
+                            {note.content}
+                          </p>
 
-                      {/* Render email content + recipients' status if expanded */}
-                      {expandedEmails[noteId] && (
-                        <>
-                          {renderEmailContent(note)}
-                          {renderRecipientsStatus(note)}
-                        </>
-                      )}
-                    </>
+                          {/* Email-related controls/content */}
+                          {isEmailNote && (
+                            <>
+                              {/* Compact email button */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="mt-1 py-0 h-6 text-xs flex items-center"
+                                onClick={() => toggleEmailView(noteId, emailId)}
+                              >
+                                <Mail className="h-3 w-3 mr-1" />
+                                {expandedEmails[noteId] ? (
+                                  <>
+                                    Hide
+                                    {studentStatusIconOnly && (
+                                      <span className="ml-1">{studentStatusIconOnly}</span>
+                                    )}
+                                    <ChevronUp className="h-3 w-3 ml-1" />
+                                  </>
+                                ) : (
+                                  <>
+                                    View
+                                    {studentStatusIconOnly && (
+                                      <span className="ml-1">{studentStatusIconOnly}</span>
+                                    )}
+                                    <ChevronDown className="h-3 w-3 ml-1" />
+                                  </>
+                                )}
+                              </Button>
+
+                              {/* Render email content + recipients' status if expanded */}
+                              {expandedEmails[noteId] && (
+                                <>
+                                  {renderEmailContent(note)}
+                                  {renderRecipientsStatus(note)}
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })
                   )}
                 </div>
-              );
-            })}
-          </div>
-        </ScrollArea>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+        </div>
       )}
+
+      {/* Feature Info Dialog */}
+      <NewFeatureDialog 
+        isOpen={showFeatureInfo} 
+        onOpenChange={setShowFeatureInfo}
+        featureId={FEATURE_ID}
+        {...FEATURE_INFO}
+      />
 
       {/* Edit Note Dialog */}
       {editingNote && (
@@ -587,6 +843,20 @@ const StudentNotes = ({
             <DialogHeader>
               <DialogTitle>Edit Note</DialogTitle>
             </DialogHeader>
+            <div className="flex items-center mb-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditingNote({
+                  ...editingNote, 
+                  isImportant: !editingNote.isImportant
+                })}
+                className={`p-1 ${editingNote.isImportant ? 'text-yellow-500' : 'text-gray-400'}`}
+              >
+                <Star className={`h-4 w-4 ${editingNote.isImportant ? 'fill-yellow-500' : ''}`} />
+              </Button>
+              <span className="text-sm ml-1">Mark as important</span>
+            </div>
             <Textarea
               value={editingNote.content}
               onChange={(e) => setEditingNote({ ...editingNote, content: e.target.value })}
@@ -596,7 +866,13 @@ const StudentNotes = ({
               <Button variant="outline" onClick={() => setEditingNote(null)}>
                 Cancel
               </Button>
-              <Button onClick={() => handleEditNote(editingNote.id, editingNote.content)}>
+              <Button 
+                onClick={() => handleEditNote(
+                  editingNote.id, 
+                  editingNote.content, 
+                  editingNote.isImportant
+                )}
+              >
                 Save
               </Button>
             </div>

@@ -28,26 +28,24 @@ export const PERMISSION_INDICATORS = {
 // Only keep super admin emails hardcoded for highest level security
 const SUPER_ADMIN_EMAILS = [
   'kyle@rtdacademy.com',
-  'stan@rtdacademy.com'
+  'stan@rtdacademy.com',
+  'charlie@rtdacademy.com'
 ];
 
-// Session timeout configuration (in milliseconds)
-// Test values for development (shorter for easier testing)
-const TEST_SESSION_TIMEOUT = 30 * 60 * 1000; // 2 minutes for testing
-const TEST_STAFF_SESSION_TIMEOUT = 30 * 60 * 1000; // 2 minutes for testing
+// Blocked emails that should never be allowed to login
+const BLOCKED_EMAILS = [
+  'marc@rtdacademy.com',
+  'marc@rtdlearning.com'
+];
 
-// Production values
-const PROD_SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes by default
-const PROD_STAFF_SESSION_TIMEOUT = 60 * 60 * 1000; // 60 minutes for staff
+// Session timeout constants
+const SESSION_TIMEOUT = 60 * 60 * 1000; // 60 minutes by default
+const STAFF_SESSION_TIMEOUT = 60 * 60 * 1000; // 60 minutes for staff
+// Firebase ID tokens last 1 hour by default; this aligns with our timeout values
 
-// Use shorter timeouts in development mode
-const SESSION_TIMEOUT = process.env.NODE_ENV === 'development' 
-  ? TEST_SESSION_TIMEOUT 
-  : PROD_SESSION_TIMEOUT;
-
-const STAFF_SESSION_TIMEOUT = process.env.NODE_ENV === 'development'
-  ? TEST_STAFF_SESSION_TIMEOUT
-  : PROD_STAFF_SESSION_TIMEOUT;
+// For tracking app version to handle cache issues
+const APP_VERSION_KEY = 'rtd_app_version';
+const CURRENT_APP_VERSION = '1.1.0'; // Update this on each deployment
 
 const AuthContext = createContext();
 
@@ -66,14 +64,16 @@ export function AuthProvider({ children }) {
   const [staffMembers, setStaffMembers] = useState({});
   const [isMigratedUser, setIsMigratedUser] = useState(false);
   const [adminEmails, setAdminEmails] = useState([]);
+  const [tokenExpirationTime, setTokenExpirationTime] = useState(null);
 
   // Emulation states
   const [emulatedUser, setEmulatedUser] = useState(null);
   const [emulatedUserEmailKey, setEmulatedUserEmailKey] = useState(null);
   const [isEmulating, setIsEmulating] = useState(false);
 
-  // Session timeout states and refs
+  // Session timeout refs
   const inactivityTimeoutRef = useRef(null);
+  const tokenRefreshTimeoutRef = useRef(null);
   const userActivityTracking = useRef({
     lastActivity: Date.now(),
     isActive: true
@@ -81,6 +81,17 @@ export function AuthProvider({ children }) {
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Check for version changes on component mount to handle cached code issues
+  useEffect(() => {
+    const storedVersion = localStorage.getItem(APP_VERSION_KEY);
+    if (storedVersion !== CURRENT_APP_VERSION) {
+      // Clear any session-related data on version change
+      localStorage.removeItem('rtd_last_activity_timestamp');
+      localStorage.removeItem('rtd_scheduled_logout_time');
+      localStorage.setItem(APP_VERSION_KEY, CURRENT_APP_VERSION);
+    }
+  }, []);
 
   // Define all public routes - lowercase for consistent comparison
   const publicRoutes = [
@@ -115,6 +126,11 @@ export function AuthProvider({ children }) {
     return false;
   };
 
+  // Check if email is blocked
+  const isBlockedEmail = (email) => {
+    return BLOCKED_EMAILS.includes(email.toLowerCase());
+  };
+
   const checkIsStaff = (user) => {
     return user && user.email.endsWith("@rtdacademy.com");
   };
@@ -126,62 +142,6 @@ export function AuthProvider({ children }) {
   const checkIsSuperAdmin = (user) => {
     return user && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
   };
-
-  // Session timeout handling
-  const resetInactivityTimeout = useCallback(() => {
-    if (!user) return;
-
-    // Clear any existing timeout
-    if (inactivityTimeoutRef.current) {
-      clearTimeout(inactivityTimeoutRef.current);
-    }
-
-    // Set timeout based on user type
-    const timeoutDuration = isStaffUser ? STAFF_SESSION_TIMEOUT : SESSION_TIMEOUT;
-    
-    inactivityTimeoutRef.current = setTimeout(() => {
-      console.log('User inactive for too long, signing out...');
-      signOut();
-    }, timeoutDuration);
-
-    // Update last activity timestamp
-    userActivityTracking.current.lastActivity = Date.now();
-    userActivityTracking.current.isActive = true;
-  }, [user, isStaffUser]);
-
-  // Track user activity
-  const trackActivity = useCallback(() => {
-    if (!user) return;
-    
-    // Reset the timeout on user activity
-    resetInactivityTimeout();
-  }, [user, resetInactivityTimeout]);
-
-  // Set up activity tracking
-  useEffect(() => {
-    if (!user) return;
-
-    // Initialize timeout when user logs in
-    resetInactivityTimeout();
-
-    // Add event listeners to track user activity
-    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-    
-    activityEvents.forEach(event => {
-      document.addEventListener(event, trackActivity, { passive: true });
-    });
-
-    // Clean up event listeners
-    return () => {
-      if (inactivityTimeoutRef.current) {
-        clearTimeout(inactivityTimeoutRef.current);
-      }
-      
-      activityEvents.forEach(event => {
-        document.removeEventListener(event, trackActivity);
-      });
-    };
-  }, [user, trackActivity, resetInactivityTimeout]);
 
   // Fetch admin emails (only called after staff authentication)
   const fetchAdminEmails = async () => {
@@ -203,6 +163,137 @@ export function AuthProvider({ children }) {
       return [];
     }
   };
+
+  // Function to check token and set up expiration
+  const checkTokenExpiration = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      // Get the current token with expiration info
+      const tokenResult = await auth.currentUser.getIdTokenResult();
+      const expirationTime = new Date(tokenResult.expirationTime).getTime();
+      setTokenExpirationTime(expirationTime);
+      
+      // Clear any existing token refresh timeout
+      if (tokenRefreshTimeoutRef.current) {
+        clearTimeout(tokenRefreshTimeoutRef.current);
+      }
+      
+      const now = Date.now();
+      const timeUntilExpiration = expirationTime - now;
+      
+      // If token will expire in less than 5 minutes and user is active, schedule a refresh
+      if (timeUntilExpiration < 5 * 60 * 1000 && userActivityTracking.current.isActive) {
+        // Schedule token refresh for 1 minute before expiration
+        const refreshTime = Math.max(0, timeUntilExpiration - 60 * 1000);
+        
+        tokenRefreshTimeoutRef.current = setTimeout(async () => {
+          if (userActivityTracking.current.isActive) {
+            console.log('Refreshing Firebase token');
+            await auth.currentUser.getIdToken(true);
+          }
+        }, refreshTime);
+      }
+      
+      return expirationTime;
+    } catch (error) {
+      console.error('Error checking token expiration:', error);
+      return null;
+    }
+  }, [user]);
+
+  // New refreshSession method that forces a token refresh
+  const refreshSession = useCallback(async () => {
+    if (!user) return false;
+    
+    try {
+      // Track the activity
+      userActivityTracking.current.lastActivity = Date.now();
+      userActivityTracking.current.isActive = true;
+      
+      // Force a token refresh if token is going to expire soon
+      if (tokenExpirationTime) {
+        const timeUntilExpiration = tokenExpirationTime - Date.now();
+        if (timeUntilExpiration < 10 * 60 * 1000) { // Less than 10 minutes left
+          await auth.currentUser.getIdToken(true);
+          await checkTokenExpiration(); // Update expiration time
+        }
+      } else {
+        // If we don't have the expiration time yet, check it now
+        await checkTokenExpiration();
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error refreshing session:', error);
+      return false;
+    }
+  }, [user, tokenExpirationTime, checkTokenExpiration]);
+
+  // Session timeout handling - updated to use token expiration
+  const resetInactivityTimeout = useCallback(() => {
+    if (!user) return;
+
+    // Clear any existing timeout
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+    }
+
+    // Update activity tracking
+    userActivityTracking.current.lastActivity = Date.now();
+    userActivityTracking.current.isActive = true;
+    
+    // Refresh token if it's close to expiration
+    refreshSession();
+  }, [user, refreshSession]);
+
+  // Track user activity
+  const trackActivity = useCallback(() => {
+    if (!user) return;
+    
+    // Reset the timeout on user activity
+    resetInactivityTimeout();
+  }, [user, resetInactivityTimeout]);
+
+  // Set up activity tracking
+  useEffect(() => {
+    if (!user) return;
+
+    // Initialize activity tracking when user logs in
+    resetInactivityTimeout();
+    
+    // Check token expiration immediately
+    checkTokenExpiration();
+
+    // Add event listeners to track user activity
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    
+    activityEvents.forEach(event => {
+      document.addEventListener(event, trackActivity, { passive: true });
+    });
+
+    // Set up interval to periodically check token expiration
+    const tokenCheckInterval = setInterval(() => {
+      checkTokenExpiration();
+    }, 5 * 60 * 1000); // Check every 5 minutes
+
+    // Clean up event listeners and intervals
+    return () => {
+      if (inactivityTimeoutRef.current) {
+        clearTimeout(inactivityTimeoutRef.current);
+      }
+      
+      if (tokenRefreshTimeoutRef.current) {
+        clearTimeout(tokenRefreshTimeoutRef.current);
+      }
+      
+      clearInterval(tokenCheckInterval);
+      
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, trackActivity);
+      });
+    };
+  }, [user, trackActivity, resetInactivityTimeout, checkTokenExpiration]);
 
   // Ensure staff node includes admin and super admin status
   const ensureStaffNode = async (user, emailKey) => {
@@ -384,6 +475,22 @@ export function AuthProvider({ children }) {
         }
         
         if (currentUser) {
+          // Check if the email is blocked
+          if (isBlockedEmail(currentUser.email)) {
+            console.log(`Login blocked for email: ${currentUser.email}`);
+            await firebaseSignOut(auth);
+            if (isMounted) {
+              const isStaffEmail = currentUser.email.endsWith('@rtdacademy.com');
+              navigate(isStaffEmail ? '/staff-login' : '/login', {
+                state: {
+                  message: "Access denied. Please contact the administrator if you believe this is an error."
+                }
+              });
+              setLoading(false);
+            }
+            return;
+          }
+          
           const emailKey = sanitizeEmail(currentUser.email);
           const staffStatus = checkIsStaff(currentUser);
           
@@ -406,7 +513,8 @@ export function AuthProvider({ children }) {
               if (dataCreated) {
                 await Promise.all([
                   fetchStaffMembers(),
-                  fetchCourseTeachers()
+                  fetchCourseTeachers(),
+                  checkTokenExpiration() // Check token expiration for the new user
                 ]);
                 
                 setUser(currentUser);
@@ -424,6 +532,8 @@ export function AuthProvider({ children }) {
           } else {
             dataCreated = await ensureUserNode(currentUser, emailKey);
             if (dataCreated && isMounted) {
+              await checkTokenExpiration(); // Check token expiration for the new user
+              
               setUser(currentUser);
               setUserEmailKey(emailKey);
               setIsStaffUser(false);
@@ -452,6 +562,7 @@ export function AuthProvider({ children }) {
             setIsEmulating(false);
             setIsMigratedUser(false);
             setAdminEmails([]);
+            setTokenExpirationTime(null);
   
             const currentPath = location.pathname;
             if (!isPublicRoute(currentPath)) {
@@ -483,6 +594,7 @@ export function AuthProvider({ children }) {
           setIsEmulating(false);
           setIsMigratedUser(false);
           setAdminEmails([]);
+          setTokenExpirationTime(null);
         }
       } finally {
         if (isMounted) {
@@ -496,16 +608,21 @@ export function AuthProvider({ children }) {
       unsubscribe();
       if (authTimeout) clearTimeout(authTimeout);
     };
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, checkTokenExpiration]);
 
   const signOut = async () => {
     try {
       const wasStaff = isStaffUser;
       
-      // Clear any existing timeout
+      // Clear any existing timeouts
       if (inactivityTimeoutRef.current) {
         clearTimeout(inactivityTimeoutRef.current);
         inactivityTimeoutRef.current = null;
+      }
+      
+      if (tokenRefreshTimeoutRef.current) {
+        clearTimeout(tokenRefreshTimeoutRef.current);
+        tokenRefreshTimeoutRef.current = null;
       }
       
       // First reset all state variables
@@ -521,6 +638,7 @@ export function AuthProvider({ children }) {
       setIsEmulating(false);
       setIsMigratedUser(false);
       setAdminEmails([]);
+      setTokenExpirationTime(null);
       
       // Clear localStorage items used for session management
       localStorage.removeItem('rtd_last_activity_timestamp');
@@ -545,7 +663,6 @@ export function AuthProvider({ children }) {
       throw error;
     }
   };
-  
 
   const isStaff = (user) => {
     return checkIsStaff(user);
@@ -604,23 +721,20 @@ export function AuthProvider({ children }) {
     return snapshot.exists();
   };
 
-  // Manual function to check and refresh session
-  const refreshSession = () => {
-    if (user) {
-      resetInactivityTimeout();
-    }
-  };
-
-  // Function to get remaining session time
-  const getRemainingSessionTime = () => {
+  // Updated function to get remaining session time based on token expiration
+  const getRemainingSessionTime = useCallback(() => {
     if (!user) return 0;
     
-    const timeoutDuration = isStaffUser ? STAFF_SESSION_TIMEOUT : SESSION_TIMEOUT;
-    const elapsedTime = Date.now() - userActivityTracking.current.lastActivity;
-    const remainingTime = Math.max(0, timeoutDuration - elapsedTime);
-    
-    return remainingTime;
-  };
+    if (tokenExpirationTime) {
+      // Return time until token expiration
+      return Math.max(0, tokenExpirationTime - Date.now());
+    } else {
+      // Fall back to the session timeout if token expiration is not available
+      const timeoutDuration = isStaffUser ? STAFF_SESSION_TIMEOUT : SESSION_TIMEOUT;
+      const elapsedTime = Date.now() - userActivityTracking.current.lastActivity;
+      return Math.max(0, timeoutDuration - elapsedTime);
+    }
+  }, [user, tokenExpirationTime, isStaffUser]);
 
   const value = {
     // Original auth values
@@ -638,10 +752,11 @@ export function AuthProvider({ children }) {
     staffMembers,
     getTeacherForCourse,
     
-    // Session timeout values and functions
+    // Session timeout values and functions - updated for token-based timeouts
     refreshSession,
     getRemainingSessionTime,
     sessionTimeout: isStaffUser ? STAFF_SESSION_TIMEOUT : SESSION_TIMEOUT,
+    tokenExpirationTime,
     
     // Emulation values 
     emulatedUser,
@@ -674,6 +789,9 @@ export function AuthProvider({ children }) {
     requiresStaffAccess: () => isStaffUser,
     requiresAdminAccess: () => isStaffUser && isAdminUser,
     requiresSuperAdminAccess: () => isStaffUser && isSuperAdminUser,
+
+    // Added function to check if an email is blocked
+    isBlockedEmail,
 
     // Migration related values and functions
     isMigratedUser,

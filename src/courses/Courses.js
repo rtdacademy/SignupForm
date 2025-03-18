@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getDatabase, ref, onValue, update, remove } from 'firebase/database';
+import { getDatabase, ref, update, remove } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -331,17 +331,23 @@ function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
   );
 }
 
-function Courses() {
+function Courses({
+  courses,
+  staffMembers,
+  selectedCourseId,
+  courseData,
+  courseWeights,
+  isEditing,
+  onCourseSelect,
+  onCourseUpdate,
+  onWeightsUpdate,
+  toggleEditing
+}) {
   const { user, isStaff } = useAuth();
   const navigate = useNavigate();
-  const [courses, setCourses] = useState({});
-  const [selectedCourseId, setSelectedCourseId] = useState(null);
-  const [courseData, setCourseData] = useState({});
-  const [courseWeights, setCourseWeights] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
+  
+  // Local UI state (not moved to parent)
   const [showWarning, setShowWarning] = useState(false);
-  const [staffMembers, setStaffMembers] = useState([]);
-
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedCourseForDeletion, setSelectedCourseForDeletion] = useState(null);
 
@@ -357,71 +363,16 @@ function Courses() {
     { value: 'No', label: 'No' },
   ];
 
-  // Fetch courses and staff members, and set course weights if available.
+  // Basic auth check
   useEffect(() => {
     if (!user || !isStaff(user)) {
       navigate('/login');
       return;
     }
-
-    const db = getDatabase();
-
-    // Fetch courses
-    const coursesRef = ref(db, 'courses');
-    const unsubscribeCourses = onValue(coursesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setCourses(data);
-        if (selectedCourseId) {
-          if (!isEditing) {
-            setCourseData(data[selectedCourseId]);
-            // Also set course weights if they exist; otherwise, use default values.
-            setCourseWeights(
-              data[selectedCourseId].weights || {
-                lesson: 0.2,
-                assignment: 0.2,
-                exam: 0.6
-              }
-            );
-          }
-        }
-      } else {
-        setCourses({});
-        setCourseData({});
-        setCourseWeights(null);
-      }
-    });
-
-    // Fetch staff members
-    const staffRef = ref(db, 'staff');
-    const unsubscribeStaff = onValue(staffRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const uniqueStaff = Object.entries(data).map(([key, staffData]) => {
-          const fullName = staffData.firstName && staffData.lastName
-            ? `${staffData.firstName} ${staffData.lastName}`
-            : staffData.email;
-          return {
-            value: key,
-            label: fullName,
-            email: staffData.email,
-          };
-        });
-        setStaffMembers(uniqueStaff);
-      } else {
-        setStaffMembers([]);
-      }
-    });
-
-    return () => {
-      unsubscribeCourses();
-      unsubscribeStaff();
-    };
-  }, [user, isStaff, navigate, selectedCourseId, isEditing]);
+  }, [user, isStaff, navigate]);
 
   const handleCourseSelect = (courseId) => {
-    setSelectedCourseId(courseId);
-    setIsEditing(false);
+    onCourseSelect(courseId);
   };
 
   const handleInputChange = (e) => {
@@ -430,7 +381,7 @@ function Courses() {
       ...courseData,
       [name]: value,
     };
-    setCourseData(updatedData);
+    onCourseUpdate(updatedData);
 
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
@@ -444,7 +395,6 @@ function Courses() {
       });
   };
 
-  // A simplified handler for single–value UI kit selects
   const handleSelectChange = (value, name) => {
     const updatedData = {
       ...courseData,
@@ -456,7 +406,7 @@ function Courses() {
       updatedData.diplomaTimes = null;
     }
 
-    setCourseData(updatedData);
+    onCourseUpdate(updatedData);
 
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
@@ -481,7 +431,7 @@ function Courses() {
       ...courseData,
       [name]: values,
     };
-    setCourseData(updatedData);
+    onCourseUpdate(updatedData);
 
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
@@ -500,7 +450,7 @@ function Courses() {
       ...courseData,
       units: newUnits,
     };
-    setCourseData(updatedData);
+    onCourseUpdate(updatedData);
 
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
@@ -520,7 +470,7 @@ function Courses() {
 
   const confirmEdit = () => {
     setShowWarning(false);
-    setIsEditing(true);
+    toggleEditing(true);
   };
 
   const cancelEdit = () => {
@@ -534,7 +484,7 @@ function Courses() {
       ...courseData,
       allowStudentChats: checked,
     };
-    setCourseData(updatedData);
+    onCourseUpdate(updatedData);
 
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
@@ -551,15 +501,17 @@ function Courses() {
   const handleStatsChange = (checked) => {
     if (!isEditing) return;
 
+    const updatedData = {
+      ...courseData,
+      showStats: checked
+    };
+    onCourseUpdate(updatedData);
+
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
     update(courseRef, { showStats: checked })
       .then(() => {
         console.log('Successfully updated showStats');
-        setCourseData(prev => ({
-          ...prev,
-          showStats: checked
-        }));
       })
       .catch((error) => {
         console.error('Error updating showStats:', error);
@@ -567,19 +519,20 @@ function Courses() {
       });
   };
 
-  // Handler for the LTI Links checkbox
   const handleLtiLinksChange = (checked) => {
     if (!isEditing) return;
+
+    const updatedData = {
+      ...courseData,
+      ltiLinksComplete: checked
+    };
+    onCourseUpdate(updatedData);
 
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
     update(courseRef, { ltiLinksComplete: checked })
       .then(() => {
         console.log('Successfully updated ltiLinksComplete');
-        setCourseData(prev => ({
-          ...prev,
-          ltiLinksComplete: checked
-        }));
       })
       .catch((error) => {
         console.error('Error updating ltiLinksComplete:', error);
@@ -648,8 +601,8 @@ function Courses() {
   
       setDeleteDialogOpen(false);
       setSelectedCourseForDeletion(null);
-      setSelectedCourseId(null);
-      setCourseData({});
+      onCourseSelect(null);
+      onCourseUpdate({});
       
     } catch (error) {
       console.error('Error deleting course:', error);
@@ -658,9 +611,9 @@ function Courses() {
   };
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-[calc(100vh-100px)]">
       {/* Sidebar */}
-      <div className="w-1/4 bg-gray-200 p-4 overflow-y-auto">
+      <div className="w-1/4 bg-gray-200 p-4 pb-24 overflow-y-auto">
         <h2 className="text-lg font-bold mb-4">Courses</h2>
 
         <AddCourseDialog />
@@ -724,7 +677,7 @@ function Courses() {
       </div>
 
       {/* Course Details */}
-      <div className="w-3/4 p-4 overflow-y-auto">
+      <div className="w-3/4 p-4 pb-24 overflow-y-auto">
         {selectedCourseId ? (
           <div>
             <div className="flex justify-between items-center mb-4">
@@ -804,11 +757,11 @@ function Courses() {
                       update(rootRef, updates)
                         .then(() => {
                           console.log('Successfully updated course weights');
-                          setCourseData(prev => ({
-                            ...prev,
+                          onCourseUpdate({
+                            ...courseData,
                             units: updatedUnits
-                          }));
-                          setCourseWeights(cleanCategoryWeights);
+                          });
+                          onWeightsUpdate(cleanCategoryWeights);
                         })
                         .catch((error) => {
                           console.error('Firebase update error:', error);
@@ -866,7 +819,7 @@ function Courses() {
                     value={courseData.modernCourse ? "modern" : "original"}
                     onValueChange={(value) => {
                       const updatedData = { ...courseData, modernCourse: value === "modern" };
-                      setCourseData(updatedData);
+                      onCourseUpdate(updatedData);
                       const db = getDatabase();
                       const courseRef = ref(db, `courses/${selectedCourseId}`);
                       update(courseRef, { modernCourse: value === "modern" })
@@ -1166,8 +1119,8 @@ function Courses() {
         onDeleteComplete={() => {
           setSelectedCourseForDeletion(null);
           if (selectedCourseId === selectedCourseForDeletion?.id) {
-            setSelectedCourseId(null);
-            setCourseData({});
+            onCourseSelect(null);
+            onCourseUpdate({});
           }
         }}
         onDelete={handleDeleteCourse}

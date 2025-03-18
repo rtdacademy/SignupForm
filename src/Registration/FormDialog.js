@@ -12,6 +12,7 @@ import { cn } from "../lib/utils";
 import { useAuth } from '../context/AuthContext';
 import { getDatabase, ref, get, remove, set } from 'firebase/database';
 import { useConversionTracking } from '../components/hooks/use-conversion-tracking';
+import { useRegistrationPeriod, RegistrationPeriod } from '../utils/registrationPeriods';
 
 const FormDialog = ({ trigger, open, onOpenChange }) => {
   const trackConversion = useConversionTracking();
@@ -29,23 +30,65 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
   const [existingRegistration, setExistingRegistration] = useState(null);
   const formRef = React.useRef(null);
 
+  const { period, cutoffDates } = useRegistrationPeriod();
+
   // Check for existing registration on mount
   useEffect(() => {
     const checkExistingRegistration = async () => {
+      if (!open || !uid) return;
+      
       try {
         setLoading(true);
         const db = getDatabase();
         const pendingRegRef = ref(db, `users/${uid}/pendingRegistration`);
         const snapshot = await get(pendingRegRef);
-
+  
         if (snapshot.exists()) {
           const data = snapshot.val();
-          // Only restore if not submitted
-          if (data.currentStep !== 'submitted') {
+          
+          // Skip if already submitted
+          if (data.currentStep === 'submitted') {
+            setLoading(false);
+            return;
+          }
+          
+          // Validate student type against current period
+          const studentType = data.studentType;
+          let isValid = true;
+          let periodMessage = null;
+          
+          // Skip validation for Adult and International
+          if (studentType !== 'Adult Student' && studentType !== 'International Student') {
+            switch (period) {
+              case RegistrationPeriod.SUMMER:
+                // Only Summer School is valid during summer period
+                isValid = studentType === 'Summer School';
+                periodMessage = "The registration period has changed to Summer School only.";
+                break;
+                
+              case RegistrationPeriod.NEXT_REGULAR:
+                // Summer School is not valid after summer period
+                isValid = studentType !== 'Summer School';
+                periodMessage = "Summer School registration has ended.";
+                break;
+            }
+          }
+          
+          if (!isValid) {
+            // Invalid registration for current period - clear it and show message
+            await remove(pendingRegRef);
+            setExistingRegistration(null);
+            setSelectedStudentType('');
+            setFormData(null);
+            setError(`Your previously saved registration as a ${studentType} is no longer valid. ${periodMessage} Please start a new registration.`);
+          } else {
+            // Registration is valid, restore it
             setExistingRegistration(data);
             setSelectedStudentType(data.studentType);
             setCurrentStep(data.currentStep);
-            setFormData(data.formData);
+            if (data.formData) {
+              setFormData(data.formData);
+            }
           }
         }
       } catch (err) {
@@ -55,11 +98,9 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
         setLoading(false);
       }
     };
-
-    if (open && uid) {
-      checkExistingRegistration();
-    }
-  }, [open, uid]);
+  
+    checkExistingRegistration();
+  }, [open, uid, period]);
 
   // Reset state when dialog is closed
   useEffect(() => {

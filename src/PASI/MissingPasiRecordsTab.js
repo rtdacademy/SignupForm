@@ -255,11 +255,13 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
     const registrationRecords = processedRecords.filter(r => r.isRegistration).length;
     
     // Count records that aren't archived/unenrolled, don't have upcoming dates, and aren't in registration
-    const actualMissing = processedRecords.filter(r => 
-      !r.isArchivedUnenrolled && 
-      !r.hasUpcomingStartResumeDate && 
-      !r.isRegistration
-    ).length;
+  // Count records that aren't archived/unenrolled, don't have upcoming dates, and aren't in registration
+const actualMissing = processedRecords.filter(r => 
+  !r.isArchivedUnenrolled && 
+  !r.hasUpcomingStartResumeDate && 
+  !r.isRegistration &&
+  r.courseId !== 139  // Add this line to exclude courseId 139 from the count (Com1255). To do - Add keboarding
+).length;
     
     return { 
       invalidAsn, 
@@ -294,20 +296,23 @@ const MissingPasiRecordsTab = ({ missingRecords, onGeneratePasiFile, isProcessin
         // Show only registration records (NEW!)
         filtered = filtered.filter(record => record.isRegistration);
         break;
-      case "missing":
-      default:
-        // Filter out archived/unenrolled records and registration records (UPDATED!)
-        filtered = filtered.filter(record => 
-          !record.isArchivedUnenrolled && 
-          !record.hasUpcomingStartResumeDate && 
-          !record.isRegistration
-        );
-        
-        // Apply issues filter if enabled in "missing" tab
-        if (showOnlyIssues) {
-          filtered = filtered.filter(record => record.hasIssues);
-        }
-        break;
+   // In the filteredRecords useMemo, around line 336
+case "missing":
+  default:
+    // Filter out archived/unenrolled records and registration records (UPDATED!)
+    filtered = filtered.filter(record => 
+      !record.isArchivedUnenrolled && 
+      !record.hasUpcomingStartResumeDate && 
+      !record.isRegistration &&
+      record.courseId !== 139  // Add this line to filter out courseId 139 (Com1255) This is for student that used lti integration to complete com1255 directly
+      // add keboarding once we know the courseId with lti integration
+    );
+    
+    // Apply issues filter if enabled in "missing" tab
+    if (showOnlyIssues) {
+      filtered = filtered.filter(record => record.hasIssues);
+    }
+    break;
     }
     
     // Apply search filter if there's a search term

@@ -25,7 +25,7 @@ import {
   Grid
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
-import Courses from '../courses/Courses';
+import CoursesWithTabs from '../courses/CoursesWithTabs';
 import StudentManagement from '../StudentManagement/StudentManagement';
 import ExternalLinks from '../ExternalLinks/ExternalLinks';
 import ContractorInvoiceSummary from '../Admin/ContractorInvoiceSummary';
@@ -110,7 +110,7 @@ function TeacherDashboard() {
       },
       { icon: MessageSquare, label: 'Chats', key: 'chat' },
       { icon: FilePenLine, label: 'Email Templates', key: 'templates' },
-      { icon: BookOpen, label: 'Courses', key: 'courses' },
+      { icon: BookOpen, label: 'Course Management', key: 'courses' },
       { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
       { icon: Link, label: 'Links', key: 'external-links' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
@@ -148,7 +148,7 @@ function TeacherDashboard() {
       case 'chat':
         return memoizedChatApp;
       case 'courses':
-        return <Courses />;
+        return <CoursesWithTabs />;
       case 'students':
       case 'react-dashboard':
         return <StudentManagement isFullScreen={isFullScreen} onFullScreenToggle={toggleFullScreen} />;
@@ -265,13 +265,14 @@ function TeacherDashboard() {
           </div>
         </aside>
       )}
-
-      <div className="flex-grow flex flex-col h-full overflow-hidden">
-        <div className="flex-grow overflow-auto p-4">
+  
+      <div className="flex-grow flex flex-col h-full">
+        {/* Removed overflow-hidden here to prevent layout conflicts */}
+        <div className={`flex-grow ${activeSection === 'courses' ? 'flex flex-col' : 'overflow-auto'} p-4`}>
           {renderContent()}
         </div>
       </div>
-
+  
       {!isFullScreen && (
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetTrigger asChild>

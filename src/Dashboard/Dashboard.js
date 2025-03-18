@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { FaUser, FaPlusCircle, FaSignOutAlt, FaArrowLeft } from 'react-icons/fa';
-import { ChevronRight, AlertCircle, Home } from 'lucide-react';
+import { AlertCircle, Home, NotebookPen, UserPen } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import FormDialog from '../Registration/FormDialog';
@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { getDatabase, ref, get } from 'firebase/database';
 import ModernCourseViewer from '../courses/CourseViewer/ModernCourseViewer';
 import { useModernCourse } from './hooks/useModernCourse';
+import { ImportantDatesCard } from './ImportantDatesCard';
 
 
 
@@ -497,8 +498,10 @@ if (showLMS && selectedCourse) {
                   }
                 }}
               />
+               
             </div>
           )}
+      
 
           <div className="mb-6">
             <WelcomeMessage
@@ -509,74 +512,88 @@ if (showLMS && selectedCourse) {
 
           <div className="flex flex-col lg:flex-row gap-6 flex-1">
             <div className="lg:w-2/3 space-y-6 flex flex-col">
-              <Card className="flex-1 flex flex-col overflow-hidden">
-                <CardHeader className="bg-gradient-to-br from-background to-muted">
-                  <h3 className="text-xl font-semibold flex items-center">
-                    <ChevronRight className="h-6 w-6 mr-2 text-primary" />
+              <Card className="flex-1 flex flex-col overflow-hidden border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
+                  <h3 className="text-lg font-semibold flex items-center">
+                    <NotebookPen className="h-5 w-5 mr-2 text-blue-600" />
                     My Courses
                   </h3>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto space-y-6 p-6">
                 {courses.length > 0 ? (
-  courses.map((course) => (
-    <CourseCard
-      user_email_key={current_user_email_key}
-      key={course.CourseID || course.id}
-      course={course}
-      profile={profile}  // Add this line
-      onViewDetails={() => setSelectedCourse(course)}
-      onGoToCourse={() => {
-        setSelectedCourse(course);
-        setShowLMS(true);
-      }}
-                        customActions={
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedCourse(course);
-                                setShowLMS(false);
-                              }}
-                              className="flex-1 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
-                              size="sm"
-                            >
-                              View Details
-                            </Button>
-                            <Button
-                              className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
-                              onClick={() => {
-                                setSelectedCourse(course);
-                                setShowLMS(true);
-                              }}
-                            >
-                              Go to Course
-                            </Button>
-                          </div>
-                        }
-                        showProgressBar={true}
-                        showGradeInfo={true}
-                      />
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      No courses enrolled yet
-                    </div>
-                  )}
+                  courses.map((course) => (
+                    <CourseCard
+                      user_email_key={current_user_email_key}
+                      key={course.CourseID || course.id}
+                      course={course}
+                      profile={profile}  // Add this line
+                      onViewDetails={() => setSelectedCourse(course)}
+                      onGoToCourse={() => {
+                        setSelectedCourse(course);
+                        setShowLMS(true);
+                      }}
+                      customActions={
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedCourse(course);
+                              setShowLMS(false);
+                            }}
+                            className="flex-1 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
+                            size="sm"
+                          >
+                            View Details
+                          </Button>
+                          <Button
+                            className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
+                            onClick={() => {
+                              setSelectedCourse(course);
+                              setShowLMS(true);
+                            }}
+                          >
+                            Go to Course
+                          </Button>
+                        </div>
+                      }
+                      showProgressBar={true}
+                      showGradeInfo={true}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No courses enrolled yet
+                  </div>
+                )}
                 </CardContent>
               </Card>
             </div>
 
-            {/* Right Column: Profile - Only show if student exists */}
-            {studentExists && (
-              <div className="lg:w-1/3 space-y-6">
-                <Card>
-                  <CardHeader className="bg-gradient-to-br from-background to-muted">
-                    <h3 className="text-xl font-semibold flex items-center">
-                      <ChevronRight className="h-6 w-6 mr-2 text-primary" />
+            {/* Right Column: Important Dates and Profile (REORDERED) */}
+            <div className="lg:w-1/3 space-y-6">
+              {/* Important Dates Card - Now First */}
+              <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
+                  <h3 className="text-lg font-semibold flex items-center">
+                    <NotebookPen className="h-5 w-5 mr-2 text-blue-600" />
+                    Important Dates
+                  </h3>
+                </CardHeader>
+                <CardContent className="p-4">
+                  <ImportantDatesCard />
+                </CardContent>
+              </Card>
+              
+              {/* Profile Card - Now Second */}
+              {studentExists && (
+                <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
+                  <CardHeader className="bg-gradient-to-r from-teal-50 to-cyan-50 py-3">
+                    <h3 className="text-lg font-semibold flex items-center">
+                      <UserPen className="h-5 w-5 mr-2 text-teal-600" />
                       Profile
                     </h3>
                   </CardHeader>
-                  <CardContent className="pt-6">
+                  <CardContent className="p-4">
                     <Button
                       variant="outline"
                       className="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 shadow-sm transition-all duration-200 hover:border-gray-300"
@@ -586,26 +603,26 @@ if (showLMS && selectedCourse) {
                     </Button>
                   </CardContent>
                 </Card>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
         
-{studentExists && (
-  <ProfileComponent
-    isOpen={isProfileOpen || forceProfileOpen}
-    onOpenChange={(open) => {
-      // Simply update both states when closing
-      if (!open) {
-        setIsProfileOpen(false);
-        setForceProfileOpen(false);
-      } else {
-        setIsProfileOpen(true);
-      }
-    }}
-    profile={profile}
-  />
-)}
+          {studentExists && (
+            <ProfileComponent
+              isOpen={isProfileOpen || forceProfileOpen}
+              onOpenChange={(open) => {
+                // Simply update both states when closing
+                if (!open) {
+                  setIsProfileOpen(false);
+                  setForceProfileOpen(false);
+                } else {
+                  setIsProfileOpen(true);
+                }
+              }}
+              profile={profile}
+            />
+          )}
         </div>
       </div>
     </div>

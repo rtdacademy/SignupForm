@@ -80,6 +80,9 @@ import { processPasiLinkCreation, formatSchoolYearWithSlash, processPasiRecordDe
 import CreateStudentDialog from './CreateStudentDialog';
 import MissingPasiRecordsTab from './MissingPasiRecordsTab';
 import { COURSE_OPTIONS, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
+import RevenueTab from './RevenueTab';
+import PermissionIndicator from '../context/PermissionIndicator';
+import { useAuth } from '../context/AuthContext';
 
 
 // Validation rules for status compatibility
@@ -250,6 +253,8 @@ const PASIDataUpload = () => {
 const [selectedGradebookRecord, setSelectedGradebookRecord] = useState(null);
 const [studentCourseSummaries, setStudentCourseSummaries] = useState([]);
 const [isLoadingCourseSummaries, setIsLoadingCourseSummaries] = useState(true);
+const { hasSuperAdminAccess } = useAuth();
+const [unfilteredCombinedRecords, setUnfilteredCombinedRecords] = useState([]);
 
 const handleOpenGradebook = (record) => {
   setSelectedGradebookRecord(record);
@@ -276,6 +281,7 @@ const toggleAllGroups = (expand) => {
   setExpandedGroups(newState);
 };
 
+// Find the countActualMissingRecords function - around line 136
 const countActualMissingRecords = (records) => {
   if (!records || records.length === 0) return 0;
   
@@ -295,9 +301,12 @@ const countActualMissingRecords = (records) => {
     // Check if it's a registration record (newly enrolled student in registration process)
     const isRegistration = record.status === "Newly Enrolled" && record.ActiveFutureArchived_Value === "Registration";
     
+    // Check if the courseId is 139
+    const isCourseId139 = record.courseId === 139;
+    
     // We only want to count records that are NOT archived/unenrolled-like, 
-    // don't have future dates, and are NOT in registration
-    return !(isArchived && isUnenrolledLikeStatus) && !hasFutureDate && !isRegistration;
+    // don't have future dates, are NOT in registration, and are NOT courseId 139
+    return !(isArchived && isUnenrolledLikeStatus) && !hasFutureDate && !isRegistration && !isCourseId139;
   }).length;
 };
 
@@ -409,18 +418,7 @@ const isWithinTwoMonths = (dateString) => {
   };
 
   
-// Add this to your PASIDataUpload component
-const getYourWayState = (record) => {
-  if (!record || !record.linked) return "Not Linked";
-  
-  // Use the summaryKey to directly access the summary
-  if (record.summaryKey && summaryDataMap[record.summaryKey]) {
-    const summary = summaryDataMap[record.summaryKey];
-    return summary.ActiveFutureArchived_Value || "Not Set";
-  }
-  
-  return "Unknown";
-};
+
 
 const StateEditCell = ({ record }) => {
   const [state, setState] = useState(record.summaryState || 'Not Set');
@@ -653,6 +651,15 @@ const findMissingPasiRecords = () => {
     setIsLoadingMissing(false);
   }
 };
+
+useEffect(() => {
+  if (pasiRecords.length > 0 && Object.keys(summaryDataMap).length > 0 && !isLoadingCourseSummaries) {
+    const combined = combineRecordsWithSummaries(pasiRecords, summaryDataMap);
+    setUnfilteredCombinedRecords(combined);
+  } else {
+    setUnfilteredCombinedRecords([]);
+  }
+}, [pasiRecords, summaryDataMap, isLoadingCourseSummaries]);
 
 useEffect(() => {
   // Only run when both datasets are loaded and we have a selected school year
@@ -2251,19 +2258,43 @@ const getChangedFields = (existingRecord, newRecord) => {
             <CardContent>
               {/* Add Tabs for Records and Validation */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="mb-4">
-  <TabsTrigger value="records">Records</TabsTrigger>
-  
-  <TabsTrigger value="missingPasi">
-  Missing PASI
-  {missingPasiRecords.length > 0 && (
-     <Badge variant="destructive" className="ml-2 bg-red-100 hover:bg-red-100 text-red-600">
-      {countActualMissingRecords(missingPasiRecords)}
-    </Badge>
-  )}
-</TabsTrigger>
-<TabsTrigger value="validation">Validation</TabsTrigger>
-</TabsList>
+  <TabsList className="mb-4 bg-slate-800 p-1 rounded-lg">
+    <TabsTrigger 
+      value="records" 
+      className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+    >
+      Records
+    </TabsTrigger>
+    
+    <TabsTrigger 
+      value="missingPasi"
+      className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+    >
+      Missing PASI
+      {missingPasiRecords.length > 0 && (
+        <Badge variant="destructive" className="ml-2 bg-red-100 hover:bg-red-100 text-red-600">
+          {countActualMissingRecords(missingPasiRecords)}
+        </Badge>
+      )}
+    </TabsTrigger>
+
+    <TabsTrigger 
+      value="validation"
+      className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+    >
+      Validation
+    </TabsTrigger>
+
+    {hasSuperAdminAccess() && (
+      <TabsTrigger 
+        value="revenue"
+        className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+      >
+        Revenue
+        <PermissionIndicator type="SUPER_ADMIN" className="ml-2" />
+      </TabsTrigger>
+    )}
+  </TabsList>
                 
                 <TabsContent value="records">
                   {/* Search bar */}
@@ -2841,6 +2872,12 @@ const getChangedFields = (existingRecord, newRecord) => {
                     )}
                   </div>
                 </TabsContent>
+
+                {hasSuperAdminAccess() && (
+  <TabsContent value="revenue">
+    <RevenueTab records={unfilteredCombinedRecords} />
+  </TabsContent>
+)}
 
               </Tabs>
             </CardContent>

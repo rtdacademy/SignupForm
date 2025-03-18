@@ -6,7 +6,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Sheet, SheetContent } from "../components/ui/sheet";
-import { Calendar, Split, IdCard, AlertTriangle, Edit } from 'lucide-react';
+import { Calendar, Split, IdCard, AlertTriangle, Edit, Maximize2} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
@@ -68,6 +68,8 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLMSStudentID, setLocalLMSStudentID] = useState(studentSummary?.LMSStudentID || null);
   const [isLMSIdDialogOpen, setIsLMSIdDialogOpen] = useState(false);
+  // Add this with the other state variables at the top of the component
+const [isNotesSheetOpen, setIsNotesSheetOpen] = useState(false);
 
   const [comparisonTab, setComparisonTab] = useState("unified");
   const lmsId = studentData?.courses?.[courseId]?.LMSStudentID || "";
@@ -1030,23 +1032,35 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
           </div>
         )}
 
-        {/* Notes Section */}
-        {isSectionVisible('notes') && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
-            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
-              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                <h4 className="font-semibold mb-2 text-[#1fa6a7]">Notes</h4>
-                <StudentNotes 
-                  studentEmail={sanitizeEmail(studentSummary.StudentEmail)}
-                  courseId={courseId}
-                  initialNotes={notes}
-                  onNotesUpdate={setNotes}
-                  readOnly={currentMode === MODES.REGISTRATION}
-                />
-              </CardContent>
-            </Card>
-          </div>
-        )}
+     {/* Notes Section */}
+{isSectionVisible('notes') && (
+  <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/3'}`}>
+    <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
+      <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-semibold text-[#1fa6a7]">Notes</h4>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsNotesSheetOpen(true)}
+            className="text-[#40b3b3] hover:bg-[#40b3b3] hover:text-white h-7 w-7 p-0"
+            title="Expand notes"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </Button>
+        </div>
+        <StudentNotes 
+  studentEmail={sanitizeEmail(studentSummary.StudentEmail)}
+  courseId={courseId}
+  initialNotes={notes}
+  onNotesUpdate={setNotes}
+  readOnly={currentMode === MODES.REGISTRATION}
+  isExpanded={false} // Default view
+/>
+      </CardContent>
+    </Card>
+  </div>
+)}
 
         {/* International Documents Section */}
         {currentMode === MODES.REGISTRATION && isSectionVisible('documents') && studentData?.profile?.internationalDocuments && (
@@ -1283,6 +1297,35 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
             />
           </SheetContent>
         </Sheet>
+
+ {/* Notes Expanded Sheet */}
+ <Sheet open={isNotesSheetOpen} onOpenChange={setIsNotesSheetOpen}>
+ <SheetContent 
+  side="right" 
+  className="w-full md:w-2/3 bg-white p-6 overflow-hidden flex flex-col"
+>
+  <div className="flex flex-col h-full">
+    {/* Header */}
+    <div className="mb-4 flex-shrink-0">
+      <h2 className="text-xl font-bold text-[#1fa6a7]">
+        Student Notes
+      </h2>
+    </div>
+    
+    {/* StudentNotes with flex-1 to take remaining space */}
+    <div className="flex-1 overflow-hidden">
+      <StudentNotes 
+        studentEmail={sanitizeEmail(studentSummary.StudentEmail)}
+        courseId={courseId}
+        initialNotes={notes}
+        onNotesUpdate={setNotes}
+        readOnly={currentMode === MODES.REGISTRATION}
+        isExpanded={true}
+      />
+    </div>
+  </div>
+</SheetContent>
+</Sheet>
 
         {/* Comparison Sheet - Wide Sheet for Side by Side Comparison */}
         <Sheet open={isComparisonSheetOpen} onOpenChange={setIsComparisonSheetOpen}>

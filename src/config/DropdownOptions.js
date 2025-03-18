@@ -173,6 +173,7 @@ export const STATUS_OPTIONS = [
     color: "#7C3AED", 
     category: "Other", 
     allowAutoStatusChange: false, 
+    activeFutureArchivedValue: "Pending",
     alertLevel: ALERT_LEVELS.GREY,
     tooltip: "Student access has been temporarily suspended"
   }
@@ -345,6 +346,16 @@ export const COURSE_OPTIONS = [
     pasiCode: "MAT3791"
   },
   { 
+    value: "Math 31",
+    label: "Math 31 (Calculus)", 
+    courseType: "Math",
+    grade: 12,
+    color: "#10B981",
+    icon: Calculator,
+    courseId: 93,
+    pasiCode: "MAT3211"
+  },
+   { 
     value: "Math 31",
     label: "Math 31 (Calculus)", 
     courseType: "Math",

@@ -41,6 +41,7 @@ import {
   validationRules,
   useFormValidation
 } from './formValidation';
+import { useRegistrationPeriod, RegistrationPeriod } from '../utils/registrationPeriods';
 
 // === Utility Functions ===
 
@@ -147,12 +148,30 @@ const isDateInSummer = (date) => {
 };
 
 // === DiplomaMonthSelector Component ===
+// === DiplomaMonthSelector Component ===
 const DiplomaMonthSelector = ({ dates, selectedDate, onChange, error }) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Check if there are any available diploma dates
+  const hasAvailableDates = dates.length > 0;
+  
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium">
         Diploma Exam Date <span className="text-red-500">*</span>
       </label>
+      
+      {!hasAvailableDates && (
+        <Alert className="mb-2 bg-amber-50 border-amber-200">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-sm text-amber-700">
+            Registration deadlines have passed for all upcoming diploma exams for this course. 
+            Please select a different course or contact support for assistance.
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <select
         value={selectedDate?.id || ''}
         onChange={(e) => {
@@ -166,15 +185,25 @@ const DiplomaMonthSelector = ({ dates, selectedDate, onChange, error }) => {
           }
         }}
         className={`w-full p-2 border rounded-md ${error ? 'border-red-500' : 'border-gray-300'}`}
+        disabled={!hasAvailableDates}
       >
         <option value="">Select Diploma Exam Date</option>
-        {dates.map((date) => (
-          <option key={date.id} value={date.id}>
-            {formatDiplomaDate(date)}
-          </option>
-        ))}
+        {dates.map((date) => {
+          // Format registration deadline if available
+          const hasDeadline = !!date.registrationDeadline;
+          const deadlineText = hasDeadline 
+            ? ` (Register by: ${date.registrationDeadlineDisplayDate || new Date(date.registrationDeadline).toISOString().split('T')[0]})` 
+            : '';
+            
+          return (
+            <option key={date.id} value={date.id}>
+              {formatDiplomaDate(date)}{deadlineText}
+            </option>
+          );
+        })}
         <option value="no-diploma">I already wrote the diploma exam</option>
       </select>
+      
       {error && (
         <div className="flex items-center gap-2 mt-1">
           <AlertCircle className="h-4 w-4 text-red-500" />
@@ -184,6 +213,8 @@ const DiplomaMonthSelector = ({ dates, selectedDate, onChange, error }) => {
     </div>
   );
 };
+
+
 
 const NonPrimaryStudentForm = forwardRef(({ 
   onValidationChange, 
@@ -198,6 +229,13 @@ const NonPrimaryStudentForm = forwardRef(({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [hasASN, setHasASN] = useState(true);
+
+  const { 
+    period, 
+    cutoffDates, 
+    nextYearRegistrationDate, 
+    canRegisterForNextYear 
+  } = useRegistrationPeriod();
 
   const countryOptions = useMemo(() => countryList().getData(), []);
 
@@ -516,25 +554,44 @@ const NonPrimaryStudentForm = forwardRef(({
     });
   };
 
-  const handleStartDateChange = (date) => {
-    const minDate = getMinStartDate();
+  // Get maximum start date based on diploma registration deadline
+const getMaxStartDate = () => {
+  if (isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline) {
+    return new Date(selectedDiplomaDate.registrationDeadline);
+  }
+  return null;
+};
 
-    if (date < minDate) {
-      setDateErrors(prev => ({
-        ...prev,
-        startDate: 'Start date must be at least 2 business days from today'
-      }));
-      return;
+ // Handle start date changes
+const handleStartDateChange = (date) => {
+  const minDate = getMinStartDate();
+  const maxDate = getMaxStartDate();
+
+  if (date < minDate) {
+    setDateErrors(prev => ({
+      ...prev,
+      startDate: 'Start date must be at least 2 business days from today'
+    }));
+    return;
+  }
+
+  // Check against registration deadline if a diploma date is selected
+  if (maxDate && date > maxDate) {
+    setDateErrors(prev => ({
+      ...prev,
+      startDate: `Start date must be on or before the registration deadline (${selectedDiplomaDate.registrationDeadlineDisplayDate})`
+    }));
+    return;
+  }
+
+  handleFormChange({
+    target: {
+      name: 'startDate',
+      value: formatDate(date)
     }
-
-    handleFormChange({
-      target: {
-        name: 'startDate',
-        value: formatDate(date)
-      }
-    });
-    setDateErrors(prev => ({ ...prev, startDate: '' }));
-  };
+  });
+  setDateErrors(prev => ({ ...prev, startDate: '' }));
+};
 
   const handleEndDateChange = async (date) => {
     const minEnd = getMinEndDate(formData.startDate);
@@ -724,106 +781,198 @@ useEffect(() => {
     fetchEnrolledCourses();
   }, [user_email_key]);
 
-  // Determine available enrollment years based on current date
   useEffect(() => {
     const today = new Date();
-    const currentMonth = today.getMonth();
     const currentSchoolYear = getCurrentSchoolYear();
     const nextSchoolYear = getNextSchoolYear();
-
-    console.log('Enrollment year effect - current month:', currentMonth);
-    console.log('Current school year:', currentSchoolYear);
-    console.log('Next school year:', nextSchoolYear);
-
+    
+    console.log('Current period:', period);
+    console.log('Can register for next year:', canRegisterForNextYear);
+    console.log('Student type:', studentType);
+    
     let availableYears = [];
     let message = '';
-
-    if (currentMonth === 7) { // August
-      availableYears = [nextSchoolYear];
-      message = `We are no longer taking registrations for the current school year, but you are free to start now. You will be registered as a ${nextSchoolYear} student.`;
-
-      console.log('Setting enrollment year to:', nextSchoolYear);
-      handleFormChange({
-        target: {
-          name: 'enrollmentYear',
-          value: nextSchoolYear,
-        },
-      });
-    } else if (currentMonth >= 8 || currentMonth <= 2) { // September to March
-      availableYears = [currentSchoolYear];
-      message = `Registration is only available for the current school year. Registration for next school year (${nextSchoolYear}) will open in April.`;
-
-      console.log('Setting enrollment year to:', currentSchoolYear);
-      handleFormChange({
-        target: {
-          name: 'enrollmentYear',
-          value: currentSchoolYear,
-        },
-      });
-    } else { // April to July
+    
+    // Determine available years based on registration period and student type
+    if (studentType === 'Adult Student' || studentType === 'International Student') {
+      // Adult and International students always have both options available
       availableYears = [currentSchoolYear, nextSchoolYear];
-      message = `Please select either the current school year (${currentSchoolYear}) if you intend to complete the course before September, or select the next school year (${nextSchoolYear}) if you intend to finish beyond September.`;
+      message = `As an ${studentType}, you may select either the current or next school year.`;
+    } else {
+      switch (period) {
+        case RegistrationPeriod.REGULAR:
+          // During regular period, depends on whether next year registration is open
+          if (canRegisterForNextYear) {
+            availableYears = [currentSchoolYear, nextSchoolYear];
+            message = `You can register for either the current school year (${currentSchoolYear}) or next year (${nextSchoolYear}).`;
+          } else {
+            availableYears = [currentSchoolYear];
+            message = `Registration is only available for the current school year (${currentSchoolYear}). Registration for next school year (${nextSchoolYear}) will open on ${nextYearRegistrationDate?.toLocaleDateString()}.`;
+          }
+          break;
+          
+        case RegistrationPeriod.SUMMER:
+          // During summer period, only current year is available for Summer School
+          availableYears = [currentSchoolYear];
+          if (studentType === 'Summer School') {
+            message = `Summer School registration is for the current school year (${currentSchoolYear}) only.`;
+          } else {
+            // This case shouldn't happen with the updated student type selection logic
+            message = `During summer registration period, all students are registered for the current school year (${currentSchoolYear}).`;
+          }
+          break;
+          
+        case RegistrationPeriod.NEXT_REGULAR:
+          // After summer, only next year is available for regular students
+          availableYears = [nextSchoolYear];
+          message = `Registration is now open for the next school year (${nextSchoolYear}) only. The current school year (${currentSchoolYear}) registration has closed.`;
+          break;
+          
+        default:
+          // Fallback to both years if something goes wrong
+          availableYears = [currentSchoolYear, nextSchoolYear];
+          message = `Please select your enrollment year.`;
+      }
     }
-
+    
     console.log('Available years:', availableYears);
+    
+    // Auto-select if there's only one option and no current selection or invalid selection
+    if (availableYears.length === 1 && (!formData.enrollmentYear || !availableYears.includes(formData.enrollmentYear))) {
+      console.log('Setting default enrollment year:', availableYears[0]);
+      handleFormChange({
+        target: {
+          name: 'enrollmentYear',
+          value: availableYears[0],
+        },
+      });
+    }
+    
+    // If the current selection is not in available years, reset it
+    if (formData.enrollmentYear && !availableYears.includes(formData.enrollmentYear)) {
+      handleFormChange({
+        target: {
+          name: 'enrollmentYear',
+          value: availableYears[0] || '',
+        },
+      });
+    }
+    
     setAvailableEnrollmentYears(availableYears);
     setEnrollmentYearMessage(message);
-  }, [handleFormChange]);
+  }, [period, studentType, formData.enrollmentYear, canRegisterForNextYear, nextYearRegistrationDate, handleFormChange]);
+
+  useEffect(() => {
+    if (cutoffDates) {
+      const formatDate = (date) => date.toLocaleDateString('en-US', { 
+        year: 'numeric', month: 'long', day: 'numeric' 
+      });
+      
+      if (studentType === 'Summer School') {
+        setEnrollmentYearMessage(prev => 
+          `${prev} Note: Summer School registration ends on ${formatDate(cutoffDates.summerToRegular)}.`
+        );
+      } else if ((studentType === 'Non-Primary' || studentType === 'Home Education') && 
+                 period === RegistrationPeriod.REGULAR) {
+        setEnrollmentYearMessage(prev => 
+          `${prev} Note: After ${formatDate(cutoffDates.regularToSummer)}, all students will be enrolled as Summer School students.`
+        );
+      }
+    }
+  }, [studentType, cutoffDates, period]);
 
   // Update age information based on birthday and enrollment year
   useEffect(() => {
     updateAgeInfo();
   }, [formData.birthday, formData.enrollmentYear]);
 
-  // Fetch diploma course information based on selected course
-  useEffect(() => {
-    const fetchDiplomaInfo = async () => {
-      if (!formData.courseId) return;
+// Fetch diploma course information based on selected course
+useEffect(() => {
+  const fetchDiplomaInfo = async () => {
+    if (!formData.courseId) return;
 
-      try {
-        const db = getDatabase();
-        const courseRef = databaseRef(db, `courses/${formData.courseId}`);
-        const snapshot = await get(courseRef);
+    try {
+      const db = getDatabase();
+      const courseRef = databaseRef(db, `courses/${formData.courseId}`);
+      const snapshot = await get(courseRef);
 
-        if (snapshot.exists()) {
-          const courseData = snapshot.val();
-          const isDiploma = courseData.DiplomaCourse === "Yes";
-          setIsDiplomaCourse(isDiploma);
+      if (snapshot.exists()) {
+        const courseData = snapshot.val();
+        const isDiploma = courseData.DiplomaCourse === "Yes";
+        setIsDiplomaCourse(isDiploma);
 
-          if (isDiploma && courseData.diplomaTimes) {
-            const diplomaTimesArray = Array.isArray(courseData.diplomaTimes)
-              ? courseData.diplomaTimes
-              : Object.values(courseData.diplomaTimes);
+        if (isDiploma && courseData.diplomaTimes) {
+          const diplomaTimesArray = Array.isArray(courseData.diplomaTimes)
+            ? courseData.diplomaTimes
+            : Object.values(courseData.diplomaTimes);
 
-            const validDates = diplomaTimesArray
-              .filter(item => new Date(item.date) > new Date())
-              .sort((a, b) => new Date(a.date) - new Date(b.date));
+          // Filter out past diploma dates AND check registration deadlines
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const validDates = diplomaTimesArray
+            .filter(item => {
+              // Check if exam date is in the future
+              const examDate = new Date(item.date);
+              
+              // Also check if registration deadline hasn't passed
+              const hasDeadline = !!item.registrationDeadline;
+              const registrationDeadline = hasDeadline ? new Date(item.registrationDeadline) : null;
+              
+              // Keep the date only if:
+              // - The exam date is in the future, AND
+              // - Either there's no registration deadline OR the deadline is in the future
+              return examDate > today && (!hasDeadline || registrationDeadline >= today);
+            })
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-            setDiplomaDates(validDates);
-          }
+          setDiplomaDates(validDates);
         }
-      } catch (err) {
-        console.error('Error fetching diploma info:', err);
       }
-    };
+    } catch (err) {
+      console.error('Error fetching diploma info:', err);
+    }
+  };
 
-    fetchDiplomaInfo();
-  }, [formData.courseId]);
+  fetchDiplomaInfo();
+}, [formData.courseId]);
 
   // Adjust end date based on selected diploma date
-  useEffect(() => {
-    if (selectedDiplomaDate) {
-      const maxEndDate = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
-      if (formData.endDate && new Date(formData.endDate) > maxEndDate) {
+// Adjust end date and validate start date based on selected diploma date
+useEffect(() => {
+  if (selectedDiplomaDate) {
+    // Check if start date is after registration deadline
+    if (selectedDiplomaDate.registrationDeadline && formData.startDate) {
+      const startDate = new Date(formData.startDate);
+      const deadline = new Date(selectedDiplomaDate.registrationDeadline);
+      
+      if (startDate > deadline) {
+        // Reset the start date if it's after the registration deadline
         handleFormChange({
           target: {
-            name: 'endDate',
-            value: formatDate(maxEndDate)
+            name: 'startDate',
+            value: ''
           }
         });
+        setDateErrors(prev => ({
+          ...prev,
+          startDate: `Start date must be on or before the registration deadline (${selectedDiplomaDate.registrationDeadlineDisplayDate})`
+        }));
       }
     }
-  }, [selectedDiplomaDate, formData.endDate, handleFormChange, isDiplomaCourse, alreadyWroteDiploma]);
+    
+    // Adjust end date based on diploma exam date
+    const maxEndDate = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
+    if (formData.endDate && new Date(formData.endDate) > maxEndDate) {
+      handleFormChange({
+        target: {
+          name: 'endDate',
+          value: formatDate(maxEndDate)
+        }
+      });
+    }
+  }
+}, [selectedDiplomaDate, formData.endDate, formData.startDate, handleFormChange, isDiplomaCourse, alreadyWroteDiploma]);
 
   // Reset end date and diploma selection when course changes
   useEffect(() => {
@@ -968,28 +1117,40 @@ useEffect(() => {
   };
 
   // Validate date fields
-  const validateDates = useCallback(() => {
-    let valid = true;
-    const newDateErrors = {};
+// Validate date fields, including registration deadlines
+const validateDates = useCallback(() => {
+  let valid = true;
+  const newDateErrors = {};
 
-    if (!formData.startDate) {
-      newDateErrors.startDate = 'Start date is required';
-      valid = false;
-    }
+  if (!formData.startDate) {
+    newDateErrors.startDate = 'Start date is required';
+    valid = false;
+  }
 
-    if (!formData.endDate) {
-      newDateErrors.endDate = 'End date is required';
-      valid = false;
-    }
+  if (!formData.endDate) {
+    newDateErrors.endDate = 'End date is required';
+    valid = false;
+  }
 
-    if (isDiplomaCourse && !alreadyWroteDiploma && !selectedDiplomaDate) {
+  if (isDiplomaCourse && !alreadyWroteDiploma) {
+    if (!selectedDiplomaDate) {
       newDateErrors.diplomaDate = 'Diploma date is required';
       valid = false;
+    } else if (selectedDiplomaDate.registrationDeadline) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const deadline = new Date(selectedDiplomaDate.registrationDeadline);
+      
+      if (today > deadline) {
+        newDateErrors.diplomaDate = `Registration deadline (${selectedDiplomaDate.registrationDeadlineDisplayDate}) has passed`;
+        valid = false;
+      }
     }
+  }
 
-    setDateErrors(newDateErrors);
-    return valid;
-  }, [formData.startDate, formData.endDate, isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate]);
+  setDateErrors(newDateErrors);
+  return valid;
+}, [formData.startDate, formData.endDate, isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate]);
 
   useEffect(() => {
     const debouncedValidation = _.debounce(() => {
@@ -1920,18 +2081,24 @@ useEffect(() => {
                     error={dateErrors.diplomaDate}
                   />
 
-                  {selectedDiplomaDate && (
-                    <div className="text-sm text-gray-600">
-                      <p>Important Notes:</p>
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li>Your diploma exam is scheduled for {formatDiplomaDate(selectedDiplomaDate)} </li>
-                        <li>You must complete the course by your diploma exam date.</li>
-                        {!selectedDiplomaDate.confirmed && (
-                          <li className="text-amber-600">This exam date is tentative and may be adjusted by Alberta Education.</li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
+{selectedDiplomaDate && (
+  <div className="text-sm text-gray-600">
+    <p>Important Notes:</p>
+    <ul className="list-disc pl-5 space-y-1">
+      <li>Your diploma exam is scheduled for {formatDiplomaDate(selectedDiplomaDate)}</li>
+      <li>You must complete the course by your diploma exam date.</li>
+      {selectedDiplomaDate.registrationDeadline && (
+        <li className="font-medium text-amber-700">
+          <AlertTriangle className="inline-block h-4 w-4 mr-1" />
+          Registration deadline: {selectedDiplomaDate.registrationDeadlineDisplayDate}
+        </li>
+      )}
+      {!selectedDiplomaDate.confirmed && (
+        <li className="text-amber-600">This exam date is tentative and may be adjusted by Alberta Education.</li>
+      )}
+    </ul>
+  </div>
+)}
 
                   {alreadyWroteDiploma && (
                     <div className="text-sm text-gray-600">
@@ -1945,82 +2112,97 @@ useEffect(() => {
                 </div>
               )}
 
-              {/* Course Dates Section */}
-              <div className="space-y-4">
-                <h4 className="font-medium">Course Schedule</h4>
+           {/* Course Dates Section */}
+<div className="space-y-4">
+  <h4 className="font-medium">Course Schedule</h4>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <DatePickerWithInfo
-                    label="Start Date"
-                    selected={formData.startDate}
-                    onChange={handleStartDateChange}
-                    minDate={getMinStartDate()}
-                    helpText="Please select a start date at least 2 business days from today."
-                    error={dateErrors.startDate}
-                  />
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <DatePickerWithInfo
+      label="Start Date"
+      selected={formData.startDate}
+      onChange={handleStartDateChange}
+      minDate={getMinStartDate()}
+      maxDate={getMaxStartDate()}
+      helpText={isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline 
+        ? `Must register by ${selectedDiplomaDate.registrationDeadlineDisplayDate}`
+        : "Please select a start date at least 2 business days from today."}
+      error={dateErrors.startDate}
+      isRegistrationDeadline={isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline}
+    />
 
-                  <DatePickerWithInfo
-                    label="Completion Date"
-                    selected={formData.endDate}
-                    onChange={handleEndDateChange}
-                    minDate={getMinEndDate(formData.startDate)}
-                    maxDate={getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)}
-                    disabled={!formData.startDate}
-                    readOnly={isEndDateReadOnly}
-                    helpText={
-                      isDiplomaCourse && !alreadyWroteDiploma
-                        ? "Automatically set to your diploma exam date"
-                        : "Recommended 5 months for course completion"
-                    }
-                    error={dateErrors.endDate}
-                    studentType={studentType}
-                    startDate={formData.startDate} 
-                  />
-                </div>
+    <DatePickerWithInfo
+      label="Completion Date"
+      selected={formData.endDate}
+      onChange={handleEndDateChange}
+      minDate={getMinEndDate(formData.startDate)}
+      maxDate={getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)}
+      disabled={!formData.startDate}
+      readOnly={isEndDateReadOnly}
+      helpText={
+        isDiplomaCourse && !alreadyWroteDiploma
+          ? "Automatically set to your diploma exam date"
+          : "Recommended 5 months for course completion"
+      }
+      error={dateErrors.endDate}
+      studentType={studentType}
+      startDate={formData.startDate} 
+    />
+  </div>
 
-                {!formData.startDate && (
-                  <p className="text-sm text-gray-500">Please select a start date first</p>
-                )}
+  {!formData.startDate && (
+    <p className="text-sm text-gray-500">Please select a start date first</p>
+  )}
 
-                {formData.startDate && formData.endDate && (
-                  <div className="p-4 bg-gray-50 rounded-md space-y-2">
-                    <div>
-                      <h5 className="font-medium text-sm">Course Duration</h5>
-                      <p className="text-sm text-gray-600">
-                        {calculateDuration(formData.startDate, formData.endDate)}
-                      </p>
-                    </div>
-                    
-                    {courseHours && (
-                      <div>
-                        <h5 className="font-medium text-sm">Study Time Required</h5>
-                        <p className="text-sm text-gray-600">
-                          This is a {courseHours}-hour course. Based on your selected schedule, 
-                          you will need to study approximately{' '}
-                          <span className="font-medium">
-                            {calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours)}
-                          </span>{' '}
-                          hours per week.
-                        </p>
-                        
-                        {calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours) > 20 && (
-                          <p className="text-sm text-amber-600 mt-1">
-                            <AlertTriangle className="inline-block h-4 w-4 mr-1" />
-                            This schedule may be intensive. Consider extending your end date for a more manageable pace.
-                          </p>
-                        )}
-                        
-                        {calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours) < 3 && (
-                          <p className="text-sm text-amber-600 mt-1">
-                            <AlertTriangle className="inline-block h-4 w-4 mr-1" />
-                            This schedule is quite spread out. Consider reducing the duration to maintain momentum.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+  {/* Show warning if all registration deadlines have passed */}
+  {isDiplomaCourse && diplomaDates.length === 0 && (
+    <Alert className="bg-red-50 border-red-200">
+      <AlertTriangle className="h-4 w-4 text-red-600" />
+      <AlertDescription className="text-sm text-red-700">
+        Registration deadlines have passed for all upcoming diploma exams for this course.
+        Please select a different course or contact support for assistance.
+      </AlertDescription>
+    </Alert>
+  )}
+
+  {formData.startDate && formData.endDate && (
+    <div className="p-4 bg-gray-50 rounded-md space-y-2">
+      <div>
+        <h5 className="font-medium text-sm">Course Duration</h5>
+        <p className="text-sm text-gray-600">
+          {calculateDuration(formData.startDate, formData.endDate)}
+        </p>
+      </div>
+      
+      {courseHours && (
+        <div>
+          <h5 className="font-medium text-sm">Study Time Required</h5>
+          <p className="text-sm text-gray-600">
+            This is a {courseHours}-hour course. Based on your selected schedule, 
+            you will need to study approximately{' '}
+            <span className="font-medium">
+              {calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours)}
+            </span>{' '}
+            hours per week.
+          </p>
+          
+          {calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours) > 20 && (
+            <p className="text-sm text-amber-600 mt-1">
+              <AlertTriangle className="inline-block h-4 w-4 mr-1" />
+              This schedule may be intensive. Consider extending your end date for a more manageable pace.
+            </p>
+          )}
+          
+          {calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours) < 3 && (
+            <p className="text-sm text-amber-600 mt-1">
+              <AlertTriangle className="inline-block h-4 w-4 mr-1" />
+              This schedule is quite spread out. Consider reducing the duration to maintain momentum.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )}
+</div>
             </CardContent>
           </Card>
 
@@ -2120,6 +2302,7 @@ export default NonPrimaryStudentForm;
 
 // === Additional Components Used in the Form ===
 
+// Enhance DatePickerWithInfo to support registration deadlines
 const DatePickerWithInfo = ({
   label,
   selected,
@@ -2132,7 +2315,8 @@ const DatePickerWithInfo = ({
   disabled = false,
   readOnly = false,
   studentType,
-  startDate 
+  startDate,
+  isRegistrationDeadline = false
 }) => {
   // Function to calculate the default open date (5 months from start date)
   const getOpenToDate = () => {
@@ -2184,7 +2368,9 @@ const DatePickerWithInfo = ({
 
   // Get appropriate warning message based on student type
   const getWarningMessage = () => {
-    if (studentType === 'Summer School') {
+    if (isRegistrationDeadline && maxDate) {
+      return `Note: You must register by ${maxDate.toLocaleDateString()} to qualify for this diploma exam.`;
+    } else if (studentType === 'Summer School') {
       return "Note: Available completion dates are limited to July and August. If you need to complete the course outside of summer months, you can go back and select a different student type.";
     } else if (studentType === 'Non-Primary' || studentType === 'Home Education') {
       return "Note: If you plan to complete this course during July or August, you can go back and select 'Summer School' as your student type.";
@@ -2219,7 +2405,7 @@ const DatePickerWithInfo = ({
         disabled={disabled}
         readOnly={readOnly}
         excludeDateIntervals={getExcludedIntervals()}
-        openToDate={getOpenToDate()} // Add this line
+        openToDate={getOpenToDate()}
         customInput={
           <CustomDateInput
             disabled={disabled}
