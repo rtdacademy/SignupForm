@@ -18,7 +18,6 @@ import { useModernCourse } from './hooks/useModernCourse';
 import { ImportantDatesCard } from './ImportantDatesCard';
 
 
-
 // Constants for triangles
 const TRIANGLE_SIZE = 220;
 
