@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { FaUser, FaPlusCircle, FaSignOutAlt, FaArrowLeft } from 'react-icons/fa';
-import { AlertCircle, Home, NotebookPen, UserPen } from 'lucide-react';
+import { FaPlusCircle } from 'react-icons/fa';
+import { NotebookPen } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import FormDialog from '../Registration/FormDialog';
@@ -16,8 +16,7 @@ import { getDatabase, ref, get } from 'firebase/database';
 import ModernCourseViewer from '../courses/CourseViewer/ModernCourseViewer';
 import { useModernCourse } from './hooks/useModernCourse';
 import { ImportantDatesCard } from './ImportantDatesCard';
-
-
+import Header from '../Layout/Header';
 
 // Constants for triangles
 const TRIANGLE_SIZE = 220;
@@ -45,23 +44,6 @@ const StaticTriangle = ({ color }) => {
     />
   );
 };
-
-// RTD Logo Component
-const RTDLogo = () => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    viewBox="0 0 75 75" 
-    className="h-10 w-10"
-    role="img"
-    aria-label="RTD Academy Logo"
-  >
-    <g transform="translate(10, 25)">
-      <polygon points="40 0 46.5 12 53 24 40 24 27 24 33.5 12 40 0" fill="#008B8B"/>
-      <polygon points="53 24 59.5 36 66 48 53 48 40 48 46.5 36 53 24" fill="#E0FFFF"/>
-      <polygon points="27 24 33.5 36 40 48 27 48 14 48 20.5 36 27 24" fill="#20B2AA"/>
-    </g>
-  </svg>
-);
 
 // Custom Welcome Message Component
 const WelcomeMessage = ({ hasStudentNode, hasCourses }) => {
@@ -92,88 +74,6 @@ const WelcomeMessage = ({ hasStudentNode, hasCourses }) => {
   }
 
   return null;
-};
-
-// Dashboard Header Component
-const DashboardHeader = ({ user, onLogout, onBackClick, showBackButton, isEmulating, onStopEmulation, profile }) => {
-  const getUserDisplayName = () => {
-    if (profile) {
-      if (profile.preferredFirstName) {
-        return `Welcome, ${profile.preferredFirstName}`;
-      } else if (profile.firstName) {
-        return `Welcome, ${profile.firstName}`;
-      }
-    }
-    return 'Welcome to RTD Academy!';
-  };
-
-  return (
-    <header className="w-full bg-gray-200 text-gray-600 shadow-lg transition-all duration-200">
-      <div className="container mx-auto px-4">
-        <div className="h-16 flex justify-between items-center">
-          <div className="flex items-center space-x-6">
-            {showBackButton && (
-              <button 
-                onClick={onBackClick} 
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white transition-all duration-200 shadow-md hover:shadow-lg"
-                title="Return to Dashboard"
-              >
-                <Home className="h-5 w-5" />
-                <span className="hidden sm:inline text-sm font-medium">Dashboard</span>
-              </button>
-            )}
-            <div className="flex items-center space-x-3 cursor-pointer group">
-              <RTDLogo />
-              <div className="flex flex-col">
-                <h1 className="text-gray-800 text-lg font-semibold">
-                  RTD Academy
-                </h1>
-                <div className="text-xs font-medium text-gray-500">
-                  Student Portal {isEmulating && '(Emulation Mode)'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {user && (
-            <div className="flex items-center space-x-6">
-             {isEmulating && (
-<Button
-  variant="secondary"
-  size="sm"
-  onClick={() => {
-    onStopEmulation();
-    window.close();
-  }}
-  className="mr-4 bg-blue-800 hover:bg-blue-900 text-white border-none transition-colors duration-200"
->
-  Exit Emulation
-</Button>
-)}
-              <span className="text-gray-700 text-lg hidden lg:inline font-semibold tracking-wide">
-                {getUserDisplayName()}
-              </span>
-              {!isEmulating && (
-                <button 
-                  onClick={onLogout} 
-                  className="flex items-center space-x-2 text-gray-500 text-sm"
-                >
-                  <FaSignOutAlt /> 
-                  <span className="hidden lg:inline">Sign Out</span>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-      {isEmulating && (
-        <div className="bg-blue-100 text-blue-800 px-4 py-2 text-sm flex items-center justify-center">
-          <AlertCircle className="w-4 h-4 mr-2" />
-          You are currently viewing the dashboard as {user.email}
-        </div>
-      )}
-    </header>
-  );
 };
 
 const Dashboard = () => {
@@ -212,8 +112,6 @@ const Dashboard = () => {
     selectedCourse?.CourseID
   );
 
-  
-
   // Helper function to check required fields
   const checkRequiredFields = (profileData) => {
     if (!profileData) return false;
@@ -225,32 +123,31 @@ const Dashboard = () => {
     });
   };
 
-
   // Add these two functions
-const getMissingFields = (profileData) => {
-  if (!profileData) return [];
-  
-  const required = [
-    { key: 'firstName', label: 'first name' },
-    { key: 'lastName', label: 'last name' },
-    { key: 'preferredFirstName', label: 'preferred name' },
-    { key: 'StudentPhone', label: 'phone number' },
-    { key: 'gender', label: 'gender' }
-  ];
-  
-  return required.filter(field => 
-    !profileData[field.key] || !String(profileData[field.key]).trim()
-  ).map(field => field.label);
-};
+  const getMissingFields = (profileData) => {
+    if (!profileData) return [];
+    
+    const required = [
+      { key: 'firstName', label: 'first name' },
+      { key: 'lastName', label: 'last name' },
+      { key: 'preferredFirstName', label: 'preferred name' },
+      { key: 'StudentPhone', label: 'phone number' },
+      { key: 'gender', label: 'gender' }
+    ];
+    
+    return required.filter(field => 
+      !profileData[field.key] || !String(profileData[field.key]).trim()
+    ).map(field => field.label);
+  };
 
-// Use useMemo to calculate these values
-const hasRequiredFields = useMemo(() => {
-  return checkRequiredFields(profile);
-}, [profile]);
+  // Use useMemo to calculate these values
+  const hasRequiredFields = useMemo(() => {
+    return checkRequiredFields(profile);
+  }, [profile]);
 
-const missingFields = useMemo(() => {
-  return getMissingFields(profile);
-}, [profile]);
+  const missingFields = useMemo(() => {
+    return getMissingFields(profile);
+  }, [profile]);
 
   // Once data is loaded, determine if we need to show the welcome dialog
   useEffect(() => {
@@ -348,17 +245,24 @@ const missingFields = useMemo(() => {
     </Button>
   ), [dataLoading, studentExists, courses.length]);
 
+  // Open profile if forced or requested
+  useEffect(() => {
+    if (forceProfileOpen) {
+      setIsProfileOpen(true);
+    }
+  }, [forceProfileOpen]);
+
   if (authLoading) {
     return (
       <div className="flex flex-col h-screen">
-        <DashboardHeader 
+        <Header 
           user={currentUser}
           onLogout={handleLogout}
-          onBackClick={handleBackClick}
-          showBackButton={showBackButton}
+          onBackClick={showBackButton ? handleBackClick : null}
+          onDashboardClick={() => {}} // Already on dashboard
+          portalType="Student Portal"
           isEmulating={isEmulating}
-          onStopEmulation={stopEmulation}
-          profile={profile}
+          isStaffUser={false}
         />
         <div className="flex justify-center items-center flex-1">
           <div className="text-gray-600">Verifying authentication...</div>
@@ -370,14 +274,14 @@ const missingFields = useMemo(() => {
   if (dataLoading) {
     return (
       <div className="flex flex-col h-screen">
-        <DashboardHeader 
+        <Header 
           user={currentUser}
           onLogout={handleLogout}
-          onBackClick={handleBackClick}
-          showBackButton={showBackButton}
+          onBackClick={showBackButton ? handleBackClick : null}
+          onDashboardClick={() => {}} // Already on dashboard
+          portalType="Student Portal"
           isEmulating={isEmulating}
-          onStopEmulation={stopEmulation}
-          profile={profile}
+          isStaffUser={false}
         />
         <div className="flex justify-center items-center flex-1">
           <div className="text-gray-600">Loading your courses...</div>
@@ -389,14 +293,14 @@ const missingFields = useMemo(() => {
   if (error) {
     return (
       <div className="flex flex-col h-screen">
-        <DashboardHeader 
+        <Header 
           user={currentUser}
           onLogout={handleLogout}
-          onBackClick={handleBackClick}
-          showBackButton={showBackButton}
+          onBackClick={showBackButton ? handleBackClick : null}
+          onDashboardClick={() => {}} // Already on dashboard
+          portalType="Student Portal"
           isEmulating={isEmulating}
-          onStopEmulation={stopEmulation}
-          profile={profile}
+          isStaffUser={false}
         />
         <div className="container mx-auto px-4 py-8">
           <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4">
@@ -410,55 +314,78 @@ const missingFields = useMemo(() => {
     );
   }
 
-
-
-// Then update your render logic:
-if (showLMS && selectedCourse) {
-  return (
-    <div className="flex flex-col h-screen">
-      <DashboardHeader 
-        user={currentUser}
-        onLogout={handleLogout}
-        onBackClick={handleBackClick}
-        showBackButton={true}
-        isEmulating={isEmulating}
-        onStopEmulation={stopEmulation}
-        profile={profile}
-      />
-      <div className="flex-1">
-        {courseTypeLoading ? (
-          <div className="flex justify-center items-center h-full">
-            <div className="text-gray-600">Loading course...</div>
-          </div>
-        ) : isModernCourse ? (
-          <ModernCourseViewer 
-          courseId={selectedCourse.CourseID}
-          studentCourseData={selectedCourse}
-          profile={profile}  
-          previewMode={false}
+  if (showLMS && selectedCourse) {
+    return (
+      <div className="flex flex-col h-screen">
+        <Header 
+          user={currentUser}
+          onLogout={handleLogout}
+          onBackClick={handleBackClick}
+          onDashboardClick={() => {
+            setSelectedCourse(null);
+            setShowLMS(false);
+          }}
+          portalType="Student Portal"
+          isEmulating={isEmulating}
+          isStaffUser={false}
+          onProfileClick={() => setIsProfileOpen(true)}
+          profile={profile}
+          hasIncompleteProfile={!hasRequiredFields}
         />
-        ) : (
-          <LMSWrapper
-            courseId={selectedCourse.CourseID}
-            courseData={selectedCourse}
-            onReturn={handleBackClick}
+        <div className="flex-1">
+          {courseTypeLoading ? (
+            <div className="flex justify-center items-center h-full">
+              <div className="text-gray-600">Loading course...</div>
+            </div>
+          ) : isModernCourse ? (
+            <ModernCourseViewer 
+              courseId={selectedCourse.CourseID}
+              studentCourseData={selectedCourse}
+              profile={profile}  
+              previewMode={false}
+            />
+          ) : (
+            <LMSWrapper
+              courseId={selectedCourse.CourseID}
+              courseData={selectedCourse}
+              onReturn={handleBackClick}
+            />
+          )}
+        </div>
+        
+        {/* Profile Component as a Sheet */}
+        {studentExists && (
+          <ProfileComponent
+            isOpen={isProfileOpen || forceProfileOpen}
+            onOpenChange={(open) => {
+              // Simply update both states when closing
+              if (!open) {
+                setIsProfileOpen(false);
+                setForceProfileOpen(false);
+              } else {
+                setIsProfileOpen(true);
+              }
+            }}
+            profile={profile}
           />
         )}
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen">
-      <DashboardHeader 
+      <Header 
         user={currentUser}
         onLogout={handleLogout}
-        onBackClick={handleBackClick}
-        showBackButton={showBackButton}
+        onBackClick={showBackButton ? handleBackClick : null}
+        onDashboardClick={() => {}} // Already on dashboard
+        portalType="Student Portal"
         isEmulating={isEmulating}
-        onStopEmulation={stopEmulation}
+        isStaffUser={false}
+        onProfileClick={() => setIsProfileOpen(true)}
         profile={profile}
+        hasIncompleteProfile={!hasRequiredFields}
       />
       
       {/* Migration Welcome Dialog */}
@@ -498,10 +425,8 @@ if (showLMS && selectedCourse) {
                   }
                 }}
               />
-               
             </div>
           )}
-      
 
           <div className="mb-6">
             <WelcomeMessage
@@ -511,7 +436,8 @@ if (showLMS && selectedCourse) {
           </div>
 
           <div className="flex flex-col lg:flex-row gap-6 flex-1">
-            <div className="lg:w-2/3 space-y-6 flex flex-col">
+            {/* Main content: Courses */}
+            <div className="lg:w-3/4 space-y-6 flex flex-col">
               <Card className="flex-1 flex flex-col overflow-hidden border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
                   <h3 className="text-lg font-semibold flex items-center">
@@ -526,7 +452,7 @@ if (showLMS && selectedCourse) {
                       user_email_key={current_user_email_key}
                       key={course.CourseID || course.id}
                       course={course}
-                      profile={profile}  // Add this line
+                      profile={profile}
                       onViewDetails={() => setSelectedCourse(course)}
                       onGoToCourse={() => {
                         setSelectedCourse(course);
@@ -569,9 +495,9 @@ if (showLMS && selectedCourse) {
               </Card>
             </div>
 
-            {/* Right Column: Important Dates and Profile (REORDERED) */}
-            <div className="lg:w-1/3 space-y-6">
-              {/* Important Dates Card - Now First */}
+            {/* Right Column: Important Dates Only (Profile Card Removed) */}
+            <div className="lg:w-1/4 space-y-6">
+              {/* Important Dates Card */}
               <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
                   <h3 className="text-lg font-semibold flex items-center">
@@ -583,31 +509,10 @@ if (showLMS && selectedCourse) {
                   <ImportantDatesCard />
                 </CardContent>
               </Card>
-              
-              {/* Profile Card - Now Second */}
-              {studentExists && (
-                <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
-                  <CardHeader className="bg-gradient-to-r from-teal-50 to-cyan-50 py-3">
-                    <h3 className="text-lg font-semibold flex items-center">
-                      <UserPen className="h-5 w-5 mr-2 text-teal-600" />
-                      Profile
-                    </h3>
-                  </CardHeader>
-                  <CardContent className="p-4">
-                    <Button
-                      variant="outline"
-                      className="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 shadow-sm transition-all duration-200 hover:border-gray-300"
-                      onClick={() => setIsProfileOpen(true)}
-                    >
-                      <FaUser className="mr-2 text-gray-500" /> View Profile
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           </div>
 
-        
+          {/* Profile Component as a Sheet */}
           {studentExists && (
             <ProfileComponent
               isOpen={isProfileOpen || forceProfileOpen}

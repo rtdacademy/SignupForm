@@ -1,9 +1,12 @@
 // src/components/ImportantDatesCard.js
 import React, { useState, useEffect } from 'react';
 import { getDatabase, ref, get } from 'firebase/database';
-import { Card, CardHeader, CardContent, CardTitle } from "../components/ui/card";
-import { Calendar, Info, AlertTriangle } from "lucide-react";
+import { Calendar, Info, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { useRegistrationPeriod } from '../utils/registrationPeriods';
+import { getStudentTypeInfo } from '../config/DropdownOptions';
+import { ScrollArea } from "../components/ui/scroll-area";
+import { Button } from "../components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 export function ImportantDatesCard() {
   const { 
@@ -16,6 +19,15 @@ export function ImportantDatesCard() {
   const [nextYearDescription, setNextYearDescription] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showPastDates, setShowPastDates] = useState(false);
+
+  // Get today's date formatted nicely
+  const todayFormatted = new Date().toLocaleDateString('en-US', { 
+    weekday: 'long',
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
 
   // Fetch all important dates
   useEffect(() => {
@@ -41,6 +53,8 @@ export function ImportantDatesCard() {
               date: dateObj,
               displayDate: date.displayDate,
               description: date.description || '',
+              // Add the applicable student types, defaulting to empty array if not present
+              applicableStudentTypes: date.applicableStudentTypes || [],
               formattedDate: dateObj.toLocaleDateString('en-US', { 
                 year: 'numeric', 
                 month: 'long', 
@@ -76,90 +90,125 @@ export function ImportantDatesCard() {
   
   if (loading) {
     return (
-      <Card className="bg-white shadow hover:shadow-md transition-all duration-200">
-        <CardHeader className="bg-gradient-to-br from-background to-muted pb-4">
-          <CardTitle className="flex items-center text-lg font-semibold">
-            <Calendar className="h-5 w-5 mr-2 text-primary" />
-            Upcoming Dates
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-4">
-          <div className="animate-pulse flex flex-col space-y-3">
-            <div className="h-4 bg-gray-200 rounded-md w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded-md w-full"></div>
-            <div className="h-4 bg-gray-200 rounded-md w-5/6"></div>
-            <div className="h-4 bg-gray-200 rounded-md w-full"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-3">
+        <div className="animate-pulse flex flex-col space-y-3">
+          <div className="h-4 bg-gray-200 rounded-md w-3/4"></div>
+          <div className="h-4 bg-gray-200 rounded-md w-full"></div>
+          <div className="h-4 bg-gray-200 rounded-md w-5/6"></div>
+          <div className="h-4 bg-gray-200 rounded-md w-full"></div>
+        </div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Card className="bg-white shadow hover:shadow-md transition-all duration-200">
-        <CardHeader className="bg-gradient-to-br from-background to-muted pb-4">
-          <CardTitle className="flex items-center text-lg font-semibold">
-            <Calendar className="h-5 w-5 mr-2 text-primary" />
-            Upcoming Dates
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-4">
-          <div className="flex items-center text-red-600 space-x-2">
-            <AlertTriangle className="h-5 w-5" />
-            <p>{error}</p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="pt-4">
+        <div className="flex items-center text-red-600 space-x-2">
+          <AlertTriangle className="h-5 w-5" />
+          <p>{error}</p>
+        </div>
+      </div>
     );
   }
 
-  // Filter to show only future/current dates and a limited number of past dates
+  // Filter dates based on toggle
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
-  // First get future dates
-  const futureDates = importantDates.filter(date => date.date >= today);
+  // Get future and today's dates
+  const futureDates = importantDates.filter(date => {
+    const dateWithoutTime = new Date(date.date);
+    dateWithoutTime.setHours(0, 0, 0, 0);
+    return dateWithoutTime >= today;
+  });
   
-  // Then get past dates (within the last 7 days)
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  sevenDaysAgo.setHours(0, 0, 0, 0);
+  // Get past dates
+  const pastDates = importantDates.filter(date => {
+    const dateWithoutTime = new Date(date.date);
+    dateWithoutTime.setHours(0, 0, 0, 0);
+    return dateWithoutTime < today;
+  });
   
-  const recentPastDates = importantDates.filter(date => 
-    date.date < today && date.date >= sevenDaysAgo
-  );
+  // Combine based on toggle state
+  const displayDates = showPastDates 
+    ? [...futureDates, ...pastDates].sort((a, b) => a.date - b.date)
+    : futureDates;
   
-  // Combine and sort them
-  const filteredDates = [...futureDates, ...recentPastDates].sort((a, b) => a.date - b.date);
+  // Function to render student type badges with improved clarification
+  const renderStudentTypeBadges = (types) => {
+    if (!types || types.length === 0) return null;
+    
+    return (
+      <div className="mt-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="inline-flex items-center text-xs text-gray-500 cursor-help">
+                <Info className="h-3 w-3 mr-1" />
+                <span>Only applies to these student types</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="bg-white p-2 shadow-md rounded-md border border-gray-200">
+              <p className="text-xs">This date is only relevant if you are or will become one of these student types</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <div className="flex flex-wrap gap-1 mt-1">
+          {types.map((type) => {
+            const { color, icon: Icon } = getStudentTypeInfo(type);
+            return (
+              <span 
+                key={type} 
+                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                style={{ backgroundColor: `${color}20`, color: color }}
+              >
+                {Icon && <Icon className="h-3 w-3 mr-1" />}
+                {type}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
   
   return (
-    <Card className="bg-white shadow hover:shadow-md transition-all duration-200">
-      <CardHeader className="bg-gradient-to-br from-background to-muted pb-4">
-        <CardTitle className="flex items-center text-lg font-semibold">
-          <Calendar className="h-5 w-5 mr-2 text-primary" />
-          Upcoming Dates
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-4 space-y-4">
-        {/* If we have a description for next year registration, show it */}
-        {nextYearDescription && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <div className="flex">
-              <Info className="h-5 w-5 mr-2 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="text-blue-800 text-sm">
-                <p className="font-medium mb-1">Next School Year Registration Information</p>
-                <p>{nextYearDescription}</p>
-              </div>
-            </div>
-          </div>
+    <div className="space-y-4">
+      {/* Today's Date Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between border-b pb-3">
+        <div>
+          <h3 className="text-lg font-medium">Important Dates</h3>
+          <p className="text-sm text-gray-500">Today is {todayFormatted}</p>
+        </div>
+        {pastDates.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 md:mt-0"
+            onClick={() => setShowPastDates(!showPastDates)}
+          >
+            {showPastDates ? (
+              <span className="flex items-center">
+                <ChevronUp className="h-4 w-4 mr-1" />
+                Hide Past Dates
+              </span>
+            ) : (
+              <span className="flex items-center">
+                <ChevronDown className="h-4 w-4 mr-1" />
+                Show Past Dates
+              </span>
+            )}
+          </Button>
         )}
+      </div>
 
-        {/* Important Dates List */}
-        <div className="space-y-3">
-          {filteredDates.length > 0 ? (
-            <ul className="space-y-2">
-              {filteredDates.map((date) => {
+      {/* Dates List with ScrollArea */}
+      <ScrollArea className="h-[400px] rounded-md border">
+        <div className="p-4">
+          {displayDates.length > 0 ? (
+            <ul className="space-y-3">
+              {displayDates.map((date) => {
                 const isPast = date.date < new Date();
                 const isToday = date.date.toDateString() === new Date().toDateString();
                 
@@ -174,7 +223,7 @@ export function ImportantDatesCard() {
                     }`}>
                       <Calendar className="h-4 w-4" />
                     </span>
-                    <div>
+                    <div className="flex-1">
                       <div className="font-medium text-gray-800">
                         {date.title}
                         {isToday && (
@@ -187,6 +236,9 @@ export function ImportantDatesCard() {
                       {date.description && (
                         <div className="text-sm text-gray-500 mt-1">{date.description}</div>
                       )}
+                      
+                      {/* Updated Student Type Badges with better clarification */}
+                      {renderStudentTypeBadges(date.applicableStudentTypes)}
                     </div>
                   </li>
                 );
@@ -196,26 +248,7 @@ export function ImportantDatesCard() {
             <p className="text-sm text-gray-500">No upcoming dates at this time.</p>
           )}
         </div>
-        
-        {/* Current Registration Period Status */}
-        <div className="rounded-md border p-3 bg-gray-50">
-          <h4 className="font-medium text-gray-700 text-sm mb-1">Current Registration Status</h4>
-          <p className="text-sm text-gray-600">
-            {period === 'REGULAR' && !canRegisterForNextYear && (
-              <>Current Year Registration Only</>
-            )}
-            {period === 'REGULAR' && canRegisterForNextYear && (
-              <>Current Year and Next Year Registration Available</>
-            )}
-            {period === 'SUMMER' && (
-              <>Summer School Registration Period</>
-            )}
-            {period === 'NEXT_REGULAR' && (
-              <>Next School Year Registration Period</>
-            )}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+      </ScrollArea>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { FaSignOutAlt, FaArrowLeft, FaUserCircle } from 'react-icons/fa';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { AlertCircle } from 'lucide-react';
 
 const RTDLogo = () => (
   <svg 
@@ -18,10 +19,29 @@ const RTDLogo = () => (
   </svg>
 );
 
-function Header({ user, onLogout, onBackClick, onDashboardClick, portalType, isEmulating, isStaffUser }) {
+function Header({ 
+  user, 
+  onLogout, 
+  onBackClick, 
+  onDashboardClick, 
+  portalType, 
+  isEmulating, 
+  isStaffUser,
+  onProfileClick,
+  profile,
+  hasIncompleteProfile
+}) {
   const navigate = useNavigate();
 
   const getUserDisplayName = () => {
+    if (profile) {
+      if (profile.preferredFirstName) {
+        return profile.preferredFirstName;
+      } else if (profile.firstName) {
+        return profile.firstName;
+      }
+    }
+    
     if (user) {
       return user.displayName || user.email.split('@')[0] || 'User';
     }
@@ -73,6 +93,27 @@ function Header({ user, onLogout, onBackClick, onDashboardClick, portalType, isE
               <span className="text-gray-300 text-sm hidden lg:inline">
                 Welcome, {getUserDisplayName()}
               </span>
+              
+              {/* Profile Button */}
+              {onProfileClick && !isStaffUser && (
+                <button 
+                  onClick={onProfileClick} 
+                  className="relative flex items-center space-x-2 text-gray-300 hover:text-white text-sm transition-colors duration-200"
+                  title="View Profile"
+                >
+                  <FaUserCircle className="text-xl" /> 
+                  <span className="hidden lg:inline">Profile</span>
+                  
+                  {/* Notification indicator for incomplete profile */}
+                  {hasIncompleteProfile && (
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                    </span>
+                  )}
+                </button>
+              )}
+              
               {!isEmulating && (
                 <button 
                   onClick={onLogout} 
@@ -88,6 +129,7 @@ function Header({ user, onLogout, onBackClick, onDashboardClick, portalType, isE
       </div>
       {isEmulating && (
         <div className="bg-blue-600 text-white px-4 py-2 text-sm text-center">
+          <AlertCircle className="w-4 h-4 inline-block mr-1" />
           You are currently viewing the portal as {user.email}
         </div>
       )}
