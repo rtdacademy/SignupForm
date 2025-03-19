@@ -5,8 +5,16 @@ import { Card, CardHeader, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Label } from "../components/ui/label";
-import { AlertTriangle, InfoIcon, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, InfoIcon } from "lucide-react";
 import { Alert, AlertDescription } from "../components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "../components/ui/dialog";
 import { useRegistrationPeriod, RegistrationPeriod } from '../utils/registrationPeriods';
 
 const studentTypes = [
@@ -64,18 +72,17 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
   const [justDetermined, setJustDetermined] = useState(false);
   const [selectedStudentType, setSelectedType] = useState(selectedType || '');
   const [error, setError] = useState(null);
+  const [showInfoDialog, setShowInfoDialog] = useState(false);
+  const [acknowledgedType, setAcknowledgedType] = useState('');
+  const [pendingStudentType, setPendingStudentType] = useState('');
+  
   const { 
     period, 
-    cutoffDates, 
-    nextYearRegistrationDate, 
+    importantDates, 
     canRegisterForNextYear, 
-    loading: periodLoading 
+    loading: periodLoading,
+    getStudentTypeMessage
   } = useRegistrationPeriod();
-  
-  // Function to format dates consistently
-  const formatDate = (date) => date.toLocaleDateString('en-US', { 
-    year: 'numeric', month: 'long', day: 'numeric' 
-  });
 
   // Filter student types based on the current period
   const getAvailableStudentTypes = () => {
@@ -101,51 +108,6 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
         return studentTypes;
     }
   };
-  
-  // New function: Get student type specific message
-  const getStudentTypeMessage = (studentType) => {
-    if (!cutoffDates || !nextYearRegistrationDate) return null;
-    
-    switch (studentType) {
-      case 'Non-Primary':
-        if (period === RegistrationPeriod.SUMMER) {
-          return `Non-Primary registration is not available during the Summer period (until ${formatDate(cutoffDates.summerToRegular)}). Please register as a Summer School student instead.`;
-        } else if (period === RegistrationPeriod.NEXT_REGULAR) {
-          return `As a Non-Primary student, you will need to provide your Alberta Student Number (ASN) and information about your primary school. Your primary school will receive funding for your core education while RTD Academy provides your selected courses.`;
-        } else {
-          if (canRegisterForNextYear) {
-            return `You can now register as a Non-Primary student for the next school year. You'll need to provide your Alberta Student Number (ASN) and details about your primary school.`;
-          } else {
-            return `Non-Primary registration is available for the current school year. After ${formatDate(cutoffDates.regularToSummer)}, only Summer School registrations will be accepted.`;
-          }
-        }
-      
-      case 'Home Education':
-        if (period === RegistrationPeriod.SUMMER) {
-          return `Home Education registration is not available during the Summer period (until ${formatDate(cutoffDates.summerToRegular)}). Please register as a Summer School student for courses during this period.`;
-        } else {
-          return `As a Home Education student, you'll need to provide information about your Home Education provider. Your provider will support your overall education while RTD Academy delivers your selected courses.`;
-        }
-      
-      case 'Summer School':
-        if (period === RegistrationPeriod.SUMMER) {
-          return `You are registering during our Summer School period (until ${formatDate(cutoffDates.summerToRegular)}). Summer School courses must be completed by August 31st. You'll have access to accelerated learning materials tailored for summer completion.`;
-        } else if (period === RegistrationPeriod.NEXT_REGULAR) {
-          return `Summer School registration for this year has ended. Please select another student type that fits your situation.`;
-        } else {
-          return `Summer School registration opens on ${formatDate(cutoffDates.regularToSummer)}. Summer courses are designed to be completed between July and August.`;
-        }
-      
-      case 'Adult Student':
-        return `As an Adult Student (20 years or older), you are eligible for specific funding arrangements. You'll need to provide proof of age during registration. Adult students have flexible completion timelines and dedicated support resources.`;
-      
-      case 'International Student':
-        return `As an International Student, you'll need to provide documentation verifying your status. International students pay different fee rates and will need to upload passport information and study permits where applicable.`;
-      
-      default:
-        return null;
-    }
-  };
 
   const saveToPendingRegistration = async (type) => {
     if (!isFormComponent) return; // Only save if it's part of the form
@@ -161,6 +123,21 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
     } catch (error) {
       console.error('Error saving to Firebase:', error);
       throw error;
+    }
+  };
+
+  // Process student type selection after acknowledgment
+  const processStudentTypeSelection = async (type) => {
+    try {
+      if (isFormComponent) {
+        await saveToPendingRegistration(type);
+      }
+      setSelectedType(type);
+      setJustDetermined(true);
+      onStudentTypeSelect(type);
+    } catch (error) {
+      setError('Failed to save student type. Please try again.');
+      console.error('Error saving student type:', error);
     }
   };
 
@@ -181,15 +158,18 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
         }
       }
       
-      if (isFormComponent) {
-        await saveToPendingRegistration(value);
+      // If this type has already been acknowledged, apply it directly
+      if (value === acknowledgedType) {
+        await processStudentTypeSelection(value);
+        return;
       }
-      setSelectedType(value);
-      setJustDetermined(true);
-      onStudentTypeSelect(value);
+      
+      // Otherwise, show the dialog first
+      setPendingStudentType(value);
+      setShowInfoDialog(true);
     } catch (error) {
-      setError('Failed to save student type. Please try again.');
-      console.error('Error saving student type:', error);
+      setError('Failed to process student type. Please try again.');
+      console.error('Error processing student type:', error);
     }
   };
 
@@ -212,7 +192,6 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
           handleStudentTypeChange('Non-Primary');
         }
       }
-      setJustDetermined(true);
     } else {
       setCurrentQuestion(nextStep);
     }
@@ -231,11 +210,25 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
       setCurrentQuestion(0);
       setJustDetermined(false);
       setSelectedType('');
+      setAcknowledgedType('');
       onStudentTypeSelect('');
     } catch (error) {
       setError('Failed to restart questionnaire. Please try again.');
       console.error('Error restarting questionnaire:', error);
     }
+  };
+
+  // Get the student type message for the dialog
+  const getTypeSpecificMessage = (type) => {
+    if (!type) return "";
+    return getStudentTypeMessage(type);
+  };
+
+  // Handle dialog acknowledgment
+  const handleAcknowledgment = async () => {
+    setAcknowledgedType(pendingStudentType);
+    setShowInfoDialog(false);
+    await processStudentTypeSelection(pendingStudentType);
   };
 
   const renderInitialView = () => (
@@ -293,24 +286,14 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
           </div>
         ) : (
           <div className="space-y-4">
-            <Alert className="bg-green-50 border-green-200">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
+            <Alert className="bg-blue-50 border-blue-200">
+              <AlertDescription className="text-blue-700">
                 Based on your answers, you are a{' '}
                 <span className="font-medium">
                   {studentTypes.find((type) => type.value === selectedStudentType)?.label}
                 </span>
               </AlertDescription>
             </Alert>
-            
-            {selectedStudentType && !periodLoading && cutoffDates && (
-              <Alert className="bg-blue-50 border-blue-200">
-                <InfoIcon className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-sm text-blue-700">
-                  {getStudentTypeMessage(selectedStudentType)}
-                </AlertDescription>
-              </Alert>
-            )}
             
             <Button
               onClick={restartQuestionnaire}
@@ -350,15 +333,6 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
           ))}
         </RadioGroup>
 
-        {selectedStudentType && !periodLoading && cutoffDates && (
-          <Alert className="bg-blue-50 border-blue-200 mt-4">
-            <InfoIcon className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-sm text-blue-700">
-              {getStudentTypeMessage(selectedStudentType)}
-            </AlertDescription>
-          </Alert>
-        )}
-
         {selectedStudentType && (
           <Button
             onClick={restartQuestionnaire}
@@ -370,6 +344,49 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
         )}
       </CardContent>
     </Card>
+  );
+
+  // Information Dialog Component
+  const renderInfoDialog = () => (
+    <Dialog open={showInfoDialog} onOpenChange={setShowInfoDialog}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-lg">
+            Important Information for {studentTypes.find((type) => type.value === pendingStudentType)?.label}s
+          </DialogTitle>
+          <DialogDescription className="text-sm text-gray-500">
+            Please review this information before continuing with your registration.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="p-4 my-2 bg-blue-50 rounded-md border border-blue-200">
+          <div className="flex gap-2 items-start">
+            <InfoIcon className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-blue-800">
+              {getTypeSpecificMessage(pendingStudentType)}
+            </p>
+          </div>
+        </div>
+        
+        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => setShowInfoDialog(false)}
+            className="sm:mr-auto"
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="button" 
+            onClick={handleAcknowledgment}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            I Understand
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 
   return (
@@ -390,6 +407,9 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
       ) : (
         renderQuestionnaire()
       )}
+
+      {/* Information Dialog */}
+      {renderInfoDialog()}
     </div>
   );
 }
