@@ -16,8 +16,7 @@ import { getDatabase, ref, get } from 'firebase/database';
 import ModernCourseViewer from '../courses/CourseViewer/ModernCourseViewer';
 import { useModernCourse } from './hooks/useModernCourse';
 import { ImportantDatesCard } from './ImportantDatesCard';
-
-
+import Header from '../Layout/Header';
 
 // Constants for triangles
 const TRIANGLE_SIZE = 220;
