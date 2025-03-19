@@ -497,15 +497,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
             <div className="flex flex-col h-full max-h-[90vh]"> {/* Wrapper div with flex */}
               {/* Header Section */}
               <div className="p-6 pb-0">
-                {existingRegistration && currentStep === 'type-selection' && (
-                  <Alert className="mb-6 bg-blue-50 border-blue-200">
-                    <AlertDescription className="text-sm text-blue-700">
-                      You have an incomplete registration from{' '}
-                      {new Date(existingRegistration.lastUpdated).toLocaleString()}.
-                      Click 'Proceed' to continue where you left off.
-                    </AlertDescription>
-                  </Alert>
-                )}
+             
 
                 <div className="mb-6">
                   <DialogPrimitive.Title className="text-2xl font-semibold">

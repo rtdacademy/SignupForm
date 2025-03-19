@@ -651,6 +651,8 @@ export const PASI_OPTIONS = [
   { value: "No", color: "#EF4444" }     // Red
 ];
 
+
+
 export const STUDENT_TYPE_OPTIONS = [
   { 
     value: "Non-Primary", 
@@ -698,6 +700,364 @@ export const getStudentTypeColor = (type) => {
   const option = STUDENT_TYPE_OPTIONS.find(opt => opt.value === type);
   return option ? option.color : "#6B7280";  // Default to gray if student type not found
 };
+
+// Registration period constants
+export const REGISTRATION_PERIODS = {
+  REGULAR: 'REGULAR',
+  SUMMER: 'SUMMER',
+  NEXT_REGULAR: 'NEXT_REGULAR'
+};
+
+// Function to get formatted HTML messages for student types with compact styling
+export const getStudentTypeMessageHTML = (studentType, params) => {
+  if (!studentType || !params) return "";
+  
+  const { 
+    period, 
+    canRegisterForNextYear, 
+    regularToSummer, 
+    summerToRegular, 
+    nextYearOpens, 
+    sepCount, 
+    homeEdDeadline 
+  } = params;
+
+  // Format dates consistently
+  const formatDate = (date) => {
+    if (!date) return "unknown date";
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', month: 'long', day: 'numeric' 
+    });
+  };
+  
+  // Messages based on student type and current period
+  switch (studentType) {
+    case 'Non-Primary':
+      if (period === REGISTRATION_PERIODS.SUMMER) {
+        return `
+          <div class="prose prose-sm max-w-none">
+            <p><strong>Non-Primary registration for the current year is closed.</strong></p>
+            
+            <p>You have two options:</p>
+            <ol class="mt-1 mb-2 pl-5">
+              <li>Register as a Summer School student until ${formatDate(summerToRegular)}</li>
+              <li>Register for the next school year as a Non-Primary student</li>
+            </ol>
+            
+            <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+              If you register for next year, you must have a primary registration with another school in September or you'll be classified as an Adult Student requiring payment.
+            </p>
+            
+            <p class="bg-blue-50 border-l-2 border-blue-500 pl-2 py-1 text-sm">
+              If you are 19 or younger as of September 1, you may qualify for free summer school courses, but marks won't appear until summer.
+            </p>
+          </div>
+        `;
+      } else if (period === REGISTRATION_PERIODS.REGULAR) {
+        if (canRegisterForNextYear) {
+          return `
+            <div class="prose prose-sm max-w-none">
+              <p>You have multiple options:</p>
+              <ol class="mt-1 mb-2 pl-5">
+                <li>Register for the current school year as a Non-Primary student until ${formatDate(regularToSummer)}</li>
+                <li>Register as a Summer School student. Please note that your mark would not appear on your transcript until summer.</li>
+                <li>Register for the next school year now</li>
+              </ol>
+              
+              <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+                If you register for next year, you must have a primary registration with another school in September or you'll be classified as an Adult Student requiring payment.
+              </p>
+              
+              <p class="bg-blue-50 border-l-2 border-blue-500 pl-2 py-1 text-sm">
+                If you are 19 or younger as of September 1, you may qualify for free summer school courses, but marks won't appear until summer.
+              </p>
+            </div>
+          `;
+        }
+        return `
+          <div class="prose prose-sm max-w-none">
+            <p>You have two options:</p>
+            <ol class="mt-1 mb-2 pl-5">
+              <li>Register for the current school year as a Non-Primary student until ${formatDate(regularToSummer)}</li>
+              <li>Register as a Summer School student. Please note that your mark would not appear on your transcript until summer.</li>
+            </ol>
+            
+            <p>Registration for next school year opens on ${formatDate(nextYearOpens)}.</p>
+            
+            <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+              When registering for next year, you must have a primary registration with another school in September to maintain Non-Primary status.
+            </p>
+            
+            <p class="bg-blue-50 border-l-2 border-blue-500 pl-2 py-1 text-sm">
+              If you are 19 or younger as of September 1, you may qualify for free summer school courses, but marks won't appear until summer.
+            </p>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="prose prose-sm max-w-none">
+            <p>Registration is now open for the next school year as a Non-Primary student.</p>
+            
+            <p>To ensure your courses count for semester one funding, please register before ${formatDate(sepCount)}.</p>
+            
+            <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+              You must have a primary registration with another school in September to qualify as a Non-Primary student or you'll be classified as an Adult Student requiring payment.
+            </p>
+          </div>
+        `;
+      }
+
+      case 'Home Education':
+        if (period === REGISTRATION_PERIODS.SUMMER) {
+          return `
+            <div class="prose prose-sm max-w-none">
+              <p><strong>Home Education registration for the current year is closed.</strong></p>
+              
+              <p>You have two options:</p>
+              <ol class="mt-1 mb-2 pl-5">
+                <li>Register as a Summer School student until ${formatDate(summerToRegular)}</li>
+                <li>Register for the next school year as a Home Education student</li>
+              </ol>
+              
+              <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+                For next year, you must have a home education registration with a home school organization. Shared responsibility programs are not eligible.
+              </p>
+              
+              <p class="bg-blue-50 border-l-2 border-blue-500 pl-2 py-1 text-sm">
+                If you are 19 or younger as of September 1, you may qualify for free summer school courses, but marks won't appear until summer.
+              </p>
+            </div>
+          `;
+        } else if (period === REGISTRATION_PERIODS.REGULAR) {
+          const today = new Date();
+          const currentYear = today.getFullYear();
+          const septFirst = new Date(currentYear, 8, 1); // September 1st (months are 0-indexed)
+          const isNewAcademicYear = today >= septFirst;
+          
+          // Check if home education deadline has passed but only consider it if we're not in a new academic year
+          if (homeEdDeadline && today > homeEdDeadline && !isNewAcademicYear) {
+            return `
+              <div class="prose prose-sm max-w-none">
+                <p>The deadline for Home Education registration for the current school year has passed (${formatDate(homeEdDeadline)}).</p>
+                
+                <p>You have two options:</p>
+                <ol class="mt-1 mb-2 pl-5">
+                  <li>Wait until ${formatDate(regularToSummer)} to register as a Summer School student</li>
+                  <li>Register for the next school year as a Home Education student</li>
+                </ol>
+                
+                <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+                  For next year registration, you must have a home education registration with a home school organization, not a shared responsibility program.
+                </p>
+                
+                <p class="bg-blue-50 border-l-2 border-blue-500 pl-2 py-1 text-sm">
+                  If you are 19 or younger as of September 1, you may qualify for free summer school courses, but marks won't appear until summer.
+                </p>
+              </div>
+            `;
+          }
+          
+          if (canRegisterForNextYear) {
+            const registrationOptions = [];
+            
+            // Only include current year registration if we haven't passed the deadline or we're in a new academic year
+            if (isNewAcademicYear || !homeEdDeadline || today <= homeEdDeadline) {
+              registrationOptions.push(`Register for the current school year as a Home Education student until ${formatDate(homeEdDeadline)}`);
+            }
+            
+            registrationOptions.push(`Wait until ${formatDate(regularToSummer)} to register as a Summer School student`);
+            registrationOptions.push(`Register for the next school year now`);
+            
+            return `
+              <div class="prose prose-sm max-w-none">
+                <p>You have multiple options:</p>
+                <ol class="mt-1 mb-2 pl-5">
+                  ${registrationOptions.map(option => `<li>${option}</li>`).join('')}
+                </ol>
+                
+                <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+                  All Home Education registrations require a home school organization. Shared responsibility programs are not eligible.
+                </p>
+                
+                <p class="bg-blue-50 border-l-2 border-blue-500 pl-2 py-1 text-sm">
+                  If you are 19 or younger as of September 1, you may qualify for free summer school courses, but marks won't appear until summer.
+                </p>
+              </div>
+            `;
+          }
+          
+          const registrationOptions = [];
+          
+          // Only include current year registration if we haven't passed the deadline or we're in a new academic year
+          if (isNewAcademicYear || !homeEdDeadline || today <= homeEdDeadline) {
+            registrationOptions.push(`Register for the current school year as a Home Education student until ${formatDate(homeEdDeadline)}`);
+          }
+          
+          registrationOptions.push(`Wait until ${formatDate(regularToSummer)} to register as a Summer School student`);
+          
+          return `
+            <div class="prose prose-sm max-w-none">
+              ${registrationOptions.length > 1 ? 
+                `<p>You have ${registrationOptions.length} options:</p>
+                 <ol class="mt-1 mb-2 pl-5">
+                   ${registrationOptions.map(option => `<li>${option}</li>`).join('')}
+                 </ol>` : 
+                `<p>${registrationOptions[0]}</p>`
+              }
+              
+              <p>Registration for next school year opens on ${formatDate(nextYearOpens)}.</p>
+              
+              <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+                All Home Education registrations require a home school organization, not a shared responsibility program.
+              </p>
+              
+              <p class="bg-blue-50 border-l-2 border-blue-500 pl-2 py-1 text-sm">
+                  If you are 19 or younger as of September 1, you may qualify for free summer school courses, but marks won't appear until summer.
+              </p>
+            </div>
+          `;
+        } else {
+          return `
+            <div class="prose prose-sm max-w-none">
+              <p>Registration is now open for the next school year as a Home Education student.</p>
+              
+              <p>To ensure your courses count for semester one funding, please register before ${formatDate(sepCount)}.</p>
+              
+              <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+                You must have a home education registration with a home school organization. Shared responsibility programs are not eligible.
+              </p>
+            </div>
+          `;
+        }
+
+    case 'Summer School':
+      if (period === REGISTRATION_PERIODS.SUMMER) {
+        return `
+          <div class="prose prose-sm max-w-none">
+            <p>Summer School registration is open until ${formatDate(summerToRegular)}.</p>
+            
+            <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+              All summer courses must be completed by the end of August, and marks won't appear until summer. To qualify for free courses, you must be 19 or younger as of September 1.
+            </p>
+            
+            <p>If you need marks earlier or are older than 19, consider registering as a paid Adult Student.</p>
+          </div>
+        `;
+      } else if (period === REGISTRATION_PERIODS.REGULAR) {
+        if (canRegisterForNextYear) {
+          return `
+            <div class="prose prose-sm max-w-none">
+              <p>Summer School registration opens on ${formatDate(regularToSummer)}. Currently, you can:</p>
+              <ol class="mt-1 mb-2 pl-5">
+                <li>Register as a Non-Primary student (with primary registration elsewhere)</li>
+                <li>Register as a Home Education student (with home education registration)</li>
+                <li>Register for the next school year</li>
+              </ol>
+              
+              <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+                For next year, you must maintain qualifying status (primary registration elsewhere or home education) to avoid Adult Student status requiring payment.
+              </p>
+              
+              <p class="bg-blue-50 border-l-2 border-blue-500 pl-2 py-1 text-sm">
+                If you are 19 or younger as of September 1, you qualify for free summer school starting ${formatDate(regularToSummer)}, but marks won't appear until summer.
+              </p>
+            </div>
+          `;
+        }
+        return `
+          <div class="prose prose-sm max-w-none">
+            <p>Summer School registration opens on ${formatDate(regularToSummer)}.</p>
+            
+            <p>Currently, register as a Non-Primary student (with primary registration elsewhere) or Home Education student. Next year registration opens on ${formatDate(nextYearOpens)}.</p>
+            
+            <p class="bg-blue-50 border-l-2 border-blue-500 pl-2 py-1 text-sm">
+              If you are 19 or younger as of September 1, you qualify for free summer school, but marks won't appear until summer.
+            </p>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="prose prose-sm max-w-none">
+            <p>Summer School registration has ended for this year.</p>
+            
+            <p>You can now register for courses in the next school year as a Non-Primary student (with primary registration elsewhere) or Home Education student.</p>
+            
+            <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+              You must maintain qualifying status to avoid Adult Student status requiring payment.
+            </p>
+          </div>
+        `;
+      }
+
+    case 'Adult Student':
+      if (canRegisterForNextYear) {
+        return `
+          <div class="prose prose-sm max-w-none">
+            <p>As an Adult student, you have flexible registration options:</p>
+            <ul class="mt-1 mb-2 pl-5">
+              <li>Register for the current school year</li>
+              <li>Register as a Summer School student (after ${formatDate(regularToSummer)})</li>
+              <li>Register for the next school year</li>
+            </ul>
+            
+            <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+              Adult students must pay for courses. Marks will not be submitted to your transcript until payment is made.
+            </p>
+            
+            <p class="bg-blue-50 border-l-2 border-blue-500 pl-2 py-1 text-sm">
+              If you are 19 or younger as of September 1, you may qualify for free summer school courses, but marks won't appear until summer.
+            </p>
+          </div>
+        `;
+      }
+      return `
+        <div class="prose prose-sm max-w-none">
+          <p>As an Adult student, you can register anytime during the current year, including summer school after ${formatDate(regularToSummer)}. Next year registration opens on ${formatDate(nextYearOpens)}.</p>
+          
+          <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+            Adult students must pay for courses. Marks will not be submitted until payment is made.
+          </p>
+          
+          <p class="bg-blue-50 border-l-2 border-blue-500 pl-2 py-1 text-sm">
+            If you are 19 or younger as of September 1, you may qualify for free summer school courses, but marks won't appear until summer.
+          </p>
+        </div>
+      `;
+
+    case 'International Student':
+      if (canRegisterForNextYear) {
+        return `
+          <div class="prose prose-sm max-w-none">
+            <p>As an International student, you have flexible registration options:</p>
+            <ul class="mt-1 mb-2 pl-5">
+              <li>Register for the current school year</li>
+              <li>Register as a Summer School student (after ${formatDate(regularToSummer)})</li>
+              <li>Register for the next school year</li>
+            </ul>
+            
+            <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+              International students must pay for courses. Marks will not be submitted to your transcript until payment is made.
+            </p>
+          </div>
+        `;
+      }
+      return `
+        <div class="prose prose-sm max-w-none">
+          <p>As an International student, you can register anytime during the current year, including summer school after ${formatDate(regularToSummer)}. Next year registration opens on ${formatDate(nextYearOpens)}.</p>
+          
+          <p class="bg-amber-50 border-l-2 border-amber-500 pl-2 py-1 text-sm">
+            International students must pay for courses. Marks will not be submitted until payment is made.
+          </p>
+        </div>
+      `;
+
+    default:
+      return "";
+  }
+};
+
+
+
 
 export const COURSE_ENROLLMENT_STATUS_OPTIONS = [
   { 

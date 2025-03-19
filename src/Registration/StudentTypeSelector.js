@@ -1,20 +1,12 @@
 import { useState, useEffect } from 'react';
 import { getDatabase, ref, set } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
-import { Card, CardHeader, CardContent } from "../components/ui/card";
+import { Card, CardHeader, CardContent, CardFooter } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Label } from "../components/ui/label";
-import { AlertTriangle, InfoIcon } from "lucide-react";
+import { AlertTriangle, InfoIcon, CheckCircle } from "lucide-react";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from "../components/ui/dialog";
 import { useRegistrationPeriod, RegistrationPeriod } from '../utils/registrationPeriods';
 
 const studentTypes = [
@@ -69,19 +61,17 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
   const uid = user?.uid;
   const [currentView, setCurrentView] = useState(isFormComponent ? 'initial' : 'questionnaire');
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [justDetermined, setJustDetermined] = useState(false);
+  const [pendingStudentType, setPendingStudentType] = useState('');
   const [selectedStudentType, setSelectedType] = useState(selectedType || '');
   const [error, setError] = useState(null);
-  const [showInfoDialog, setShowInfoDialog] = useState(false);
-  const [acknowledgedType, setAcknowledgedType] = useState('');
-  const [pendingStudentType, setPendingStudentType] = useState('');
+  const [needsAcknowledgment, setNeedsAcknowledgment] = useState(false);
+  const [acknowledgedTypes, setAcknowledgedTypes] = useState({});
   
   const { 
     period, 
-    importantDates, 
-    canRegisterForNextYear, 
     loading: periodLoading,
-    getStudentTypeMessage
+    getStudentTypeMessage,
+    isHomeEdDeadlinePassed
   } = useRegistrationPeriod();
 
   // Filter student types based on the current period
@@ -105,7 +95,10 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
       
       default:
         // During regular period, all types are available
-        return studentTypes;
+        // EXCEPT Home Education if deadline has passed
+        return studentTypes.filter(type => 
+          !(isHomeEdDeadlinePassed && type.value === 'Home Education')
+        );
     }
   };
 
@@ -133,7 +126,6 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
         await saveToPendingRegistration(type);
       }
       setSelectedType(type);
-      setJustDetermined(true);
       onStudentTypeSelect(type);
     } catch (error) {
       setError('Failed to save student type. Please try again.');
@@ -159,18 +151,28 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
       }
       
       // If this type has already been acknowledged, apply it directly
-      if (value === acknowledgedType) {
+      if (acknowledgedTypes[value]) {
         await processStudentTypeSelection(value);
         return;
       }
       
-      // Otherwise, show the dialog first
+      // Otherwise, show the acknowledgment step
       setPendingStudentType(value);
-      setShowInfoDialog(true);
+      setNeedsAcknowledgment(true);
     } catch (error) {
       setError('Failed to process student type. Please try again.');
       console.error('Error processing student type:', error);
     }
+  };
+
+  const handleAcknowledgment = async () => {
+    setAcknowledgedTypes(prev => ({
+      ...prev,
+      [pendingStudentType]: true
+    }));
+    
+    setNeedsAcknowledgment(false);
+    await processStudentTypeSelection(pendingStudentType);
   };
 
   const handleAnswer = (answer) => {
@@ -208,9 +210,8 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
 
       setCurrentView(isFormComponent ? 'initial' : 'questionnaire');
       setCurrentQuestion(0);
-      setJustDetermined(false);
       setSelectedType('');
-      setAcknowledgedType('');
+      setPendingStudentType('');
       onStudentTypeSelect('');
     } catch (error) {
       setError('Failed to restart questionnaire. Please try again.');
@@ -218,17 +219,10 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
     }
   };
 
-  // Get the student type message for the dialog
+  // Get the student type message for the acknowledgment
   const getTypeSpecificMessage = (type) => {
     if (!type) return "";
     return getStudentTypeMessage(type);
-  };
-
-  // Handle dialog acknowledgment
-  const handleAcknowledgment = async () => {
-    setAcknowledgedType(pendingStudentType);
-    setShowInfoDialog(false);
-    await processStudentTypeSelection(pendingStudentType);
   };
 
   const renderInitialView = () => (
@@ -259,7 +253,82 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
     </Card>
   );
 
-  const renderQuestionnaire = () => (
+ // Inside the renderAcknowledgmentView function
+
+// Inside the renderAcknowledgmentView function
+
+const renderAcknowledgmentView = () => {
+  const messageHTML = getStudentTypeMessage(pendingStudentType);
+  
+  return (
+    <div className="w-full">
+      <Card className="bg-gradient-to-br from-blue-50 to-indigo-100 shadow-md border-blue-400 border-t-4 relative overflow-hidden flex flex-col">
+        <div className="absolute top-0 right-0 w-24 h-24 bg-blue-100 rounded-full -mr-8 -mt-8 z-0 opacity-80"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-100 rounded-full -ml-16 -mb-16 z-0 opacity-80"></div>
+        
+        <CardHeader className="pb-1 relative z-10">
+          <div className="flex items-center space-x-2">
+            <InfoIcon className="h-5 w-5 text-blue-600" />
+            <h3 className="text-lg font-semibold text-blue-800">Before proceeding as a {studentTypes.find((type) => type.value === pendingStudentType)?.label}</h3>
+          </div>
+        </CardHeader>
+        
+        <CardContent className="relative z-10 flex-grow overflow-y-auto py-2">
+          <div 
+            className="bg-white bg-opacity-90 p-3 rounded-lg border border-blue-200 shadow-sm"
+            dangerouslySetInnerHTML={{ __html: messageHTML }}
+          />
+        </CardContent>
+        
+        <CardFooter className="flex justify-between relative z-10 pt-1 pb-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setNeedsAcknowledgment(false);
+              setPendingStudentType('');
+            }}
+            className="border-blue-300 text-blue-700 hover:bg-blue-50"
+          >
+            Go Back
+          </Button>
+          
+          <Button
+            onClick={handleAcknowledgment}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <CheckCircle className="mr-2 h-4 w-4" />
+            I Understand
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+};
+  // Main content renderer that handles state-based view switching
+  const renderContent = () => {
+    // Show acknowledgment view if needed - this takes precedence over everything else
+    if (needsAcknowledgment) {
+      return renderAcknowledgmentView();
+    }
+    
+    // Otherwise show the appropriate view based on current state
+    if (isFormComponent) {
+      switch (currentView) {
+        case 'initial':
+          return renderInitialView();
+        case 'questionnaire':
+          return renderQuestionnaireContent();
+        case 'direct-select':
+          return renderDirectSelectContent();
+        default:
+          return renderInitialView();
+      }
+    } else {
+      return renderQuestionnaireContent();
+    }
+  };
+
+  const renderQuestionnaireContent = () => (
     <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
       <CardHeader>
         <h3 className="text-lg font-semibold">Determine Your Student Type</h3>
@@ -268,47 +337,38 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
-        {!justDetermined ? (
-          <div className="space-y-4">
-            <p className="text-sm font-medium text-gray-700">{questions[currentQuestion].text}</p>
-            <div className="grid gap-2">
-              {questions[currentQuestion].options.map((option) => (
-                <Button
-                  key={option}
-                  onClick={() => handleAnswer(option)}
-                  variant="outline"
-                  className="w-full"
-                >
-                  {option}
-                </Button>
-              ))}
-            </div>
+        <div className="space-y-4">
+          <p className="text-sm font-medium text-gray-700">{questions[currentQuestion].text}</p>
+          <div className="grid gap-2">
+            {questions[currentQuestion].options.map((option) => (
+              <Button
+                key={option}
+                onClick={() => handleAnswer(option)}
+                variant="outline"
+                className="w-full"
+              >
+                {option}
+              </Button>
+            ))}
           </div>
-        ) : (
-          <div className="space-y-4">
-            <Alert className="bg-blue-50 border-blue-200">
-              <AlertDescription className="text-blue-700">
-                Based on your answers, you are a{' '}
-                <span className="font-medium">
-                  {studentTypes.find((type) => type.value === selectedStudentType)?.label}
-                </span>
-              </AlertDescription>
-            </Alert>
-            
-            <Button
-              onClick={restartQuestionnaire}
-              variant="outline"
-              className="w-full"
-            >
-              Start Over
-            </Button>
-          </div>
-        )}
+        </div>
       </CardContent>
+      
+      {selectedStudentType && (
+        <CardFooter>
+          <Button
+            onClick={restartQuestionnaire}
+            variant="outline"
+            className="w-full"
+          >
+            Start Over
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 
-  const renderDirectSelect = () => (
+  const renderDirectSelectContent = () => (
     <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
       <CardHeader>
         <h3 className="text-lg font-semibold">Select Your Student Type</h3>
@@ -346,49 +406,6 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
     </Card>
   );
 
-  // Information Dialog Component
-  const renderInfoDialog = () => (
-    <Dialog open={showInfoDialog} onOpenChange={setShowInfoDialog}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-lg">
-            Important Information for {studentTypes.find((type) => type.value === pendingStudentType)?.label}s
-          </DialogTitle>
-          <DialogDescription className="text-sm text-gray-500">
-            Please review this information before continuing with your registration.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="p-4 my-2 bg-blue-50 rounded-md border border-blue-200">
-          <div className="flex gap-2 items-start">
-            <InfoIcon className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-            <p className="text-sm text-blue-800">
-              {getTypeSpecificMessage(pendingStudentType)}
-            </p>
-          </div>
-        </div>
-        
-        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={() => setShowInfoDialog(false)}
-            className="sm:mr-auto"
-          >
-            Cancel
-          </Button>
-          <Button 
-            type="button" 
-            onClick={handleAcknowledgment}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            I Understand
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-
   return (
     <div className="space-y-6">
       {error && (
@@ -398,18 +415,8 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
         </Alert>
       )}
 
-      {isFormComponent ? (
-        <>
-          {currentView === 'initial' && renderInitialView()}
-          {currentView === 'questionnaire' && renderQuestionnaire()}
-          {currentView === 'direct-select' && renderDirectSelect()}
-        </>
-      ) : (
-        renderQuestionnaire()
-      )}
-
-      {/* Information Dialog */}
-      {renderInfoDialog()}
+      {/* Single content container with clean state-based rendering */}
+      {renderContent()}
     </div>
   );
 }
