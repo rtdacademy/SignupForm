@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Calendar, Plus, Edit, Trash, Check, Clock, AlertCircle, Info, CalendarCheck, Clock8, RepeatIcon, User, Home, Sun, Globe, GraduationCap } from 'lucide-react';
+import { Calendar, Plus, Edit, Trash, Check, Clock, AlertCircle, Info, CalendarCheck, Clock8, RepeatIcon, User, Home, Sun, Globe, GraduationCap, AlertTriangle, CalendarDays } from 'lucide-react';
 import { getDatabase, ref, update, get, push, remove } from 'firebase/database';
 import { 
   Dialog,
@@ -32,6 +32,9 @@ import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { toast } from 'sonner';
 import { Checkbox } from '../components/ui/checkbox';
+
+// Import YearlyCalendarView component
+import YearlyCalendarView from './YearlyCalendarView';
 
 // Import student type options
 import { STUDENT_TYPE_OPTIONS } from '../config/DropdownOptions';
@@ -471,6 +474,9 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
     description: event.description || '',
     recurring: event.recurring || false,
     ...formatDateForDatabase(event.displayDate || formatDateForDisplay(event) || new Date().toLocaleDateString('en-CA')),
+    // Add endDate fields
+    endDate: event.endDate || null,
+    endDateDisplayDate: event.endDateDisplayDate || '',
     confirmed: event.confirmed || false,
     applicableStudentTypes: event.applicableStudentTypes || [] // Initialize with existing data or empty array
   });
@@ -483,6 +489,18 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
       date,
       displayDate,
       timezone
+    };
+    setEditedEvent(updatedEvent);
+    onSave(updatedEvent); // Immediately update parent component
+  };
+
+  const handleEndDateChange = (e) => {
+    const localDate = e.target.value;
+    const { date, displayDate } = formatDateForDatabase(localDate);
+    const updatedEvent = {
+      ...editedEvent,
+      endDate: date,
+      endDateDisplayDate: displayDate
     };
     setEditedEvent(updatedEvent);
     onSave(updatedEvent); // Immediately update parent component
@@ -541,6 +559,16 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
     );
   };
 
+  // Check if end date is after start date
+  const isEndDateValid = () => {
+    if (!editedEvent.endDate || !editedEvent.displayDate) return true;
+    
+    const startDate = new Date(editedEvent.displayDate);
+    const endDate = new Date(editedEvent.endDateDisplayDate);
+    
+    return endDate >= startDate;
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -573,7 +601,7 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
       </div>
       
       <div>
-        <Label>Date</Label>
+        <Label>Start Date</Label>
         <Input
           type="date"
           value={editedEvent.displayDate || formatDateForDisplay(editedEvent)}
@@ -586,6 +614,32 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
           </p>
         )}
       </div>
+      
+      {/* Add End Date field for Registration type */}
+      {editedEvent.type === 'Registration' && (
+        <div>
+          <Label>End Date {editedEvent.recurring ? "(Annual)" : "(Optional)"}</Label>
+          <Input
+            type="date"
+            value={editedEvent.endDateDisplayDate || formatDateForDisplay({
+              date: editedEvent.endDate,
+              displayDate: editedEvent.endDateDisplayDate
+            })}
+            onChange={handleEndDateChange}
+            className="mt-1"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {editedEvent.recurring 
+              ? "Both start and end dates will recur annually, creating a yearly registration window."
+              : "If specified, this registration period will end on this date."}
+          </p>
+          {editedEvent.endDateDisplayDate && !isEndDateValid() && (
+            <p className="text-xs text-red-500 mt-1">
+              End date must be after or equal to the start date.
+            </p>
+          )}
+        </div>
+      )}
       
       <div>
         <Label>Description</Label>
@@ -615,7 +669,9 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
         <div>
           <Label>Annual Recurring Event</Label>
           <p className="text-xs text-gray-500">
-            Event repeats every year on the same date
+            {editedEvent.type === 'Registration' && editedEvent.endDateDisplayDate
+              ? "Registration period repeats every year with the same start and end dates"
+              : "Event repeats every year on the same date"}
           </p>
         </div>
       </div>
@@ -671,6 +727,21 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
           ))}
         </div>
       </div>
+
+      {/* Warning message for Registration dates */}
+      {editedEvent.type === 'Registration' && !isNew && (
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start">
+          <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm text-amber-800 font-medium">
+              Registration dates cannot be deleted
+            </p>
+            <p className="text-xs text-amber-700 mt-1">
+              These dates are used elsewhere in the system to manage student registration periods.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -836,6 +907,8 @@ function AddGeneralEventDialog({ onAddEvent }) {
     date,
     displayDate,
     timezone,
+    endDate: null,
+    endDateDisplayDate: '',
     confirmed: false,
     recurring: false,
     applicableStudentTypes: [] // Initialize empty array for student types
@@ -852,6 +925,17 @@ function AddGeneralEventDialog({ onAddEvent }) {
     if (!newEvent.title) {
       toast.error("Please provide a title for this event.");
       return;
+    }
+
+    // Validate that end date is after start date if specified
+    if (newEvent.endDate && newEvent.displayDate && newEvent.endDateDisplayDate) {
+      const startDate = new Date(newEvent.displayDate);
+      const endDate = new Date(newEvent.endDateDisplayDate);
+      
+      if (endDate < startDate) {
+        toast.error("End date must be after or equal to the start date.");
+        return;
+      }
     }
     
     onAddEvent(newEvent);
@@ -984,6 +1068,17 @@ function EditGeneralEventSheet({ event, onSave, onDelete }) {
   };
   
   const handleSave = () => {
+    // Validate that end date is after start date if specified
+    if (editedEvent.endDate && editedEvent.displayDate && editedEvent.endDateDisplayDate) {
+      const startDate = new Date(editedEvent.displayDate);
+      const endDate = new Date(editedEvent.endDateDisplayDate);
+      
+      if (endDate < startDate) {
+        toast.error("End date must be after or equal to the start date.");
+        return;
+      }
+    }
+    
     onSave(editedEvent);
     setIsOpen(false);
   };
@@ -1021,9 +1116,11 @@ function EditGeneralEventSheet({ event, onSave, onDelete }) {
               Cancel
             </Button>
             <div className="space-x-2">
-              <Button variant="destructive" onClick={() => handleDelete()}>
-                <Trash className="h-4 w-4 mr-1" /> Delete
-              </Button>
+              {editedEvent.type !== 'Registration' && (
+                <Button variant="destructive" onClick={() => handleDelete()}>
+                  <Trash className="h-4 w-4 mr-1" /> Delete
+                </Button>
+              )}
               <Button onClick={handleSave}>
                 Save
               </Button>
@@ -1037,14 +1134,21 @@ function EditGeneralEventSheet({ event, onSave, onDelete }) {
 
 // DeleteConfirmDialog Component
 function DeleteConfirmDialog({ isOpen, onClose, onConfirm, itemInfo, itemType = 'date' }) {
+  // Check if this is a registration date - if so, don't allow deletion
+  const isRegistrationType = itemInfo?.type === 'Registration';
+  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Delete Important {itemType === 'date' ? 'Date' : 'Event'}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete this {itemType === 'date' ? 'date' : 'event'}
-            {itemInfo?.courseTitle ? ` for ${itemInfo.courseTitle}` : ''}?
+            {isRegistrationType ? (
+              "Registration dates cannot be deleted as they are used elsewhere in the system."
+            ) : (
+              `Are you sure you want to delete this ${itemType === 'date' ? 'date' : 'event'}
+              ${itemInfo?.courseTitle ? ` for ${itemInfo.courseTitle}` : ''}?`
+            )}
           </DialogDescription>
         </DialogHeader>
         
@@ -1067,7 +1171,13 @@ function DeleteConfirmDialog({ isOpen, onClose, onConfirm, itemInfo, itemType = 
                 <>
                   <div><strong>Title:</strong> {itemInfo?.title}</div>
                   <div><strong>Type:</strong> {itemInfo?.type} {itemInfo?.subtype ? `(${itemInfo.subtype})` : ''}</div>
-                  <div><strong>Date:</strong> {formatDateForGrouping(itemInfo)}</div>
+                  <div><strong>Start Date:</strong> {formatDateForGrouping(itemInfo)}</div>
+                  {itemInfo?.endDate && (
+                    <div><strong>End Date:</strong> {formatDateForGrouping({
+                      date: itemInfo.endDate,
+                      displayDate: itemInfo.endDateDisplayDate
+                    })}</div>
+                  )}
                   {itemInfo?.recurring && (
                     <div><strong>Recurring:</strong> Yes (Annual)</div>
                   )}
@@ -1084,18 +1194,99 @@ function DeleteConfirmDialog({ isOpen, onClose, onConfirm, itemInfo, itemType = 
                 </>
               )}
             </div>
-            <p className="mt-4 text-red-600 font-medium">This action cannot be undone.</p>
+            
+            {isRegistrationType ? (
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start">
+                <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-amber-800 font-medium">
+                    Registration dates cannot be deleted
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    These dates are used elsewhere in the system to manage student registration periods.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 text-red-600 font-medium">This action cannot be undone.</p>
+            )}
           </div>
         </ScrollArea>
         
         <DialogFooter className="mt-6">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button variant="destructive" onClick={onConfirm}>
-            <Trash className="h-4 w-4 mr-2" /> Delete
-          </Button>
+          {!isRegistrationType && (
+            <Button variant="destructive" onClick={onConfirm}>
+              <Trash className="h-4 w-4 mr-2" /> Delete
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CalendarViewSheet({ isOpen, onClose, dates }) {
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  
+  // Filter to only include registration dates with defensive check for dates
+  const registrationDates = useMemo(() => {
+    // Add defensive check
+    if (!dates || !Array.isArray(dates)) {
+      console.warn("CalendarViewSheet received invalid dates prop:", dates);
+      return [];
+    }
+    
+    // Make sure we're filtering to only registration events
+    return dates.filter(date => date && date.type === 'Registration');
+  }, [dates]);
+  
+  // Debug - log registration dates
+  useEffect(() => {
+    console.log('Registration dates passed to calendar view:', registrationDates);
+  }, [registrationDates]);
+
+  // Generate year options (current year and next 5 years)
+  const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear + i);
+  
+  return (
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent side="right" className="w-[95%] max-w-[1200px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center justify-between">
+            <span>Registration Calendar View</span>
+            <Select
+              value={selectedYear.toString()}
+              onValueChange={(value) => setSelectedYear(parseInt(value))}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {yearOptions.map(year => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SheetTitle>
+       
+        </SheetHeader>
+        
+        <div className="mt-6">
+          {/* Display count of registration dates for debugging */}
+        
+          
+          <YearlyCalendarView dates={registrationDates || []} year={selectedYear} />
+        </div>
+        
+        <SheetFooter className="mt-6">
+          <Button onClick={onClose}>Close</Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -1114,6 +1305,9 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
   });
   const [loading, setLoading] = useState(true);
   const [expandedAccordionItems, setExpandedAccordionItems] = useState([]);
+  
+  // Calendar view sheet state
+  const [calendarSheetOpen, setCalendarSheetOpen] = useState(false);
   
   // Create refs for date groups and the closest upcoming date
   const scrollContainerRef = useRef(null);
@@ -1214,14 +1408,52 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
           month: '2-digit',
           day: '2-digit'
         });
+
+        // Process end date for recurring registration periods
+        let processedEndDate = event.endDate;
+        let processedEndDateDisplay = event.endDateDisplayDate;
+
+        if (event.type === 'Registration' && event.endDate && event.endDateDisplayDate) {
+          let endDate;
+          if (event.endDateDisplayDate) {
+            const [year, month, day] = event.endDateDisplayDate.split('-').map(Number);
+            endDate = new Date(year, month - 1, day);
+          } else {
+            endDate = new Date(event.endDate);
+          }
+
+          // For recurring events, set end date to current or next year
+          const currentYearEndDate = new Date(
+            currentYear,
+            endDate.getMonth(),
+            endDate.getDate()
+          );
+
+          // If end date is before start date in the current year, move end date to next year
+          if (currentYearEndDate < currentYearDate) {
+            currentYearEndDate.setFullYear(currentYear + 1);
+          }
+
+          // Format the end date display
+          processedEndDate = currentYearEndDate.toISOString();
+          processedEndDateDisplay = currentYearEndDate.toLocaleDateString('en-CA', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          });
+        }
         
         // Return event with updated date
         return {
           ...event,
           date: currentYearDate.toISOString(),
           displayDate: formattedDisplayDate,
+          endDate: processedEndDate,
+          endDateDisplayDate: processedEndDateDisplay,
           originalDate: event.date, // Store original date for reference
-          originalDisplayDate: event.displayDate // Store original displayDate
+          originalDisplayDate: event.displayDate, // Store original displayDate
+          originalEndDate: event.endDate, // Store original end date
+          originalEndDateDisplayDate: event.endDateDisplayDate // Store original end date display
         };
       });
   }, [generalDates]);
@@ -1419,6 +1651,25 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
     return deadlineDate < today;
   };
 
+  // Format the registration period for display
+  const formatRegistrationPeriod = (startDate, endDate, isRecurring) => {
+    if (!startDate) return '';
+    
+    if (!endDate) return formatReadableDate(startDate);
+    
+    if (isRecurring) {
+      // For recurring events, just show month and day
+      const startStr = formatRecurringDateForDisplay(startDate);
+      const endStr = formatRecurringDateForDisplay(endDate);
+      return `${startStr} to ${endStr} annually`;
+    } else {
+      // For non-recurring events, show full dates
+      const startStr = formatReadableDate(startDate);
+      const endStr = formatReadableDate(endDate);
+      return `${startStr} to ${endStr}`;
+    }
+  };
+
   // Add a new diploma date
   const handleAddDiplomaDate = async (courseId, newTime) => {
     try {
@@ -1512,21 +1763,32 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
       const db = getDatabase();
       const eventRef = ref(db, `ImportantDates/${updatedEvent.id}`);
       
-      // If this is a processed recurring event, ensure we're preserving the original date
+      // If this is a processed recurring event, ensure we're preserving the original dates
       let eventToSave = { ...updatedEvent };
+      
       if (updatedEvent.originalDate) {
-        // If editing a recurring event, we need to preserve the original date
+        // If editing a recurring event, preserve the original dates
         eventToSave.date = updatedEvent.originalDate;
       }
       
       if (updatedEvent.originalDisplayDate) {
-        // Also preserve original displayDate if it exists
         eventToSave.displayDate = updatedEvent.originalDisplayDate;
+      }
+      
+      // Also preserve original end date if it exists
+      if (updatedEvent.originalEndDate) {
+        eventToSave.endDate = updatedEvent.originalEndDate;
+      }
+      
+      if (updatedEvent.originalEndDateDisplayDate) {
+        eventToSave.endDateDisplayDate = updatedEvent.originalEndDateDisplayDate;
       }
       
       // Remove temporary processing fields
       delete eventToSave.originalDate;
       delete eventToSave.originalDisplayDate;
+      delete eventToSave.originalEndDate;
+      delete eventToSave.originalEndDateDisplayDate;
       
       await update(eventRef, eventToSave);
       
@@ -1576,6 +1838,13 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
   // Delete a general event
   const handleDeleteGeneralEvent = async (eventId) => {
     try {
+      // Check if this is a registration date
+      const event = generalDates[eventId];
+      if (event && event.type === 'Registration') {
+        toast.error("Registration dates cannot be deleted as they are used elsewhere in the system.");
+        return;
+      }
+      
       setLoading(true);
       const db = getDatabase();
       const eventRef = ref(db, `ImportantDates/${eventId}`);
@@ -1613,10 +1882,18 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
 
   // Show delete confirmation for general event
   const confirmDeleteGeneralEvent = (eventId) => {
+    const event = generalDates[eventId];
+    
+    // Don't allow deletion of registration dates
+    if (event && event.type === 'Registration') {
+      toast.error("Registration dates cannot be deleted as they are used elsewhere in the system.");
+      return;
+    }
+    
     setDeleteDialog({
       isOpen: true,
       itemId: eventId,
-      itemInfo: generalDates[eventId],
+      itemInfo: event,
       itemType: 'event'
     });
   };
@@ -1674,6 +1951,13 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
         <h1 className="text-2xl font-bold">Important Dates</h1>
         
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            className="flex items-center"
+            onClick={() => setCalendarSheetOpen(true)}
+          >
+            <CalendarDays className="h-4 w-4 mr-2" /> Calendar View
+          </Button>
           <AddDiplomaDateDialog 
             courses={courses} 
             onAddDate={handleAddDiplomaDate} 
@@ -1702,273 +1986,300 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
       </Tabs>
       
     {/* Display dates grouped by date */}
-<div 
-  ref={scrollContainerRef}
-  className="flex-1 overflow-y-auto pb-24" // Added more padding at bottom
->
-  {loading ? (
-    <div className="text-center py-10">
-      <p className="text-gray-500">Loading important dates...</p>
-    </div>
-  ) : groupedByDate.length === 0 ? (
-    <div className="text-center py-10 border rounded-lg bg-gray-50">
-      <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-2" />
-      <p className="text-gray-500">No important dates found.</p>
-      <p className="text-gray-400 text-sm mt-2">Add dates using the buttons above.</p>
-    </div>
-  ) : (
-    <Accordion 
-      type="multiple" 
-      value={expandedAccordionItems} 
-      onValueChange={handleAccordionChange}
-      className="space-y-4"
+    <div 
+      ref={scrollContainerRef}
+      className="flex-1 overflow-y-auto pb-24" // Added more padding at bottom
     >
-      {groupedByDate.map((dateGroup, index) => {
-        const isPast = isPastDate(dateGroup.dateObj);
-        
-        return (
-          <AccordionItem 
-            key={dateGroup.date} 
-            value={`date-${dateGroup.index}`}
-            ref={(el) => (dateGroupRefs.current[`date-${dateGroup.index}`] = el)}
-            className={`border rounded-lg shadow-sm ${isPast ? 'border-gray-200' : ''} ${
-              dateGroup.index === closestUpcomingDateGroup?.index 
-                ? 'border-green-300 ring-1 ring-green-300' 
-                : ''
-            } ${getTodayClasses(dateGroup.dateObj)}`}
-          >
-            <AccordionTrigger className="px-4 py-3 hover:no-underline">
-              <div className="flex items-center text-left">
-                <Calendar className={`h-5 w-5 mr-3 ${isPast ? 'text-gray-400' : 'text-blue-500'} flex-shrink-0`} />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{dateGroup.date}</span>
-                    {isPast && (
-                      <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-200">
-                        Past
-                      </Badge>
-                    )}
-                    {isToday(dateGroup.dateObj) && (
-                      <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-                        Today
-                      </Badge>
-                    )}
-                    {dateGroup.index === closestUpcomingDateGroup?.index && !isToday(dateGroup.dateObj) && (
-                      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-                        Upcoming
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {dateGroup.dates.length} {dateGroup.dates.length === 1 ? 'event' : 'events'}
-                  </div>
-                </div>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4">
-              <div className="space-y-3">
-                {dateGroup.dates.map((date) => {
-                  const isPastEvent = isPastDate(date);
-                  
-                  return (
-                    <Card 
-                      key={date.id} 
-                      className={`overflow-hidden ${
-                        date.type === 'Diploma' 
-                          ? 'border-l-4 border-l-blue-500' 
-                          : date.type === 'Registration' 
-                            ? 'border-l-4 border-l-green-500' 
-                            : 'border-l-4 border-l-purple-500'
-                      } ${getPastEventClasses(date)}`}
-                    >
-                      <div className="flex items-start">
-                        <div 
-                          className={`flex-1 cursor-pointer hover:bg-gray-50 ${
-                            date.type === 'Diploma' ? '' : 'cursor-default'
-                          }`}
-                          onClick={() => date.type === 'Diploma' ? onCourseSelect(date.courseId) : null}
-                        >
-                          <CardHeader className="py-3">
-                            <CardTitle className="text-md flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {getEventIcon(date.type)}
-                                <span>
-                                  {date.type === 'Diploma' 
-                                    ? date.courseTitle
-                                    : date.title || `${date.type} Event`}
-                                </span>
-                                {date.recurring && (
-                                  <Badge variant="outline" className="flex items-center gap-1 bg-purple-50 text-purple-700 border-purple-200">
-                                    <RepeatIcon className="h-3 w-3" />
-                                    <span>Annual</span>
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {isPastEvent && !date.recurring && (
-                                  <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-200">
-                                    Past
-                                  </Badge>
-                                )}
-                                {date.confirmed && (
-                                  <Badge variant="outline" className="bg-green-100 text-green-800 flex items-center gap-1 border-green-200">
-                                    <Check className="h-3 w-3" />
-                                    Confirmed
-                                  </Badge>
-                                )}
-                              
-                              </div>
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="py-1 pb-3 space-y-2">
-                            {date.type === 'Diploma' ? (
-                              <>
-                                <div className="flex items-center text-sm text-gray-700">
-                                  <span className="font-medium">{formatTime(date.hour, date.minute, date.period)}</span>
-                                  <span className="mx-2">•</span>
-                                  <span>{date.month} Exam</span>
-                                </div>
-                                
-                                {/* Registration Deadline Display for Diploma */}
-                                {date.registrationDeadline ? (
-                                  <div className="flex items-start text-sm">
-                                    <Clock className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                      <div className="flex items-center gap-2">
-                                        <span>Registration Deadline: <strong>{formatReadableDate({
-                                          date: date.registrationDeadline,
-                                          displayDate: date.registrationDeadlineDisplayDate
-                                        })}</strong></span>
-                                        {isDeadlinePassed({
-                                          date: date.registrationDeadline,
-                                          displayDate: date.registrationDeadlineDisplayDate
-                                        }) ? (
-                                          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
-                                            Passed
-                                          </Badge>
-                                        ) : isDeadlineApproaching({
-                                          date: date.registrationDeadline,
-                                          displayDate: date.registrationDeadlineDisplayDate
-                                        }) ? (
-                                          <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
-                                            Approaching
-                                          </Badge>
-                                        ) : null}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center text-sm text-amber-600">
-                                    <AlertCircle className="h-4 w-4 mr-1" />
-                                    <span>No registration deadline set</span>
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              // For general events
-                              <>
-                                {date.recurring && (
-                                  <div className="flex items-center text-sm text-purple-600">
-                                    <RepeatIcon className="h-4 w-4 mr-1" />
-                                    <span>Occurs annually on {formatRecurringDateForDisplay(date)}</span>
-                                  </div>
-                                )}
-                                {date.description && (
-                                  <p className="text-sm text-gray-700">{date.description}</p>
-                                )}
-                                
-                                {/* Student Types Section */}
-                                {date.applicableStudentTypes && date.applicableStudentTypes.length > 0 && (
-                                  <div className="mt-2">
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {date.applicableStudentTypes.length === STUDENT_TYPE_OPTIONS.length ? (
-                                        <Badge variant="outline" className="bg-gray-100 text-gray-800">
-                                          All Student Types
-                                        </Badge>
-                                      ) : (
-                                        date.applicableStudentTypes.map(type => (
-                                          <Badge 
-                                            key={type} 
-                                            variant="outline" 
-                                            className="flex items-center gap-1"
-                                            style={{ 
-                                              backgroundColor: `${getStudentTypeColor(type)}20`, // 20% opacity
-                                              color: getStudentTypeColor(type),
-                                              borderColor: `${getStudentTypeColor(type)}40` // 40% opacity
-                                            }}
-                                          >
-                                            {getStudentTypeIcon(type)}
-                                            <span>{type}</span>
-                                          </Badge>
-                                        ))
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </CardContent>
-                        </div>
-                        <div className="pr-4 pt-4 flex items-center gap-1">
-                          {date.type === 'Diploma' ? (
-                            <EditDiplomaDateSheet
-                              time={date}
-                              courseId={date.courseId}
-                              courseTitle={date.courseTitle}
-                              onSave={handleEditDiplomaDate}
-                              onDelete={confirmDeleteDiplomaDate}
-                            />
-                          ) : (
-                            <EditGeneralEventSheet
-                              event={date}
-                              onSave={handleEditGeneralEvent}
-                              onDelete={confirmDeleteGeneralEvent}
-                            />
-                          )}
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => 
-                              date.type === 'Diploma'
-                                ? confirmDeleteDiplomaDate(date.courseId, date.id, date.courseTitle, date)
-                                : confirmDeleteGeneralEvent(date.id)
-                            }
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        </div>
+      {loading ? (
+        <div className="text-center py-10">
+          <p className="text-gray-500">Loading important dates...</p>
+        </div>
+      ) : groupedByDate.length === 0 ? (
+        <div className="text-center py-10 border rounded-lg bg-gray-50">
+          <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+          <p className="text-gray-500">No important dates found.</p>
+          <p className="text-gray-400 text-sm mt-2">Add dates using the buttons above.</p>
+        </div>
+      ) : (
+        <Accordion 
+          type="multiple" 
+          value={expandedAccordionItems} 
+          onValueChange={handleAccordionChange}
+          className="space-y-4"
+        >
+          {groupedByDate.map((dateGroup, index) => {
+            const isPast = isPastDate(dateGroup.dateObj);
+            
+            return (
+              <AccordionItem 
+                key={dateGroup.date} 
+                value={`date-${dateGroup.index}`}
+                ref={(el) => (dateGroupRefs.current[`date-${dateGroup.index}`] = el)}
+                className={`border rounded-lg shadow-sm ${isPast ? 'border-gray-200' : ''} ${
+                  dateGroup.index === closestUpcomingDateGroup?.index 
+                    ? 'border-green-300 ring-1 ring-green-300' 
+                    : ''
+                } ${getTodayClasses(dateGroup.dateObj)}`}
+              >
+                <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                  <div className="flex items-center text-left">
+                    <Calendar className={`h-5 w-5 mr-3 ${isPast ? 'text-gray-400' : 'text-blue-500'} flex-shrink-0`} />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{dateGroup.date}</span>
+                        {isPast && (
+                          <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-200">
+                            Past
+                          </Badge>
+                        )}
+                        {isToday(dateGroup.dateObj) && (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
+                            Today
+                          </Badge>
+                        )}
+                        {dateGroup.index === closestUpcomingDateGroup?.index && !isToday(dateGroup.dateObj) && (
+                          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+                            Upcoming
+                          </Badge>
+                        )}
                       </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        );
-      })}
-    </Accordion>
-  )}
-</div>
+                      <div className="text-sm text-gray-500">
+                        {dateGroup.dates.length} {dateGroup.dates.length === 1 ? 'event' : 'events'}
+                      </div>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-4">
+                  <div className="space-y-3">
+                    {dateGroup.dates.map((date) => {
+                      const isPastEvent = isPastDate(date);
+                      const isRegistrationEvent = date.type === 'Registration';
+                      
+                      return (
+                        <Card 
+                          key={date.id} 
+                          className={`overflow-hidden ${
+                            date.type === 'Diploma' 
+                              ? 'border-l-4 border-l-blue-500' 
+                              : date.type === 'Registration' 
+                                ? 'border-l-4 border-l-green-500' 
+                                : 'border-l-4 border-l-purple-500'
+                          } ${getPastEventClasses(date)}`}
+                        >
+                          <div className="flex items-start">
+                            <div 
+                              className={`flex-1 cursor-pointer hover:bg-gray-50 ${
+                                date.type === 'Diploma' ? '' : 'cursor-default'
+                              }`}
+                              onClick={() => date.type === 'Diploma' ? onCourseSelect(date.courseId) : null}
+                            >
+                              <CardHeader className="py-3">
+                                <CardTitle className="text-md flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    {getEventIcon(date.type)}
+                                    <span>
+                                      {date.type === 'Diploma' 
+                                        ? date.courseTitle
+                                        : date.title || `${date.type} Event`}
+                                    </span>
+                                    {date.recurring && (
+                                      <Badge variant="outline" className="flex items-center gap-1 bg-purple-50 text-purple-700 border-purple-200">
+                                        <RepeatIcon className="h-3 w-3" />
+                                        <span>Annual</span>
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {isPastEvent && !date.recurring && (
+                                      <Badge variant="outline" className="bg-gray-100 text-gray-600 border-gray-200">
+                                        Past
+                                      </Badge>
+                                    )}
+                                    {date.confirmed && (
+                                      <Badge variant="outline" className="bg-green-100 text-green-800 flex items-center gap-1 border-green-200">
+                                        <Check className="h-3 w-3" />
+                                        Confirmed
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </CardTitle>
+                              </CardHeader>
+                              <CardContent className="py-1 pb-3 space-y-2">
+                                {date.type === 'Diploma' ? (
+                                  <>
+                                    <div className="flex items-center text-sm text-gray-700">
+                                      <span className="font-medium">{formatTime(date.hour, date.minute, date.period)}</span>
+                                      <span className="mx-2">•</span>
+                                      <span>{date.month} Exam</span>
+                                    </div>
+                                    
+                                    {/* Registration Deadline Display for Diploma */}
+                                    {date.registrationDeadline ? (
+                                      <div className="flex items-start text-sm">
+                                        <Clock className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
+                                        <div>
+                                          <div className="flex items-center gap-2">
+                                            <span>Registration Deadline: <strong>{formatReadableDate({
+                                              date: date.registrationDeadline,
+                                              displayDate: date.registrationDeadlineDisplayDate
+                                            })}</strong></span>
+                                            {isDeadlinePassed({
+                                              date: date.registrationDeadline,
+                                              displayDate: date.registrationDeadlineDisplayDate
+                                            }) ? (
+                                              <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+                                                Passed
+                                              </Badge>
+                                            ) : isDeadlineApproaching({
+                                              date: date.registrationDeadline,
+                                              displayDate: date.registrationDeadlineDisplayDate
+                                            }) ? (
+                                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                                                Approaching
+                                              </Badge>
+                                            ) : null}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center text-sm text-amber-600">
+                                        <AlertCircle className="h-4 w-4 mr-1" />
+                                        <span>No registration deadline set</span>
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  // For general events
+                                  <>
+                                    {date.recurring && (
+                                      <div className="flex items-center text-sm text-purple-600">
+                                        <RepeatIcon className="h-4 w-4 mr-1" />
+                                        <span>Occurs annually</span>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Registration Period Display */}
+                                    {date.type === 'Registration' && (
+                                      <div className="flex items-center text-sm text-green-600">
+                                        <CalendarCheck className="h-4 w-4 mr-1" />
+                                        <span>Registration period: {
+                                          date.endDate 
+                                            ? formatRegistrationPeriod(
+                                                date, 
+                                                { date: date.endDate, displayDate: date.endDateDisplayDate },
+                                                date.recurring
+                                              )
+                                            : date.recurring 
+                                              ? `From ${formatRecurringDateForDisplay(date)} annually`
+                                              : `From ${formatReadableDate(date)}`
+                                        }</span>
+                                      </div>
+                                    )}
+                                    
+                                    {date.description && (
+                                      <p className="text-sm text-gray-700">{date.description}</p>
+                                    )}
+                                    
+                                    {/* Student Types Section */}
+                                    {date.applicableStudentTypes && date.applicableStudentTypes.length > 0 && (
+                                      <div className="mt-2">
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {date.applicableStudentTypes.length === STUDENT_TYPE_OPTIONS.length ? (
+                                            <Badge variant="outline" className="bg-gray-100 text-gray-800">
+                                              All Student Types
+                                            </Badge>
+                                          ) : (
+                                            date.applicableStudentTypes.map(type => (
+                                              <Badge 
+                                                key={type} 
+                                                variant="outline" 
+                                                className="flex items-center gap-1"
+                                                style={{ 
+                                                  backgroundColor: `${getStudentTypeColor(type)}20`, // 20% opacity
+                                                  color: getStudentTypeColor(type),
+                                                  borderColor: `${getStudentTypeColor(type)}40` // 40% opacity
+                                                }}
+                                              >
+                                                {getStudentTypeIcon(type)}
+                                                <span>{type}</span>
+                                              </Badge>
+                                            ))
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </CardContent>
+                            </div>
+                            <div className="pr-4 pt-4 flex items-center gap-1">
+                              {date.type === 'Diploma' ? (
+                                <EditDiplomaDateSheet
+                                  time={date}
+                                  courseId={date.courseId}
+                                  courseTitle={date.courseTitle}
+                                  onSave={handleEditDiplomaDate}
+                                  onDelete={confirmDeleteDiplomaDate}
+                                />
+                              ) : (
+                                <EditGeneralEventSheet
+                                  event={date}
+                                  onSave={handleEditGeneralEvent}
+                                  onDelete={confirmDeleteGeneralEvent}
+                                />
+                              )}
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => 
+                                  date.type === 'Diploma'
+                                    ? confirmDeleteDiplomaDate(date.courseId, date.id, date.courseTitle, date)
+                                    : confirmDeleteGeneralEvent(date.id)
+                                }
+                                disabled={isRegistrationEvent}
+                                title={isRegistrationEvent ? "Registration dates cannot be deleted" : "Delete this event"}
+                              >
+                                <Trash className={`h-4 w-4 ${isRegistrationEvent ? 'text-gray-400' : ''}`} />
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
+      )}
+    </div>
 
-{/* Selected course details */}
-{selectedCourseId && courseData && (
-  <div className="mt-8 p-4 border rounded-lg">
-    <h2 className="text-xl font-semibold mb-4">Selected Course: {courseData.Title}</h2>
-    {/* Course-specific information would go here */}
+    {/* Selected course details */}
+    {selectedCourseId && courseData && (
+      <div className="mt-8 p-4 border rounded-lg">
+        <h2 className="text-xl font-semibold mb-4">Selected Course: {courseData.Title}</h2>
+        {/* Course-specific information would go here */}
+      </div>
+    )}
+
+    {/* Delete Confirmation Dialog */}
+    <DeleteConfirmDialog
+      isOpen={deleteDialog.isOpen}
+      onClose={closeDeleteDialog}
+      onConfirm={executeDelete}
+      itemInfo={deleteDialog.itemInfo}
+      itemType={deleteDialog.itemType}
+    />
+
+    {/* Calendar View Sheet */}
+    <CalendarViewSheet 
+      isOpen={calendarSheetOpen}
+      onClose={() => setCalendarSheetOpen(false)}
+      dates={filteredDates}
+    />
   </div>
-)}
-
-{/* Delete Confirmation Dialog */}
-<DeleteConfirmDialog
-  isOpen={deleteDialog.isOpen}
-  onClose={closeDeleteDialog}
-  onConfirm={executeDelete}
-  courseTitle={deleteDialog.courseTitle}
-  itemInfo={deleteDialog.itemInfo}
-  itemType={deleteDialog.itemType}
-/>
-</div>
 );
 }
 
