@@ -1,13 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { getDatabase, ref, set } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { Card, CardHeader, CardContent, CardFooter } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Label } from "../components/ui/label";
-import { AlertTriangle, InfoIcon, CheckCircle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { useRegistrationPeriod, RegistrationPeriod } from '../utils/registrationPeriods';
 
 const studentTypes = [
   { value: 'Non-Primary', label: 'Non-Primary Student', description: 'Students enrolled in another Alberta school' },
@@ -61,46 +60,8 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
   const uid = user?.uid;
   const [currentView, setCurrentView] = useState(isFormComponent ? 'initial' : 'questionnaire');
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [pendingStudentType, setPendingStudentType] = useState('');
   const [selectedStudentType, setSelectedType] = useState(selectedType || '');
   const [error, setError] = useState(null);
-  const [needsAcknowledgment, setNeedsAcknowledgment] = useState(false);
-  const [acknowledgedTypes, setAcknowledgedTypes] = useState({});
-  
-  const { 
-    period, 
-    loading: periodLoading,
-    getStudentTypeMessage,
-    isHomeEdDeadlinePassed
-  } = useRegistrationPeriod();
-
-  // Filter student types based on the current period
-  const getAvailableStudentTypes = () => {
-    // Adult and International are always available
-    const alwaysAvailable = studentTypes.filter(type => 
-      type.value === 'Adult Student' || type.value === 'International Student'
-    );
-    
-    switch (period) {
-      case RegistrationPeriod.SUMMER:
-        // In summer period, only Summer School, Adult, and International are available
-        return [
-          ...studentTypes.filter(type => type.value === 'Summer School'),
-          ...alwaysAvailable
-        ];
-      
-      case RegistrationPeriod.NEXT_REGULAR:
-        // After summer, no Summer School option
-        return studentTypes.filter(type => type.value !== 'Summer School');
-      
-      default:
-        // During regular period, all types are available
-        // EXCEPT Home Education if deadline has passed
-        return studentTypes.filter(type => 
-          !(isHomeEdDeadlinePassed && type.value === 'Home Education')
-        );
-    }
-  };
 
   const saveToPendingRegistration = async (type) => {
     if (!isFormComponent) return; // Only save if it's part of the form
@@ -119,12 +80,14 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
     }
   };
 
-  // Process student type selection after acknowledgment
-  const processStudentTypeSelection = async (type) => {
+  const handleStudentTypeSelect = async (type) => {
     try {
+      setError(null);
+      
       if (isFormComponent) {
         await saveToPendingRegistration(type);
       }
+      
       setSelectedType(type);
       onStudentTypeSelect(type);
     } catch (error) {
@@ -133,67 +96,12 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
     }
   };
 
-  const handleStudentTypeChange = async (value) => {
-    try {
-      setError(null);
-      
-      // Check if type is valid for current period
-      const availableTypes = getAvailableStudentTypes().map(t => t.value);
-      if (!availableTypes.includes(value)) {
-        if (period === RegistrationPeriod.SUMMER &&
-            (value === 'Non-Primary' || value === 'Home Education')) {
-          setError("During summer registration period, you must register as a Summer School student.");
-          value = 'Summer School';
-        } else if (period === RegistrationPeriod.NEXT_REGULAR && value === 'Summer School') {
-          setError("Summer School registration is closed. You must register as a Non-Primary or Home Education student.");
-          value = 'Non-Primary';
-        }
-      }
-      
-      // If this type has already been acknowledged, apply it directly
-      if (acknowledgedTypes[value]) {
-        await processStudentTypeSelection(value);
-        return;
-      }
-      
-      // Otherwise, show the acknowledgment step
-      setPendingStudentType(value);
-      setNeedsAcknowledgment(true);
-    } catch (error) {
-      setError('Failed to process student type. Please try again.');
-      console.error('Error processing student type:', error);
-    }
-  };
-
-  const handleAcknowledgment = async () => {
-    setAcknowledgedTypes(prev => ({
-      ...prev,
-      [pendingStudentType]: true
-    }));
-    
-    setNeedsAcknowledgment(false);
-    await processStudentTypeSelection(pendingStudentType);
-  };
-
   const handleAnswer = (answer) => {
     const nextStep = questions[currentQuestion].next(answer);
     
     if (typeof nextStep === 'string') {
-      // If result is a student type, check if it's available in current period
-      const availableTypes = getAvailableStudentTypes().map(t => t.value);
-      
-      if (availableTypes.includes(nextStep)) {
-        handleStudentTypeChange(nextStep);
-      } else {
-        // Suggest an alternative type
-        if (period === RegistrationPeriod.SUMMER && 
-            (nextStep === 'Non-Primary' || nextStep === 'Home Education')) {
-          handleStudentTypeChange('Summer School');
-        } else if (period === RegistrationPeriod.NEXT_REGULAR && 
-                  nextStep === 'Summer School') {
-          handleStudentTypeChange('Non-Primary');
-        }
-      }
+      // If result is a student type, select it
+      handleStudentTypeSelect(nextStep);
     } else {
       setCurrentQuestion(nextStep);
     }
@@ -211,18 +119,11 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
       setCurrentView(isFormComponent ? 'initial' : 'questionnaire');
       setCurrentQuestion(0);
       setSelectedType('');
-      setPendingStudentType('');
       onStudentTypeSelect('');
     } catch (error) {
       setError('Failed to restart questionnaire. Please try again.');
       console.error('Error restarting questionnaire:', error);
     }
-  };
-
-  // Get the student type message for the acknowledgment
-  const getTypeSpecificMessage = (type) => {
-    if (!type) return "";
-    return getStudentTypeMessage(type);
   };
 
   const renderInitialView = () => (
@@ -252,82 +153,7 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
       </CardContent>
     </Card>
   );
-
- // Inside the renderAcknowledgmentView function
-
-// Inside the renderAcknowledgmentView function
-
-const renderAcknowledgmentView = () => {
-  const messageHTML = getStudentTypeMessage(pendingStudentType);
   
-  return (
-    <div className="w-full">
-      <Card className="bg-gradient-to-br from-blue-50 to-indigo-100 shadow-md border-blue-400 border-t-4 relative overflow-hidden flex flex-col">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-blue-100 rounded-full -mr-8 -mt-8 z-0 opacity-80"></div>
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-blue-100 rounded-full -ml-16 -mb-16 z-0 opacity-80"></div>
-        
-        <CardHeader className="pb-1 relative z-10">
-          <div className="flex items-center space-x-2">
-            <InfoIcon className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-semibold text-blue-800">Before proceeding as a {studentTypes.find((type) => type.value === pendingStudentType)?.label}</h3>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="relative z-10 flex-grow overflow-y-auto py-2">
-          <div 
-            className="bg-white bg-opacity-90 p-3 rounded-lg border border-blue-200 shadow-sm"
-            dangerouslySetInnerHTML={{ __html: messageHTML }}
-          />
-        </CardContent>
-        
-        <CardFooter className="flex justify-between relative z-10 pt-1 pb-3">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setNeedsAcknowledgment(false);
-              setPendingStudentType('');
-            }}
-            className="border-blue-300 text-blue-700 hover:bg-blue-50"
-          >
-            Go Back
-          </Button>
-          
-          <Button
-            onClick={handleAcknowledgment}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            <CheckCircle className="mr-2 h-4 w-4" />
-            I Understand
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
-  );
-};
-  // Main content renderer that handles state-based view switching
-  const renderContent = () => {
-    // Show acknowledgment view if needed - this takes precedence over everything else
-    if (needsAcknowledgment) {
-      return renderAcknowledgmentView();
-    }
-    
-    // Otherwise show the appropriate view based on current state
-    if (isFormComponent) {
-      switch (currentView) {
-        case 'initial':
-          return renderInitialView();
-        case 'questionnaire':
-          return renderQuestionnaireContent();
-        case 'direct-select':
-          return renderDirectSelectContent();
-        default:
-          return renderInitialView();
-      }
-    } else {
-      return renderQuestionnaireContent();
-    }
-  };
-
   const renderQuestionnaireContent = () => (
     <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
       <CardHeader>
@@ -379,10 +205,10 @@ const renderAcknowledgmentView = () => {
       <CardContent className="space-y-6">
         <RadioGroup
           value={selectedStudentType}
-          onValueChange={handleStudentTypeChange}
+          onValueChange={handleStudentTypeSelect}
           className="space-y-4"
         >
-          {getAvailableStudentTypes().map((type) => (
+          {studentTypes.map((type) => (
             <div key={type.value} className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-gray-50">
               <RadioGroupItem value={type.value} id={type.value} />
               <Label htmlFor={type.value} className="flex flex-col space-y-1 cursor-pointer">
@@ -406,6 +232,24 @@ const renderAcknowledgmentView = () => {
     </Card>
   );
 
+  // Main content renderer
+  const renderContent = () => {
+    if (isFormComponent) {
+      switch (currentView) {
+        case 'initial':
+          return renderInitialView();
+        case 'questionnaire':
+          return renderQuestionnaireContent();
+        case 'direct-select':
+          return renderDirectSelectContent();
+        default:
+          return renderInitialView();
+      }
+    } else {
+      return renderQuestionnaireContent();
+    }
+  };
+
   return (
     <div className="space-y-6">
       {error && (
@@ -415,7 +259,6 @@ const renderAcknowledgmentView = () => {
         </Alert>
       )}
 
-      {/* Single content container with clean state-based rendering */}
       {renderContent()}
     </div>
   );

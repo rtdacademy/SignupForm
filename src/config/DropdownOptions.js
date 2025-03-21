@@ -701,15 +701,19 @@ export const getStudentTypeColor = (type) => {
   return option ? option.color : "#6B7280";  // Default to gray if student type not found
 };
 
-// Registration period constants
 export const REGISTRATION_PERIODS = {
   REGULAR: 'REGULAR',
   SUMMER: 'SUMMER',
   NEXT_REGULAR: 'NEXT_REGULAR'
 };
 
+// Export the getStudentTypeMessageHTML function to the window object for backward compatibility
+if (typeof window !== 'undefined') {
+  window.getStudentTypeMessageHTML = getStudentTypeMessageHTML;
+}
+
 // Function to get formatted HTML messages for student types with compact styling
-export const getStudentTypeMessageHTML = (studentType, params) => {
+export function getStudentTypeMessageHTML(studentType, params) {
   if (!studentType || !params) return "";
   
   const { 
@@ -730,7 +734,7 @@ export const getStudentTypeMessageHTML = (studentType, params) => {
     });
   };
   
-  // Messages based on student type and current period
+  // Legacy message generation logic (keep this for backward compatibility)
   switch (studentType) {
     case 'Non-Primary':
       if (period === REGISTRATION_PERIODS.SUMMER) {
@@ -753,6 +757,7 @@ export const getStudentTypeMessageHTML = (studentType, params) => {
             </p>
           </div>
         `;
+      
       } else if (period === REGISTRATION_PERIODS.REGULAR) {
         if (canRegisterForNextYear) {
           return `

@@ -1,233 +1,355 @@
-import { useState, useEffect } from 'react';
-import { getDatabase, ref, get } from 'firebase/database';
-import { getStudentTypeMessageHTML, REGISTRATION_PERIODS } from '../config/DropdownOptions';
+import { useMemo } from 'react';
 
-export const RegistrationPeriod = REGISTRATION_PERIODS;
+// Keep for backward compatibility
+export const RegistrationPeriod = {
+  REGULAR: 'REGULAR',
+  SUMMER: 'SUMMER',
+  NEXT_REGULAR: 'NEXT_REGULAR'
+};
 
-export function useRegistrationPeriod() {
-  const [period, setPeriod] = useState(RegistrationPeriod.REGULAR);
-  const [importantDates, setImportantDates] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [canRegisterForNextYear, setCanRegisterForNextYear] = useState(false);
-  const [isHomeEdDeadlinePassed, setIsHomeEdDeadlinePassed] = useState(false);
-  const [datesByType, setDatesByType] = useState({});
-  const [academicYearHomeEdDeadline, setAcademicYearHomeEdDeadline] = useState(null);
-
-  useEffect(() => {
-    async function fetchImportantDates() {
-      try {
-        setLoading(true);
-        const db = getDatabase();
-        const importantDatesRef = ref(db, 'ImportantDates');
-        const snapshot = await get(importantDatesRef);
-
-        if (snapshot.exists()) {
-          const datesData = snapshot.val();
-          const datesCollection = {};
-          const studentTypeDates = {
-            'Non-Primary': {},
-            'Home Education': {},
-            'Summer School': {},
-            'Adult Student': {},
-            'International Student': {}
-          };
-          
-          // Process each date and organize by name
-          Object.entries(datesData).forEach(([key, date]) => {
-            datesCollection[date.title] = {
-              ...date,
-              jsDate: parseDate(date.displayDate)
-            };
-            
-            // Also organize dates by student type
-            if (date.applicableStudentTypes) {
-              date.applicableStudentTypes.forEach(type => {
-                if (studentTypeDates[type]) {
-                  studentTypeDates[type][date.title] = {
-                    ...date,
-                    jsDate: parseDate(date.displayDate)
-                  };
-                }
-              });
-            }
-          });
-
-          setImportantDates(datesCollection);
-          setDatesByType(studentTypeDates);
-          
-          // Determine the current period
-          determinePeriod(datesCollection);
-          
-          // Check if Home Education deadline has passed
-          checkHomeEdDeadline(datesCollection);
-        } else {
-          throw new Error("No important dates found");
-        }
-      } catch (err) {
-        console.error("Error fetching important dates:", err);
-        setError(err.message);
-        // Default to REGULAR period if there's an error
-        setPeriod(RegistrationPeriod.REGULAR);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchImportantDates();
-  }, []);
-
-  // Helper function to parse dates consistently
-  const parseDate = (dateString) => {
-    if (!dateString) return null;
-    const [year, month, day] = dateString.split('-').map(Number);
-    const date = new Date(year, month - 1, day); // Months are 0-indexed in JS
-    
-    // Adjust year to ensure date is in the future or current
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    
-    if (date.getMonth() < today.getMonth() || 
-        (date.getMonth() === today.getMonth() && date.getDate() < today.getDate())) {
-      // If the date is already past for this year, use next year
-      if (date.getFullYear() === currentYear) {
-        date.setFullYear(currentYear + 1);
-      }
-    } else if (date.getFullYear() < currentYear) {
-      // If the year is in the past, update to current year
-      date.setFullYear(currentYear);
-    }
-    
-    return date;
-  };
-
-  // Function to get date for current academic year (Sept 1 - Aug 31)
-  const getDateForCurrentAcademicYear = (date) => {
-    if (!date) return null;
-    
-    const today = new Date();
-    const academicYearStart = new Date(today.getFullYear(), 8, 1); // September 1
-    
-    // Clone the date to avoid modifying the original
-    const result = new Date(date);
-    
-    // If today is before Sept 1, use the date from the previous year's academic cycle
-    if (today < academicYearStart) {
-      result.setFullYear(today.getFullYear());
-    } else {
-      // We're in a new academic year (on or after Sept 1), use next year's date
-      result.setFullYear(today.getFullYear() + 1);
-    }
-    
-    return result;
-  };
-
-  // Function to determine the current registration period
-  const determinePeriod = (dates) => {
-    const today = new Date();
-    
-    const regularToSummer = dates["Regular-to-Summer Cutoff"]?.jsDate;
-    const summerToRegular = dates["Summer-to-Regular Cutoff"]?.jsDate;
-    const nextYearOpens = dates["Next School Year Registration Opens"]?.jsDate;
-    
-    if (!regularToSummer || !summerToRegular) {
-      console.warn("Missing critical cutoff dates, defaulting to REGULAR period");
-      setPeriod(RegistrationPeriod.REGULAR);
-      return;
-    }
-
-    // Set next year registration status
-    if (nextYearOpens) {
-      setCanRegisterForNextYear(today >= nextYearOpens);
-    } else {
-      // Default to April 1st if not specified
-      const defaultNextYearDate = new Date(today.getFullYear(), 3, 1); // April 1st
-      setCanRegisterForNextYear(today >= defaultNextYearDate);
-    }
-    
-    // Determine current period
-    if (today < regularToSummer) {
-      setPeriod(RegistrationPeriod.REGULAR);
-    } else if (today >= regularToSummer && today < summerToRegular) {
-      setPeriod(RegistrationPeriod.SUMMER);
-    } else {
-      setPeriod(RegistrationPeriod.NEXT_REGULAR);
-    }
-  };
-
-  // Function to check if Home Education deadline has passed
-  const checkHomeEdDeadline = (dates) => {
-    const today = new Date();
-    const homeEdDeadlineDate = dates["Home Education Semester 2 Deadline"]?.jsDate;
-    
-    if (!homeEdDeadlineDate) {
-      setIsHomeEdDeadlinePassed(false);
-      return;
-    }
-    
-    // Get current academic year's September 1st
-    const currentYear = today.getFullYear();
-    const septFirst = new Date(currentYear, 8, 1); // September 1st of current year
-    
-    // Determine the relevant academic year for home ed deadline
-    let relevantHomeEdDeadline;
-    
-    if (today >= septFirst) {
-      // If we're on or after Sept 1, the relevant deadline is in the coming year
-      relevantHomeEdDeadline = new Date(homeEdDeadlineDate);
-      if (relevantHomeEdDeadline < today) {
-        relevantHomeEdDeadline.setFullYear(currentYear + 1);
-      } else {
-        relevantHomeEdDeadline.setFullYear(currentYear);
-      }
-    } else {
-      // If we're before Sept 1, the relevant deadline is in the current year or has passed
-      relevantHomeEdDeadline = new Date(homeEdDeadlineDate);
-      relevantHomeEdDeadline.setFullYear(currentYear);
-      
-      // If that date is in the past, then the deadline has passed for this academic year
-      if (relevantHomeEdDeadline < today) {
-        setIsHomeEdDeadlinePassed(true);
-        // Don't set academicYearHomeEdDeadline since it's already passed
-        return;
-      }
-    }
-    
-    // Save the academic-year-specific date for the UI
-    setAcademicYearHomeEdDeadline(relevantHomeEdDeadline);
-    
-    // Set the flag based on whether today is past the deadline
-    setIsHomeEdDeadlinePassed(today > relevantHomeEdDeadline);
-  };
-
-  // Function that calls the centralized messaging function from DropdownOptions.js
-  const getStudentTypeMessage = (studentType) => {
-    if (!studentType || loading || !importantDates) return "";
-    
-    // Prepare parameters for messaging function
-    const params = {
-      period,
-      canRegisterForNextYear,
-      regularToSummer: importantDates["Regular-to-Summer Cutoff"]?.jsDate,
-      summerToRegular: importantDates["Summer-to-Regular Cutoff"]?.jsDate,
-      nextYearOpens: importantDates["Next School Year Registration Opens"]?.jsDate,
-      sepCount: importantDates["September Count"]?.jsDate,
-      homeEdDeadline: academicYearHomeEdDeadline || importantDates["Home Education Semester 2 Deadline"]?.jsDate,
-      isHomeEdDeadlinePassed
+/**
+ * A custom hook to process registration windows from ImportantDates
+ * @param {Object} importantDates - Object containing important dates data
+ * @returns {Object} Registration window utility functions
+ */
+export function useRegistrationWindows(importantDates) {
+  return useMemo(() => {
+    // Helper function to parse dates into JS Date objects
+    const parseDate = (dateString) => {
+      if (!dateString) return null;
+      const [year, month, day] = dateString.split('-').map(Number);
+      return new Date(year, month - 1, day); // Months are 0-indexed in JS
     };
     
-    return getStudentTypeMessageHTML(studentType, params);
-  };
+    // Helper function to format date for display
+    const formatDate = (date) => {
+      if (!date) return '';
+      return date.toLocaleDateString('en-US', { 
+        year: 'numeric', month: 'long', day: 'numeric' 
+      });
+    };
 
-  return { 
-    period, 
-    importantDates,
-    canRegisterForNextYear,
-    isHomeEdDeadlinePassed,
-    loading, 
-    error,
-    getStudentTypeMessage,
-    datesByType,
-    academicYearHomeEdDeadline
-  };
+    /**
+     * Checks if a date is within a recurring date range
+     */
+    const isDateInRecurringRange = (date, startDate, endDate) => {
+      const dateMonth = date.getMonth();
+      const dateDay = date.getDate();
+      const startMonth = startDate.getMonth();
+      const startDay = startDate.getDate();
+      const endMonth = endDate.getMonth();
+      const endDay = endDate.getDate();
+      
+      // If date range spans across year boundary (e.g. Dec-Jan)
+      if (startMonth > endMonth) {
+        return (
+          (dateMonth > startMonth || (dateMonth === startMonth && dateDay >= startDay)) ||
+          (dateMonth < endMonth || (dateMonth === endMonth && dateDay <= endDay))
+        );
+      }
+      
+      // Regular date range within the same year
+      return (
+        (dateMonth > startMonth || (dateMonth === startMonth && dateDay >= startDay)) &&
+        (dateMonth < endMonth || (dateMonth === endMonth && dateDay <= endDay))
+      );
+    };
+
+    /**
+     * Gets all active registration windows for a specific student type
+     */
+    const getActiveRegistrationWindows = (studentType) => {
+      if (!importantDates || !studentType) return [];
+      
+      const today = new Date();
+      
+      // Filter for registration events applicable to the student type
+      return Object.values(importantDates || {}).filter(event => {
+        // Must be a registration type event
+        if (event.type !== 'Registration') return false;
+        
+        // Must apply to this student type
+        if (!event.applicableStudentTypes || 
+            !event.applicableStudentTypes.includes(studentType)) {
+          return false;
+        }
+        
+        // Parse dates for comparison
+        const startDate = parseDate(event.displayDate);
+        const endDate = parseDate(event.endDateDisplayDate);
+        if (!startDate || !endDate) return false;
+        
+        // Handle recurring events (focus on month/day, not year)
+        if (event.recurring) {
+          return isDateInRecurringRange(today, startDate, endDate);
+        }
+        
+        // For non-recurring events, simple date comparison
+        return today >= startDate && today <= endDate;
+      });
+    };
+    
+    /**
+     * Calculate effective registration period from multiple windows (the intersection)
+     */
+    const getEffectiveRegistrationPeriod = (windows) => {
+      if (!windows || windows.length === 0) return { 
+        start: null, 
+        end: null,
+        startFormatted: '',
+        endFormatted: '',
+        hasActiveWindow: false
+      };
+      
+      let effectiveStart = null;
+      let effectiveEnd = null;
+      
+      windows.forEach(window => {
+        const start = parseDate(window.displayDate);
+        const end = parseDate(window.endDateDisplayDate);
+        
+        // For the first window, just use its dates
+        if (effectiveStart === null) {
+          effectiveStart = start;
+          effectiveEnd = end;
+          return;
+        }
+        
+        // Find the latest start date (maximum of all starts)
+        if (start > effectiveStart) {
+          effectiveStart = start;
+        }
+        
+        // Find the earliest end date (minimum of all ends)
+        if (end < effectiveEnd) {
+          effectiveEnd = end;
+        }
+      });
+      
+      // Check if we have a valid period (start must be before end)
+      const hasActiveWindow = effectiveStart && effectiveEnd && effectiveStart <= effectiveEnd;
+      
+      return { 
+        start: effectiveStart, 
+        end: effectiveEnd,
+        startFormatted: formatDate(effectiveStart),
+        endFormatted: formatDate(effectiveEnd),
+        hasActiveWindow
+      };
+    };
+    
+    /**
+     * Check if next year registration is open for a specific student type
+     */
+    const isNextYearRegistrationOpen = (studentType) => {
+      const nextYearWindows = Object.values(importantDates || {}).filter(event => {
+        return (
+          event.type === 'Registration' &&
+          event.title === 'Next School Year Registration Opens' &&
+          event.applicableStudentTypes?.includes(studentType)
+        );
+      });
+      
+      if (nextYearWindows.length === 0) return false;
+      
+      const today = new Date();
+      
+      // Check if today falls within any of the next year registration windows
+      return nextYearWindows.some(window => {
+        const startDate = parseDate(window.displayDate);
+        const endDate = parseDate(window.endDateDisplayDate);
+        
+        if (!startDate || !endDate) return false;
+        
+        // Handle recurring events
+        if (window.recurring) {
+          return isDateInRecurringRange(today, startDate, endDate);
+        }
+        
+        return today >= startDate && today <= endDate;
+      });
+    };
+    
+    /**
+     * Get the next year registration window details
+     */
+    const getNextYearRegistrationWindow = (studentType) => {
+      const nextYearWindow = Object.values(importantDates || {}).find(event => {
+        return (
+          event.type === 'Registration' &&
+          event.title === 'Next School Year Registration Opens' &&
+          event.applicableStudentTypes?.includes(studentType)
+        );
+      });
+      
+      if (!nextYearWindow) return null;
+      
+      return {
+        ...nextYearWindow,
+        startDate: parseDate(nextYearWindow.displayDate),
+        endDate: parseDate(nextYearWindow.endDateDisplayDate),
+        startFormatted: formatDate(parseDate(nextYearWindow.displayDate)),
+        endFormatted: formatDate(parseDate(nextYearWindow.endDateDisplayDate))
+      };
+    };
+    
+    /**
+     * Validate if a date falls within the registration windows
+     */
+    const isDateInRegistrationWindows = (date, windows) => {
+      if (!date || !windows || windows.length === 0) return false;
+      
+      const checkDate = typeof date === 'string' ? parseDate(date) : date;
+      
+      return windows.some(window => {
+        const startDate = parseDate(window.displayDate);
+        const endDate = parseDate(window.endDateDisplayDate);
+        
+        if (window.recurring) {
+          return isDateInRecurringRange(checkDate, startDate, endDate);
+        }
+        
+        return checkDate >= startDate && checkDate <= endDate;
+      });
+    };
+
+    /**
+     * Get current school year in YY/YY format
+     */
+    const getCurrentSchoolYear = () => {
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
+      const startYear = currentMonth >= 8 ? currentYear : currentYear - 1; // School year starts in September
+      
+      const startYY = startYear.toString().slice(-2);
+      const endYY = (startYear + 1).toString().slice(-2);
+      
+      return `${startYY}/${endYY}`;
+    };
+    
+    /**
+     * Get next school year in YY/YY format
+     */
+    const getNextSchoolYear = () => {
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
+      const startYear = currentMonth >= 8 ? currentYear + 1 : currentYear; // Next school year
+      
+      const startYY = startYear.toString().slice(-2);
+      const endYY = (startYear + 1).toString().slice(-2);
+      
+      return `${startYY}/${endYY}`;
+    };
+    
+    /**
+     * Get restricted date range based on registration windows
+     * for date validation in the form
+     */
+    const getRegistrationDateRestrictions = (studentType) => {
+      const windows = getActiveRegistrationWindows(studentType);
+      const { start, end, hasActiveWindow } = getEffectiveRegistrationPeriod(windows);
+      
+      return {
+        minDate: start,
+        maxDate: end,
+        hasActiveWindow,
+        windows
+      };
+    };
+    
+    /**
+     * Gets the maximum schedule end date for a specific student type
+     * based on the scheduleEndDateDisplayDate field in ImportantDates
+     */
+    const getMaxScheduleEndDate = (studentType) => {
+      if (!importantDates || !studentType) return null;
+      
+      const today = new Date();
+      
+      // Filter for registration events with scheduleEndDateDisplayDate
+      const relevantEvents = Object.values(importantDates || {}).filter(event => {
+        return (
+          event.type === 'Registration' &&
+          event.applicableStudentTypes?.includes(studentType) &&
+          event.scheduleEndDateDisplayDate
+        );
+      });
+      
+      if (relevantEvents.length === 0) return null;
+      
+      // For each event, determine the effective schedule end date
+      const scheduleEndDates = relevantEvents.map(event => {
+        const scheduleEndDate = parseDate(event.scheduleEndDateDisplayDate);
+        if (!scheduleEndDate) return null;
+        
+        // For recurring dates, we need to find the appropriate occurrence
+        if (event.recurring) {
+          const currentYear = today.getFullYear();
+          
+          // Create a date for this year with the same month/day
+          const thisYearDate = new Date(
+            currentYear,
+            scheduleEndDate.getMonth(),
+            scheduleEndDate.getDate()
+          );
+          
+          // If this year's date is already past, use next year's date
+          if (thisYearDate < today) {
+            return new Date(
+              currentYear + 1,
+              scheduleEndDate.getMonth(),
+              scheduleEndDate.getDate()
+            );
+          }
+          
+          return thisYearDate;
+        }
+        
+        // For non-recurring dates, just use the date as is
+        return scheduleEndDate;
+      }).filter(date => date !== null);
+      
+      // If there are multiple end dates, use the earliest (most restrictive)
+      if (scheduleEndDates.length === 0) return null;
+      
+      return new Date(Math.min(...scheduleEndDates.map(d => d.getTime())));
+    };
+    
+    /**
+     * Checks if a start date and end date cross the school year boundary
+     * (e.g., starting in summer and ending after summer)
+     */
+    const crossesSchoolYearBoundary = (startDate, endDate) => {
+      if (!startDate || !endDate) return false;
+      
+      const start = typeof startDate === 'string' ? parseDate(startDate) : startDate;
+      const end = typeof endDate === 'string' ? parseDate(endDate) : endDate;
+      
+      const startMonth = start.getMonth();
+      const endMonth = end.getMonth();
+      
+      // Starting in summer (Jun-Aug) and ending after August
+      return (startMonth >= 5 && startMonth <= 7) && // Jun(5)-Aug(7) 
+             (endMonth >= 8); // September(8) or later
+    };
+    
+    // Return all utility functions and computed properties
+    return {
+      // Functions
+      getActiveRegistrationWindows,
+      getEffectiveRegistrationPeriod,
+      isNextYearRegistrationOpen,
+      getNextYearRegistrationWindow,
+      isDateInRegistrationWindows,
+      getCurrentSchoolYear,
+      getNextSchoolYear,
+      getRegistrationDateRestrictions,
+      getMaxScheduleEndDate, // New function for schedule end date
+      crossesSchoolYearBoundary, // New function to check school year boundary
+      parseDate,
+      formatDate
+    };
+  }, [importantDates]);
 }

@@ -9,7 +9,8 @@ export const useStudentData = (userEmailKey) => {
     profile: null,
     loading: true,
     error: null,
-    studentExists: false
+    studentExists: false,
+    importantDates: null
   });
 
   const fetchStaffMember = async (emailKey) => {
@@ -132,13 +133,69 @@ export const useStudentData = (userEmailKey) => {
       .sort((a, b) => new Date(b.Created) - new Date(a.Created));
   };
 
+  const fetchImportantDates = async () => {
+    try {
+      const db = getDatabase();
+      const datesRef = ref(db, 'ImportantDates');
+      const snapshot = await get(datesRef);
+      
+      console.log('Fetching ImportantDates directly:', snapshot.exists(), snapshot.val());
+      
+      if (snapshot.exists()) {
+        return snapshot.val();
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching important dates:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
     let profileReceived = false;
     let coursesReceived = false;
+    let datesReceived = false;
     
+    console.log('useStudentData effect running, userEmailKey:', userEmailKey);
+    
+    // Always fetch important dates, regardless of userEmailKey
+    const fetchDates = async () => {
+      try {
+        const dates = await fetchImportantDates();
+        if (isMounted) {
+          console.log('Fetched ImportantDates:', dates);
+          setStudentData(prev => ({
+            ...prev,
+            importantDates: dates
+          }));
+          datesReceived = true;
+          // If this is a new user (no userEmailKey), we need to mark loading as complete
+          if (!userEmailKey) {
+            setStudentData(prev => ({ ...prev, loading: false }));
+          } else {
+            checkLoadingComplete();
+          }
+        }
+      } catch (error) {
+        console.error('Error in fetchDates:', error);
+        datesReceived = true;
+        if (!userEmailKey) {
+          setStudentData(prev => ({ ...prev, loading: false }));
+        } else {
+          checkLoadingComplete();
+        }
+      }
+    };
+    
+    // Execute fetchDates immediately
+    fetchDates();
+    
+    // If no userEmailKey, we're done after fetching dates
     if (!userEmailKey) {
-      setStudentData(prev => ({ ...prev, loading: false }));
+      // We're not setting loading to false right away, as fetchDates will do that
+      profileReceived = true;
+      coursesReceived = true;
       return;
     }
 
@@ -146,7 +203,8 @@ export const useStudentData = (userEmailKey) => {
     let unsubscribe = null;
 
     const checkLoadingComplete = () => {
-      if (profileReceived && coursesReceived && isMounted) {
+      console.log('checkLoadingComplete:', { profileReceived, coursesReceived, datesReceived, isMounted });
+      if (profileReceived && coursesReceived && datesReceived && isMounted) {
         setStudentData(prev => ({
           ...prev,
           loading: false
@@ -169,12 +227,14 @@ export const useStudentData = (userEmailKey) => {
     const setupListeners = () => {
       const profileRef = ref(db, `students/${userEmailKey}/profile`);
       const coursesRef = ref(db, `students/${userEmailKey}/courses`);
+      const datesRef = ref(db, 'ImportantDates');
 
       // Listen for profile changes
       const profileUnsubscribe = onValue(profileRef, async (profileSnapshot) => {
         if (!isMounted) return;
         
         profileReceived = true;
+        console.log('Profile received:', profileSnapshot.val());
         
         setStudentData(prev => ({
           ...prev,
@@ -190,6 +250,7 @@ export const useStudentData = (userEmailKey) => {
         if (!isMounted) return;
 
         coursesReceived = true;
+        console.log('Courses received:', coursesSnapshot.exists());
 
         if (coursesSnapshot.exists()) {
           const coursesData = coursesSnapshot.val();
@@ -212,21 +273,48 @@ export const useStudentData = (userEmailKey) => {
         checkLoadingComplete();
       }, handleError);
 
+      // Listen for ImportantDates changes
+      const datesUnsubscribe = onValue(datesRef, async (datesSnapshot) => {
+        if (!isMounted) return;
+        
+        datesReceived = true;
+        console.log('ImportantDates received via listener:', datesSnapshot.exists(), datesSnapshot.val());
+        
+        setStudentData(prev => ({
+          ...prev,
+          importantDates: datesSnapshot.exists() ? datesSnapshot.val() : null
+        }));
+        
+        checkLoadingComplete();
+      }, handleError);
+
       return () => {
         profileUnsubscribe();
         coursesUnsubscribe();
+        datesUnsubscribe();
       };
     };
 
     if (isEmulating) {
       // For emulation, do a one-time fetch
       const studentRef = ref(db, `students/${userEmailKey}`);
-      get(studentRef).then(async (snapshot) => {
+      const datesRef = ref(db, 'ImportantDates');
+      
+      Promise.all([
+        get(studentRef),
+        get(datesRef)
+      ]).then(async ([studentSnapshot, datesSnapshot]) => {
         if (!isMounted) return;
 
-        const exists = snapshot.exists();
+        console.log('Emulation mode fetches:', {
+          studentExists: studentSnapshot.exists(),
+          datesExists: datesSnapshot.exists(),
+          dates: datesSnapshot.val()
+        });
+
+        const exists = studentSnapshot.exists();
         if (exists) {
-          const data = snapshot.val();
+          const data = studentSnapshot.val();
           const processedCourses = await processCourses(data.courses);
           
           if (!isMounted) return;
@@ -236,7 +324,8 @@ export const useStudentData = (userEmailKey) => {
             profile: data.profile || null,
             loading: false,
             error: null,
-            studentExists: true
+            studentExists: true,
+            importantDates: datesSnapshot.exists() ? datesSnapshot.val() : null
           });
         } else {
           setStudentData({
@@ -244,9 +333,15 @@ export const useStudentData = (userEmailKey) => {
             profile: null,
             loading: false,
             error: null,
-            studentExists: false
+            studentExists: false,
+            importantDates: datesSnapshot.exists() ? datesSnapshot.val() : null
           });
         }
+        
+        // Mark all as received
+        profileReceived = true;
+        coursesReceived = true;
+        datesReceived = true;
       }).catch(handleError);
     } else {
       // Set up real-time listeners
@@ -260,6 +355,13 @@ export const useStudentData = (userEmailKey) => {
       }
     };
   }, [userEmailKey, isEmulating]);
+
+  // Add a console log here to see if the data is correctly being returned
+  console.log('useStudentData returning:', {
+    hasImportantDates: !!studentData.importantDates,
+    loading: studentData.loading,
+    hasError: !!studentData.error
+  });
 
   return studentData;
 };

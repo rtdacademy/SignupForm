@@ -12,9 +12,9 @@ import { cn } from "../lib/utils";
 import { useAuth } from '../context/AuthContext';
 import { getDatabase, ref, get, remove, set } from 'firebase/database';
 import { useConversionTracking } from '../components/hooks/use-conversion-tracking';
-import { useRegistrationPeriod, RegistrationPeriod } from '../utils/registrationPeriods';
+import { useRegistrationWindows, RegistrationPeriod } from '../utils/registrationPeriods';
 
-const FormDialog = ({ trigger, open, onOpenChange }) => {
+const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
   const trackConversion = useConversionTracking();
   const { user, user_email_key } = useAuth();
   const uid = user?.uid;
@@ -30,7 +30,12 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
   const [existingRegistration, setExistingRegistration] = useState(null);
   const formRef = React.useRef(null);
 
-  const { period, cutoffDates } = useRegistrationPeriod();
+  // Use the new registration windows hook
+  const { 
+    getActiveRegistrationWindows, 
+    getEffectiveRegistrationPeriod,
+    formatDate 
+  } = useRegistrationWindows(importantDates);
 
   // Check for existing registration on mount
   useEffect(() => {
@@ -52,25 +57,22 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
             return;
           }
           
-          // Validate student type against current period
+          // Validate student type against active registration windows
           const studentType = data.studentType;
+          
+          // Check if there are active windows for this student type
+          const activeWindows = getActiveRegistrationWindows(studentType);
+          const registrationPeriod = getEffectiveRegistrationPeriod(activeWindows);
+          
           let isValid = true;
           let periodMessage = null;
           
-          // Skip validation for Adult and International
+          // Skip validation for Adult and International Students
           if (studentType !== 'Adult Student' && studentType !== 'International Student') {
-            switch (period) {
-              case RegistrationPeriod.SUMMER:
-                // Only Summer School is valid during summer period
-                isValid = studentType === 'Summer School';
-                periodMessage = "The registration period has changed to Summer School only.";
-                break;
-                
-              case RegistrationPeriod.NEXT_REGULAR:
-                // Summer School is not valid after summer period
-                isValid = studentType !== 'Summer School';
-                periodMessage = "Summer School registration has ended.";
-                break;
+            isValid = registrationPeriod.hasActiveWindow;
+            
+            if (!isValid) {
+              periodMessage = `There are currently no active registration windows for ${studentType} students.`;
             }
           }
           
@@ -100,7 +102,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
     };
   
     checkExistingRegistration();
-  }, [open, uid, period]);
+  }, [open, uid, getActiveRegistrationWindows, getEffectiveRegistrationPeriod]);
 
   // Reset state when dialog is closed
   useEffect(() => {
@@ -134,6 +136,17 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
 
   const handleProceed = async () => {
     if (currentStep === 'type-selection' && selectedStudentType) {
+      // Verify there's an active registration window (except for Adult/International)
+      if (selectedStudentType !== 'Adult Student' && selectedStudentType !== 'International Student') {
+        const activeWindows = getActiveRegistrationWindows(selectedStudentType);
+        const registrationPeriod = getEffectiveRegistrationPeriod(activeWindows);
+        
+        if (!registrationPeriod.hasActiveWindow) {
+          setError(`There are currently no active registration windows for ${selectedStudentType} students.`);
+          return;
+        }
+      }
+      
       setCurrentStep('form');
       try {
         const db = getDatabase();
@@ -378,6 +391,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
           onBack={handleBack}
           formData={formData}
           studentType={selectedStudentType}
+          importantDates={importantDates}
         />
       );
     }
@@ -388,6 +402,7 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
           onStudentTypeSelect={handleStudentTypeSelect} 
           selectedType={selectedStudentType}
           isFormComponent={true} 
+          importantDates={importantDates}
         />
       );
     }
@@ -397,13 +412,14 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
       case 'Home Education':
       case 'Adult Student':
       case 'Summer School':
-        case 'International Student': 
+      case 'International Student': 
         return (
           <NonPrimaryStudentForm 
             ref={formRef}
             initialData={formData}
             onValidationChange={setIsFormValid}
             studentType={selectedStudentType}
+            importantDates={importantDates}
             onSave={async (data) => {
               const db = getDatabase();
               const pendingRegRef = ref(db, `users/${uid}/pendingRegistration`);
@@ -497,8 +513,6 @@ const FormDialog = ({ trigger, open, onOpenChange }) => {
             <div className="flex flex-col h-full max-h-[90vh]"> {/* Wrapper div with flex */}
               {/* Header Section */}
               <div className="p-6 pb-0">
-             
-
                 <div className="mb-6">
                   <DialogPrimitive.Title className="text-2xl font-semibold">
                     {currentStep === 'type-selection'

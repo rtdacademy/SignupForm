@@ -90,6 +90,7 @@ const Dashboard = () => {
   const { 
     courses, 
     profile, 
+    importantDates,
     loading: dataLoading, 
     error, 
     studentExists 
@@ -418,6 +419,7 @@ const Dashboard = () => {
               <FormDialog
                 trigger={triggerButton}
                 open={isFormDialogOpen}
+                importantDates={importantDates} 
                 onOpenChange={(open) => {
                   setIsFormDialogOpen(open);
                   if (open) {
@@ -506,7 +508,7 @@ const Dashboard = () => {
                   </h3>
                 </CardHeader>
                 <CardContent className="p-4">
-                  <ImportantDatesCard />
+                <ImportantDatesCard importantDates={importantDates} />
                 </CardContent>
               </Card>
             </div>

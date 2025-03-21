@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Calendar, Plus, Edit, Trash, Check, Clock, AlertCircle, Info, CalendarCheck, Clock8, RepeatIcon, User, Home, Sun, Globe, GraduationCap, AlertTriangle, CalendarDays } from 'lucide-react';
+import { Calendar, Plus, Edit, Trash, Check, Clock, AlertCircle, Info, CalendarCheck, Clock8, RepeatIcon, User, Home, Sun, Globe, GraduationCap, AlertTriangle, CalendarDays, CalendarX } from 'lucide-react';
 import { getDatabase, ref, update, get, push, remove } from 'firebase/database';
 import { 
   Dialog,
@@ -202,10 +202,10 @@ const periodOptions = [
   { value: 'PM', label: 'PM' }
 ];
 
+// Modified event type options - removed ScheduleEndDate
 const eventTypeOptions = [
   { value: 'Diploma', label: 'Diploma Exam' },
-  { value: 'Registration', label: 'Registration Date' },
-  { value: 'SchoolEvent', label: 'School Event' }
+  { value: 'Registration', label: 'Registration Date' }
 ];
 
 // Check if a date is in the past
@@ -465,7 +465,7 @@ function DiplomaDateEditor({ time, onSave, onCancel, onDelete, isNew = false }) 
   );
 }
 
-// GeneralDateEditor Component - for registration and other event types
+// GeneralDateEditor Component - updated for registration dates with schedule end date
 function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false }) {
   const [editedEvent, setEditedEvent] = useState({
     id: event.id || `event-${Date.now()}`,
@@ -474,9 +474,12 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
     description: event.description || '',
     recurring: event.recurring || false,
     ...formatDateForDatabase(event.displayDate || formatDateForDisplay(event) || new Date().toLocaleDateString('en-CA')),
-    // Add endDate fields
+    // Add endDate fields for registration window
     endDate: event.endDate || null,
     endDateDisplayDate: event.endDateDisplayDate || '',
+    // Add scheduleEndDate fields for course completion deadline
+    scheduleEndDate: event.scheduleEndDate || null,
+    scheduleEndDateDisplayDate: event.scheduleEndDateDisplayDate || '',
     confirmed: event.confirmed || false,
     applicableStudentTypes: event.applicableStudentTypes || [] // Initialize with existing data or empty array
   });
@@ -501,6 +504,19 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
       ...editedEvent,
       endDate: date,
       endDateDisplayDate: displayDate
+    };
+    setEditedEvent(updatedEvent);
+    onSave(updatedEvent); // Immediately update parent component
+  };
+
+  // New handler for schedule end date
+  const handleScheduleEndDateChange = (e) => {
+    const localDate = e.target.value;
+    const { date, displayDate } = formatDateForDatabase(localDate);
+    const updatedEvent = {
+      ...editedEvent,
+      scheduleEndDate: date,
+      scheduleEndDateDisplayDate: displayDate
     };
     setEditedEvent(updatedEvent);
     onSave(updatedEvent); // Immediately update parent component
@@ -569,27 +585,18 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
     return endDate >= startDate;
   };
 
+  // Check if schedule end date is after registration start date
+  const isScheduleEndDateValid = () => {
+    if (!editedEvent.scheduleEndDate || !editedEvent.displayDate) return true;
+    
+    const startDate = new Date(editedEvent.displayDate);
+    const scheduleEndDate = new Date(editedEvent.scheduleEndDateDisplayDate);
+    
+    return scheduleEndDate >= startDate;
+  };
+
   return (
     <div className="space-y-4">
-      <div>
-        <Label>Event Type</Label>
-        <Select
-          value={editedEvent.type}
-          onValueChange={(value) => handleChange('type', value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select event type" />
-          </SelectTrigger>
-          <SelectContent>
-            {eventTypeOptions.filter(t => t.value !== 'Diploma').map(option => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      
       <div>
         <Label>Title</Label>
         <Input
@@ -615,31 +622,56 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
         )}
       </div>
       
-      {/* Add End Date field for Registration type */}
-      {editedEvent.type === 'Registration' && (
-        <div>
-          <Label>End Date {editedEvent.recurring ? "(Annual)" : "(Optional)"}</Label>
-          <Input
-            type="date"
-            value={editedEvent.endDateDisplayDate || formatDateForDisplay({
-              date: editedEvent.endDate,
-              displayDate: editedEvent.endDateDisplayDate
-            })}
-            onChange={handleEndDateChange}
-            className="mt-1"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            {editedEvent.recurring 
-              ? "Both start and end dates will recur annually, creating a yearly registration window."
-              : "If specified, this registration period will end on this date."}
+      {/* Registration End Date field */}
+      <div>
+        <Label>End Date {editedEvent.recurring ? "(Annual)" : "(Optional)"}</Label>
+        <Input
+          type="date"
+          value={editedEvent.endDateDisplayDate || formatDateForDisplay({
+            date: editedEvent.endDate,
+            displayDate: editedEvent.endDateDisplayDate
+          })}
+          onChange={handleEndDateChange}
+          className="mt-1"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          {editedEvent.recurring 
+            ? "Both start and end dates will recur annually, creating a yearly registration window."
+            : "If specified, this registration period will end on this date."}
+        </p>
+        {editedEvent.endDateDisplayDate && !isEndDateValid() && (
+          <p className="text-xs text-red-500 mt-1">
+            End date must be after or equal to the start date.
           </p>
-          {editedEvent.endDateDisplayDate && !isEndDateValid() && (
-            <p className="text-xs text-red-500 mt-1">
-              End date must be after or equal to the start date.
-            </p>
-          )}
-        </div>
-      )}
+        )}
+      </div>
+
+      {/* New Schedule End Date field */}
+      <div>
+        <Label className="font-medium text-base">Course Completion Deadline</Label>
+        <p className="text-sm text-gray-500 mt-1 mb-2">
+          The date by which students who register during this period must complete their course.
+        </p>
+        <Input
+          type="date"
+          value={editedEvent.scheduleEndDateDisplayDate || formatDateForDisplay({
+            date: editedEvent.scheduleEndDate,
+            displayDate: editedEvent.scheduleEndDateDisplayDate
+          })}
+          onChange={handleScheduleEndDateChange}
+          className="mt-1"
+        />
+        {editedEvent.scheduleEndDateDisplayDate && !isScheduleEndDateValid() && (
+          <p className="text-xs text-red-500 mt-1">
+            Course completion deadline must be after or equal to the registration start date.
+          </p>
+        )}
+        {editedEvent.recurring && editedEvent.scheduleEndDateDisplayDate && (
+          <p className="text-xs text-gray-500 mt-1">
+            This completion deadline will recur annually with the registration period.
+          </p>
+        )}
+      </div>
       
       <div>
         <Label>Description</Label>
@@ -669,7 +701,7 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
         <div>
           <Label>Annual Recurring Event</Label>
           <p className="text-xs text-gray-500">
-            {editedEvent.type === 'Registration' && editedEvent.endDateDisplayDate
+            {editedEvent.endDateDisplayDate
               ? "Registration period repeats every year with the same start and end dates"
               : "Event repeats every year on the same date"}
           </p>
@@ -728,8 +760,8 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
         </div>
       </div>
 
-      {/* Warning message for Registration dates */}
-      {editedEvent.type === 'Registration' && !isNew && (
+      {/* Warning message for protected date types */}
+      {!isNew && (
         <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start">
           <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />
           <div>
@@ -737,7 +769,7 @@ function GeneralDateEditor({ event, onSave, onCancel, onDelete, isNew = false })
               Registration dates cannot be deleted
             </p>
             <p className="text-xs text-amber-700 mt-1">
-              These dates are used elsewhere in the system to manage student registration periods.
+              These dates are used elsewhere in the system to manage student workflows.
             </p>
           </div>
         </div>
@@ -883,7 +915,7 @@ function AddDiplomaDateDialog({ courses, onAddDate }) {
   );
 }
 
-// AddGeneralEventDialog Component
+// AddGeneralEventDialog Component - Updated for registration with schedule end date
 function AddGeneralEventDialog({ onAddEvent }) {
   const [isOpen, setIsOpen] = useState(false);
   
@@ -901,7 +933,6 @@ function AddGeneralEventDialog({ onAddEvent }) {
   const defaultEvent = {
     id: `event-${Date.now()}`,
     type: 'Registration',
-    subtype: 'Regular',
     title: '',
     description: '',
     date,
@@ -909,6 +940,8 @@ function AddGeneralEventDialog({ onAddEvent }) {
     timezone,
     endDate: null,
     endDateDisplayDate: '',
+    scheduleEndDate: null, // New field for course completion deadline
+    scheduleEndDateDisplayDate: '', // New field for course completion deadline display
     confirmed: false,
     recurring: false,
     applicableStudentTypes: [] // Initialize empty array for student types
@@ -933,7 +966,18 @@ function AddGeneralEventDialog({ onAddEvent }) {
       const endDate = new Date(newEvent.endDateDisplayDate);
       
       if (endDate < startDate) {
-        toast.error("End date must be after or equal to the start date.");
+        toast.error("Registration end date must be after or equal to the start date.");
+        return;
+      }
+    }
+
+    // Validate that schedule end date is after start date if specified
+    if (newEvent.scheduleEndDate && newEvent.displayDate && newEvent.scheduleEndDateDisplayDate) {
+      const startDate = new Date(newEvent.displayDate);
+      const scheduleEndDate = new Date(newEvent.scheduleEndDateDisplayDate);
+      
+      if (scheduleEndDate < startDate) {
+        toast.error("Course completion deadline must be after or equal to the registration start date.");
         return;
       }
     }
@@ -951,14 +995,14 @@ function AddGeneralEventDialog({ onAddEvent }) {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button className="flex items-center">
-          <Plus className="h-4 w-4 mr-2" /> Add General Date
+          <Plus className="h-4 w-4 mr-2" /> Add Registration Date
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px] max-h-[100vh]">
         <DialogHeader>
-          <DialogTitle>Add Important Date</DialogTitle>
+          <DialogTitle>Add Registration Date</DialogTitle>
           <DialogDescription>
-            Add a new date for registrations or other important school events.
+            Add a new registration period with optional course completion deadline.
           </DialogDescription>
         </DialogHeader>
         
@@ -1053,7 +1097,7 @@ function EditDiplomaDateSheet({ time, courseId, courseTitle, onSave, onDelete })
   );
 }
 
-// EditGeneralEventSheet Component
+// EditGeneralEventSheet Component - Updated for registration with schedule end date
 function EditGeneralEventSheet({ event, onSave, onDelete }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editedEvent, setEditedEvent] = useState(event);
@@ -1074,7 +1118,18 @@ function EditGeneralEventSheet({ event, onSave, onDelete }) {
       const endDate = new Date(editedEvent.endDateDisplayDate);
       
       if (endDate < startDate) {
-        toast.error("End date must be after or equal to the start date.");
+        toast.error("Registration end date must be after or equal to the start date.");
+        return;
+      }
+    }
+
+    // Validate that schedule end date is after start date if specified
+    if (editedEvent.scheduleEndDate && editedEvent.displayDate && editedEvent.scheduleEndDateDisplayDate) {
+      const startDate = new Date(editedEvent.displayDate);
+      const scheduleEndDate = new Date(editedEvent.scheduleEndDateDisplayDate);
+      
+      if (scheduleEndDate < startDate) {
+        toast.error("Course completion deadline must be after or equal to the registration start date.");
         return;
       }
     }
@@ -1088,6 +1143,9 @@ function EditGeneralEventSheet({ event, onSave, onDelete }) {
     setIsOpen(false);
   };
   
+  // Registration dates cannot be deleted
+  const isDeletionAllowed = false;
+  
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(true)}>
@@ -1095,9 +1153,9 @@ function EditGeneralEventSheet({ event, onSave, onDelete }) {
       </Button>
       <SheetContent side="right" className="w-[400px] sm:w-[540px]">
         <SheetHeader>
-          <SheetTitle>Edit Event</SheetTitle>
+          <SheetTitle>Edit Registration Date</SheetTitle>
           <SheetDescription>
-            Update the details for this important date.
+            Update the details for this registration period.
           </SheetDescription>
         </SheetHeader>
         <div className="flex flex-col h-[calc(100vh-180px)]">
@@ -1116,7 +1174,7 @@ function EditGeneralEventSheet({ event, onSave, onDelete }) {
               Cancel
             </Button>
             <div className="space-x-2">
-              {editedEvent.type !== 'Registration' && (
+              {isDeletionAllowed && (
                 <Button variant="destructive" onClick={() => handleDelete()}>
                   <Trash className="h-4 w-4 mr-1" /> Delete
                 </Button>
@@ -1134,8 +1192,8 @@ function EditGeneralEventSheet({ event, onSave, onDelete }) {
 
 // DeleteConfirmDialog Component
 function DeleteConfirmDialog({ isOpen, onClose, onConfirm, itemInfo, itemType = 'date' }) {
-  // Check if this is a registration date - if so, don't allow deletion
-  const isRegistrationType = itemInfo?.type === 'Registration';
+  // Registration dates cannot be deleted
+  const isProtectedType = itemInfo?.type === 'Registration';
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -1143,8 +1201,8 @@ function DeleteConfirmDialog({ isOpen, onClose, onConfirm, itemInfo, itemType = 
         <DialogHeader>
           <DialogTitle>Delete Important {itemType === 'date' ? 'Date' : 'Event'}</DialogTitle>
           <DialogDescription>
-            {isRegistrationType ? (
-              "Registration dates cannot be deleted as they are used elsewhere in the system."
+            {isProtectedType ? (
+              `Registration dates cannot be deleted as they are used elsewhere in the system.`
             ) : (
               `Are you sure you want to delete this ${itemType === 'date' ? 'date' : 'event'}
               ${itemInfo?.courseTitle ? ` for ${itemInfo.courseTitle}` : ''}?`
@@ -1170,12 +1228,18 @@ function DeleteConfirmDialog({ isOpen, onClose, onConfirm, itemInfo, itemType = 
               ) : (
                 <>
                   <div><strong>Title:</strong> {itemInfo?.title}</div>
-                  <div><strong>Type:</strong> {itemInfo?.type} {itemInfo?.subtype ? `(${itemInfo.subtype})` : ''}</div>
-                  <div><strong>Start Date:</strong> {formatDateForGrouping(itemInfo)}</div>
+                  <div><strong>Type:</strong> {itemInfo?.type}</div>
+                  <div><strong>Date:</strong> {formatDateForGrouping(itemInfo)}</div>
                   {itemInfo?.endDate && (
                     <div><strong>End Date:</strong> {formatDateForGrouping({
                       date: itemInfo.endDate,
                       displayDate: itemInfo.endDateDisplayDate
+                    })}</div>
+                  )}
+                  {itemInfo?.scheduleEndDate && (
+                    <div><strong>Course Completion Deadline:</strong> {formatDateForGrouping({
+                      date: itemInfo.scheduleEndDate,
+                      displayDate: itemInfo.scheduleEndDateDisplayDate
                     })}</div>
                   )}
                   {itemInfo?.recurring && (
@@ -1195,7 +1259,7 @@ function DeleteConfirmDialog({ isOpen, onClose, onConfirm, itemInfo, itemType = 
               )}
             </div>
             
-            {isRegistrationType ? (
+            {isProtectedType ? (
               <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start">
                 <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" />
                 <div>
@@ -1203,7 +1267,7 @@ function DeleteConfirmDialog({ isOpen, onClose, onConfirm, itemInfo, itemType = 
                     Registration dates cannot be deleted
                   </p>
                   <p className="text-xs text-amber-700 mt-1">
-                    These dates are used elsewhere in the system to manage student registration periods.
+                    These dates are used elsewhere in the system to manage student workflows.
                   </p>
                 </div>
               </div>
@@ -1215,7 +1279,7 @@ function DeleteConfirmDialog({ isOpen, onClose, onConfirm, itemInfo, itemType = 
         
         <DialogFooter className="mt-6">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          {!isRegistrationType && (
+          {!isProtectedType && (
             <Button variant="destructive" onClick={onConfirm}>
               <Trash className="h-4 w-4 mr-2" /> Delete
             </Button>
@@ -1226,7 +1290,7 @@ function DeleteConfirmDialog({ isOpen, onClose, onConfirm, itemInfo, itemType = 
   );
 }
 
-function CalendarViewSheet({ isOpen, onClose, dates }) {
+function CalendarViewSheet({ isOpen, onClose, dates, courses }) {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   
@@ -1276,10 +1340,12 @@ function CalendarViewSheet({ isOpen, onClose, dates }) {
         </SheetHeader>
         
         <div className="mt-6">
-          {/* Display count of registration dates for debugging */}
-        
-          
-          <YearlyCalendarView dates={registrationDates || []} year={selectedYear} />
+          {/* Pass the courses prop to YearlyCalendarView */}
+          <YearlyCalendarView 
+            dates={registrationDates || []} 
+            year={selectedYear}
+            courses={courses} 
+          />
         </div>
         
         <SheetFooter className="mt-6">
@@ -1413,7 +1479,7 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
         let processedEndDate = event.endDate;
         let processedEndDateDisplay = event.endDateDisplayDate;
 
-        if (event.type === 'Registration' && event.endDate && event.endDateDisplayDate) {
+        if (event.endDate && event.endDateDisplayDate) {
           let endDate;
           if (event.endDateDisplayDate) {
             const [year, month, day] = event.endDateDisplayDate.split('-').map(Number);
@@ -1442,6 +1508,40 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
             day: '2-digit'
           });
         }
+
+        // Process schedule end date for recurring registration periods
+        let processedSchedEndDate = event.scheduleEndDate;
+        let processedSchedEndDateDisplay = event.scheduleEndDateDisplayDate;
+
+        if (event.scheduleEndDate && event.scheduleEndDateDisplayDate) {
+          let schedEndDate;
+          if (event.scheduleEndDateDisplayDate) {
+            const [year, month, day] = event.scheduleEndDateDisplayDate.split('-').map(Number);
+            schedEndDate = new Date(year, month - 1, day);
+          } else {
+            schedEndDate = new Date(event.scheduleEndDate);
+          }
+
+          // For recurring events, set schedule end date to current or next year
+          const currentYearSchedEndDate = new Date(
+            currentYear,
+            schedEndDate.getMonth(),
+            schedEndDate.getDate()
+          );
+
+          // If schedule end date is before start date in the current year, move to next year
+          if (currentYearSchedEndDate < currentYearDate) {
+            currentYearSchedEndDate.setFullYear(currentYear + 1);
+          }
+
+          // Format the schedule end date display
+          processedSchedEndDate = currentYearSchedEndDate.toISOString();
+          processedSchedEndDateDisplay = currentYearSchedEndDate.toLocaleDateString('en-CA', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          });
+        }
         
         // Return event with updated date
         return {
@@ -1450,10 +1550,14 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
           displayDate: formattedDisplayDate,
           endDate: processedEndDate,
           endDateDisplayDate: processedEndDateDisplay,
+          scheduleEndDate: processedSchedEndDate,
+          scheduleEndDateDisplayDate: processedSchedEndDateDisplay,
           originalDate: event.date, // Store original date for reference
           originalDisplayDate: event.displayDate, // Store original displayDate
           originalEndDate: event.endDate, // Store original end date
-          originalEndDateDisplayDate: event.endDateDisplayDate // Store original end date display
+          originalEndDateDisplayDate: event.endDateDisplayDate, // Store original end date display
+          originalScheduleEndDate: event.scheduleEndDate, // Store original schedule end date
+          originalScheduleEndDateDisplayDate: event.scheduleEndDateDisplayDate // Store original schedule end date display
         };
       });
   }, [generalDates]);
@@ -1473,8 +1577,6 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
     // Apply additional filtering if needed
     if (filter === 'registration' && activeTab !== 'diploma') {
       dates = dates.filter(date => date.type === 'Registration');
-    } else if (filter === 'school' && activeTab !== 'diploma') {
-      dates = dates.filter(date => date.type === 'SchoolEvent');
     }
     
     // Sort dates correctly using the displayDate when available
@@ -1593,8 +1695,6 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
         return <Calendar className="h-4 w-4 text-blue-500" />;
       case 'Registration':
         return <CalendarCheck className="h-4 w-4 text-green-500" />;
-      case 'SchoolEvent':
-        return <Info className="h-4 w-4 text-purple-500" />;
       default:
         return <Calendar className="h-4 w-4" />;
     }
@@ -1719,11 +1819,11 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
       }));
       
       console.log('Successfully added general event');
-      toast.success("The important date has been added successfully.");
+      toast.success("The registration date has been added successfully.");
       setLoading(false);
     } catch (error) {
       console.error('Error adding general event:', error);
-      toast.error("An error occurred while adding the important date.");
+      toast.error("An error occurred while adding the registration date.");
       setLoading(false);
     }
   };
@@ -1783,12 +1883,23 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
       if (updatedEvent.originalEndDateDisplayDate) {
         eventToSave.endDateDisplayDate = updatedEvent.originalEndDateDisplayDate;
       }
+
+      // Preserve original schedule end date if it exists
+      if (updatedEvent.originalScheduleEndDate) {
+        eventToSave.scheduleEndDate = updatedEvent.originalScheduleEndDate;
+      }
+      
+      if (updatedEvent.originalScheduleEndDateDisplayDate) {
+        eventToSave.scheduleEndDateDisplayDate = updatedEvent.originalScheduleEndDateDisplayDate;
+      }
       
       // Remove temporary processing fields
       delete eventToSave.originalDate;
       delete eventToSave.originalDisplayDate;
       delete eventToSave.originalEndDate;
       delete eventToSave.originalEndDateDisplayDate;
+      delete eventToSave.originalScheduleEndDate;
+      delete eventToSave.originalScheduleEndDateDisplayDate;
       
       await update(eventRef, eventToSave);
       
@@ -1799,11 +1910,11 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
       }));
       
       console.log('Successfully updated general event');
-      toast.success("The important date has been updated successfully.");
+      toast.success("The registration date has been updated successfully.");
       setLoading(false);
     } catch (error) {
       console.error('Error updating general event:', error);
-      toast.error("An error occurred while updating the important date.");
+      toast.error("An error occurred while updating the registration date.");
       setLoading(false);
     }
   };
@@ -1838,10 +1949,10 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
   // Delete a general event
   const handleDeleteGeneralEvent = async (eventId) => {
     try {
-      // Check if this is a registration date
+      // Registration dates cannot be deleted
       const event = generalDates[eventId];
       if (event && event.type === 'Registration') {
-        toast.error("Registration dates cannot be deleted as they are used elsewhere in the system.");
+        toast.error(`Registration dates cannot be deleted as they are used elsewhere in the system.`);
         return;
       }
       
@@ -1884,9 +1995,9 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
   const confirmDeleteGeneralEvent = (eventId) => {
     const event = generalDates[eventId];
     
-    // Don't allow deletion of registration dates
+    // Registration dates cannot be deleted
     if (event && event.type === 'Registration') {
-      toast.error("Registration dates cannot be deleted as they are used elsewhere in the system.");
+      toast.error(`Registration dates cannot be deleted as they are used elsewhere in the system.`);
       return;
     }
     
@@ -1945,6 +2056,18 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
     return isToday(dateObj) ? "bg-blue-50 border-blue-200" : "";
   };
 
+  // Get border color based on event type
+  const getEventBorderColor = (type) => {
+    switch (type) {
+      case 'Diploma':
+        return 'border-l-blue-500';
+      case 'Registration':
+        return 'border-l-green-500';
+      default:
+        return 'border-l-gray-500';
+    }
+  };
+
   return (
     <div className="p-4 h-[calc(100vh-100px)] flex flex-col">
       <div className="flex justify-between items-center mb-6">
@@ -1981,7 +2104,7 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="all">All Dates</TabsTrigger>
           <TabsTrigger value="diploma">Diploma Exams</TabsTrigger>
-          <TabsTrigger value="general">General Dates</TabsTrigger>
+          <TabsTrigger value="general">Registration Dates</TabsTrigger>
         </TabsList>
       </Tabs>
       
@@ -2053,18 +2176,12 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
                   <div className="space-y-3">
                     {dateGroup.dates.map((date) => {
                       const isPastEvent = isPastDate(date);
-                      const isRegistrationEvent = date.type === 'Registration';
+                      const isProtectedEvent = date.type === 'Registration';
                       
                       return (
                         <Card 
                           key={date.id} 
-                          className={`overflow-hidden ${
-                            date.type === 'Diploma' 
-                              ? 'border-l-4 border-l-blue-500' 
-                              : date.type === 'Registration' 
-                                ? 'border-l-4 border-l-green-500' 
-                                : 'border-l-4 border-l-purple-500'
-                          } ${getPastEventClasses(date)}`}
+                          className={`overflow-hidden border-l-4 ${getEventBorderColor(date.type)} ${getPastEventClasses(date)}`}
                         >
                           <div className="flex items-start">
                             <div 
@@ -2080,7 +2197,7 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
                                     <span>
                                       {date.type === 'Diploma' 
                                         ? date.courseTitle
-                                        : date.title || `${date.type} Event`}
+                                        : date.title || `Registration Date`}
                                     </span>
                                     {date.recurring && (
                                       <Badge variant="outline" className="flex items-center gap-1 bg-purple-50 text-purple-700 border-purple-200">
@@ -2149,7 +2266,7 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
                                     )}
                                   </>
                                 ) : (
-                                  // For general events
+                                  // For registration events
                                   <>
                                     {date.recurring && (
                                       <div className="flex items-center text-sm text-purple-600">
@@ -2159,19 +2276,35 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
                                     )}
                                     
                                     {/* Registration Period Display */}
-                                    {date.type === 'Registration' && (
-                                      <div className="flex items-center text-sm text-green-600">
-                                        <CalendarCheck className="h-4 w-4 mr-1" />
-                                        <span>Registration period: {
-                                          date.endDate 
-                                            ? formatRegistrationPeriod(
-                                                date, 
-                                                { date: date.endDate, displayDate: date.endDateDisplayDate },
-                                                date.recurring
-                                              )
-                                            : date.recurring 
-                                              ? `From ${formatRecurringDateForDisplay(date)} annually`
-                                              : `From ${formatReadableDate(date)}`
+                                    <div className="flex items-center text-sm text-green-600">
+                                      <CalendarCheck className="h-4 w-4 mr-1" />
+                                      <span>Registration period: {
+                                        date.endDate 
+                                          ? formatRegistrationPeriod(
+                                              date, 
+                                              { date: date.endDate, displayDate: date.endDateDisplayDate },
+                                              date.recurring
+                                            )
+                                          : date.recurring 
+                                            ? `From ${formatRecurringDateForDisplay(date)} annually`
+                                            : `From ${formatReadableDate(date)}`
+                                      }</span>
+                                    </div>
+
+                                    {/* Schedule End Date Display */}
+                                    {date.scheduleEndDate && (
+                                      <div className="flex items-center text-sm text-red-600">
+                                        <CalendarX className="h-4 w-4 mr-1" />
+                                        <span>Course completion deadline: {
+                                          date.recurring 
+                                            ? `${formatRecurringDateForDisplay({
+                                                date: date.scheduleEndDate,
+                                                displayDate: date.scheduleEndDateDisplayDate
+                                              })} annually`
+                                            : formatReadableDate({
+                                                date: date.scheduleEndDate,
+                                                displayDate: date.scheduleEndDateDisplayDate
+                                              })
                                         }</span>
                                       </div>
                                     )}
@@ -2237,10 +2370,10 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
                                     ? confirmDeleteDiplomaDate(date.courseId, date.id, date.courseTitle, date)
                                     : confirmDeleteGeneralEvent(date.id)
                                 }
-                                disabled={isRegistrationEvent}
-                                title={isRegistrationEvent ? "Registration dates cannot be deleted" : "Delete this event"}
+                                disabled={isProtectedEvent}
+                                title={isProtectedEvent ? `Registration dates cannot be deleted` : "Delete this event"}
                               >
-                                <Trash className={`h-4 w-4 ${isRegistrationEvent ? 'text-gray-400' : ''}`} />
+                                <Trash className={`h-4 w-4 ${isProtectedEvent ? 'text-gray-400' : ''}`} />
                               </Button>
                             </div>
                           </div>
@@ -2256,8 +2389,8 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
       )}
     </div>
 
-    {/* Selected course details */}
-    {selectedCourseId && courseData && (
+   {/* Selected course details */}
+   {selectedCourseId && courseData && (
       <div className="mt-8 p-4 border rounded-lg">
         <h2 className="text-xl font-semibold mb-4">Selected Course: {courseData.Title}</h2>
         {/* Course-specific information would go here */}
@@ -2278,6 +2411,7 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
       isOpen={calendarSheetOpen}
       onClose={() => setCalendarSheetOpen(false)}
       dates={filteredDates}
+      courses={courses} 
     />
   </div>
 );
