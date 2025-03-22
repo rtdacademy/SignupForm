@@ -243,79 +243,125 @@ export function useRegistrationWindows(importantDates) {
       return `${startYY}/${endYY}`;
     };
     
-    /**
-     * Get restricted date range based on registration windows
-     * for date validation in the form
-     */
-    const getRegistrationDateRestrictions = (studentType) => {
-      const windows = getActiveRegistrationWindows(studentType);
-      const { start, end, hasActiveWindow } = getEffectiveRegistrationPeriod(windows);
-      
-      return {
-        minDate: start,
-        maxDate: end,
-        hasActiveWindow,
-        windows
-      };
-    };
+   /**
+ * Get restricted date range based on registration windows
+ * for date validation in the form, taking into account enrollment year
+ * @param {string} studentType - Type of student 
+ * @param {string} enrollmentYear - Selected enrollment year in YY/YY format
+ */
+const getRegistrationDateRestrictions = (studentType, enrollmentYear) => {
+  const windows = getActiveRegistrationWindows(studentType);
+  const { start, end, hasActiveWindow } = getEffectiveRegistrationPeriod(windows);
+  
+  const currentSchoolYear = getCurrentSchoolYear();
+  const isNextYear = enrollmentYear && enrollmentYear !== currentSchoolYear;
+  
+  let minDate = start;
+  let maxDate = end;
+  
+  // If next year is selected, we need to modify the date restrictions
+  if (isNextYear) {
+    // For next year, find registration windows specific to next year
+    const nextYearWindows = Object.values(importantDates || {}).filter(event => {
+      return (
+        event.type === 'Registration' &&
+        event.applicableStudentTypes?.includes(studentType) &&
+        // Filter for windows that aren't "Next School Year Registration Opens"
+        event.title !== 'Next School Year Registration Opens'
+      );
+    });
     
-    /**
-     * Gets the maximum schedule end date for a specific student type
-     * based on the scheduleEndDateDisplayDate field in ImportantDates
-     */
-    const getMaxScheduleEndDate = (studentType) => {
-      if (!importantDates || !studentType) return null;
-      
-      const today = new Date();
-      
-      // Filter for registration events with scheduleEndDateDisplayDate
-      const relevantEvents = Object.values(importantDates || {}).filter(event => {
-        return (
-          event.type === 'Registration' &&
-          event.applicableStudentTypes?.includes(studentType) &&
-          event.scheduleEndDateDisplayDate
-        );
-      });
-      
-      if (relevantEvents.length === 0) return null;
-      
-      // For each event, determine the effective schedule end date
-      const scheduleEndDates = relevantEvents.map(event => {
-        const scheduleEndDate = parseDate(event.scheduleEndDateDisplayDate);
-        if (!scheduleEndDate) return null;
+    if (nextYearWindows.length > 0) {
+      // For each window, shift its dates forward by a year
+      const shiftedWindows = nextYearWindows.map(window => {
+        const startDate = parseDate(window.displayDate);
+        const endDate = parseDate(window.endDateDisplayDate);
         
-        // For recurring dates, we need to find the appropriate occurrence
-        if (event.recurring) {
-          const currentYear = today.getFullYear();
-          
-          // Create a date for this year with the same month/day
-          const thisYearDate = new Date(
-            currentYear,
-            scheduleEndDate.getMonth(),
-            scheduleEndDate.getDate()
-          );
-          
-          // If this year's date is already past, use next year's date
-          if (thisYearDate < today) {
-            return new Date(
-              currentYear + 1,
-              scheduleEndDate.getMonth(),
-              scheduleEndDate.getDate()
-            );
-          }
-          
-          return thisYearDate;
-        }
+        if (!startDate || !endDate) return null;
         
-        // For non-recurring dates, just use the date as is
-        return scheduleEndDate;
-      }).filter(date => date !== null);
+        // Create a copy of the window with shifted dates
+        return {
+          ...window,
+          displayDate: formatDate(new Date(
+            startDate.getFullYear() + 1,
+            startDate.getMonth(),
+            startDate.getDate()
+          )),
+          endDateDisplayDate: formatDate(new Date(
+            endDate.getFullYear() + 1,
+            endDate.getMonth(),
+            endDate.getDate()
+          ))
+        };
+      }).filter(w => w !== null);
       
-      // If there are multiple end dates, use the earliest (most restrictive)
-      if (scheduleEndDates.length === 0) return null;
+      // Calculate effective registration period using the shifted windows
+      const nextYearPeriod = getEffectiveRegistrationPeriod(shiftedWindows);
       
-      return new Date(Math.min(...scheduleEndDates.map(d => d.getTime())));
-    };
+      // Update min/max dates if we have valid next year period
+      if (nextYearPeriod.hasActiveWindow) {
+        minDate = nextYearPeriod.start;
+        maxDate = nextYearPeriod.end;
+      }
+    }
+  }
+  
+  return {
+    minDate,
+    maxDate,
+    hasActiveWindow: hasActiveWindow || (isNextYear && minDate && maxDate),
+    windows
+  };
+};
+    
+/**
+ * Gets the maximum schedule end date for a specific student type
+ * based on the scheduleEndDateDisplayDate field in ImportantDates
+ */
+const getMaxScheduleEndDate = (studentType, enrollmentYear) => {
+  if (!importantDates || !studentType) return null;
+  
+  const currentSchoolYear = getCurrentSchoolYear();
+  const isNextYear = enrollmentYear && enrollmentYear !== currentSchoolYear;
+  
+  // Find the appropriate registration window
+  let registrationWindow = null;
+  
+  if (studentType === 'Non-Primary' || studentType === 'Home Education') {
+    // For next year or current year semester 1
+    registrationWindow = Object.values(importantDates || {}).find(event => 
+      event.type === 'Registration' &&
+      event.applicableStudentTypes?.includes(studentType) &&
+      event.title === 'Semester 1 Registration Window' &&
+      event.scheduleEndDateDisplayDate
+    );
+  } else if (studentType === 'Summer School') {
+    registrationWindow = Object.values(importantDates || {}).find(event => 
+      event.type === 'Registration' &&
+      event.applicableStudentTypes?.includes(studentType) &&
+      event.title === 'Summer School Registration Window' &&
+      event.scheduleEndDateDisplayDate
+    );
+  }
+  
+  if (!registrationWindow || !registrationWindow.scheduleEndDateDisplayDate) {
+    return null;
+  }
+  
+  // Parse the schedule end date
+  let scheduleEndDate = parseDate(registrationWindow.scheduleEndDateDisplayDate);
+  
+  // For next year, increment the year by 1
+  if (isNextYear && scheduleEndDate) {
+    scheduleEndDate = new Date(
+      scheduleEndDate.getFullYear() + 1,
+      scheduleEndDate.getMonth(),
+      scheduleEndDate.getDate()
+    );
+  }
+  
+  return scheduleEndDate;
+};
     
     /**
      * Checks if a start date and end date cross the school year boundary
@@ -334,6 +380,21 @@ export function useRegistrationWindows(importantDates) {
       return (startMonth >= 5 && startMonth <= 7) && // Jun(5)-Aug(7) 
              (endMonth >= 8); // September(8) or later
     };
+
+    /**
+ * Finds a specific registration window by student type and title
+ */
+const getRegistrationWindowByTypeAndTitle = (studentType, title) => {
+  if (!importantDates || !studentType || !title) return null;
+  
+  return Object.values(importantDates).find(event => 
+    event.type === 'Registration' &&
+    event.applicableStudentTypes?.includes(studentType) &&
+    event.title === title
+  );
+};
+
+
     
     // Return all utility functions and computed properties
     return {
@@ -346,8 +407,9 @@ export function useRegistrationWindows(importantDates) {
       getCurrentSchoolYear,
       getNextSchoolYear,
       getRegistrationDateRestrictions,
-      getMaxScheduleEndDate, // New function for schedule end date
-      crossesSchoolYearBoundary, // New function to check school year boundary
+      getMaxScheduleEndDate, 
+      crossesSchoolYearBoundary, 
+      getRegistrationWindowByTypeAndTitle,
       parseDate,
       formatDate
     };

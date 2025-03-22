@@ -104,7 +104,7 @@ const Layout = React.memo(({ children }) => {
         {childrenWithProps}
       </main>
 
-      {/* Footer - only shown when not fullscreen */}
+      {/* Footer - only shown when not fullscreen 
       {!isFullScreen && (
         <footer className="flex-none h-8 bg-gray-800 text-gray-400 px-4 flex items-center justify-between text-xs">
           <div>
@@ -118,6 +118,7 @@ const Layout = React.memo(({ children }) => {
           </div>
         </footer>
       )}
+        */}
     </div>
   );
 });

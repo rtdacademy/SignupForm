@@ -25,7 +25,7 @@ import {
   Grid
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
-import CoursesWithTabs from '../courses/CoursesWithTabs';
+import CoursesWithSheet from '../courses/CoursesWithSheet';
 import StudentManagement from '../StudentManagement/StudentManagement';
 import ExternalLinks from '../ExternalLinks/ExternalLinks';
 import ContractorInvoiceSummary from '../Admin/ContractorInvoiceSummary';
@@ -148,7 +148,7 @@ function TeacherDashboard() {
       case 'chat':
         return memoizedChatApp;
       case 'courses':
-        return <CoursesWithTabs />;
+        return <CoursesWithSheet />;
       case 'students':
       case 'react-dashboard':
         return <StudentManagement isFullScreen={isFullScreen} onFullScreenToggle={toggleFullScreen} />;
