@@ -5,13 +5,17 @@ import { Button } from "../components/ui/button";
 import IMathASSetup from './IMathASSetup';
 import { ref, query, orderByChild, equalTo, get } from 'firebase/database';
 import { database } from '../firebase';
+import PermissionIndicator from '../context/PermissionIndicator';
+import { useAuth } from '../context/AuthContext';
 
 const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
+  const { hasSuperAdminAccess } = useAuth();
   const [showMultiplierInfo, setShowMultiplierInfo] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState({ show: false, unitIndex: null });
   const [deleteLessonConfirmation, setDeleteLessonConfirmation] = useState({ show: false, unitIndex: null, itemIndex: null });
   const [hasEnrolledStudents, setHasEnrolledStudents] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  
 
   const safeUnits = Array.isArray(units) ? units : [];
 
@@ -132,6 +136,11 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
   }, [safeUnits, onUnitsChange, hasEnrolledStudents]);
 
   const addUnit = useCallback(() => {
+    if (!hasSuperAdminAccess()) {
+      alert("Super Admin access required to add units");
+      return;
+    }
+    
     if (hasEnrolledStudents) {
       alert("Cannot add units while students are enrolled in the course.");
       return;
@@ -146,7 +155,7 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
     };
     newUnits.push(newUnit);
     onUnitsChange(newUnits);
-  }, [safeUnits, onUnitsChange, hasEnrolledStudents]);
+  }, [safeUnits, onUnitsChange, hasEnrolledStudents, hasSuperAdminAccess]);
 
   const removeUnit = useCallback((unitIndex) => {
     if (hasEnrolledStudents) {

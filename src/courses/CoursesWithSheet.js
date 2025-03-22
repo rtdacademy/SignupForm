@@ -16,8 +16,9 @@ import ImportantDates from './ImportantDates';
 import RegistrationSettings from './RegistrationSettings';
 import { BookOpen, Calendar, Settings} from 'lucide-react';
 
+
 function CoursesWithSheet() {
-  const { user, isStaff } = useAuth();
+  const { user, isStaff, hasSuperAdminAccess } = useAuth();
   const navigate = useNavigate();
   
   // Track which sheet is open
@@ -118,6 +119,10 @@ function CoursesWithSheet() {
   };
 
   const toggleEditing = (value) => {
+    // Only allow super admins to toggle editing mode
+    if (value && !hasSuperAdminAccess()) {
+      return;
+    }
     setIsEditing(value);
   };
 

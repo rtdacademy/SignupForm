@@ -5,7 +5,7 @@ import {
   Card, 
   CardContent, 
   CardHeader, 
-  CardTitle 
+  CardTitle
 } from '../components/ui/card';
 import { 
   Select, 
@@ -16,12 +16,7 @@ import {
 } from '../components/ui/select';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { 
-  Accordion, 
-  AccordionContent, 
-  AccordionItem, 
-  AccordionTrigger 
-} from '../components/ui/accordion';
+import { Textarea } from '../components/ui/textarea';
 import { Switch } from '../components/ui/switch';
 import { Label } from '../components/ui/label';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -35,8 +30,8 @@ import {
   Plus, 
   Trash2, 
   Save, 
-  Info,
-  AlertTriangle
+  AlertTriangle,
+  Calendar
 } from 'lucide-react';
 
 function RegistrationSettings() {
@@ -74,7 +69,7 @@ function RegistrationSettings() {
         const formattedType = selectedStudentType.replace(/\s+/g, '-');
         
         const db = getDatabase();
-        const configRef = ref(db, `studentTypes/formSettings/${formattedYear}/${formattedType}`);
+        const configRef = ref(db, `registrationSettings/${formattedYear}/${formattedType}`);
         const snapshot = await get(configRef);
         
         if (snapshot.exists()) {
@@ -82,56 +77,21 @@ function RegistrationSettings() {
         } else {
           // Initialize with default structure if no config exists
           setFormConfig({
-            registrationWindows: {
-              default: {
-                registrationStart: '',
-                registrationEnd: '',
-                courseStartMin: '',
-                courseStartMax: '',
-                courseEndMax: '',
-                displayName: 'Default Window',
-                displayDescription: '',
-                active: true
+            generalMessage: '',
+            allowNextYearRegistration: false,
+            timeSections: [
+              {
+                id: 'default',
+                title: 'Default Registration Period',
+                startBegins: '',
+                startEnds: '',
+                completionBegins: '',
+                completionEnds: '',
+                message: 'Please select a start and completion date within the registration period.',
+                isForNextYear: false
               }
-            },
-            dateRules: {
-              minStartOffset: 2,
-              minDuration: 30,
-              recommendedDuration: 150,
-              dateSelectionHelp: 'We recommend at least 5 months to complete this course'
-            },
-            ageRules: {
-              minAge: selectedStudentType === 'Adult Student' ? 19 : 0,
-              maxAge: selectedStudentType === 'Adult Student' ? null : 19,
-              calculationDate: getDefaultCalculationDate(),
-              displayMessage: getDefaultAgeMessage(selectedStudentType)
-            },
-            summerRules: {
-              allowedInSummer: selectedStudentType === 'Summer School',
-              summerNotice: 'Since you selected an end date in July or August, this will be considered a summer school registration.'
-            },
-            diplomaRules: {
-              endDateIsExamDate: true,
-              allowAlreadyWrote: true,
-              alreadyWroteDefaultDuration: 150
-            }
+            ]
           });
-          
-          // Add document rules for international students
-          if (selectedStudentType === 'International Student') {
-            setFormConfig(prev => ({
-              ...prev,
-              documentRules: {
-                required: true,
-                requiredDocuments: ['passport', 'additionalID', 'residencyProof'],
-                documentMessages: {
-                  passport: 'Please upload a copy of your passport',
-                  additionalID: 'Please upload additional identification',
-                  residencyProof: 'Please upload proof of residency'
-                }
-              }
-            }));
-          }
         }
       } catch (error) {
         console.error('Error fetching registration config:', error);
@@ -148,21 +108,6 @@ function RegistrationSettings() {
     fetchConfig();
   }, [selectedYear, selectedStudentType, toast]);
   
-  // Helper function to get default calculation date (September 1 of current year)
-  const getDefaultCalculationDate = () => {
-    const currentDate = new Date();
-    return `${currentDate.getFullYear()}-09-01`;
-  };
-  
-  // Helper function to get default age message based on student type
-  const getDefaultAgeMessage = (studentType) => {
-    if (studentType === 'Adult Student') {
-      return 'Students must be 19 or older as of September 1';
-    } else {
-      return 'Students must be under 20 years old as of September 1';
-    }
-  };
-  
   // Save configuration to Firebase
   const saveConfig = async () => {
     if (!selectedYear || !selectedStudentType || !formConfig) return;
@@ -173,7 +118,7 @@ function RegistrationSettings() {
       const formattedType = selectedStudentType.replace(/\s+/g, '-');
       
       const db = getDatabase();
-      const configRef = ref(db, `studentTypes/formSettings/${formattedYear}/${formattedType}`);
+      const configRef = ref(db, `registrationSettings/${formattedYear}/${formattedType}`);
       await set(configRef, formConfig);
       
       toast({
@@ -192,74 +137,124 @@ function RegistrationSettings() {
     }
   };
   
-  // Add a new registration window
-  const addRegistrationWindow = () => {
-    const windowId = `window_${Date.now()}`;
+  // Add a new time section
+  const addTimeSection = (isForNextYear = false) => {
+    const newSection = {
+      id: `section_${Date.now()}`,
+      title: `New ${isForNextYear ? 'Next Year' : 'Current Year'} Registration Period`,
+      startBegins: '',
+      startEnds: '',
+      completionBegins: '',
+      completionEnds: '',
+      message: 'Please select a start and completion date within this registration period.',
+      isForNextYear: isForNextYear
+    };
+    
     setFormConfig(prev => ({
       ...prev,
-      registrationWindows: {
-        ...prev.registrationWindows,
-        [windowId]: {
-          registrationStart: '',
-          registrationEnd: '',
-          courseStartMin: '',
-          courseStartMax: '',
-          courseEndMax: '',
-          displayName: 'New Window',
-          displayDescription: '',
-          active: true
-        }
-      }
+      timeSections: [...prev.timeSections, newSection]
     }));
   };
   
-  // Delete a registration window
-  const deleteRegistrationWindow = (windowId) => {
-    if (Object.keys(formConfig.registrationWindows).length <= 1) {
-      toast({
-        title: 'Error',
-        description: 'Cannot delete last registration window',
-        variant: 'destructive'
-      });
-      return;
+  // Delete a time section
+  const deleteTimeSection = (sectionId) => {
+    // Check if there's at least one section for current year and one for next year (if enabled)
+    const currentSections = formConfig.timeSections.filter(s => !s.isForNextYear);
+    const nextYearSections = formConfig.timeSections.filter(s => s.isForNextYear);
+    
+    const sectionToDelete = formConfig.timeSections.find(s => s.id === sectionId);
+    
+    if (sectionToDelete) {
+      if (!sectionToDelete.isForNextYear && currentSections.length <= 1) {
+        toast({
+          title: 'Error',
+          description: 'You must have at least one current year registration period',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      if (sectionToDelete.isForNextYear && nextYearSections.length <= 1 && formConfig.allowNextYearRegistration) {
+        toast({
+          title: 'Error',
+          description: 'You must have at least one next year registration period when next year registration is enabled',
+          variant: 'destructive'
+        });
+        return;
+      }
     }
     
-    setFormConfig(prev => {
-      const updatedWindows = {...prev.registrationWindows};
-      delete updatedWindows[windowId];
-      return {
-        ...prev,
-        registrationWindows: updatedWindows
-      };
-    });
-  };
-  
-  // Update registration window field
-  const updateWindowField = (windowId, field, value) => {
     setFormConfig(prev => ({
       ...prev,
-      registrationWindows: {
-        ...prev.registrationWindows,
-        [windowId]: {
-          ...prev.registrationWindows[windowId],
-          [field]: value
-        }
-      }
+      timeSections: prev.timeSections.filter(section => section.id !== sectionId)
     }));
   };
   
-  // Update rules field
-  const updateRulesField = (section, field, value) => {
+  // Update a time section field
+  const updateTimeSection = (sectionId, field, value) => {
     setFormConfig(prev => ({
       ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
-      }
+      timeSections: prev.timeSections.map(section => 
+        section.id === sectionId 
+          ? { ...section, [field]: value } 
+          : section
+      )
     }));
   };
   
-  // The key change: Using a container with absolute height and fixed position for the header
+  // Update general form config fields
+  const updateFormConfig = (field, value) => {
+    setFormConfig(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    
+    // If enabling next year registration and there's no next year section, add one
+    if (field === 'allowNextYearRegistration' && value === true) {
+      const hasNextYearSection = formConfig.timeSections.some(section => section.isForNextYear);
+      if (!hasNextYearSection) {
+        addTimeSection(true);
+      }
+    }
+  };
+  
+  // Check if dates in a time section are valid
+  const isTimeSectionValid = (section) => {
+    if (!section.startBegins || !section.startEnds || !section.completionBegins || !section.completionEnds) {
+      return false;
+    }
+    
+    const startBegins = new Date(section.startBegins);
+    const startEnds = new Date(section.startEnds);
+    const completionBegins = new Date(section.completionBegins);
+    const completionEnds = new Date(section.completionEnds);
+    
+    return (
+      startBegins <= startEnds &&
+      startBegins <= completionBegins &&
+      completionBegins <= completionEnds
+    );
+  };
+  
+  // Get color for validity visual indicator
+  const getSectionStatusColor = (section) => {
+    if (!section.startBegins || !section.startEnds || !section.completionBegins || !section.completionEnds) {
+      return 'bg-gray-300';
+    }
+    
+    return isTimeSectionValid(section) ? 'bg-green-500' : 'bg-red-500';
+  };
+  
+  // Filter time sections by year
+  const getCurrentYearSections = () => {
+    return formConfig?.timeSections.filter(section => !section.isForNextYear) || [];
+  };
+  
+  const getNextYearSections = () => {
+    return formConfig?.timeSections.filter(section => section.isForNextYear) || [];
+  };
+  
+  // The component UI with fixed header and scrollable content
   return (
     <div className="h-full flex flex-col" style={{ height: '100%', position: 'relative' }}>
       {/* Fixed position header at the top */}
@@ -333,10 +328,10 @@ function RegistrationSettings() {
         className="overflow-y-auto w-full" 
         style={{ 
           height: '100%', 
-          paddingTop: '110px', // Space for the fixed header
+          paddingTop: '110px', 
           paddingLeft: '16px',
           paddingRight: '16px',
-          paddingBottom: '32px'  // Extra padding at the bottom
+          paddingBottom: '32px'
         }}
       >
         {isLoading ? (
@@ -357,496 +352,327 @@ function RegistrationSettings() {
         ) : (
           <Card className="mx-auto max-w-5xl mb-6">
             <CardContent className="pt-6 space-y-6">
-           
-
-              <Accordion type="multiple" defaultValue={['registration-windows']}>
-                {/* Registration Windows Section */}
-                <AccordionItem value="registration-windows">
-                  <AccordionTrigger>Registration Windows</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-6">
-                      <div className="flex justify-end">
-                        <Button onClick={addRegistrationWindow} variant="outline" size="sm">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add Window
-                        </Button>
-                      </div>
+              {/* General Settings Section */}
+              <div className="space-y-4">
+                <h2 className="text-lg font-medium border-b pb-2">General Settings</h2>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="general-message">General Message</Label>
+                  <Textarea 
+                    id="general-message"
+                    placeholder="Enter a message to display at the top of the registration form"
+                    value={formConfig.generalMessage || ''}
+                    onChange={(e) => updateFormConfig('generalMessage', e.target.value)}
+                    className="min-h-[100px]"
+                  />
+                  <p className="text-xs text-gray-500">
+                    This message will appear at the top of the registration form for this student type
+                  </p>
+                </div>
+              </div>
+              
+              {/* Current Year Registration Periods */}
+              <div className="space-y-4 mt-8">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-medium border-b pb-2">Current Year Registration Periods</h2>
+                  <Button 
+                    onClick={() => addTimeSection(false)} 
+                    variant="outline" 
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Current Year Period
+                  </Button>
+                </div>
+                
+                {getCurrentYearSections().length === 0 ? (
+                  <Alert className="bg-amber-50 border-amber-200">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-sm text-amber-700">
+                      No current year registration periods defined. Please add at least one.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  getCurrentYearSections().map((section, index) => (
+                    <Card key={section.id} className="border-l-4" style={{ borderLeftColor: getStudentTypeInfo(selectedStudentType).color }}>
+                      <CardHeader className="flex flex-row items-center justify-between p-4">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${getSectionStatusColor(section)}`}></div>
+                          <CardTitle className="text-base font-medium">{section.title}</CardTitle>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => deleteTimeSection(section.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-gray-500" />
+                          </Button>
+                        </div>
+                      </CardHeader>
                       
-                      {Object.entries(formConfig.registrationWindows).map(([windowId, window]) => (
-                        <Card key={windowId} className="border-l-4" style={{ borderLeftColor: getStudentTypeInfo(selectedStudentType).color }}>
-                          <CardHeader className="flex flex-row items-center justify-between p-4">
-                            <CardTitle className="text-base font-medium">{window.displayName}</CardTitle>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => deleteRegistrationWindow(windowId)}
-                            >
-                              <Trash2 className="w-4 h-4 text-gray-500" />
-                            </Button>
-                          </CardHeader>
-                          <CardContent className="p-4 pt-0">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label htmlFor={`${windowId}-name`}>Display Name</Label>
-                                <Input 
-                                  id={`${windowId}-name`}
-                                  value={window.displayName} 
-                                  onChange={(e) => updateWindowField(windowId, 'displayName', e.target.value)}
-                                />
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor={`${windowId}-description`}>Description</Label>
-                                <Input 
-                                  id={`${windowId}-description`}
-                                  value={window.displayDescription} 
-                                  onChange={(e) => updateWindowField(windowId, 'displayDescription', e.target.value)}
-                                />
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor={`${windowId}-reg-start`}>Registration Start Date</Label>
-                                <Input 
-                                  id={`${windowId}-reg-start`}
-                                  type="date" 
-                                  value={window.registrationStart} 
-                                  onChange={(e) => updateWindowField(windowId, 'registrationStart', e.target.value)}
-                                />
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor={`${windowId}-reg-end`}>Registration End Date</Label>
-                                <Input 
-                                  id={`${windowId}-reg-end`}
-                                  type="date" 
-                                  value={window.registrationEnd} 
-                                  onChange={(e) => updateWindowField(windowId, 'registrationEnd', e.target.value)}
-                                />
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor={`${windowId}-course-start-min`}>Earliest Course Start Date</Label>
-                                <Input 
-                                  id={`${windowId}-course-start-min`}
-                                  type="date" 
-                                  value={window.courseStartMin} 
-                                  onChange={(e) => updateWindowField(windowId, 'courseStartMin', e.target.value)}
-                                />
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor={`${windowId}-course-start-max`}>Latest Course Start Date</Label>
-                                <Input 
-                                  id={`${windowId}-course-start-max`}
-                                  type="date" 
-                                  value={window.courseStartMax} 
-                                  onChange={(e) => updateWindowField(windowId, 'courseStartMax', e.target.value)}
-                                />
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <Label htmlFor={`${windowId}-course-end-max`}>Latest Course End Date</Label>
-                                <Input 
-                                  id={`${windowId}-course-end-max`}
-                                  type="date" 
-                                  value={window.courseEndMax} 
-                                  onChange={(e) => updateWindowField(windowId, 'courseEndMax', e.target.value)}
-                                />
-                              </div>
-                              
-                              <div className="flex items-center space-x-2 pt-6">
-                                <Switch 
-                                  id={`${windowId}-active`}
-                                  checked={window.active} 
-                                  onCheckedChange={(checked) => updateWindowField(windowId, 'active', checked)}
-                                />
-                                <Label htmlFor={`${windowId}-active`}>Active</Label>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-                
-                {/* Date Rules Section */}
-                <AccordionItem value="date-rules">
-                  <AccordionTrigger>Date Rules</AccordionTrigger>
-                  <AccordionContent>
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <CardContent className="p-4 pt-0">
+                        <div className="grid grid-cols-1 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="min-start-offset">Minimum Start Offset (Business Days)</Label>
+                            <Label htmlFor={`section-title-${section.id}`}>Section Title</Label>
                             <Input 
-                              id="min-start-offset"
-                              type="number" 
-                              min="0"
-                              value={formConfig.dateRules.minStartOffset} 
-                              onChange={(e) => updateRulesField('dateRules', 'minStartOffset', parseInt(e.target.value))}
-                            />
-                            <p className="text-xs text-gray-500">
-                              Minimum number of business days from today that a course can start
-                            </p>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="min-duration">Minimum Course Duration (Days)</Label>
-                            <Input 
-                              id="min-duration"
-                              type="number" 
-                              min="1"
-                              value={formConfig.dateRules.minDuration} 
-                              onChange={(e) => updateRulesField('dateRules', 'minDuration', parseInt(e.target.value))}
-                            />
-                            <p className="text-xs text-gray-500">
-                              Minimum number of days required between start and end dates
-                            </p>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="recommended-duration">Recommended Duration (Days)</Label>
-                            <Input 
-                              id="recommended-duration"
-                              type="number" 
-                              min="1"
-                              value={formConfig.dateRules.recommendedDuration} 
-                              onChange={(e) => updateRulesField('dateRules', 'recommendedDuration', parseInt(e.target.value))}
-                            />
-                            <p className="text-xs text-gray-500">
-                              Recommended number of days for course completion
-                            </p>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="date-selection-help">Date Selection Help Text</Label>
-                            <Input 
-                              id="date-selection-help"
-                              value={formConfig.dateRules.dateSelectionHelp} 
-                              onChange={(e) => updateRulesField('dateRules', 'dateSelectionHelp', e.target.value)}
-                            />
-                            <p className="text-xs text-gray-500">
-                              Helper text displayed to students when selecting dates
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </AccordionContent>
-                </AccordionItem>
-                
-                {/* Age Rules Section */}
-                <AccordionItem value="age-rules">
-                  <AccordionTrigger>Age Rules</AccordionTrigger>
-                  <AccordionContent>
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <Label htmlFor="min-age">Minimum Age</Label>
-                            <Input 
-                              id="min-age"
-                              type="number" 
-                              min="0"
-                              value={formConfig.ageRules.minAge === null ? '' : formConfig.ageRules.minAge} 
-                              onChange={(e) => updateRulesField('ageRules', 'minAge', e.target.value === '' ? null : parseInt(e.target.value))}
-                            />
-                            <p className="text-xs text-gray-500">
-                              Minimum age required (empty for no minimum)
-                            </p>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="max-age">Maximum Age</Label>
-                            <Input 
-                              id="max-age"
-                              type="number" 
-                              min="0"
-                              value={formConfig.ageRules.maxAge === null ? '' : formConfig.ageRules.maxAge} 
-                              onChange={(e) => updateRulesField('ageRules', 'maxAge', e.target.value === '' ? null : parseInt(e.target.value))}
-                            />
-                            <p className="text-xs text-gray-500">
-                              Maximum age allowed (empty for no maximum)
-                            </p>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="calculation-date">Age Calculation Date</Label>
-                            <Input 
-                              id="calculation-date"
-                              type="date" 
-                              value={formConfig.ageRules.calculationDate} 
-                              onChange={(e) => updateRulesField('ageRules', 'calculationDate', e.target.value)}
-                            />
-                            <p className="text-xs text-gray-500">
-                              Date used to calculate student age (e.g., September 1st)
-                            </p>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="age-display-message">Age Display Message</Label>
-                            <Input 
-                              id="age-display-message"
-                              value={formConfig.ageRules.displayMessage} 
-                              onChange={(e) => updateRulesField('ageRules', 'displayMessage', e.target.value)}
-                            />
-                            <p className="text-xs text-gray-500">
-                              Message displayed to students about age requirements
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </AccordionContent>
-                </AccordionItem>
-                
-                {/* Summer Rules Section */}
-                <AccordionItem value="summer-rules">
-                  <AccordionTrigger>Summer Rules</AccordionTrigger>
-                  <AccordionContent>
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="space-y-6">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Label htmlFor="allowed-in-summer" className="text-base">Allowed in Summer</Label>
-                              <p className="text-sm text-gray-500">
-                                Can this student type register for courses during summer months?
-                              </p>
-                            </div>
-                            <Switch 
-                              id="allowed-in-summer"
-                              checked={formConfig.summerRules.allowedInSummer} 
-                              onCheckedChange={(checked) => updateRulesField('summerRules', 'allowedInSummer', checked)}
+                              id={`section-title-${section.id}`}
+                              value={section.title} 
+                              onChange={(e) => updateTimeSection(section.id, 'title', e.target.value)}
                             />
                           </div>
                           
-                          {selectedStudentType === 'Summer School' && (
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <Label htmlFor="restrict-to-summer" className="text-base">Restrict to Summer Months</Label>
-                                <p className="text-sm text-gray-500">
-                                  Require that courses start and end during summer months
-                                </p>
-                              </div>
-                              <Switch 
-                                id="restrict-to-summer"
-                                checked={formConfig.summerRules.restrictToSummerMonths || false} 
-                                onCheckedChange={(checked) => updateRulesField('summerRules', 'restrictToSummerMonths', checked)}
-                              />
-                            </div>
-                          )}
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="summer-notice">Summer Notice</Label>
-                            <Input 
-                              id="summer-notice"
-                              value={formConfig.summerRules.summerNotice} 
-                              onChange={(e) => updateRulesField('summerRules', 'summerNotice', e.target.value)}
-                            />
-                            <p className="text-xs text-gray-500">
-                              Notice displayed when a course is scheduled during summer months
-                            </p>
-                          </div>
-                          
-                          {selectedStudentType === 'Summer School' && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                              <Label htmlFor="summer-restriction-message">Summer Restriction Message</Label>
-                              <Input 
-                                id="summer-restriction-message"
-                                value={formConfig.summerRules.restrictionMessage || 'Summer school courses must end in July or August'} 
-                                onChange={(e) => updateRulesField('summerRules', 'restrictionMessage', e.target.value)}
-                              />
-                              <p className="text-xs text-gray-500">
-                                Message displayed when enforcing summer month restrictions
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </AccordionContent>
-                </AccordionItem>
-                
-                {/* Diploma Rules Section */}
-                <AccordionItem value="diploma-rules">
-                  <AccordionTrigger>Diploma Rules</AccordionTrigger>
-                  <AccordionContent>
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="space-y-6">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Label htmlFor="end-date-is-exam-date" className="text-base">End Date is Exam Date</Label>
-                              <p className="text-sm text-gray-500">
-                                Set course end date to match the selected diploma exam date
-                              </p>
-                            </div>
-                            <Switch 
-                              id="end-date-is-exam-date"
-                              checked={formConfig.diplomaRules.endDateIsExamDate} 
-                              onCheckedChange={(checked) => updateRulesField('diplomaRules', 'endDateIsExamDate', checked)}
-                            />
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <Label htmlFor="allow-already-wrote" className="text-base">Allow "Already Wrote Diploma" Option</Label>
-                              <p className="text-sm text-gray-500">
-                                Allow students to indicate they've already taken the diploma exam
-                              </p>
-                            </div>
-                            <Switch 
-                              id="allow-already-wrote"
-                              checked={formConfig.diplomaRules.allowAlreadyWrote} 
-                              onCheckedChange={(checked) => updateRulesField('diplomaRules', 'allowAlreadyWrote', checked)}
-                            />
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <Label htmlFor="already-wrote-default-duration">Default Duration if Already Wrote (Days)</Label>
-                            <Input 
-                              id="already-wrote-default-duration"
-                              type="number" 
-                              min="1"
-                              value={formConfig.diplomaRules.alreadyWroteDefaultDuration} 
-                              onChange={(e) => updateRulesField('diplomaRules', 'alreadyWroteDefaultDuration', parseInt(e.target.value))}
-                            />
-                            <p className="text-xs text-gray-500">
-                              Default course duration when student already wrote the diploma
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </AccordionContent>
-                </AccordionItem>
-                
-                {/* Document Rules Section (for International Students) */}
-                {selectedStudentType === 'International Student' && (
-                  <AccordionItem value="document-rules">
-                    <AccordionTrigger>Document Requirements</AccordionTrigger>
-                    <AccordionContent>
-                      <Card>
-                        <CardContent className="p-6">
-                          <div className="space-y-6">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <Label htmlFor="documents-required" className="text-base">Documents Required</Label>
-                                <p className="text-sm text-gray-500">
-                                  Require document uploads for international students
-                                </p>
+                              <Label htmlFor={`start-begins-${section.id}`}>Start Date Begins</Label>
+                              <div className="relative">
+                                <Input 
+                                  id={`start-begins-${section.id}`}
+                                  type="date" 
+                                  value={section.startBegins || ''} 
+                                  onChange={(e) => updateTimeSection(section.id, 'startBegins', e.target.value)}
+                                  className="w-full pr-10"
+                                />
+                                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                               </div>
-                              <Switch 
-                                id="documents-required"
-                                checked={formConfig.documentRules?.required || false} 
-                                onCheckedChange={(checked) => {
-                                  if (!formConfig.documentRules) {
-                                    setFormConfig(prev => ({
-                                      ...prev,
-                                      documentRules: {
-                                        required: checked,
-                                        requiredDocuments: ['passport', 'additionalID', 'residencyProof'],
-                                        documentMessages: {
-                                          passport: 'Please upload a copy of your passport',
-                                          additionalID: 'Please upload additional identification',
-                                          residencyProof: 'Please upload proof of residency'
-                                        }
-                                      }
-                                    }));
-                                  } else {
-                                    updateRulesField('documentRules', 'required', checked);
-                                  }
-                                }}
-                              />
                             </div>
                             
-                            {formConfig.documentRules?.required && (
-                              <>
+                            <div className="space-y-2">
+                              <Label htmlFor={`start-ends-${section.id}`}>Start Date Ends</Label>
+                              <div className="relative">
+                                <Input 
+                                  id={`start-ends-${section.id}`}
+                                  type="date" 
+                                  value={section.startEnds || ''} 
+                                  onChange={(e) => updateTimeSection(section.id, 'startEnds', e.target.value)}
+                                  className="w-full pr-10"
+                                />
+                                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`completion-begins-${section.id}`}>Completion Date Begins</Label>
+                              <div className="relative">
+                                <Input 
+                                  id={`completion-begins-${section.id}`}
+                                  type="date" 
+                                  value={section.completionBegins || ''} 
+                                  onChange={(e) => updateTimeSection(section.id, 'completionBegins', e.target.value)}
+                                  className="w-full pr-10"
+                                />
+                                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label htmlFor={`completion-ends-${section.id}`}>Completion Date Ends</Label>
+                              <div className="relative">
+                                <Input 
+                                  id={`completion-ends-${section.id}`}
+                                  type="date" 
+                                  value={section.completionEnds || ''} 
+                                  onChange={(e) => updateTimeSection(section.id, 'completionEnds', e.target.value)}
+                                  className="w-full pr-10"
+                                />
+                                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor={`section-message-${section.id}`}>Section Message</Label>
+                            <Textarea 
+                              id={`section-message-${section.id}`}
+                              value={section.message || ''} 
+                              onChange={(e) => updateTimeSection(section.id, 'message', e.target.value)}
+                              className="min-h-[80px]"
+                            />
+                            <p className="text-xs text-gray-500">
+                              Message displayed to students when this registration period is active
+                            </p>
+                          </div>
+                          
+                          {!isTimeSectionValid(section) && section.startBegins && section.startEnds && 
+                           section.completionBegins && section.completionEnds && (
+                            <Alert className="bg-red-50 border-red-200">
+                              <AlertTriangle className="h-4 w-4 text-red-600" />
+                              <AlertDescription className="text-sm text-red-700">
+                                Invalid date configuration. Please ensure start date begins before start date ends,
+                                and completion date begins before completion date ends.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+              
+              {/* Next Year Registration Section */}
+              <div className="space-y-4 mt-8">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-medium border-b pb-2">Next Year Registration</h2>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="allow-next-year" className="sr-only">Allow Registration for Next Year</Label>
+                    <Switch 
+                      id="allow-next-year"
+                      checked={formConfig.allowNextYearRegistration || false} 
+                      onCheckedChange={(checked) => updateFormConfig('allowNextYearRegistration', checked)}
+                    />
+                    <span className="text-sm font-medium">
+                      {formConfig.allowNextYearRegistration ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+                </div>
+                
+                {formConfig.allowNextYearRegistration && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-md font-medium">Next Year Registration Periods</h3>
+                      <Button 
+                        onClick={() => addTimeSection(true)} 
+                        variant="outline" 
+                        size="sm"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Next Year Period
+                      </Button>
+                    </div>
+                    
+                    {getNextYearSections().length === 0 ? (
+                      <Alert className="bg-amber-50 border-amber-200">
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-sm text-amber-700">
+                          No next year registration periods defined. Please add at least one.
+                        </AlertDescription>
+                      </Alert>
+                    ) : (
+                      getNextYearSections().map((section, index) => (
+                        <Card key={section.id} className="border-l-4 bg-blue-50" style={{ borderLeftColor: '#4f46e5' }}>
+                          <CardHeader className="flex flex-row items-center justify-between p-4">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-3 h-3 rounded-full ${getSectionStatusColor(section)}`}></div>
+                              <CardTitle className="text-base font-medium">
+                                <span className="flex items-center gap-1">
+                                  <span className="text-blue-600">[Next Year]</span> {section.title}
+                                </span>
+                              </CardTitle>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={() => deleteTimeSection(section.id)}
+                              >
+                                <Trash2 className="w-4 h-4 text-gray-500" />
+                              </Button>
+                            </div>
+                          </CardHeader>
+                          
+                          <CardContent className="p-4 pt-0">
+                            <div className="grid grid-cols-1 gap-4">
+                              <div className="space-y-2">
+                                <Label htmlFor={`section-title-${section.id}`}>Section Title</Label>
+                                <Input 
+                                  id={`section-title-${section.id}`}
+                                  value={section.title} 
+                                  onChange={(e) => updateTimeSection(section.id, 'title', e.target.value)}
+                                />
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                  <Label className="text-base">Required Documents</Label>
-                                  <div className="grid grid-cols-1 gap-4">
-                                    {['passport', 'additionalID', 'residencyProof'].map(docType => {
-                                      const isRequired = formConfig.documentRules.requiredDocuments?.includes(docType) || false;
-                                      return (
-                                        <div key={docType} className="flex items-center justify-between">
-                                          <Label htmlFor={`required-${docType}`} className="flex items-center">
-                                            <div className="ml-2">
-                                              {docType === 'passport' && 'Passport'}
-                                              {docType === 'additionalID' && 'Additional ID'}
-                                              {docType === 'residencyProof' && 'Proof of Residency'}
-                                            </div>
-                                          </Label>
-                                          <Switch 
-                                            id={`required-${docType}`}
-                                            checked={isRequired} 
-                                            onCheckedChange={(checked) => {
-                                              let requiredDocs = [...(formConfig.documentRules.requiredDocuments || [])];
-                                              if (checked && !requiredDocs.includes(docType)) {
-                                                requiredDocs.push(docType);
-                                              } else if (!checked && requiredDocs.includes(docType)) {
-                                                requiredDocs = requiredDocs.filter(d => d !== docType);
-                                              }
-                                              setFormConfig(prev => ({
-                                                ...prev,
-                                                documentRules: {
-                                                  ...prev.documentRules,
-                                                  requiredDocuments: requiredDocs
-                                                }
-                                              }));
-                                            }}
-                                          />
-                                        </div>
-                                      );
-                                    })}
+                                  <Label htmlFor={`start-begins-${section.id}`}>Start Date Begins</Label>
+                                  <div className="relative">
+                                    <Input 
+                                      id={`start-begins-${section.id}`}
+                                      type="date" 
+                                      value={section.startBegins || ''} 
+                                      onChange={(e) => updateTimeSection(section.id, 'startBegins', e.target.value)}
+                                      className="w-full pr-10"
+                                    />
+                                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                                   </div>
                                 </div>
                                 
-                                <div className="space-y-4">
-                                  <Label className="text-base">Document Messages</Label>
-                                  {['passport', 'additionalID', 'residencyProof'].map(docType => {
-                                    const isRequired = formConfig.documentRules.requiredDocuments?.includes(docType) || false;
-                                    if (!isRequired) return null;
-                                    
-                                    return (
-                                      <div key={`msg-${docType}`} className="space-y-2">
-                                        <Label htmlFor={`msg-${docType}`}>
-                                          {docType === 'passport' && 'Passport Message'}
-                                          {docType === 'additionalID' && 'Additional ID Message'}
-                                          {docType === 'residencyProof' && 'Proof of Residency Message'}
-                                        </Label>
-                                        <Input 
-                                          id={`msg-${docType}`}
-                                          value={formConfig.documentRules.documentMessages?.[docType] || ''} 
-                                          onChange={(e) => {
-                                            setFormConfig(prev => ({
-                                              ...prev,
-                                              documentRules: {
-                                                ...prev.documentRules,
-                                                documentMessages: {
-                                                  ...prev.documentRules.documentMessages,
-                                                  [docType]: e.target.value
-                                                }
-                                              }
-                                            }));
-                                          }}
-                                        />
-                                      </div>
-                                    );
-                                  })}
+                                <div className="space-y-2">
+                                  <Label htmlFor={`start-ends-${section.id}`}>Start Date Ends</Label>
+                                  <div className="relative">
+                                    <Input 
+                                      id={`start-ends-${section.id}`}
+                                      type="date" 
+                                      value={section.startEnds || ''} 
+                                      onChange={(e) => updateTimeSection(section.id, 'startEnds', e.target.value)}
+                                      className="w-full pr-10"
+                                    />
+                                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                                  </div>
                                 </div>
-                              </>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </AccordionContent>
-                  </AccordionItem>
+                                
+                                <div className="space-y-2">
+                                  <Label htmlFor={`completion-begins-${section.id}`}>Completion Date Begins</Label>
+                                  <div className="relative">
+                                    <Input 
+                                      id={`completion-begins-${section.id}`}
+                                      type="date" 
+                                      value={section.completionBegins || ''} 
+                                      onChange={(e) => updateTimeSection(section.id, 'completionBegins', e.target.value)}
+                                      className="w-full pr-10"
+                                    />
+                                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                                  </div>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <Label htmlFor={`completion-ends-${section.id}`}>Completion Date Ends</Label>
+                                  <div className="relative">
+                                    <Input 
+                                      id={`completion-ends-${section.id}`}
+                                      type="date" 
+                                      value={section.completionEnds || ''} 
+                                      onChange={(e) => updateTimeSection(section.id, 'completionEnds', e.target.value)}
+                                      className="w-full pr-10"
+                                    />
+                                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <Label htmlFor={`section-message-${section.id}`}>Section Message</Label>
+                                <Textarea 
+                                  id={`section-message-${section.id}`}
+                                  value={section.message || ''} 
+                                  onChange={(e) => updateTimeSection(section.id, 'message', e.target.value)}
+                                  className="min-h-[80px]"
+                                />
+                                <p className="text-xs text-gray-500">
+                                  Message displayed to students when this next year registration period is active
+                                </p>
+                              </div>
+                              
+                              {!isTimeSectionValid(section) && section.startBegins && section.startEnds && 
+                               section.completionBegins && section.completionEnds && (
+                                <Alert className="bg-red-50 border-red-200">
+                                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                                  <AlertDescription className="text-sm text-red-700">
+                                    Invalid date configuration. Please ensure start date begins before start date ends,
+                                    and completion date begins before completion date ends.
+                                  </AlertDescription>
+                                </Alert>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </>
                 )}
-              </Accordion>
+              </div>
               
-              {/* Save Button with extra margin */}
+              {/* Save Button */}
               <div className="flex justify-center my-12 pb-12">
                 <Button 
                   onClick={saveConfig} 

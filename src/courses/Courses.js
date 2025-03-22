@@ -39,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import PermissionIndicator from '../context/PermissionIndicator';
 
 Modal.setAppElement('#root');
 
@@ -343,11 +344,11 @@ function Courses({
   onWeightsUpdate,
   toggleEditing
 }) {
-  const { user, isStaff } = useAuth();
+  const { user, isStaff, hasSuperAdminAccess } = useAuth();
   const navigate = useNavigate();
   
   // Local UI state (not moved to parent)
-  const [showWarning, setShowWarning] = useState(false);
+ 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedCourseForDeletion, setSelectedCourseForDeletion] = useState(null);
 
@@ -386,6 +387,28 @@ function Courses({
     const db = getDatabase();
     const courseRef = ref(db, `courses/${selectedCourseId}`);
     update(courseRef, { [name]: value })
+      .then(() => {
+        console.log(`Successfully updated ${name}`);
+      })
+      .catch((error) => {
+        console.error('Error updating course:', error);
+        alert('An error occurred while updating the course.');
+      });
+  };
+
+  const handleNumberInputChange = (e) => {
+    const { name, value } = e.target;
+    // Convert value to integer
+    const numValue = value === '' ? '' : parseInt(value, 10);
+    const updatedData = {
+      ...courseData,
+      [name]: numValue,
+    };
+    onCourseUpdate(updatedData);
+
+    const db = getDatabase();
+    const courseRef = ref(db, `courses/${selectedCourseId}`);
+    update(courseRef, { [name]: numValue })
       .then(() => {
         console.log(`Successfully updated ${name}`);
       })
@@ -465,17 +488,14 @@ function Courses({
   };
 
   const handleEditClick = () => {
-    setShowWarning(true);
+    if (hasSuperAdminAccess()) {
+      toggleEditing(true);
+    } else {
+      // Optional: show a toast or small notification that super admin access is required
+      alert("Super Admin access required to edit courses");
+    }
   };
 
-  const confirmEdit = () => {
-    setShowWarning(false);
-    toggleEditing(true);
-  };
-
-  const cancelEdit = () => {
-    setShowWarning(false);
-  };
 
   const handleSwitchChange = (checked) => {
     if (!isEditing) return;
@@ -675,9 +695,8 @@ function Courses({
           <p>No courses available.</p>
         )}
       </div>
-
-      {/* Course Details */}
-      <div className="w-3/4 p-4 pb-24 overflow-y-auto">
+ {/* Course Details */}
+ <div className="w-3/4 p-4 pb-24 overflow-y-auto">
         {selectedCourseId ? (
           <div>
             <div className="flex justify-between items-center mb-4">
@@ -701,11 +720,19 @@ function Courses({
               <div className="flex items-center space-x-2">
                 {!isEditing && (
                   <button
-                    onClick={handleEditClick}
-                    className="flex items-center px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200 text-sm"
-                  >
-                    <FaEdit className="mr-1" /> Edit Course
-                  </button>
+                  onClick={handleEditClick}
+                  className={`flex items-center px-3 py-1 ${
+                    hasSuperAdminAccess() 
+                      ? 'bg-blue-600 hover:bg-blue-700' 
+                      : 'bg-gray-400 cursor-not-allowed'
+                  } text-white rounded transition duration-200 text-sm`}
+                  disabled={!hasSuperAdminAccess()}
+                >
+                  <FaEdit className="mr-1" /> Edit Course
+                  {!hasSuperAdminAccess() && (
+                    <PermissionIndicator type="SUPER_ADMIN" className="ml-1" />
+                  )}
+                </button>
                 )}
                 <CourseWeightingDialog
                   courseId={selectedCourseId}
@@ -848,7 +875,7 @@ function Courses({
                     value={courseData.Active}
                     onValueChange={(value) => handleSelectChange(value, "Active")}
                     disabled={!isEditing}
-                  >
+                    >
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Select active status" />
                     </SelectTrigger>
@@ -902,6 +929,69 @@ function Courses({
                   </label>
                   <p className="text-xs text-gray-500 mt-1">
                     Indicate that all LTI links have been created for this course
+                  </p>
+                </div>
+
+                {/* Course Credits - NEW FIELD */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Course Credits
+                  </label>
+                  <input
+                    type="number"
+                    name="courseCredits"
+                    value={courseData.courseCredits || ''}
+                    onChange={handleNumberInputChange}
+                    disabled={!isEditing}
+                    className={inputClass}
+                    min="0"
+                    step="1"
+                    placeholder="Enter number of credits"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enter the number of credits this course is worth
+                  </p>
+                </div>
+
+                {/* Minimum Completion Months - NEW FIELD */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Minimum Completion Months
+                  </label>
+                  <input
+                    type="number"
+                    name="minCompletionMonths"
+                    value={courseData.minCompletionMonths || ''}
+                    onChange={handleNumberInputChange}
+                    disabled={!isEditing}
+                    className={inputClass}
+                    min="0"
+                    step="1"
+                    placeholder="Enter minimum months"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Minimum number of months required to complete this course
+                  </p>
+                </div>
+
+                {/* Recommended Completion Months - NEW FIELD */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Recommended Completion Months
+                  </label>
+                  <input
+                    type="number"
+                    name="recommendedCompletionMonths"
+                    value={courseData.recommendedCompletionMonths || ''}
+                    onChange={handleNumberInputChange}
+                    disabled={!isEditing}
+                    className={inputClass}
+                    min="0"
+                    step="1"
+                    placeholder="Enter recommended months"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Recommended time frame to complete this course
                   </p>
                 </div>
 
@@ -1126,37 +1216,7 @@ function Courses({
         onDelete={handleDeleteCourse}
       />
 
-      {/* Warning Modal */}
-      <Modal
-        isOpen={showWarning}
-        onRequestClose={() => setShowWarning(false)}
-        contentLabel="Warning"
-        className="bg-white p-6 rounded shadow-lg max-w-md mx-auto mt-20"
-        overlayClassName="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center"
-      >
-        <div className="text-center">
-          <FaExclamationTriangle className="text-yellow-500 text-4xl mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">Warning</h2>
-          <p className="mb-4">
-            Editing course data can affect students' access and progress.
-            Changes made cannot be undone. Are you sure you want to proceed?
-          </p>
-          <div className="flex justify-center space-x-4">
-            <button
-              onClick={confirmEdit}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition duration-200"
-            >
-              Yes, Proceed
-            </button>
-            <button
-              onClick={cancelEdit}
-              className="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition duration-200"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </Modal>
+    
     </div>
   );
 }
