@@ -30,6 +30,16 @@ export const firestore = getFirestore(app);
 export const vertexAI = getVertexAI(app);
 export const storage = getStorage(app);
 
+// Connect to emulators in development environment
+if (process.env.NODE_ENV === 'development') {
+  connectAuthEmulator(auth, 'http://localhost:9099');
+  connectDatabaseEmulator(database, 'localhost', 9000);
+  connectFunctionsEmulator(functions, 'localhost', 5001);
+  connectFirestoreEmulator(firestore, 'localhost', 8080); 
+  connectStorageEmulator(storage, 'localhost', 9199);
+  console.log('Connected to Firebase emulators');
+}
+
 // Initialize Stripe Payments
 export const payments = getStripePayments(app, {
   productsCollection: 'products',

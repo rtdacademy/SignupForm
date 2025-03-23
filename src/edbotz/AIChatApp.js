@@ -14,8 +14,9 @@ import {
   ChevronUp,
   Sparkles,
   Volume2,
-  VolumeX,
-  Square
+  Square, 
+  MaximizeIcon, 
+  MinimizeIcon
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import TeX from '@matejmazur/react-katex';
@@ -38,6 +39,15 @@ import {
 import { cn } from "../lib/utils";
 import { AI_MODEL_MAPPING } from './utils/settings';
 
+// Helper function to get streaming TTS URL
+const getStreamTTSUrl = () => {
+  // In development, use the direct function URL
+  if (window.location.hostname === 'localhost') {
+    return 'https://us-central1-rtd-academy.cloudfunctions.net/streamTTS';
+  }
+  // In production, use the rewrote URL which avoids CORS issues
+  return '/api/tts';
+};
 
 // Loading Overlay Component
 const LoadingOverlay = ({ assistantName = 'AI Assistant' }) => {
@@ -199,7 +209,7 @@ const processText = (text) => {
   });
 };
 
-const MessageBubble = React.memo(({ message, isStreaming, userName, assistantName, onPlayAudio }) => {
+const MessageBubble = React.memo(({ message, isStreaming, userName, assistantName, onPlayAudio, onStreamAudio }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const audioRef = useRef(null);
@@ -210,8 +220,14 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
     // If already playing, stop playback
     if (isPlaying) {
       if (audioRef.current) {
-        audioRef.current.pause();
-        URL.revokeObjectURL(audioRef.current.src);
+        // Check if it's a streaming controller with stop method
+        if (typeof audioRef.current.stop === 'function') {
+          audioRef.current.stop();
+        } else {
+          // Otherwise it's a regular Audio object
+          audioRef.current.pause();
+          URL.revokeObjectURL(audioRef.current.src);
+        }
         audioRef.current = null;
       }
       setIsPlaying(false);
@@ -222,37 +238,64 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
     setIsPlaying(true);
     
     try {
-      // Single audio synthesis for the entire message
-      const audio = await onPlayAudio(message.text);
-      if (!audio) {
-        setIsPlaying(false);
-        setIsLoadingAudio(false);
-        return;
-      }
-      
-      audioRef.current = audio;
-      
-      // Add loading state handlers
-      audio.addEventListener('canplaythrough', () => {
-        setIsLoadingAudio(false);
-        audio.play();
-      });
-      
-      // Wait for the audio to finish
-      await new Promise(resolve => {
-        audio.addEventListener('ended', () => {
-          setIsPlaying(false);
-          setIsLoadingAudio(false);
-          resolve();
-        }, { once: true });
+      // Determine which method to use based on text length
+      // For longer messages, use streaming
+      if (message.text.length > 100 && onStreamAudio) {
+        console.log('Using streaming TTS for longer message');
+        const audioController = await onStreamAudio(message.text);
         
-        // Handle errors
-        audio.addEventListener('error', () => {
+        if (!audioController) {
           setIsPlaying(false);
           setIsLoadingAudio(false);
-          resolve();
-        }, { once: true });
-      });
+          return;
+        }
+        
+        audioRef.current = audioController;
+        setIsLoadingAudio(false);
+        
+        // Set up a check to update UI when playback ends
+        const checkInterval = setInterval(() => {
+          if (audioRef.current && !audioRef.current.isActive()) {
+            clearInterval(checkInterval);
+            setIsPlaying(false);
+          }
+        }, 500);
+        
+      } else {
+        // For shorter messages, use the original method
+        console.log('Using standard TTS for shorter message');
+        const audio = await onPlayAudio(message.text);
+        
+        if (!audio) {
+          setIsPlaying(false);
+          setIsLoadingAudio(false);
+          return;
+        }
+        
+        audioRef.current = audio;
+        
+        // Add loading state handlers
+        audio.addEventListener('canplaythrough', () => {
+          setIsLoadingAudio(false);
+          audio.play();
+        });
+        
+        // Wait for the audio to finish
+        await new Promise(resolve => {
+          audio.addEventListener('ended', () => {
+            setIsPlaying(false);
+            setIsLoadingAudio(false);
+            resolve();
+          }, { once: true });
+          
+          // Handle errors
+          audio.addEventListener('error', () => {
+            setIsPlaying(false);
+            setIsLoadingAudio(false);
+            resolve();
+          }, { once: true });
+        });
+      }
     } catch (error) {
       console.error('Speech synthesis failed:', error);
       setIsPlaying(false);
@@ -264,8 +307,12 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
   useEffect(() => {
     return () => {
       if (audioRef.current) {
-        audioRef.current.pause();
-        URL.revokeObjectURL(audioRef.current.src);
+        if (typeof audioRef.current.stop === 'function') {
+          audioRef.current.stop();
+        } else {
+          audioRef.current.pause();
+          URL.revokeObjectURL(audioRef.current.src);
+        }
       }
     };
   }, []);
@@ -419,6 +466,7 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const [error, setError] = useState(null);
+  const [isInputExpanded, setIsInputExpanded] = useState(false);
 
   // Keep assistantKey for component remounting on assistant change
   const [assistantKey, setAssistantKey] = useState(assistant?.id);
@@ -468,7 +516,88 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
     setInputMessage('');
   }, [setMessages]);
 
-  // New TTS synthesis helper that returns an Audio element for a given text chunk.
+  // New streaming audio function
+// New streaming audio function - simplified for audio/wav
+const streamAudio = async (text) => {
+  let audioElement = null;
+  let isActive = true;
+  
+  try {
+    console.log('Starting streaming TTS for text:', text.substring(0, 50) + '...');
+    
+    // Create an AbortController for cancelling the fetch if needed
+    const controller = new AbortController();
+    
+    // Fetch from our streaming endpoint
+    const response = await fetch(getStreamTTSUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+      signal: controller.signal
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    
+    console.log('Stream connection established, receiving audio...');
+    
+    // Since our cloud function now sends a properly formed WAV file,
+    // we can create an Audio element directly from the response
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    
+    console.log(`Audio blob received, size: ${audioBlob.size} bytes`);
+    
+    // Create and play audio element
+    audioElement = new Audio(audioUrl);
+    
+    // Set up event handlers
+    audioElement.onended = () => {
+      console.log('Audio playback completed');
+      isActive = false;
+      URL.revokeObjectURL(audioUrl);
+    };
+    
+    audioElement.onerror = (e) => {
+      console.error('Audio playback error:', e);
+      isActive = false;
+      URL.revokeObjectURL(audioUrl);
+    };
+    
+    // Play the audio
+    await audioElement.play();
+    
+    // Return an object with control methods
+    return {
+      stop: () => {
+        console.log('Stopping audio playback');
+        isActive = false;
+        
+        if (audioElement) {
+          audioElement.pause();
+          URL.revokeObjectURL(audioElement.src);
+        }
+        
+        controller.abort();
+      },
+      isActive: () => isActive
+    };
+  } catch (error) {
+    console.error('Stream audio error:', error);
+    
+    if (audioElement) {
+      audioElement.pause();
+      URL.revokeObjectURL(audioElement.src);
+    }
+    
+    return null;
+  }
+};
+
+  // Original TTS synthesis helper that returns an Audio element for a given text chunk.
   const synthesizeAudio = async (text) => {
     try {
       console.log('Sending text to TTS:', text); 
@@ -740,12 +869,50 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
   const handleSendMessage = useCallback(async () => {
     if (!inputMessage.trim()) return;
     setError(null);
-  
+
     const messageToSend = inputMessage;
     setInputMessage('');
-  
+    setIsInputExpanded(false); // Reset to collapsed state after sending
+
     await sendMessage(messageToSend);
+    
+    // Focus back on the input after sending
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 0);
   }, [inputMessage, sendMessage]);
+
+  const handleStarterSelect = useCallback((text) => {
+    setInputMessage(text);
+    
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        const length = text.length;
+        inputRef.current.setSelectionRange(length, length);
+      }
+    }, 0);
+  }, []);
+
+  // Toggle expansion handler
+  const toggleExpansion = useCallback(() => {
+    setIsInputExpanded(prev => !prev);
+    
+    // Focus the input after toggling
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        
+        // If expanding, place cursor at end of current text
+        if (!isInputExpanded && inputMessage) {
+          const length = inputMessage.length;
+          inputRef.current.setSelectionRange(length, length);
+        }
+      }
+    }, 0);
+  }, [isInputExpanded, inputMessage]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -839,6 +1006,7 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
                   userName={user?.displayName}
                   assistantName={currentAssistant?.assistantName}
                   onPlayAudio={synthesizeAudio}
+                  onStreamAudio={streamAudio}
                 />
               ))}
             </div>
@@ -846,60 +1014,78 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
         </div>
 
         <CardFooter className="flex-shrink-0 border-t bg-white p-4 space-y-4">
-          {error && (
-            <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
+          </div>
+        )}
 
-          <div className="flex flex-col gap-2 w-full">
+        <div className="flex flex-col gap-2 w-full">
+          <div className="relative">
             <Textarea
               ref={inputRef}
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={isInitializing ? "AI Assistant is initializing..." : "Type your message... (Press Enter to send)"}
-              className="min-h-[80px] resize-none"
+              className={cn(
+                "resize-none transition-all duration-300",
+                isInputExpanded ? "min-h-[400px]" : "min-h-[80px]"
+              )}
               disabled={isLoading || isInitializing}
             />
-
-            <div className="flex gap-2">
-              <div className="flex-1">
-                {currentAssistant?.messageStarters && currentAssistant.messageStarters.length > 0 && (
-                  <MessageStarters
-                    starters={currentAssistant.messageStarters}
-                    onSelect={setInputMessage}
-                    isLoading={isLoading}
-                    isInitializing={isInitializing}
-                  />
-                )}
-              </div>
-
-              <Button
-                onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || isLoading || isInitializing}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shrink-0"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader className="w-4 h-4 mr-2 animate-spin" />
-                    {isStreaming ? 'Processing...' : 'Loading...'}
-                  </>
-                ) : isInitializing ? (
-                  <>
-                    <Loader className="w-4 h-4 mr-2 animate-spin" />
-                    Initializing...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 mr-2" />
-                    Send
-                  </>
-                )}
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={toggleExpansion}
+              className="absolute top-2 right-2 h-6 w-6 p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md"
+              title={isInputExpanded ? "Collapse input" : "Expand input"}
+            >
+              {isInputExpanded ? (
+                <MinimizeIcon className="w-4 h-4" />
+              ) : (
+                <MaximizeIcon className="w-4 h-4" />
+              )}
+            </Button>
           </div>
-        </CardFooter>
+
+          <div className="flex gap-2">
+            <div className="flex-1">
+              {currentAssistant?.messageStarters && currentAssistant.messageStarters.length > 0 && (
+                <MessageStarters
+                  starters={currentAssistant.messageStarters}
+                  onSelect={handleStarterSelect}
+                  isLoading={isLoading}
+                  isInitializing={isInitializing}
+                />
+              )}
+            </div>
+
+            <Button
+              onClick={handleSendMessage}
+              disabled={!inputMessage.trim() || isLoading || isInitializing}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shrink-0"
+            >
+              {isLoading ? (
+                <>
+                  <Loader className="w-4 h-4 mr-2 animate-spin" />
+                  {isStreaming ? 'Processing...' : 'Loading...'}
+                </>
+              ) : isInitializing ? (
+                <>
+                  <Loader className="w-4 h-4 mr-2 animate-spin" />
+                  Initializing...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Send
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </CardFooter>
 
         {showScrollButton && (
           <Button

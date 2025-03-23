@@ -82,6 +82,32 @@ class BuildManager {
     });
   }
 
+  copyBuildToPublicSecond() {
+    console.log('Copying build files to public-second directory...');
+    
+    const copyRecursive = (src, dest) => {
+      if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
+      }
+      
+      const entries = fs.readdirSync(src, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        
+        if (entry.isDirectory()) {
+          copyRecursive(srcPath, destPath);
+        } else {
+          fs.copyFileSync(srcPath, destPath);
+        }
+      }
+    };
+    
+    copyRecursive('build', 'public-second');
+    console.log('Files copied successfully to public-second directory');
+  }
+
   async execute() {
     if (this.cleanOnly) {
       return true;
@@ -105,7 +131,7 @@ class BuildManager {
       execSync(command, { stdio: 'inherit' });
 
       if (!this.isStart && this.isSecondSite) {
-        execSync('cp -r build/* public-second/', { stdio: 'inherit' });
+        this.copyBuildToPublicSecond();
       }
 
       return true;

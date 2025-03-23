@@ -96,7 +96,7 @@ exports.addSchoolYearToPasiLinks = httpFunctions.addSchoolYearToPasiLinks;
 
 // Export text-to-speech function
 exports.textToSpeech = speechFunctions.textToSpeech; 
-exports.streamTextToSpeech = speechFunctions.streamTextToSpeech; 
+exports.streamTTS = speechFunctions.streamTTS; 
 
 exports.primarySchoolNameUpdate = httpFunctions.primarySchoolNameUpdate; 
 
