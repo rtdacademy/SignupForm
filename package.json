@@ -112,6 +112,7 @@
     "@types/react": "^18.2.38",
     "@types/react-dom": "^18.2.15",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
     "env-cmd": "^10.1.0",
     "firebase-tools": "^13.16.0",
@@ -121,16 +122,17 @@
     "tailwindcss-debug-screens": "^2.2.1",
     "typescript": "^4.9.5"
   },
-  "scripts": {
-    "start:main": "node scripts/build.js --start",
-    "start:second": "node scripts/build.js --second-site --start",
-    "build:main": "node scripts/build.js",
-    "build:second": "node scripts/build.js --second-site",
-    "deploy:main": "npm run build:main && firebase deploy --only hosting:main",
-    "deploy:second": "npm run build:second && firebase deploy --only hosting:second-site",
-    "clean": "node scripts/build.js --clean-only",
-    "prebuild": "node scripts/build.js --clean-only"
-  },
+"scripts": {
+  "start:main": "concurrently \"node scripts/build.js --start\" \"firebase emulators:start --only functions\"",
+  "start:second": "concurrently \"node scripts/build.js --second-site --start\" \"firebase emulators:start --only functions\"",
+  "build:main": "node scripts/build.js",
+  "build:second": "node scripts/build.js --second-site",
+  "deploy:main": "npm run build:main && firebase deploy --only hosting:main",
+  "deploy:second": "npm run build:second && firebase deploy --only hosting:second-site",
+  "clean": "node scripts/build.js --clean-only",
+  "prebuild": "node scripts/build.js --clean-only",
+  "emulator": "firebase emulators:start --only functions"
+},
   "browserslist": [
     ">0.2%",
     "not dead",

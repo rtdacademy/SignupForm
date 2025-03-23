@@ -1,7 +1,7 @@
 import { initializeApp } from '@firebase/app';
 import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
-import { getFunctions } from 'firebase/functions';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getAnalytics } from "firebase/analytics";
 import { getVertexAI } from "firebase/vertexai";
 import { getFirestore } from '@firebase/firestore';
@@ -30,14 +30,10 @@ export const firestore = getFirestore(app);
 export const vertexAI = getVertexAI(app);
 export const storage = getStorage(app);
 
-// Connect to emulators in development environment
+// Connect only to functions emulator in development environment
 if (process.env.NODE_ENV === 'development') {
-  connectAuthEmulator(auth, 'http://localhost:9099');
-  connectDatabaseEmulator(database, 'localhost', 9000);
   connectFunctionsEmulator(functions, 'localhost', 5001);
-  connectFirestoreEmulator(firestore, 'localhost', 8080); 
-  connectStorageEmulator(storage, 'localhost', 9199);
-  console.log('Connected to Firebase emulators');
+  console.log('Connected to Firebase Functions emulator');
 }
 
 // Initialize Stripe Payments

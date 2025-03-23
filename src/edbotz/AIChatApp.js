@@ -1,5 +1,3 @@
-// AIChatApp.jsx
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Send,
@@ -26,7 +24,6 @@ import { Textarea } from '../components/ui/textarea';
 import { useAuth } from '../context/AuthContext';
 import { getVertexAI, getGenerativeModel } from 'firebase/vertexai';
 import { getDatabase, ref, onValue } from 'firebase/database';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { ScrollArea } from "../components/ui/scroll-area";
 import useEnhancedChatHandler from "./components/useEnhancedChatHandler";
 import {
@@ -38,16 +35,7 @@ import {
 } from "../components/ui/card";
 import { cn } from "../lib/utils";
 import { AI_MODEL_MAPPING } from './utils/settings';
-
-// Helper function to get streaming TTS URL
-const getStreamTTSUrl = () => {
-  // In development, use the direct function URL
-  if (window.location.hostname === 'localhost') {
-    return 'https://us-central1-rtd-academy.cloudfunctions.net/streamTTS';
-  }
-  // In production, use the rewrote URL which avoids CORS issues
-  return '/api/tts';
-};
+import { textToSpeech } from './ttsUtilities';
 
 // Loading Overlay Component
 const LoadingOverlay = ({ assistantName = 'AI Assistant' }) => {
@@ -209,7 +197,7 @@ const processText = (text) => {
   });
 };
 
-const MessageBubble = React.memo(({ message, isStreaming, userName, assistantName, onPlayAudio, onStreamAudio }) => {
+const MessageBubble = React.memo(({ message, isStreaming, userName, assistantName, firebaseApp }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const audioRef = useRef(null);
@@ -238,58 +226,44 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
     setIsPlaying(true);
     
     try {
-      // Determine which method to use based on text length
-      // For longer messages, use streaming
-      if (message.text.length > 100 && onStreamAudio) {
-        console.log('Using streaming TTS for longer message');
-        const audioController = await onStreamAudio(message.text);
-        
-        if (!audioController) {
-          setIsPlaying(false);
-          setIsLoadingAudio(false);
-          return;
-        }
-        
-        audioRef.current = audioController;
+      // Use the unified TTS function with AI preprocessing
+      const useStreaming = message.text.length > 100;
+      const audioController = await textToSpeech(firebaseApp, message.text, useStreaming);
+      
+      if (!audioController) {
+        setIsPlaying(false);
         setIsLoadingAudio(false);
-        
-        // Set up a check to update UI when playback ends
+        return;
+      }
+      
+      audioRef.current = audioController;
+      setIsLoadingAudio(false);
+      
+      if (useStreaming) {
+        // For streaming audio, set up interval to check when playback ends
         const checkInterval = setInterval(() => {
           if (audioRef.current && !audioRef.current.isActive()) {
             clearInterval(checkInterval);
             setIsPlaying(false);
           }
         }, 500);
-        
       } else {
-        // For shorter messages, use the original method
-        console.log('Using standard TTS for shorter message');
-        const audio = await onPlayAudio(message.text);
-        
-        if (!audio) {
-          setIsPlaying(false);
+        // For standard audio
+        audioController.addEventListener('canplaythrough', () => {
           setIsLoadingAudio(false);
-          return;
-        }
-        
-        audioRef.current = audio;
-        
-        // Add loading state handlers
-        audio.addEventListener('canplaythrough', () => {
-          setIsLoadingAudio(false);
-          audio.play();
+          audioController.play();
         });
         
         // Wait for the audio to finish
         await new Promise(resolve => {
-          audio.addEventListener('ended', () => {
+          audioController.addEventListener('ended', () => {
             setIsPlaying(false);
             setIsLoadingAudio(false);
             resolve();
           }, { once: true });
           
           // Handle errors
-          audio.addEventListener('error', () => {
+          audioController.addEventListener('error', () => {
             setIsPlaying(false);
             setIsLoadingAudio(false);
             resolve();
@@ -515,115 +489,6 @@ const AIChatApp = ({ firebaseApp, mode = 'full', assistant, onClose }) => {
     setMessages([]);
     setInputMessage('');
   }, [setMessages]);
-
-  // New streaming audio function
-// New streaming audio function - simplified for audio/wav
-const streamAudio = async (text) => {
-  let audioElement = null;
-  let isActive = true;
-  
-  try {
-    console.log('Starting streaming TTS for text:', text.substring(0, 50) + '...');
-    
-    // Create an AbortController for cancelling the fetch if needed
-    const controller = new AbortController();
-    
-    // Fetch from our streaming endpoint
-    const response = await fetch(getStreamTTSUrl(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ text }),
-      signal: controller.signal
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-    
-    console.log('Stream connection established, receiving audio...');
-    
-    // Since our cloud function now sends a properly formed WAV file,
-    // we can create an Audio element directly from the response
-    const audioBlob = await response.blob();
-    const audioUrl = URL.createObjectURL(audioBlob);
-    
-    console.log(`Audio blob received, size: ${audioBlob.size} bytes`);
-    
-    // Create and play audio element
-    audioElement = new Audio(audioUrl);
-    
-    // Set up event handlers
-    audioElement.onended = () => {
-      console.log('Audio playback completed');
-      isActive = false;
-      URL.revokeObjectURL(audioUrl);
-    };
-    
-    audioElement.onerror = (e) => {
-      console.error('Audio playback error:', e);
-      isActive = false;
-      URL.revokeObjectURL(audioUrl);
-    };
-    
-    // Play the audio
-    await audioElement.play();
-    
-    // Return an object with control methods
-    return {
-      stop: () => {
-        console.log('Stopping audio playback');
-        isActive = false;
-        
-        if (audioElement) {
-          audioElement.pause();
-          URL.revokeObjectURL(audioElement.src);
-        }
-        
-        controller.abort();
-      },
-      isActive: () => isActive
-    };
-  } catch (error) {
-    console.error('Stream audio error:', error);
-    
-    if (audioElement) {
-      audioElement.pause();
-      URL.revokeObjectURL(audioElement.src);
-    }
-    
-    return null;
-  }
-};
-
-  // Original TTS synthesis helper that returns an Audio element for a given text chunk.
-  const synthesizeAudio = async (text) => {
-    try {
-      console.log('Sending text to TTS:', text); 
-      const functions = getFunctions(firebaseApp);
-      const textToSpeech = httpsCallable(functions, 'textToSpeech');
-      
-      const result = await textToSpeech({ text });
-      console.log('TTS response received:', result);
-      const audioContent = result.data.audioContent;
-      
-      // Convert base64 to audio
-      const audioBuffer = Uint8Array.from(atob(audioContent), c => c.charCodeAt(0));
-      const audioBlob = new Blob([audioBuffer], { type: 'audio/mp3' });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      
-      // Create and return an Audio object (do not play automatically)
-      const audio = new Audio(audioUrl);
-      audio.onended = () => {
-        URL.revokeObjectURL(audioUrl);
-      };
-      return audio;
-    } catch (error) {
-      console.error('Speech synthesis failed:', error);
-      return null;
-    }
-  };
 
   // Initialize AI function
   const initializeAI = useCallback(async (assistantConfig) => {
@@ -1005,8 +870,7 @@ const streamAudio = async (text) => {
                   isStreaming={isStreaming}
                   userName={user?.displayName}
                   assistantName={currentAssistant?.assistantName}
-                  onPlayAudio={synthesizeAudio}
-                  onStreamAudio={streamAudio}
+                  firebaseApp={firebaseApp}
                 />
               ))}
             </div>

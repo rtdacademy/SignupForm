@@ -108,6 +108,45 @@ function MultiActionAuthHandler() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    const urlParams = new URLSearchParams(location.search);
+    const actionCode = urlParams.get('oobCode');
+    
+    // Password validation
+    const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*]).{7,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      setPasswordError("Password must be at least 7 characters long and include at least one number and one symbol.");
+      return;
+    }
+    
+    try {
+      const auth = getAuth();
+      // This is the critical missing line that confirms the password reset
+      await confirmPasswordReset(auth, actionCode, newPassword);
+      
+      setStatus('Password reset successful! You can now sign in with your new password.');
+      setTimeout(() => {
+        navigate('/login', { 
+          state: { 
+            message: 'Password reset successful! You can now sign in with your new password.' 
+          }
+        });
+      }, 3000);
+    } catch (error) {
+      console.error("Error confirming password reset:", error);
+      switch (error.code) {
+        case 'auth/weak-password':
+          setPasswordError("The password is too weak. Please choose a stronger password.");
+          break;
+        case 'auth/invalid-action-code':
+          setStatus('The reset link has expired or already been used. Please request a new one.');
+          break;
+        default:
+          setStatus(`Failed to reset password: ${error.message}. Please try again.`);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">

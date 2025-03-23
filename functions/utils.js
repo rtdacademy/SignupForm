@@ -17,7 +17,7 @@ function formatASN(asn) {
 }
 
 // Environment variable for the API key
-const API_KEY = functions.config().api.key;
+const API_KEY = functions.config().api?.key || 'local-development-key';
 
 // Fields relevant to student profiles and large string fields
 const profileFields = [

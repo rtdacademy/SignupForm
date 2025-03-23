@@ -1,5 +1,6 @@
 const functions = require('firebase-functions');
-const stripe = require('stripe')(functions.config().stripe.secret_key);
+const stripeSecretKey = functions.config().stripe?.secret_key || 'sk_test_emulator_key';
+const stripe = require('stripe')(stripeSecretKey);
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('./utils');
 

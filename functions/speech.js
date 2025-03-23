@@ -2,7 +2,13 @@ const functions = require('firebase-functions');
 const { TextToSpeechClient } = require('@google-cloud/text-to-speech');
 const { TextToSpeechClient: TextToSpeechBetaClient } = require('@google-cloud/text-to-speech').v1beta1;
 const cors = require('cors')({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'https://rtd-academy.web.app', 'https://edbotz.web.app'],
+  origin: [
+    'http://localhost:3000',  // Create React App default port
+    'http://localhost:5000',  // Firebase hosting emulator port
+    'http://localhost:5001',  // Cloud Functions emulator port
+    'https://rtd-academy.web.app', 
+    'https://edbotz.web.app'
+  ],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -26,7 +32,7 @@ exports.textToSpeech = functions.https.onCall(async (data, context) => {
       input: { text: data.text },
       voice: { 
         languageCode: 'en-US',
-        name: 'en-US-Journey-F'
+        name: 'en-US-Chirp-HD-O'
       },
       audioConfig: {
         audioEncoding: 'LINEAR16',
@@ -56,8 +62,8 @@ exports.textToSpeech = functions.https.onCall(async (data, context) => {
 
 exports.streamTTS = functions
   .runWith({
-    timeoutSeconds: 300,
-    memory: '256MB'
+    timeoutSeconds: 540, // Increased from 300 to 540 (9 minutes)
+    memory: '512MB'     // Increased from 256MB to 512MB
   })
   .https.onRequest((req, res) => {
     // Special handling for OPTIONS requests (preflight)
@@ -87,7 +93,7 @@ exports.streamTTS = functions
         
         console.log(`Processing streaming TTS request for text length: ${text.length}`);
         
-        // Set up headers for streaming - using audio/wav since we'll add a WAV header
+        // Set up headers for streaming - using audio/wav
         res.setHeader('Content-Type', 'audio/wav');
         res.setHeader('Transfer-Encoding', 'chunked');
         res.setHeader('Cache-Control', 'no-cache');
@@ -96,18 +102,19 @@ exports.streamTTS = functions
         const { TextToSpeechClient } = require('@google-cloud/text-to-speech').v1;
         const client = new TextToSpeechClient();
         
+        // Log the API version
+        console.log('Using TextToSpeechClient v1');
+        
         // Create the stream
-        console.log('Creating streaming synthesize call');
         const stream = client.streamingSynthesize();
         
-        // Track if we've sent the WAV header
-        let headerSent = false;
+        // Track total audio size
         let totalAudioBytes = 0;
         let allAudioChunks = [];
+        let headerSent = false;
         
-        // Pre-compute WAV header - we'll update the size at the end
+        // Generate a WAV header
         const generateWavHeader = (dataLength) => {
-          // Create WAV header for LINEAR16 format (16-bit, mono, 24000Hz)
           const sampleRate = 24000;
           const numChannels = 1;
           const bitsPerSample = 16;
@@ -136,7 +143,7 @@ exports.streamTTS = functions
           return headerBuffer;
         };
         
-        // Handle incoming data chunks from Google TTS
+        // Handle incoming data chunks
         let chunkCounter = 0;
         
         stream.on('data', (response) => {
@@ -146,11 +153,6 @@ exports.streamTTS = functions
             const chunkSize = response.audioContent.length;
             console.log(`Received chunk #${chunkCounter} of size: ${chunkSize} bytes`);
             
-            // Store the audio chunk and update total size
-            allAudioChunks.push(response.audioContent);
-            totalAudioBytes += chunkSize;
-            
-            // Inspect the first chunk bytes
             if (chunkCounter === 1 && chunkSize > 0) {
               const firstBytes = Array.from(response.audioContent.slice(0, Math.min(16, chunkSize)))
                 .map(b => b.toString(16).padStart(2, '0'))
@@ -158,86 +160,89 @@ exports.streamTTS = functions
               console.log(`First bytes of audio data: ${firstBytes}`);
             }
             
-            // For smaller responses, we'll buffer and send all at once with proper header
-            if (text.length < 300) {
-              // Don't send chunk by chunk, we'll combine at the end
-              console.log(`Buffering chunk #${chunkCounter} for combined response`);
-            } else {
-              // For longer text, stream as we receive (send header with first chunk)
+            // Store all chunks
+            allAudioChunks.push(response.audioContent);
+            totalAudioBytes += chunkSize;
+            
+            // For longer text, stream in real-time
+            if (text.length > 200) {
               if (!headerSent) {
-                // Create an initial header with an estimated size
-                // Note: This will be a bit off but works for streaming
-                const estimatedSize = text.length * 50; // rough estimate based on text length
+                // Send a WAV header with an estimated size
+                const estimatedSize = text.length * 50;
                 const wavHeader = generateWavHeader(estimatedSize);
                 res.write(wavHeader);
                 headerSent = true;
                 console.log('Sent WAV header with estimated size');
               }
               
-              // Send the chunk
               res.write(response.audioContent);
               console.log(`Sent audio chunk #${chunkCounter} of size: ${chunkSize} bytes`);
             }
-          } else {
-            console.log(`Received non-audio response in chunk #${chunkCounter}:`, JSON.stringify(response));
           }
         });
         
-        // Handle errors
-        stream.on('error', (err) => {
-          console.error('Streaming TTS error:', err);
-          if (!res.headersSent) {
-            res.status(500).send(`Speech synthesis failed: ${err.message}`);
-          } else {
-            res.end();
-          }
-        });
-        
-        // Handle stream end
-        stream.on('end', () => {
-          console.log(`Stream ended successfully after ${chunkCounter} chunks, total audio size: ${totalAudioBytes} bytes`);
-          
-          // For smaller responses, send everything at once with accurate header
-          if (text.length < 300 && !headerSent) {
-            const accurateWavHeader = generateWavHeader(totalAudioBytes);
-            res.write(accurateWavHeader);
+        // Create a promise that resolves when streaming is complete
+        const functionPromise = new Promise((resolve, reject) => {
+          // Handle stream end - resolve the promise when done
+          stream.on('end', () => {
+            console.log(`Stream ended successfully after ${chunkCounter} chunks, total audio size: ${totalAudioBytes} bytes`);
             
-            // Send all audio chunks
-            for (const chunk of allAudioChunks) {
-              res.write(chunk);
+            // For shorter responses or if no audio was streamed yet, send everything at once
+            if (!headerSent && totalAudioBytes > 0) {
+              // Generate header with accurate size
+              const wavHeader = generateWavHeader(totalAudioBytes);
+              res.write(wavHeader);
+              
+              // Send all chunks
+              for (const chunk of allAudioChunks) {
+                res.write(chunk);
+              }
+              console.log(`Sent complete WAV file with accurate header (${totalAudioBytes} audio bytes)`);
             }
-            console.log(`Sent complete WAV file with accurate header (${totalAudioBytes} audio bytes)`);
-          }
+            
+            res.end();
+            resolve();
+          });
           
-          res.end();
+          // Handle errors with detailed logging
+          stream.on('error', (err) => {
+            console.error('Streaming TTS error:', err);
+            
+            if (!res.headersSent) {
+              res.status(500).send(`Speech synthesis failed: ${err.message}`);
+            } else {
+              res.end();
+            }
+            reject(err);
+          });
         });
         
-        // Use LINEAR16 encoding as it's supported for streaming
-        // streamingAudioConfig is the correct field for streaming
-        const streamingConfig = {
+        // Very minimal config - only specify the voice
+        const config = {
           voice: {
             languageCode: 'en-US',
-            name: 'en-US-Journey-F'
-          },
-          streamingAudioConfig: {
-            audioEncoding: 'LINEAR16',
-            sampleRateHertz: 24000
+            name: 'en-US-Chirp-HD-O'
           }
         };
         
-        console.log('Using streamingConfig with LINEAR16 encoding:', JSON.stringify(streamingConfig, null, 2));
+        console.log('Using minimal voice config:', JSON.stringify(config, null, 2));
         
         // Send the streaming config first
-        stream.write({ streamingConfig });
+        stream.write({ streamingConfig: config });
         
         // Send the text input
         stream.write({ input: { text } });
         
-        // End the request stream
+        // End the request stream (but the function will stay alive until promise resolves)
         stream.end();
+        
+        // Wait for the promise to resolve before ending the function
+        return functionPromise;
         
       } catch (error) {
         console.error('Error in streamTTS:', error);
+        console.error('Error stack:', error.stack);
+        
         if (!res.headersSent) {
           res.status(500).send(`Speech synthesis failed: ${error.message}`);
         } else {

@@ -33,7 +33,8 @@ const logEmailFailure = async (db, error, emailDetails) => {
 };
 
 // Initialize SendGrid with API key from Firebase environment
-sgMail.setApiKey(functions.config().sendgrid.key);
+const sgApiKey = functions.config().sendgrid?.key || 'test-key-for-local-development';
+sgMail.setApiKey(sgApiKey);
 
 /**
  * Cloud Function: sendBulkEmails
