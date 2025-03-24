@@ -20,6 +20,14 @@ import { Textarea } from '../components/ui/textarea';
 import { Switch } from '../components/ui/switch';
 import { Label } from '../components/ui/label';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import { 
   getSchoolYearOptions, 
   STUDENT_TYPE_OPTIONS, 
@@ -31,7 +39,9 @@ import {
   Trash2, 
   Save, 
   AlertTriangle,
-  Calendar
+  Calendar,
+  Copy,
+  CheckCircle
 } from 'lucide-react';
 
 function RegistrationSettings() {
@@ -43,6 +53,11 @@ function RegistrationSettings() {
   const [formConfig, setFormConfig] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // State for copy functionality
+  const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
+  const [copySourceType, setCopySourceType] = useState('');
+  const [isCopying, setIsCopying] = useState(false);
   
   // Toast for notifications
   const { toast } = useToast();
@@ -254,6 +269,49 @@ function RegistrationSettings() {
     return formConfig?.timeSections.filter(section => section.isForNextYear) || [];
   };
   
+  // Copy settings from another student type
+  const handleCopySettings = async () => {
+    if (!selectedYear || !selectedStudentType || !copySourceType) return;
+    
+    setIsCopying(true);
+    try {
+      const formattedYear = selectedYear.replace('/', '_');
+      const formattedSourceType = copySourceType.replace(/\s+/g, '-');
+      
+      const db = getDatabase();
+      const sourceConfigRef = ref(db, `registrationSettings/${formattedYear}/${formattedSourceType}`);
+      const snapshot = await get(sourceConfigRef);
+      
+      if (snapshot.exists()) {
+        // Copy the configuration
+        setFormConfig(snapshot.val());
+        
+        toast({
+          title: 'Success',
+          description: `Settings copied from ${copySourceType}`,
+        });
+        
+        // Close the dialog
+        setIsCopyDialogOpen(false);
+      } else {
+        toast({
+          title: 'Error',
+          description: `No settings found for ${copySourceType}`,
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('Error copying registration config:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to copy registration settings',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsCopying(false);
+    }
+  };
+  
   // The component UI with fixed header and scrollable content
   return (
     <div className="h-full flex flex-col" style={{ height: '100%', position: 'relative' }}>
@@ -317,6 +375,18 @@ function RegistrationSettings() {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {selectedStudentType && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setIsCopyDialogOpen(true)}
+                    className="ml-2"
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy From...
+                  </Button>
+                )}
               </div>
             </CardHeader>
           </Card>
@@ -697,6 +767,83 @@ function RegistrationSettings() {
           </Card>
         )}
       </div>
+      
+      {/* Copy Settings Dialog */}
+      <Dialog open={isCopyDialogOpen} onOpenChange={setIsCopyDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Copy Settings from Another Student Type</DialogTitle>
+            <DialogDescription>
+              Select a student type to copy settings from. This will replace your current settings.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="source-type-select">Copy from:</Label>
+              <Select 
+                value={copySourceType} 
+                onValueChange={setCopySourceType}
+                id="source-type-select"
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select student type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STUDENT_TYPE_OPTIONS
+                    .filter(option => option.value !== selectedStudentType)
+                    .map(option => {
+                      const Icon = option.icon;
+                      return (
+                        <SelectItem 
+                          key={option.value} 
+                          value={option.value}
+                        >
+                          <div className="flex items-center gap-2">
+                            {Icon && <Icon className="w-4 h-4" style={{ color: option.color }} />}
+                            <span>{option.value}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Alert className="bg-amber-50 border-amber-200">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-sm text-amber-700">
+                This will replace all current settings for <strong>{selectedStudentType}</strong> students 
+                with settings from the selected student type.
+              </AlertDescription>
+            </Alert>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCopyDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCopySettings} 
+              disabled={!copySourceType || isCopying}
+              className="ml-2"
+            >
+              {isCopying ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Copying...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Copy Settings
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

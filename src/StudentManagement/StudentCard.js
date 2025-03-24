@@ -37,6 +37,25 @@ import AsnIssuesDialog from './AsnIssuesDialog';
 import PendingFinalizationDialog from './Dialog/PendingFinalizationDialog';
 import ResumingOnDialog from './Dialog/ResumingOnDialog';
 
+// Helper function to safely extract values from status objects
+const getSafeValue = (value) => {
+  if (value === undefined || value === null) return '';
+  
+  // If it's not an object, return it directly
+  if (typeof value !== 'object') return value;
+  
+  // Handle SharePoint object format
+  if (value.Value !== undefined) return value.Value;
+  if (value.SharepointValue !== undefined) return value.SharepointValue;
+  if (value.value !== undefined) return value.value;
+  
+  // Last resort - try to show something useful
+  try {
+    return JSON.stringify(value);
+  } catch (e) {
+    return '[Complex Object]';
+  }
+};
 
 // Map icon names to icon components
 const iconMap = {
@@ -128,8 +147,6 @@ const GenderBadge = ({ gender }) => {
   );
 };
 
-
-
 const StudentCard = React.memo(({ 
   student, 
   index, 
@@ -156,18 +173,20 @@ const StudentCard = React.memo(({
       ? 'bg-white' 
       : 'bg-gray-50';
   const displayName = (student?.preferredFirstName || student?.firstName || '?');
-  const lastName = student?.lastName || '?';
+  const lastName = (student?.lastName || '?');
   const initials = `${displayName[0] || '?'}${lastName[0] || '?'}`;
   const avatarColor = getColorFromInitials(initials);
 
-  // Initialize statusValue from student.Status_Value
-  const [statusValue, setStatusValue] = useState(student?.Status_Value || '');
-const [autoStatus, setAutoStatus] = useState(student?.autoStatus || false);
+  // Get safe status value from potentially complex object
+  const safeStatusValue = getSafeValue(student?.Status_Value);
+  
+  // Initialize statusValue from the safe value
+  const [statusValue, setStatusValue] = useState(safeStatusValue || '');
+  const [autoStatus, setAutoStatus] = useState(student?.autoStatus || false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [teacherNames, setTeacherNames] = useState({});
   
-
   // State variables for status history dialog
   const [isStatusHistoryOpen, setIsStatusHistoryOpen] = useState(false);
   const [statusHistory, setStatusHistory] = useState([]);
@@ -221,11 +240,9 @@ const [autoStatus, setAutoStatus] = useState(student?.autoStatus || false);
     }
   };
   
- 
-
-
   useEffect(() => {
-    setStatusValue(student.Status_Value);
+    // Update status value when the student prop changes, handling potential object values
+    setStatusValue(getSafeValue(student.Status_Value));
     setAutoStatus(student.autoStatus || false);
   }, [student.Status_Value, student.autoStatus]);
 
@@ -346,12 +363,16 @@ const updateStatus = useCallback(async (newStatus) => {
 }, [student.id, statusValue, user, isPartOfMultiSelect, onBulkStatusChange, validateActiveFutureArchivedValue]);
 
 const isStatusEligibleForAutoChange = useCallback((statusValue) => {
-  const statusOption = STATUS_OPTIONS.find(option => option.value === statusValue);
+  // Get safe value in case statusValue is an object
+  const safeStatus = getSafeValue(statusValue);
+  const statusOption = STATUS_OPTIONS.find(option => option.value === safeStatus);
   return statusOption?.allowAutoStatusChange === true;
 }, []);
 
 const isCurrentStatusEligibleForAutoChange = useCallback((currentStatusValue) => {
-  const statusOption = STATUS_OPTIONS.find(option => option.value === currentStatusValue);
+  // Get safe value in case currentStatusValue is an object
+  const safeStatus = getSafeValue(currentStatusValue);
+  const statusOption = STATUS_OPTIONS.find(option => option.value === safeStatus);
   return statusOption?.allowAutoStatusChange === true;
 }, []);
 
@@ -365,9 +386,8 @@ const handleAutoStatusButtonClick = useCallback(async (e) => {
   }
   
   // Use the existing updateStatus function to update the status
-  await updateStatus(student.autoStatus_Value);
+  await updateStatus(getSafeValue(student.autoStatus_Value));
 }, [student.autoStatus_Value, isStatusEligibleForAutoChange, updateStatus]);
-
 
 
 const handleStatusChange = useCallback(async (newStatus) => {
@@ -464,7 +484,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
       // Call the parent callback with student and course info
       onCourseRemoved(
         `${student.preferredFirstName || student.firstName} ${student.lastName}`,
-        student.Course_Value
+        getSafeValue(student.Course_Value)
       );
     } catch (error) {
       console.error("Error removing course:", error);
@@ -542,7 +562,8 @@ const handleStatusChange = useCallback(async (newStatus) => {
     ];
   }, [student.StudentEmail, student.preferredFirstName, student.firstName, student.lastName]);
 
-  const lastWeekStatus = student.StatusCompare;
+  // Safely get the last week status value
+  const lastWeekStatus = getSafeValue(student.StatusCompare);
   const lastWeekColor = getStatusColor(lastWeekStatus);
 
   // Compute selectedCategories from student.categories
@@ -672,6 +693,8 @@ const handleStatusChange = useCallback(async (newStatus) => {
     }, {});
   }, []);
   
+  // Add a debugging section to help identify problematic students
+  const hasObjectStatusValue = typeof student.Status_Value === 'object' && student.Status_Value !== null;
 
   return (
     <>
@@ -706,12 +729,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-base font-medium truncate flex items-center gap-2">
-  {student.preferredFirstName || student.firstName} {student.lastName}
-  <TutorialButton 
-    tutorialId="student-card" 
-    tooltipText="Learn about student cards" 
-  />
-</CardTitle>
+                {student.preferredFirstName || student.firstName} {student.lastName}
+                <TutorialButton 
+                  tutorialId="student-card" 
+                  tooltipText="Learn about student cards" 
+                />
+              </CardTitle>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -723,15 +746,23 @@ const handleStatusChange = useCallback(async (newStatus) => {
               </div>
 
              {(!student.hasSchedule || student.inOldSharePoint !== false) && (
-  <div className="mt-1 space-y-1">
-    <div className="inline-flex items-center bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap">
-      <AlertCircle className="w-3 h-3 mr-1" />
-      Needs Migration
-    </div>
-   
-  </div>
-)}
+              <div className="mt-1 space-y-1">
+                <div className="inline-flex items-center bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Needs Migration
+                </div>
+              </div>
+            )}
 
+            {/* Add a debugging badge for students with object Status_Value */}
+            {hasObjectStatusValue && (
+              <div className="mt-1 space-y-1">
+                <div className="inline-flex items-center bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full text-[10px] whitespace-nowrap">
+                  <AlertTriangle className="w-3 h-3 mr-1" />
+                  Complex Status Object
+                </div>
+              </div>
+            )}
             </div>
             {selectedStudentId === student.id && !isSelected && (
               <CheckCircle className="w-5 h-5 text-blue-500" />
@@ -750,16 +781,16 @@ const handleStatusChange = useCallback(async (newStatus) => {
               <Badge 
                 className="flex items-center gap-1 px-2 py-0.5 h-5 text-[10px] font-medium border-0 rounded"
                 style={{
-                  backgroundColor: `${getStudentTypeInfo(student.StudentType_Value).color}15`,
-                  color: getStudentTypeInfo(student.StudentType_Value).color
+                  backgroundColor: `${getStudentTypeInfo(getSafeValue(student.StudentType_Value)).color}15`,
+                  color: getStudentTypeInfo(getSafeValue(student.StudentType_Value)).color
                 }}
               >
-                {getStudentTypeInfo(student.StudentType_Value).icon && 
-                  React.createElement(getStudentTypeInfo(student.StudentType_Value).icon, {
+                {getStudentTypeInfo(getSafeValue(student.StudentType_Value)).icon && 
+                  React.createElement(getStudentTypeInfo(getSafeValue(student.StudentType_Value)).icon, {
                     className: "w-3 h-3"
                   })
                 }
-                {student.StudentType_Value}
+                {getSafeValue(student.StudentType_Value)}
               </Badge>
             )}
           </div> 
@@ -768,501 +799,441 @@ const handleStatusChange = useCallback(async (newStatus) => {
         <CardContent className="p-3 pt-2">
           {/* Course, Grade, and Progress on the same line */}
           <div className="flex items-center text-xs mb-2">
-<span className="flex-grow flex items-center">
-  {student.CourseID ? (
-    (() => {
-      const courseInfo = findCourseById(student.CourseID);
-      return (
-        <Badge 
-          className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
-          style={{
-            backgroundColor: `${courseInfo?.color || '#6B7280'}15`,
-            color: courseInfo?.color || '#6B7280'
-          }}
-        >
-          {React.createElement(courseInfo?.icon || BookOpen, {
-            className: "w-4 h-4"
-          })}
-          {courseInfo?.label || `Course ${student.CourseID}`}
-        </Badge>
-      );
-    })()
-  ) : (
-    <Badge 
-      className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
-      style={{
-        backgroundColor: '#6B728015',
-        color: '#6B7280'
-      }}
-    >
-      <BookOpen className="w-4 h-4" />
-      No Course
-    </Badge>
-  )}
-</span>
-{student.grade !== undefined && 
-  student.grade !== null && 
-  student.grade !== 0 && (
-  <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
-    Gr. {formatGrade(student.grade)}
-    {getGradeColorAndIcon(student.grade).icon}
-  </span>
-)}
-{student.adherenceMetrics && formatLessons(student.adherenceMetrics.lessonsBehind) && (
-  <span className="text-xs font-bold flex items-center">
-    {formatLessons(student.adherenceMetrics.lessonsBehind).value}
-    {formatLessons(student.adherenceMetrics.lessonsBehind).icon}
-  </span>
-)}
-</div>
+            <span className="flex-grow flex items-center">
+              {student.CourseID ? (
+                (() => {
+                  const courseInfo = findCourseById(student.CourseID);
+                  return (
+                    <Badge 
+                      className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
+                      style={{
+                        backgroundColor: `${courseInfo?.color || '#6B7280'}15`,
+                        color: courseInfo?.color || '#6B7280'
+                      }}
+                    >
+                      {React.createElement(courseInfo?.icon || BookOpen, {
+                        className: "w-4 h-4"
+                      })}
+                      {courseInfo?.label || `Course ${student.CourseID}`}
+                    </Badge>
+                  );
+                })()
+              ) : (
+                <Badge 
+                  className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
+                  style={{
+                    backgroundColor: '#6B728015',
+                    color: '#6B7280'
+                  }}
+                >
+                  <BookOpen className="w-4 h-4" />
+                  No Course
+                </Badge>
+              )}
+            </span>
+            {student.grade !== undefined && 
+              student.grade !== null && 
+              student.grade !== 0 && (
+              <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
+                Gr. {formatGrade(student.grade)}
+                {getGradeColorAndIcon(student.grade).icon}
+              </span>
+            )}
+            {student.adherenceMetrics && formatLessons(student.adherenceMetrics.lessonsBehind) && (
+              <span className="text-xs font-bold flex items-center">
+                {formatLessons(student.adherenceMetrics.lessonsBehind).value}
+                {formatLessons(student.adherenceMetrics.lessonsBehind).icon}
+              </span>
+            )}
+          </div>
                     
           {/* Status Dropdown, Last Week Status, and Auto Status Toggle */}
           <div className="flex items-center space-x-2 mb-2">
             <div className="flex-grow">
            
-<DropdownMenu>
-  <DropdownMenuTrigger asChild>
-  <Button 
-  variant="outline" 
-  className="w-full justify-between"
-  style={{ 
-    borderColor: currentStatusOption?.alertLevel?.color || currentStatusColor,
-    color: currentStatusOption?.alertLevel?.color || currentStatusColor 
-  }}
->
-  <div className="flex items-center">
-    {React.createElement(
-      currentStatusOption?.alertLevel?.icon || Circle,
-      { 
-        className: "w-4 h-4 mr-2",
-        style: { 
-          color: currentStatusOption?.alertLevel?.color || currentStatusColor 
-        }
-      }
-    )}
-    {statusValue === "Resuming on (date)" && student.resumingOnDate ? (
-      `Resuming on ${format(new Date(student.resumingOnDate), 'MMM d, yyyy')}`
-    ) : statusValue === "Starting on (Date)" && student.ScheduleStartDate ? (
-      `Starting on ${format(new Date(student.ScheduleStartDate), 'MMM d, yyyy')}`
-    ) : (
-      statusValue
-    )}
-  </div>
-  <ChevronDown className="h-4 w-4 opacity-50" />
-</Button>
-  </DropdownMenuTrigger>
-  <DropdownMenuPortal>
-    <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto">
-      {Object.entries(groupedStatusOptions).map(([category, options]) => (
-        <div key={category}>
-          <div className="px-2 py-1 text-xs font-bold text-gray-600">
-            {category}
-          </div>
-          {options.map(option => (
-            <Tooltip key={option.value} delayDuration={200}>
-              <TooltipTrigger asChild>
-                <DropdownMenuItem
-                  onSelect={() => handleStatusChange(option.value)}
-                  className={`${customHoverStyle} hover:bg-opacity-10`}
-                  style={{
-                    backgroundColor: option.value === statusValue ? 
-                      `${option.alertLevel?.color || option.color}20` : 
-                      'transparent'
-                  }}
-                >
-                  <StatusOption option={option} />
-                </DropdownMenuItem>
-              </TooltipTrigger>
-              <TooltipContent>
-                {option.tooltip ? option.tooltip : option.value}
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
-      ))}
-    </DropdownMenuContent>
-  </DropdownMenuPortal>
-</DropdownMenu>
-
-
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-between"
+                    style={{ 
+                      borderColor: currentStatusOption?.alertLevel?.color || currentStatusColor,
+                      color: currentStatusOption?.alertLevel?.color || currentStatusColor 
+                    }}
+                  >
+                    <div className="flex items-center">
+                      {React.createElement(
+                        currentStatusOption?.alertLevel?.icon || Circle,
+                        { 
+                          className: "w-4 h-4 mr-2",
+                          style: { 
+                            color: currentStatusOption?.alertLevel?.color || currentStatusColor 
+                          }
+                        }
+                      )}
+                      {statusValue === "Resuming on (date)" && student.resumingOnDate ? (
+                        `Resuming on ${format(new Date(student.resumingOnDate), 'MMM d, yyyy')}`
+                      ) : statusValue === "Starting on (Date)" && student.ScheduleStartDate ? (
+                        `Starting on ${format(new Date(student.ScheduleStartDate), 'MMM d, yyyy')}`
+                      ) : (
+                        statusValue
+                      )}
+                    </div>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuContent className="w-56 max-h-60 overflow-y-auto">
+                    {Object.entries(groupedStatusOptions).map(([category, options]) => (
+                      <div key={category}>
+                        <div className="px-2 py-1 text-xs font-bold text-gray-600">
+                          {category}
+                        </div>
+                        {options.map(option => (
+                          <Tooltip key={option.value} delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <DropdownMenuItem
+                                onSelect={() => handleStatusChange(option.value)}
+                                className={`${customHoverStyle} hover:bg-opacity-10`}
+                                style={{
+                                  backgroundColor: option.value === statusValue ? 
+                                    `${option.alertLevel?.color || option.color}20` : 
+                                    'transparent'
+                                }}
+                              >
+                                <StatusOption option={option} />
+                              </DropdownMenuItem>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {option.tooltip ? option.tooltip : option.value}
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenuPortal>
+              </DropdownMenu>
             </div>
-
-  {/* SharePoint Status if it exists 
-  {student.Status_SharepointValue && (
-    <Tooltip delayDuration={200}>
-      <TooltipTrigger asChild>
-        <div className="flex-shrink-0 text-center cursor-help" style={{ minWidth: '50px' }}>
-          <div className="text-[9px] text-gray-500 leading-tight">SP</div>
-          <div className="text-[10px] font-semibold" style={{ color: getStatusColor(student.Status_SharepointValue) }}>
-            {student.Status_SharepointValue}
-          </div>
-        </div>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-[200px] text-xs" side="top">
-        <p>SharePoint Status (temporary)</p>
-        <p className="text-gray-400 mt-1">This indicator shows the student's status in the legacy SharePoint system and will be removed once migration is complete.</p>
-      </TooltipContent>
-    </Tooltip>
-  )}
-  */}
-  {/* Last Week Status */}
-   {/* 
-  <Tooltip delayDuration={200}>
-    <TooltipTrigger asChild>
-      <div className="flex-shrink-0 text-center cursor-help" style={{ minWidth: '50px' }}>
-        <div className="text-[9px] text-gray-500 leading-tight">LW</div>
-        <div className="text-[10px] font-semibold" style={{ color: lastWeekColor }}>
-          {lastWeekStatus}
-        </div>
-      </div>
-    </TooltipTrigger>
-    <TooltipContent className="text-xs">
-      Last Week's Status
-    </TooltipContent>
-  </Tooltip>
-*/}
-
-
           </div>
 
 
           {/* New Auto Status Suggestion Row */}
-        {/* New Auto Status Suggestion Row */}
-<div className="flex items-center space-x-2 mb-2">
-  {student.autoStatus_Value ? (
-    <TooltipProvider>
-      <Tooltip delayDuration={200}>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex-grow flex items-center justify-start h-9 px-3"
-            style={{
-              borderColor: isStatusEligibleForAutoChange(student.autoStatus_Value) && isCurrentStatusEligibleForAutoChange(statusValue) ? '#6366F1' : '#9CA3AF',
-              backgroundColor: isStatusEligibleForAutoChange(student.autoStatus_Value) && isCurrentStatusEligibleForAutoChange(statusValue) ? '#EEF2FF' : '#F3F4F6',
-              color: isStatusEligibleForAutoChange(student.autoStatus_Value) && isCurrentStatusEligibleForAutoChange(statusValue) ? '#4F46E5' : '#6B7280',
-              cursor: isStatusEligibleForAutoChange(student.autoStatus_Value) && isCurrentStatusEligibleForAutoChange(statusValue) ? 'pointer' : 'not-allowed',
-            }}
-            onClick={handleAutoStatusButtonClick}
-            disabled={!isStatusEligibleForAutoChange(student.autoStatus_Value) || !isCurrentStatusEligibleForAutoChange(statusValue)}
-          >
-            {isCurrentStatusEligibleForAutoChange(statusValue) ? (
-              <>
-                <Zap className={`h-4 w-4 mr-2 ${isStatusEligibleForAutoChange(student.autoStatus_Value) ? 'text-indigo-500' : 'text-gray-400'}`} />
-                <span className="font-medium">Suggested: {student.autoStatus_Value}</span>
-                {isStatusEligibleForAutoChange(student.autoStatus_Value) && (
-                  <span className="ml-2 text-xs text-indigo-400">(Click to apply)</span>
-                )}
-              </>
+          <div className="flex items-center space-x-2 mb-2">
+            {student.autoStatus_Value ? (
+              <TooltipProvider>
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-grow flex items-center justify-start h-9 px-3"
+                      style={{
+                        borderColor: isStatusEligibleForAutoChange(student.autoStatus_Value) && isCurrentStatusEligibleForAutoChange(statusValue) ? '#6366F1' : '#9CA3AF',
+                        backgroundColor: isStatusEligibleForAutoChange(student.autoStatus_Value) && isCurrentStatusEligibleForAutoChange(statusValue) ? '#EEF2FF' : '#F3F4F6',
+                        color: isStatusEligibleForAutoChange(student.autoStatus_Value) && isCurrentStatusEligibleForAutoChange(statusValue) ? '#4F46E5' : '#6B7280',
+                        cursor: isStatusEligibleForAutoChange(student.autoStatus_Value) && isCurrentStatusEligibleForAutoChange(statusValue) ? 'pointer' : 'not-allowed',
+                      }}
+                      onClick={handleAutoStatusButtonClick}
+                      disabled={!isStatusEligibleForAutoChange(student.autoStatus_Value) || !isCurrentStatusEligibleForAutoChange(statusValue)}
+                    >
+                      {isCurrentStatusEligibleForAutoChange(statusValue) ? (
+                        <>
+                          <Zap className={`h-4 w-4 mr-2 ${isStatusEligibleForAutoChange(student.autoStatus_Value) ? 'text-indigo-500' : 'text-gray-400'}`} />
+                          <span className="font-medium">Suggested: {getSafeValue(student.autoStatus_Value)}</span>
+                          {isStatusEligibleForAutoChange(student.autoStatus_Value) && (
+                            <span className="ml-2 text-xs text-indigo-400">(Click to apply)</span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <CircleSlash className="h-4 w-4 mr-2 text-gray-400" />
+                          <span className="font-medium">Cannot auto-update current status</span>
+                        </>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[300px] p-3">
+                    <div className="space-y-2">
+                      <div className="font-semibold">Auto Status Suggestion</div>
+                      <div className="text-xs text-gray-500">
+                        Generated on: {student.autoStatus_timestamp ? 
+                          formatTimestamp(student.autoStatus_timestamp) : 
+                          'No timestamp available'}
+                      </div>
+                      <div className="text-xs">
+                        {isCurrentStatusEligibleForAutoChange(statusValue) ? (
+                          <>
+                            This status is automatically suggested based on the student's activity and progress.
+                            {isStatusEligibleForAutoChange(student.autoStatus_Value) ? (
+                              <p className="mt-1 text-indigo-500 font-medium">Click to apply this status.</p>
+                            ) : (
+                              <p className="mt-1 text-amber-500">This status requires manual assignment.</p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-amber-500 font-medium">Current status: "{statusValue}"</p>
+                            <p className="mt-1">This status cannot be automatically updated. You must manually change the status before auto-suggestions can be applied.</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ) : (
-              <>
-                <CircleSlash className="h-4 w-4 mr-2 text-gray-400" />
-                <span className="font-medium">Cannot auto-update current status</span>
-              </>
+              <div className="flex-grow">
+                <div className="text-xs text-gray-500 italic">No auto status suggestion available</div>
+              </div>
             )}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-[300px] p-3">
-          <div className="space-y-2">
-            <div className="font-semibold">Auto Status Suggestion</div>
-            <div className="text-xs text-gray-500">
-              Generated on: {student.autoStatus_timestamp ? 
-                formatTimestamp(student.autoStatus_timestamp) : 
-                'No timestamp available'}
-            </div>
-            <div className="text-xs">
-              {isCurrentStatusEligibleForAutoChange(statusValue) ? (
-                <>
-                  This status is automatically suggested based on the student's activity and progress.
-                  {isStatusEligibleForAutoChange(student.autoStatus_Value) ? (
-                    <p className="mt-1 text-indigo-500 font-medium">Click to apply this status.</p>
-                  ) : (
-                    <p className="mt-1 text-amber-500">This status requires manual assignment.</p>
-                  )}
-                </>
-              ) : (
-                <>
-                  <p className="text-amber-500 font-medium">Current status: "{statusValue}"</p>
-                  <p className="mt-1">This status cannot be automatically updated. You must manually change the status before auto-suggestions can be applied.</p>
-                </>
-              )}
-            </div>
           </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  ) : (
-    <div className="flex-grow">
-      <div className="text-xs text-gray-500 italic">No auto status suggestion available</div>
-    </div>
-  )}
-
-
-
-
- {/* 
-  <Toggle
-    pressed={autoStatus}
-    onPressedChange={handleAutoStatusToggle}
-    size="sm"
-    className={`h-9 px-2 flex items-center justify-center ${!isAutoStatusAllowed ? 'opacity-50 cursor-not-allowed' : ''}`}
-    disabled={!isAutoStatusAllowed}
-  >
-    <span className="text-[10px] leading-tight">Auto</span>
-    {autoStatus ? (
-      <Zap className="h-3 w-3 text-yellow-500 ml-1" />
-    ) : (
-      <X className="h-3 w-3 text-red-500 ml-1" />
-    )}
-  </Toggle>
-  */}
-</div>
 
         {/* Category Selection */}
-<div className="mt-2 flex items-center">
-  <DropdownMenu open={categoryMenuOpen} onOpenChange={setCategoryMenuOpen}>
-    <DropdownMenuTrigger asChild>
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        className="h-8 px-2 text-xs font-normal"
-      >
-        <Plus className="h-4 w-4 mr-1" />
-        Add Category
-        <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent className="w-56">
-      {/* By Staff option */}
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger>
-          <Users className="h-4 w-4 mr-2" />
-          By Staff
-        </DropdownMenuSubTrigger>
-        <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
-          {Object.entries(filteredTeacherCategories).map(([teacherEmailKey, categories]) => (
-            <DropdownMenuSub key={teacherEmailKey}>
-              <DropdownMenuSubTrigger className="w-full">
-                <div className="truncate">
-                  {teacherNames[teacherEmailKey] || teacherEmailKey}
-                </div>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {categories.map(category => (
-                  <DropdownMenuItem
-                    key={category.id}
-                    onSelect={() => handleCategoryChange(category.id, teacherEmailKey)}
-                    className={customHoverStyle}
-                  >
-                    <div className="flex items-center">
-                      {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
-                        style: { color: category.color }, 
-                        size: 16, 
-                        className: 'mr-2' 
-                      })}
-                      <span>{category.name}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          ))}
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
-
-      {/* By Type option */}
-      <DropdownMenuSub>
-        <DropdownMenuSubTrigger>
-          <Grid2X2 className="h-4 w-4 mr-2" />
-          By Type
-        </DropdownMenuSubTrigger>
-        <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
-          {categoryTypes.map((type) => (
-            <DropdownMenuSub key={type.id}>
-              <DropdownMenuSubTrigger className="w-full">
-                <div className="flex items-center">
-                  {React.createElement(
-                    iconMap[type.icon] || Circle,
-                    { 
-                      className: "h-4 w-4 mr-2 flex-shrink-0",
-                      style: { color: type.color }
-                    }
-                  )}
-                  <span className="truncate">{type.name}</span>
-                </div>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {Object.entries(filteredTeacherCategories).flatMap(([teacherEmailKey, categories]) =>
-                  categories
-                    .filter(category => category.type === type.id)
-                    .map(category => (
-                      <DropdownMenuItem
-                        key={`${teacherEmailKey}-${category.id}`}
-                        onSelect={() => handleCategoryChange(category.id, teacherEmailKey)}
-                        className={customHoverStyle}
-                      >
-                        <div className="flex items-center">
-                          {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
-                            style: { color: category.color }, 
-                            size: 16, 
-                            className: 'mr-2' 
-                          })}
-                          <span className="truncate">{category.name}</span>
-                          <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
-                            ({teacherNames[teacherEmailKey] || teacherEmailKey})
-                          </span>
+        <div className="mt-2 flex items-center">
+          <DropdownMenu open={categoryMenuOpen} onOpenChange={setCategoryMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 px-2 text-xs font-normal"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Category
+                <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56">
+              {/* By Staff option */}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Users className="h-4 w-4 mr-2" />
+                  By Staff
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+                  {Object.entries(filteredTeacherCategories).map(([teacherEmailKey, categories]) => (
+                    <DropdownMenuSub key={teacherEmailKey}>
+                      <DropdownMenuSubTrigger className="w-full">
+                        <div className="truncate">
+                          {teacherNames[teacherEmailKey] || teacherEmailKey}
                         </div>
-                      </DropdownMenuItem>
-                    ))
-                )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          ))}
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {categories.map(category => (
+                          <DropdownMenuItem
+                            key={category.id}
+                            onSelect={() => handleCategoryChange(category.id, teacherEmailKey)}
+                            className={customHoverStyle}
+                          >
+                            <div className="flex items-center">
+                              {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                                style: { color: category.color }, 
+                                size: 16, 
+                                className: 'mr-2' 
+                              })}
+                              <span>{category.name}</span>
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
 
-          {/* Uncategorized section */}
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <Circle className="h-4 w-4 mr-2" />
-              Uncategorized
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {Object.entries(filteredTeacherCategories).flatMap(([teacherEmailKey, categories]) =>
-                categories
-                  .filter(category => !category.type)
-                  .map(category => (
-                    <DropdownMenuItem
-                      key={`${teacherEmailKey}-${category.id}`}
-                      onSelect={() => handleCategoryChange(category.id, teacherEmailKey)}
-                      className={customHoverStyle}
-                    >
-                      <div className="flex items-center">
-                        {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
-                          style: { color: category.color }, 
-                          size: 16, 
-                          className: 'mr-2' 
-                        })}
-                        <span className="truncate">{category.name}</span>
-                        <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
-                          ({teacherNames[teacherEmailKey] || teacherEmailKey})
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-                  ))
-              )}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
-    </DropdownMenuContent>
-  </DropdownMenu>
-</div>
+              {/* By Type option */}
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Grid2X2 className="h-4 w-4 mr-2" />
+                  By Type
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+                  {categoryTypes.map((type) => (
+                    <DropdownMenuSub key={type.id}>
+                      <DropdownMenuSubTrigger className="w-full">
+                        <div className="flex items-center">
+                          {React.createElement(
+                            iconMap[type.icon] || Circle,
+                            { 
+                              className: "h-4 w-4 mr-2 flex-shrink-0",
+                              style: { color: type.color }
+                            }
+                          )}
+                          <span className="truncate">{type.name}</span>
+                        </div>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {Object.entries(filteredTeacherCategories).flatMap(([teacherEmailKey, categories]) =>
+                          categories
+                            .filter(category => category.type === type.id)
+                            .map(category => (
+                              <DropdownMenuItem
+                                key={`${teacherEmailKey}-${category.id}`}
+                                onSelect={() => handleCategoryChange(category.id, teacherEmailKey)}
+                                className={customHoverStyle}
+                              >
+                                <div className="flex items-center">
+                                  {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                                    style: { color: category.color }, 
+                                    size: 16, 
+                                    className: 'mr-2' 
+                                  })}
+                                  <span className="truncate">{category.name}</span>
+                                  <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                                    ({teacherNames[teacherEmailKey] || teacherEmailKey})
+                                  </span>
+                                </div>
+                              </DropdownMenuItem>
+                            ))
+                        )}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  ))}
+
+                  {/* Uncategorized section */}
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Circle className="h-4 w-4 mr-2" />
+                      Uncategorized
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {Object.entries(filteredTeacherCategories).flatMap(([teacherEmailKey, categories]) =>
+                        categories
+                          .filter(category => !category.type)
+                          .map(category => (
+                            <DropdownMenuItem
+                              key={`${teacherEmailKey}-${category.id}`}
+                              onSelect={() => handleCategoryChange(category.id, teacherEmailKey)}
+                              className={customHoverStyle}
+                            >
+                              <div className="flex items-center">
+                                {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                                  style: { color: category.color }, 
+                                  size: 16, 
+                                  className: 'mr-2' 
+                                })}
+                                <span className="truncate">{category.name}</span>
+                                <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                                  ({teacherNames[teacherEmailKey] || teacherEmailKey})
+                                </span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                      )}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
           {/* Display selected categories */}
           <div className="flex flex-wrap mt-2">
-  {selectedCategories.map(({ id, teacherEmailKey, category }) => {
-    const uniqueKey = `${id}-${teacherEmailKey}-${student.id}`;
+            {selectedCategories.map(({ id, teacherEmailKey, category }) => {
+              const uniqueKey = `${id}-${teacherEmailKey}-${student.id}`;
 
-    return (
-      <div 
-        key={uniqueKey}
-        className="flex items-center bg-gray-100 rounded-full px-2 py-1 text-xs mr-1 mb-1"
-        style={{ color: category.color }}
-      >
-        {iconMap[category.icon] && React.createElement(iconMap[category.icon], { size: 12, className: 'mr-1' })}
-        {category.name}
-        <X
-          className="ml-1 cursor-pointer"
-          size={12}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleRemoveCategory(id, teacherEmailKey);
-          }}
-        />
-      </div>
-    );
-  })}
-</div>
+              return (
+                <div 
+                  key={uniqueKey}
+                  className="flex items-center bg-gray-100 rounded-full px-2 py-1 text-xs mr-1 mb-1"
+                  style={{ color: category.color }}
+                >
+                  {iconMap[category.icon] && React.createElement(iconMap[category.icon], { size: 12, className: 'mr-1' })}
+                  {category.name}
+                  <X
+                    className="ml-1 cursor-pointer"
+                    size={12}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveCategory(id, teacherEmailKey);
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
 
        
 
-{/* Action Buttons */}
-<div className="flex flex-wrap gap-2 mt-2">
-  {student.asn && (
-    <Button
-      variant="outline"
-      size="sm"
-      className="text-xs"
-      onClick={(e) => {
-        e.stopPropagation();
-        setIsPasiDialogOpen(true);
-      }}
-    >
-      <Database className="w-4 h-4 mr-1" />
-      PASI
-    </Button>
-  )}
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-2 mt-2">
+            {student.asn && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPasiDialogOpen(true);
+                }}
+              >
+                <Database className="w-4 h-4 mr-1" />
+                PASI
+              </Button>
+            )}
 
-{checkAsnIssues && (
-    <Button
-      variant="outline"
-      size="sm"
-      className="text-xs text-amber-600 hover:text-amber-700"
-      onClick={(e) => {
-        e.stopPropagation();
-        setIsAsnIssuesDialogOpen(true);
-      }}
-    >
-      <AlertTriangle className="w-4 h-4 mr-1" />
-      ASN Issues
-    </Button>
-)}
+            {checkAsnIssues && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs text-amber-600 hover:text-amber-700"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsAsnIssuesDialogOpen(true);
+                }}
+              >
+                <AlertTriangle className="w-4 h-4 mr-1" />
+                ASN Issues
+              </Button>
+            )}
 
-  <Button
-    variant="outline"
-    size="sm"
-    className="text-xs"
-    onClick={handleOpenChat}
-  >
-    <MessageSquare className="w-4 h-4 mr-1" />
-    Chat
-  </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              onClick={handleOpenChat}
+            >
+              <MessageSquare className="w-4 h-4 mr-1" />
+              Chat
+            </Button>
 
-  <Button
-    variant="outline"
-    size="sm"
-    className="text-xs"
-    onClick={handleOpenStatusHistory}
-  >
-    <History className="w-4 h-4 mr-1" />
-    Status
-  </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              onClick={handleOpenStatusHistory}
+            >
+              <History className="w-4 h-4 mr-1" />
+              Status
+            </Button>
 
-  <Button
-    variant="outline"
-    size="sm"
-    className="text-xs text-blue-600 hover:text-blue-700"
-    onClick={(e) => {
-      window.open(`/emulate/${student.StudentEmail}`, 'emulationTab');
-    }}
-  >
-    <UserCheck className="w-4 h-4 mr-1" />
-    Emulate
-  </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs text-blue-600 hover:text-blue-700"
+              onClick={(e) => {
+                window.open(`/emulate/${student.StudentEmail}`, 'emulationTab');
+              }}
+            >
+              <UserCheck className="w-4 h-4 mr-1" />
+              Emulate
+            </Button>
 
-  {currentMode === MODES.REGISTRATION && (
-    <Button
-      variant="outline"
-      size="sm"
-      className="text-xs text-red-600 hover:text-red-700"
-      onClick={(e) => {
-        setIsRemovalDialogOpen(true);
-      }}
-    >
-      <Trash2 className="w-4 h-4 mr-1" />
-      Remove
-    </Button>
-  )}
-</div>
+            {currentMode === MODES.REGISTRATION && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs text-red-600 hover:text-red-700"
+                onClick={(e) => {
+                  setIsRemovalDialogOpen(true);
+                }}
+              >
+                <Trash2 className="w-4 h-4 mr-1" />
+                Remove
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -1311,169 +1282,163 @@ const handleStatusChange = useCallback(async (newStatus) => {
           </DialogHeader>
           <div className="flex-grow overflow-auto">
           {loadingStatusHistory ? (
-  <div className="text-center">Loading...</div>
-) : statusHistory.length > 0 ? (
-  <table className="min-w-full text-sm">
-    <thead>
-      <tr>
-        <th className="px-2 py-1 text-left">Timestamp</th>
-        <th className="px-2 py-1 text-left">Status</th>
-        <th className="px-2 py-1 text-left">Previous Status</th>
-        <th className="px-2 py-1 text-left">Updated By</th>
-        <th className="px-2 py-1 text-left">Type</th>
-      </tr>
-    </thead>
-    <tbody>
-      {statusHistory.map((logEntry, index) => (
-        <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-          <td className="px-2 py-1">{new Date(logEntry.timestamp).toLocaleString()}</td>
-          <td className="px-2 py-1">{logEntry.status}</td>
-          <td className="px-2 py-1">
-            {typeof logEntry.previousStatus === 'object' && logEntry.previousStatus !== null
-              ? logEntry.previousStatus.Value
-              : logEntry.previousStatus}
-          </td>
-          <td className="px-2 py-1">
-            {logEntry.updatedByType === 'teacher' ? (
-              <>
-                {logEntry.updatedBy.name} ({logEntry.updatedBy.email})
-              </>
-            ) : (
-              'Auto Status'
-            )}
-          </td>
-          <td className="px-2 py-1">
-            {logEntry.bulkUpdate && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="inline-flex items-center text-blue-600">
-                      <Users className="h-4 w-4" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Part of a bulk update</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-) : (
-  <div className="text-center">No status history available.</div>
-)}
+            <div className="text-center">Loading...</div>
+          ) : statusHistory.length > 0 ? (
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="px-2 py-1 text-left">Timestamp</th>
+                  <th className="px-2 py-1 text-left">Status</th>
+                  <th className="px-2 py-1 text-left">Previous Status</th>
+                  <th className="px-2 py-1 text-left">Updated By</th>
+                  <th className="px-2 py-1 text-left">Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                {statusHistory.map((logEntry, index) => (
+                  <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
+                    <td className="px-2 py-1">{new Date(logEntry.timestamp).toLocaleString()}</td>
+                    <td className="px-2 py-1">{getSafeValue(logEntry.status)}</td>
+                    <td className="px-2 py-1">{getSafeValue(logEntry.previousStatus)}</td>
+                    <td className="px-2 py-1">
+                      {logEntry.updatedByType === 'teacher' ? (
+                        <>
+                          {logEntry.updatedBy.name} ({logEntry.updatedBy.email})
+                        </>
+                      ) : (
+                        'Auto Status'
+                      )}
+                    </td>
+                    <td className="px-2 py-1">
+                      {logEntry.bulkUpdate && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="inline-flex items-center text-blue-600">
+                                <Users className="h-4 w-4" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Part of a bulk update</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-center">No status history available.</div>
+          )}
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Course Removal Dialog */}
       <Dialog open={isRemovalDialogOpen} onOpenChange={setIsRemovalDialogOpen}>
-  <DialogContent className="sm:max-w-[425px]">
-    <DialogHeader>
-      <DialogTitle>Remove Course</DialogTitle>
-      <div className="text-sm text-gray-600 mt-4">
-        Are you sure you want to remove this course for:
-        <div className="font-medium mt-2 text-base">
-          {student.preferredFirstName || student.firstName} {student.lastName}
-        </div>
-        <div className="font-medium mt-2 text-blue-600">
-          {student.Course_Value}
-        </div>
-      </div>
-    </DialogHeader>
-    
-    <Alert className="mt-4">
-      <AlertCircle className="h-4 w-4" />
-      <AlertTitle>Warning</AlertTitle>
-      <AlertDescription>
-        This action cannot be undone and will remove all course data for this student.
-      </AlertDescription>
-    </Alert>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Remove Course</DialogTitle>
+            <div className="text-sm text-gray-600 mt-4">
+              Are you sure you want to remove this course for:
+              <div className="font-medium mt-2 text-base">
+                {student.preferredFirstName || student.firstName} {student.lastName}
+              </div>
+              <div className="font-medium mt-2 text-blue-600">
+                {getSafeValue(student.Course_Value)}
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <Alert className="mt-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Warning</AlertTitle>
+            <AlertDescription>
+              This action cannot be undone and will remove all course data for this student.
+            </AlertDescription>
+          </Alert>
 
-    <div className="flex justify-end space-x-2 mt-6">
-      <Button
-        variant="outline"
-        onClick={() => setIsRemovalDialogOpen(false)}
-      >
-        Cancel
-      </Button>
-      <Button
-        variant="destructive"
-        onClick={handleRemoveCourse}
-        className="flex items-center bg-red-600 hover:bg-red-700 text-white"
-      >
-        <Trash2 className="w-4 h-4 mr-2" />
-        Remove Course
-      </Button>
-    </div>
-  </DialogContent>
-</Dialog>
+          <div className="flex justify-end space-x-2 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setIsRemovalDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRemoveCourse}
+              className="flex items-center bg-red-600 hover:bg-red-700 text-white"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Remove Course
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       </TooltipProvider>
 
-{/* PASI Records Dialog */}
-<PasiRecordsDialog
-  isOpen={isPasiDialogOpen}
-  onOpenChange={setIsPasiDialogOpen}
-  studentAsn={student.asn}
-  student={student} 
-  courseId={student.CourseID}
-/>
+      {/* PASI Records Dialog */}
+      <PasiRecordsDialog
+        isOpen={isPasiDialogOpen}
+        onOpenChange={setIsPasiDialogOpen}
+        studentAsn={student.asn}
+        student={student} 
+        courseId={student.CourseID}
+      />
 
-{/* ASN Issues Dialog */}
-<AsnIssuesDialog
-  isOpen={isAsnIssuesDialogOpen}
-  onOpenChange={setIsAsnIssuesDialogOpen}
-  asn={student.asn}
-  studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
-  studentEmail={student.StudentEmail}  
-  emailKeys={studentAsns?.[student.asn]?.emailKeys ? 
-    Object.entries(studentAsns[student.asn].emailKeys)
-      .filter(([_, value]) => value === true)
-      .map(([email]) => email) : 
-    []
-  }
-/>
+      {/* ASN Issues Dialog */}
+      <AsnIssuesDialog
+        isOpen={isAsnIssuesDialogOpen}
+        onOpenChange={setIsAsnIssuesDialogOpen}
+        asn={student.asn}
+        studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
+        studentEmail={student.StudentEmail}  
+        emailKeys={studentAsns?.[student.asn]?.emailKeys ? 
+          Object.entries(studentAsns[student.asn].emailKeys)
+            .filter(([_, value]) => value === true)
+            .map(([email]) => email) : 
+          []
+        }
+      />
 
-<PendingFinalizationDialog
-  isOpen={isPendingFinalizationOpen}
-  onOpenChange={setIsPendingFinalizationOpen}
-  status={pendingStatus}
-  studentName={`${student.preferredFirstName || student.firstName} ${student.lastName}`}
-  courseName={student.Course_Value}
-  studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
-  courseId={student.id.slice(student.id.lastIndexOf('_') + 1)}
-  onConfirm={() => {
-    setIsPendingFinalizationOpen(false);
-    setPendingStatus(null);
-  }}
-  onCancel={() => {
-    setIsPendingFinalizationOpen(false);
-    setPendingStatus(null);
-  }}
-/>
+      <PendingFinalizationDialog
+        isOpen={isPendingFinalizationOpen}
+        onOpenChange={setIsPendingFinalizationOpen}
+        status={pendingStatus}
+        studentName={`${student.preferredFirstName || student.firstName} ${student.lastName}`}
+        courseName={getSafeValue(student.Course_Value)}
+        studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
+        courseId={student.id.slice(student.id.lastIndexOf('_') + 1)}
+        onConfirm={() => {
+          setIsPendingFinalizationOpen(false);
+          setPendingStatus(null);
+        }}
+        onCancel={() => {
+          setIsPendingFinalizationOpen(false);
+          setPendingStatus(null);
+        }}
+      />
 
-<ResumingOnDialog
-  isOpen={isResumingOnOpen}
-  onOpenChange={setIsResumingOnOpen}
-  status="Resuming on (date)"
-  statusValue={statusValue}
-  studentName={`${student.preferredFirstName || student.firstName} ${student.lastName}`}
-  courseName={student.Course_Value}
-  studentEmail={student.StudentEmail} 
-  studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
-  courseId={student.id.slice(student.id.lastIndexOf('_') + 1)}
-  onConfirm={async () => {
-    setIsResumingOnOpen(false);
-  }}
-  onCancel={() => {
-    setIsResumingOnOpen(false);
-  }}
-/>
-
-
+      <ResumingOnDialog
+        isOpen={isResumingOnOpen}
+        onOpenChange={setIsResumingOnOpen}
+        status="Resuming on (date)"
+        statusValue={statusValue}
+        studentName={`${student.preferredFirstName || student.firstName} ${student.lastName}`}
+        courseName={getSafeValue(student.Course_Value)}
+        studentEmail={student.StudentEmail} 
+        studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
+        courseId={student.id.slice(student.id.lastIndexOf('_') + 1)}
+        onConfirm={async () => {
+          setIsResumingOnOpen(false);
+        }}
+        onCancel={() => {
+          setIsResumingOnOpen(false);
+        }}
+      />
     </>
   );
 });

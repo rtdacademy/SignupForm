@@ -143,13 +143,13 @@ const updateStudentCourseSummary = functions.database
       
       // Course fields to check for changes
       const directCourseFields = {
-        'Status': 'Status_Value',
+        'Status.Value': 'Status_Value',
         'Status.SharepointValue': 'Status_SharepointValue', 
-        'Course': 'Course_Value', 
-        'School_x0020_Year': 'School_x0020_Year_Value',
-        'StudentType': 'StudentType_Value',
-        'DiplomaMonthChoices': 'DiplomaMonthChoices_Value',
-        'ActiveFutureArchived': 'ActiveFutureArchived_Value',
+        'Course.Value': 'Course_Value', 
+        'School_x0020_Year.Value': 'School_x0020_Year_Value',
+        'StudentType.Value': 'StudentType_Value',
+        'DiplomaMonthChoices.Value': 'DiplomaMonthChoices_Value',
+        'ActiveFutureArchived.Value': 'ActiveFutureArchived_Value',
         'PercentScheduleComplete': 'PercentScheduleComplete',
         'PercentCompleteGradebook': 'PercentCompleteGradebook',
         'Created': 'Created',

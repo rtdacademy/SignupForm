@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { Cross2Icon } from "@radix-ui/react-icons";
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, X } from "lucide-react";
 import StudentTypeSelector from './StudentTypeSelector';
 import NonPrimaryStudentForm from './NonPrimaryStudentForm';
 import AdultStudentForm from './AdultStudentForm';
@@ -13,6 +11,16 @@ import { useAuth } from '../context/AuthContext';
 import { getDatabase, ref, get, remove, set } from 'firebase/database';
 import { useConversionTracking } from '../components/hooks/use-conversion-tracking';
 import { useRegistrationWindows, RegistrationPeriod } from '../utils/registrationPeriods';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetFooter,
+  SheetClose
+} from "../components/ui/sheet";
 
 const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
   const trackConversion = useConversionTracking();
@@ -485,87 +493,71 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
   };
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Trigger asChild>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetTrigger asChild>
         {trigger}
-      </DialogPrimitive.Trigger>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay 
-          className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" 
-        />
-        <DialogPrimitive.Content
-          className={cn(
-            "fixed left-[50%] top-[50%] z-[102] grid w-[90vw] max-w-[1000px] max-h-[90vh]",
-            "translate-x-[-50%] translate-y-[-50%] rounded-lg bg-white shadow-lg",
-            "duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out",
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-            "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
-            "data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%]",
-            "data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
-            "flex flex-col" // Added flex column
-          )}
-        >
-          {loading ? (
-            <div className="flex items-center justify-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin" />
+      </SheetTrigger>
+      <SheetContent 
+        className="w-full sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl flex flex-col h-full overflow-hidden"
+        side="right"
+      >
+        {loading ? (
+          <div className="flex items-center justify-center p-8 h-full">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : (
+          <div className="flex flex-col h-full">
+            {/* Header Section */}
+            <SheetHeader className="px-1 pb-4">
+              <SheetTitle className="text-2xl font-semibold">
+                {currentStep === 'type-selection'
+                  ? 'Student Information Form'
+                  : currentStep === 'form'
+                  ? selectedStudentType === 'Home Education'
+                    ? 'Home Education Student Registration'
+                    : `${selectedStudentType} Student Registration`
+                  : 'Review Registration'}
+              </SheetTitle>
+              <SheetDescription className="text-gray-600">
+                {currentStep === 'type-selection'
+                  ? 'Please determine your student type'
+                  : currentStep === 'form'
+                  ? 'Please fill out your registration information'
+                  : 'Please review your information before submitting'}
+              </SheetDescription>
+            </SheetHeader>
+
+            {/* Content Section - Scrollable */}
+            <div className="flex-1 overflow-y-auto pr-1">
+              {renderContent()}
             </div>
-          ) : (
-            <div className="flex flex-col h-full max-h-[90vh]"> {/* Wrapper div with flex */}
-              {/* Header Section */}
-              <div className="p-6 pb-0">
-                <div className="mb-6">
-                  <DialogPrimitive.Title className="text-2xl font-semibold">
-                    {currentStep === 'type-selection'
-                      ? 'Student Information Form'
-                      : currentStep === 'form'
-                      ? selectedStudentType === 'Home Education'
-                        ? 'Home Education Student Registration'
-                        : `${selectedStudentType} Student Registration`
-                      : 'Review Registration'}
-                  </DialogPrimitive.Title>
-                  <DialogPrimitive.Description className="text-gray-600">
-                    {currentStep === 'type-selection'
-                      ? 'Please determine your student type'
-                      : currentStep === 'form'
-                      ? 'Please fill out your registration information'
-                      : 'Please review your information before submitting'}
-                  </DialogPrimitive.Description>
-                </div>
-              </div>
 
-              {/* Content Section - Scrollable */}
-              <div className="flex-1 overflow-y-auto px-6">
-                {renderContent()}
-              </div>
+            {/* Footer Section - Always Visible */}
+            <SheetFooter className="pt-4 mt-auto border-t bg-white">
+              {renderFooterButtons()}
 
-              {/* Footer Section - Always Visible */}
-              <div className="p-6 pt-4 mt-auto border-t bg-white">
-                {renderFooterButtons()}
-
-                {error && (
-                  <Alert className="mt-4 bg-red-50 border-red-200">
-                    <AlertTriangle className="h-4 w-4 text-red-600" />
-                    <AlertDescription className="text-sm text-red-700">
-                      {error}
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-
-              {!loading && (
-                <DialogPrimitive.Close 
-                  className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-                  onClick={handleClose}
-                >
-                  <Cross2Icon className="h-4 w-4" />
-                  <span className="sr-only">Close</span>
-                </DialogPrimitive.Close>
+              {error && (
+                <Alert className="mt-4 bg-red-50 border-red-200">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-sm text-red-700">
+                    {error}
+                  </AlertDescription>
+                </Alert>
               )}
-            </div>
-          )}
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+            </SheetFooter>
+
+            {/* Close button */}
+            <button
+              onClick={handleClose}
+              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </button>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 };
 

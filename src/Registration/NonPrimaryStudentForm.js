@@ -41,7 +41,6 @@ import {
   validationRules,
   useFormValidation
 } from './formValidation';
-import { useRegistrationWindows, RegistrationPeriod } from '../utils/registrationPeriods';
 
 // === Utility Functions ===
 
@@ -66,29 +65,11 @@ const formatDate = (date) => {
   return [year, month, day].join('-');
 };
 
-// Get minimum start date (2 business days from today)
-const getMinStartDate = () => {
-  const today = new Date();
-  let minDate = new Date(today);
-  minDate.setHours(0, 0, 0, 0);
-  let addedDays = 0;
-
-  while (addedDays < 2) {
-    minDate.setDate(minDate.getDate() + 1);
-    if (minDate.getDay() !== 0 && minDate.getDay() !== 6) { // Exclude weekends
-      addedDays++;
-    }
-  }
-
-  return minDate;
-};
-
-// Get minimum end date (1 month after start date)
-const getMinEndDate = (startDate) => {
-  if (!startDate) return null;
-  const minEnd = new Date(startDate);
-  minEnd.setMonth(minEnd.getMonth() + 1);
-  return minEnd;
+// Format date for display
+const formatDateForDisplay = (date) => {
+  if (!date) return '';
+  const options = { year: 'numeric', month: 'long', day: 'numeric' };
+  return new Date(date).toLocaleDateString('en-US', options);
 };
 
 // Calculate duration between start and end dates
@@ -119,22 +100,213 @@ const formatDiplomaDate = (dateObj) => {
   return `${dateObj.month} ${date.getUTCFullYear()} (${dateObj.displayDate})`;
 };
 
-// === Utility Functions for Student Types ===
+// Get minimum end date (1 month after start date)
+const getMinEndDate = (startDate) => {
+  if (!startDate) return null;
+  const minEnd = new Date(startDate);
+  minEnd.setMonth(minEnd.getMonth() + 1);
+  return minEnd;
+};
 
-// Now, we no longer want to show school selection for Summer School students.
+// Determine if school selection should be shown
 const shouldShowSchoolSelection = (studentType) => {
   return studentType === 'Non-Primary' || studentType === 'Home Education';
 };
 
+// Determine if student is Home Education
 const isHomeEducation = (studentType) => {
   return studentType === 'Home Education';
 };
 
-// === Summer Date Checker ===
+// Check if date is in summer (July or August)
 const isDateInSummer = (date) => {
   if (!date) return false;
   const month = new Date(date).getMonth();
   return month === 6 || month === 7; // July (6) or August (7)
+};
+
+// Hook to handle registration settings
+const useRegistrationSettings = (studentType) => {
+  const [settings, setSettings] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      if (!studentType) return;
+
+      try {
+        setLoading(true);
+        
+        // Determine current school year (Sept 1 to Aug 31)
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth(); // 0-indexed, so 8 = September
+        
+        // If we're in Sept-Dec, we're in the currentYear/currentYear+1 school year
+        // If we're in Jan-Aug, we're in the currentYear-1/currentYear school year
+        let schoolYearStart = currentMonth >= 8 ? currentYear : currentYear - 1;
+        let schoolYearEnd = schoolYearStart + 1;
+        
+        // Format as "xx_yy" where xx is the last 2 digits of the start year, and yy is the last 2 digits of the end year
+        const schoolYearKey = `${schoolYearStart.toString().slice(-2)}_${schoolYearEnd.toString().slice(-2)}`;
+        
+        // Convert student type to the format used in Firebase (replace spaces with dashes)
+        const studentTypeKey = studentType.replace(/\s+/g, '-');
+        
+        console.log(`Fetching settings for ${studentTypeKey} in school year ${schoolYearKey}`);
+        
+        const db = getDatabase();
+        const settingsRef = databaseRef(db, `registrationSettings/${schoolYearKey}/${studentTypeKey}`);
+        const snapshot = await get(settingsRef);
+
+        if (snapshot.exists()) {
+          const settingsData = snapshot.val();
+          console.log('Registration settings loaded:', settingsData);
+          setSettings(settingsData);
+        } else {
+          console.error(`No settings found for ${studentType} in the ${schoolYearKey} school year`);
+          setError(`No settings found for ${studentType} in the ${schoolYearKey} school year`);
+        }
+      } catch (err) {
+        console.error('Error fetching registration settings:', err);
+        setError('Failed to load registration settings');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSettings();
+  }, [studentType]);
+
+  // Get current school year in the format "XX/YY"
+  const getCurrentSchoolYear = useCallback(() => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    
+    let schoolYearStart = currentMonth >= 8 ? currentYear : currentYear - 1;
+    let schoolYearEnd = schoolYearStart + 1;
+    
+    return `${schoolYearStart.toString().slice(-2)}/${schoolYearEnd.toString().slice(-2)}`;
+  }, []);
+
+  // Get next school year in the format "XX/YY"
+  const getNextSchoolYear = useCallback(() => {
+    const currentYear = getCurrentSchoolYear().split('/')[0];
+    const nextYearStart = parseInt(currentYear) + 1;
+    const nextYearEnd = nextYearStart + 1;
+    
+    return `${nextYearStart}/${nextYearEnd}`;
+  }, [getCurrentSchoolYear]);
+
+  // Check if next year registration is allowed
+  const isNextYearRegistrationAllowed = useCallback(() => {
+    return settings?.allowNextYearRegistration === true;
+  }, [settings]);
+
+  // Get general message from settings
+  const getGeneralMessage = useCallback(() => {
+    return settings?.generalMessage || '';
+  }, [settings]);
+
+  // Get the time section for the specified year type (current or next)
+  const getTimeSection = useCallback((isNextYear = false) => {
+    if (!settings || !settings.timeSections) return null;
+    
+    // Filter time sections based on isForNextYear flag
+    const relevantSections = settings.timeSections.filter(section => 
+      section.isForNextYear === isNextYear
+    );
+    
+    if (relevantSections.length === 0) return null;
+    
+    // For simplicity, just return the first matching section
+    // You could extend this to find the most appropriate one if there are multiple
+    return relevantSections[0];
+  }, [settings]);
+
+  // Check if a time section is currently active (today is within start window)
+  const isTimeSectionActive = useCallback((timeSection) => {
+    if (!timeSection) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const startBegins = new Date(timeSection.startBegins);
+    const startEnds = new Date(timeSection.startEnds);
+    startBegins.setHours(0, 0, 0, 0);
+    startEnds.setHours(23, 59, 59, 999);
+    
+    return today >= startBegins && today <= startEnds;
+  }, []);
+
+  // Get date constraints for a time section
+  const getDateConstraints = useCallback((timeSection, isStartDate = true) => {
+    if (!timeSection) return { min: null, max: null };
+    
+    if (isStartDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const startBegins = new Date(timeSection.startBegins);
+      startBegins.setHours(0, 0, 0, 0);
+      
+      const startEnds = new Date(timeSection.startEnds);
+      startEnds.setHours(23, 59, 59, 999);
+      
+      // Use the later of today or startBegins as the minimum date
+      const minDate = today > startBegins ? today : startBegins;
+      
+      return {
+        min: minDate,
+        max: startEnds
+      };
+    } else { // For end date
+      const completionBegins = new Date(timeSection.completionBegins);
+      completionBegins.setHours(0, 0, 0, 0);
+      
+      const completionEnds = new Date(timeSection.completionEnds);
+      completionEnds.setHours(23, 59, 59, 999);
+      
+      return {
+        min: completionBegins,
+        max: completionEnds
+      };
+    }
+  }, []);
+
+  // Check if the selected dates cross school year boundary (July/August to September)
+  const crossesSchoolYearBoundary = useCallback((startDate, endDate) => {
+    if (!startDate || !endDate) return false;
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // If start date is in summer (July or August)
+    if (start.getMonth() === 6 || start.getMonth() === 7) {
+      // And end date is in September or later of the same calendar year
+      if (end.getMonth() >= 8 && end.getFullYear() === start.getFullYear()) {
+        return true;
+      }
+    }
+    
+    return false;
+  }, []);
+
+  return {
+    settings,
+    loading: loading,
+    error,
+    getCurrentSchoolYear,
+    getNextSchoolYear,
+    isNextYearRegistrationAllowed,
+    getTimeSection,
+    isTimeSectionActive,
+    getDateConstraints,
+    getGeneralMessage,
+    crossesSchoolYearBoundary
+  };
 };
 
 // === DiplomaMonthSelector Component ===
@@ -203,6 +375,7 @@ const DiplomaMonthSelector = ({ dates, selectedDate, onChange, error }) => {
   );
 };
 
+// Main component
 const NonPrimaryStudentForm = forwardRef(({ 
   onValidationChange, 
   initialData, 
@@ -218,72 +391,20 @@ const NonPrimaryStudentForm = forwardRef(({
   const [error, setError] = useState(null);
   const [hasASN, setHasASN] = useState(true);
 
-  // Use our registration windows utility with new functions
+  // Use our registration settings hook
   const { 
-    getActiveRegistrationWindows,
-    getEffectiveRegistrationPeriod,
-    isNextYearRegistrationOpen,
-    getNextYearRegistrationWindow,
-    isDateInRegistrationWindows,
+    settings,
+    loading: settingsLoading,
+    error: settingsError,
     getCurrentSchoolYear,
     getNextSchoolYear,
-    getRegistrationDateRestrictions,
-    getMaxScheduleEndDate,   
-    crossesSchoolYearBoundary, 
-    getRegistrationWindowByTypeAndTitle,
-    formatDate: formatDateForDisplay
-  } = useRegistrationWindows(importantDates);
-
-// --- NEW: Move getRegistrationWindowEndDates here ---
-const getRegistrationWindowEndDates = useCallback((studentType, isNextYear = false) => {
-  let registrationWindow = null;
-  
-  if (studentType === 'Non-Primary' || studentType === 'Home Education') {
-    if (isNextYear) {
-      registrationWindow = getRegistrationWindowByTypeAndTitle(studentType, 'Semester 1 Registration Window');
-    } else {
-      const now = new Date();
-      if (now.getMonth() >= 0 && now.getMonth() < 4) { // Jan-Apr
-        registrationWindow = getRegistrationWindowByTypeAndTitle(studentType, 'Semester 2 Registration Window');
-      } else {
-        registrationWindow = getRegistrationWindowByTypeAndTitle(studentType, 'Semester 1 Registration Window');
-      }
-    }
-  } else if (studentType === 'Summer School') {
-    registrationWindow = getRegistrationWindowByTypeAndTitle(studentType, 'Summer School Registration Window');
-  }
-  
-  if (!registrationWindow) return { maxStartDate: null, maxEndDate: null };
-  
-  let maxStartDate = registrationWindow.endDateDisplayDate 
-    ? new Date(registrationWindow.endDateDisplayDate) 
-    : null;
-    
-  let maxEndDate = registrationWindow.scheduleEndDateDisplayDate 
-    ? new Date(registrationWindow.scheduleEndDateDisplayDate) 
-    : null;
-  
-  if (isNextYear) {
-    if (maxStartDate) {
-      maxStartDate = new Date(
-        maxStartDate.getFullYear() + 1,
-        maxStartDate.getMonth(),
-        maxStartDate.getDate()
-      );
-    }
-    
-    if (maxEndDate) {
-      maxEndDate = new Date(
-        maxEndDate.getFullYear() + 1,
-        maxEndDate.getMonth(),
-        maxEndDate.getDate()
-      );
-    }
-  }
-  
-  return { maxStartDate, maxEndDate };
-}, [getRegistrationWindowByTypeAndTitle]);
-
+    isNextYearRegistrationAllowed,
+    getTimeSection,
+    isTimeSectionActive,
+    getDateConstraints,
+    getGeneralMessage,
+    crossesSchoolYearBoundary
+  } = useRegistrationSettings(studentType);
 
   const countryOptions = useMemo(() => countryList().getData(), []);
 
@@ -295,6 +416,7 @@ const getRegistrationWindowEndDates = useCallback((studentType, isNextYear = fal
 
   const [usePreferredFirstName, setUsePreferredFirstName] = useState(false);
 
+  // Initialize form data with user's information
   const getInitialFormData = () => {
     if (initialData) {
       console.log('Using initial data:', initialData);
@@ -374,12 +496,13 @@ const getRegistrationWindowEndDates = useCallback((studentType, isNextYear = fal
     summerNotice: ''
   });
 
-  // New state for enrolled courses with their statuses
+  // State for enrolled courses with their statuses
   const [enrolledCourses, setEnrolledCourses] = useState({});
 
-  // New state for course hours
+  // State for course hours
   const [courseHours, setCourseHours] = useState(null);
-
+  
+  // Set ASN requirement based on student type
   useEffect(() => {
     if (studentType !== 'International Student') {
       setHasASN(true); // Non-international students are expected to have ASN
@@ -453,7 +576,7 @@ const getRegistrationWindowEndDates = useCallback((studentType, isNextYear = fal
       parentEmail: !!profileData.ParentEmail,
       country: !!profileData.internationalDocuments?.countryOfOrigin,
       documents: !!(profileData.internationalDocuments?.passport && 
-                   profileData.internationalDocuments?.additionalID)
+                  profileData.internationalDocuments?.additionalID)
     };
   }, [profileData]);
 
@@ -573,93 +696,108 @@ const getRegistrationWindowEndDates = useCallback((studentType, isNextYear = fal
     });
   };
 
-// Modified getMaxEndDate function to use registration window end dates
-const getMaxEndDate = useCallback((isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate) => {
-  let maxEndDate = null;
-  
-  // 1. Diploma course constraint
-  if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate) {
-    const displayDate = new Date(selectedDiplomaDate.displayDate);
-    displayDate.setUTCHours(0, 0, 0, 0);
-    maxEndDate = displayDate;
-  }
-  
-  // 2. Schedule end date constraint based on student type and enrollment year
-  const { maxEndDate: scheduleEndDate } = getRegistrationWindowEndDates(studentType, formData.enrollmentYear);
-  
-  // If both constraints exist, use the earlier one
-  if (maxEndDate && scheduleEndDate) {
-    return scheduleEndDate < maxEndDate ? scheduleEndDate : maxEndDate;
-  }
-  
-  // If only one constraint exists, use that
-  return maxEndDate || scheduleEndDate;
-}, [studentType, formData.enrollmentYear, getRegistrationWindowEndDates]);
+  // Get max end date accounting for diploma course constraints
+  const getMaxEndDate = useCallback((isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate) => {
+    // Start with no constraint
+    let maxEndDate = null;
+    
+    // 1. Check if there's a diploma exam constraint
+    if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate) {
+      const displayDate = new Date(selectedDiplomaDate.displayDate);
+      displayDate.setUTCHours(0, 0, 0, 0);
+      maxEndDate = displayDate;
+    }
+    
+    // 2. Check if there's a registration settings constraint for completion date
+    const isNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+    const timeSection = getTimeSection(isNextYear);
+    
+    if (timeSection) {
+      const { max: completionEndsDate } = getDateConstraints(timeSection, false);
+      
+      // If both constraints exist, use the earlier one
+      if (maxEndDate && completionEndsDate) {
+        return completionEndsDate < maxEndDate ? completionEndsDate : maxEndDate;
+      }
+      
+      // If only time section constraint exists, use that
+      if (completionEndsDate) {
+        return completionEndsDate;
+      }
+    }
+    
+    // Return diploma constraint if it exists, otherwise null
+    return maxEndDate;
+  }, [formData.enrollmentYear, getCurrentSchoolYear, getTimeSection, getDateConstraints]);
 
-// Use getRegistrationWindowEndDates in your getEffectiveDateConstraints function
-const getEffectiveDateConstraints = useCallback(() => {
-  const currentSchoolYear = getCurrentSchoolYear();
-  const isNextYear = formData.enrollmentYear && formData.enrollmentYear !== currentSchoolYear;
-  
-  // Get registration window-specific constraints
-  const { maxStartDate: windowEndDate } = getRegistrationWindowEndDates(studentType, formData.enrollmentYear);
-  
-  // Default minimum start date - at least 2 business days from today
-  let effectiveMinDate = getMinStartDate();
-  
-  // For next year selections, enforce August 1st as earliest start date
-  if (isNextYear) {
-    const currentYear = new Date().getFullYear();
-    const augustFirst = new Date(currentYear, 7, 1); // August is month 7 (0-indexed)
+  // Get date constraints based on registration settings
+  const getEffectiveDateConstraints = useCallback(() => {
+    const currentSchoolYear = getCurrentSchoolYear();
+    const isNextYear = formData.enrollmentYear && formData.enrollmentYear !== currentSchoolYear;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
-    // Use August 1st or minimum start date, whichever is later
-    effectiveMinDate = augustFirst > effectiveMinDate ? augustFirst : effectiveMinDate;
-  } else {
-    // For current year, get constraints from registration windows
-    const { minDate: windowMinDate, hasActiveWindow } = getRegistrationDateRestrictions(studentType);
+    // Get time section based on enrollment year
+    const timeSection = getTimeSection(isNextYear);
     
-    // Only update min date if there's an active window and it's after our minimum
-    if (hasActiveWindow && windowMinDate && windowMinDate > effectiveMinDate) {
-      effectiveMinDate = windowMinDate;
+    if (!timeSection) {
+      console.log(`No time section found for ${isNextYear ? 'next' : 'current'} year`);
+      return {
+        minStartDate: today,
+        maxStartDate: null,
+        hasActiveWindow: false,
+        needsDiplomaSelection: isDiplomaCourse && !selectedDiplomaDate && !alreadyWroteDiploma,
+        isNextYear,
+        timeSection: null
+      };
     }
-  }
-  
-  // Determine maximum start date (use window end date)
-  let effectiveMaxDate = windowEndDate;
-  
-  // Consider diploma deadline as potential constraint
-  if (isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline) {
-    const diplomaDeadline = new Date(selectedDiplomaDate.registrationDeadline);
     
-    // Use the earlier of window end date and diploma deadline
-    if (!effectiveMaxDate || (diplomaDeadline && diplomaDeadline < effectiveMaxDate)) {
-      effectiveMaxDate = diplomaDeadline;
+    // Get start date constraints from time section
+    const { min: minStartDate, max: maxStartDate } = getDateConstraints(timeSection, true);
+    
+    // Consider diploma deadline as potential constraint for maximum start date
+    let effectiveMaxStartDate = maxStartDate;
+    if (isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline) {
+      const diplomaDeadline = new Date(selectedDiplomaDate.registrationDeadline);
+      
+      // Use the earlier of window end date and diploma deadline
+      if (diplomaDeadline && (!effectiveMaxStartDate || diplomaDeadline < effectiveMaxStartDate)) {
+        effectiveMaxStartDate = diplomaDeadline;
+      }
     }
-  }
-  
-  return {
-    minStartDate: effectiveMinDate,
-    maxStartDate: effectiveMaxDate,
-    hasActiveWindow: isNextYear || getRegistrationDateRestrictions(studentType).hasActiveWindow,
-    needsDiplomaSelection: isDiplomaCourse && !selectedDiplomaDate && !alreadyWroteDiploma,
-    isNextYear
-  };
-}, [
-  studentType, 
-  isDiplomaCourse, 
-  selectedDiplomaDate, 
-  alreadyWroteDiploma, 
-  getRegistrationDateRestrictions,
-  formData.enrollmentYear, 
-  getCurrentSchoolYear,
-  getRegistrationWindowEndDates
-]);
+    
+    // For next year, the time section exists but might not be active yet
+    const hasActiveWindow = isNextYear ? true : isTimeSectionActive(timeSection);
+    
+    return {
+      minStartDate,
+      maxStartDate: effectiveMaxStartDate,
+      hasActiveWindow: hasActiveWindow,
+      needsDiplomaSelection: isDiplomaCourse && !selectedDiplomaDate && !alreadyWroteDiploma,
+      isNextYear,
+      timeSection
+    };
+  }, [
+    getCurrentSchoolYear,
+    formData.enrollmentYear,
+    getTimeSection,
+    isTimeSectionActive,
+    getDateConstraints,
+    isDiplomaCourse,
+    selectedDiplomaDate,
+    alreadyWroteDiploma
+  ]);
 
   // Handle start date changes
   const handleStartDateChange = (date) => {
-    const { minStartDate, maxStartDate, hasActiveWindow, needsDiplomaSelection } = getEffectiveDateConstraints();
-    const currentSchoolYear = getCurrentSchoolYear();
-    const isNextYear = formData.enrollmentYear && formData.enrollmentYear !== currentSchoolYear;
+    const { 
+      minStartDate, 
+      maxStartDate, 
+      hasActiveWindow, 
+      needsDiplomaSelection,
+      isNextYear,
+      timeSection
+    } = getEffectiveDateConstraints();
     
     // Check if student needs to select a diploma date first
     if (needsDiplomaSelection) {
@@ -670,8 +808,8 @@ const getEffectiveDateConstraints = useCallback(() => {
       return;
     }
     
-    // Check if there's an active registration window (skip for next year as we always allow it)
-    if (!hasActiveWindow && !isNextYear) {
+    // Check if there's an active registration window
+    if (!hasActiveWindow) {
       setDateErrors(prev => ({
         ...prev,
         startDate: 'There are currently no active registration windows for your student type'
@@ -681,23 +819,23 @@ const getEffectiveDateConstraints = useCallback(() => {
     
     // Check minimum date constraint
     if (date < minStartDate) {
-      const message = isNextYear
-        ? `For next school year, start date must be on or after August 1st`
-        : `Start date must be on or after ${formatDateForDisplay(minStartDate)}`;
-        
       setDateErrors(prev => ({
         ...prev,
-        startDate: message
+        startDate: `Start date must be on or after ${formatDateForDisplay(minStartDate)}`
       }));
       return;
     }
   
-    // Check maximum date constraint - only for current year
-    if (!isNextYear && maxStartDate && date > maxStartDate) {
-      const message = isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline
-        ? `Start date must be on or before the diploma registration deadline (${selectedDiplomaDate.registrationDeadlineDisplayDate})`
-        : `Start date must be on or before the end of the registration window (${formatDateForDisplay(maxStartDate)})`;
-        
+    // Check maximum date constraint
+    if (maxStartDate && date > maxStartDate) {
+      let message = '';
+      
+      if (isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline) {
+        message = `Start date must be on or before the diploma registration deadline (${selectedDiplomaDate.registrationDeadlineDisplayDate})`;
+      } else {
+        message = `Start date must be on or before ${formatDateForDisplay(maxStartDate)}`;
+      }
+      
       setDateErrors(prev => ({
         ...prev,
         startDate: message
@@ -712,10 +850,26 @@ const getEffectiveDateConstraints = useCallback(() => {
         value: formatDate(date)
       }
     });
+    
     setDateErrors(prev => ({ ...prev, startDate: '' }));
+    
+    // If we have a diploma date selected, we might need to update the end date too
+    if (isDiplomaCourse && selectedDiplomaDate && !alreadyWroteDiploma) {
+      const diplomaDate = new Date(selectedDiplomaDate.displayDate);
+      
+      // Set end date to diploma date if possible
+      const maxEndDate = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
+      
+      handleFormChange({
+        target: {
+          name: 'endDate',
+          value: formatDate(maxEndDate || diplomaDate)
+        }
+      });
+    }
   };
 
-  // Enhanced handleEndDateChange function with improved validation
+  // Handle end date changes
   const handleEndDateChange = async (date) => {
     // Basic minimum duration validation
     const minEnd = getMinEndDate(formData.startDate);
@@ -729,9 +883,7 @@ const getEffectiveDateConstraints = useCallback(() => {
   
     // Get maximum end date from multiple constraints
     const maxEnd = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
-    const scheduleEndDate = getMaxScheduleEndDate(studentType, formData.enrollmentYear);
-    const { maxDate: windowMaxDate, hasActiveWindow } = getRegistrationDateRestrictions(studentType);
-  
+    
     // Handle maximum end date constraints with specific error messages
     if (maxEnd && date > maxEnd) {
       let errorMessage = '';
@@ -740,17 +892,15 @@ const getEffectiveDateConstraints = useCallback(() => {
       if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate && 
           date > new Date(selectedDiplomaDate.displayDate)) {
         errorMessage = 'End date must be on or before the diploma exam';
-      } else if (scheduleEndDate && date > scheduleEndDate) {
-        errorMessage = `End date must be on or before ${formatDateForDisplay(scheduleEndDate)} based on registration period constraints`;
       } else {
-        errorMessage = 'Selected end date exceeds the maximum allowed for your student type';
+        errorMessage = `End date must be on or before ${formatDateForDisplay(maxEnd)} based on registration period constraints`;
       }
       
       setDateErrors(prev => ({ ...prev, endDate: errorMessage }));
       return;
     }
     
-    // Summer school validation - only check end date (allow any start date)
+    // Summer school validation - only check end date for summer school student type
     if (studentType === 'Summer School' && !isDateInSummer(date)) {
       setDateErrors(prev => ({
         ...prev,
@@ -760,14 +910,12 @@ const getEffectiveDateConstraints = useCallback(() => {
     }
   
     // School year boundary validation
-    if (formData.startDate) {
-      if (crossesSchoolYearBoundary(formData.startDate, date)) {
-        setDateErrors(prev => ({
-          ...prev,
-          endDate: 'For courses starting in summer and ending after August, please select the next school year'
-        }));
-        return;
-      }
+    if (formData.startDate && crossesSchoolYearBoundary(formData.startDate, date)) {
+      setDateErrors(prev => ({
+        ...prev,
+        endDate: 'For courses starting in summer and ending after August, please select the next school year'
+      }));
+      return;
     }
   
     // If all validations pass, update the end date
@@ -888,7 +1036,6 @@ const getEffectiveDateConstraints = useCallback(() => {
         setCoursesError('Error loading courses');
       } finally {
         setCoursesLoading(false);
-        setLoading(false);
       }
     };
 
@@ -927,62 +1074,63 @@ const getEffectiveDateConstraints = useCallback(() => {
     fetchEnrolledCourses();
   }, [user_email_key]);
 
-  // Update enrollment year options based on registration windows
+  // Update enrollment year options based on registration settings
   useEffect(() => {
-    // Get the active registration windows for this student type
-    const activeWindows = getActiveRegistrationWindows(studentType);
-    const registrationPeriod = getEffectiveRegistrationPeriod(activeWindows);
-    const canRegisterForNextYear = isNextYearRegistrationOpen(studentType);
-    const nextYearWindow = getNextYearRegistrationWindow(studentType);
+    if (settingsLoading || !settings) return;
     
     const currentSchoolYear = getCurrentSchoolYear();
     const nextSchoolYear = getNextSchoolYear();
+    const canRegisterForNextYear = isNextYearRegistrationAllowed();
     
-    console.log('Active windows:', activeWindows);
-    console.log('Effective registration period:', registrationPeriod);
+    console.log('Current school year:', currentSchoolYear);
+    console.log('Next school year:', nextSchoolYear);
     console.log('Can register for next year:', canRegisterForNextYear);
-    console.log('Student type:', studentType);
+    
+    // Current year time section
+    const currentYearSection = getTimeSection(false);
+    const hasCurrentYear = !!currentYearSection;
+    
+    // Next year time section
+    const nextYearSection = getTimeSection(true);
+    const hasNextYear = canRegisterForNextYear && !!nextYearSection;
+    
+    console.log('Current year section:', currentYearSection);
+    console.log('Next year section:', nextYearSection);
     
     let availableYears = [];
     let message = '';
     
-    // Determine available years based on active windows and student type
-    if (studentType === 'Adult Student' || studentType === 'International Student') {
-      // Adult and International students always have both options available
-      availableYears = [currentSchoolYear, nextSchoolYear];
-      message = `As an ${studentType}, you may select either the current or next school year.`;
-    } else if (!registrationPeriod.hasActiveWindow) {
-      // No active registration windows
-      message = `There are currently no active registration periods for ${studentType} students.`;
-      
-      // Even though there's no active window, show current year as fallback
-      availableYears = [currentSchoolYear];
-      
-      if (nextYearWindow) {
-        message += ` Registration for the next school year will open on ${nextYearWindow.startFormatted}.`;
-      }
-    } else {
-      // There is an active registration window
-      
-      // Check if next year registration is open
-      if (canRegisterForNextYear) {
-        availableYears = [currentSchoolYear, nextSchoolYear];
-        message = `You can register for either the current school year (${currentSchoolYear}) or next year (${nextSchoolYear}).`;
+    // Add current year if it has a section
+    if (hasCurrentYear) {
+      availableYears.push(currentSchoolYear);
+      if (isTimeSectionActive(currentYearSection)) {
+        message = `Registration is currently open for the ${currentSchoolYear} school year until ${formatDateForDisplay(new Date(currentYearSection.startEnds))}.`;
       } else {
-        availableYears = [currentSchoolYear];
-        
-        // If there's a next year window, show when it will open
-        if (nextYearWindow) {
-          message = `Registration is only available for the current school year (${currentSchoolYear}). Registration for next school year (${nextSchoolYear}) will open on ${nextYearWindow.startFormatted}.`;
-        } else {
-          message = `Registration is only available for the current school year (${currentSchoolYear}).`;
-        }
+        message = `Registration for the ${currentSchoolYear} school year will open on ${formatDateForDisplay(new Date(currentYearSection.startBegins))}.`;
+      }
+    }
+    
+    // Add next year if allowed and has a section
+    if (hasNextYear) {
+      availableYears.push(nextSchoolYear);
+      
+      if (message) {
+        message += ` You can also register for the ${nextSchoolYear} school year`;
+      } else {
+        message = `Registration is available for the ${nextSchoolYear} school year`;
       }
       
-      // Add registration window dates to the message
-      if (registrationPeriod.startFormatted && registrationPeriod.endFormatted) {
-        message += ` Current registration window: ${registrationPeriod.startFormatted} to ${registrationPeriod.endFormatted}.`;
+      if (isTimeSectionActive(nextYearSection)) {
+        message += ` until ${formatDateForDisplay(new Date(nextYearSection.startEnds))}.`;
+      } else {
+        message += ` between ${formatDateForDisplay(new Date(nextYearSection.startBegins))} and ${formatDateForDisplay(new Date(nextYearSection.startEnds))}.`;
       }
+    }
+
+    // Always add current year as a fallback if no sections are found
+    if (availableYears.length === 0) {
+      availableYears.push(currentSchoolYear);
+      message = `Registration is currently closed for this student type.`;
     }
     
     console.log('Available years:', availableYears);
@@ -1010,9 +1158,17 @@ const getEffectiveDateConstraints = useCallback(() => {
     
     setAvailableEnrollmentYears(availableYears);
     setEnrollmentYearMessage(message);
-  }, [studentType, formData.enrollmentYear, handleFormChange, importantDates, 
-      getActiveRegistrationWindows, getEffectiveRegistrationPeriod, isNextYearRegistrationOpen, 
-      getNextYearRegistrationWindow, getCurrentSchoolYear, getNextSchoolYear]);
+  }, [
+    settings, 
+    settingsLoading, 
+    formData.enrollmentYear, 
+    handleFormChange, 
+    getCurrentSchoolYear, 
+    getNextSchoolYear, 
+    isNextYearRegistrationAllowed, 
+    getTimeSection,
+    isTimeSectionActive
+  ]);
 
   // Update age information based on birthday and enrollment year
   useEffect(() => {
@@ -1078,8 +1234,8 @@ const getEffectiveDateConstraints = useCallback(() => {
         const startDate = new Date(formData.startDate);
         const deadline = new Date(selectedDiplomaDate.registrationDeadline);
         
-        const { maxDate: windowMaxDate } = getRegistrationDateRestrictions(studentType);
-        const effectiveDeadline = windowMaxDate && windowMaxDate < deadline ? windowMaxDate : deadline;
+        const { maxStartDate } = getEffectiveDateConstraints();
+        const effectiveDeadline = maxStartDate && maxStartDate < deadline ? maxStartDate : deadline;
         
         if (startDate > effectiveDeadline) {
           // Reset the start date if it's after the effective deadline
@@ -1107,7 +1263,16 @@ const getEffectiveDateConstraints = useCallback(() => {
         });
       }
     }
-  }, [selectedDiplomaDate, formData.endDate, formData.startDate, handleFormChange, isDiplomaCourse, alreadyWroteDiploma, studentType, getRegistrationDateRestrictions, getMaxEndDate]);
+  }, [
+    selectedDiplomaDate, 
+    formData.endDate, 
+    formData.startDate, 
+    handleFormChange, 
+    isDiplomaCourse, 
+    alreadyWroteDiploma, 
+    getEffectiveDateConstraints, 
+    getMaxEndDate
+  ]);
 
   // Reset end date and diploma selection when course changes
   useEffect(() => {
@@ -1219,18 +1384,18 @@ const getEffectiveDateConstraints = useCallback(() => {
         defaultEndDate.setMonth(defaultEndDate.getMonth() + 5);
         
         // Check against schedule end date constraint
-        const scheduleEndDate = getMaxScheduleEndDate(studentType);
-        if (scheduleEndDate && defaultEndDate > scheduleEndDate) {
+        const maxEndDate = getMaxEndDate(isDiplomaCourse, true, null);
+        if (maxEndDate && defaultEndDate > maxEndDate) {
           handleFormChange({
             target: {
               name: 'endDate',
-              value: formatDate(scheduleEndDate)
+              value: formatDate(maxEndDate)
             }
           });
           
           setDateErrors(prev => ({
             ...prev,
-            endDate: `Note: The end date has been adjusted to ${formatDateForDisplay(scheduleEndDate)} based on registration constraints`
+            endDate: `Note: The end date has been adjusted to ${formatDateForDisplay(maxEndDate)} based on registration constraints`
           }));
         } else {
           handleFormChange({
@@ -1260,19 +1425,19 @@ const getEffectiveDateConstraints = useCallback(() => {
       
       // Set end date to diploma date, but check against schedule end date constraint
       const diplomaDate = new Date(date.date);
-      const scheduleEndDate = getMaxScheduleEndDate(studentType);
+      const maxEndDate = getMaxEndDate(isDiplomaCourse, false, date);
       
-      if (scheduleEndDate && diplomaDate > scheduleEndDate) {
+      if (maxEndDate && maxEndDate < diplomaDate) {
         handleFormChange({
           target: {
             name: 'endDate',
-            value: formatDate(scheduleEndDate)
+            value: formatDate(maxEndDate)
           }
         });
         
         setDateErrors(prev => ({
           ...prev,
-          endDate: `Note: The end date has been set to ${formatDateForDisplay(scheduleEndDate)} based on registration constraints instead of the diploma date`
+          endDate: `Note: The end date has been set to ${formatDateForDisplay(maxEndDate)} based on registration constraints instead of the diploma date`
         }));
       } else {
         handleFormChange({
@@ -1290,7 +1455,9 @@ const getEffectiveDateConstraints = useCallback(() => {
   const validateDates = useCallback(() => {
     let valid = true;
     const newDateErrors = {};
-    const { hasActiveWindow } = getRegistrationDateRestrictions(studentType);
+    
+    // Get date constraints
+    const { hasActiveWindow } = getEffectiveDateConstraints();
     
     // Check if there's an active registration window first
     if (!hasActiveWindow) {
@@ -1309,9 +1476,9 @@ const getEffectiveDateConstraints = useCallback(() => {
     }
 
     // Validate that end date doesn't exceed schedule end date constraint
-    const scheduleEndDate = getMaxScheduleEndDate(studentType);
-    if (scheduleEndDate && formData.endDate && new Date(formData.endDate) > scheduleEndDate) {
-      newDateErrors.endDate = `End date cannot be later than ${formatDateForDisplay(scheduleEndDate)} based on registration constraints`;
+    const maxEndDate = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
+    if (maxEndDate && formData.endDate && new Date(formData.endDate) > maxEndDate) {
+      newDateErrors.endDate = `End date cannot be later than ${formatDateForDisplay(maxEndDate)} based on registration constraints`;
       valid = false;
     }
 
@@ -1346,19 +1513,15 @@ const getEffectiveDateConstraints = useCallback(() => {
     isDiplomaCourse, 
     alreadyWroteDiploma, 
     selectedDiplomaDate, 
-    studentType, 
-    getRegistrationDateRestrictions,
-    getMaxScheduleEndDate,
-    crossesSchoolYearBoundary,
-    formatDateForDisplay
+    getEffectiveDateConstraints,
+    getMaxEndDate,
+    crossesSchoolYearBoundary
   ]);
 
-
-
-
+  // Validate form and update validation status
   useEffect(() => {
     const debouncedValidation = _.debounce(() => {
-      // Replace the old phone validation logic with the simpler version
+      // Simple phone validation
       const isPhoneValid = readOnlyFields.phoneNumber || (formData.phoneNumber && formData.phoneNumber.length > 0);
       
       const isFormValid = isValid && 
@@ -1376,8 +1539,18 @@ const getEffectiveDateConstraints = useCallback(() => {
   
     debouncedValidation();
     return () => debouncedValidation.cancel();
-  }, [isValid, isEligible, validateDates, onValidationChange, formData.courseId, 
-      studentType, formData.country, formData.documents, readOnlyFields, formData.phoneNumber]);
+  }, [
+    isValid, 
+    isEligible, 
+    validateDates, 
+    onValidationChange, 
+    formData.courseId, 
+    studentType, 
+    formData.country, 
+    formData.documents, 
+    readOnlyFields, 
+    formData.phoneNumber
+  ]);
 
   // Determine if end date should be readonly
   const isEndDateReadOnly = isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate;
@@ -1501,7 +1674,7 @@ const getEffectiveDateConstraints = useCallback(() => {
   return (
     <div className="space-y-8 relative">
       {/* Loading State */}
-      {loading ? (
+      {loading || settingsLoading ? (
         <div className="flex flex-col items-center justify-center p-8 space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
           <p className="text-sm text-gray-600">Loading form data...</p>
@@ -1521,11 +1694,21 @@ const getEffectiveDateConstraints = useCallback(() => {
           )}
 
           {/* Error Alert */}
-          {error && (
+          {(error || settingsError) && (
             <Alert className="bg-red-50 border-red-200">
               <AlertTriangle className="h-4 w-4 text-red-600" />
               <AlertDescription className="text-sm text-red-700">
-                {error}
+                {error || settingsError}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* General Message from Settings */}
+          {settings?.generalMessage && (
+            <Alert className="bg-blue-50 border-blue-200">
+              <InfoIcon className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-sm text-blue-700">
+                {settings.generalMessage}
               </AlertDescription>
             </Alert>
           )}
@@ -2304,84 +2487,91 @@ const getEffectiveDateConstraints = useCallback(() => {
                 </div>
               )}
 
-             {/* Course Dates Section */}
-<div className="space-y-4">
-  <h4 className="font-medium">Course Schedule</h4>
-  
-  {/* Display schedule end date constraint if applicable */}
-  {getMaxScheduleEndDate(studentType, formData.enrollmentYear) && (
-    <Alert className="bg-blue-50 border-blue-200">
-      <InfoIcon className="h-4 w-4 text-blue-600" />
-      <AlertDescription className="text-sm text-blue-700">
-        Based on your student type and {formData.enrollmentYear === getCurrentSchoolYear() ? 'current' : 'next'} school year selection, 
-        your course must be completed by {formatDateForDisplay(getMaxScheduleEndDate(studentType, formData.enrollmentYear))}.
-      </AlertDescription>
-    </Alert>
-  )}
+              {/* Course Dates Section */}
+              <div className="space-y-4">
+                <h4 className="font-medium">Course Schedule</h4>
+                
+                {/* Display time section message */}
+                {formData.enrollmentYear && (
+                  <>
+                    {/* Show message from the selected time section */}
+                    {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()) && (
+                      <Alert className="bg-blue-50 border-blue-200">
+                        <InfoIcon className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-sm text-blue-700">
+                          {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).message || 
+                          `Please select dates within the registration period.`}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </>
+                )}
 
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <DatePickerWithInfo
-  label="Start Date"
-  selected={formData.startDate}
-  onChange={handleStartDateChange}
-  minDate={getEffectiveDateConstraints().minStartDate}
-  maxDate={getEffectiveDateConstraints().maxStartDate}
-  helpText={
-    formData.enrollmentYear !== getCurrentSchoolYear()
-      ? "For next school year, you can start your course on or after August 1st"
-      : isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline 
-          ? `Must register by ${selectedDiplomaDate.registrationDeadlineDisplayDate}`
-          : getEffectiveDateConstraints().maxStartDate
-              ? `Must start by ${formatDateForDisplay(getEffectiveDateConstraints().maxStartDate)}`
-              : "Please select a start date within the active registration window."
-  }
-  error={dateErrors.startDate}
-  isRegistrationDeadline={isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline}
-  hasActiveWindow={getEffectiveDateConstraints().hasActiveWindow || formData.enrollmentYear !== getCurrentSchoolYear()}
-  isNextYear={formData.enrollmentYear !== getCurrentSchoolYear()}
-/>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <DatePickerWithInfo
+                    label="Start Date"
+                    selected={formData.startDate}
+                    onChange={handleStartDateChange}
+                    minDate={getEffectiveDateConstraints().minStartDate}
+                    maxDate={getEffectiveDateConstraints().maxStartDate}
+                    helpText={
+                      formData.enrollmentYear !== getCurrentSchoolYear()
+                        ? "Please select a start date within the next school year registration window"
+                        : isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline 
+                            ? `Must register by ${selectedDiplomaDate.registrationDeadlineDisplayDate}`
+                            : getEffectiveDateConstraints().maxStartDate
+                                ? `Must start by ${formatDateForDisplay(getEffectiveDateConstraints().maxStartDate)}`
+                                : "Please select a start date within the active registration window."
+                    }
+                    error={dateErrors.startDate}
+                    isRegistrationDeadline={isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline}
+                    hasActiveWindow={getEffectiveDateConstraints().hasActiveWindow}
+                    isNextYear={formData.enrollmentYear !== getCurrentSchoolYear()}
+                    timeSection={getEffectiveDateConstraints().timeSection}
+                    studentType={studentType}
+                  />
 
-    <DatePickerWithInfo
-      label="Completion Date"
-      selected={formData.endDate}
-      onChange={handleEndDateChange}
-      minDate={getMinEndDate(formData.startDate)}
-      maxDate={getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)}
-      disabled={!formData.startDate}
-      readOnly={isEndDateReadOnly}
-      helpText={
-        isDiplomaCourse && !alreadyWroteDiploma
-          ? "Automatically set to your diploma exam date"
-          : getMaxScheduleEndDate(studentType, formData.enrollmentYear)
-              ? `Must be completed by ${formatDateForDisplay(getMaxScheduleEndDate(studentType, formData.enrollmentYear))}`
-              : "Recommended 5 months for course completion"
-      }
-      error={dateErrors.endDate}
-      studentType={studentType}
-      startDate={formData.startDate}
-      scheduleEndDate={getMaxScheduleEndDate(studentType, formData.enrollmentYear)}
-      enrollmentYear={formData.enrollmentYear}
-    />
-  </div>
+                  <DatePickerWithInfo
+                    label="Completion Date"
+                    selected={formData.endDate}
+                    onChange={handleEndDateChange}
+                    minDate={getMinEndDate(formData.startDate)}
+                    maxDate={getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)}
+                    disabled={!formData.startDate}
+                    readOnly={isEndDateReadOnly}
+                    helpText={
+                      isDiplomaCourse && !alreadyWroteDiploma
+                        ? "Automatically set to your diploma exam date"
+                        : getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)
+                            ? `Must be completed by ${formatDateForDisplay(getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate))}`
+                            : "Recommended 5 months for course completion"
+                    }
+                    error={dateErrors.endDate}
+                    studentType={studentType}
+                    startDate={formData.startDate}
+                    timeSection={getEffectiveDateConstraints().timeSection}
+                    enrollmentYear={formData.enrollmentYear}
+                  />
+                </div>
 
-  {dateErrors.summerNotice && (
-    <Alert className="bg-amber-50 border-amber-200">
-      <InfoIcon className="h-4 w-4 text-amber-600" />
-      <AlertDescription className="text-sm text-amber-700">
-        {dateErrors.summerNotice}
-      </AlertDescription>
-    </Alert>
-  )}
+                {dateErrors.summerNotice && (
+                  <Alert className="bg-amber-50 border-amber-200">
+                    <InfoIcon className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-sm text-amber-700">
+                      {dateErrors.summerNotice}
+                    </AlertDescription>
+                  </Alert>
+                )}
 
-  {!getEffectiveDateConstraints().hasActiveWindow && (
-    <Alert className="bg-amber-50 border-amber-200">
-      <AlertTriangle className="h-4 w-4 text-amber-600" />
-      <AlertDescription className="text-sm text-amber-700">
-        There are currently no active registration windows for your student type. 
-        Please check back later or contact support for assistance.
-      </AlertDescription>
-    </Alert>
-  )}
+                {!getEffectiveDateConstraints().hasActiveWindow && (
+                  <Alert className="bg-amber-50 border-amber-200">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-sm text-amber-700">
+                      There are currently no active registration windows for your student type. 
+                      Please check back later or contact support for assistance.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 {!formData.startDate && (
                   <p className="text-sm text-gray-500">Please select a start date first</p>
@@ -2536,7 +2726,7 @@ export default NonPrimaryStudentForm;
 
 // === Additional Components Used in the Form ===
 
-// Enhanced DatePickerWithInfo to support next year selections
+// Enhanced DatePickerWithInfo Component
 const DatePickerWithInfo = ({
   label,
   selected,
@@ -2552,7 +2742,7 @@ const DatePickerWithInfo = ({
   startDate,
   isRegistrationDeadline = false,
   hasActiveWindow = true,
-  scheduleEndDate = null,
+  timeSection = null,
   isNextYear = false
  }) => {
   // Function to calculate the default open date (5 months from start date)
@@ -2591,44 +2781,32 @@ const DatePickerWithInfo = ({
           end: new Date(nextYear, 11, 31)
         }
       ];
-    } else if (studentType === 'Non-Primary' || studentType === 'Home Education') {
-      return [
-        {
-          start: new Date(currentYear, 6, 1),
-          end: new Date(currentYear, 7, 31)
-        },
-        {
-          start: new Date(nextYear, 6, 1),
-          end: new Date(nextYear, 7, 31)
-        }
-      ];
     }
     return [];
   };
  
   // Get appropriate warning message based on student type and constraints
   const getWarningMessage = () => {
-    if (isNextYear) {
-      return label === "Start Date" 
-        ? "For next school year, you can start your course on or after August 1st"
-        : scheduleEndDate
-            ? `For next school year, your course must be completed by ${scheduleEndDate.toLocaleDateString()}`
-            : null;
-    }
-    
     if (!hasActiveWindow) {
       return "There are currently no active registration windows for your student type.";
     }
     
     if (isRegistrationDeadline && maxDate) {
       return `Note: You must register by ${maxDate.toLocaleDateString()} to qualify for this diploma exam.`;
-    } else if (scheduleEndDate && label === "Completion Date") {
-      return `Note: Based on your student type, your course must be completed by ${scheduleEndDate.toLocaleDateString()}.`;
-    } else if (studentType === 'Summer School') {
-      return "Note: Available completion dates are limited to July and August. If you need to complete the course outside of summer months, you can go back and select a different student type.";
-    } else if (studentType === 'Non-Primary' || studentType === 'Home Education') {
-      return "Note: If you plan to complete this course during July or August, you can go back and select 'Summer School' as your student type.";
     }
+    
+    if (timeSection) {
+      if (label === "Start Date") {
+        return `Note: Your start date must be between ${formatDateForDisplay(minDate)} and ${formatDateForDisplay(maxDate)}.`;
+      } else if (label === "Completion Date") {
+        return `Note: Your completion date must be on or before ${formatDateForDisplay(maxDate)}.`;
+      }
+    }
+    
+    if (studentType === 'Summer School') {
+      return "Note: Summer School courses must be completed in July or August.";
+    }
+    
     return null;
   };
  
@@ -2657,13 +2835,13 @@ const DatePickerWithInfo = ({
         onChange={onChange}
         minDate={minDate}
         maxDate={maxDate}
-        disabled={disabled || (!hasActiveWindow && !isNextYear)}
+        disabled={disabled || !hasActiveWindow}
         readOnly={readOnly}
         excludeDateIntervals={getExcludedIntervals()}
         openToDate={getOpenToDate()}
         customInput={
           <CustomDateInput
-            disabled={disabled || (!hasActiveWindow && !isNextYear)}
+            disabled={disabled || !hasActiveWindow}
             readOnly={readOnly}
             error={error}
             placeholder="Select date"
@@ -2697,6 +2875,7 @@ const DatePickerWithInfo = ({
   );
  };
 
+// Custom input component for DatePicker
 const CustomDateInput = forwardRef(({ value, onClick, disabled, readOnly, error, placeholder }, ref) => (
  <div className="relative">
    <input

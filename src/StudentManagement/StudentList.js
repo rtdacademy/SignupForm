@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { CSVLink } from 'react-csv';
 import { Button } from "../components/ui/button";
@@ -84,39 +84,39 @@ function StudentList({
   const [sortOrder, setSortOrder] = useState('asc');
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isMassUpdateDialogOpen, setIsMassUpdateDialogOpen] = useState(false);
+  const checkboxRef = useRef(null);
 
   // Handle Batch Update for Normalized Schedules
- // Handle Batch Update for Normalized Schedules
-const handleBatchUpdateNormalizedSchedules = async () => {
-  const selectedStudentsData = Array.from(selectedStudents)
-    .map(id => {
-      const student = studentSummaries.find(s => s.id === id);
-      if (!student) return null;
+  const handleBatchUpdateNormalizedSchedules = async () => {
+    const selectedStudentsData = Array.from(selectedStudents)
+      .map(id => {
+        const student = studentSummaries.find(s => s.id === id);
+        if (!student) return null;
 
-      // Parse the studentKey from the id (format: studentKey_courseId)
-      const studentKey = student.id.split('_')[0];
-      
-      return {
-        studentKey: studentKey, // Use the extracted studentKey
-        courseId: student.CourseID, // Use the courseId from the student object
-      };
-    })
-    .filter(Boolean);
+        // Parse the studentKey from the id (format: studentKey_courseId)
+        const studentKey = student.id.split('_')[0];
+        
+        return {
+          studentKey: studentKey, // Use the extracted studentKey
+          courseId: student.CourseID, // Use the courseId from the student object
+        };
+      })
+      .filter(Boolean);
 
-  if (selectedStudentsData.length === 0) {
-    alert('No students selected');
-    return;
-  }
+    if (selectedStudentsData.length === 0) {
+      alert('No students selected');
+      return;
+    }
 
-  try {
-    const result = await batchUpdateNormalizedSchedules({ students: selectedStudentsData });
-    console.log('Batch update result:', result);
-    alert('Batch update started successfully');
-  } catch (error) {
-    console.error('Error during batch update:', error);
-    alert('Failed to start batch update');
-  }
-};
+    try {
+      const result = await batchUpdateNormalizedSchedules({ students: selectedStudentsData });
+      console.log('Batch update result:', result);
+      alert('Batch update started successfully');
+    } catch (error) {
+      console.error('Error during batch update:', error);
+      alert('Failed to start batch update');
+    }
+  };
 
   // Apply filters and search using useMemo for performance optimization
   const filteredStudents = useMemo(() => {
@@ -327,6 +327,14 @@ const handleBatchUpdateNormalizedSchedules = async () => {
     });
   }, [filteredStudents, sortKey, sortOrder]);
 
+  // Setup the indeterminate property on the checkbox AFTER sortedStudents is defined
+  useEffect(() => {
+    if (checkboxRef.current) {
+      const isIndeterminate = selectedStudents.size > 0 && selectedStudents.size < sortedStudents.length;
+      checkboxRef.current.indeterminate = isIndeterminate;
+    }
+  }, [selectedStudents, sortedStudents]);
+
   const sortOptions = [
     { value: 'lastName', label: 'Last Name' },
     { value: 'firstName', label: 'First Name' },
@@ -425,8 +433,8 @@ const handleBatchUpdateNormalizedSchedules = async () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0">
           <div className="flex items-center space-x-2">
             <Checkbox
+              ref={checkboxRef}
               checked={isAllSelected}
-              indeterminate={isSomeSelected}
               onCheckedChange={handleSelectAll}
               aria-label="Select all students"
             />
