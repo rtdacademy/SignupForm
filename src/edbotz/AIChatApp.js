@@ -83,6 +83,10 @@ const enhanceLinks = (htmlContent) => {
     link.style.fontWeight = 'bold';
     link.style.textDecoration = 'underline';
     link.classList.add('text-blue-600');
+    
+    // Add these attributes to make links work properly
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
   });
   return div.innerHTML;
 };
@@ -349,7 +353,20 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
             "prose prose-sm max-w-none",
             isUser && "[&_*]:text-white [&_code]:bg-blue-400 [&_code]:text-white"
           )}>
-            {processText(message.text)}
+            {message.text && message.text.includes('<') && message.text.includes('>') ? (
+              <div 
+                className="prose prose-sm max-w-none prose-a:text-blue-600 prose-a:font-medium"
+                dangerouslySetInnerHTML={{ __html: enhanceLinks(message.text) }} 
+                onClick={(e) => {
+                  // If the click is on a link, allow default behavior
+                  if (e.target.tagName === 'A') {
+                    e.stopPropagation();
+                  }
+                }}
+              />
+            ) : (
+              processText(message.text)
+            )}
             {message.sender === 'ai' && isStreaming && (
               <span className="inline-block w-1.5 h-4 ml-1 bg-current animate-pulse" />
             )}

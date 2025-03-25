@@ -81,11 +81,11 @@ const EditableRichText = ({ label, value, onChange, className = "", placeholder 
   return (
     <div className="space-y-2">
       <Label className="text-sm font-medium text-gray-700">{label}</Label>
-      <div className={`border-2 rounded-lg overflow-hidden ${className}`}>
+      <div className={`rounded-lg overflow-hidden shadow-sm ${className}`}>
         <ReactQuill
           value={value}
           onChange={onChange}
-          className="bg-white"
+          className="bg-white quill-editor"
           modules={{
             toolbar: [
               ['bold', 'italic', 'underline'],
@@ -95,7 +95,45 @@ const EditableRichText = ({ label, value, onChange, className = "", placeholder 
             ],
           }}
           placeholder={placeholder}
+          style={{ height: "180px" }}
         />
+        <style jsx global>{`
+          .quill-editor {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+          }
+          .quill-editor .ql-container {
+            border: none;
+            border-top: 1px solid #e2e8f0;
+            min-height: 120px;
+            height: calc(100% - 42px);
+            font-size: 14px;
+            border-radius: 0 0 0.5rem 0.5rem;
+          }
+          .quill-editor .ql-editor {
+            min-height: 120px;
+            height: 100%;
+            max-height: none;
+            padding: 12px 15px;
+          }
+          .quill-editor .ql-toolbar {
+            border: none;
+            padding: 8px 12px;
+            background-color: #f9fafb;
+            border-radius: 0.5rem 0.5rem 0 0;
+          }
+          .quill-editor .ql-toolbar button {
+            height: 24px;
+            width: 24px;
+            padding: 2px;
+          }
+          .quill-editor .ql-toolbar button:hover {
+            color: #1e40af;
+          }
+          .quill-editor .ql-toolbar .ql-active {
+            color: #1d4ed8;
+          }
+        `}</style>
       </div>
     </div>
   );
@@ -212,6 +250,12 @@ const AIAssistantSheet = ({
   const [messageToStudents, setMessageToStudents] = useState('');
   const [instructions, setInstructions] = useState('');
   const [firstMessage, setFirstMessage] = useState('');
+  
+  // Special handler for firstMessage to ensure links work
+  const handleFirstMessageChange = (content) => {
+    // ReactQuill provides HTML content directly
+    setFirstMessage(content);
+  };
   const [messageStarters, setMessageStarters] = useState(['']);
   const [selectedModel, setSelectedModel] = useState('standard');
 
@@ -588,6 +632,7 @@ const handleImagesUploaded = (imageIds) => {
       messageToStudents,
       assistantName,
       instructions,
+      // firstMessage might be HTML from ReactQuill or plain text
       firstMessage,
       messageStarters: messageStarters.filter(msg => msg.trim() !== ''),
       model: selectedModel,
@@ -1032,10 +1077,10 @@ const ManagementButtons = () => (
                 />
               </div>
               <EditableRichText
-               
                 value={messageToStudents}
                 onChange={setMessageToStudents}
                 placeholder="Enter a message to your students..."
+                className="mb-4"
               />
         
             </div>
@@ -1070,13 +1115,12 @@ const ManagementButtons = () => (
                   setActiveInfoSection={setActiveInfoSection}
                 />
               </div>
-              <EditableTextarea
-               
+              <EditableRichText
                 value={firstMessage}
-                onChange={setFirstMessage}
+                onChange={handleFirstMessageChange}
                 placeholder="Enter the first message the assistant will send to students..."
+                className="mb-4" 
               />
-             
             </div>
   
        {/* Message Starters */}

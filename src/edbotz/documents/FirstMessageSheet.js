@@ -57,6 +57,10 @@ const FirstMessageSheet = ({ open, onOpenChange, topic }) => {
                 The first message is your assistant's opening line in every new chat. It sets the tone 
                 for the interaction and helps students feel comfortable and ready to engage.
               </p>
+              <p className="text-blue-600 mt-2 font-medium bg-blue-50 p-3 rounded-lg">
+                You can now use rich text formatting in your first message! Use bold, italics, lists, and other formatting options 
+                to create an engaging and visually appealing welcome message for your students.
+              </p>
             </div>
 
             <FeatureCard icon={Target} title="Key Elements">
@@ -84,6 +88,11 @@ const FirstMessageSheet = ({ open, onOpenChange, topic }) => {
                   title="Science Tutor"
                   message="Welcome! I'm your Science Assistant, here to help you explore and understand scientific concepts. Whether you're studying biology, chemistry, or physics, I can help explain ideas, work through problems, or discuss experiments. What scientific topic shall we explore today?"
                 />
+
+                <ExampleMessage 
+                  title="Resource Guide (with Link Example)"
+                  message="Hello! I'm your Resource Guide. I can help you find the right study materials and references for your coursework. Check out our learning portal for additional resources. Feel free to ask me about any specific materials you need for your studies!"
+                />
               </div>
             </FeatureCard>
 
@@ -94,6 +103,8 @@ const FirstMessageSheet = ({ open, onOpenChange, topic }) => {
                 <li>Clearly state the assistant's capabilities</li>
                 <li>End with an open-ended question</li>
                 <li>Match the tone to your subject matter</li>
+                <li>Use text formatting for emphasis when needed</li>
+                <li>Organize content with lists for greater clarity</li>
               </ul>
             </FeatureCard>
 
@@ -106,7 +117,11 @@ const FirstMessageSheet = ({ open, onOpenChange, topic }) => {
                   <li>Brief overview of how they can help</li>
                   <li>Encouraging tone</li>
                   <li>Invitation to engage</li>
+                  <li>Links to relevant resources (optional)</li>
                 </ul>
+                <p className="text-blue-600 text-sm mt-2">
+                  You can add clickable links using the link button in the rich text editor.
+                </p>
               </div>
             </FeatureCard>
 
