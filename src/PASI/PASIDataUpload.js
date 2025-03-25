@@ -420,11 +420,14 @@ const isWithinTwoMonths = (dateString) => {
   
 
 
-const StateEditCell = ({ record }) => {
-  const [state, setState] = useState(record.summaryState || 'Not Set');
-  const [isUpdating, setIsUpdating] = useState(false);
-  
-  const needsArchived = record.needsArchived;
+  const StateEditCell = ({ record }) => {
+    // Add safety check at the beginning
+    if (!record) return <span>Not Set</span>;
+    
+    const [state, setState] = useState(record.summaryState || 'Not Set');
+    const [isUpdating, setIsUpdating] = useState(false);
+    
+    const needsArchived = record.needsArchived;
   
   const handleStateChange = async (newState) => {
     if (!record.studentKey || !record.courseId) {
@@ -1056,17 +1059,18 @@ const calculateGroupInfo = (records) => {
       groups[asn] = {
         asn,
         count: 0,
-        studentName: record.studentName, // Use first record's name
+        studentName: record.studentName,
         email: record.email,
         linked: 0,
         notLinked: 0,
         statusMismatches: 0,
+        mismatchedRecords: [], // Add this to track individual mismatched records
         courseList: new Set(),
         hasRequiredCourses: {
           COM1255: false,
           INF2020: false
         },
-        isExemptFromRequiredCourses: false, // Will be true for Adult or International students
+        isExemptFromRequiredCourses: false,
         firstIndex: null,
         studentType: record.studentType || null,
       };
@@ -1076,8 +1080,11 @@ const calculateGroupInfo = (records) => {
     if (record.linked) groups[asn].linked++;
     else groups[asn].notLinked++;
     
-    if (hasStatusMismatch(record)) {
+    // Check both by record ID and by status compatibility directly
+    const hasMismatch = hasStatusMismatch(record);
+    if (hasMismatch) {
       groups[asn].statusMismatches++;
+      groups[asn].mismatchedRecords.push(record.id); // Track the specific record
     }
     
     // Track courses
@@ -1256,40 +1263,72 @@ const searchData = (data, term) => {
   }, [selectedSchoolYear]);
 
   // Updated effect for handling filtered and paginated data
-useEffect(() => {
-  // Apply search filter
-  let filtered = searchData(pasiRecords, searchTerm);
-  
-  // Apply status mismatch filter if enabled
-  if (showStatusMismatchOnly) {
-    const mismatchIds = recordsWithStatusMismatch.map(record => record.id);
-    filtered = filtered.filter(record => mismatchIds.includes(record.id));
-  }
-  
-  // Combine records with summary data - this is the key addition
-  const combinedRecords = combineRecordsWithSummaries(filtered, summaryDataMap);
-  
-  // Set filtered records using the combined data
-  setFilteredRecords(combinedRecords);
-  
-  // Apply sorting
-  const sorted = sortData(combinedRecords, sortState.column, sortState.direction);
-  
-  // Calculate pagination
-  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE) || 1;
-  setTotalPages(totalPages);
-  
-  // Make sure current page is valid
-  const validPage = Math.min(currentPage, totalPages);
-  if (validPage !== currentPage) {
-    setCurrentPage(validPage);
-  }
-  
-  // Create paginated data
-  const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  setPaginatedRecords(sorted.slice(startIndex, endIndex));
-}, [pasiRecords, searchTerm, sortState, currentPage, recordsWithStatusMismatch, showStatusMismatchOnly, summaryDataMap]);
+  useEffect(() => {
+    // Apply search filter
+    let filtered = searchData(pasiRecords, searchTerm);
+    
+    // FIRST - Combine records with summary data
+    const combinedRecords = combineRecordsWithSummaries(filtered, summaryDataMap);
+    
+    // THEN - Apply status mismatch filter if enabled
+    let filteredByCriteria = combinedRecords;
+    
+    if (showStatusMismatchOnly) {
+      // Create a new array for all mismatched records, including direct checks
+      let allMismatchedRecords = [];
+      
+      // Check each record for status mismatches AFTER they have the summary data
+      combinedRecords.forEach(record => {
+        // Check directly for Active/Unenrolled combinations
+        if (record.status === "Active" && 
+            record.statusValue === "Unenrolled") {
+          allMismatchedRecords.push(record);
+        }
+        // Check based on validation rules
+        else if (record.status === "Active" && 
+            ValidationRules.statusCompatibility.Active.incompatibleStatuses.includes(record.statusValue)) {
+          allMismatchedRecords.push(record);
+        }
+        // Check for precomputed mismatches too
+        else if (recordsWithStatusMismatch.some(mismatch => mismatch.id === record.id)) {
+          allMismatchedRecords.push(record);
+        }
+      });
+      
+      // Get all ASNs with mismatches
+      const mismatchASNs = new Set(
+        allMismatchedRecords.map(record => record.asn).filter(Boolean)
+      );
+      
+      // Keep all records from ASNs that have at least one mismatch
+      filteredByCriteria = combinedRecords.filter(record => mismatchASNs.has(record.asn));
+      
+      // Debug logging
+      console.log(`Found ${allMismatchedRecords.length} records with status mismatches`);
+      console.log(`Showing ${filteredByCriteria.length} total records after ASN grouping`);
+    }
+    
+    // Set filtered records
+    setFilteredRecords(filteredByCriteria);
+    
+    // Apply sorting
+    const sorted = sortData(filteredByCriteria, sortState.column, sortState.direction);
+    
+    // Calculate pagination
+    const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE) || 1;
+    setTotalPages(totalPages);
+    
+    // Make sure current page is valid
+    const validPage = Math.min(currentPage, totalPages);
+    if (validPage !== currentPage) {
+      setCurrentPage(validPage);
+    }
+    
+    // Create paginated data
+    const startIndex = (validPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    setPaginatedRecords(sorted.slice(startIndex, endIndex));
+  }, [pasiRecords, searchTerm, sortState, currentPage, recordsWithStatusMismatch, showStatusMismatchOnly, summaryDataMap]);
 
  // Set up database listener for student course summaries when school year changes
 useEffect(() => {
@@ -1948,12 +1987,55 @@ const getChangedFields = (existingRecord, newRecord) => {
 
   // Function to check if a record has a status mismatch
   const hasStatusMismatch = (record) => {
-    return recordsWithStatusMismatch.some(mismatch => mismatch.id === record.id);
+    if (!record || !record.id) return false;
+    
+    // Check in the pre-computed array first
+    const inArray = recordsWithStatusMismatch.some(mismatch => mismatch.id === record.id);
+    
+    // If it's not in the array, do a direct check
+    if (!inArray) {
+      // Direct check for Active/Unenrolled combination
+      if (record.status === "Active" && record.statusValue === "Unenrolled") {
+        return true;
+      }
+      
+      // Direct check based on our validation rules
+      if (record.status === "Active" && 
+          ValidationRules.statusCompatibility.Active.incompatibleStatuses.includes(record.statusValue)) {
+        return true;
+      }
+      
+      if (record.status === "Completed" && 
+          !ValidationRules.statusCompatibility.Completed.validStatuses.includes(record.statusValue)) {
+        return true;
+      }
+    }
+    
+    return inArray;
   };
 
   // Function to get the mismatch object for a record
   const getStatusMismatchForRecord = (record) => {
-    return recordsWithStatusMismatch.find(mismatch => mismatch.id === record.id);
+    if (!record || !record.id) return null;
+    return recordsWithStatusMismatch.find(mismatch => mismatch.id === record.id) || null;
+  };
+
+  const getUniqueMismatchAsnsCount = () => {
+    // Get unique ASNs from records with mismatches
+    const uniqueASNs = new Set();
+    
+    recordsWithStatusMismatch.forEach(record => {
+      if (record.asn) uniqueASNs.add(record.asn);
+    });
+    
+    // Also check for direct Active/Unenrolled combinations
+    unfilteredCombinedRecords.forEach(record => {
+      if (record.status === "Active" && record.statusValue === "Unenrolled") {
+        if (record.asn) uniqueASNs.add(record.asn);
+      }
+    });
+    
+    return uniqueASNs.size;
   };
 
   const renderPagination = () => {
@@ -2326,19 +2408,19 @@ const getChangedFields = (existingRecord, newRecord) => {
                     
                     {/* Status mismatch filter toggle */}
                     {recordsWithStatusMismatch.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <input 
-                          type="checkbox" 
-                          id="showMismatchesOnly"
-                          className="h-4 w-4 rounded border-gray-300"
-                          checked={showStatusMismatchOnly}
-                          onChange={() => setShowStatusMismatchOnly(!showStatusMismatchOnly)}
-                        />
-                        <label htmlFor="showMismatchesOnly" className="text-sm">
-                          Show status mismatches only ({recordsWithStatusMismatch.length})
-                        </label>
-                      </div>
-                    )}
+  <div className="flex items-center gap-2">
+    <input 
+      type="checkbox" 
+      id="showMismatchesOnly"
+      className="h-4 w-4 rounded border-gray-300"
+      checked={showStatusMismatchOnly}
+      onChange={() => setShowStatusMismatchOnly(!showStatusMismatchOnly)}
+    />
+    <label htmlFor="showMismatchesOnly" className="text-sm">
+      Show status mismatches only ({getUniqueMismatchAsnsCount()})
+    </label>
+  </div>
+)}
                   </div>
 
                  
@@ -2490,10 +2572,10 @@ const getChangedFields = (existingRecord, newRecord) => {
                       {group.count} course{group.count !== 1 ? 's' : ''}
                     </Badge>
                     {group.statusMismatches > 0 && (
-                      <Badge variant="outline" className="ml-1 bg-amber-100 text-amber-800 hover:bg-amber-200">
-                        {group.statusMismatches} mismatch{group.statusMismatches !== 1 ? 'es' : ''}
-                      </Badge>
-                    )}
+  <Badge variant="outline" className="ml-1 bg-amber-100 text-amber-800 hover:bg-amber-200">
+    {group.statusMismatches} mismatch{group.statusMismatches !== 1 ? 'es' : ''}
+  </Badge>
+)}
                     
                     {/* Add the required courses warning */}
                     {group.needsRequiredCoursesWarning && (
@@ -2556,23 +2638,23 @@ const getChangedFields = (existingRecord, newRecord) => {
                           {record.courseDescription}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1">
-                            {record.status}
-                            {hasMismatch && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <AlertTriangle 
-                                    className="h-4 w-4 text-amber-500 cursor-pointer"
-                                    onClick={() => showStatusMismatchDetails(getStatusMismatchForRecord(record))}
-                                  />
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  <p>Status compatibility issue. Click for details.</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                        </TableCell>
+  <div className="flex items-center gap-1">
+    {record.status}
+    {(hasStatusMismatch(record) || groups[record.asn]?.mismatchedRecords?.includes(record.id)) && (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <AlertTriangle 
+            className="h-4 w-4 text-amber-500 cursor-pointer"
+            onClick={() => showStatusMismatchDetails(getStatusMismatchForRecord(record))}
+          />
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <p>Status compatibility issue. Click for details.</p>
+        </TooltipContent>
+      </Tooltip>
+    )}
+  </div>
+</TableCell>
                         <TableCell>{record.value !== '-' ? record.value : 'N/A'}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -2598,12 +2680,17 @@ const getChangedFields = (existingRecord, newRecord) => {
 
                         {/* YourWay State column */}
                         <TableCell className="bg-blue-50 text-blue-800">
-                          {hasMismatch ? (
-                            <StateEditCell record={getStatusMismatchForRecord(record)} />
-                          ) : (
-                            record.summaryState || 'Not Set'
-                          )}
-                        </TableCell>
+  {hasStatusMismatch(record) ? (  // Changed from hasMismatch to hasStatusMismatch
+    <StateEditCell record={getStatusMismatchForRecord(record) || {
+      summaryState: record.summaryState || 'Not Set',
+      studentKey: record.studentKey,
+      courseId: record.courseId,
+      needsArchived: false
+    }} />
+  ) : (
+    record.summaryState || 'Not Set'
+  )}
+</TableCell>
 
                         <TableCell>
                           <div className="flex items-center gap-2">

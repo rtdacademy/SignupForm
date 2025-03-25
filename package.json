@@ -125,6 +125,9 @@
 "scripts": {
   "start:main": "concurrently \"node scripts/build.js --start\" \"firebase emulators:start --only functions\"",
   "start:second": "concurrently \"node scripts/build.js --second-site --start\" \"firebase emulators:start --only functions\"",
+  "start:app": "node scripts/build.js --start",
+  "start:second-app": "node scripts/build.js --second-site --start",
+  "start:emulator": "firebase emulators:start --only functions",
   "build:main": "node scripts/build.js",
   "build:second": "node scripts/build.js --second-site",
   "deploy:main": "npm run build:main && firebase deploy --only hosting:main",
