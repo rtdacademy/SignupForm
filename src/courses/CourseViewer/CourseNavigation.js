@@ -114,6 +114,36 @@ const CourseNavigation = ({
       return null;
     }
 
+ // For preview mode, simplify the item display
+ if (previewMode) {
+  return (
+    <Card
+      key={`${unitIdx}-${itemIdx}-${item.sequence || itemIdx}`}
+      className="mb-2 shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer"
+      onClick={() => onItemSelect(unitIdx, itemIdx)}
+    >
+      <CardContent className="p-3">
+        <div className="flex justify-between items-start">
+          <div className="flex-grow flex items-start gap-2">
+            <div className="flex-grow">
+              <div
+                className={`prose prose-sm max-w-none prose-headings:m-0 prose-p:m-0
+                  prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
+                  font-medium text-gray-900 ${getTitleAccentColor(item.type)}
+                  p-2 rounded-md mb-2`}
+                dangerouslySetInnerHTML={{ __html: sanitizeHTML(item.title) }}
+              />
+            </div>
+          </div>
+          <Badge className={`${typeColors[item.type] || 'bg-gray-100 text-gray-800'} text-xs ml-2 shrink-0`}>
+            {item.type || 'unknown'}
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
     const scheduleItem = findScheduleItem?.(item);
     const isCurrentScheduled = normalizedSchedule?.scheduleAdherence && 
                                item.globalIndex === normalizedSchedule.scheduleAdherence.currentScheduledIndex;
@@ -308,16 +338,23 @@ const CourseNavigation = ({
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-gray-200 bg-gray-50">
-        <h2 className="font-semibold text-xl text-gray-800 mb-2">{courseTitle}</h2>
-        {scheduleDates && !previewMode && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Calendar className="w-4 h-4" />
-            <span>
-              {scheduleDates.startDate} - {scheduleDates.endDate}
-            </span>
-          </div>
-        )}
-      </div>
+  <h2 className="font-semibold text-xl text-gray-800 mb-2">
+    {courseTitle}
+    {previewMode && (
+      <Badge variant="outline" className="ml-2 bg-amber-100 text-amber-800 border-amber-200">
+        Preview Mode
+      </Badge>
+    )}
+  </h2>
+  {scheduleDates && !previewMode && (
+    <div className="flex items-center gap-2 text-sm text-gray-600">
+      <Calendar className="w-4 h-4" />
+      <span>
+        {scheduleDates.startDate} - {scheduleDates.endDate}
+      </span>
+    </div>
+  )}
+</div>
 
       <ScrollArea className="flex-1 w-full">
         <div className="p-4">

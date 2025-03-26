@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getDatabase, ref, onValue } from 'firebase/database';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { getDatabase, ref, onValue, update } from 'firebase/database';
+import { getFirestore, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { 
   Eye, 
   EyeOff, 
   AlertTriangle,
   Save,
-  ArrowLeft
+  ArrowLeft,
+  CheckCircle
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Switch } from '../../components/ui/switch';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../components/ui/tooltip';
 import ModernCourseViewer from '../CourseViewer/ModernCourseViewer';
 import ContentEditor from './ContentEditor';
 
@@ -30,6 +32,7 @@ const CourseEditor = () => {
   const [error, setError] = useState(null);
   const [currentSection, setCurrentSection] = useState('content');
   const [initializing, setInitializing] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     if (!isStaffUser) {
@@ -260,14 +263,23 @@ const CourseEditor = () => {
     setIsDirty(true);
   };
 
-  const handlePublish = async () => {
+  const handleSaveChanges = async () => {
     if (!courseData || !contentData || !contentData.units) {
-      setError("No content to publish");
+      setError("No content to save");
       return;
     }
     
     setSaving(true);
+    setSaveSuccess(false);
+    
     try {
+      const firestore = getFirestore();
+      const db = getDatabase();
+      const batch = writeBatch(firestore);
+      
+      // Keep track of any contentPaths that need updating in the course structure
+      const pathUpdates = {};
+      
       // Save content for each updated item
       for (const [unitId, unitData] of Object.entries(contentData.units)) {
         if (!unitData || !unitData.items) continue;
@@ -285,45 +297,74 @@ const CourseEditor = () => {
           }
           
           const unit = courseData.units.find(u => u && u.sequence === unitSequence);
+          const unitIndex = courseData.units.findIndex(u => u && u.sequence === unitSequence);
           const item = unit?.items?.find(i => i && i.sequence === itemSequence);
+          const itemIndex = unit?.items?.findIndex(i => i && i.sequence === itemSequence);
           
           if (item && item.contentPath) {
-            console.log(`Publishing content for ${unitId}/${itemId}`);
+            // Generate the new path by replacing 'draft' with 'saved'
+            const draftPath = item.contentPath;
+            const savedPath = draftPath.replace('/draft/', '/saved/');
             
-            const firestore = getFirestore();
-            const contentRef = doc(firestore, item.contentPath);
+            console.log(`Saving content from ${draftPath} to ${savedPath}`);
             
-            await setDoc(contentRef, {
+            // Save to the new path
+            const savedContentRef = doc(firestore, savedPath);
+            batch.set(savedContentRef, {
               content: itemData.content,
               updatedAt: new Date().toISOString()
             });
+            
+            // Update the contentPath in the course structure to point to the saved version
+            if (unitIndex >= 0 && itemIndex >= 0) {
+              pathUpdates[`courses/${courseId}/units/${unitIndex}/items/${itemIndex}/contentPath`] = savedPath;
+            }
           } else {
             console.warn(`Could not find contentPath for ${unitId}/${itemId}`);
           }
         }
       }
-
-      setIsDirty(false);
-      setError(null);
-    } catch (err) {
-      console.error('Error publishing content:', err);
-      setError('Failed to publish changes. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveDraft = async () => {
-    setSaving(true);
-    try {
-      // Save content for each updated item, same as publish but to draft location
-      await handlePublish();
       
+      // Commit all Firestore saves
+      await batch.commit();
+      
+      // Update the paths in the Realtime Database if needed
+      if (Object.keys(pathUpdates).length > 0) {
+        const updates = {};
+        Object.entries(pathUpdates).forEach(([path, value]) => {
+          updates[path] = value;
+        });
+        await update(ref(db), updates);
+        
+        // Update local courseData to reflect the new paths
+        setCourseData(prevData => {
+          const updatedData = {...prevData};
+          Object.entries(pathUpdates).forEach(([path, value]) => {
+            const pathParts = path.split('/');
+            const unitIndex = parseInt(pathParts[3]);
+            const itemIndex = parseInt(pathParts[5]);
+            
+            if (updatedData.units && updatedData.units[unitIndex] && 
+                updatedData.units[unitIndex].items && updatedData.units[unitIndex].items[itemIndex]) {
+              updatedData.units[unitIndex].items[itemIndex].contentPath = value;
+            }
+          });
+          return updatedData;
+        });
+      }
+  
       setIsDirty(false);
       setError(null);
+      setSaveSuccess(true);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3000);
+      
     } catch (err) {
-      console.error('Error saving draft:', err);
-      setError('Failed to save draft. Please try again.');
+      console.error('Error saving content:', err);
+      setError('Failed to save changes. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -342,10 +383,10 @@ const CourseEditor = () => {
 
   if (initializing) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
+        <div className="text-center p-8 bg-white rounded-lg shadow-md">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4" />
+          <p className="text-gray-700 font-medium">
             Initializing course content...
           </p>
         </div>
@@ -355,10 +396,10 @@ const CourseEditor = () => {
   
   if (!courseData) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
+        <div className="text-center p-8 bg-white rounded-lg shadow-md">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4" />
+          <p className="text-gray-700 font-medium">
             Loading course data...
           </p>
         </div>
@@ -368,10 +409,10 @@ const CourseEditor = () => {
   
   if (!contentData) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
+        <div className="text-center p-8 bg-white rounded-lg shadow-md">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4" />
+          <p className="text-gray-700 font-medium">
             Preparing content editor...
           </p>
         </div>
@@ -380,57 +421,76 @@ const CourseEditor = () => {
   }
 
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="h-full flex flex-col min-h-0 bg-gradient-to-br from-blue-50/30 via-white to-indigo-50/30">
       {/* Header */}
-      <div className="flex-none bg-white border-b border-gray-200 px-4 py-3">
+      <div className="flex-none bg-gradient-to-r from-blue-500 to-indigo-500 border-b border-blue-400 px-4 py-3 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={handleGoBack} 
-              className="mr-2"
-              title="Back to Courses"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="text-xl font-semibold">{courseData?.Title || 'Course Editor'}</h1>
+            <h1 className="text-xl font-semibold text-white">{courseData?.Title || 'Course Editor'}</h1>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-blue-400/20 px-3 py-1.5 rounded-lg">
               <Switch
                 checked={previewMode}
-                onCheckedChange={setPreviewMode}
+                onCheckedChange={(checked) => {
+                  setPreviewMode(checked);
+                  // If we're enabling preview mode and have unsaved changes, save changes
+                  if (checked && isDirty) {
+                    handleSaveChanges();
+                  }
+                }}
                 id="preview-mode"
+                className="data-[state=checked]:bg-white"
               />
-              <label htmlFor="preview-mode" className="text-sm">
+              <label htmlFor="preview-mode" className="text-sm text-white font-medium">
                 {previewMode ? (
                   <span className="flex items-center gap-1">
-                    <Eye className="w-4 h-4" /> Preview
+                    <Eye className="w-4 h-4" /> Preview Mode
                   </span>
                 ) : (
                   <span className="flex items-center gap-1">
-                    <EyeOff className="w-4 h-4" /> Edit
+                    <EyeOff className="w-4 h-4" /> Edit Mode
                   </span>
                 )}
               </label>
             </div>
             
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={handleSaveDraft}
-                disabled={!isDirty || saving}
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Save Draft
-              </Button>
-              <Button
-                onClick={handlePublish}
-                disabled={!isDirty || saving}
-              >
-                Publish Changes
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleSaveChanges}
+                      disabled={!isDirty || saving}
+                      className={`shadow-sm font-medium ${
+                        saveSuccess 
+                          ? "bg-green-500 hover:bg-green-600 text-white" 
+                          : "bg-white text-blue-700 hover:bg-blue-50 border border-white"
+                      }`}
+                    >
+                      {saving ? (
+                        <div className="flex items-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700 mr-2" />
+                          Saving...
+                        </div>
+                      ) : saveSuccess ? (
+                        <div className="flex items-center">
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Changes Saved
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Changes
+                        </div>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-blue-900 text-white border-blue-700 p-2">
+                    <p>Save and publish changes for students to view</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>
@@ -438,9 +498,9 @@ const CourseEditor = () => {
 
       {error && (
         <div className="flex-none px-4 py-2">
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="border-red-200 bg-red-50 shadow-sm">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription className="font-medium">{error}</AlertDescription>
           </Alert>
         </div>
       )}
@@ -448,72 +508,86 @@ const CourseEditor = () => {
       {/* Content Area */}
       <div className="flex-1 min-h-0">
         {previewMode ? (
-          <ModernCourseViewer 
-            courseId={courseId}
-            previewMode={true}
-            previewContent={contentData}
-          />
-        ) : (
-          <Tabs 
-          value={currentSection} 
-          onValueChange={setCurrentSection} 
-          className="h-full flex flex-col"
-        >
-          <div className="flex-none border-b bg-white">
-            <div className="px-4">
-              <TabsList>
-                <TabsTrigger value="content">Content</TabsTrigger>
-                <TabsTrigger value="settings">Settings</TabsTrigger>
-              </TabsList>
-            </div>
+          <div className="h-full bg-white shadow-inner">
+            <ModernCourseViewer 
+              courseId={courseId}
+              previewMode={true}
+              previewContent={contentData}
+              courseData={courseData} 
+            />
           </div>
-
-          <TabsContent 
-            value="content" 
-            className="flex-1 min-h-0"
+        ) : (
+          // Existing tabs content
+          <Tabs 
+            value={currentSection} 
+            onValueChange={setCurrentSection} 
+            className="h-full flex flex-col"
           >
-            <div className="h-full flex flex-col min-h-0 p-4">
-              {isDirty && (
-                <Alert className="flex-none mb-4">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    You have unsaved changes
-                  </AlertDescription>
-                </Alert>
-              )}
-              
-              <div className="flex-1 min-h-0">
-                {contentData && courseData && (
-                  <ContentEditor 
-                    courseData={courseData}
-                    contentData={contentData}
-                    onUpdate={handleContentUpdate}
-                    courseId={courseId}
-                  />
-                )}
+            <div className="flex-none border-b bg-white shadow-sm">
+              <div className="px-4">
+                <TabsList className="bg-blue-50/70">
+                  <TabsTrigger 
+                    value="content"
+                    className="data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-sm"
+                  >
+                    Content
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="settings"
+                    className="data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-sm"
+                  >
+                    Settings
+                  </TabsTrigger>
+                </TabsList>
               </div>
             </div>
-          </TabsContent>
 
-          <TabsContent value="settings" className="p-4">
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Course Settings</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-600">
-                    Course settings will be available here in the future.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      )}
+            <TabsContent 
+              value="content" 
+              className="flex-1 min-h-0"
+            >
+              <div className="h-full flex flex-col min-h-0 p-4">
+                {isDirty && (
+                  <Alert className="flex-none mb-4 bg-amber-50 border-amber-200 shadow-sm">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <AlertDescription className="font-medium text-amber-700">
+                      You have unsaved changes - remember to save to make them visible to students
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="flex-1 min-h-0">
+                  {contentData && courseData && (
+                    <ContentEditor 
+                      courseData={courseData}
+                      contentData={contentData}
+                      onUpdate={handleContentUpdate}
+                      courseId={courseId}
+                    />
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="settings" className="p-4">
+              <div className="space-y-6">
+                <Card className="shadow-sm border-blue-100 overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-blue-50/70 to-indigo-50/70 border-b border-blue-100">
+                    <CardTitle className="text-blue-700">Course Settings</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <p className="text-gray-600">
+                      Course settings will be available here in the future.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default CourseEditor;

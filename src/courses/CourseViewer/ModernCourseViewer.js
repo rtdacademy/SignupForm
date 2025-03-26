@@ -22,6 +22,7 @@ import { format, parseISO } from 'date-fns';
 import PerformanceSummary from './PerformanceSummary';
 import CourseNavigation from './CourseNavigation';
 import LTIAssessmentLauncher from './LTIAssessmentLauncher';
+import ContentDisplay from './ContentDisplay';
 import { createInitialNormalizedSchedule } from '../../utils/scheduleInitializer';
 
 const LTI_BASE_URL = 'https://us-central1-rtd-academy.cloudfunctions.net';
@@ -37,14 +38,13 @@ const ModernCourseViewer = ({
   courseId,
   previewMode = false,
   previewContent = null,
+  courseData: initialCourseData = null,
   profile,
   studentCourseData: initialStudentCourseData
 }) => {
   const { user, current_user_email_key } = useAuth();
   const [studentCourseData, setStudentCourseData] = useState(initialStudentCourseData);
-
-  // State
-  const [courseData, setCourseData] = useState(null);
+  const [courseData, setCourseData] = useState(initialCourseData);
   const [courseTitle, setCourseTitle] = useState('');
   const [currentUnitIndex, setCurrentUnitIndex] = useState(0);
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
@@ -58,12 +58,14 @@ const ModernCourseViewer = ({
   const [normalizedSchedule, setNormalizedSchedule] = useState(null);
   const [needsInitialSchedule, setNeedsInitialSchedule] = useState(false);
 
-  // Derived shortcuts - with extra null checks
+  // All useMemo hooks must be defined in the same order every render
   const units = useMemo(() => courseData?.units || [], [courseData]);
+  
   const currentUnit = useMemo(
     () => units[currentUnitIndex] || null,
     [units, currentUnitIndex]
   );
+  
   const currentItem = useMemo(
     () => currentUnit?.items?.[currentItemIndex] || null,
     [currentUnit, currentItemIndex]
@@ -71,8 +73,95 @@ const ModernCourseViewer = ({
 
   const currentItemContent = useMemo(() => {
     if (!contentData || !currentUnit || !currentItem) return null;
-    return contentData.units?.[currentUnit.sequence]?.items?.[currentItem.sequence];
+    
+    const unitId = `unit_${currentUnit.sequence}`;
+    const itemId = `item_${currentItem.sequence}`;
+    
+    // Check if contentData has the expected structure
+    if (contentData.units && contentData.units[unitId] && 
+        contentData.units[unitId].items && contentData.units[unitId].items[itemId]) {
+      return contentData.units[unitId].items[itemId];
+    }
+    
+    console.log("Content structure not found for:", unitId, itemId);
+    return null;
   }, [contentData, currentUnit, currentItem]);
+  
+  // Create a proper preview schedule from the course data for preview mode
+  // This now more closely resembles the structure expected by CourseNavigation
+  const previewSchedule = useMemo(() => {
+    if (!previewMode || normalizedSchedule) return normalizedSchedule;
+    
+    // Make sure we have course data with units
+    if (!courseData || !Array.isArray(courseData.units)) {
+      console.log("No course data available for preview schedule");
+      return null;
+    }
+
+    console.log("Creating preview schedule from course data:", courseData);
+    
+    // Filter out undefined units and ensure they have items array
+    const validUnits = courseData.units.filter(unit => 
+      unit && typeof unit === 'object' && unit.sequence
+    );
+
+    // Create a global index counter for all items
+    let globalIndex = 0;
+    
+    // Transform the units into the format expected by CourseNavigation
+    const transformedUnits = validUnits.map((unit, unitIndex) => {
+      // Ensure unit items is an array
+      const unitItems = Array.isArray(unit.items) ? unit.items : [];
+      
+      // Filter out undefined items and transform them
+      const transformedItems = unitItems
+        .filter(item => item && typeof item === 'object' && item.sequence)
+        .map((item, itemIndex) => {
+          // Assign a global index to each item
+          const itemGlobalIndex = globalIndex++;
+          
+          return {
+            ...item,
+            globalIndex: itemGlobalIndex,
+            unitIndex,
+            itemIndex
+          };
+        });
+      
+      return {
+        ...unit,
+        items: transformedItems
+      };
+    });
+    
+    console.log("Created preview schedule with units:", transformedUnits);
+    
+    return {
+      units: transformedUnits,
+      isPreview: true
+    };
+  }, [previewMode, normalizedSchedule, courseData]);
+  
+  // Derived schedule data
+  const { sortedScheduleItems } = useMemo(() => {
+    if (previewMode || !normalizedSchedule?.units) {
+      return {
+        sortedScheduleItems: [],
+      };
+    }
+    
+    // Ensure we have valid units with items before flattening
+    const validUnits = normalizedSchedule.units.filter(unit => Array.isArray(unit.items));
+    
+    const sortedItems = validUnits
+      .flatMap((unit) => unit.items || [])
+      .filter(item => item && item.date) // Ensure item and date exist
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    return {
+      sortedScheduleItems: sortedItems,
+    };
+  }, [normalizedSchedule, previewMode]);
 
   // Function to create initial normalized schedule
   const createSchedule = async () => {
@@ -121,9 +210,33 @@ const ModernCourseViewer = ({
     }
   };
 
+  // Handle course data initialization in preview mode
+  useEffect(() => {
+    if (previewMode) {
+      // In preview mode, use either provided courseData or extract from previewContent
+      if (initialCourseData) {
+        setCourseData(initialCourseData);
+        setCourseTitle(initialCourseData.Title || 'Course Preview');
+        setLoading(false);
+      } else if (previewContent) {
+        // If we have courseData in previewContent, use it
+        if (previewContent.courseData) {
+          setCourseData(previewContent.courseData);
+          setCourseTitle(previewContent.courseData.Title || 'Course Preview');
+        }
+        setLoading(false);
+      }
+    }
+  }, [previewMode, previewContent, initialCourseData]);
+
   // Set up Firebase listeners for course data, student course data, and normalized schedule
   useEffect(() => {
-    if (previewMode || !current_user_email_key || !courseId) return;
+    if (previewMode) {
+      // In preview mode, we already handle data initialization in another effect
+      return;
+    }
+    
+    if (!current_user_email_key || !courseId) return;
     
     const db = getDatabase();
     setLoading(true);
@@ -184,35 +297,42 @@ const ModernCourseViewer = ({
     }
   }, [needsInitialSchedule, courseData, studentCourseData, normalizedSchedule, creatingInitialSchedule]);
 
-  // Fetch published content from Firestore
+  // Enhanced Firestore content fetching
   useEffect(() => {
-    if (previewMode && previewContent) {
-      setContentData(previewContent);
-      return;
-    }
-
-    // Add safety check for courseId
+    // Even in preview mode, we want to fetch from published path
     if (!courseId) {
       console.error('No courseId provided');
       return;
     }
-
+  
+    // Special case: if previewContent already has the content structure we need
+    if (previewMode && previewContent && previewContent.units) {
+      console.log("Using provided preview content structure:", previewContent);
+      setContentData(previewContent);
+      return;
+    }
+  
     const fetchContent = async () => {
       const firestore = getFirestore();
       // Ensure courseId is a string
       const courseIdString = String(courseId);
+      // Always fetch from published path, even in preview mode
       const contentRef = doc(firestore, 'courses', courseIdString, 'content', 'published');
-
+  
       try {
         const docSnap = await getDoc(contentRef);
         if (docSnap.exists()) {
+          console.log("Loaded published content from Firestore");
           setContentData(docSnap.data());
+        } else {
+          console.log("No published content found");
+          setContentData(null);
         }
       } catch (error) {
         console.error('Error fetching content:', error);
       }
     };
-
+  
     fetchContent();
   }, [courseId, previewMode, previewContent]);
 
@@ -243,27 +363,6 @@ const ModernCourseViewer = ({
     prepareLTILaunch();
   }, [currentItem, user, profile, courseId]);
 
-  // Derived schedule data
-  const { sortedScheduleItems } = useMemo(() => {
-    if (previewMode || !normalizedSchedule?.units) {
-      return {
-        sortedScheduleItems: [],
-      };
-    }
-    
-    // Ensure we have valid units with items before flattening
-    const validUnits = normalizedSchedule.units.filter(unit => Array.isArray(unit.items));
-    
-    const sortedItems = validUnits
-      .flatMap((unit) => unit.items || [])
-      .filter(item => item && item.date) // Ensure item and date exist
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    return {
-      sortedScheduleItems: sortedItems,
-    };
-  }, [normalizedSchedule, previewMode]);
-
   // Helper functions
   const findScheduleItem = (item) => {
     if (!normalizedSchedule?.units || previewMode || !item?.title) return null;
@@ -289,32 +388,7 @@ const ModernCourseViewer = ({
     return item.globalIndex === adherence.currentCompletedIndex;
   };
 
-  // Loading state
-  if (loading || creatingInitialSchedule) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">
-            {creatingInitialSchedule ? 'Creating your schedule...' : 'Loading your course...'}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Check if we have necessary data to render
-  if (!courseData) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-center">
-          <p className="text-gray-600">No course data available</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Render content based on type
+  // Updated renderContent function using ContentDisplay component
   const renderContent = () => {
     if (!currentItem) {
       return (
@@ -329,6 +403,7 @@ const ModernCourseViewer = ({
       );
     }
 
+    // Handle LTI-enabled items
     if (currentItem.lti?.enabled) {
       // If this is an initial schedule, encourage the student to start the course
       if (normalizedSchedule?.isInitialSchedule) {
@@ -405,47 +480,47 @@ const ModernCourseViewer = ({
       );
     }
 
-    if (currentItemContent) {
-      return (
-        <div className="prose max-w-none">
-          {currentItem.type === 'lesson' && (
-            <div
-              dangerouslySetInnerHTML={{
-                __html: currentItemContent.content,
-              }}
-            />
-          )}
-          {currentItem.type === 'assignment' && currentItemContent.questions && (
-            <div className="space-y-6">
-              {currentItemContent.questions.map((question, index) => (
-                <div key={index} className="p-4 border rounded-lg">
-                  <div
-                    dangerouslySetInnerHTML={{
-                      __html: question.prompt,
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    }
-
+    // Use ContentDisplay component for regular content
     return (
-      <div className="text-gray-600">
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            This {currentItem.type} does not have any content yet.
-          </AlertDescription>
-        </Alert>
-      </div>
+      <ContentDisplay 
+    item={currentItem}
+    unit={currentUnit}
+    contentData={currentItemContent} 
+    allContentData={contentData}   
+    previewMode={previewMode}
+  />
     );
   };
 
-  // Check if we're showing an initial schedule
+  // Handle loading states
+  if (loading || creatingInitialSchedule) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">
+            {creatingInitialSchedule ? 'Creating your schedule...' : 'Loading your course...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if we have necessary data to render
+  if (!courseData && !previewMode) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <p className="text-gray-600">No course data available</p>
+        </div>
+      </div>
+    );
+  }
+
   const isInitialSchedule = normalizedSchedule?.isInitialSchedule;
+  
+  // Check if we have either a normalized schedule or a preview schedule
+  const hasSchedule = normalizedSchedule || (previewMode && previewSchedule && previewSchedule.units);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -461,12 +536,19 @@ const ModernCourseViewer = ({
               </SheetTrigger>
               <SheetContent side="left" className="w-[85%] sm:w-[540px] p-0">
                 <SheetHeader className="px-4 py-2">
-                  <SheetTitle>Course Content</SheetTitle>
+                  <SheetTitle>
+                    Course Content
+                    {previewMode && (
+                      <Badge variant="outline" className="ml-2 bg-amber-100 text-amber-800 border-amber-200">
+                        Preview Mode
+                      </Badge>
+                    )}
+                  </SheetTitle>
                 </SheetHeader>
-                {normalizedSchedule ? (
+                {hasSchedule ? (
                   <CourseNavigation
                     courseTitle={courseTitle}
-                    normalizedSchedule={normalizedSchedule}
+                    normalizedSchedule={previewMode ? previewSchedule : normalizedSchedule}
                     currentUnitIndex={currentUnitIndex}
                     currentItemIndex={currentItemIndex}
                     calculateProgress={calculateProgress}
@@ -484,15 +566,17 @@ const ModernCourseViewer = ({
                     studentCourseData={studentCourseData}
                     courseData={courseData}
                     previewMode={previewMode}
-                    isInitialSchedule={isInitialSchedule}
+                    isInitialSchedule={previewMode ? false : normalizedSchedule?.isInitialSchedule}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full p-6">
                     <div className="text-center">
                       <p className="text-gray-600 mb-4">No schedule found for this course.</p>
-                      <Button onClick={createSchedule} disabled={creatingInitialSchedule}>
-                        {creatingInitialSchedule ? 'Creating Schedule...' : 'Create Schedule'}
-                      </Button>
+                      {!previewMode && (
+                        <Button onClick={createSchedule} disabled={creatingInitialSchedule}>
+                          {creatingInitialSchedule ? 'Creating Schedule...' : 'Create Schedule'}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -504,6 +588,11 @@ const ModernCourseViewer = ({
               </span>
               <h2 className="font-semibold break-words max-w-xl line-clamp-2">
                 {currentItem?.title || 'No item selected'}
+                {previewMode && (
+                  <Badge variant="outline" className="ml-2 text-xs bg-amber-100 text-amber-800 border-amber-200">
+                    Preview
+                  </Badge>
+                )}
               </h2>
             </div>
           </div>
@@ -524,7 +613,17 @@ const ModernCourseViewer = ({
         <ScrollArea className="flex-1">
           <div className="p-6">
             <div className="max-w-4xl mx-auto space-y-6">
-              {isInitialSchedule && (
+              {previewMode && (
+                <Alert className="mb-6 bg-amber-50 border-amber-200 text-amber-800">
+                  <Info className="h-5 w-5" />
+                  <AlertDescription>
+                    <p className="font-medium">Preview Mode</p>
+                    <p>This is a preview of how students will see your course content.</p>
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {!previewMode && isInitialSchedule && (
                 <Alert className="mb-6 bg-blue-50 border-blue-200 text-blue-800">
                   <Info className="h-5 w-5" />
                   <AlertDescription>

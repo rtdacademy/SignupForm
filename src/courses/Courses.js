@@ -744,14 +744,14 @@ function Courses({
       
       {/* Add this new button for modern courses */}
       {courseData?.modernCourse && (
-        <Button
-          onClick={() => navigate(`/course-editor/${selectedCourseId}`)}
-          variant="default"
-          className="flex items-center bg-green-600 hover:bg-green-700 text-white"
-        >
-          <BookOpen className="mr-2 h-4 w-4" /> Edit Course Content
-        </Button>
-      )}
+  <Button
+    onClick={() => window.open(`/course-editor/${selectedCourseId}`, '_blank')}
+    variant="default"
+    className="flex items-center bg-green-600 hover:bg-green-700 text-white"
+  >
+    <BookOpen className="mr-2 h-4 w-4" /> Edit Course Content
+  </Button>
+)}
     </>
   )}
   <CourseWeightingDialog

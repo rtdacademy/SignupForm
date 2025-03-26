@@ -63,17 +63,36 @@ function VideoInsertDialog({ open, onClose, onInsert }) {
 
   const handleInsert = () => {
     if (!url) return;
-    // Convert standard YouTube URL to embed URL if necessary
+    // Convert various YouTube URL formats to embed URL
     let embedUrl = url;
-    if (embedUrl.includes("youtube.com/watch?v=")) {
-      const videoId = embedUrl.split("watch?v=")[1].split("&")[0];
-      embedUrl = `https://www.youtube.com/embed/${videoId}`;
-    } else if (embedUrl.includes("youtu.be/")) {
-      // Convert youtu.be short link to embed link
-      const videoId = embedUrl.split("youtu.be/")[1].split("?")[0];
-      embedUrl = `https://www.youtube.com/embed/${videoId}`;
+    let videoId = null;
+    let startTime = null;
+    
+    // Extract time parameter if present
+    if (url.includes("t=")) {
+      const timeParam = url.split("t=")[1].split("&")[0];
+      startTime = timeParam;
     }
-
+    
+    if (embedUrl.includes("youtube.com/watch?v=")) {
+      // Standard YouTube URL
+      videoId = embedUrl.split("watch?v=")[1].split("&")[0];
+    } else if (embedUrl.includes("youtu.be/")) {
+      // Short link format
+      videoId = embedUrl.split("youtu.be/")[1].split("?")[0];
+    } else if (embedUrl.includes("youtube.com/live/")) {
+      // Live format
+      videoId = embedUrl.split("youtube.com/live/")[1].split("?")[0];
+    }
+    
+    if (videoId) {
+      embedUrl = `https://www.youtube.com/embed/${videoId}`;
+      // Add start time if present
+      if (startTime) {
+        embedUrl += `?start=${startTime}`;
+      }
+    }
+  
     onInsert(embedUrl, selectedSize.width, selectedSize.height);
     onClose();
   };

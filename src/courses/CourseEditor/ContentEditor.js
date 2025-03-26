@@ -6,7 +6,8 @@ import {
   Info,
   Edit,
   BookOpen,
-  ChevronDown
+  ChevronDown,
+  PenLine
 } from 'lucide-react';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../../components/ui/accordion';
 import { Button } from '../../components/ui/button';
@@ -16,18 +17,20 @@ import { ScrollArea } from '../../components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import QuillEditor from './QuillEditor';
 
+// Enhanced colors with more vibrant gradients 
 const typeColors = {
-  lesson: 'bg-blue-50 text-blue-700 border-blue-200',
-  assignment: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  exam: 'bg-purple-50 text-purple-700 border-purple-200',
-  info: 'bg-gray-50 text-gray-700 border-gray-200'
+  lesson: 'bg-gradient-to-r from-blue-100 to-blue-50 text-blue-700 border-blue-300',
+  assignment: 'bg-gradient-to-r from-emerald-100 to-emerald-50 text-emerald-700 border-emerald-300',
+  exam: 'bg-gradient-to-r from-purple-100 to-purple-50 text-purple-700 border-purple-300',
+  info: 'bg-gradient-to-r from-gray-100 to-gray-50 text-gray-700 border-gray-300'
 };
 
+// Enhanced section backgrounds with gradients
 const sectionColors = {
-  '1': 'bg-blue-50 border-blue-200',
-  '2': 'bg-emerald-50 border-emerald-200',
-  '3': 'bg-purple-50 border-purple-200',
-  'other': 'bg-gray-50 border-gray-200'
+  '1': 'bg-gradient-to-br from-blue-100 to-blue-50 border-blue-300 shadow-sm',
+  '2': 'bg-gradient-to-br from-emerald-100 to-emerald-50 border-emerald-300 shadow-sm',
+  '3': 'bg-gradient-to-br from-purple-100 to-purple-50 border-purple-300 shadow-sm',
+  'other': 'bg-gradient-to-br from-gray-100 to-gray-50 border-gray-300 shadow-sm'
 };
 
 const typeIcons = {
@@ -121,23 +124,23 @@ const ContentEditor = ({
   };
 
   const renderUnits = (units, section = null) => (
-    <Accordion type="single" collapsible className="space-y-3">
+    <Accordion type="single" collapsible className="space-y-4">
       {units.map((unit) => (
         <AccordionItem
           key={unit.sequence}
           value={`unit-${unit.sequence}`}
-          className={`border-2 rounded-lg overflow-hidden ${section ? sectionColors[section] : 'border-gray-200'}`}
+          className={`border-2 rounded-lg overflow-hidden ${section ? sectionColors[section] : 'border-gray-300 shadow-sm'}`}
         >
           <AccordionTrigger className="px-4 py-3 hover:bg-white/50 transition-colors">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center font-semibold text-gray-700 shadow-sm">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-white to-blue-50 flex items-center justify-center font-semibold text-blue-700 shadow-md border border-blue-200">
                 {unit.sequence}
               </div>
               <div>
-                <h3 className="font-semibold text-left">
+                <h3 className="font-bold text-left text-blue-900">
                   {unit.name}
                 </h3>
-                <p className="text-sm text-gray-600 text-left">
+                <p className="text-sm text-blue-700 text-left">
                   {unit.items?.length || 0} items
                 </p>
               </div>
@@ -147,11 +150,11 @@ const ContentEditor = ({
           <AccordionContent>
             <div className="p-4 space-y-4 bg-white rounded-b-lg">
               {/* Unit Description */}
-              <Card className="p-4 bg-gray-50/50 border">
+              <Card className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h4 className="font-medium mb-1">Unit Description</h4>
-                    <p className="text-sm text-gray-600">
+                    <h4 className="font-medium mb-1 text-blue-800">Unit Description</h4>
+                    <p className="text-sm text-blue-700">
                       {contentData?.units?.[`unit_${unit.sequence}`]?.overview?.description || 
                        'No description added yet'}
                     </p>
@@ -168,36 +171,43 @@ const ContentEditor = ({
                   return (
                     <div
                       key={item.sequence}
-                      className="rounded-lg border hover:border-gray-300 transition-colors overflow-hidden"
+                      className="rounded-lg border border-gray-300 hover:border-blue-400 hover:shadow-md transition-all overflow-hidden"
                     >
-                      <div className="flex items-start p-3 border-b bg-white">
-                        <div className={`p-2 rounded mr-3 ${typeColors[item.type] || typeColors.info}`}>
+                      <div className="flex items-start p-4 border-b bg-gradient-to-r from-white to-blue-50">
+                        <div className={`p-2 rounded-lg mr-3 shadow-sm ${typeColors[item.type] || typeColors.info}`}>
                           <ItemIcon className="w-4 h-4" />
                         </div>
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <div>
-                              <h4 className="font-medium truncate">
+                              <h4 className="font-semibold truncate text-blue-900">
                                 {item.title}
                               </h4>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="secondary">
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge variant="secondary" className={
+                                  item.type === 'lesson' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' :
+                                  item.type === 'assignment' ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' :
+                                  item.type === 'exam' ? 'bg-purple-100 text-purple-800 hover:bg-purple-200' :
+                                  'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                                }>
                                   {item.type || 'unknown'}
                                 </Badge>
                                 {item.multiplier > 1 && (
-                                  <Badge variant="outline">
+                                  <Badge variant="outline" className="border-blue-200 text-blue-700">
                                     {item.multiplier}x multiplier
                                   </Badge>
                                 )}
                               </div>
                               <div className="mt-2 text-sm">
                                 {content ? (
-                                  <span className="text-green-600">
+                                  <span className="text-green-600 font-medium flex items-center">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-2"></span>
                                     Content added
                                   </span>
                                 ) : (
-                                  <span className="text-gray-400">
+                                  <span className="text-amber-600 font-medium flex items-center">
+                                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-2"></span>
                                     No content yet
                                   </span>
                                 )}
@@ -205,12 +215,12 @@ const ContentEditor = ({
                             </div>
                             
                             <Button
-                              variant="outline"
+                              variant="default"
                               size="sm"
                               onClick={() => handleEditContent(unit, item)}
-                              className="mt-1"
+                              className="mt-1 bg-blue-600 hover:bg-blue-700 shadow-sm"
                             >
-                              <Edit className="w-4 h-4 mr-2" />
+                              <PenLine className="w-4 h-4 mr-2" />
                               Edit Content
                             </Button>
                           </div>
@@ -221,12 +231,12 @@ const ContentEditor = ({
                       {content && (
                         <Accordion type="single" collapsible>
                           <AccordionItem value="content-preview" className="border-0">
-                            <AccordionTrigger className="py-2 px-4 border-t bg-gray-50 hover:bg-gray-100 font-medium text-sm">
-                              <div className="flex items-center text-gray-600">
+                            <AccordionTrigger className="py-2 px-4 border-t bg-blue-50 hover:bg-blue-100 font-medium text-sm">
+                              <div className="flex items-center text-blue-700">
                                 <span>Preview Content</span>
                               </div>
                             </AccordionTrigger>
-                            <AccordionContent className="p-4 bg-white">
+                            <AccordionContent className="p-6 bg-white">
                               <div className="prose prose-sm lg:prose-base max-w-none">
                                 <div dangerouslySetInnerHTML={{ __html: content }} />
                               </div>
@@ -247,8 +257,8 @@ const ContentEditor = ({
 
   return (
     <div className="h-full flex flex-col">
-      <ScrollArea className="flex-1">
-        <div className="space-y-8 pr-4">
+      <ScrollArea className="flex-1 bg-gradient-to-br from-blue-50 via-white to-indigo-50 rounded-lg">
+        <div className="space-y-8 p-4 pr-8">
           {hasOnlyOtherSection ? (
             // Render all units without section headers if there are no proper sections
             <div className="space-y-4">
@@ -263,9 +273,9 @@ const ContentEditor = ({
                   {/* Section Header (except for 'other' which will be shown last) */}
                   {section !== 'other' && (
                     <>
-                      <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
-                        <BookOpen className="w-5 h-5 text-gray-700" />
-                        <h2 className="font-semibold text-gray-900">
+                      <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-100 to-blue-50 rounded-lg shadow-sm border border-blue-200">
+                        <BookOpen className="w-5 h-5 text-blue-700" />
+                        <h2 className="font-bold text-blue-900">
                           Section {section}
                         </h2>
                       </div>
@@ -279,9 +289,9 @@ const ContentEditor = ({
           {/* Render 'other' section at the end if it exists and we have sections */}
           {!hasOnlyOtherSection && sectionedUnits['other'] && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
+              <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-gray-100 to-gray-50 rounded-lg shadow-sm border border-gray-300">
                 <BookOpen className="w-5 h-5 text-gray-700" />
-                <h2 className="font-semibold text-gray-900">
+                <h2 className="font-bold text-gray-900">
                   Other Units
                 </h2>
               </div>
@@ -293,11 +303,12 @@ const ContentEditor = ({
 
       {/* Content Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-6 overflow-visible">
-          <DialogHeader>
-            <DialogTitle>
+        <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-6 overflow-visible border-blue-200 shadow-lg">
+          <DialogHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 -m-6 mb-2 p-6 border-b border-blue-200">
+            <DialogTitle className="text-blue-900 font-bold flex items-center">
               {editingContent && (
                 <>
+                  <PenLine className="w-5 h-5 mr-2 text-blue-700" />
                   Editing: {editingContent.item.title}
                 </>
               )}

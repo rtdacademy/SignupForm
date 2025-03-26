@@ -3,7 +3,7 @@ import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoS
 import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, CheckCircle2, AlertOctagon, Archive } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
-import { getDatabase, ref, set, get, push, remove, update  } from 'firebase/database';
+import { getDatabase, ref, set, get, push, remove, update, runTransaction, serverTimestamp  } from 'firebase/database';
 import { Button } from "../components/ui/button";
 import { Toggle } from "../components/ui/toggle";
 import {
@@ -305,32 +305,44 @@ const updateStatus = useCallback(async (newStatus) => {
       throw new Error(`Invalid ActiveFutureArchived value configured for status: ${newStatus}`);
     }
 
-    // Start all updates
-    const updates = {};
-    
-    // Only update Status/Value if not delayed
-    updates[`students/${studentKey}/courses/${courseId}/Status/Value`] = newStatus;
-    
-    // If status has an associated ActiveFutureArchived value, set it
-    if (selectedStatusOption?.activeFutureArchivedValue) {
-      updates[`students/${studentKey}/courses/${courseId}/ActiveFutureArchived/Value`] = 
-        selectedStatusOption.activeFutureArchivedValue;
+    // Use transaction for course data update
+    const courseRef = ref(db, `students/${studentKey}/courses/${courseId}`);
+    const result = await runTransaction(courseRef, (currentData) => {
+      // If data doesn't exist, abort
+      if (currentData === null) return null;
+      
+      // Make a deep copy of the current data to modify
+      const updatedData = JSON.parse(JSON.stringify(currentData));
+      
+      // Ensure object structure exists
+      if (!updatedData.Status) updatedData.Status = {};
+      
+      // Update the status
+      updatedData.Status.Value = newStatus;
+      
+      // Set ActiveFutureArchived value if needed
+      if (selectedStatusOption?.activeFutureArchivedValue) {
+        if (!updatedData.ActiveFutureArchived) updatedData.ActiveFutureArchived = {};
+        updatedData.ActiveFutureArchived.Value = selectedStatusOption.activeFutureArchivedValue;
+      }
+      
+      // Update auto status flag
+      updatedData.autoStatus = selectedStatusOption?.allowAutoStatusChange === true;
+      
+      return updatedData;
+    });
+
+    // Check if transaction was successful
+    if (!result.committed) {
+      throw new Error("Transaction failed to commit");
     }
 
-    // Handle auto status changes
-    let newAutoStatus;
-    if (selectedStatusOption?.allowAutoStatusChange === true) {
-      updates[`students/${studentKey}/courses/${courseId}/autoStatus`] = true;
-      newAutoStatus = true;
-    } else {
-      updates[`students/${studentKey}/courses/${courseId}/autoStatus`] = false;
-      newAutoStatus = false;
-    }
-
-    // Create status log entry
+    // Status log entries need to be added separately since we need a push() operation
+    // which isn't available within transactions
     const statusLogRef = ref(db, `students/${studentKey}/courses/${courseId}/statusLog`);
     const newLogRef = push(statusLogRef);
-    updates[`students/${studentKey}/courses/${courseId}/statusLog/${newLogRef.key}`] = {
+    
+    const logEntry = {
       timestamp: new Date().toISOString(),
       status: newStatus,
       previousStatus: previousStatus || '',
@@ -339,26 +351,24 @@ const updateStatus = useCallback(async (newStatus) => {
         email: user.email,
       },
       updatedByType: 'teacher',
-      autoStatus: newAutoStatus,
+      autoStatus: selectedStatusOption?.allowAutoStatusChange === true,
     };
+    
+    await set(newLogRef, logEntry);
 
-    // Only perform updates if there are changes to make
-    if (Object.keys(updates).length > 0) {
-      const dbRef = ref(db);
-      await update(dbRef, updates);
+    // Update local state
+    setStatusValue(newStatus);
+    setAutoStatus(selectedStatusOption?.allowAutoStatusChange === true);
 
-      // Update local state
-      setStatusValue(newStatus);
-      setAutoStatus(newAutoStatus);
-
-      if (isPartOfMultiSelect) {
-        onBulkStatusChange(newStatus, student.id);
-      }
+    if (isPartOfMultiSelect) {
+      onBulkStatusChange(newStatus, student.id);
     }
 
+    console.log(`Successfully updated status to ${newStatus} using transaction`);
+
   } catch (error) {
-    console.error("Error updating status:", error);
-    // You might want to show an error notification to the user here
+    console.error("Error updating status with transaction:", error);
+    // Consider showing an error notification to the user here
   }
 }, [student.id, statusValue, user, isPartOfMultiSelect, onBulkStatusChange, validateActiveFutureArchivedValue]);
 

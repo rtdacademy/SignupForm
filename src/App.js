@@ -83,7 +83,7 @@ function MainApp() {
   path="/course-editor/:courseId?" 
   element={
     user && isStaff(user) ? 
-    <Layout><CourseEditor /></Layout> : 
+    <CourseEditor /> : 
     <Navigate to="/staff-login" />
   } 
 />
