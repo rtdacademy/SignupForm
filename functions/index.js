@@ -45,6 +45,8 @@ exports.deleteCategoryForStudents = categoryFunctions.deleteCategoryForStudents;
 // Export summary functions
 exports.updateStudentCourseSummary = summaryFunctions.updateStudentCourseSummary;
 exports.syncProfileToCourseSummaries = summaryFunctions.syncProfileToCourseSummaries;
+exports.createStudentCourseSummaryOnCourseCreate = summaryFunctions.createStudentCourseSummaryOnCourseCreate;
+
 
 // Export email functions
 exports.sendBulkEmails = emailFunctions.sendBulkEmails;

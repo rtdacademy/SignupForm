@@ -7,8 +7,8 @@ import {
   Eye, 
   EyeOff, 
   AlertTriangle,
-  Loader2,
-  RefreshCw
+  Save,
+  ArrowLeft
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Switch } from '../../components/ui/switch';
@@ -29,8 +29,7 @@ const CourseEditor = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [currentSection, setCurrentSection] = useState('content');
-  const [syncingGrades, setSyncingGrades] = useState(false);
-  const [syncStatus, setSyncStatus] = useState(null);
+  const [initializing, setInitializing] = useState(false);
 
   useEffect(() => {
     if (!isStaffUser) {
@@ -39,84 +38,270 @@ const CourseEditor = () => {
   }, [isStaffUser, navigate]);
 
   useEffect(() => {
+    if (!courseId) return;
+    
     const db = getDatabase();
     const courseRef = ref(db, `courses/${courseId}`);
     
     return onValue(courseRef, (snapshot) => {
       if (snapshot.exists()) {
         setCourseData(snapshot.val());
+        console.log("Course data loaded successfully");
+      } else {
+        console.log("No course data found");
+        setCourseData({});
       }
     });
   }, [courseId]);
 
+  // Function to extract content path from course data
+  const getContentPaths = (courseData) => {
+    if (!courseData || !courseData.units) return [];
+    
+    const paths = [];
+    courseData.units.forEach((unit, unitIndex) => {
+      if (unit && unit.items) {
+        unit.items.forEach((item, itemIndex) => {
+          if (item && item.contentPath) {
+            paths.push({
+              unitIndex,
+              itemIndex,
+              unitSequence: unit.sequence,
+              itemSequence: item.sequence,
+              contentPath: item.contentPath
+            });
+          }
+        });
+      }
+    });
+    
+    console.log(`Found ${paths.length} content paths`);
+    return paths;
+  };
+
+  // Generate initial content structure from course units
+  const generateInitialContent = (courseData) => {
+    const initialContent = { units: {} };
+    
+    if (courseData && Array.isArray(courseData.units)) {
+      courseData.units.forEach(unit => {
+        if (!unit) return;
+        
+        const unitId = `unit_${unit.sequence}`;
+        initialContent.units[unitId] = { 
+          items: {},
+          overview: { description: "" }
+        };
+        
+        if (Array.isArray(unit.items)) {
+          unit.items.forEach(item => {
+            if (!item) return;
+            
+            const itemId = `item_${item.sequence}`;
+            initialContent.units[unitId].items[itemId] = {
+              content: ""
+            };
+          });
+        }
+      });
+    }
+    
+    return initialContent;
+  };
+
+  // Fetch content from specified paths
+  const fetchContentFromPaths = async (paths) => {
+    if (!paths || paths.length === 0) return {};
+    
+    const firestore = getFirestore();
+    const contents = {};
+    
+    for (const pathInfo of paths) {
+      try {
+        if (!pathInfo || !pathInfo.contentPath) continue;
+        
+        const contentPath = pathInfo.contentPath;
+        console.log(`Fetching content from: ${contentPath}`);
+        
+        const contentRef = doc(firestore, contentPath);
+        const contentSnap = await getDoc(contentRef);
+        
+        if (contentSnap.exists()) {
+          const unitId = `unit_${pathInfo.unitSequence}`;
+          const itemId = `item_${pathInfo.itemSequence}`;
+          
+          if (!contents[unitId]) {
+            contents[unitId] = { items: {} };
+          }
+          
+          contents[unitId].items[itemId] = {
+            content: contentSnap.data().content || ""
+          };
+        } else {
+          console.log(`No content found at ${contentPath}`);
+        }
+      } catch (error) {
+        console.error(`Error fetching content for path:`, error);
+      }
+    }
+    
+    return contents;
+  };
+
   useEffect(() => {
     const fetchContent = async () => {
-      const firestore = getFirestore();
-      const contentRef = doc(firestore, 'courses', courseId, 'content', 'draft');
-      const publishedRef = doc(firestore, 'courses', courseId, 'content', 'published');
+      if (!courseData) return;
+      
+      setInitializing(true);
       
       try {
-        const [draftSnap, publishedSnap] = await Promise.all([
-          getDoc(contentRef),
-          getDoc(publishedRef)
-        ]);
-
-        if (!draftSnap.exists()) {
-          const initialContent = publishedSnap.exists() 
-            ? publishedSnap.data()
-            : { units: {} };
+        // 1. Get content paths from the course data
+        const contentPaths = getContentPaths(courseData);
+        
+        // 2. Generate initial content structure
+        const initialContent = generateInitialContent(courseData);
+        
+        // 3. Fetch content from these paths
+        const fetchedContent = await fetchContentFromPaths(contentPaths);
+        
+        // 4. Merge the fetched content with the initial structure
+        const mergedContent = { 
+          ...initialContent,
+          units: { ...initialContent.units }
+        };
+        
+        // Merge fetched content into the structure
+        Object.entries(fetchedContent).forEach(([unitId, unitData]) => {
+          if (!mergedContent.units[unitId]) {
+            mergedContent.units[unitId] = { items: {} };
+          }
           
-          await setDoc(contentRef, initialContent);
-          setContentData(initialContent);
-        } else {
-          setContentData(draftSnap.data());
-        }
-        setError(null);
+          if (unitData && unitData.items) {
+            Object.entries(unitData.items).forEach(([itemId, itemData]) => {
+              if (!mergedContent.units[unitId].items[itemId]) {
+                mergedContent.units[unitId].items[itemId] = {};
+              }
+              
+              if (itemData) {
+                mergedContent.units[unitId].items[itemId].content = itemData.content;
+              }
+            });
+          }
+        });
+        
+        console.log("Content successfully merged");
+        
+        // 5. Set the content data
+        setContentData(mergedContent);
+        
       } catch (err) {
         console.error('Error fetching content:', err);
         setError('Failed to load course content. Please try again.');
+      } finally {
+        setInitializing(false);
       }
     };
 
-    if (courseId) {
+    if (courseId && courseData) {
       fetchContent();
     }
-  }, [courseId]);
+  }, [courseId, courseData]);
 
   const handleContentUpdate = (unitId, itemId, newContent) => {
-    setContentData(prev => ({
-      ...prev,
-      units: {
-        ...prev.units,
-        [unitId]: {
-          ...prev.units[unitId],
-          items: {
-            ...prev.units[unitId]?.items,
-            [itemId]: {
-              ...prev.units[unitId]?.items?.[itemId],
-              ...newContent
-            }
+    if (!unitId || !itemId || !newContent) {
+      console.error("Missing required parameters for content update");
+      return;
+    }
+    
+    console.log(`Updating content for ${unitId}/${itemId}`);
+    
+    setContentData(prev => {
+      if (!prev || !prev.units) {
+        console.error("No content data to update");
+        return prev;
+      }
+      
+      // Create a deep copy to work with
+      const updated = {
+        ...prev,
+        units: { ...prev.units }
+      };
+      
+      // Make sure the unit exists
+      if (!updated.units[unitId]) {
+        updated.units[unitId] = { items: {} };
+      }
+      
+      // Make sure the items object exists
+      if (!updated.units[unitId].items) {
+        updated.units[unitId].items = {};
+      }
+      
+      // Make sure the item exists
+      if (!updated.units[unitId].items[itemId]) {
+        updated.units[unitId].items[itemId] = {};
+      }
+      
+      // Update the content
+      updated.units[unitId] = {
+        ...updated.units[unitId],
+        items: {
+          ...updated.units[unitId].items,
+          [itemId]: {
+            ...updated.units[unitId].items[itemId],
+            ...newContent
           }
         }
-      }
-    }));
+      };
+      
+      return updated;
+    });
+    
     setIsDirty(true);
   };
 
   const handlePublish = async () => {
+    if (!courseData || !contentData || !contentData.units) {
+      setError("No content to publish");
+      return;
+    }
+    
     setSaving(true);
     try {
-      const firestore = getFirestore();
-      
-      await setDoc(
-        doc(firestore, 'courses', courseId, 'content', 'draft'), 
-        contentData
-      );
-      
-      await setDoc(
-        doc(firestore, 'courses', courseId, 'content', 'published'),
-        contentData
-      );
+      // Save content for each updated item
+      for (const [unitId, unitData] of Object.entries(contentData.units)) {
+        if (!unitData || !unitData.items) continue;
+        
+        for (const [itemId, itemData] of Object.entries(unitData.items)) {
+          if (!itemData || !itemData.content) continue;
+          
+          // Find the corresponding item in courseData to get contentPath
+          const unitSequence = parseInt(unitId.split('_')[1]);
+          const itemSequence = parseInt(itemId.split('_')[1]);
+          
+          if (!courseData.units) {
+            console.warn("No units found in course data");
+            continue;
+          }
+          
+          const unit = courseData.units.find(u => u && u.sequence === unitSequence);
+          const item = unit?.items?.find(i => i && i.sequence === itemSequence);
+          
+          if (item && item.contentPath) {
+            console.log(`Publishing content for ${unitId}/${itemId}`);
+            
+            const firestore = getFirestore();
+            const contentRef = doc(firestore, item.contentPath);
+            
+            await setDoc(contentRef, {
+              content: itemData.content,
+              updatedAt: new Date().toISOString()
+            });
+          } else {
+            console.warn(`Could not find contentPath for ${unitId}/${itemId}`);
+          }
+        }
+      }
 
       setIsDirty(false);
       setError(null);
@@ -131,11 +316,9 @@ const CourseEditor = () => {
   const handleSaveDraft = async () => {
     setSaving(true);
     try {
-      const firestore = getFirestore();
-      await setDoc(
-        doc(firestore, 'courses', courseId, 'content', 'draft'),
-        contentData
-      );
+      // Save content for each updated item, same as publish but to draft location
+      await handlePublish();
+      
       setIsDirty(false);
       setError(null);
     } catch (err) {
@@ -146,41 +329,52 @@ const CourseEditor = () => {
     }
   };
 
-  const handleSyncGrades = async () => {
-    setSyncingGrades(true);
-    setSyncStatus(null);
-    try {
-      const response = await fetch(
-        `https://us-central1-rtd-academy.cloudfunctions.net/syncGrades?courseId=${courseId}`
-      );
-      
-      if (!response.ok) {
-        throw new Error('Failed to sync grades');
+  const handleGoBack = () => {
+    // Check if there are unsaved changes
+    if (isDirty) {
+      if (window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
+        navigate('/courses');
       }
-
-      const result = await response.json();
-      setSyncStatus({
-        success: true,
-        message: `Successfully synced ${result.processedCount} assessments`,
-        details: result
-      });
-
-    } catch (err) {
-      console.error('Grade sync error:', err);
-      setSyncStatus({
-        success: false,
-        message: 'Failed to sync grades. Please try again.',
-        error: err.message
-      });
-    } finally {
-      setSyncingGrades(false);
+    } else {
+      navigate('/courses');
     }
   };
 
-  if (!courseData || !contentData) {
+  if (initializing) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">
+            Initializing course content...
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!courseData) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">
+            Loading course data...
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!contentData) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">
+            Preparing content editor...
+          </p>
+        </div>
       </div>
     );
   }
@@ -190,7 +384,18 @@ const CourseEditor = () => {
       {/* Header */}
       <div className="flex-none bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">{courseData?.Title}</h1>
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleGoBack} 
+              className="mr-2"
+              title="Back to Courses"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl font-semibold">{courseData?.Title || 'Course Editor'}</h1>
+          </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Switch
@@ -217,6 +422,7 @@ const CourseEditor = () => {
                 onClick={handleSaveDraft}
                 disabled={!isDirty || saving}
               >
+                <Save className="w-4 h-4 mr-2" />
                 Save Draft
               </Button>
               <Button
@@ -249,94 +455,65 @@ const CourseEditor = () => {
           />
         ) : (
           <Tabs 
-            value={currentSection} 
-            onValueChange={setCurrentSection} 
-            className="h-full flex flex-col"
-          >
-            <div className="flex-none border-b bg-white">
-              <div className="px-4">
-                <TabsList>
-                  <TabsTrigger value="content">Content</TabsTrigger>
-                  <TabsTrigger value="settings">Settings</TabsTrigger>
-                </TabsList>
-              </div>
+          value={currentSection} 
+          onValueChange={setCurrentSection} 
+          className="h-full flex flex-col"
+        >
+          <div className="flex-none border-b bg-white">
+            <div className="px-4">
+              <TabsList>
+                <TabsTrigger value="content">Content</TabsTrigger>
+                <TabsTrigger value="settings">Settings</TabsTrigger>
+              </TabsList>
             </div>
+          </div>
 
-            <TabsContent 
-              value="content" 
-              className="flex-1 min-h-0"
-            >
-              <div className="h-full flex flex-col min-h-0 p-4">
-                {isDirty && (
-                  <Alert className="flex-none mb-4">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                      You have unsaved changes
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
-                <div className="flex-1 min-h-0">
+          <TabsContent 
+            value="content" 
+            className="flex-1 min-h-0"
+          >
+            <div className="h-full flex flex-col min-h-0 p-4">
+              {isDirty && (
+                <Alert className="flex-none mb-4">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    You have unsaved changes
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              <div className="flex-1 min-h-0">
+                {contentData && courseData && (
                   <ContentEditor 
                     courseData={courseData}
                     contentData={contentData}
                     onUpdate={handleContentUpdate}
                     courseId={courseId}
                   />
-                </div>
+                )}
               </div>
-            </TabsContent>
+            </div>
+          </TabsContent>
 
-            <TabsContent value="settings" className="p-4">
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>IMathAS Grade Sync</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <p className="text-sm text-gray-600">
-                        Sync all grades from IMathAS assignments in this course.
-                      </p>
-                      
-                      <Button
-                        onClick={handleSyncGrades}
-                        disabled={syncingGrades}
-                        className="w-full sm:w-auto"
-                      >
-                        {syncingGrades ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Syncing Grades...
-                          </>
-                        ) : (
-                          <>
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            Sync Grades
-                          </>
-                        )}
-                      </Button>
-
-                      {syncStatus && (
-                        <Alert
-                          variant={syncStatus.success ? "default" : "destructive"}
-                          className="mt-4"
-                        >
-                          <AlertDescription>
-                            {syncStatus.message}
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-          </Tabs>
-        )}
-      </div>
+          <TabsContent value="settings" className="p-4">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Course Settings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600">
+                    Course settings will be available here in the future.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
-  );
+  </div>
+);
 };
 
 export default CourseEditor;

@@ -11,6 +11,7 @@ import {
   FaRegLightbulb,
   FaLink
 } from 'react-icons/fa';
+import { BookOpen } from 'lucide-react';
 import Modal from 'react-modal';
 // Keep react-select for multi-select fields.
 import ReactSelect from 'react-select';
@@ -566,7 +567,12 @@ function Courses({
 
   const groupedCourses = useMemo(() => {
     const groups = {};
-  
+    
+    // Check if courses exists before trying to use Object.entries
+    if (!courses) {
+      return {};
+    }
+    
     Object.entries(courses)
       .filter(([courseId]) => courseId !== 'sections')
       .forEach(([courseId, course]) => {
@@ -580,6 +586,7 @@ function Courses({
         }
       });
   
+    // Rest of function remains the same
     Object.keys(groups).forEach(grade => {
       groups[grade].sort((a, b) => {
         const idA = parseInt(a.courseId);
@@ -718,23 +725,36 @@ function Courses({
                 )}
               </div>
               <div className="flex items-center space-x-2">
-                {!isEditing && (
-                  <button
-                  onClick={handleEditClick}
-                  className={`flex items-center px-3 py-1 ${
-                    hasSuperAdminAccess() 
-                      ? 'bg-blue-600 hover:bg-blue-700' 
-                      : 'bg-gray-400 cursor-not-allowed'
-                  } text-white rounded transition duration-200 text-sm`}
-                  disabled={!hasSuperAdminAccess()}
-                >
-                  <FaEdit className="mr-1" /> Edit Course
-                  {!hasSuperAdminAccess() && (
-                    <PermissionIndicator type="SUPER_ADMIN" className="ml-1" />
-                  )}
-                </button>
-                )}
-                <CourseWeightingDialog
+  {!isEditing && (
+    <>
+      <button
+        onClick={handleEditClick}
+        className={`flex items-center px-3 py-1 ${
+          hasSuperAdminAccess() 
+            ? 'bg-blue-600 hover:bg-blue-700' 
+            : 'bg-gray-400 cursor-not-allowed'
+        } text-white rounded transition duration-200 text-sm`}
+        disabled={!hasSuperAdminAccess()}
+      >
+        <FaEdit className="mr-1" /> Edit Course
+        {!hasSuperAdminAccess() && (
+          <PermissionIndicator type="SUPER_ADMIN" className="ml-1" />
+        )}
+      </button>
+      
+      {/* Add this new button for modern courses */}
+      {courseData?.modernCourse && (
+        <Button
+          onClick={() => navigate(`/course-editor/${selectedCourseId}`)}
+          variant="default"
+          className="flex items-center bg-green-600 hover:bg-green-700 text-white"
+        >
+          <BookOpen className="mr-2 h-4 w-4" /> Edit Course Content
+        </Button>
+      )}
+    </>
+  )}
+  <CourseWeightingDialog
                   courseId={selectedCourseId}
                   courseUnits={courseData.units || []}
                   courseWeights={courseWeights}

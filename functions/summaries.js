@@ -281,7 +281,82 @@ const updateStudentCourseSummary = functions.database
     }
   });
 
+
+  /**
+ * Cloud Function: createStudentCourseSummaryOnCourseCreate
+ * Triggered when a new course is created under /students/{studentId}/courses/{courseId}.
+ * It retrieves the student's profile and copies all the fields listed in syncProfileToCourseSummaries.
+ */
+const createStudentCourseSummaryOnCourseCreate = functions.database
+.ref('/students/{studentId}/courses/{courseId}')
+.onCreate(async (snapshot, context) => {
+  const { studentId, courseId } = context.params;
+  const db = admin.database();
+  
+  // Retrieve course data (if you need to combine it with profile data, you can merge it)
+  const courseData = snapshot.val();
+  
+  // Retrieve the student's profile data
+  const profileSnap = await db.ref(`/students/${studentId}/profile`).once('value');
+  const profileData = profileSnap.val();
+
+  if (!profileData) {
+    console.log(`No profile found for student ${studentId}`);
+    return null;
+  }
+  
+  // List of profile fields to copy, as used in your syncProfileToCourseSummaries function.
+  const profileFields = [
+    'LastSync',
+    'ParentEmail',
+    'ParentFirstName',
+    'ParentLastName',
+    'ParentPhone_x0023_',
+    'StudentEmail',
+    'StudentPhone',
+    'age',
+    'asn',
+    'birthday',
+    'firstName',
+    'lastName',
+    'originalEmail',
+    'preferredFirstName',
+    'gender',
+    'uid'
+  ];
+  
+  // Prepare the summary data object
+  let summaryData = {};
+  
+  // Optionally include course-specific data:
+  // summaryData = { ...courseData };
+  
+  // Copy each profile field to the course summary.
+  profileFields.forEach(field => {
+    // For 'age' we default to 0 if undefined, otherwise empty string.
+    summaryData[field] = profileData[field] !== undefined 
+      ? profileData[field] 
+      : (field === 'age' ? 0 : '');
+  });
+  
+  // Handle the AdditionalGuardians field by creating guardianEmail1, guardianEmail2, etc.
+  const guardians = profileData.AdditionalGuardians || [];
+  guardians.forEach((guardian, index) => {
+    summaryData[`guardianEmail${index + 1}`] = guardian.email || '';
+  });
+  
+  // Optionally, add a lastUpdated timestamp.
+  summaryData.lastUpdated = admin.database.ServerValue.TIMESTAMP;
+  
+  // Write the summary data to studentCourseSummaries node.
+  await db.ref(`studentCourseSummaries/${studentId}_${courseId}`).set(summaryData);
+  console.log(`Created course summary for student ${studentId}, course ${courseId}`);
+  
+  return null;
+});
+
 module.exports = {
   updateStudentCourseSummary,
   syncProfileToCourseSummaries,
+  createStudentCourseSummaryOnCourseCreate
 };

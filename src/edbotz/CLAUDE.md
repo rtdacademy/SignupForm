@@ -1,12 +1,5 @@
 # CLAUDE.md - Guidelines for EdBotz Project
 
-## Build Commands
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run lint` - Run ESLint
-- `npm test` - Run all tests
-- `npm test -- -t "test name"` - Run specific test
-
 ## Code Style Guidelines
 
 ### React Components
@@ -36,3 +29,11 @@
 - Use controlled components for form inputs
 - Validate user input before submission
 - Provide feedback for form errors
+
+### Instructions:
+Currently, Please review the following files:
+- src/edbotz/AIChatApp.js
+- src/edbotz/AIAssistantSheet.js
+- src/courses/CourseEditor/QuillEditor.js
+
+I want to be able to add this more complex QuillEditor.js to the First Message and the Message to Students section so that I can display a youtube video or image into the the first message in the chat bubble. However, I think we may need to consider how the chat bubble is smaller, and we may need to adapt this to work in this setting. Please think deeply about how we could implement this, and then provide the updates to my code in all the necessary locations. 

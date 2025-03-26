@@ -238,11 +238,13 @@ styles.textContent = `
 `;
 document.head.appendChild(styles);
 
+// Add contentPath to the props list
 const QuillEditor = forwardRef(({
   courseId,
   unitId,
   itemId,
   initialContent = '',
+  contentPath = null, // Add default to prevent undefined errors
   onSave = () => {},
   onError = () => {},
 }, ref) => {
@@ -302,26 +304,32 @@ const QuillEditor = forwardRef(({
       const editor = quillRef.current.getEditor();
       const html = editor.root.innerHTML;
 
-      const contentPath = `draft/units/unit_${unitId}/items/item_${itemId}`;
-      
-      // Save to Firestore
-      const firestore = getFirestore();
-      const contentRef = doc(firestore, 'courses', courseId, 'content', contentPath);
-      
-      await setDoc(contentRef, {
-        content: html,
-        updatedAt: new Date().toISOString()
+      console.log('QuillEditor saving content:', {
+        courseId,
+        unitId, 
+        itemId,
+        contentPath,
+        content: html
       });
 
-      // Update RTDB reference
-      const rtdbPath = `courses/${courseId}/units/${unitId - 1}/items/${itemId - 1}`;
-      const database = getDatabase();
-      const itemRef = dbRef(database, rtdbPath);
+      // If we have a specific content path, save directly
+      if (contentPath) {
+        try {
+          const firestore = getFirestore();
+          const contentRef = doc(firestore, contentPath);
+          
+          await setDoc(contentRef, {
+            content: html,
+            updatedAt: new Date().toISOString()
+          });
+          
+          console.log('Content saved to Firestore at path:', contentPath);
+        } catch (pathError) {
+          console.error('Error saving to specific path:', pathError);
+        }
+      }
 
-      await update(itemRef, {
-        contentPath: `courses/${courseId}/content/${contentPath}`
-      });
-
+      // Return the content to parent component for state updates
       onSave(html);
     } catch (err) {
       console.error('Error saving content:', err);

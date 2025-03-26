@@ -42,71 +42,22 @@ import {
   useFormValidation
 } from './formValidation';
 
-// === Utility Functions ===
-
-// Convert UTC date string to local Date object
-const utcToLocal = (dateString) => {
-  if (!dateString) return null;
-  const [year, month, day] = dateString.split('-').map(Number);
-  return new Date(year, month - 1, day);
-};
-
-// Format Date object to YYYY-MM-DD string
-const formatDate = (date) => {
-  if (!date) return '';
-  const d = new Date(date);
-  let month = '' + (d.getMonth() + 1);
-  let day = '' + d.getDate();
-  const year = d.getFullYear();
-
-  if (month.length < 2) month = '0' + month;
-  if (day.length < 2) day = '0' + day;
-
-  return [year, month, day].join('-');
-};
-
-// Format date for display
-const formatDateForDisplay = (date) => {
-  if (!date) return '';
-  const options = { year: 'numeric', month: 'long', day: 'numeric' };
-  return new Date(date).toLocaleDateString('en-US', options);
-};
-
-// Calculate duration between start and end dates
-const calculateDuration = (startDate, endDate) => {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const diffTime = Math.abs(end - start);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  const months = Math.floor(diffDays / 30);
-  const remainingDays = diffDays % 30;
-
-  let duration = '';
-  if (months > 0) {
-    duration += `${months} month${months > 1 ? 's' : ''}`;
-    if (remainingDays > 0) {
-      duration += ` and ${remainingDays} day${remainingDays > 1 ? 's' : ''}`;
-    }
-  } else {
-    duration = `${diffDays} day${diffDays > 1 ? 's' : ''}`;
-  }
-
-  return duration;
-};
-
-// Format diploma date for display
-const formatDiplomaDate = (dateObj) => {
-  const date = new Date(dateObj.date);
-  return `${dateObj.month} ${date.getUTCFullYear()} (${dateObj.displayDate})`;
-};
-
-// Get minimum end date (1 month after start date)
-const getMinEndDate = (startDate) => {
-  if (!startDate) return null;
-  const minEnd = new Date(startDate);
-  minEnd.setMonth(minEnd.getMonth() + 1);
-  return minEnd;
-};
+// Import timezone utilities
+import {
+  toEdmontonDate,
+  toDateString,
+  formatDateForDisplay,
+  isDateInSummer,
+  calculateAge,
+  crossesSchoolYearBoundary,
+  calculateDuration,
+  getMinEndDate,
+  calculateHoursPerWeek,
+  formatDiplomaDate,
+  getMinCompletionDate,
+  getRecommendedCompletionDate,
+  validateDateRange
+} from '../utils/timeZoneUtils';
 
 // Determine if school selection should be shown
 const shouldShowSchoolSelection = (studentType) => {
@@ -116,13 +67,6 @@ const shouldShowSchoolSelection = (studentType) => {
 // Determine if student is Home Education
 const isHomeEducation = (studentType) => {
   return studentType === 'Home Education';
-};
-
-// Check if date is in summer (July or August)
-const isDateInSummer = (date) => {
-  if (!date) return false;
-  const month = new Date(date).getMonth();
-  return month === 6 || month === 7; // July (6) or August (7)
 };
 
 // Hook to handle registration settings
@@ -233,8 +177,8 @@ const useRegistrationSettings = (studentType) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const startBegins = new Date(timeSection.startBegins);
-    const startEnds = new Date(timeSection.startEnds);
+    const startBegins = toEdmontonDate(timeSection.startBegins);
+    const startEnds = toEdmontonDate(timeSection.startEnds);
     startBegins.setHours(0, 0, 0, 0);
     startEnds.setHours(23, 59, 59, 999);
     
@@ -249,10 +193,10 @@ const useRegistrationSettings = (studentType) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const startBegins = new Date(timeSection.startBegins);
+      const startBegins = toEdmontonDate(timeSection.startBegins);
       startBegins.setHours(0, 0, 0, 0);
       
-      const startEnds = new Date(timeSection.startEnds);
+      const startEnds = toEdmontonDate(timeSection.startEnds);
       startEnds.setHours(23, 59, 59, 999);
       
       // Use the later of today or startBegins as the minimum date
@@ -263,10 +207,10 @@ const useRegistrationSettings = (studentType) => {
         max: startEnds
       };
     } else { // For end date
-      const completionBegins = new Date(timeSection.completionBegins);
+      const completionBegins = toEdmontonDate(timeSection.completionBegins);
       completionBegins.setHours(0, 0, 0, 0);
       
-      const completionEnds = new Date(timeSection.completionEnds);
+      const completionEnds = toEdmontonDate(timeSection.completionEnds);
       completionEnds.setHours(23, 59, 59, 999);
       
       return {
@@ -274,24 +218,6 @@ const useRegistrationSettings = (studentType) => {
         max: completionEnds
       };
     }
-  }, []);
-
-  // Check if the selected dates cross school year boundary (July/August to September)
-  const crossesSchoolYearBoundary = useCallback((startDate, endDate) => {
-    if (!startDate || !endDate) return false;
-    
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    // If start date is in summer (July or August)
-    if (start.getMonth() === 6 || start.getMonth() === 7) {
-      // And end date is in September or later of the same calendar year
-      if (end.getMonth() >= 8 && end.getFullYear() === start.getFullYear()) {
-        return true;
-      }
-    }
-    
-    return false;
   }, []);
 
   return {
@@ -353,7 +279,7 @@ const DiplomaMonthSelector = ({ dates, selectedDate, onChange, error }) => {
           // Format registration deadline if available
           const hasDeadline = !!date.registrationDeadline;
           const deadlineText = hasDeadline 
-            ? ` (Register by: ${date.registrationDeadlineDisplayDate || new Date(date.registrationDeadline).toISOString().split('T')[0]})` 
+            ? ` (Register by: ${date.registrationDeadlineDisplayDate || toDateString(toEdmontonDate(date.registrationDeadline))})` 
             : '';
             
           return (
@@ -402,8 +328,7 @@ const NonPrimaryStudentForm = forwardRef(({
     getTimeSection,
     isTimeSectionActive,
     getDateConstraints,
-    getGeneralMessage,
-    crossesSchoolYearBoundary
+    getGeneralMessage
   } = useRegistrationSettings(studentType);
 
   const countryOptions = useMemo(() => countryList().getData(), []);
@@ -488,6 +413,12 @@ const NonPrimaryStudentForm = forwardRef(({
   const [diplomaDates, setDiplomaDates] = useState([]);
   const [selectedDiplomaDate, setSelectedDiplomaDate] = useState(null);
   const [alreadyWroteDiploma, setAlreadyWroteDiploma] = useState(false);
+
+  // Course duration requirements
+  const [minCompletionMonths, setMinCompletionMonths] = useState(null);
+  const [recommendedCompletionMonths, setRecommendedCompletionMonths] = useState(null);
+  const [recommendedEndDate, setRecommendedEndDate] = useState(null);
+  const [noValidDatesAvailable, setNoValidDatesAvailable] = useState(false);
 
   const [dateErrors, setDateErrors] = useState({
     startDate: '',
@@ -691,7 +622,7 @@ const NonPrimaryStudentForm = forwardRef(({
     handleFormChange({
       target: {
         name: 'birthday',
-        value: date ? formatDate(date) : '',
+        value: date ? toDateString(date) : '',
       },
     });
   };
@@ -703,8 +634,8 @@ const NonPrimaryStudentForm = forwardRef(({
     
     // 1. Check if there's a diploma exam constraint
     if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate) {
-      const displayDate = new Date(selectedDiplomaDate.displayDate);
-      displayDate.setUTCHours(0, 0, 0, 0);
+      const displayDate = toEdmontonDate(selectedDiplomaDate.displayDate);
+      displayDate.setHours(0, 0, 0, 0);
       maxEndDate = displayDate;
     }
     
@@ -758,7 +689,7 @@ const NonPrimaryStudentForm = forwardRef(({
     // Consider diploma deadline as potential constraint for maximum start date
     let effectiveMaxStartDate = maxStartDate;
     if (isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline) {
-      const diplomaDeadline = new Date(selectedDiplomaDate.registrationDeadline);
+      const diplomaDeadline = toEdmontonDate(selectedDiplomaDate.registrationDeadline);
       
       // Use the earlier of window end date and diploma deadline
       if (diplomaDeadline && (!effectiveMaxStartDate || diplomaDeadline < effectiveMaxStartDate)) {
@@ -847,15 +778,80 @@ const NonPrimaryStudentForm = forwardRef(({
     handleFormChange({
       target: {
         name: 'startDate',
-        value: formatDate(date)
+        value: toDateString(date)
       }
     });
     
     setDateErrors(prev => ({ ...prev, startDate: '' }));
     
-    // If we have a diploma date selected, we might need to update the end date too
-    if (isDiplomaCourse && selectedDiplomaDate && !alreadyWroteDiploma) {
-      const diplomaDate = new Date(selectedDiplomaDate.displayDate);
+    // Calculate recommended end date based on course requirements
+    if (minCompletionMonths || recommendedCompletionMonths) {
+      // If we have a minimum completion period, use it to determine the earliest possible end date
+      const minEndDate = minCompletionMonths ? getMinCompletionDate(date, minCompletionMonths) : getMinEndDate(date);
+      
+      // Get the recommended completion date
+      const recEndDate = recommendedCompletionMonths ? 
+        getRecommendedCompletionDate(date, recommendedCompletionMonths) : 
+        new Date(date);
+      
+      if (recEndDate) {
+        // Default to 5 months if no recommended completion months
+        if (!recommendedCompletionMonths) {
+          recEndDate.setMonth(recEndDate.getMonth() + 5);
+        }
+        
+        // Check if the recommended end date is after the max allowed end date
+        const maxEndDate = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
+        
+        // If there's a maximum end date and the recommended end date exceeds it
+        if (maxEndDate && recEndDate > maxEndDate) {
+          // Check if the minimum required end date is also past the maximum allowed end date
+          if (minEndDate && minEndDate > maxEndDate) {
+            // This means there are no valid dates available
+            setNoValidDatesAvailable(true);
+            setDateErrors(prev => ({
+              ...prev,
+              endDate: `This course requires at least ${minCompletionMonths} months to complete, but the registration period ends on ${formatDateForDisplay(maxEndDate)}. Please select a different course or try registering for the next school year.`
+            }));
+          } else {
+            // We can use the maximum allowed end date
+            setRecommendedEndDate(maxEndDate);
+            
+            // If diploma date is the constraint, use it as the end date
+            if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate) {
+              handleFormChange({
+                target: {
+                  name: 'endDate',
+                  value: toDateString(maxEndDate)
+                }
+              });
+            }
+          }
+        } else {
+          // The recommended end date is within the allowed range
+          setRecommendedEndDate(recEndDate);
+          setNoValidDatesAvailable(false);
+          
+          // If diploma date is selected, use it as the end date
+          if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate) {
+            const diplomaDate = toEdmontonDate(selectedDiplomaDate.displayDate);
+            
+            // Use the earlier of max end date and diploma date if both exist
+            const effectiveEndDate = maxEndDate && diplomaDate && maxEndDate < diplomaDate ? 
+              maxEndDate : diplomaDate;
+            
+            handleFormChange({
+              target: {
+                name: 'endDate',
+                value: toDateString(effectiveEndDate)
+              }
+            });
+          }
+        }
+      }
+    } else if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate) {
+      // Handle diploma course case when we don't have completion requirements
+      const diplomaDate = toEdmontonDate(selectedDiplomaDate.displayDate);
       
       // Set end date to diploma date if possible
       const maxEndDate = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
@@ -863,7 +859,7 @@ const NonPrimaryStudentForm = forwardRef(({
       handleFormChange({
         target: {
           name: 'endDate',
-          value: formatDate(maxEndDate || diplomaDate)
+          value: toDateString(maxEndDate || diplomaDate)
         }
       });
     }
@@ -871,12 +867,28 @@ const NonPrimaryStudentForm = forwardRef(({
 
   // Handle end date changes
   const handleEndDateChange = async (date) => {
+    // If there are no valid dates available, prevent changes
+    if (noValidDatesAvailable) {
+      return;
+    }
+    
+    // Calculate the minimum end date based on course requirements
+    const courseMinEndDate = formData.startDate && minCompletionMonths ? 
+      getMinCompletionDate(formData.startDate, minCompletionMonths) : 
+      null;
+    
+    // Use the course minimum if available, otherwise default to 1 month
+    const minEnd = courseMinEndDate || getMinEndDate(formData.startDate);
+    
     // Basic minimum duration validation
-    const minEnd = getMinEndDate(formData.startDate);
     if (minEnd && date < minEnd) {
+      const message = minCompletionMonths ? 
+        `End date must be at least ${minCompletionMonths} months after start date` : 
+        'End date must be at least 1 month after start date';
+      
       setDateErrors(prev => ({
         ...prev,
-        endDate: 'End date must be at least 1 month after start date'
+        endDate: message
       }));
       return;
     }
@@ -890,7 +902,7 @@ const NonPrimaryStudentForm = forwardRef(({
       
       // Determine the appropriate error message based on the constraint type
       if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate && 
-          date > new Date(selectedDiplomaDate.displayDate)) {
+          date > toEdmontonDate(selectedDiplomaDate.displayDate)) {
         errorMessage = 'End date must be on or before the diploma exam';
       } else {
         errorMessage = `End date must be on or before ${formatDateForDisplay(maxEnd)} based on registration period constraints`;
@@ -922,7 +934,7 @@ const NonPrimaryStudentForm = forwardRef(({
     handleFormChange({
       target: {
         name: 'endDate',
-        value: formatDate(date)
+        value: toDateString(date)
       }
     });
     setDateErrors(prev => ({ ...prev, endDate: '' }));
@@ -958,7 +970,7 @@ const NonPrimaryStudentForm = forwardRef(({
   // Calculate age based on birthday
   useEffect(() => {
     if (formData.birthday) {
-      const birthdayDate = new Date(formData.birthday);
+      const birthdayDate = toEdmontonDate(formData.birthday);
       const today = new Date();
       let age = today.getFullYear() - birthdayDate.getFullYear();
       const monthDiff = today.getMonth() - birthdayDate.getMonth();
@@ -984,8 +996,8 @@ const NonPrimaryStudentForm = forwardRef(({
 
   // Update validation status
   useEffect(() => {
-    onValidationChange(isValid && isEligible && validateDates());
-  }, [isValid, isEligible, onValidationChange]);
+    onValidationChange(isValid && isEligible && validateDates() && !noValidDatesAvailable);
+  }, [isValid, isEligible, noValidDatesAvailable, onValidationChange]);
 
   // Fetch courses from Firebase
   useEffect(() => {
@@ -1022,7 +1034,9 @@ const NonPrimaryStudentForm = forwardRef(({
               id: courseId,
               title: courseData.Title,
               DiplomaCourse: courseData.DiplomaCourse,
-              diplomaTimes: courseData.diplomaTimes || []
+              diplomaTimes: courseData.diplomaTimes || [],
+              recommendedCompletionMonths: courseData.recommendedCompletionMonths || null,
+              minCompletionMonths: courseData.minCompletionMonths || null
             });
           });
 
@@ -1104,9 +1118,9 @@ const NonPrimaryStudentForm = forwardRef(({
     if (hasCurrentYear) {
       availableYears.push(currentSchoolYear);
       if (isTimeSectionActive(currentYearSection)) {
-        message = `Registration is currently open for the ${currentSchoolYear} school year until ${formatDateForDisplay(new Date(currentYearSection.startEnds))}.`;
+        message = `Registration is currently open for the ${currentSchoolYear} school year until ${formatDateForDisplay(currentYearSection.startEnds)}.`;
       } else {
-        message = `Registration for the ${currentSchoolYear} school year will open on ${formatDateForDisplay(new Date(currentYearSection.startBegins))}.`;
+        message = `Registration for the ${currentSchoolYear} school year will open on ${formatDateForDisplay(currentYearSection.startBegins)}.`;
       }
     }
     
@@ -1121,9 +1135,9 @@ const NonPrimaryStudentForm = forwardRef(({
       }
       
       if (isTimeSectionActive(nextYearSection)) {
-        message += ` until ${formatDateForDisplay(new Date(nextYearSection.startEnds))}.`;
+        message += ` until ${formatDateForDisplay(nextYearSection.startEnds)}.`;
       } else {
-        message += ` between ${formatDateForDisplay(new Date(nextYearSection.startBegins))} and ${formatDateForDisplay(new Date(nextYearSection.startEnds))}.`;
+        message += ` between ${formatDateForDisplay(nextYearSection.startBegins)} and ${formatDateForDisplay(nextYearSection.startEnds)}.`;
       }
     }
 
@@ -1175,9 +1189,9 @@ const NonPrimaryStudentForm = forwardRef(({
     updateAgeInfo();
   }, [formData.birthday, formData.enrollmentYear]);
 
-  // Fetch diploma course information based on selected course
+  // Fetch course specific information (diploma, completion requirements)
   useEffect(() => {
-    const fetchDiplomaInfo = async () => {
+    const fetchCourseInfo = async () => {
       if (!formData.courseId) return;
 
       try {
@@ -1187,9 +1201,23 @@ const NonPrimaryStudentForm = forwardRef(({
 
         if (snapshot.exists()) {
           const courseData = snapshot.val();
+          
+          // Set diploma course information
           const isDiploma = courseData.DiplomaCourse === "Yes";
           setIsDiplomaCourse(isDiploma);
 
+          // Set completion requirements
+          const minMonths = courseData.minCompletionMonths !== undefined ? 
+            parseFloat(courseData.minCompletionMonths) : null;
+          const recMonths = courseData.recommendedCompletionMonths !== undefined ? 
+            parseFloat(courseData.recommendedCompletionMonths) : null;
+          
+          console.log(`Course completion requirements - Min: ${minMonths}, Recommended: ${recMonths}`);
+          
+          setMinCompletionMonths(minMonths);
+          setRecommendedCompletionMonths(recMonths);
+
+          // Handle diploma dates
           if (isDiploma && courseData.diplomaTimes) {
             const diplomaTimesArray = Array.isArray(courseData.diplomaTimes)
               ? courseData.diplomaTimes
@@ -1202,28 +1230,41 @@ const NonPrimaryStudentForm = forwardRef(({
             const validDates = diplomaTimesArray
               .filter(item => {
                 // Check if exam date is in the future
-                const examDate = new Date(item.date);
+                const examDate = toEdmontonDate(item.date);
                 
                 // Also check if registration deadline hasn't passed
                 const hasDeadline = !!item.registrationDeadline;
-                const registrationDeadline = hasDeadline ? new Date(item.registrationDeadline) : null;
+                const registrationDeadline = hasDeadline ? toEdmontonDate(item.registrationDeadline) : null;
                 
                 // Keep the date only if:
                 // - The exam date is in the future, AND
                 // - Either there's no registration deadline OR the deadline is in the future
                 return examDate > today && (!hasDeadline || registrationDeadline >= today);
               })
-              .sort((a, b) => new Date(a.date) - new Date(b.date));
+              .sort((a, b) => toEdmontonDate(a.date) - toEdmontonDate(b.date));
 
             setDiplomaDates(validDates);
           }
+          
+          // Reset end date recommendations when course changes
+          setRecommendedEndDate(null);
         }
       } catch (err) {
-        console.error('Error fetching diploma info:', err);
+        console.error('Error fetching course info:', err);
       }
     };
 
-    fetchDiplomaInfo();
+    fetchCourseInfo();
+    
+    // Reset course-specific state when course changes
+    setNoValidDatesAvailable(false);
+    setDateErrors(prev => ({ 
+      ...prev, 
+      startDate: '',
+      endDate: '',
+      diplomaDate: ''
+    }));
+    
   }, [formData.courseId]);
 
   // Adjust end date and validate start date based on selected diploma date
@@ -1231,8 +1272,8 @@ const NonPrimaryStudentForm = forwardRef(({
     if (selectedDiplomaDate) {
       // Check if start date is after registration deadline
       if (selectedDiplomaDate.registrationDeadline && formData.startDate) {
-        const startDate = new Date(formData.startDate);
-        const deadline = new Date(selectedDiplomaDate.registrationDeadline);
+        const startDate = toEdmontonDate(formData.startDate);
+        const deadline = toEdmontonDate(selectedDiplomaDate.registrationDeadline);
         
         const { maxStartDate } = getEffectiveDateConstraints();
         const effectiveDeadline = maxStartDate && maxStartDate < deadline ? maxStartDate : deadline;
@@ -1254,13 +1295,31 @@ const NonPrimaryStudentForm = forwardRef(({
       
       // Adjust end date based on diploma exam date
       const maxEndDate = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
-      if (formData.endDate && new Date(formData.endDate) > maxEndDate) {
+      if (formData.endDate && toEdmontonDate(formData.endDate) > maxEndDate) {
         handleFormChange({
           target: {
             name: 'endDate',
-            value: formatDate(maxEndDate)
+            value: toDateString(maxEndDate)
           }
         });
+      }
+      
+      // Check if there's a minimum completion period that would create a conflict
+      if (minCompletionMonths && formData.startDate) {
+        const startDate = toEdmontonDate(formData.startDate);
+        const minCompletionDate = getMinCompletionDate(startDate, minCompletionMonths);
+        const diplomaDate = toEdmontonDate(selectedDiplomaDate.displayDate);
+        
+        // If the minimum completion date is after the diploma date, there's a conflict
+        if (minCompletionDate > diplomaDate) {
+          setNoValidDatesAvailable(true);
+          setDateErrors(prev => ({
+            ...prev,
+            endDate: `This course requires at least ${minCompletionMonths} months to complete, but the diploma exam is on ${formatDateForDisplay(diplomaDate)}. Please select a different course or diploma date.`
+          }));
+        } else {
+          setNoValidDatesAvailable(false);
+        }
       }
     }
   }, [
@@ -1271,7 +1330,8 @@ const NonPrimaryStudentForm = forwardRef(({
     isDiplomaCourse, 
     alreadyWroteDiploma, 
     getEffectiveDateConstraints, 
-    getMaxEndDate
+    getMaxEndDate,
+    minCompletionMonths
   ]);
 
   // Reset end date and diploma selection when course changes
@@ -1286,18 +1346,6 @@ const NonPrimaryStudentForm = forwardRef(({
     setAlreadyWroteDiploma(false);
     setCourseHours(null);
   }, [formData.courseId]);
-
-  // Calculate age based on birthday and a specific date
-  const calculateAge = (birthday, date) => {
-    const birthDate = new Date(birthday);
-    const age = date.getUTCFullYear() - birthDate.getUTCFullYear();
-    const monthDiff = date.getUTCMonth() - birthDate.getUTCMonth();
-
-    if (monthDiff < 0 || (monthDiff === 0 && date.getUTCDate() < birthDate.getUTCDate())) {
-      return age - 1;
-    }
-    return age;
-  };
 
   // Update age-related information and eligibility
   const updateAgeInfo = () => {
@@ -1379,9 +1427,19 @@ const NonPrimaryStudentForm = forwardRef(({
       });
   
       if (formData.startDate) {
-        const startDate = new Date(formData.startDate);
-        const defaultEndDate = new Date(startDate);
-        defaultEndDate.setMonth(defaultEndDate.getMonth() + 5);
+        const startDate = toEdmontonDate(formData.startDate);
+        
+        // Calculate end date based on recommended/min completion months or default to 5 months
+        let defaultEndDate;
+        
+        if (recommendedCompletionMonths) {
+          defaultEndDate = getRecommendedCompletionDate(startDate, recommendedCompletionMonths);
+        } else if (minCompletionMonths) {
+          defaultEndDate = getMinCompletionDate(startDate, minCompletionMonths);
+        } else {
+          defaultEndDate = new Date(startDate);
+          defaultEndDate.setMonth(defaultEndDate.getMonth() + 5);
+        }
         
         // Check against schedule end date constraint
         const maxEndDate = getMaxEndDate(isDiplomaCourse, true, null);
@@ -1389,7 +1447,7 @@ const NonPrimaryStudentForm = forwardRef(({
           handleFormChange({
             target: {
               name: 'endDate',
-              value: formatDate(maxEndDate)
+              value: toDateString(maxEndDate)
             }
           });
           
@@ -1401,11 +1459,14 @@ const NonPrimaryStudentForm = forwardRef(({
           handleFormChange({
             target: {
               name: 'endDate',
-              value: formatDate(defaultEndDate)
+              value: toDateString(defaultEndDate)
             }
           });
         }
       }
+      
+      // Clear any no-valid-dates flag when selecting "already wrote diploma"
+      setNoValidDatesAvailable(false);
     } else {
       // Student selected a diploma date
       setAlreadyWroteDiploma(false);
@@ -1423,15 +1484,32 @@ const NonPrimaryStudentForm = forwardRef(({
         }
       });
       
+      // Check for potential conflicts with minimum completion requirements
+      if (minCompletionMonths && formData.startDate) {
+        const startDate = toEdmontonDate(formData.startDate);
+        const minCompletionDate = getMinCompletionDate(startDate, minCompletionMonths);
+        const diplomaDate = toEdmontonDate(date.displayDate);
+        
+        // If minimum completion date is after diploma date, flag that no valid dates are available
+        if (minCompletionDate > diplomaDate) {
+          setNoValidDatesAvailable(true);
+          setDateErrors(prev => ({
+            ...prev,
+            endDate: `This course requires at least ${minCompletionMonths} months to complete, but the diploma exam is on ${formatDateForDisplay(diplomaDate)}. Please select a different course or diploma date.`
+          }));
+          return;
+        }
+      }
+      
       // Set end date to diploma date, but check against schedule end date constraint
-      const diplomaDate = new Date(date.date);
+      const diplomaDate = toEdmontonDate(date.date);
       const maxEndDate = getMaxEndDate(isDiplomaCourse, false, date);
       
       if (maxEndDate && maxEndDate < diplomaDate) {
         handleFormChange({
           target: {
             name: 'endDate',
-            value: formatDate(maxEndDate)
+            value: toDateString(maxEndDate)
           }
         });
         
@@ -1443,10 +1521,13 @@ const NonPrimaryStudentForm = forwardRef(({
         handleFormChange({
           target: {
             name: 'endDate',
-            value: formatDate(diplomaDate)
+            value: toDateString(diplomaDate)
           }
         });
       }
+      
+      // Clear the no-valid-dates flag if we've found a valid date
+      setNoValidDatesAvailable(false);
     }
     setDateErrors(prev => ({ ...prev, diplomaDate: '' }));
   };
@@ -1455,6 +1536,11 @@ const NonPrimaryStudentForm = forwardRef(({
   const validateDates = useCallback(() => {
     let valid = true;
     const newDateErrors = {};
+    
+    // If no valid dates are available, validation fails
+    if (noValidDatesAvailable) {
+      return false;
+    }
     
     // Get date constraints
     const { hasActiveWindow } = getEffectiveDateConstraints();
@@ -1475,9 +1561,21 @@ const NonPrimaryStudentForm = forwardRef(({
       valid = false;
     }
 
+    // Check minimum completion period if applicable
+    if (minCompletionMonths && formData.startDate && formData.endDate) {
+      const startDate = toEdmontonDate(formData.startDate);
+      const endDate = toEdmontonDate(formData.endDate);
+      const minCompletionDate = getMinCompletionDate(startDate, minCompletionMonths);
+      
+      if (endDate < minCompletionDate) {
+        newDateErrors.endDate = `This course requires at least ${minCompletionMonths} months to complete. Please select an end date on or after ${formatDateForDisplay(minCompletionDate)}`;
+        valid = false;
+      }
+    }
+
     // Validate that end date doesn't exceed schedule end date constraint
     const maxEndDate = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
-    if (maxEndDate && formData.endDate && new Date(formData.endDate) > maxEndDate) {
+    if (maxEndDate && formData.endDate && toEdmontonDate(formData.endDate) > maxEndDate) {
       newDateErrors.endDate = `End date cannot be later than ${formatDateForDisplay(maxEndDate)} based on registration constraints`;
       valid = false;
     }
@@ -1490,7 +1588,7 @@ const NonPrimaryStudentForm = forwardRef(({
       } else if (selectedDiplomaDate.registrationDeadline) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const deadline = new Date(selectedDiplomaDate.registrationDeadline);
+        const deadline = toEdmontonDate(selectedDiplomaDate.registrationDeadline);
         
         if (today > deadline) {
           newDateErrors.diplomaDate = `Registration deadline (${selectedDiplomaDate.registrationDeadlineDisplayDate}) has passed`;
@@ -1505,7 +1603,7 @@ const NonPrimaryStudentForm = forwardRef(({
       valid = false;
     }
 
-    setDateErrors(newDateErrors);
+    setDateErrors(prev => ({ ...prev, ...newDateErrors }));
     return valid;
   }, [
     formData.startDate, 
@@ -1515,7 +1613,9 @@ const NonPrimaryStudentForm = forwardRef(({
     selectedDiplomaDate, 
     getEffectiveDateConstraints,
     getMaxEndDate,
-    crossesSchoolYearBoundary
+    crossesSchoolYearBoundary,
+    minCompletionMonths,
+    noValidDatesAvailable
   ]);
 
   // Validate form and update validation status
@@ -1527,6 +1627,7 @@ const NonPrimaryStudentForm = forwardRef(({
       const isFormValid = isValid && 
                          isEligible && 
                          validateDates() && 
+                         !noValidDatesAvailable &&
                          formData.courseId &&
                          isPhoneValid &&
                          (studentType !== 'International Student' || 
@@ -1549,7 +1650,8 @@ const NonPrimaryStudentForm = forwardRef(({
     formData.country, 
     formData.documents, 
     readOnlyFields, 
-    formData.phoneNumber
+    formData.phoneNumber,
+    noValidDatesAvailable
   ]);
 
   // Determine if end date should be readonly
@@ -1573,24 +1675,23 @@ const NonPrimaryStudentForm = forwardRef(({
     setFormData(prev => ({
       ...prev,
       courseId: value,
-      courseName: selectedCourse ? selectedCourse.title : ''
+      courseName: selectedCourse ? selectedCourse.title : '',
+      endDate: '' // Reset end date when course changes
+    }));
+    
+    // Reset course-related state
+    setSelectedDiplomaDate(null);
+    setAlreadyWroteDiploma(false);
+    setNoValidDatesAvailable(false);
+    setDateErrors(prev => ({
+      ...prev,
+      startDate: '',
+      endDate: '',
+      diplomaDate: '',
+      summerNotice: ''
     }));
   
     handleBlur('courseId'); // Add this to mark the field as touched
-  };
-
-  // Calculate hours per week based on start date, end date, and total hours
-  const calculateHoursPerWeek = (startDate, endDate, totalHours) => {
-    if (!startDate || !endDate || !totalHours) return null;
-    
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const diffWeeks = diffDays / 7;
-    
-    const hoursPerWeek = totalHours / diffWeeks;
-    return hoursPerWeek.toFixed(1); // Round to 1 decimal place
   };
 
   // Update preferredFirstName when usePreferredFirstName or firstName changes
@@ -1615,7 +1716,7 @@ const NonPrimaryStudentForm = forwardRef(({
   useImperativeHandle(ref, () => ({
     async submitForm() {
       const formErrors = validateForm();
-      if (Object.keys(formErrors).length === 0 && isEligible && validateDates()) {
+      if (Object.keys(formErrors).length === 0 && isEligible && validateDates() && !noValidDatesAvailable) {
         try {
           // Check phone number
           const phoneNumber = formData.phoneNumber?.replace(/\D/g, '');
@@ -1893,7 +1994,7 @@ const NonPrimaryStudentForm = forwardRef(({
                     Birthday <span className="text-red-500">*</span>
                   </label>
                   <DatePicker
-                    selected={formData.birthday ? utcToLocal(formData.birthday) : null}
+                    selected={formData.birthday ? toEdmontonDate(formData.birthday) : null}
                     onChange={handleDateChange}
                     maxDate={new Date()}
                     showYearDropdown
@@ -2431,6 +2532,31 @@ const NonPrimaryStudentForm = forwardRef(({
                 )}
               </div>
 
+              {/* Course Requirements Section */}
+              {formData.courseId && (minCompletionMonths || recommendedCompletionMonths) && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Course Requirements</h4>
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <InfoIcon className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-sm text-blue-700">
+                      {minCompletionMonths && (
+                        <div>
+                          <span className="font-semibold">Required Minimum Duration:</span> This course must be completed over a minimum of {minCompletionMonths} {minCompletionMonths === 1 ? 'month' : 'months'}.
+                        </div>
+                      )}
+                      {recommendedCompletionMonths && (
+                        <div className="mt-1">
+                          <span className="font-semibold">Recommended Duration:</span> We recommend allowing {recommendedCompletionMonths} {recommendedCompletionMonths === 1 ? 'month' : 'months'} to complete this course for optimal learning.
+                        </div>
+                      )}
+                      <div className="mt-1">
+                        These requirements will be applied to the date selection below.
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+
               {/* Diploma Section */}
               {isDiplomaCourse && formData.courseId && (
                 <div className="space-y-4">
@@ -2479,12 +2605,28 @@ const NonPrimaryStudentForm = forwardRef(({
                     <div className="text-sm text-gray-600">
                       <p>Since you've already written the diploma exam:</p>
                       <ul className="list-disc pl-5 space-y-1">
-                        <li>You can complete the course at your own pace.</li>
+                        <li>You can complete the course at your own pace (subject to term dates).</li>
                         <li>Your previous diploma mark (30%) will be combined with your new school mark (70%).</li>
                       </ul>
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* No Valid Date Range Warning */}
+              {noValidDatesAvailable && (
+                <Alert className="bg-red-50 border-red-200">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-sm text-red-700">
+                    <div className="font-semibold mb-1">No valid dates available!</div>
+                    {dateErrors.endDate || (
+                      <div>
+                        There are no dates available that satisfy both the course requirements and registration constraints.
+                        Please select a different course, a different diploma date, or try registering for the next school year.
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
               )}
 
               {/* Course Dates Section */}
@@ -2529,30 +2671,48 @@ const NonPrimaryStudentForm = forwardRef(({
                     isNextYear={formData.enrollmentYear !== getCurrentSchoolYear()}
                     timeSection={getEffectiveDateConstraints().timeSection}
                     studentType={studentType}
+                    disabled={noValidDatesAvailable}
                   />
 
                   <DatePickerWithInfo
                     label="Completion Date"
                     selected={formData.endDate}
                     onChange={handleEndDateChange}
-                    minDate={getMinEndDate(formData.startDate)}
+                    minDate={formData.startDate && minCompletionMonths ? 
+                      getMinCompletionDate(formData.startDate, minCompletionMonths) : 
+                      getMinEndDate(formData.startDate)}
                     maxDate={getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)}
-                    disabled={!formData.startDate}
+                    disabled={!formData.startDate || noValidDatesAvailable}
                     readOnly={isEndDateReadOnly}
                     helpText={
                       isDiplomaCourse && !alreadyWroteDiploma
                         ? "Automatically set to your diploma exam date"
-                        : getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)
-                            ? `Must be completed by ${formatDateForDisplay(getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate))}`
-                            : "Recommended 5 months for course completion"
+                        : minCompletionMonths
+                          ? `Must be at least ${minCompletionMonths} months after start date`
+                          : getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)
+                              ? `Must be completed by ${formatDateForDisplay(getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate))}`
+                              : "Recommended 5 months for course completion"
                     }
                     error={dateErrors.endDate}
                     studentType={studentType}
                     startDate={formData.startDate}
                     timeSection={getEffectiveDateConstraints().timeSection}
                     enrollmentYear={formData.enrollmentYear}
+                    recommendedEndDate={recommendedEndDate}
                   />
                 </div>
+
+                {recommendedEndDate && formData.startDate && !isEndDateReadOnly && !noValidDatesAvailable && (
+                  <Alert className="bg-amber-50 border-amber-200">
+                    <InfoIcon className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-sm text-amber-700">
+                      <span className="font-semibold">Recommended completion date:</span> {formatDateForDisplay(recommendedEndDate)}
+                      {recommendedCompletionMonths ? 
+                        ` (based on the recommended ${recommendedCompletionMonths} month duration)` : 
+                        ' (based on a 5 month recommended duration)'}
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 {dateErrors.summerNotice && (
                   <Alert className="bg-amber-50 border-amber-200">
@@ -2588,7 +2748,7 @@ const NonPrimaryStudentForm = forwardRef(({
                   </Alert>
                 )}
 
-                {formData.startDate && formData.endDate && (
+                {formData.startDate && formData.endDate && !noValidDatesAvailable && (
                   <div className="p-4 bg-gray-50 rounded-md space-y-2">
                     <div>
                       <h5 className="font-medium text-sm">Course Duration</h5>
@@ -2609,14 +2769,14 @@ const NonPrimaryStudentForm = forwardRef(({
                           hours per week.
                         </p>
                         
-                        {calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours) > 20 && (
+                        {parseFloat(calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours)) > 20 && (
                           <p className="text-sm text-amber-600 mt-1">
                             <AlertTriangle className="inline-block h-4 w-4 mr-1" />
                             This schedule may be intensive. Consider extending your end date for a more manageable pace.
                           </p>
                         )}
                         
-                        {calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours) < 3 && (
+                        {parseFloat(calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours)) < 3 && (
                           <p className="text-sm text-amber-600 mt-1">
                             <AlertTriangle className="inline-block h-4 w-4 mr-1" />
                             This schedule is quite spread out. Consider reducing the duration to maintain momentum.
@@ -2696,28 +2856,28 @@ const NonPrimaryStudentForm = forwardRef(({
                  onBlur={() => handleBlur('additionalInformation')}
                  className="w-full p-3 border rounded-md min-h-[100px] resize-y"
                  placeholder="Please share any additional information that might be relevant to your registration (optional)"
-               />
-               <p className="text-sm text-gray-500">
-                 You can use this space to share any additional context, special circumstances, or specific needs we should be aware of.
-               </p>
-             </div>
-           </CardContent>
-         </Card>
+                />
+                <p className="text-sm text-gray-500">
+                  You can use this space to share any additional context, special circumstances, or specific needs we should be aware of.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
-         {/* Eligibility Alert */}
-         {!isEligible && studentType !== 'Adult Student' && (
-           <Alert className="bg-red-50 border-red-200">
-             <AlertTriangle className="h-4 w-4 text-red-600" />
-             <AlertDescription className="text-sm text-red-700">
-               You are not eligible to continue with the registration because you are over 20 years old.
-               Please choose a different birthday or select 'Cancel' and register as an Adult Student.
-             </AlertDescription>
-           </Alert>
-         )}
-       </>
-     )}
-   </div>
- );
+          {/* Eligibility Alert */}
+          {!isEligible && studentType !== 'Adult Student' && (
+            <Alert className="bg-red-50 border-red-200">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-sm text-red-700">
+                You are not eligible to continue with the registration because you are over 20 years old.
+                Please choose a different birthday or select 'Cancel' and register as an Adult Student.
+              </AlertDescription>
+            </Alert>
+          )}
+        </>
+      )}
+    </div>
+  );
 });
 
 NonPrimaryStudentForm.displayName = 'NonPrimaryStudentForm';
@@ -2743,13 +2903,18 @@ const DatePickerWithInfo = ({
   isRegistrationDeadline = false,
   hasActiveWindow = true,
   timeSection = null,
-  isNextYear = false
+  isNextYear = false,
+  recommendedEndDate = null
  }) => {
   // Function to calculate the default open date (5 months from start date)
   const getOpenToDate = () => {
     if (!startDate || label !== 'Completion Date') return null;
     
-    const openDate = new Date(startDate);
+    // If there's a recommended end date, use that
+    if (recommendedEndDate) return recommendedEndDate;
+    
+    // Otherwise, default to 5 months after start date
+    const openDate = toEdmontonDate(startDate);
     openDate.setMonth(openDate.getMonth() + 5);
     return openDate;
   };
@@ -2792,7 +2957,7 @@ const DatePickerWithInfo = ({
     }
     
     if (isRegistrationDeadline && maxDate) {
-      return `Note: You must register by ${maxDate.toLocaleDateString()} to qualify for this diploma exam.`;
+      return `Note: You must register by ${formatDateForDisplay(maxDate)} to qualify for this diploma exam.`;
     }
     
     if (timeSection) {
@@ -2831,7 +2996,7 @@ const DatePickerWithInfo = ({
       </div>
       
       <DatePicker
-        selected={selected ? utcToLocal(selected) : null}
+        selected={selected ? toEdmontonDate(selected) : null}
         onChange={onChange}
         minDate={minDate}
         maxDate={maxDate}
@@ -2862,6 +3027,15 @@ const DatePickerWithInfo = ({
         <div className="flex items-center gap-2 mt-1">
           <InfoIcon className="h-4 w-4 text-blue-500" />
           <span className="text-sm text-blue-700">{notice}</span>
+        </div>
+      )}
+      
+      {recommendedEndDate && label === "Completion Date" && !readOnly && !disabled && (
+        <div className="flex items-start gap-2 mt-1">
+          <InfoIcon className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+          <span className="text-sm text-blue-700">
+            Recommended completion date: {formatDateForDisplay(recommendedEndDate)}
+          </span>
         </div>
       )}
       
