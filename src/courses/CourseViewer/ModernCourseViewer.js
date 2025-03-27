@@ -3,8 +3,20 @@ import { getDatabase, ref, onValue, get } from 'firebase/database';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../context/AuthContext';
-import { Info, MenuIcon, CalendarDays, Star, ExternalLink } from 'lucide-react';
-import { Card, CardContent } from '../../components/ui/card';
+import { 
+  Info, 
+  MenuIcon, 
+  CalendarDays, 
+  Star, 
+  ExternalLink, 
+  Eye,
+  EyeOff,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Lightbulb
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Separator } from '../../components/ui/separator';
 import { ScrollArea } from '../../components/ui/scroll-area';
@@ -34,6 +46,16 @@ const typeColors = {
   info: 'text-gray-600 bg-gray-50 border-gray-200',
 };
 
+const typeIcons = {
+  lesson: <BookOpen className="h-4 w-4" />,
+  assignment: <ClipboardCheck className="h-4 w-4" />,
+  exam: <FileText className="h-4 w-4" />,
+  info: <Lightbulb className="h-4 w-4" />,
+};
+
+// Import necessary icons
+import { BookOpen, FileText, ClipboardCheck } from 'lucide-react';
+
 const ModernCourseViewer = ({
   courseId,
   previewMode = false,
@@ -49,14 +71,16 @@ const ModernCourseViewer = ({
   const [currentUnitIndex, setCurrentUnitIndex] = useState(0);
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [contentLoading, setContentLoading] = useState(true);
   const [creatingInitialSchedule, setCreatingInitialSchedule] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [contentData, setContentData] = useState(null);
   const [ltiLaunchLoading, setLtiLaunchLoading] = useState(false);
   const [isLaunchSheetOpen, setIsLaunchSheetOpen] = useState(false);
   const [ltiLaunchUrl, setLtiLaunchUrl] = useState(null);
   const [normalizedSchedule, setNormalizedSchedule] = useState(null);
   const [needsInitialSchedule, setNeedsInitialSchedule] = useState(false);
+  const [error, setError] = useState(null);
 
   // All useMemo hooks must be defined in the same order every render
   const units = useMemo(() => courseData?.units || [], [courseData]);
@@ -88,7 +112,6 @@ const ModernCourseViewer = ({
   }, [contentData, currentUnit, currentItem]);
   
   // Create a proper preview schedule from the course data for preview mode
-  // This now more closely resembles the structure expected by CourseNavigation
   const previewSchedule = useMemo(() => {
     if (!previewMode || normalizedSchedule) return normalizedSchedule;
     
@@ -163,6 +186,34 @@ const ModernCourseViewer = ({
     };
   }, [normalizedSchedule, previewMode]);
 
+  // Navigation functions
+  const goToNextItem = () => {
+    if (!currentUnit || !currentUnit.items) return;
+    
+    if (currentItemIndex < currentUnit.items.length - 1) {
+      // Next item in current unit
+      setCurrentItemIndex(currentItemIndex + 1);
+    } else if (currentUnitIndex < units.length - 1) {
+      // First item in next unit
+      setCurrentUnitIndex(currentUnitIndex + 1);
+      setCurrentItemIndex(0);
+    }
+  };
+
+  const goToPreviousItem = () => {
+    if (currentItemIndex > 0) {
+      // Previous item in current unit
+      setCurrentItemIndex(currentItemIndex - 1);
+    } else if (currentUnitIndex > 0) {
+      // Last item in previous unit
+      const prevUnit = units[currentUnitIndex - 1];
+      if (prevUnit && prevUnit.items && prevUnit.items.length > 0) {
+        setCurrentUnitIndex(currentUnitIndex - 1);
+        setCurrentItemIndex(prevUnit.items.length - 1);
+      }
+    }
+  };
+
   // Function to create initial normalized schedule
   const createSchedule = async () => {
     if (previewMode || !current_user_email_key || !courseId || !courseData || !studentCourseData) {
@@ -204,6 +255,7 @@ const ModernCourseViewer = ({
       }
     } catch (error) {
       console.error('Error creating schedule:', error);
+      setError('Failed to create schedule. Please try again.');
     } finally {
       setCreatingInitialSchedule(false);
       setNeedsInitialSchedule(false);
@@ -297,44 +349,122 @@ const ModernCourseViewer = ({
     }
   }, [needsInitialSchedule, courseData, studentCourseData, normalizedSchedule, creatingInitialSchedule]);
 
-  // Enhanced Firestore content fetching
+  // Function to gather all contentPaths from course data
+  const getContentPaths = (courseData) => {
+    if (!courseData || !courseData.units) return [];
+    
+    const paths = [];
+    courseData.units.forEach((unit, unitIndex) => {
+      if (unit && unit.items) {
+        unit.items.forEach((item, itemIndex) => {
+          if (item && item.contentPath) {
+            paths.push({
+              unitIndex,
+              itemIndex,
+              unitSequence: unit.sequence,
+              itemSequence: item.sequence,
+              contentPath: item.contentPath
+            });
+          }
+        });
+      }
+    });
+    
+    return paths;
+  };
+
+  // Fetch content from individual content paths in Firestore
   useEffect(() => {
-    // Even in preview mode, we want to fetch from published path
-    if (!courseId) {
-      console.error('No courseId provided');
+    if (!courseData) {
       return;
     }
-  
+
     // Special case: if previewContent already has the content structure we need
     if (previewMode && previewContent && previewContent.units) {
       console.log("Using provided preview content structure:", previewContent);
       setContentData(previewContent);
+      setContentLoading(false);
       return;
     }
-  
-    const fetchContent = async () => {
-      const firestore = getFirestore();
-      // Ensure courseId is a string
-      const courseIdString = String(courseId);
-      // Always fetch from published path, even in preview mode
-      const contentRef = doc(firestore, 'courses', courseIdString, 'content', 'published');
-  
+    
+    const fetchContentFromPaths = async () => {
+      setContentLoading(true);
+      
       try {
-        const docSnap = await getDoc(contentRef);
-        if (docSnap.exists()) {
-          console.log("Loaded published content from Firestore");
-          setContentData(docSnap.data());
-        } else {
-          console.log("No published content found");
+        // 1. Get content paths from the course data
+        const contentPaths = getContentPaths(courseData);
+        console.log(`Found ${contentPaths.length} content paths`);
+        
+        if (contentPaths.length === 0) {
           setContentData(null);
+          setContentLoading(false);
+          return;
         }
+        
+        // 2. Initialize content structure
+        const contentStructure = { units: {} };
+        
+        // 3. Fetch content for each path
+        const firestore = getFirestore();
+        
+        for (const pathInfo of contentPaths) {
+          if (!pathInfo.contentPath) continue;
+          
+          // Replace 'draft' with 'saved' to ensure we get the published version
+          const contentPath = pathInfo.contentPath.replace('/draft/', '/saved/');
+          console.log(`Fetching content from: ${contentPath}`);
+          
+          try {
+            // Get the document reference
+            const contentRef = doc(firestore, contentPath);
+            const contentSnap = await getDoc(contentRef);
+            
+            console.log(`Document exists: ${contentSnap.exists()}`);
+            if (contentSnap.exists()) {
+              // Log the full document data to debug
+              console.log(`Document data:`, contentSnap.data());
+              
+              const unitId = `unit_${pathInfo.unitSequence}`;
+              const itemId = `item_${pathInfo.itemSequence}`;
+              
+              // Ensure unit exists in the structure
+              if (!contentStructure.units[unitId]) {
+                contentStructure.units[unitId] = { items: {} };
+              }
+              
+              // Ensure items exists in the unit
+              if (!contentStructure.units[unitId].items) {
+                contentStructure.units[unitId].items = {};
+              }
+              
+              // Add the content to the structure - accessing 'content' property from the document
+              const docData = contentSnap.data();
+              const contentHtml = docData.content || "";
+              console.log(`Content HTML for ${unitId}/${itemId}:`, contentHtml.substring(0, 100) + "...");
+              
+              contentStructure.units[unitId].items[itemId] = {
+                content: contentHtml
+              };
+            } else {
+              console.log(`No content found at ${contentPath}`);
+            }
+          } catch (error) {
+            console.error(`Error fetching content for path ${pathInfo.contentPath}:`, error);
+          }
+        }
+        
+        console.log("Content successfully assembled:", contentStructure);
+        setContentData(contentStructure);
       } catch (error) {
         console.error('Error fetching content:', error);
+        setError('Failed to load content. Please try again.');
+      } finally {
+        setContentLoading(false);
       }
     };
-  
-    fetchContent();
-  }, [courseId, previewMode, previewContent]);
+
+    fetchContentFromPaths();
+  }, [courseData, previewMode, previewContent]);
 
   // Prepare LTI launch URL
   useEffect(() => {
@@ -388,14 +518,32 @@ const ModernCourseViewer = ({
     return item.globalIndex === adherence.currentCompletedIndex;
   };
 
-  // Updated renderContent function using ContentDisplay component
+  // Get the item type icon
+  const getItemTypeIcon = (type) => {
+    return typeIcons[type] || <Info className="h-4 w-4" />;
+  };
+
+  // Updated renderContent function
   const renderContent = () => {
+    if (contentLoading) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center p-8">
+            <div className="flex justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+            <p className="mt-4 text-blue-700 font-medium">Loading content...</p>
+          </div>
+        </div>
+      );
+    }
+
     if (!currentItem) {
       return (
         <div className="text-gray-600">
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
+          <Alert className="border-blue-100 bg-gradient-to-r from-blue-50/90 to-indigo-50/90 text-blue-800">
+            <Info className="h-4 w-4 text-blue-500" />
+            <AlertDescription className="font-medium">
               No content selected. Please choose an item from the menu.
             </AlertDescription>
           </Alert>
@@ -409,25 +557,25 @@ const ModernCourseViewer = ({
       if (normalizedSchedule?.isInitialSchedule) {
         return (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg shadow-sm">
               <div className="space-y-1">
-                <h3 className="text-lg font-semibold">Begin Your Course</h3>
-                <p className="text-sm text-gray-500">
+                <h3 className="text-lg font-semibold text-blue-800">Begin Your Course</h3>
+                <p className="text-sm text-blue-700">
                   Click to start this lesson and activate your course progress tracking
                 </p>
               </div>
               <Button
                 onClick={() => setIsLaunchSheetOpen(true)}
                 disabled={ltiLaunchLoading}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md transition-all duration-200"
               >
                 <ExternalLink className="h-4 w-4" />
                 Start Lesson
               </Button>
             </div>
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
+            <Alert className="border-blue-100 bg-gradient-to-r from-blue-50/80 to-indigo-50/80">
+              <Info className="h-4 w-4 text-blue-500" />
+              <AlertDescription className="font-medium text-blue-700">
                 Your progress will be tracked once you start your first lesson.
               </AlertDescription>
             </Alert>
@@ -450,15 +598,15 @@ const ModernCourseViewer = ({
       // Normal LTI launch for students with progress
       return (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg shadow-sm">
             <div className="space-y-1">
-              <h3 className="text-lg font-semibold">IMathAS Assessment</h3>
-              <p className="text-sm text-gray-500">Click to open the assessment</p>
+              <h3 className="text-lg font-semibold text-blue-800">IMathAS Assessment</h3>
+              <p className="text-sm text-blue-700">Click to open the assessment</p>
             </div>
             <Button
               onClick={() => setIsLaunchSheetOpen(true)}
               disabled={ltiLaunchLoading}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md transition-all duration-200"
             >
               <ExternalLink className="h-4 w-4" />
               Open Assessment
@@ -480,26 +628,47 @@ const ModernCourseViewer = ({
       );
     }
 
+    // Debug logging to help diagnose issues
+    if (currentUnit && currentItem) {
+      const unitId = `unit_${currentUnit.sequence}`;
+      const itemId = `item_${currentItem.sequence}`;
+      console.log("Current unit & item IDs:", unitId, itemId);
+      console.log("ContentData structure:", contentData);
+      if (contentData?.units?.[unitId]?.items?.[itemId]) {
+        console.log("Found content for current item:", contentData.units[unitId].items[itemId]);
+      } else {
+        console.log("No content found for current item in contentData");
+      }
+    }
+
     // Use ContentDisplay component for regular content
     return (
-      <ContentDisplay 
-    item={currentItem}
-    unit={currentUnit}
-    contentData={currentItemContent} 
-    allContentData={contentData}   
-    previewMode={previewMode}
-  />
+      <div className="bg-gradient-to-br from-white via-blue-50/10 to-indigo-50/20 rounded-lg">
+        <ContentDisplay 
+          item={currentItem}
+          unit={currentUnit}
+          contentData={contentData} 
+          previewMode={previewMode}
+        />
+      </div>
     );
   };
 
   // Handle loading states
   if (loading || creatingInitialSchedule) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">
-            {creatingInitialSchedule ? 'Creating your schedule...' : 'Loading your course...'}
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/50">
+        <div className="text-center p-8 bg-white rounded-xl shadow-xl border border-blue-100">
+          <div className="flex justify-center mb-6">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+          <p className="text-blue-700 font-medium text-lg">
+            {creatingInitialSchedule ? 'Creating your personalized schedule...' : 'Loading your course...'}
+          </p>
+          <p className="text-blue-600/70 mt-2 max-w-sm">
+            {creatingInitialSchedule 
+              ? 'This may take a moment as we prepare your customized learning path.' 
+              : 'We\'re gathering your course materials and progress data.'}
           </p>
         </div>
       </div>
@@ -509,9 +678,11 @@ const ModernCourseViewer = ({
   // Check if we have necessary data to render
   if (!courseData && !previewMode) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-center">
-          <p className="text-gray-600">No course data available</p>
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/50">
+        <div className="text-center p-8 bg-white rounded-xl shadow-lg border border-blue-100">
+          <AlertTriangle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
+          <p className="text-blue-800 font-medium text-lg">No course data available</p>
+          <p className="text-blue-600/70 mt-2">Please select a different course or contact support.</p>
         </div>
       </div>
     );
@@ -522,21 +693,26 @@ const ModernCourseViewer = ({
   // Check if we have either a normalized schedule or a preview schedule
   const hasSchedule = normalizedSchedule || (previewMode && previewSchedule && previewSchedule.units);
 
+  // Determine if we have next/previous items available
+  const hasNextItem = currentUnitIndex < units.length - 1 || currentItemIndex < (currentUnit?.items?.length - 1 || 0);
+  const hasPrevItem = currentUnitIndex > 0 || currentItemIndex > 0;
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-full flex flex-col min-h-0 bg-gradient-to-br from-blue-50/30 via-white to-indigo-50/30">
       {/* Header */}
-      <div className="h-16 border-b border-gray-200 bg-white">
-        <div className="h-full px-4 flex items-center justify-between">
+      <div className="flex-none bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 shadow-lg">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="hover:bg-gray-100">
+                <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 active:bg-white/20 rounded-full">
                   <MenuIcon className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-[85%] sm:w-[540px] p-0">
-                <SheetHeader className="px-4 py-2">
-                  <SheetTitle>
+              <SheetContent side="left" className="w-[85%] sm:w-[540px] p-0 border-r border-blue-100 bg-gradient-to-br from-blue-50/90 via-white to-indigo-50/80">
+                <SheetHeader className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 border-b border-blue-400">
+                  <SheetTitle className="text-white flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" /> 
                     Course Content
                     {previewMode && (
                       <Badge variant="outline" className="ml-2 bg-amber-100 text-amber-800 border-amber-200">
@@ -570,10 +746,15 @@ const ModernCourseViewer = ({
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full p-6">
-                    <div className="text-center">
-                      <p className="text-gray-600 mb-4">No schedule found for this course.</p>
+                    <div className="text-center p-8 bg-white rounded-lg shadow-md border border-blue-100">
+                      <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+                      <p className="text-blue-800 font-medium mb-4">No schedule found for this course.</p>
                       {!previewMode && (
-                        <Button onClick={createSchedule} disabled={creatingInitialSchedule}>
+                        <Button 
+                          onClick={createSchedule} 
+                          disabled={creatingInitialSchedule}
+                          className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md transition-all duration-200"
+                        >
                           {creatingInitialSchedule ? 'Creating Schedule...' : 'Create Schedule'}
                         </Button>
                       )}
@@ -583,144 +764,197 @@ const ModernCourseViewer = ({
               </SheetContent>
             </Sheet>
             <div className="flex items-center gap-2">
-              <span className={typeColors[currentItem?.type]?.split(' ')[0] || ''}>
-                {currentItem?.type && <Info className="h-5 w-5" />}
-              </span>
-              <h2 className="font-semibold break-words max-w-xl line-clamp-2">
-                {currentItem?.title || 'No item selected'}
-                {previewMode && (
-                  <Badge variant="outline" className="ml-2 text-xs bg-amber-100 text-amber-800 border-amber-200">
-                    Preview
-                  </Badge>
-                )}
-              </h2>
+              <h1 className="text-xl font-semibold text-white">{courseTitle || 'Course Viewer'}</h1>
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full">
+              <span className="text-sm text-white font-medium">
+                <span className="flex items-center gap-1">
+                  <Eye className="w-4 h-4" /> Viewing Mode
+                </span>
+              </span>
+            </div>
             {!previewMode && (
               <PerformanceSummary
                 studentCourseData={studentCourseData}
                 courseData={courseData}
               />
             )}
-            <Separator orientation="vertical" className="h-8" />
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        <ScrollArea className="flex-1">
-          <div className="p-6">
-            <div className="max-w-4xl mx-auto space-y-6">
+      {error && (
+        <div className="flex-none px-4 py-2">
+          <Alert variant="destructive" className="border-red-200 bg-red-50 shadow-sm">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="font-medium">{error}</AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {/* Current Item Info Bar */}
+      <div className="flex-none bg-white border-b border-blue-100 px-4 py-2 shadow-sm sticky top-0 z-10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <div className={`flex items-center justify-center px-3 py-1 rounded-full mr-3 ${typeColors[currentItem?.type] || 'bg-gray-100 text-gray-800'}`}>
+              {getItemTypeIcon(currentItem?.type)}
+              <span className="ml-1.5 capitalize text-xs font-medium">{currentItem?.type || 'Item'}</span>
+            </div>
+            <h2 className="font-medium text-blue-800 truncate max-w-md">
+              {currentItem?.title || 'No item selected'}
               {previewMode && (
-                <Alert className="mb-6 bg-amber-50 border-amber-200 text-amber-800">
-                  <Info className="h-5 w-5" />
-                  <AlertDescription>
-                    <p className="font-medium">Preview Mode</p>
-                    <p>This is a preview of how students will see your course content.</p>
-                  </AlertDescription>
-                </Alert>
+                <Badge variant="outline" className="ml-2 text-xs bg-amber-100 text-amber-800 border-amber-200">
+                  Preview
+                </Badge>
               )}
-              
-              {!previewMode && isInitialSchedule && (
-                <Alert className="mb-6 bg-blue-50 border-blue-200 text-blue-800">
-                  <Info className="h-5 w-5" />
-                  <AlertDescription>
-                    <p className="font-medium">Welcome to your course!</p>
-                    <p>Click on your first lesson to begin tracking your progress.</p>
-                  </AlertDescription>
-                </Alert>
-              )}
-              
-              {/* Item Header Card */}
-              <Card className="border-t-4 shadow-sm">
-                <CardContent className="p-6">
-                  <div
-                    className={`flex items-start gap-4 p-4 rounded-lg ${typeColors[currentItem?.type] || ''}`}
-                  >
-                    <span className="text-lg mt-1">
-                      <Info className="h-5 w-5" />
-                    </span>
-                    <div className="space-y-1 flex-1">
-                      <h3 className="text-xl font-semibold break-words">
-                        {currentItem?.title || 'No item selected'}
-                      </h3>
-                      {currentItem?.type === 'assignment' && currentItem?.multiplier > 1 && (
-                        <div className="flex items-center gap-2">
-                          <Star className="w-4 h-4" />
-                          <span className="text-sm font-medium">
-                            Weighted {currentItem.multiplier}x
-                          </span>
-                        </div>
-                      )}
-                      {normalizedSchedule && !previewMode && currentItem && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {(() => {
-                            const scheduleItem = findScheduleItem(currentItem);
-                            if (scheduleItem && scheduleItem.date) {
-                              return (
-                                <div className="space-y-2">
-                                  <Badge
-                                    variant="secondary"
-                                    className={typeColors[currentItem.type] || ''}
-                                  >
-                                    <CalendarDays className="w-3 h-3 mr-1" />
-                                    {format(
-                                      parseISO(scheduleItem.date),
-                                      'MMM d, yyyy'
-                                    )}
-                                  </Badge>
-                                  {scheduleItem.assessmentData && (
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="outline">
-                                        Grade: {scheduleItem.assessmentData.scorePercent}%
-                                      </Badge>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
-                      )}
-                    </div>
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={goToPreviousItem}
+              disabled={!hasPrevItem}
+              size="sm"
+              variant="outline"
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+            </Button>
+            <Button
+              onClick={goToNextItem}
+              disabled={!hasNextItem}
+              size="sm"
+              variant="outline"
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+            >
+              Next <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-auto min-h-0">
+        <div className="p-4 h-full">
+        
+          
+          {!previewMode && isInitialSchedule && (
+            <Alert className="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 text-blue-800 shadow-sm">
+              <Info className="h-4 w-4 text-blue-500" />
+              <AlertDescription>
+                <p className="font-medium">Welcome to your course!</p>
+                <p>Click on your first lesson to begin tracking your progress.</p>
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {/* Content Cards */}
+          <div className="space-y-4 max-w-4xl mx-auto">
+            {/* Item Details Card */}
+            <Card className="shadow-lg border-blue-100 overflow-hidden rounded-xl">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 py-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-blue-700 flex items-center gap-2">
+                      {getItemTypeIcon(currentItem?.type)}
+                      {currentItem?.title || 'No item selected'}
+                    </CardTitle>
+                    {currentItem?.type && (
+                      <div className="text-xs text-blue-600 mt-1 capitalize flex items-center gap-1">
+                        <span>{currentItem.type}</span>
+                        {currentItem.type === 'assignment' && currentItem.multiplier > 1 && (
+                          <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-700 border-blue-200">
+                            <Star className="w-3 h-3 mr-1" />
+                            {currentItem.multiplier}x Weight
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="flex items-center">
+                    {normalizedSchedule && !previewMode && currentItem && (() => {
+                      const scheduleItem = findScheduleItem(currentItem);
+                      if (scheduleItem && scheduleItem.date) {
+                        return (
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge
+                              variant="secondary"
+                              className="bg-blue-100 text-blue-700 border-blue-200"
+                            >
+                              <CalendarDays className="w-3 h-3 mr-1" />
+                              {format(parseISO(scheduleItem.date), 'MMM d, yyyy')}
+                            </Badge>
+                            {scheduleItem.assessmentData && (
+                              <Badge variant="outline" className="bg-green-50 border-green-200 text-green-700">
+                                Grade: {scheduleItem.assessmentData.scorePercent}%
+                              </Badge>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                {renderContent()}
+              </CardContent>
+              <CardFooter className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border-t border-blue-100 py-2 px-6">
+                <div className="flex items-center justify-between w-full">
+                  <Button
+                    onClick={goToPreviousItem}
+                    disabled={!hasPrevItem}
+                    variant="ghost"
+                    size="sm"
+                    className="text-blue-600 hover:bg-blue-100/50"
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                  </Button>
+                  <div className="flex items-center text-sm text-blue-700">
+                    <span>Unit {currentUnit?.sequence || '?'}</span>
+                    <span className="mx-2">•</span>
+                    <span>Item {(currentItemIndex + 1) || '?'} of {currentUnit?.items?.length || '?'}</span>
+                  </div>
+                  <Button
+                    onClick={goToNextItem}
+                    disabled={!hasNextItem}
+                    variant="ghost"
+                    size="sm"
+                    className="text-blue-600 hover:bg-blue-100/50"
+                  >
+                    Next <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </CardFooter>
+            </Card>
+          </div>
+        </div>
+      </div>
 
-              {/* Main Content Card */}
-              <Card>
-                <CardContent className="p-6">{renderContent()}</CardContent>
-              </Card>
+      {/* Footer with Progress */}
+      <div className="h-12 flex-none bg-white border-t border-blue-100 px-6 shadow-inner">
+        <div className="flex items-center justify-between h-full max-w-4xl mx-auto">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-blue-700">
+                {currentUnit?.name || `Unit ${currentUnit?.sequence || '?'}`}
+              </span>
             </div>
           </div>
-        </ScrollArea>
-
-        {/* Footer */}
-        <div className="h-16 border-t border-gray-200 bg-white px-6 flex-shrink-0">
-          <div className="flex items-center justify-between h-full max-w-4xl mx-auto">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-600">
-                  Unit {currentUnit?.sequence || '?'} of {units.length}
-                </span>
-                <span className="text-gray-300">•</span>
-                <span className="text-sm font-medium text-gray-600">
-                  Item {(currentItemIndex + 1) || '?'} of {currentUnit?.items?.length || '?'}
-                </span>
-              </div>
+          {!previewMode && normalizedSchedule && (
+            <div className="flex items-center gap-3 w-64">
+              <Progress 
+                value={calculateProgress()} 
+                className="h-2 bg-blue-100" 
+                indicatorClassName="bg-gradient-to-r from-blue-500 to-indigo-500" 
+              />
+              <span className="text-sm font-medium text-blue-700 w-14">
+                {calculateProgress()}%
+              </span>
             </div>
-            {!previewMode && normalizedSchedule && (
-              <div className="flex items-center gap-3 w-64">
-                <Progress value={calculateProgress()} className="h-2" />
-                <span className="text-sm font-medium text-gray-600 w-14">
-                  {calculateProgress()}%
-                </span>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>

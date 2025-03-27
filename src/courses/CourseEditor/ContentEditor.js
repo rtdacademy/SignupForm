@@ -16,6 +16,7 @@ import { Card } from '../../components/ui/card';
 import { ScrollArea } from '../../components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import QuillEditor from './QuillEditor';
+import { sanitizeHtml } from '../../utils/htmlSanitizer';
 
 // Enhanced colors with more vibrant gradients 
 const typeColors = {
@@ -227,7 +228,7 @@ const ContentEditor = ({
                         </div>
                       </div>
                       
-                      {/* Content Preview Accordion */}
+                      {/* Content Preview Accordion - SANITIZE HTML HERE */}
                       {content && (
                         <Accordion type="single" collapsible>
                           <AccordionItem value="content-preview" className="border-0">
@@ -238,7 +239,7 @@ const ContentEditor = ({
                             </AccordionTrigger>
                             <AccordionContent className="p-6 bg-white">
                               <div className="prose prose-sm lg:prose-base max-w-none">
-                                <div dangerouslySetInnerHTML={{ __html: content }} />
+                                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }} />
                               </div>
                             </AccordionContent>
                           </AccordionItem>

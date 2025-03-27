@@ -23,28 +23,40 @@ import {
   PlayCircle,
   Target,
   Info,
+  CheckCircle,
+  Award,
+  FileText,
+  ClipboardCheck,
+  Lightbulb
 } from 'lucide-react';
 import ProgressSection from '../components/ProgressSection';
 
 const typeColors = {
-  lesson: 'bg-blue-100 text-blue-800',
-  assignment: 'bg-green-100 text-green-800',
-  exam: 'bg-red-100 text-red-800',
-  info: 'bg-yellow-100 text-yellow-800',
+  lesson: 'bg-blue-100 text-blue-800 border-blue-200',
+  assignment: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  exam: 'bg-purple-100 text-purple-800 border-purple-200',
+  info: 'bg-amber-100 text-amber-800 border-amber-200',
+};
+
+const typeIcons = {
+  lesson: <BookOpen className="h-4 w-4" />,
+  assignment: <ClipboardCheck className="h-4 w-4" />,
+  exam: <FileText className="h-4 w-4" />,
+  info: <Lightbulb className="h-4 w-4" />,
 };
 
 const getTitleAccentColor = (type) => {
   switch (type) {
     case 'exam':
-      return 'bg-red-50';
+      return 'bg-purple-50 border-l-4 border-purple-300';
     case 'assignment':
-      return 'bg-green-50';
+      return 'bg-emerald-50 border-l-4 border-emerald-300';
     case 'lesson':
-      return 'bg-blue-50';
+      return 'bg-blue-50 border-l-4 border-blue-300';
     case 'info':
-      return 'bg-yellow-50';
+      return 'bg-amber-50 border-l-4 border-amber-300';
     default:
-      return 'bg-gray-50';
+      return 'bg-gray-50 border-l-4 border-gray-300';
   }
 };
 
@@ -108,45 +120,53 @@ const CourseNavigation = ({
     console.groupEnd();
   }, [normalizedSchedule, studentCourseData, isInitialSchedule]);
 
+  const getItemIcon = (item) => {
+    if (!item || !item.type) return <Info className="h-4 w-4" />;
+    return typeIcons[item.type] || <Info className="h-4 w-4" />;
+  };
+
   const renderItem = (item, unitIdx, itemIdx) => {
     // Safety check for item
-    if (!item || !item.title || item.type === 'info' && item.title === 'Schedule Created') {
+    if (!item || !item.title || (item.type === 'info' && item.title === 'Schedule Created')) {
       return null;
     }
 
- // For preview mode, simplify the item display
- if (previewMode) {
-  return (
-    <Card
-      key={`${unitIdx}-${itemIdx}-${item.sequence || itemIdx}`}
-      className="mb-2 shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer"
-      onClick={() => onItemSelect(unitIdx, itemIdx)}
-    >
-      <CardContent className="p-3">
-        <div className="flex justify-between items-start">
-          <div className="flex-grow flex items-start gap-2">
-            <div className="flex-grow">
-              <div
-                className={`prose prose-sm max-w-none prose-headings:m-0 prose-p:m-0
-                  prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
-                  font-medium text-gray-900 ${getTitleAccentColor(item.type)}
-                  p-2 rounded-md mb-2`}
-                dangerouslySetInnerHTML={{ __html: sanitizeHTML(item.title) }}
-              />
+    // For preview mode, simplify the item display
+    if (previewMode) {
+      return (
+        <Card
+          key={`${unitIdx}-${itemIdx}-${item.sequence || itemIdx}`}
+          className="mb-2 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-blue-100 hover:border-blue-300"
+          onClick={() => onItemSelect(unitIdx, itemIdx)}
+        >
+          <CardContent className="p-3">
+            <div className="flex justify-between items-start">
+              <div className="flex-grow flex items-start gap-2">
+                <div className="mt-1">
+                  {getItemIcon(item)}
+                </div>
+                <div className="flex-grow">
+                  <div
+                    className={`prose prose-sm max-w-none prose-headings:m-0 prose-p:m-0
+                      prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
+                      font-medium text-gray-900 ${getTitleAccentColor(item.type)}
+                      p-2 rounded-md`}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHTML(item.title) }}
+                  />
+                </div>
+              </div>
+              <Badge className={`${typeColors[item.type] || 'bg-gray-100 text-gray-800'} text-xs ml-2 shrink-0`}>
+                {item.type || 'unknown'}
+              </Badge>
             </div>
-          </div>
-          <Badge className={`${typeColors[item.type] || 'bg-gray-100 text-gray-800'} text-xs ml-2 shrink-0`}>
-            {item.type || 'unknown'}
-          </Badge>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+          </CardContent>
+        </Card>
+      );
+    }
 
     const scheduleItem = findScheduleItem?.(item);
     const isCurrentScheduled = normalizedSchedule?.scheduleAdherence && 
-                               item.globalIndex === normalizedSchedule.scheduleAdherence.currentScheduledIndex;
+                              item.globalIndex === normalizedSchedule.scheduleAdherence.currentScheduledIndex;
     const isCurrentProgress = normalizedSchedule?.scheduleAdherence && 
                               item.globalIndex === (normalizedSchedule.scheduleAdherence.currentCompletedIndex + 1);
     const isCompleted = item.assessmentData !== undefined;
@@ -161,7 +181,12 @@ const CourseNavigation = ({
         const scorePercent = parseFloat(item.assessmentData.scorePercent);
         return {
           label: `${scorePercent.toFixed(1)}%`,
-          className: 'bg-blue-100 text-blue-800',
+          className: scorePercent >= 80 
+            ? 'bg-green-100 text-green-800 border-green-200' 
+            : scorePercent >= 50 
+              ? 'bg-amber-100 text-amber-800 border-amber-200' 
+              : 'bg-red-100 text-red-800 border-red-200',
+          icon: <CheckCircle className="w-3 h-3 mr-1" />
         };
       }
       
@@ -169,13 +194,15 @@ const CourseNavigation = ({
       if (isInitialSchedule && item.globalIndex === 0) {
         return {
           label: 'Start Here',
-          className: 'bg-blue-200 text-blue-900 font-medium',
+          className: 'bg-blue-200 text-blue-900 font-medium border-blue-300',
+          icon: <PlayCircle className="w-3 h-3 mr-1" />
         };
       }
       
       return {
         label: item.type || 'unknown',
-        className: typeColors[item.type] || 'bg-gray-100 text-gray-800',
+        className: typeColors[item.type] || 'bg-gray-100 text-gray-800 border-gray-200',
+        icon: getItemIcon(item)
       };
     };
 
@@ -183,19 +210,19 @@ const CourseNavigation = ({
 
     const getCardBorderClass = () => {
       if (isInitialSchedule && item.globalIndex === 0) {
-        return 'border-blue-500 border-2 bg-blue-50';
+        return 'border-blue-500 border-l-4 bg-blue-50/50';
       }
-      if (isCurrentProgress) return 'border-purple-500 border-2 bg-purple-50';
-      if (isCurrentScheduled) return 'border-green-500 border-2 bg-green-50';
-      return '';
+      if (isCurrentProgress) return 'border-purple-500 border-l-4 bg-purple-50/50';
+      if (isCurrentScheduled) return 'border-green-500 border-l-4 bg-green-50/50';
+      if (isCompleted) return 'border-gray-300 border-l-4 bg-gray-50/50';
+      return 'border-gray-200 hover:border-l-4 hover:border-blue-300';
     };
 
     return (
       <Card
         key={`${unitIdx}-${itemIdx}-${item.sequence || itemIdx}`}
-        className={`mb-2 shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer
-          ${getCardBorderClass()}
-          ${isCompleted ? 'bg-gray-50' : ''}`}
+        className={`mb-2 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer
+          ${getCardBorderClass()}`}
         onClick={() => onItemSelect(unitIdx, itemIdx)}
       >
         <CardContent className="p-3">
@@ -204,10 +231,10 @@ const CourseNavigation = ({
               {isInitialSchedule && item.globalIndex === 0 && (
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger>
-                      <PlayCircle className="text-blue-600 mt-1" size={16} />
+                    <TooltipTrigger className="mt-1">
+                      <PlayCircle className="text-blue-600" size={16} />
                     </TooltipTrigger>
-                    <TooltipContent>
+                    <TooltipContent className="bg-blue-900 text-white border-blue-700">
                       <p>Start your course here</p>
                     </TooltipContent>
                   </Tooltip>
@@ -216,10 +243,10 @@ const CourseNavigation = ({
               {isCurrentProgress && !isInitialSchedule && (
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger>
-                      <PlayCircle className="text-purple-600 mt-1" size={16} />
+                    <TooltipTrigger className="mt-1">
+                      <PlayCircle className="text-purple-600" size={16} />
                     </TooltipTrigger>
-                    <TooltipContent>
+                    <TooltipContent className="bg-purple-900 text-white border-purple-700">
                       <p>Current Progress Position</p>
                     </TooltipContent>
                   </Tooltip>
@@ -228,11 +255,23 @@ const CourseNavigation = ({
               {isCurrentScheduled && !isInitialSchedule && (
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger>
-                      <Target className="text-green-600 mt-1" size={16} />
+                    <TooltipTrigger className="mt-1">
+                      <Target className="text-green-600" size={16} />
                     </TooltipTrigger>
-                    <TooltipContent>
+                    <TooltipContent className="bg-green-900 text-white border-green-700">
                       <p>Scheduled Position</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {isCompleted && !isInitialSchedule && !isCurrentProgress && !isCurrentScheduled && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger className="mt-1">
+                      <CheckCircle className="text-gray-500" size={16} />
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-gray-900 text-white border-gray-700">
+                      <p>Completed</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -241,7 +280,7 @@ const CourseNavigation = ({
                 <div
                   className={`prose prose-sm max-w-none prose-headings:m-0 prose-p:m-0
                     prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline
-                    font-medium text-gray-900 ${getTitleAccentColor(item.type)}
+                    font-medium text-gray-900 
                     p-2 rounded-md mb-2`}
                   dangerouslySetInnerHTML={sanitizedTitle}
                 />
@@ -262,7 +301,7 @@ const CourseNavigation = ({
                             {lastChange ? format(fromUnixTime(lastChange), 'MMM d') : 'Not yet'}
                           </span>
                         </TooltipTrigger>
-                        <TooltipContent>
+                        <TooltipContent className="bg-blue-900 text-white border-blue-700">
                           <TimeDetails startTime={startTime} lastChange={lastChange} />
                         </TooltipContent>
                       </Tooltip>
@@ -271,7 +310,8 @@ const CourseNavigation = ({
                 </div>
               </div>
             </div>
-            <Badge className={`${scoreDisplay.className} text-xs ml-2 shrink-0`}>
+            <Badge className={`${scoreDisplay.className} text-xs ml-2 shrink-0 flex items-center px-2 py-1`}>
+              {scoreDisplay.icon}
               {scoreDisplay.label}
             </Badge>
           </div>
@@ -337,29 +377,30 @@ const CourseNavigation = ({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-gray-200 bg-gray-50">
-  <h2 className="font-semibold text-xl text-gray-800 mb-2">
-    {courseTitle}
-    {previewMode && (
-      <Badge variant="outline" className="ml-2 bg-amber-100 text-amber-800 border-amber-200">
-        Preview Mode
-      </Badge>
-    )}
-  </h2>
-  {scheduleDates && !previewMode && (
-    <div className="flex items-center gap-2 text-sm text-gray-600">
-      <Calendar className="w-4 h-4" />
-      <span>
-        {scheduleDates.startDate} - {scheduleDates.endDate}
-      </span>
-    </div>
-  )}
-</div>
+      <div className="p-4 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50">
+        <h2 className="font-semibold text-xl text-blue-800 mb-2 flex items-center gap-2">
+          <BookOpen className="h-5 w-5 text-blue-600" />
+          {courseTitle}
+          {previewMode && (
+            <Badge variant="outline" className="ml-2 bg-amber-100 text-amber-800 border-amber-200">
+              Preview Mode
+            </Badge>
+          )}
+        </h2>
+        {scheduleDates && !previewMode && (
+          <div className="flex items-center gap-2 text-sm text-blue-600 mt-1 bg-white px-3 py-1.5 rounded-full shadow-sm w-fit">
+            <Calendar className="w-4 h-4" />
+            <span>
+              {scheduleDates.startDate} - {scheduleDates.endDate}
+            </span>
+          </div>
+        )}
+      </div>
 
       <ScrollArea className="flex-1 w-full">
         <div className="p-4">
           {isInitialSchedule && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg shadow-sm">
               <div className="flex items-start gap-2">
                 <Info className="text-blue-600 h-5 w-5 mt-0.5" />
                 <div>
@@ -393,9 +434,9 @@ const CourseNavigation = ({
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([sectionNumber, sectionUnits]) => (
               <div key={sectionNumber} className="mb-8">
-                <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg mb-4">
-                  <BookOpen className="w-5 h-5 text-blue-600" />
-                  <h3 className="font-semibold text-gray-900">
+                <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-full mb-4 shadow-sm">
+                  <Award className="w-5 h-5 text-blue-600" />
+                  <h3 className="font-semibold text-blue-900">
                     Section {sectionNumber}
                   </h3>
                 </div>
@@ -421,27 +462,29 @@ const CourseNavigation = ({
                         key={`unit-${unit.sequence}`}
                         value={`unit-${unit.sequence}`}
                         className={
-                          isCurrentUnit ? 'border-purple-200 bg-purple-50 rounded-lg' : ''
+                          isCurrentUnit 
+                            ? 'border border-purple-200 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg shadow-sm' 
+                            : 'border border-blue-100 bg-white hover:bg-blue-50/50 rounded-lg shadow-sm'
                         }
                       >
-                        <AccordionTrigger className="hover:no-underline">
-                          <div className="flex items-center gap-2">
+                        <AccordionTrigger className="hover:no-underline px-4">
+                          <div className="flex items-center gap-3">
                             <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-gray-700 font-medium
-                                ${isCurrentUnit ? 'bg-purple-100' : 'bg-gray-100'}`}
+                              className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm
+                                ${isCurrentUnit ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' : 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'}`}
                             >
                               {unit.sequence}
                             </div>
                             <span
                               className={`font-semibold ${
-                                isCurrentUnit ? 'text-purple-800' : 'text-gray-900'
+                                isCurrentUnit ? 'text-purple-800' : 'text-blue-800'
                               }`}
                             >
                               {unit.name || `Unit ${unit.sequence}`}
                             </span>
                           </div>
                         </AccordionTrigger>
-                        <AccordionContent className="px-4">
+                        <AccordionContent className="px-4 pt-2">
                           <div className="space-y-2">
                             {unit.items?.map((item, itemIdx) => {
                               if (!item) return null;

@@ -1,6 +1,5 @@
 const functions = require('firebase-functions');
 const { TextToSpeechClient } = require('@google-cloud/text-to-speech');
-const { TextToSpeechClient: TextToSpeechBetaClient } = require('@google-cloud/text-to-speech').v1beta1;
 const cors = require('cors')({
   origin: [
     'http://localhost:3000',  // Create React App default port
