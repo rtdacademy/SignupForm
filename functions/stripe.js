@@ -1,6 +1,4 @@
 const functions = require('firebase-functions');
-const stripeSecretKey = functions.config().stripe?.secret_key || 'sk_test_emulator_key';
-const stripe = require('stripe')(stripeSecretKey);
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('./utils');
 
@@ -124,7 +122,7 @@ async function getOrCreateCustomerPaymentRecord(userEmail, stripeCustomerId) {
 }
 
 // One-time payment handler
-async function handleOneTimePayment(charge, eventType = 'charge.succeeded') {
+async function handleOneTimePayment(stripe, charge, eventType = 'charge.succeeded') {
   try {
     const metadata = charge.metadata;
     console.log('Processing one-time payment:', { charge_id: charge.id, metadata });
@@ -160,7 +158,7 @@ async function handleOneTimePayment(charge, eventType = 'charge.succeeded') {
 }
 
 // Update the handleSubscriptionUpdate function to maintain invoice history
-async function handleSubscriptionUpdate(data, eventType = 'subscription.updated') {
+async function handleSubscriptionUpdate(stripe, data, eventType = 'subscription.updated') {
   try {
     const { subscription, invoice = null } = data;
     console.log('Processing subscription update:', { subscription_id: subscription.id, metadata: subscription.metadata });
@@ -230,7 +228,7 @@ async function handleSubscriptionUpdate(data, eventType = 'subscription.updated'
 }
 
 // Handle subscription scheduling
-async function handleSubscriptionSchedule(data) {
+async function handleSubscriptionSchedule(stripe, data) {
   try {
     const { subscriptionId, cancelAt } = data;
     console.log('Scheduling subscription cancellation:', { subscriptionId, cancelAt });
@@ -254,93 +252,6 @@ async function handleSubscriptionSchedule(data) {
   } catch (error) {
     console.error('Error scheduling subscription:', error);
     throw new functions.https.HttpsError('internal', error.message);
-  }
-}
-
-// Main webhook handler
-async function handleStripeWebhook(req, res) {
-  const signature = req.headers['stripe-signature'];
-  const endpointSecret = functions.config().stripe.webhook_secret;
-
-  try {
-    console.log('Received webhook request');
-    
-    const event = stripe.webhooks.constructEvent(
-      req.rawBody,
-      signature,
-      endpointSecret
-    );
-
-    console.log('Webhook event received:', event.type, 'Event ID:', event.id);
-
-    switch (event.type) {
-      case 'checkout.session.completed':
-        const session = event.data.object;
-        console.log('Checkout session completed:', session);
-        
-        if (session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(session.subscription);
-          if (subscription.metadata?.cancel_at) {
-            await handleSubscriptionSchedule({
-              subscriptionId: subscription.id,
-              cancelAt: subscription.metadata.cancel_at
-            });
-          }
-          await handleSubscriptionUpdate({ subscription }, event.type);
-        } else if (session.payment_intent) {
-          console.log('Processing one-time payment, fetching payment intent:', session.payment_intent);
-          const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
-          const charge = paymentIntent.latest_charge ? 
-            await stripe.charges.retrieve(paymentIntent.latest_charge) :
-            null;
-            
-          if (charge) {
-            console.log('Processing charge:', charge.id);
-            await handleOneTimePayment(charge, event.type);
-          }
-        }
-        break;
-
-      case 'charge.succeeded':
-        const charge = event.data.object;
-        console.log('Charge succeeded:', charge.id);
-        if (!charge.invoice) {
-          await handleOneTimePayment(charge, event.type);
-        }
-        break;
-
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted':
-        const subscription = event.data.object;
-        console.log('Subscription event:', event.type, subscription.id);
-        const invoice = subscription.latest_invoice ? 
-          await stripe.invoices.retrieve(subscription.latest_invoice) : 
-          null;
-        await handleSubscriptionUpdate({ subscription, invoice }, event.type);
-        break;
-
-      case 'invoice.paid':
-      case 'invoice.payment_failed':
-        const invoiceEvent = event.data.object;
-        console.log('Invoice event:', event.type, invoiceEvent.id);
-        if (invoiceEvent.subscription) {
-          const invoiceSubscription = await stripe.subscriptions.retrieve(invoiceEvent.subscription);
-          await handleSubscriptionUpdate({ 
-            subscription: invoiceSubscription, 
-            invoice: invoiceEvent 
-          }, event.type);
-        }
-        break;
-
-      default:
-        console.log('Unhandled event type:', event.type);
-    }
-
-    res.json({ received: true });
-  } catch (error) {
-    console.error('Webhook Error:', error.message, error.stack);
-    return res.status(400).send(`Webhook Error: ${error.message}`);
   }
 }
 
@@ -373,11 +284,128 @@ async function getPaymentStatus(data) {
   }
 }
 
-// Export all functions
-module.exports = {
-  handleStripeWebhook: functions.https.onRequest(handleStripeWebhook),
-  handleOneTimePayment: functions.https.onCall(handleOneTimePayment),
-  handleSubscriptionUpdate: functions.https.onCall(handleSubscriptionUpdate),
-  handleSubscriptionSchedule: functions.https.onCall(handleSubscriptionSchedule),
-  getPaymentStatus: functions.https.onCall(getPaymentStatus)
-};
+// Export with Secret Manager integration
+exports.handleStripeWebhook = functions
+  .runWith({
+    secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]
+  })
+  .https.onRequest(async (req, res) => {
+    // Initialize Stripe with the secret key from Secret Manager
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const signature = req.headers['stripe-signature'];
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    try {
+      console.log('Received webhook request');
+      
+      const event = stripe.webhooks.constructEvent(
+        req.rawBody,
+        signature,
+        endpointSecret
+      );
+
+      console.log('Webhook event received:', event.type, 'Event ID:', event.id);
+
+      switch (event.type) {
+        case 'checkout.session.completed':
+          const session = event.data.object;
+          console.log('Checkout session completed:', session);
+          
+          if (session.subscription) {
+            const subscription = await stripe.subscriptions.retrieve(session.subscription);
+            if (subscription.metadata?.cancel_at) {
+              await handleSubscriptionSchedule(stripe, {
+                subscriptionId: subscription.id,
+                cancelAt: subscription.metadata.cancel_at
+              });
+            }
+            await handleSubscriptionUpdate(stripe, { subscription }, event.type);
+          } else if (session.payment_intent) {
+            console.log('Processing one-time payment, fetching payment intent:', session.payment_intent);
+            const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
+            const charge = paymentIntent.latest_charge ? 
+              await stripe.charges.retrieve(paymentIntent.latest_charge) :
+              null;
+              
+            if (charge) {
+              console.log('Processing charge:', charge.id);
+              await handleOneTimePayment(stripe, charge, event.type);
+            }
+          }
+          break;
+
+        case 'charge.succeeded':
+          const charge = event.data.object;
+          console.log('Charge succeeded:', charge.id);
+          if (!charge.invoice) {
+            await handleOneTimePayment(stripe, charge, event.type);
+          }
+          break;
+
+        case 'customer.subscription.created':
+        case 'customer.subscription.updated':
+        case 'customer.subscription.deleted':
+          const subscription = event.data.object;
+          console.log('Subscription event:', event.type, subscription.id);
+          const invoice = subscription.latest_invoice ? 
+            await stripe.invoices.retrieve(subscription.latest_invoice) : 
+            null;
+          await handleSubscriptionUpdate(stripe, { subscription, invoice }, event.type);
+          break;
+
+        case 'invoice.paid':
+        case 'invoice.payment_failed':
+          const invoiceEvent = event.data.object;
+          console.log('Invoice event:', event.type, invoiceEvent.id);
+          if (invoiceEvent.subscription) {
+            const invoiceSubscription = await stripe.subscriptions.retrieve(invoiceEvent.subscription);
+            await handleSubscriptionUpdate(stripe, { 
+              subscription: invoiceSubscription, 
+              invoice: invoiceEvent 
+            }, event.type);
+          }
+          break;
+
+        default:
+          console.log('Unhandled event type:', event.type);
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      console.error('Webhook Error:', error.message, error.stack);
+      return res.status(400).send(`Webhook Error: ${error.message}`);
+    }
+  });
+
+exports.handleOneTimePayment = functions
+  .runWith({
+    secrets: ["STRIPE_SECRET_KEY"]
+  })
+  .https.onCall(async (data, context) => {
+    // Initialize Stripe with the secret key from Secret Manager
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    return handleOneTimePayment(stripe, data);
+  });
+
+exports.handleSubscriptionUpdate = functions
+  .runWith({
+    secrets: ["STRIPE_SECRET_KEY"]
+  })
+  .https.onCall(async (data, context) => {
+    // Initialize Stripe with the secret key from Secret Manager
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    return handleSubscriptionUpdate(stripe, data);
+  });
+
+exports.handleSubscriptionSchedule = functions
+  .runWith({
+    secrets: ["STRIPE_SECRET_KEY"]
+  })
+  .https.onCall(async (data, context) => {
+    // Initialize Stripe with the secret key from Secret Manager
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    return handleSubscriptionSchedule(stripe, data);
+  });
+
+exports.getPaymentStatus = functions
+  .https.onCall(getPaymentStatus);

@@ -27,6 +27,10 @@
       ],
       "rewrites": [
         {
+          "source": "/api/tts-v2",
+          "function": "streamTTSv2"
+        },
+        {
           "source": "/api/tts",
           "function": "streamTTS"
         },
@@ -51,6 +55,10 @@
       ],
       "rewrites": [
         {
+          "source": "/api/tts-v2",
+          "function": "streamTTSv2"
+        },
+        {
           "source": "/api/tts",
           "function": "streamTTS"
         },
@@ -64,27 +72,27 @@
     }
   ],
   "emulators": {
-  "auth": {
-    "port": 9099
-  },
-  "functions": {
-    "port": 5001
-  },
-  "firestore": {
-    "port": 8080
-  },
-  "database": {
-    "port": 9000
-  },
-  "hosting": {
-    "port": 5000
-  },
-  "storage": {
-    "port": 9199
-  },
-  "ui": {
-    "enabled": true
-  },
-  "singleProjectMode": true
-}
+    "auth": {
+      "port": 9099
+    },
+    "functions": {
+      "port": 5001
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "database": {
+      "port": 9000
+    },
+    "hosting": {
+      "port": 5000
+    },
+    "storage": {
+      "port": 9199
+    },
+    "ui": {
+      "enabled": true
+    },
+    "singleProjectMode": true
+  }
 }

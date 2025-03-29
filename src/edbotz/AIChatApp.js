@@ -204,25 +204,43 @@ const processText = (text) => {
 const MessageBubble = React.memo(({ message, isStreaming, userName, assistantName, firebaseApp }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const [audioInfo, setAudioInfo] = useState(null);
   const audioRef = useRef(null);
+  const checkIntervalRef = useRef(null);
   const isUser = message.sender === 'user';
+  
+  // Clean up function to properly handle audio resources
+  const cleanupAudio = useCallback(() => {
+    // Clear any ongoing check interval
+    if (checkIntervalRef.current) {
+      clearInterval(checkIntervalRef.current);
+      checkIntervalRef.current = null;
+    }
+    
+    // Stop and clean up audio controller
+    if (audioRef.current) {
+      // Check if it's a streaming controller with stop method
+      if (typeof audioRef.current.stop === 'function') {
+        audioRef.current.stop();
+      } else {
+        // Otherwise it's a regular Audio object
+        audioRef.current.pause();
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+      audioRef.current = null;
+    }
+    
+    setIsPlaying(false);
+    setIsLoadingAudio(false);
+    setAudioInfo(null);
+  }, []);
  
   const handlePlay = async () => {
     console.log('Play button clicked');
+    
     // If already playing, stop playback
     if (isPlaying) {
-      if (audioRef.current) {
-        // Check if it's a streaming controller with stop method
-        if (typeof audioRef.current.stop === 'function') {
-          audioRef.current.stop();
-        } else {
-          // Otherwise it's a regular Audio object
-          audioRef.current.pause();
-          URL.revokeObjectURL(audioRef.current.src);
-        }
-        audioRef.current = null;
-      }
-      setIsPlaying(false);
+      cleanupAudio();
       return;
     }
   
@@ -230,13 +248,26 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
     setIsPlaying(true);
     
     try {
+      // Determine optimal chunk size based on message length
+      let chunkSize = 'medium';
+      if (message.text.length > 1000) {
+        chunkSize = 'large';
+      } else if (message.text.length < 200) {
+        chunkSize = 'small';
+      }
+      
       // Use the unified TTS function with AI preprocessing
       const useStreaming = message.text.length > 100;
-      const audioController = await textToSpeech(firebaseApp, message.text, useStreaming);
+      const audioController = await textToSpeech(
+        firebaseApp, 
+        message.text, 
+        useStreaming, 
+        false, // Don't skip AI preprocessing
+        chunkSize
+      );
       
       if (!audioController) {
-        setIsPlaying(false);
-        setIsLoadingAudio(false);
+        cleanupAudio();
         return;
       }
       
@@ -244,11 +275,22 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
       setIsLoadingAudio(false);
       
       if (useStreaming) {
-        // For streaming audio, set up interval to check when playback ends
-        const checkInterval = setInterval(() => {
-          if (audioRef.current && !audioRef.current.isActive()) {
-            clearInterval(checkInterval);
-            setIsPlaying(false);
+        // For streaming audio, set up interval to check playback status and update info
+        checkIntervalRef.current = setInterval(() => {
+          if (!audioRef.current) {
+            cleanupAudio();
+            return;
+          }
+          
+          // Check if playback has ended
+          if (!audioRef.current.isActive()) {
+            cleanupAudio();
+            return;
+          }
+          
+          // Update audio info if available
+          if (typeof audioRef.current.getPlaybackInfo === 'function') {
+            setAudioInfo(audioRef.current.getPlaybackInfo());
           }
         }, 500);
       } else {
@@ -260,40 +302,29 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
         
         // Wait for the audio to finish
         await new Promise(resolve => {
+          // Handle normal end of playback
           audioController.addEventListener('ended', () => {
-            setIsPlaying(false);
-            setIsLoadingAudio(false);
+            cleanupAudio();
             resolve();
           }, { once: true });
           
           // Handle errors
           audioController.addEventListener('error', () => {
-            setIsPlaying(false);
-            setIsLoadingAudio(false);
+            cleanupAudio();
             resolve();
           }, { once: true });
         });
       }
     } catch (error) {
       console.error('Speech synthesis failed:', error);
-      setIsPlaying(false);
-      setIsLoadingAudio(false);
+      cleanupAudio();
     }
   };
  
   // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        if (typeof audioRef.current.stop === 'function') {
-          audioRef.current.stop();
-        } else {
-          audioRef.current.pause();
-          URL.revokeObjectURL(audioRef.current.src);
-        }
-      }
-    };
-  }, []);
+    return cleanupAudio;
+  }, [cleanupAudio]);
  
   return (
     <div className={cn(
@@ -324,6 +355,7 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
                   isPlaying ? "text-red-600 hover:text-red-700" : "text-purple-600 hover:text-purple-700"
                 )}
                 disabled={isLoadingAudio}
+                title={isPlaying ? "Stop audio" : "Play text as speech"}
               >
                 {isLoadingAudio ? (
                   <Loader className="w-3 h-3 animate-spin" />
@@ -373,9 +405,18 @@ const MessageBubble = React.memo(({ message, isStreaming, userName, assistantNam
           </div>
         </div>
         
-        <span className="text-xs text-gray-400 mt-1">
-          {new Date(message.timestamp).toLocaleTimeString()}
-        </span>
+        <div className="flex items-center justify-between w-full mt-1">
+          <span className="text-xs text-gray-400">
+            {new Date(message.timestamp).toLocaleTimeString()}
+          </span>
+          
+          {/* Audio playback info - only shown when audio is playing */}
+          {isPlaying && audioInfo && (
+            <span className="text-xs text-purple-500 ml-2">
+              {`${(audioInfo.bufferedDuration || 0).toFixed(1)}s buffered`}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

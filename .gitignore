@@ -6,3 +6,10 @@ public/index.html
 public/Logo.svg
 public/edbotz-favicon.svg
 .env*
+.runtimeconfig.json
+firebase-debug.log
+database-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/
+*.log

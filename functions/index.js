@@ -1,5 +1,6 @@
 // functions/index.js
 const admin = require('firebase-admin');
+require('dotenv').config();
 
 // Initialize Firebase Admin if not already initialized
 if (!admin.apps.length) {
@@ -98,7 +99,10 @@ exports.addSchoolYearToPasiLinks = httpFunctions.addSchoolYearToPasiLinks;
 
 // Export text-to-speech function
 exports.textToSpeech = speechFunctions.textToSpeech; 
-exports.streamTTS = speechFunctions.streamTTS; 
+
+exports.streamTTSv2 = require('./standalone-streamTTSv2').streamTTSv2;
+
+
 
 exports.primarySchoolNameUpdate = httpFunctions.primarySchoolNameUpdate; 
 

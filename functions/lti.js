@@ -580,7 +580,13 @@ exports.ltiLogin = functions.https.onRequest(async (req, res) => {
 });
 
 // Get LTI configuration from functions config
-const LTI_CONFIG = functions.config().lti;
+const LTI_CONFIG = {
+    issuer: process.env.LTI_ISSUER,
+    kid: process.env.LTI_KID,
+    base_url: process.env.LTI_BASE_URL,
+    public_key: process.env.LTI_PUBLIC_KEY,
+    client_id: process.env.LTI_CLIENT_ID
+  };
 
 // LTI Deep Link Return Endpoint (ltiDeepLinkReturn)
 exports.ltiDeepLinkReturn = functions.https.onRequest(async (req, res) => {

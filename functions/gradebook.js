@@ -1,10 +1,9 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const { sanitizeEmail, API_KEY } = require('./utils');
+const { sanitizeEmail } = require('./utils');
 const _ = require('lodash');
 
 const processGradebookData = (data) => {
- 
   return data;
 };
 
@@ -231,9 +230,6 @@ const transformGradebookData = (headers, studentData) => {
   };
 };
 
-
-
-
 const transformCategories = (categoriesData) => {
   return categoriesData.map(category => ({
     id: category[1] || null,
@@ -242,137 +238,141 @@ const transformCategories = (categoriesData) => {
   }));
 };
 
-const updateGradebookData = functions.https.onRequest(async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
+const updateGradebookData = functions
+  .runWith({
+    secrets: ["API_KEY"]
+  })
+  .https.onRequest(async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
 
-  if (req.method === 'OPTIONS') {
-    res.set('Access-Control-Allow-Methods', 'POST');
-    res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-    res.set('Access-Control-Max-Age', '3600');
-    return res.status(204).send('');
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).send('Method Not Allowed');
-  }
-
-  // Check for the Authorization header
-  const authHeader = req.headers.authorization;
-  if (!authHeader || authHeader !== `Bearer ${API_KEY}`) {
-    return res.status(401).send('Invalid or missing API key');
-  }
-
-  try {
-    const data = req.body;
-    console.log('Received gradebook data:', JSON.stringify(data));
-
-    // Validate required fields
-    if (!data.studentEmail || !data.LMSStudentID || !data.LMSCourseID || !data.SharePointStudentID) {
-      throw new Error('studentEmail, LMSStudentID, LMSCourseID, and SharePointStudentID are required');
+    if (req.method === 'OPTIONS') {
+      res.set('Access-Control-Allow-Methods', 'POST');
+      res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+      res.set('Access-Control-Max-Age', '3600');
+      return res.status(204).send('');
     }
 
-    const sanitizedEmail = sanitizeEmail(data.studentEmail);
-    const db = admin.database();
-    const studentRef = db.ref(`students/${sanitizedEmail}`);
-    const courseRef = studentRef.child(`courses/${data.LMSCourseID}`);
-    const gradebookRef = courseRef.child('jsonGradebook');
-    const sectionRef = courseRef.child('section');
-    const globalSectionsRef = db.ref('courses/sections');
-
-    // Process and transform the gradebook data
-    const processedData = processGradebookData(data);
-    const transformedData = transformGradebookData(processedData.headers, processedData.student);
-
-    // Extract section from student info
-    const studentSection = processedData.student.info[2] || '';
-
-    // Prepare the new gradebook data
-    const newGradebookData = {
-      lmsStudentId: processedData.LMSStudentID,
-      sharePointStudentId: processedData.SharePointStudentID,
-      gradebook: transformedData,
-      lastChecked: admin.database.ServerValue.TIMESTAMP
-    };
-
-    // Get the current gradebook data, section, and global sections
-    const [currentGradebookSnapshot, currentSectionSnapshot, globalSectionsSnapshot] = await Promise.all([
-      gradebookRef.once('value'),
-      sectionRef.once('value'),
-      globalSectionsRef.once('value')
-    ]);
-    
-    const currentGradebookData = currentGradebookSnapshot.val();
-    const currentSection = currentSectionSnapshot.val();
-    const globalSections = globalSectionsSnapshot.val() || {};
-
-    // Track if we need to make any updates
-    let updates = {};
-    let globalSectionUpdates = {};
-    let changesMade = false;
-
-    // Check if gradebook data has changed
-    if (!currentGradebookData || isGradebookChanged(currentGradebookData, newGradebookData)) {
-      newGradebookData.lastUpdated = admin.database.ServerValue.TIMESTAMP;
-      updates['jsonGradebook'] = newGradebookData;
-      changesMade = true;
-    } else {
-      // No changes to gradebook, just update the lastChecked timestamp
-      updates['jsonGradebook/lastChecked'] = admin.database.ServerValue.TIMESTAMP;
+    if (req.method !== 'POST') {
+      return res.status(405).send('Method Not Allowed');
     }
 
-    // Check if section has changed and needs to be updated in student's course data
-    if (studentSection && studentSection !== currentSection) {
-      updates['section'] = studentSection;
-      changesMade = true;
+    // Check for the Authorization header using the API_KEY from Secret Manager
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${process.env.API_KEY}`) {
+      return res.status(401).send('Invalid or missing API key');
+    }
 
-      // Check if section needs to be added to global sections
-      if (studentSection && !globalSections[studentSection]) {
-        console.log(`Adding new section ${studentSection} to global sections`);
-        globalSectionUpdates[studentSection] = true;
+    try {
+      const data = req.body;
+      console.log('Received gradebook data:', JSON.stringify(data));
+
+      // Validate required fields
+      if (!data.studentEmail || !data.LMSStudentID || !data.LMSCourseID || !data.SharePointStudentID) {
+        throw new Error('studentEmail, LMSStudentID, LMSCourseID, and SharePointStudentID are required');
       }
-    }
 
-    // Apply updates if there are any changes
-    const updatePromises = [];
+      const sanitizedEmail = sanitizeEmail(data.studentEmail);
+      const db = admin.database();
+      const studentRef = db.ref(`students/${sanitizedEmail}`);
+      const courseRef = studentRef.child(`courses/${data.LMSCourseID}`);
+      const gradebookRef = courseRef.child('jsonGradebook');
+      const sectionRef = courseRef.child('section');
+      const globalSectionsRef = db.ref('courses/sections');
 
-    if (Object.keys(updates).length > 0) {
-      updatePromises.push(courseRef.update(updates));
-    }
+      // Process and transform the gradebook data
+      const processedData = processGradebookData(data);
+      const transformedData = transformGradebookData(processedData.headers, processedData.student);
 
-    if (Object.keys(globalSectionUpdates).length > 0) {
-      updatePromises.push(globalSectionsRef.update(globalSectionUpdates));
-    }
+      // Extract section from student info
+      const studentSection = processedData.student.info[2] || '';
 
-    if (updatePromises.length > 0) {
-      await Promise.all(updatePromises);
+      // Prepare the new gradebook data
+      const newGradebookData = {
+        lmsStudentId: processedData.LMSStudentID,
+        sharePointStudentId: processedData.SharePointStudentID,
+        gradebook: transformedData,
+        lastChecked: admin.database.ServerValue.TIMESTAMP
+      };
+
+      // Get the current gradebook data, section, and global sections
+      const [currentGradebookSnapshot, currentSectionSnapshot, globalSectionsSnapshot] = await Promise.all([
+        gradebookRef.once('value'),
+        sectionRef.once('value'),
+        globalSectionsRef.once('value')
+      ]);
       
-      const message = changesMade 
-        ? `Data updated successfully for student ${sanitizedEmail} in course ${data.LMSCourseID}`
-        : `No significant changes detected for student ${sanitizedEmail} in course ${data.LMSCourseID}`;
+      const currentGradebookData = currentGradebookSnapshot.val();
+      const currentSection = currentSectionSnapshot.val();
+      const globalSections = globalSectionsSnapshot.val() || {};
+
+      // Track if we need to make any updates
+      let updates = {};
+      let globalSectionUpdates = {};
+      let changesMade = false;
+
+      // Check if gradebook data has changed
+      if (!currentGradebookData || isGradebookChanged(currentGradebookData, newGradebookData)) {
+        newGradebookData.lastUpdated = admin.database.ServerValue.TIMESTAMP;
+        updates['jsonGradebook'] = newGradebookData;
+        changesMade = true;
+      } else {
+        // No changes to gradebook, just update the lastChecked timestamp
+        updates['jsonGradebook/lastChecked'] = admin.database.ServerValue.TIMESTAMP;
+      }
+
+      // Check if section has changed and needs to be updated in student's course data
+      if (studentSection && studentSection !== currentSection) {
+        updates['section'] = studentSection;
+        changesMade = true;
+
+        // Check if section needs to be added to global sections
+        if (studentSection && !globalSections[studentSection]) {
+          console.log(`Adding new section ${studentSection} to global sections`);
+          globalSectionUpdates[studentSection] = true;
+        }
+      }
+
+      // Apply updates if there are any changes
+      const updatePromises = [];
+
+      if (Object.keys(updates).length > 0) {
+        updatePromises.push(courseRef.update(updates));
+      }
+
+      if (Object.keys(globalSectionUpdates).length > 0) {
+        updatePromises.push(globalSectionsRef.update(globalSectionUpdates));
+      }
+
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises);
+        
+        const message = changesMade 
+          ? `Data updated successfully for student ${sanitizedEmail} in course ${data.LMSCourseID}`
+          : `No significant changes detected for student ${sanitizedEmail} in course ${data.LMSCourseID}`;
+        
+        res.status(200).send(message);
+      } else {
+        res.status(200).send(`No changes required for student ${sanitizedEmail} in course ${data.LMSCourseID}`);
+      }
+
+    } catch (error) {
+      console.error('Error updating gradebook data:', error);
       
-      res.status(200).send(message);
-    } else {
-      res.status(200).send(`No changes required for student ${sanitizedEmail} in course ${data.LMSCourseID}`);
+      // Log the error to the errorLogs/updateGradebookData node
+      const errorLogRef = admin.database().ref('errorLogs/updateGradebookData').push();
+      const errorLog = {
+        timestamp: admin.database.ServerValue.TIMESTAMP,
+        error: error.message,
+        stack: error.stack,
+        studentId: req.body.studentEmail ? sanitizeEmail(req.body.studentEmail) : null,
+        courseId: req.body.LMSCourseID,
+        jsonGradebookSnapshot: req.body
+      };
+      await errorLogRef.set(errorLog);
+
+      res.status(500).send('Internal Server Error: ' + error.message);
     }
-
-  } catch (error) {
-    console.error('Error updating gradebook data:', error);
-    
-    // Log the error to the errorLogs/updateGradebookData node
-    const errorLogRef = admin.database().ref('errorLogs/updateGradebookData').push();
-    const errorLog = {
-      timestamp: admin.database.ServerValue.TIMESTAMP,
-      error: error.message,
-      stack: error.stack,
-      studentId: req.body.studentEmail ? sanitizeEmail(req.body.studentEmail) : null,
-      courseId: req.body.LMSCourseID,
-      jsonGradebookSnapshot: req.body
-    };
-    await errorLogRef.set(errorLog);
-
-    res.status(500).send('Internal Server Error: ' + error.message);
-  }
-});
+  });
 
 const isGradebookChanged = (current, newData) => {
   const excludeFields = ['lastChecked', 'lastUpdated'];
@@ -383,8 +383,6 @@ const isGradebookChanged = (current, newData) => {
   };
   return !_.isEqual(stripTimestamps(current), stripTimestamps(newData));
 };
-
-
 
 /**
  * Cloud Function: addGradebookIndex
@@ -409,8 +407,6 @@ const addGradebookIndex = functions.database.ref('/courses/{courseId}/units')
 
     return admin.database().ref(`/courses/${context.params.courseId}/units`).set(updatedUnits);
   });
-
-  
 
 /**
  * Cloud Function: updateJsonGradebookSchedule
@@ -673,8 +669,6 @@ function calculateAdherenceMetrics(combinedData) {
   };
 }
 
-
-
 const updateJsonGradebookScheduleOnScheduleChange = functions.database
   .ref('/students/{studentId}/courses/{courseId}/ScheduleJSON')
   .onWrite(async (change, context) => {
@@ -770,7 +764,6 @@ const updateJsonGradebookScheduleOnScheduleChange = functions.database
       return null;
     }
   });
-
 
 module.exports = {
   updateGradebookData,
