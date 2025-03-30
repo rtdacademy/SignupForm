@@ -107,11 +107,29 @@ exports.streamTTSv2 = require('./standalone-streamTTSv2').streamTTSv2;
 exports.primarySchoolNameUpdate = httpFunctions.primarySchoolNameUpdate; 
 
 
+// Export original normalized schedule functions (1st gen)
+// Keeping these to allow gradual migration
 exports.onGradeUpdateTriggerNormalizedSchedule = normalizedScheduleFunctions.onGradeUpdateTriggerNormalizedSchedule;
 exports.generateNormalizedSchedule = normalizedScheduleFunctions.generateNormalizedSchedule;
 exports.onLMSStudentIDAssignedTriggerSchedule = normalizedScheduleFunctions.onLMSStudentIDAssignedTriggerSchedule;
 exports.updateDailyScheduleAdherence = normalizedScheduleFunctions.updateDailyScheduleAdherence;
 exports.batchUpdateNormalizedSchedules = normalizedScheduleFunctions.batchUpdateNormalizedSchedules;
+
+// Export new V2 normalized schedule functions (2nd gen)
+// Triggered when a grade is updated in imathas_grades, automatically updates student's normalized schedule
+exports.onGradeUpdateTriggerNormalizedScheduleV2 = normalizedScheduleFunctions.onGradeUpdateTriggerNormalizedScheduleV2;
+
+// HTTP callable function to generate/update a normalized schedule for a specific student and course
+exports.generateNormalizedScheduleV2 = normalizedScheduleFunctions.generateNormalizedScheduleV2;
+
+// Triggered when a student's LMSStudentID is assigned, generates their normalized schedule
+exports.onLMSStudentIDAssignedTriggerScheduleV2 = normalizedScheduleFunctions.onLMSStudentIDAssignedTriggerScheduleV2;
+
+// Scheduled daily function that performs lightweight updates to all active students' schedule adherence metrics
+exports.updateDailyScheduleAdherenceV2 = normalizedScheduleFunctions.updateDailyScheduleAdherenceV2;
+
+// HTTP callable function to process schedule updates for multiple students in parallel with progress tracking
+exports.batchUpdateNormalizedSchedulesV2 = normalizedScheduleFunctions.batchUpdateNormalizedSchedulesV2;
 
 
 exports.cleanupDeletedPasiRecord = pasiRecordsFunctions.cleanupDeletedPasiRecord;

@@ -232,7 +232,7 @@ const ModernCourseViewer = ({
         // If they have an ID, use the cloud function
         console.log('Student has LMSStudentID, using cloud function');
         const functions = getFunctions();
-        const generateScheduleFunction = httpsCallable(functions, 'generateNormalizedSchedule');
+        const generateScheduleFunction = httpsCallable(functions, 'generateNormalizedScheduleV2');
         
         await generateScheduleFunction({
           studentKey: current_user_email_key,

@@ -17,7 +17,7 @@ const functions = getFunctions();
 
 // Cloud Function call utility using new imports
 const batchUpdateNormalizedSchedules = async (data) => {
-  const callable = httpsCallable(functions, 'batchUpdateNormalizedSchedules');
+  const callable = httpsCallable(functions, 'batchUpdateNormalizedSchedulesV2');
   return callable(data);
 };
 

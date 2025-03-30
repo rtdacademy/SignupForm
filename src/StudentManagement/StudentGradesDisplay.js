@@ -855,12 +855,14 @@ const StudentGradesDisplay = ({
     
     try {
       setRefreshing(true)
-      const functions = getFunctions()
-      const updateScheduleFn = httpsCallable(functions, 'generateNormalizedSchedule')
+      // Make sure you're using the correct region
+      const functions = getFunctions();
+      // Explicitly set the region to match your function configuration
+      const functionWithRegion = httpsCallable(functions, 'generateNormalizedScheduleV2');
       
       console.log(`Requesting normalized schedule update for ${studentKey}/${courseId}`)
       
-      await updateScheduleFn({
+      await functionWithRegion({
         studentKey,
         courseId,
         forceUpdate: true
@@ -868,7 +870,11 @@ const StudentGradesDisplay = ({
       
       console.log('Update request sent successfully')
     } catch (error) {
+      // Improved error logging to see exactly what's happening
       console.error('Error requesting normalized schedule update:', error)
+      if (error.details) {
+        console.error('Error details:', error.details)
+      }
     } finally {
       setRefreshing(false)
     }
