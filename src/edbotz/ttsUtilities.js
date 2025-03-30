@@ -196,7 +196,15 @@ export const streamAudio = async (text, chunkSize = 'medium') => {
     
     // Enhanced error handling with more detailed logging
     try {
-      // Add credentials mode to handle CORS with cookies if needed
+      // Use appropriate credentials mode based on origin
+      const isSameOrigin = 
+        ttsUrl.startsWith(window.location.origin) || 
+        ttsUrl.startsWith('/');
+      
+      const credentialsMode = isSameOrigin ? 'same-origin' : 'include';
+      console.log(`Using credentials mode: ${credentialsMode}`);
+      
+      // Make the fetch request with appropriate credentials mode
       const response = await fetch(ttsUrl, {
         method: 'POST',
         headers: { 
@@ -208,8 +216,7 @@ export const streamAudio = async (text, chunkSize = 'medium') => {
           chunkSize
         }),
         signal: controller.signal,
-        // Include credentials for cross-origin requests
-        credentials: 'include'
+        credentials: credentialsMode
       });
       
       if (!response.ok) {
@@ -234,20 +241,17 @@ export const streamAudio = async (text, chunkSize = 'medium') => {
       const reader = response.body.getReader();
       
       // Audio processing variables
-      let headerProcessed = false;
+      let audioBufferQueue = [];
+      let totalBufferedDuration = 0;
+      let isPlaying = false;
+      let bytesReceived = 0;
+      let wavHeaderProcessed = false;
+      let accumulatedData = new Uint8Array(0);
       let wavFormat = {
         sampleRate: 24000,
         numChannels: 1,
         bytesPerSample: 2
       };
-      
-      // Create a pre-buffer for smoother playback
-      const PRE_BUFFER_DURATION = 1.5; // seconds
-      let audioBufferQueue = [];
-      let totalBufferedDuration = 0;
-      let isPlaying = false;
-      let bytesReceived = 0;
-      let wavHeaderSize = 44;
       
       // Function to play audio from the buffer queue
       const playNextBuffer = () => {
@@ -273,157 +277,89 @@ export const streamAudio = async (text, chunkSize = 'medium') => {
           isPlaying = true;
         }
         
+        // Update our tracking of buffer duration
+        totalBufferedDuration -= audioBuffer.duration;
+        
         console.log(`Playing buffer of duration: ${audioBuffer.duration}s, remaining buffers: ${audioBufferQueue.length}`);
       };
       
-      // Extract WAV header information
-      const extractWavHeader = (headerData, formatObject) => {
+      // Process WAV data in larger, complete chunks to avoid boundary issues
+      const processWavData = async (data, isComplete = false) => {
         try {
-          const view = new DataView(headerData.buffer);
-          const formatChunkOffset = findFormatChunk(headerData);
-          
-          if (formatChunkOffset === -1) return false;
-          
-          // Extract audio format information
-          formatObject.numChannels = view.getUint16(formatChunkOffset + 10, true);
-          formatObject.sampleRate = view.getUint32(formatChunkOffset + 12, true);
-          formatObject.bytesPerSample = view.getUint16(formatChunkOffset + 22, true) / 8;
-          
-          console.log(`WAV format: ${formatObject.sampleRate}Hz, ${formatObject.numChannels} channels, ${formatObject.bytesPerSample * 8} bits`);
-          return true;
-        } catch (error) {
-          console.error('Error extracting WAV header:', error);
-          return false;
-        }
-      };
-      
-      // Helper to find the format chunk in a WAV header
-      const findFormatChunk = (headerData) => {
-        let offset = 12; // Skip RIFF and WAVE markers
-        
-        while (offset < headerData.length - 8) {
-          const chunkId = String.fromCharCode(
-            headerData[offset], 
-            headerData[offset + 1], 
-            headerData[offset + 2], 
-            headerData[offset + 3]
-          );
-          
-          const chunkSize = new DataView(headerData.buffer).getUint32(offset + 4, true);
-          
-          if (chunkId === 'fmt ') {
-            return offset;
+          // For the first chunk, extract WAV header information
+          if (!wavHeaderProcessed && data.length >= 44) {
+            // Extract WAV header
+            const headerView = new DataView(data.buffer, data.byteOffset, 44);
+            
+            // Validate RIFF header and format chunk
+            const riffHeader = String.fromCharCode(data[0], data[1], data[2], data[3]);
+            if (riffHeader !== 'RIFF') {
+              console.warn('Invalid WAV header: RIFF signature not found');
+            } else {
+              // Extract basic format information from a standard WAV header
+              wavFormat.numChannels = headerView.getUint16(22, true);
+              wavFormat.sampleRate = headerView.getUint32(24, true);
+              wavFormat.bytesPerSample = headerView.getUint16(34, true) / 8;
+              
+              console.log(`WAV format: ${wavFormat.sampleRate}Hz, ${wavFormat.numChannels} channels, ${wavFormat.bytesPerSample * 8} bits`);
+              wavHeaderProcessed = true;
+            }
+            
+            // Keep the header in our accumulated data - don't remove it
+            // We'll properly handle complete chunks for decoding
           }
           
-          offset += 8 + chunkSize;
-        }
-        
-        return -1;
-      };
-      
-      // Enhanced WAV processing with error handling
-      const processWavChunk = async (chunk) => {
-        try {
-          // For the first chunk, we need to extract the WAV header
-          if (!headerProcessed) {
-            if (chunk.length < wavHeaderSize) {
-              console.warn('Chunk too small to contain WAV header');
-              return;
-            }
-            
-            // Process WAV header to get format information
-            headerProcessed = extractWavHeader(chunk.slice(0, wavHeaderSize), wavFormat);
-            
-            if (!headerProcessed) {
-              console.error('Failed to process WAV header, using default format');
-              // Continue with default format settings
-              headerProcessed = true;
-            }
-            
-            // Skip the header for audio processing
-            chunk = chunk.slice(wavHeaderSize);
-          }
+          // Determine chunk size for processing - using frame alignment logic
+          // Linear PCM frames are aligned to sample boundaries
+          const MIN_CHUNK_SIZE = 4800; // 0.1 seconds at 24kHz, 2 bytes per sample, mono
+          const bytesPerFrame = wavFormat.numChannels * wavFormat.bytesPerSample;
           
-          // Skip empty chunks
-          if (chunk.length === 0) return;
-          
-          // Create a proper WAV chunk with header for decoding
-          const wavChunk = createDecodableWavChunk(chunk, wavFormat);
-          
-          try {
-            // Decode the audio data
-            const audioBuffer = await audioContext.decodeAudioData(wavChunk.buffer.slice(0));
+          // Process complete chunks when we have enough data or when we're finishing
+          if (accumulatedData.length >= MIN_CHUNK_SIZE || isComplete) {
+            // Ensure frame alignment by trimming to nearest frame boundary
+            const frameCount = Math.floor(accumulatedData.length / bytesPerFrame);
+            const alignedSize = frameCount * bytesPerFrame;
             
-            // Add to buffer queue
-            audioBufferQueue.push(audioBuffer);
-            totalBufferedDuration += audioBuffer.duration;
-            
-            // Start playback after we've buffered enough data
-            if (totalBufferedDuration >= PRE_BUFFER_DURATION && !isPlaying) {
-              playNextBuffer();
+            // Only process if we have enough data
+            if (alignedSize >= 44) { // Needs at least header + some data
+              try {
+                // Decode the aligned chunk
+                const audioBuffer = await audioContext.decodeAudioData(accumulatedData.buffer.slice(0, alignedSize));
+                
+                // Add to buffer queue and update tracking
+                audioBufferQueue.push(audioBuffer);
+                totalBufferedDuration += audioBuffer.duration;
+                
+                console.log(`Decoded audio chunk of duration: ${audioBuffer.duration}s, size: ${alignedSize} bytes`);
+                
+                // Start playback after a short buffer (if not already playing)
+                const PRE_BUFFER_DURATION = 0.5; // shorter buffer for faster start
+                if (totalBufferedDuration >= PRE_BUFFER_DURATION && !isPlaying) {
+                  playNextBuffer();
+                }
+                
+                // Keep remaining data for next chunk
+                accumulatedData = accumulatedData.slice(alignedSize);
+              } catch (decodeError) {
+                console.warn('Error decoding audio chunk:', decodeError);
+                
+                // If we can't decode, discard half of data and try again later
+                if (accumulatedData.length > 1000) {
+                  accumulatedData = accumulatedData.slice(Math.floor(accumulatedData.length / 2));
+                } else {
+                  // If chunk is small, just discard all and start fresh
+                  accumulatedData = new Uint8Array(0);
+                }
+              }
             }
-          } catch (decodeError) {
-            console.warn('Error decoding audio chunk:', decodeError);
-            // Continue processing - one bad chunk shouldn't stop everything
           }
         } catch (error) {
-          console.error('Error processing WAV chunk:', error);
+          console.error('Error processing WAV data:', error);
         }
       };
       
-      // Create a valid WAV chunk that can be decoded
-      const createDecodableWavChunk = (audioData, format) => {
-        // Create a WAV header
-        const header = new ArrayBuffer(44);
-        const view = new DataView(header);
-        const encoder = new TextEncoder();
-        
-        // Write "RIFF" chunk descriptor
-        const writeString = (view, offset, string) => {
-          const bytes = encoder.encode(string);
-          for (let i = 0; i < bytes.length; i++) {
-            view.setUint8(offset + i, bytes[i]);
-          }
-        };
-        
-        writeString(view, 0, 'RIFF');
-        view.setUint32(4, 36 + audioData.length, true);
-        writeString(view, 8, 'WAVE');
-        
-        // "fmt " sub-chunk
-        writeString(view, 12, 'fmt ');
-        view.setUint32(16, 16, true);                   // fmt chunk size
-        view.setUint16(20, 1, true);                    // audio format (1 for PCM)
-        view.setUint16(22, format.numChannels, true);   // number of channels
-        view.setUint32(24, format.sampleRate, true);    // sample rate
-        
-        // Calculate bytes per second and block align
-        const bytesPerSecond = format.sampleRate * format.numChannels * format.bytesPerSample;
-        const blockAlign = format.numChannels * format.bytesPerSample;
-        
-        view.setUint32(28, bytesPerSecond, true);      // byte rate
-        view.setUint16(32, blockAlign, true);          // block align
-        view.setUint16(34, format.bytesPerSample * 8, true); // bits per sample
-        
-        // "data" sub-chunk
-        writeString(view, 36, 'data');
-        view.setUint32(40, audioData.length, true);     // data size
-        
-        // Combine header and audio data
-        const wavChunk = new Uint8Array(header.byteLength + audioData.length);
-        wavChunk.set(new Uint8Array(header), 0);
-        wavChunk.set(audioData, header.byteLength);
-        
-        return wavChunk;
-      };
-      
-      // Process chunks as they arrive
-      let buffer = new Uint8Array(0);
+      // Process stream chunks
       let chunkCounter = 0;
-      
-      // Error recovery variables
-      let consecutiveErrors = 0;
-      const MAX_CONSECUTIVE_ERRORS = 3;
       
       while (isActive) {
         try {
@@ -431,39 +367,27 @@ export const streamAudio = async (text, chunkSize = 'medium') => {
           
           if (done) {
             console.log('Stream complete, finalizing audio...');
+            // Process any remaining data
+            await processWavData(accumulatedData, true);
             break;
           }
           
           if (!value || value.length === 0) continue;
           
-          // Reset error counter on successful chunks
-          consecutiveErrors = 0;
-          
           chunkCounter++;
           bytesReceived += value.length;
           console.log(`Received chunk #${chunkCounter} of ${value.length} bytes, total: ${bytesReceived}`);
           
-          // Combine with existing buffer if needed
-          const combinedChunk = new Uint8Array(buffer.length + value.length);
-          combinedChunk.set(buffer);
-          combinedChunk.set(value, buffer.length);
+          // Append new data to our accumulated buffer
+          const newAccumulatedData = new Uint8Array(accumulatedData.length + value.length);
+          newAccumulatedData.set(accumulatedData);
+          newAccumulatedData.set(value, accumulatedData.length);
+          accumulatedData = newAccumulatedData;
           
-          // Process this chunk
-          await processWavChunk(combinedChunk);
-          
-          // Clear buffer after processing
-          buffer = new Uint8Array(0);
+          // Process the accumulated data
+          await processWavData(accumulatedData);
         } catch (chunkError) {
           console.error('Error processing stream chunk:', chunkError);
-          
-          // Count consecutive errors for recovery logic
-          consecutiveErrors++;
-          
-          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-            console.error('Too many consecutive errors, stopping stream');
-            break;
-          }
-          
           // Add a small delay before trying again
           await new Promise(resolve => setTimeout(resolve, 100));
         }
@@ -473,16 +397,6 @@ export const streamAudio = async (text, chunkSize = 'medium') => {
       
     } catch (fetchError) {
       console.error('Error fetching TTS stream:', fetchError);
-      
-      // Extract useful information about the error
-      if (fetchError.name === 'AbortError') {
-        console.log('Request was aborted');
-      } else if (fetchError.message && fetchError.message.includes('NetworkError')) {
-        console.error('Network error - this could be a CORS issue');
-        console.error('Suggestion: Check CORS configuration on your Cloud Function');
-      }
-      
-      // No fallback to v1 as requested by the user
       throw new Error(`Failed to connect to TTS service: ${fetchError.message}`);
     }
     

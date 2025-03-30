@@ -4,7 +4,7 @@
 
 export const AI_MODEL_MAPPING = {
   standard: {
-    name: 'gemini-2.0-flash-lite-preview-02-05',
+    name: 'gemini-2.0-flash-lite',
     label: 'Gemini 2.0 Flash-Lite',
     description: 'Great model for everyday use. This model provides quick, concise responses perfect for common tasks like answering questions, writing assistance, and basic analysis. It balances speed and accuracy while keeping costs low, making it ideal for chat applications with steady traffic. Best choice if you need reliable performance without advanced features.',
   },

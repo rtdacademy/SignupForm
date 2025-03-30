@@ -1,17 +1,16 @@
-// standalone-streamTTSv2.js - COMPLETELY ISOLATED V2 FUNCTION
-// No imports from any other files in your project
-
 const {onRequest} = require("firebase-functions/v2/https");
 const {TextToSpeechClient} = require('@google-cloud/text-to-speech').v1;
-const express = require('express');
-const cors = require('cors');
 
-// Self-contained TTS v2 function with no external dependencies
+// Create a persistent TTS client that can be reused across function invocations
+const ttsClient = new TextToSpeechClient();
+
+// Self-contained TTS v2 function without Express bootstrap
 exports.streamTTSv2 = onRequest({
   region: 'us-central1',
   memory: '1GiB',
   cpu: 1,
   timeoutSeconds: 540,
+  // Define allowed origins but we'll handle CORS headers manually
   cors: [
     'http://localhost:3000', 
     'http://localhost:5000',
@@ -24,11 +23,33 @@ exports.streamTTSv2 = onRequest({
   healthCheckTimeout: 180
 }, async (req, res) => {
   try {
-    // Basic request handling
-    if (req.method === 'OPTIONS') {
-      return res.status(204).send('');
+    // Explicitly handle CORS with credentials
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+      'http://localhost:3000', 
+      'http://localhost:5000',
+      'http://localhost:5001',
+      'https://rtd-academy.web.app',
+      'https://edbotz.web.app',
+      'https://edbotz.com',
+      'https://www.edbotz.com'
+    ];
+    
+    // Check if the request origin is allowed
+    if (origin && allowedOrigins.includes(origin)) {
+      res.set('Access-Control-Allow-Origin', origin);
+      res.set('Access-Control-Allow-Credentials', 'true'); // This is the critical header!
+      
+      // For preflight requests, set allowed methods and headers
+      if (req.method === 'OPTIONS') {
+        res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Content-Type, X-Priority');
+        res.set('Access-Control-Max-Age', '3600');
+        return res.status(204).send('');
+      }
     }
 
+    // Handle regular requests
     if (req.method !== 'POST') {
       return res.status(405).send('Method Not Allowed');
     }
@@ -47,9 +68,8 @@ exports.streamTTSv2 = onRequest({
     res.setHeader('Transfer-Encoding', 'chunked');
     res.setHeader('Cache-Control', 'no-cache');
     
-    // Create TTS client
-    const client = new TextToSpeechClient();
-    const stream = client.streamingSynthesize();
+    // Using the persistent TTS client
+    const stream = ttsClient.streamingSynthesize();
     
     // Get chunk size settings
     const getChunkSizeSettings = (requestedSize) => {
@@ -196,35 +216,3 @@ exports.streamTTSv2 = onRequest({
     }
   }
 });
-
-// Completely isolated bootstrap code
-if (process.env.K_SERVICE === 'streamTTSv2') {
-  console.log('Initializing isolated Express server for streamTTSv2');
-  
-  const app = express();
-  app.use(cors({ origin: true }));
-  
-  // Health check endpoints
-  app.get('/_ah/warmup', (req, res) => {
-    res.status(200).send('OK');
-  });
-  
-  app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'healthy', service: 'streamTTSv2' });
-  });
-  
-  // Route all traffic to the function
-  app.all('/*', (req, res) => {
-    exports.streamTTSv2(req, res);
-  });
-  
-  const port = process.env.PORT || 8080;
-  
-  app.listen(port, () => {
-    console.log(`streamTTSv2 isolated service listening on port ${port}`);
-  }).on('error', (err) => {
-    console.error('Express server error:', err);
-  });
-  
-  console.log('Express initialization complete');
-}

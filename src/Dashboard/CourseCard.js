@@ -116,16 +116,16 @@ const CourseCard = ({
     if (course.Created) {
       const createdDate = new Date(course.Created);
       if (createdDate < PAYMENT_ENFORCEMENT_DATE) {
-        return 'paid'; // Just treat legacy courses as paid instead of using 'grandfathered'
+        return 'paid'; // Treat legacy courses as paid
       }
     }
-
-    // Existing payment status logic for newer courses
+  
+    // Use existing payment status if available
     if (course.payment_status && course.payment_status.status) {
       return course.payment_status.status;
     }
     
-    // Only check trial period for courses created after enforcement date
+    // Check trial period for Adult/International students
     if ((isAdultStudent || isInternationalStudent) && course.Created) {
       const createdDate = new Date(course.Created);
       if (createdDate >= PAYMENT_ENFORCEMENT_DATE) {
@@ -133,11 +133,16 @@ const CourseCard = ({
         const diffDays = Math.floor((today - createdDate) / (1000 * 3600 * 24));
         if (diffDays >= 9) {
           return 'unpaid';
+        } else {
+          // Still in trial period but we want to show the button
+          return 'trial';  // New status that will show the payment button
         }
       }
     }
     
-    return null;
+    // Default to 'unpaid' instead of null to ensure button is always shown
+    // for Adult/International students after enforcement date
+    return (isAdultStudent || isInternationalStudent) ? 'unpaid' : 'paid';
   })();
 
   // Render a trial period message if the student has not yet paid and is still within trial period.
@@ -225,51 +230,69 @@ const CourseCard = ({
         return null;
       }
     }
-    
-    if (!computedPaymentStatus) {
+  
+   // In the renderPaymentButton function where you handle 'paid' or 'active' status:
+if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
+  const buttonStyle = computedPaymentStatus === 'paid'
+    ? 'bg-green-50 text-green-700 hover:bg-green-100'
+    : 'bg-blue-50 text-blue-700 hover:bg-blue-100';
+
+  return (
+    <>
+      <Button
+        onClick={() => setShowPaymentDetails(true)}
+        className={`w-full ${buttonStyle} transition-colors duration-200 flex items-center justify-center`}
+      >
+        {computedPaymentStatus === 'paid' ? (
+          <>
+            <FaCheckCircle className="mr-2" />
+            Payment Complete
+          </>
+        ) : (
+          <>
+            <FaClock className="mr-2" />
+            Monthly Payments Active
+          </>
+        )}
+      </Button>
+
+      <PaymentDetailsDialog
+        isOpen={showPaymentDetails}
+        onOpenChange={setShowPaymentDetails}
+        paymentDetails={{
+          courseName: courseName,
+          type: computedPaymentStatus === 'active' ? 'subscription' : 'onetime',
+          ...(course.payment?.details || {}), // Spread all available payment details
+          // For subscription plans
+          current_period_start: course.payment?.details?.current_period_start,
+          current_period_end: course.payment?.details?.current_period_end,
+          cancel_at: course.payment?.details?.cancel_at,
+          latest_invoice: course.payment?.details?.latest_invoice,
+          invoices: course.payment?.details?.invoices,
+          // For one-time payments
+          payment_date: course.payment?.details?.created,
+          amount_paid: course.payment?.details?.amount_paid,
+          receipt_url: course.payment?.details?.receipt_url
+        }}
+      />
+    </>
+  );
+}
+
+    // For trial status, show a different button text
+    if (computedPaymentStatus === 'trial') {
       return (
-        <Button disabled className="w-full bg-gray-100 text-gray-400">
-          <span className="animate-pulse">Payment status unavailable</span>
+        <Button
+          onClick={() => setShowPaymentDialog(true)}
+          className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg transition-all duration-200 flex items-center justify-center"
+        >
+          <FaCreditCard className="mr-2" />
+          Pay Now
         </Button>
       );
     }
   
-    if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
-      const buttonStyle = computedPaymentStatus === 'paid'
-        ? 'bg-green-50 text-green-700 hover:bg-green-100'
-        : 'bg-blue-50 text-blue-700 hover:bg-blue-100';
-  
-      return (
-        <>
-          <Button
-            onClick={() => setShowPaymentDetails(true)}
-            className={`w-full ${buttonStyle} transition-colors duration-200 flex items-center justify-center`}
-          >
-            {computedPaymentStatus === 'paid' ? (
-              <>
-                <FaCheckCircle className="mr-2" />
-                Payment Complete
-              </>
-            ) : (
-              <>
-                <FaClock className="mr-2" />
-                Monthly Payments Active
-              </>
-            )}
-          </Button>
-  
-          <PaymentDetailsDialog
-            isOpen={showPaymentDetails}
-            onOpenChange={setShowPaymentDetails}
-            paymentDetails={{
-              courseName: courseName
-              // Additional payment details can be passed here as needed
-            }}
-          />
-        </>
-      );
-    }
-  
+    // Default for 'unpaid' status
     return (
       <Button
         onClick={() => setShowPaymentDialog(true)}

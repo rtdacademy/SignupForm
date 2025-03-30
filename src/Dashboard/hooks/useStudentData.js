@@ -246,32 +246,34 @@ export const useStudentData = (userEmailKey) => {
       }, handleError);
 
       // Listen for course changes
-      const coursesUnsubscribe = onValue(coursesRef, async (coursesSnapshot) => {
-        if (!isMounted) return;
+   // In useStudentData.js
+const coursesUnsubscribe = onValue(coursesRef, async (coursesSnapshot) => {
+  if (!isMounted) return;
 
-        coursesReceived = true;
-        console.log('Courses received:', coursesSnapshot.exists());
+  console.log('Courses received:', coursesSnapshot.exists());
 
-        if (coursesSnapshot.exists()) {
-          const coursesData = coursesSnapshot.val();
-          const processedCourses = await processCourses(coursesData);
-          
-          if (!isMounted) return;
+  if (coursesSnapshot.exists()) {
+    const coursesData = coursesSnapshot.val();
+    const processedCourses = await processCourses(coursesData);
+    
+    if (!isMounted) return;
 
-          setStudentData(prev => ({
-            ...prev,
-            courses: processedCourses,
-            studentExists: true
-          }));
-        } else {
-          setStudentData(prev => ({
-            ...prev,
-            courses: []
-          }));
-        }
-        
-        checkLoadingComplete();
-      }, handleError);
+    setStudentData(prev => ({
+      ...prev,
+      courses: processedCourses,
+      studentExists: true
+    }));
+  } else {
+    setStudentData(prev => ({
+      ...prev,
+      courses: []
+    }));
+  }
+  
+  // Move this line HERE, after all the async course processing is complete
+  coursesReceived = true;
+  checkLoadingComplete();
+}, handleError);
 
       // Listen for ImportantDates changes
       const datesUnsubscribe = onValue(datesRef, async (datesSnapshot) => {
