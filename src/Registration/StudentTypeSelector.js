@@ -5,16 +5,10 @@ import { Card, CardHeader, CardContent, CardFooter } from "../components/ui/card
 import { Button } from "../components/ui/button";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Label } from "../components/ui/label";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, HelpCircle, Check } from "lucide-react";
 import { Alert, AlertDescription } from "../components/ui/alert";
-
-const studentTypes = [
-  { value: 'Non-Primary', label: 'Non-Primary Student', description: 'Students enrolled in another Alberta school' },
-  { value: 'Home Education', label: 'Home Education Student', description: 'Students registered with a home education provider' },
-  { value: 'Summer School', label: 'Summer School Student', description: 'Students completing courses between July and August' },
-  { value: 'Adult Student', label: 'Adult Student', description: 'Students who are 20 years or older' },
-  { value: 'International Student', label: 'International Student', description: 'Students without Canadian citizenship or permanent residency' }
-];
+import { getStudentTypeInfo, STUDENT_TYPE_OPTIONS } from '../config/DropdownOptions';
+import { GraduationCap, Home, Sun, User, Globe } from 'lucide-react';
 
 const questions = [
   {
@@ -55,7 +49,7 @@ const questions = [
   }
 ];
 
-function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponent = false }) {
+function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponent = false, importantDates }) {
   const { user } = useAuth();
   const uid = user?.uid;
   const [currentView, setCurrentView] = useState(isFormComponent ? 'initial' : 'questionnaire');
@@ -134,9 +128,12 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
           className="w-full justify-start text-left h-auto p-4"
           variant="outline"
         >
-          <div className="flex flex-col items-start">
-            <span className="font-medium">Help me determine my student type</span>
-            <span className="text-sm text-gray-500">Answer a few questions to determine the best option</span>
+          <div className="flex items-start gap-3">
+            <HelpCircle className="h-5 w-5 text-blue-500 mt-0.5" />
+            <div className="flex flex-col items-start">
+              <span className="font-medium">Help me determine my student type</span>
+              <span className="text-sm text-gray-500">Answer a few questions to determine the best option</span>
+            </div>
           </div>
         </Button>
 
@@ -145,9 +142,12 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
           className="w-full justify-start text-left h-auto p-4"
           variant="outline"
         >
-          <div className="flex flex-col items-start">
-            <span className="font-medium">I already know my student type</span>
-            <span className="text-sm text-gray-500">Select directly from the list of student types</span>
+          <div className="flex items-start gap-3">
+            <Check className="h-5 w-5 text-green-500 mt-0.5" />
+            <div className="flex flex-col items-start">
+              <span className="font-medium">I already know my student type</span>
+              <span className="text-sm text-gray-500">Select directly from the list of student types</span>
+            </div>
           </div>
         </Button>
       </CardContent>
@@ -178,6 +178,23 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
             ))}
           </div>
         </div>
+        
+        {selectedStudentType && (
+          <div className="mt-6 p-4 rounded-lg" style={{ backgroundColor: `${getStudentTypeInfo(selectedStudentType).color}15` }}>
+            <div className="flex items-center gap-3">
+              {(() => {
+                const { color, icon: Icon } = getStudentTypeInfo(selectedStudentType);
+                return Icon ? <Icon className="h-6 w-6" style={{ color }} /> : null;
+              })()}
+              <div>
+                <h4 className="font-medium" style={{ color: getStudentTypeInfo(selectedStudentType).color }}>
+                  {selectedStudentType} Student
+                </h4>
+                <p className="text-sm text-gray-600">{getStudentTypeInfo(selectedStudentType).description}</p>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
       
       {selectedStudentType && (
@@ -208,15 +225,42 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
           onValueChange={handleStudentTypeSelect}
           className="space-y-4"
         >
-          {studentTypes.map((type) => (
-            <div key={type.value} className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-gray-50">
-              <RadioGroupItem value={type.value} id={type.value} />
-              <Label htmlFor={type.value} className="flex flex-col space-y-1 cursor-pointer">
-                <span className="font-medium">{type.label}</span>
-                <span className="text-sm text-gray-500">{type.description}</span>
-              </Label>
-            </div>
-          ))}
+          {STUDENT_TYPE_OPTIONS.map((type) => {
+            const { color, icon: Icon } = getStudentTypeInfo(type.value);
+            return (
+              <div 
+                key={type.value} 
+                className={`flex items-start space-x-3 p-4 border rounded-lg hover:bg-white/60 transition-colors ${
+                  selectedStudentType === type.value ? 'border-2' : 'border'
+                }`}
+                style={{ 
+                  borderColor: selectedStudentType === type.value ? color : '',
+                  backgroundColor: selectedStudentType === type.value ? `${color}10` : ''
+                }}
+              >
+                <RadioGroupItem 
+                  value={type.value} 
+                  id={type.value} 
+                  className="mt-1"
+                  style={{ 
+                    borderColor: selectedStudentType === type.value ? color : '',
+                    color: selectedStudentType === type.value ? color : ''
+                  }} 
+                />
+                <div className="flex items-start gap-3 flex-1">
+                  {Icon && (
+                    <div className="p-2 rounded-full" style={{ backgroundColor: `${color}20` }}>
+                      <Icon className="h-5 w-5" style={{ color }} />
+                    </div>
+                  )}
+                  <Label htmlFor={type.value} className="flex flex-col space-y-1 cursor-pointer flex-1">
+                    <span className="font-medium">{type.value} Student</span>
+                    <span className="text-sm text-gray-500">{type.description}</span>
+                  </Label>
+                </div>
+              </div>
+            );
+          })}
         </RadioGroup>
 
         {selectedStudentType && (
@@ -250,6 +294,48 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
     }
   };
 
+  // If a student type is already selected, render a summary card
+  const renderSelectedTypeSummary = () => {
+    if (!selectedStudentType) return null;
+    
+    const { color, icon: Icon, description } = getStudentTypeInfo(selectedStudentType);
+    
+    return (
+      <Card 
+        className="border-2 shadow-md transition-all duration-200"
+        style={{ borderColor: color }}
+      >
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4">
+            <div 
+              className="p-3 rounded-full" 
+              style={{ backgroundColor: `${color}20` }}
+            >
+              {Icon && <Icon className="h-6 w-6" style={{ color }} />}
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold" style={{ color }}>
+                {selectedStudentType} Student
+              </h3>
+              <p className="text-sm text-gray-600">{description}</p>
+            </div>
+          </div>
+          
+          {isFormComponent && (
+            <Button
+              onClick={restartQuestionnaire}
+              variant="outline"
+              className="w-full mt-4"
+              size="sm"
+            >
+              Change Student Type
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {error && (
@@ -259,7 +345,8 @@ function StudentTypeSelector({ onStudentTypeSelect, selectedType, isFormComponen
         </Alert>
       )}
 
-      {renderContent()}
+      {selectedStudentType && currentView !== 'direct-select' && renderSelectedTypeSummary()}
+      {(!selectedStudentType || currentView === 'direct-select') && renderContent()}
     </div>
   );
 }

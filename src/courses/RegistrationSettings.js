@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getDatabase, ref, get, set } from 'firebase/database';
-import { useToast } from '../components/hooks/use-toast';
+import { toast } from 'sonner';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import { 
   Card, 
   CardContent, 
@@ -16,7 +18,6 @@ import {
 } from '../components/ui/select';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Textarea } from '../components/ui/textarea';
 import { Switch } from '../components/ui/switch';
 import { Label } from '../components/ui/label';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -44,6 +45,44 @@ import {
   CheckCircle
 } from 'lucide-react';
 
+// Enhanced Quill editor modules and formats configuration - removed indent options
+const quillModules = {
+  toolbar: [
+    [{ 'header': [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+    [{ 'script': 'sub'}, { 'script': 'super' }],
+    // Removed indent buttons
+    [{ 'color': [] }, { 'background': [] }],
+    ['link'],
+    ['clean']
+  ],
+};
+
+// Define custom handlers to support different ordered list formats (1, a, A, i, I)
+const createQuillModules = (id) => {
+  return {
+    ...quillModules,
+    clipboard: {
+      matchVisual: false,
+    },
+    keyboard: {
+      bindings: {
+        // Add custom keyboard shortcuts if needed
+      }
+    }
+  };
+};
+
+const quillFormats = [
+  'header',
+  'bold', 'italic', 'underline', 'strike',
+  'list', 'bullet', // Removed indent from formats
+  'script',
+  'color', 'background',
+  'link'
+];
+
 function RegistrationSettings() {
   // State for selection
   const [selectedYear, setSelectedYear] = useState('');
@@ -59,9 +98,6 @@ function RegistrationSettings() {
   const [copySourceType, setCopySourceType] = useState('');
   const [isCopying, setIsCopying] = useState(false);
   
-  // Toast for notifications
-  const { toast } = useToast();
-  
   // School year options
   const schoolYearOptions = getSchoolYearOptions();
   
@@ -72,6 +108,39 @@ function RegistrationSettings() {
       setSelectedYear(defaultYear);
     }
   }, [schoolYearOptions, selectedYear]);
+  
+  // Quill list format customization
+  useEffect(() => {
+    // This effect runs client-side only
+    if (typeof window !== 'undefined') {
+      // Ensure Quill is available in browser environment
+      if (window.Quill) {
+        // Get the Quill constructor
+        const Quill = window.Quill;
+        
+        // Get the List class from Quill's registry
+        const ListClass = Quill.import('formats/list');
+        
+        // Override the List class's createElement method to support more list types
+        const originalCreateElement = ListClass.prototype.createElement;
+        
+        ListClass.prototype.createElement = function(value) {
+          const element = originalCreateElement.call(this, value);
+          
+          // Check if we need to set a special list style
+          if (value === 'ordered') {
+            // Default is numerical (1, 2, 3...)
+            element.setAttribute('type', '1');
+          }
+          
+          return element;
+        };
+        
+        // Register the updated List class
+        Quill.register('formats/list', ListClass, true);
+      }
+    }
+  }, []);
   
   // Fetch configuration when year or student type changes
   useEffect(() => {
@@ -102,7 +171,7 @@ function RegistrationSettings() {
                 startEnds: '',
                 completionBegins: '',
                 completionEnds: '',
-                message: 'Please select a start and completion date within the registration period.',
+                message: '<p>Please select a start and completion date within the registration period.</p>',
                 isForNextYear: false
               }
             ]
@@ -110,18 +179,46 @@ function RegistrationSettings() {
         }
       } catch (error) {
         console.error('Error fetching registration config:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load registration settings',
-          variant: 'destructive'
-        });
+        toast.error('Failed to load registration settings');
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchConfig();
-  }, [selectedYear, selectedStudentType, toast]);
+  }, [selectedYear, selectedStudentType]);
+
+  const sanitizeHtml = (html) => {
+    if (!html) return '';
+    
+    try {
+      // First, explicitly check for common unclosed tags in Quill output
+      let fixedHtml = html;
+      
+      // Check for unclosed list tags (common issue with Quill)
+      if ((fixedHtml.includes('<ol') && !fixedHtml.includes('</ol>')) || 
+          (fixedHtml.includes('<ul') && !fixedHtml.includes('</ul>'))) {
+        
+        // Use DOMParser for more robust parsing
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(fixedHtml, 'text/html');
+        
+        // Get the normalized HTML from the body
+        fixedHtml = doc.body.innerHTML;
+      } else {
+        // For simpler cases, use the div approach which is faster
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = fixedHtml;
+        fixedHtml = tempDiv.innerHTML;
+      }
+      
+      return fixedHtml;
+    } catch (error) {
+      console.error('Error sanitizing HTML:', error);
+      // Return the original HTML if there's an error during sanitization
+      return html;
+    }
+  };
   
   // Save configuration to Firebase
   const saveConfig = async () => {
@@ -129,29 +226,35 @@ function RegistrationSettings() {
     
     setIsSaving(true);
     try {
+      // Create a sanitized copy of the form config
+      const sanitizedConfig = {
+        ...formConfig,
+        generalMessage: sanitizeHtml(formConfig.generalMessage || ''),
+        timeSections: formConfig.timeSections.map(section => ({
+          ...section,
+          message: sanitizeHtml(section.message || '')
+        }))
+      };
+      
       const formattedYear = selectedYear.replace('/', '_');
       const formattedType = selectedStudentType.replace(/\s+/g, '-');
       
       const db = getDatabase();
       const configRef = ref(db, `registrationSettings/${formattedYear}/${formattedType}`);
-      await set(configRef, formConfig);
+      await set(configRef, sanitizedConfig);
       
-      toast({
-        title: 'Success',
-        description: 'Registration settings saved successfully',
-      });
+      // Update the local form config with the sanitized version
+      setFormConfig(sanitizedConfig);
+      
+      toast.success('Registration settings saved successfully');
     } catch (error) {
       console.error('Error saving registration config:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save registration settings',
-        variant: 'destructive'
-      });
+      toast.error('Failed to save registration settings');
     } finally {
       setIsSaving(false);
     }
   };
-  
+
   // Add a new time section
   const addTimeSection = (isForNextYear = false) => {
     const newSection = {
@@ -161,7 +264,7 @@ function RegistrationSettings() {
       startEnds: '',
       completionBegins: '',
       completionEnds: '',
-      message: 'Please select a start and completion date within this registration period.',
+      message: '<p>Please select a start and completion date within this registration period.</p>',
       isForNextYear: isForNextYear
     };
     
@@ -181,20 +284,12 @@ function RegistrationSettings() {
     
     if (sectionToDelete) {
       if (!sectionToDelete.isForNextYear && currentSections.length <= 1) {
-        toast({
-          title: 'Error',
-          description: 'You must have at least one current year registration period',
-          variant: 'destructive'
-        });
+        toast.error('You must have at least one current year registration period');
         return;
       }
       
       if (sectionToDelete.isForNextYear && nextYearSections.length <= 1 && formConfig.allowNextYearRegistration) {
-        toast({
-          title: 'Error',
-          description: 'You must have at least one next year registration period when next year registration is enabled',
-          variant: 'destructive'
-        });
+        toast.error('You must have at least one next year registration period when next year registration is enabled');
         return;
       }
     }
@@ -286,30 +381,24 @@ function RegistrationSettings() {
         // Copy the configuration
         setFormConfig(snapshot.val());
         
-        toast({
-          title: 'Success',
-          description: `Settings copied from ${copySourceType}`,
-        });
+        toast.success(`Settings copied from ${copySourceType}`);
         
         // Close the dialog
         setIsCopyDialogOpen(false);
       } else {
-        toast({
-          title: 'Error',
-          description: `No settings found for ${copySourceType}`,
-          variant: 'destructive'
-        });
+        toast.error(`No settings found for ${copySourceType}`);
       }
     } catch (error) {
       console.error('Error copying registration config:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to copy registration settings',
-        variant: 'destructive'
-      });
+      toast.error('Failed to copy registration settings');
     } finally {
       setIsCopying(false);
     }
+  };
+  
+  // Helper to get Quill modules for a specific editor
+  const getQuillModules = (id) => {
+    return createQuillModules(id);
   };
   
   // The component UI with fixed header and scrollable content
@@ -428,16 +517,21 @@ function RegistrationSettings() {
                 
                 <div className="space-y-2">
                   <Label htmlFor="general-message">General Message</Label>
-                  <Textarea 
-                    id="general-message"
-                    placeholder="Enter a message to display at the top of the registration form"
-                    value={formConfig.generalMessage || ''}
-                    onChange={(e) => updateFormConfig('generalMessage', e.target.value)}
-                    className="min-h-[100px]"
-                  />
-                  <p className="text-xs text-gray-500">
-                    This message will appear at the top of the registration form for this student type
-                  </p>
+                  <div className="quill-container">
+                    <ReactQuill
+                      id="general-message"
+                      value={formConfig.generalMessage || ''}
+                      onChange={(content) => updateFormConfig('generalMessage', content)}
+                      modules={getQuillModules('general-message')}
+                      formats={quillFormats}
+                      theme="snow"
+                      placeholder="Enter a message to display at the top of the registration form"
+                      style={{ minHeight: '150px', marginBottom: '40px' }}
+                    />
+                  </div>
+                  <div className="text-xs text-gray-500 mt-10 mb-2">
+                    <p>This message will appear at the top of the registration form for this student type</p>
+                  </div>
                 </div>
               </div>
               
@@ -552,15 +646,20 @@ function RegistrationSettings() {
                           
                           <div className="space-y-2">
                             <Label htmlFor={`section-message-${section.id}`}>Section Message</Label>
-                            <Textarea 
-                              id={`section-message-${section.id}`}
-                              value={section.message || ''} 
-                              onChange={(e) => updateTimeSection(section.id, 'message', e.target.value)}
-                              className="min-h-[80px]"
-                            />
-                            <p className="text-xs text-gray-500">
-                              Message displayed to students when this registration period is active
-                            </p>
+                            <div className="quill-container">
+                              <ReactQuill
+                                id={`section-message-${section.id}`}
+                                value={section.message || ''}
+                                onChange={(content) => updateTimeSection(section.id, 'message', content)}
+                                modules={getQuillModules(`section-message-${section.id}`)}
+                                formats={quillFormats}
+                                theme="snow"
+                                style={{ minHeight: '120px', marginBottom: '40px' }}
+                              />
+                            </div>
+                            <div className="text-xs text-gray-500 mt-10 mb-2">
+                              <p>Message displayed to students when this registration period is active</p>
+                            </div>
                           </div>
                           
                           {!isTimeSectionValid(section) && section.startBegins && section.startEnds && 
@@ -712,15 +811,20 @@ function RegistrationSettings() {
                               
                               <div className="space-y-2">
                                 <Label htmlFor={`section-message-${section.id}`}>Section Message</Label>
-                                <Textarea 
-                                  id={`section-message-${section.id}`}
-                                  value={section.message || ''} 
-                                  onChange={(e) => updateTimeSection(section.id, 'message', e.target.value)}
-                                  className="min-h-[80px]"
-                                />
-                                <p className="text-xs text-gray-500">
-                                  Message displayed to students when this next year registration period is active
-                                </p>
+                                <div className="quill-container">
+                                  <ReactQuill
+                                    id={`section-message-${section.id}`}
+                                    value={section.message || ''}
+                                    onChange={(content) => updateTimeSection(section.id, 'message', content)}
+                                    modules={getQuillModules(`section-message-${section.id}`)}
+                                    formats={quillFormats}
+                                    theme="snow"
+                                    style={{ minHeight: '120px', marginBottom: '40px' }}
+                                  />
+                                </div>
+                                <div className="text-xs text-gray-500 mt-10 mb-2">
+                                  <p>Message displayed to students when this next year registration period is active</p>
+                                </div>
                               </div>
                               
                               {!isTimeSectionValid(section) && section.startBegins && section.startEnds && 
@@ -844,6 +948,58 @@ function RegistrationSettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Add CSS for the ReactQuill editor to ensure proper styling */}
+      <style jsx global>{`
+        .quill-container {
+          margin-bottom: 30px;
+        }
+        
+        .ql-container {
+          min-height: 100px;
+          border-bottom-left-radius: 0.375rem;
+          border-bottom-right-radius: 0.375rem;
+        }
+        
+        .ql-toolbar {
+          border-top-left-radius: 0.375rem;
+          border-top-right-radius: 0.375rem;
+          background-color: #f9fafb;
+        }
+        
+        .ql-editor {
+          min-height: 100px;
+          font-size: 0.875rem;
+        }
+        
+        /* Improved styling for list formatting */
+        .ql-editor ol, .ql-editor ul {
+          padding-left: 1.5em;
+        }
+        
+        .ql-editor li {
+          padding-left: 0.5em;
+        }
+        
+        /* Nested list styling */
+        .ql-editor li > ol, .ql-editor li > ul {
+          margin-top: 0.25em;
+          margin-bottom: 0.25em;
+        }
+        
+        /* Style for different list types */
+        .ql-editor ol {
+          list-style-type: decimal;
+        }
+        
+        .ql-editor ol ol {
+          list-style-type: lower-alpha;
+        }
+        
+        .ql-editor ol ol ol {
+          list-style-type: lower-roman;
+        }
+      `}</style>
     </div>
   );
 }

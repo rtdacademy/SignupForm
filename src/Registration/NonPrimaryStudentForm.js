@@ -16,7 +16,8 @@ import {
   AlertTriangle,
   Calendar,
   AlertCircle,
-  Loader2
+  Loader2,
+  
 } from 'lucide-react';
 import {
   Tooltip,
@@ -1804,15 +1805,18 @@ const NonPrimaryStudentForm = forwardRef(({
             </Alert>
           )}
 
-          {/* General Message from Settings */}
-          {settings?.generalMessage && (
-            <Alert className="bg-blue-50 border-blue-200">
-              <InfoIcon className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-sm text-blue-700">
-                {settings.generalMessage}
-              </AlertDescription>
-            </Alert>
-          )}
+       {/* General Message from Settings */}
+       {settings?.generalMessage && (
+  <Alert className="bg-blue-50 border-blue-200">
+    <InfoIcon className="h-4 w-4 text-blue-600 flex-shrink-0 mt-1" />
+    <AlertDescription className="text-blue-700">
+      <div 
+        className="prose prose-sm max-w-none prose-blue"
+        dangerouslySetInnerHTML={{ __html: settings.generalMessage }}
+      />
+    </AlertDescription>
+  </Alert>
+)}
 
           {/* Profile Information Card */}
           <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
@@ -2637,15 +2641,24 @@ const NonPrimaryStudentForm = forwardRef(({
                 {formData.enrollmentYear && (
                   <>
                     {/* Show message from the selected time section */}
+                
                     {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()) && (
-                      <Alert className="bg-blue-50 border-blue-200">
-                        <InfoIcon className="h-4 w-4 text-blue-600" />
-                        <AlertDescription className="text-sm text-blue-700">
-                          {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).message || 
-                          `Please select dates within the registration period.`}
-                        </AlertDescription>
-                      </Alert>
-                    )}
+  <Alert className="bg-blue-50 border-blue-200">
+    <InfoIcon className="h-4 w-4 text-blue-600 flex-shrink-0 mt-1" />
+    <AlertDescription className="text-blue-700">
+      {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).message ? (
+        <div 
+          className="prose prose-sm max-w-none prose-blue"
+          dangerouslySetInnerHTML={{ 
+            __html: getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).message 
+          }}
+        />
+      ) : (
+        <span className="text-sm">Please select dates within the registration period.</span>
+      )}
+    </AlertDescription>
+  </Alert>
+)}
                   </>
                 )}
 

@@ -21,6 +21,14 @@ import {
   SheetFooter,
   SheetClose
 } from "../components/ui/sheet";
+import { getStudentTypeInfo } from '../config/DropdownOptions';
+import { 
+  GraduationCap, 
+  Home, 
+  Sun, 
+  User, 
+  Globe 
+} from 'lucide-react';
 
 const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
   const trackConversion = useConversionTracking();
@@ -508,24 +516,41 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
         ) : (
           <div className="flex flex-col h-full">
             {/* Header Section */}
-            <SheetHeader className="px-1 pb-4">
-              <SheetTitle className="text-2xl font-semibold">
-                {currentStep === 'type-selection'
-                  ? 'Student Information Form'
-                  : currentStep === 'form'
-                  ? selectedStudentType === 'Home Education'
-                    ? 'Home Education Student Registration'
-                    : `${selectedStudentType} Student Registration`
-                  : 'Review Registration'}
-              </SheetTitle>
-              <SheetDescription className="text-gray-600">
-                {currentStep === 'type-selection'
-                  ? 'Please determine your student type'
-                  : currentStep === 'form'
-                  ? 'Please fill out your registration information'
-                  : 'Please review your information before submitting'}
-              </SheetDescription>
-            </SheetHeader>
+          {/* Header Section */}
+<SheetHeader className="px-1 pb-4">
+  {currentStep === 'form' && selectedStudentType && (
+    <div className="flex items-center mb-3">
+      {(() => {
+        const { color, icon: Icon, description } = getStudentTypeInfo(selectedStudentType);
+        return (
+          <div 
+            className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium mb-2"
+            style={{ backgroundColor: `${color}15`, color: color }}
+          >
+            {Icon && <Icon className="h-4 w-4 mr-2" />}
+            {selectedStudentType}
+          </div>
+        );
+      })()}
+    </div>
+  )}
+  <SheetTitle className="text-2xl font-semibold">
+    {currentStep === 'type-selection'
+      ? 'Student Information Form'
+      : currentStep === 'form'
+      ? selectedStudentType === 'Home Education'
+        ? 'Home Education Student Registration'
+        : `Student Registration`
+      : 'Review Registration'}
+  </SheetTitle>
+  <SheetDescription className="text-gray-600">
+    {currentStep === 'type-selection'
+      ? 'Please determine your student type'
+      : currentStep === 'form'
+      ? ''
+      : 'Please review your information before submitting'}
+  </SheetDescription>
+</SheetHeader>
 
             {/* Content Section - Scrollable */}
             <div className="flex-1 overflow-y-auto pr-1">
