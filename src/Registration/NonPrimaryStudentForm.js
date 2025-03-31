@@ -815,15 +815,27 @@ const NonPrimaryStudentForm = forwardRef(({
               endDate: `This course requires at least ${minCompletionMonths} months to complete, but the registration period ends on ${formatDateForDisplay(maxEndDate)}. Please select a different course or try registering for the next school year.`
             }));
           } else {
-            // We can use the maximum allowed end date
-            setRecommendedEndDate(maxEndDate);
+            // We can use the maximum allowed end date but subtract 7 days to avoid putting the student right at the end
+            const adjustedMaxEndDate = new Date(maxEndDate);
+            adjustedMaxEndDate.setDate(adjustedMaxEndDate.getDate() - 7);
+            
+            // If adjusted date is still after minEndDate, use it. Otherwise, use minEndDate
+            const safeEndDate = minEndDate && adjustedMaxEndDate < minEndDate ? minEndDate : adjustedMaxEndDate;
+            
+            setRecommendedEndDate(safeEndDate);
+            
+            // Change the message to indicate this is not the recommended time anymore
+            setDateErrors(prev => ({
+              ...prev,
+              endDate: `Note: The end date has been adjusted to ${formatDateForDisplay(safeEndDate)} based on the registration deadline. This is 7 days before the final deadline.`
+            }));
             
             // If diploma date is the constraint, use it as the end date
             if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate) {
               handleFormChange({
                 target: {
                   name: 'endDate',
-                  value: toDateString(maxEndDate)
+                  value: toDateString(safeEndDate)
                 }
               });
             }
@@ -1224,26 +1236,114 @@ const NonPrimaryStudentForm = forwardRef(({
               ? courseData.diplomaTimes
               : Object.values(courseData.diplomaTimes);
 
-            // Filter out past diploma dates AND check registration deadlines
+            // Filter based on enrollment year and check registration deadlines
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
+            // Determine if we're filtering for next year
+            const isNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+            const isSummerSchool = formData.studentType === 'Summer School';
+            console.log('Filtering diploma dates - isNextYear:', isNextYear, 'isSummerSchool:', isSummerSchool);
+            
+            // Parse the enrollment year to get start and end years
+            const enrollmentYearParts = formData.enrollmentYear ? formData.enrollmentYear.split('/') : [];
+            const enrollmentStartYear = enrollmentYearParts.length > 0 ? parseInt('20' + enrollmentYearParts[0]) : null;
+            const enrollmentEndYear = enrollmentYearParts.length > 1 ? parseInt('20' + enrollmentYearParts[1]) : null;
+            
+            console.log(`Enrollment year parsed: Start year ${enrollmentStartYear}, End year ${enrollmentEndYear}`);
+            
+            // For next year, we need to use a different filter logic
             const validDates = diplomaTimesArray
               .filter(item => {
-                // Check if exam date is in the future
-                const examDate = toEdmontonDate(item.date);
+                // Safely convert dates with error handling
+                let examDate = null;
+                try {
+                    examDate = item.date ? toEdmontonDate(item.date) : null;
+                } catch (err) {
+                    console.warn(`Error parsing exam date: ${item.date}`, err);
+                }
                 
                 // Also check if registration deadline hasn't passed
                 const hasDeadline = !!item.registrationDeadline;
-                const registrationDeadline = hasDeadline ? toEdmontonDate(item.registrationDeadline) : null;
+                let registrationDeadline = null;
+                if (hasDeadline) {
+                    try {
+                        registrationDeadline = toEdmontonDate(item.registrationDeadline);
+                    } catch (err) {
+                        console.warn(`Error parsing registration deadline: ${item.registrationDeadline}`, err);
+                    }
+                }
                 
-                // Keep the date only if:
-                // - The exam date is in the future, AND
-                // - Either there's no registration deadline OR the deadline is in the future
-                return examDate > today && (!hasDeadline || registrationDeadline >= today);
+                // Log each date being considered (with safe date logging)
+                console.log(`Diploma date: ${examDate ? formatDateForDisplay(examDate) : 'Invalid Date'}, hasDeadline: ${hasDeadline}, registrationDeadline: ${registrationDeadline ? formatDateForDisplay(registrationDeadline) : 'None'}`);
+                
+                // Check for invalid dates first
+                if (!examDate || isNaN(examDate.getTime())) {
+                  console.warn(`Skipping invalid diploma date`, item);
+                  return false;
+                }
+                
+                // Get the display date (for checking month)
+                const displayDate = item.displayDate ? toEdmontonDate(item.displayDate) : null;
+                const isAugustDiploma = displayDate && (displayDate.getMonth() === 6 || displayDate.getMonth() === 7); // July (6) or August (7)
+                const diplomaYear = displayDate ? displayDate.getFullYear() : null;
+                
+                console.log(`Diploma displayDate: ${displayDate}, isAugustDiploma: ${isAugustDiploma}, diplomaYear: ${diplomaYear}`);
+                
+                // Basic filter: date must be in the future
+                // and if it has a registration deadline, that deadline must be in the future too
+                const basicValidation = examDate > today && (!hasDeadline || (registrationDeadline && registrationDeadline >= today));
+                
+                if (!basicValidation) return false;
+                
+                const isNonPrimary = formData.studentType === 'Non-Primary';
+                const isAdultStudent = formData.studentType === 'Adult';
+                const isInternationalStudent = formData.studentType === 'International';
+                
+                console.log(`Student type checks: isNonPrimary: ${isNonPrimary}, isSummerSchool: ${isSummerSchool}, isAdultStudent: ${isAdultStudent}, isInternationalStudent: ${isInternationalStudent}`);
+                
+                // Special case for Summer School students - only show August diplomas for current year
+                if (isSummerSchool) {
+                  const currentYear = new Date().getFullYear();
+                  return isAugustDiploma && diplomaYear === currentYear;
+                }
+                
+                // Non-Primary students should not be able to select August diplomas
+                if (isNonPrimary && isAugustDiploma) {
+                  console.log(`Filtering out August diploma for Non-Primary student: ${item.displayDate}`);
+                  return false;
+                }
+                
+                // For Adult and International students, apply normal enrollment year filtering
+                // For all student types, filter based on enrollment year
+                // School years run from September to August
+                // If diploma is between September and December, it should be in enrollmentStartYear
+                // If diploma is between January and August, it should be in enrollmentEndYear
+                if (enrollmentStartYear && enrollmentEndYear && diplomaYear) {
+                  const diplomaMonth = displayDate.getMonth(); // 0-indexed
+                  
+                  // If diploma is between September (8) and December (11), it should be in enrollmentStartYear
+                  if (diplomaMonth >= 8 && diplomaMonth <= 11) {
+                    return diplomaYear === enrollmentStartYear;
+                  }
+                  
+                  // If diploma is between January (0) and August (7), it should be in enrollmentEndYear
+                  if (diplomaMonth >= 0 && diplomaMonth <= 7) {
+                    // For Non-Primary students, exclude August diplomas (already handled above)
+                    return diplomaYear === enrollmentEndYear;
+                  }
+                }
+                
+                // Default fallback behavior
+                if (isNextYear) {
+                  return true; // For next year, accept future dates
+                } else {
+                  return true; // For current year, accept dates in the next 12 months
+                }
               })
               .sort((a, b) => toEdmontonDate(a.date) - toEdmontonDate(b.date));
 
+            console.log(`Found ${validDates.length} valid diploma dates for ${courseData.Title}`);
             setDiplomaDates(validDates);
           }
           
@@ -1266,7 +1366,7 @@ const NonPrimaryStudentForm = forwardRef(({
       diplomaDate: ''
     }));
     
-  }, [formData.courseId]);
+  }, [formData.courseId, formData.enrollmentYear]);
 
   // Adjust end date and validate start date based on selected diploma date
   useEffect(() => {
@@ -1507,16 +1607,25 @@ const NonPrimaryStudentForm = forwardRef(({
       const maxEndDate = getMaxEndDate(isDiplomaCourse, false, date);
       
       if (maxEndDate && maxEndDate < diplomaDate) {
+        // Subtract 7 days from maxEndDate to avoid putting the student right at the end
+        const adjustedMaxEndDate = new Date(maxEndDate);
+        adjustedMaxEndDate.setDate(adjustedMaxEndDate.getDate() - 7);
+        
+        // Make sure the adjusted date isn't before the current date
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const safeEndDate = adjustedMaxEndDate < today ? maxEndDate : adjustedMaxEndDate;
+        
         handleFormChange({
           target: {
             name: 'endDate',
-            value: toDateString(maxEndDate)
+            value: toDateString(safeEndDate)
           }
         });
         
         setDateErrors(prev => ({
           ...prev,
-          endDate: `Note: The end date has been set to ${formatDateForDisplay(maxEndDate)} based on registration constraints instead of the diploma date`
+          endDate: `Note: The end date has been set to ${formatDateForDisplay(safeEndDate)} based on registration constraints. This is 7 days before the final deadline.`
         }));
       } else {
         handleFormChange({

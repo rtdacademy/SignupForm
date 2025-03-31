@@ -7,21 +7,27 @@
 const EDMONTON_TIMEZONE = 'America/Edmonton';
 
 /**
- * Convert a YYYY-MM-DD string to a Date object
+ * Convert a date string to a Date object
  * This interprets the date as midnight in Edmonton timezone
  * 
- * @param {string} dateString - Date in YYYY-MM-DD format
+ * @param {string} dateString - Date in YYYY-MM-DD format or ISO format (YYYY-MM-DDTHH:MM:SS.sssZ)
  * @returns {Date} Date object representing midnight in Edmonton on the specified date
  */
 export const toEdmontonDate = (dateString) => {
   if (!dateString) return null;
   
-  // Parse the date string
-  const [year, month, day] = dateString.split('-').map(Number);
-  
-  // Create a date at the specified day with time set to midnight
-  const date = new Date(year, month - 1, day, 0, 0, 0, 0);
-  return date;
+  // Check if the string is in ISO format (contains T)
+  if (dateString.includes('T')) {
+    // For ISO string format (like "2026-01-19T07:00:00.000Z"), use the Date constructor directly
+    return new Date(dateString);
+  } else {
+    // For YYYY-MM-DD format
+    const [year, month, day] = dateString.split('-').map(Number);
+    
+    // Create a date at the specified day with time set to midnight
+    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+    return date;
+  }
 };
 
 /**
