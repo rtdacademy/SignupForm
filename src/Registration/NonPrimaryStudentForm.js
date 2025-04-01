@@ -237,12 +237,15 @@ const useRegistrationSettings = (studentType) => {
 };
 
 // === DiplomaMonthSelector Component ===
-const DiplomaMonthSelector = ({ dates, selectedDate, onChange, error }) => {
+const DiplomaMonthSelector = ({ dates, selectedDate, onChange, error, alreadyWroteDiploma }) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
   // Check if there are any available diploma dates
   const hasAvailableDates = dates.length > 0;
+  
+  // Check if a selection has been made (either a specific date or "already wrote")
+  const hasSelection = selectedDate !== null || alreadyWroteDiploma;
   
   return (
     <div className="space-y-2">
@@ -260,37 +263,58 @@ const DiplomaMonthSelector = ({ dates, selectedDate, onChange, error }) => {
         </Alert>
       )}
       
-      <select
-        value={selectedDate?.id || ''}
-        onChange={(e) => {
-          if (e.target.value === '') {
-            onChange(null);
-          } else if (e.target.value === 'no-diploma') {
-            onChange(null);
-          } else {
-            const selected = dates.find(d => d.id === e.target.value);
-            onChange(selected || null);
-          }
-        }}
-        className={`w-full p-2 border rounded-md ${error ? 'border-red-500' : 'border-gray-300'}`}
-        disabled={!hasAvailableDates}
-      >
-        <option value="">Select Diploma Exam Date</option>
-        {dates.map((date) => {
-          // Format registration deadline if available
-          const hasDeadline = !!date.registrationDeadline;
-          const deadlineText = hasDeadline 
-            ? ` (Register by: ${date.registrationDeadlineDisplayDate || toDateString(toEdmontonDate(date.registrationDeadline))})` 
-            : '';
-            
-          return (
-            <option key={date.id} value={date.id}>
-              {formatDiplomaDate(date)}{deadlineText}
-            </option>
-          );
-        })}
-        <option value="no-diploma">I already wrote the diploma exam</option>
-      </select>
+      <div className="relative">
+        <select
+          value={selectedDate?.id || (alreadyWroteDiploma ? 'no-diploma' : '')}
+          onChange={(e) => {
+            if (e.target.value === '') {
+              // Prevent changing back to "Select Diploma Exam Date" if a selection was already made
+              if (selectedDate || alreadyWroteDiploma) {
+                return;
+              }
+              onChange(null);
+            } else if (e.target.value === 'no-diploma') {
+              onChange(null);
+            } else {
+              const selected = dates.find(d => d.id === e.target.value);
+              onChange(selected || null);
+            }
+          }}
+          className={`w-full p-2 border rounded-md ${error ? 'border-red-500' : 'border-gray-300'}`}
+          disabled={!hasAvailableDates || hasSelection}
+        >
+          <option value="" disabled={selectedDate !== null || alreadyWroteDiploma}>Select Diploma Exam Date</option>
+          {dates.map((date) => {
+            // Format registration deadline if available
+            const hasDeadline = !!date.registrationDeadline;
+            const deadlineText = hasDeadline 
+              ? ` (Register by: ${date.registrationDeadlineDisplayDate || toDateString(toEdmontonDate(date.registrationDeadline))})` 
+              : '';
+              
+            return (
+              <option key={date.id} value={date.id}>
+                {formatDiplomaDate(date)}{deadlineText}
+              </option>
+            );
+          })}
+          <option value="no-diploma">I already wrote the diploma exam</option>
+        </select>
+        
+        {/* Show a reset button when a selection has been made */}
+        {hasSelection && (
+          <button
+            type="button"
+            onClick={() => {
+              // Reset diploma date selection
+              onChange(undefined);
+            }}
+            className="absolute right-10 top-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+            title="Reset selection"
+          >
+            Change
+          </button>
+        )}
+      </div>
       
       {error && (
         <div className="flex items-center gap-2 mt-1">
@@ -579,6 +603,26 @@ const NonPrimaryStudentForm = forwardRef(({
     const { name, value } = e.target;
 
     setFormData(prev => {
+      // Reset start and end dates when enrollment year changes
+      if (name === 'enrollmentYear') {
+        // Also reset date-related errors when enrollment year changes
+        setDateErrors(prev => ({
+          ...prev,
+          startDate: '',
+          endDate: '',
+          diplomaDate: '',
+          summerNotice: ''
+        }));
+        
+        return {
+          ...prev,
+          [name]: value,
+          startDate: '',
+          endDate: ''
+        };
+      }
+      
+      // For other fields, just update the specified field
       const newData = {
         ...prev,
         [name]: value
@@ -638,6 +682,9 @@ const NonPrimaryStudentForm = forwardRef(({
       const displayDate = toEdmontonDate(selectedDiplomaDate.displayDate);
       displayDate.setHours(0, 0, 0, 0);
       maxEndDate = displayDate;
+      // If we have a diploma date, we return it immediately without checking other constraints
+      // The diploma date must be respected exactly as the end date
+      return maxEndDate;
     }
     
     // 2. Check if there's a registration settings constraint for completion date
@@ -647,7 +694,7 @@ const NonPrimaryStudentForm = forwardRef(({
     if (timeSection) {
       const { max: completionEndsDate } = getDateConstraints(timeSection, false);
       
-      // If both constraints exist, use the earlier one
+      // If both constraints exist, use the earlier one (this only applies when not using diploma date)
       if (maxEndDate && completionEndsDate) {
         return completionEndsDate < maxEndDate ? completionEndsDate : maxEndDate;
       }
@@ -815,20 +862,38 @@ const NonPrimaryStudentForm = forwardRef(({
               endDate: `This course requires at least ${minCompletionMonths} months to complete, but the registration period ends on ${formatDateForDisplay(maxEndDate)}. Please select a different course or try registering for the next school year.`
             }));
           } else {
-            // We can use the maximum allowed end date but subtract 7 days to avoid putting the student right at the end
-            const adjustedMaxEndDate = new Date(maxEndDate);
-            adjustedMaxEndDate.setDate(adjustedMaxEndDate.getDate() - 7);
+            // Check if this is a diploma date - if so, we should use it exactly, not subtract days
+            const isDiplomaDate = isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate;
+            let safeEndDate;
             
-            // If adjusted date is still after minEndDate, use it. Otherwise, use minEndDate
-            const safeEndDate = minEndDate && adjustedMaxEndDate < minEndDate ? minEndDate : adjustedMaxEndDate;
+            if (isDiplomaDate) {
+              // For diploma courses, use the exact diploma date
+              safeEndDate = maxEndDate;
+            } else {
+              // For non-diploma courses, subtract 7 days to avoid putting the student right at the end
+              const adjustedMaxEndDate = new Date(maxEndDate);
+              adjustedMaxEndDate.setDate(adjustedMaxEndDate.getDate() - 7);
+              
+              // If adjusted date is still after minEndDate, use it. Otherwise, use minEndDate
+              safeEndDate = minEndDate && adjustedMaxEndDate < minEndDate ? minEndDate : adjustedMaxEndDate;
+            }
             
             setRecommendedEndDate(safeEndDate);
             
-            // Change the message to indicate this is not the recommended time anymore
-            setDateErrors(prev => ({
-              ...prev,
-              endDate: `Note: The end date has been adjusted to ${formatDateForDisplay(safeEndDate)} based on the registration deadline. This is 7 days before the final deadline.`
-            }));
+            // For diploma dates, don't show error message since info is shown elsewhere
+            // For non-diploma dates, show the adjustment message
+            if (!isDiplomaDate) {
+              setDateErrors(prev => ({
+                ...prev,
+                endDate: `Note: The end date has been adjusted to ${formatDateForDisplay(safeEndDate)} based on the registration deadline.`
+              }));
+            } else {
+              // Clear any existing error message for diploma dates
+              setDateErrors(prev => ({
+                ...prev,
+                endDate: ''
+              }));
+            }
             
             // If diploma date is the constraint, use it as the end date
             if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate) {
@@ -916,7 +981,7 @@ const NonPrimaryStudentForm = forwardRef(({
       // Determine the appropriate error message based on the constraint type
       if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate && 
           date > toEdmontonDate(selectedDiplomaDate.displayDate)) {
-        errorMessage = 'End date must be on or before the diploma exam';
+        errorMessage = `End date must be exactly on your diploma exam date (${formatDateForDisplay(toEdmontonDate(selectedDiplomaDate.displayDate))})`;
       } else {
         errorMessage = `End date must be on or before ${formatDateForDisplay(maxEnd)} based on registration period constraints`;
       }
@@ -1514,6 +1579,19 @@ const NonPrimaryStudentForm = forwardRef(({
 
   // Handle diploma date changes
   const handleDiplomaDateChange = (date) => {
+    // Handle reset case - allow reselection
+    if (date === undefined) {
+      setAlreadyWroteDiploma(false);
+      setSelectedDiplomaDate(null);
+      handleFormChange({
+        target: {
+          name: 'diplomaMonth',
+          value: null
+        }
+      });
+      return;
+    }
+    
     if (date === null) {
       // Student already wrote the diploma
       setAlreadyWroteDiploma(true);
@@ -1552,10 +1630,20 @@ const NonPrimaryStudentForm = forwardRef(({
             }
           });
           
-          setDateErrors(prev => ({
-            ...prev,
-            endDate: `Note: The end date has been adjusted to ${formatDateForDisplay(maxEndDate)} based on registration constraints`
-          }));
+          // For diploma dates, don't show error message
+          // For non-diploma dates, show the adjustment message
+          if (!(isDiplomaCourse && !alreadyWroteDiploma)) {
+            setDateErrors(prev => ({
+              ...prev,
+              endDate: `Note: The end date has been adjusted to ${formatDateForDisplay(maxEndDate)} based on registration constraints`
+            }));
+          } else {
+            // Clear any existing error message for diploma dates
+            setDateErrors(prev => ({
+              ...prev,
+              endDate: ''
+            }));
+          }
         } else {
           handleFormChange({
             target: {
@@ -1607,14 +1695,11 @@ const NonPrimaryStudentForm = forwardRef(({
       const maxEndDate = getMaxEndDate(isDiplomaCourse, false, date);
       
       if (maxEndDate && maxEndDate < diplomaDate) {
-        // Subtract 7 days from maxEndDate to avoid putting the student right at the end
-        const adjustedMaxEndDate = new Date(maxEndDate);
-        adjustedMaxEndDate.setDate(adjustedMaxEndDate.getDate() - 7);
-        
-        // Make sure the adjusted date isn't before the current date
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const safeEndDate = adjustedMaxEndDate < today ? maxEndDate : adjustedMaxEndDate;
+        // For diploma courses, we need to use the actual diploma date
+        // This is a special case where we have a diploma course, but for some reason
+        // the maxEndDate from registration constraints is earlier than the diploma date
+        // In this case, we should use the diploma date because it's a hard requirement
+        const safeEndDate = diplomaDate;
         
         handleFormChange({
           target: {
@@ -1623,9 +1708,10 @@ const NonPrimaryStudentForm = forwardRef(({
           }
         });
         
+        // For diploma dates, don't show error message since info is shown elsewhere
         setDateErrors(prev => ({
           ...prev,
-          endDate: `Note: The end date has been set to ${formatDateForDisplay(safeEndDate)} based on registration constraints. This is 7 days before the final deadline.`
+          endDate: ''
         }));
       } else {
         handleFormChange({
@@ -1786,6 +1872,7 @@ const NonPrimaryStudentForm = forwardRef(({
       ...prev,
       courseId: value,
       courseName: selectedCourse ? selectedCourse.title : '',
+      startDate: '', // Reset start date when course changes
       endDate: '' // Reset end date when course changes
     }));
     
@@ -1926,6 +2013,393 @@ const NonPrimaryStudentForm = forwardRef(({
     </AlertDescription>
   </Alert>
 )}
+
+    {/* Course Information Card */}
+    <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
+            <CardHeader>
+              <h3 className="text-md font-semibold">Course Information</h3>
+            </CardHeader>
+            <CardContent className="grid gap-6">
+
+              {/* Enrollment Year */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Enrollment Year <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="enrollmentYear"
+                  value={formData.enrollmentYear}
+                  onChange={handleFormChange}
+                  onBlur={() => handleBlur('enrollmentYear')}
+                  className={`w-full p-2 border rounded-md ${
+                    touched.enrollmentYear && errors.enrollmentYear ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  required
+                >
+                  <option value="">Select enrollment year</option>
+                  {availableEnrollmentYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year === getCurrentSchoolYear()
+                        ? `Current School Year (${year})`
+                        : `Next School Year (${year})`}
+                    </option>
+                  ))}
+                </select>
+                <ValidationFeedback
+                  isValid={touched.enrollmentYear && !errors.enrollmentYear}
+                  message={
+                    touched.enrollmentYear
+                      ? errors.enrollmentYear || validationRules.enrollmentYear.successMessage
+                      : null
+                  }
+                />
+                <p className="text-sm text-gray-500">{enrollmentYearMessage}</p>
+              </div>
+
+              {/* Course Selection */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Course Selection <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="courseId"
+                  value={formData.courseId}
+                  onChange={handleCourseChange}
+                  onBlur={() => handleBlur('courseId')}
+                  className={`w-full p-2 border rounded-md ${
+                    touched.courseId && errors.courseId ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  disabled={coursesLoading}
+                  required
+                >
+                  <option value="">Select a course</option>
+                  {courses.map((course) => {
+                    const status = enrolledCourses[course.id];
+                    const isDisabled = !!status; // Disable if there's any status
+
+                    let statusText = '';
+                    if (status === 'Registration') {
+                      statusText = '(Pending Registration)';
+                    } else if (status) {
+                      statusText = '(Already Enrolled)';
+                    }
+
+                    return (
+                      <option
+                        key={course.id}
+                        value={course.id}
+                        disabled={isDisabled}
+                      >
+                        {course.title} {statusText}
+                      </option>
+                    );
+                  })}
+                </select>
+
+                {coursesLoading && (
+                  <p className="text-sm text-gray-500">Loading courses...</p>
+                )}
+                <ValidationFeedback
+                  isValid={touched.courseId && !errors.courseId}
+                  message={
+                    touched.courseId
+                      ? errors.courseId || validationRules.courseId.successMessage
+                      : null
+                  }
+                />
+                {coursesError && (
+                  <p className="text-sm text-red-500">{coursesError}</p>
+                )}
+              </div>
+
+        
+
+              {/* Diploma Section */}
+              {isDiplomaCourse && formData.courseId && (
+                <div className="space-y-4">
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <InfoIcon className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-sm text-blue-700">
+                      This is a diploma course.{' '}
+                      <a
+                        href="https://www.alberta.ca/diploma-exams-overview"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 underline"
+                      >
+                        Learn more about diploma exams
+                      </a>
+                    </AlertDescription>
+                  </Alert>
+
+                  <DiplomaMonthSelector
+                    dates={diplomaDates}
+                    selectedDate={selectedDiplomaDate}
+                    onChange={handleDiplomaDateChange}
+                    error={dateErrors.diplomaDate}
+                    alreadyWroteDiploma={alreadyWroteDiploma}
+                  />
+
+                  {selectedDiplomaDate && (
+                    <div className="text-sm text-gray-600">
+                      <p>Important Notes:</p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>Your diploma exam is scheduled for {formatDiplomaDate(selectedDiplomaDate)}</li>
+                        <li>You must complete the course by your diploma exam date.</li>
+                        {selectedDiplomaDate.registrationDeadline && (
+                          <li className="font-medium text-amber-700">
+                            <AlertTriangle className="inline-block h-4 w-4 mr-1" />
+                            Registration deadline: {selectedDiplomaDate.registrationDeadlineDisplayDate}
+                          </li>
+                        )}
+                        {!selectedDiplomaDate.confirmed && (
+                          <li className="text-amber-600">This exam date is tentative and may be adjusted by Alberta Education.</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+
+                  {alreadyWroteDiploma && (
+                    <div className="text-sm text-gray-600">
+                      <p>Since you've already written the diploma exam:</p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>You can complete the course at your own pace (subject to term dates).</li>
+                        <li>Your previous diploma mark (30%) will be combined with your new school mark (70%).</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* No Valid Date Range Warning */}
+              {noValidDatesAvailable && (
+                <Alert className="bg-red-50 border-red-200">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-sm text-red-700">
+                    <div className="font-semibold mb-1">No valid dates available!</div>
+                    {dateErrors.endDate || (
+                      <div>
+                        There are no dates available that satisfy both the course requirements and registration constraints.
+                        Please select a different course, a different diploma date, or try registering for the next school year.
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Course Dates Section */}
+              <div className="space-y-4">
+                <h4 className="font-medium">Course Schedule</h4>
+                
+                {/* Display time section message */}
+                {formData.enrollmentYear && (
+                  <>
+                    {/* Show message from the selected time section */}
+                
+                    {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()) && (
+  <Alert className="bg-blue-50 border-blue-200">
+    <InfoIcon className="h-4 w-4 text-blue-600 flex-shrink-0 mt-1" />
+    <AlertDescription className="text-blue-700">
+      {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).message ? (
+        <div 
+          className="prose prose-sm max-w-none prose-blue"
+          dangerouslySetInnerHTML={{ 
+            __html: getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).message 
+          }}
+        />
+      ) : (
+        <span className="text-sm">
+          Please select dates within the {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear())?.title || 'registration period'}.
+        </span>
+      )}
+    </AlertDescription>
+  </Alert>
+)}
+                  </>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <DatePickerWithInfo
+                    label="Start Date"
+                    selected={formData.startDate}
+                    onChange={handleStartDateChange}
+                    minDate={getEffectiveDateConstraints().minStartDate}
+                    maxDate={getEffectiveDateConstraints().maxStartDate}
+                    helpText={
+                      formData.enrollmentYear !== getCurrentSchoolYear()
+                        ? "Please select a start date within the next school year registration window"
+                        : isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline 
+                            ? `Must register by ${selectedDiplomaDate.registrationDeadlineDisplayDate}`
+                            : getEffectiveDateConstraints().maxStartDate
+                                ? `Must start by ${formatDateForDisplay(getEffectiveDateConstraints().maxStartDate)}`
+                                : "Please select a start date within the active registration window."
+                    }
+                    error={dateErrors.startDate}
+                    isRegistrationDeadline={isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline}
+                    hasActiveWindow={getEffectiveDateConstraints().hasActiveWindow}
+                    isNextYear={formData.enrollmentYear !== getCurrentSchoolYear()}
+                    timeSection={getEffectiveDateConstraints().timeSection}
+                    studentType={studentType}
+                    disabled={noValidDatesAvailable}
+                  />
+
+                  <DatePickerWithInfo
+                    label="Completion Date"
+                    selected={formData.endDate}
+                    onChange={handleEndDateChange}
+                    minDate={formData.startDate && minCompletionMonths ? 
+                      getMinCompletionDate(formData.startDate, minCompletionMonths) : 
+                      getMinEndDate(formData.startDate)}
+                    maxDate={getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)}
+                    disabled={!formData.startDate || noValidDatesAvailable}
+                    readOnly={isEndDateReadOnly}
+                    helpText={
+                      isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate
+                        ? `Must be completed exactly on your diploma exam date (${formatDateForDisplay(toEdmontonDate(selectedDiplomaDate.displayDate))})`
+                        : minCompletionMonths
+                          ? `Must be at least ${minCompletionMonths} months after start date`
+                          : getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)
+                              ? `Must be completed by ${formatDateForDisplay(getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate))}`
+                              : "Recommended 5 months for course completion"
+                    }
+                    error={dateErrors.endDate}
+                    studentType={studentType}
+                    startDate={formData.startDate}
+                    timeSection={getEffectiveDateConstraints().timeSection}
+                    enrollmentYear={formData.enrollmentYear}
+                    recommendedEndDate={recommendedEndDate}
+                    isDiplomaCourse={isDiplomaCourse}
+                    alreadyWroteDiploma={alreadyWroteDiploma}
+                    selectedDiplomaDate={selectedDiplomaDate}
+                  />
+                </div>
+
+        
+
+                {dateErrors.summerNotice && (
+                  <Alert className="bg-amber-50 border-amber-200">
+                    <InfoIcon className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-sm text-amber-700">
+                      {dateErrors.summerNotice}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {!getEffectiveDateConstraints().hasActiveWindow && (
+                  <Alert className="bg-amber-50 border-amber-200">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertDescription className="text-sm text-amber-700">
+                      There are currently no active registration windows for your student type. 
+                      Please check back later or contact support for assistance.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {!formData.startDate && (
+                  <p className="text-sm text-gray-500">Please select a start date first</p>
+                )}
+
+                {/* Show warning if all registration deadlines have passed */}
+                {isDiplomaCourse && diplomaDates.length === 0 && (
+                  <Alert className="bg-red-50 border-red-200">
+                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-sm text-red-700">
+                      Registration deadlines have passed for all upcoming diploma exams for this course.
+                      Please select a different course or contact support for assistance.
+                      </AlertDescription>
+                  </Alert>
+                )}
+
+                {formData.startDate && formData.endDate && !noValidDatesAvailable && (
+                  <div className="p-4 bg-gray-50 rounded-md space-y-2">
+                    <div>
+                      <h5 className="font-medium text-sm">Course Duration</h5>
+                      <p className="text-sm text-gray-600">
+                        {calculateDuration(formData.startDate, formData.endDate)}
+                      </p>
+                    </div>
+                    
+                    {courseHours && (
+                      <div>
+                        <h5 className="font-medium text-sm">Study Time Required</h5>
+                        <p className="text-sm text-gray-600">
+                          This is a {courseHours}-hour course. Based on your selected schedule, 
+                          you will need to study approximately{' '}
+                          <span className="font-medium">
+                            {calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours)}
+                          </span>{' '}
+                          hours per week.
+                        </p>
+                        
+                        {parseFloat(calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours)) > 20 && (
+                          <p className="text-sm text-amber-600 mt-1">
+                            <AlertTriangle className="inline-block h-4 w-4 mr-1" />
+                            This schedule may be intensive. Consider extending your end date for a more manageable pace.
+                          </p>
+                        )}
+                        
+                        {parseFloat(calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours)) < 3 && (
+                          <p className="text-sm text-amber-600 mt-1">
+                            <AlertTriangle className="inline-block h-4 w-4 mr-1" />
+                            This schedule is quite spread out. Consider reducing the duration to maintain momentum.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {studentType === 'International Student' && (
+            <>
+              <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
+                <CardHeader>
+                  <h3 className="text-md font-semibold">Country Information</h3>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Country of Origin <span className="text-red-500">*</span>
+                    </label>
+                    {readOnlyFields.country ? (
+                      <input
+                        type="text"
+                        value={formData.country}
+                        className="w-full p-2 border rounded-md bg-gray-50 cursor-not-allowed"
+                        readOnly
+                      />
+                    ) : (
+                      <Select
+                        options={countryOptions}
+                        value={countryOptions.find(option => option.value === formData.country)}
+                        onChange={handleCountryChange}
+                        className={touched.country && errors.country ? 'border-red-500' : ''}
+                        placeholder="Select your country"
+                      />
+                    )}
+                    {readOnlyFields.country && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        Country of origin cannot be changed as it's already set in your profile
+                      </p>
+                    )}
+                    {touched.country && errors.country && (
+                      <ValidationFeedback
+                        isValid={false}
+                        message={errors.country}
+                      />
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <InternationalDocuments
+                onUploadComplete={handleDocumentUpload}
+                initialDocuments={documentUrls} 
+              />
+            </>
+          )}
 
           {/* Profile Information Card */}
           <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
@@ -2547,419 +3021,7 @@ const NonPrimaryStudentForm = forwardRef(({
             </CardContent>
           </Card>
 
-          {/* Course Information Card */}
-          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
-            <CardHeader>
-              <h3 className="text-md font-semibold">Course Information</h3>
-            </CardHeader>
-            <CardContent className="grid gap-6">
-
-              {/* Enrollment Year */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Enrollment Year <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="enrollmentYear"
-                  value={formData.enrollmentYear}
-                  onChange={handleFormChange}
-                  onBlur={() => handleBlur('enrollmentYear')}
-                  className={`w-full p-2 border rounded-md ${
-                    touched.enrollmentYear && errors.enrollmentYear ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  required
-                >
-                  <option value="">Select enrollment year</option>
-                  {availableEnrollmentYears.map((year) => (
-                    <option key={year} value={year}>
-                      {year === getCurrentSchoolYear()
-                        ? `Current School Year (${year})`
-                        : `Next School Year (${year})`}
-                    </option>
-                  ))}
-                </select>
-                <ValidationFeedback
-                  isValid={touched.enrollmentYear && !errors.enrollmentYear}
-                  message={
-                    touched.enrollmentYear
-                      ? errors.enrollmentYear || validationRules.enrollmentYear.successMessage
-                      : null
-                  }
-                />
-                <p className="text-sm text-gray-500">{enrollmentYearMessage}</p>
-              </div>
-
-              {/* Course Selection */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  Course Selection <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="courseId"
-                  value={formData.courseId}
-                  onChange={handleCourseChange}
-                  onBlur={() => handleBlur('courseId')}
-                  className={`w-full p-2 border rounded-md ${
-                    touched.courseId && errors.courseId ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  disabled={coursesLoading}
-                  required
-                >
-                  <option value="">Select a course</option>
-                  {courses.map((course) => {
-                    const status = enrolledCourses[course.id];
-                    const isDisabled = !!status; // Disable if there's any status
-
-                    let statusText = '';
-                    if (status === 'Registration') {
-                      statusText = '(Pending Registration)';
-                    } else if (status) {
-                      statusText = '(Already Enrolled)';
-                    }
-
-                    return (
-                      <option
-                        key={course.id}
-                        value={course.id}
-                        disabled={isDisabled}
-                      >
-                        {course.title} {statusText}
-                      </option>
-                    );
-                  })}
-                </select>
-
-                {coursesLoading && (
-                  <p className="text-sm text-gray-500">Loading courses...</p>
-                )}
-                <ValidationFeedback
-                  isValid={touched.courseId && !errors.courseId}
-                  message={
-                    touched.courseId
-                      ? errors.courseId || validationRules.courseId.successMessage
-                      : null
-                  }
-                />
-                {coursesError && (
-                  <p className="text-sm text-red-500">{coursesError}</p>
-                )}
-              </div>
-
-              {/* Course Requirements Section */}
-              {formData.courseId && (minCompletionMonths || recommendedCompletionMonths) && (
-                <div className="space-y-2">
-                  <h4 className="font-medium">Course Requirements</h4>
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <InfoIcon className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="text-sm text-blue-700">
-                      {minCompletionMonths && (
-                        <div>
-                          <span className="font-semibold">Required Minimum Duration:</span> This course must be completed over a minimum of {minCompletionMonths} {minCompletionMonths === 1 ? 'month' : 'months'}.
-                        </div>
-                      )}
-                      {recommendedCompletionMonths && (
-                        <div className="mt-1">
-                          <span className="font-semibold">Recommended Duration:</span> We recommend allowing {recommendedCompletionMonths} {recommendedCompletionMonths === 1 ? 'month' : 'months'} to complete this course for optimal learning.
-                        </div>
-                      )}
-                      <div className="mt-1">
-                        These requirements will be applied to the date selection below.
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                </div>
-              )}
-
-              {/* Diploma Section */}
-              {isDiplomaCourse && formData.courseId && (
-                <div className="space-y-4">
-                  <Alert className="bg-blue-50 border-blue-200">
-                    <InfoIcon className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="text-sm text-blue-700">
-                      This is a diploma course.{' '}
-                      <a
-                        href="https://www.alberta.ca/diploma-exams-overview"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 underline"
-                      >
-                        Learn more about diploma exams
-                      </a>
-                    </AlertDescription>
-                  </Alert>
-
-                  <DiplomaMonthSelector
-                    dates={diplomaDates}
-                    selectedDate={selectedDiplomaDate}
-                    onChange={handleDiplomaDateChange}
-                    error={dateErrors.diplomaDate}
-                  />
-
-                  {selectedDiplomaDate && (
-                    <div className="text-sm text-gray-600">
-                      <p>Important Notes:</p>
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li>Your diploma exam is scheduled for {formatDiplomaDate(selectedDiplomaDate)}</li>
-                        <li>You must complete the course by your diploma exam date.</li>
-                        {selectedDiplomaDate.registrationDeadline && (
-                          <li className="font-medium text-amber-700">
-                            <AlertTriangle className="inline-block h-4 w-4 mr-1" />
-                            Registration deadline: {selectedDiplomaDate.registrationDeadlineDisplayDate}
-                          </li>
-                        )}
-                        {!selectedDiplomaDate.confirmed && (
-                          <li className="text-amber-600">This exam date is tentative and may be adjusted by Alberta Education.</li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
-
-                  {alreadyWroteDiploma && (
-                    <div className="text-sm text-gray-600">
-                      <p>Since you've already written the diploma exam:</p>
-                      <ul className="list-disc pl-5 space-y-1">
-                        <li>You can complete the course at your own pace (subject to term dates).</li>
-                        <li>Your previous diploma mark (30%) will be combined with your new school mark (70%).</li>
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* No Valid Date Range Warning */}
-              {noValidDatesAvailable && (
-                <Alert className="bg-red-50 border-red-200">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
-                  <AlertDescription className="text-sm text-red-700">
-                    <div className="font-semibold mb-1">No valid dates available!</div>
-                    {dateErrors.endDate || (
-                      <div>
-                        There are no dates available that satisfy both the course requirements and registration constraints.
-                        Please select a different course, a different diploma date, or try registering for the next school year.
-                      </div>
-                    )}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {/* Course Dates Section */}
-              <div className="space-y-4">
-                <h4 className="font-medium">Course Schedule</h4>
-                
-                {/* Display time section message */}
-                {formData.enrollmentYear && (
-                  <>
-                    {/* Show message from the selected time section */}
-                
-                    {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()) && (
-  <Alert className="bg-blue-50 border-blue-200">
-    <InfoIcon className="h-4 w-4 text-blue-600 flex-shrink-0 mt-1" />
-    <AlertDescription className="text-blue-700">
-      {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).message ? (
-        <div 
-          className="prose prose-sm max-w-none prose-blue"
-          dangerouslySetInnerHTML={{ 
-            __html: getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).message 
-          }}
-        />
-      ) : (
-        <span className="text-sm">Please select dates within the registration period.</span>
-      )}
-    </AlertDescription>
-  </Alert>
-)}
-                  </>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <DatePickerWithInfo
-                    label="Start Date"
-                    selected={formData.startDate}
-                    onChange={handleStartDateChange}
-                    minDate={getEffectiveDateConstraints().minStartDate}
-                    maxDate={getEffectiveDateConstraints().maxStartDate}
-                    helpText={
-                      formData.enrollmentYear !== getCurrentSchoolYear()
-                        ? "Please select a start date within the next school year registration window"
-                        : isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline 
-                            ? `Must register by ${selectedDiplomaDate.registrationDeadlineDisplayDate}`
-                            : getEffectiveDateConstraints().maxStartDate
-                                ? `Must start by ${formatDateForDisplay(getEffectiveDateConstraints().maxStartDate)}`
-                                : "Please select a start date within the active registration window."
-                    }
-                    error={dateErrors.startDate}
-                    isRegistrationDeadline={isDiplomaCourse && selectedDiplomaDate && selectedDiplomaDate.registrationDeadline}
-                    hasActiveWindow={getEffectiveDateConstraints().hasActiveWindow}
-                    isNextYear={formData.enrollmentYear !== getCurrentSchoolYear()}
-                    timeSection={getEffectiveDateConstraints().timeSection}
-                    studentType={studentType}
-                    disabled={noValidDatesAvailable}
-                  />
-
-                  <DatePickerWithInfo
-                    label="Completion Date"
-                    selected={formData.endDate}
-                    onChange={handleEndDateChange}
-                    minDate={formData.startDate && minCompletionMonths ? 
-                      getMinCompletionDate(formData.startDate, minCompletionMonths) : 
-                      getMinEndDate(formData.startDate)}
-                    maxDate={getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)}
-                    disabled={!formData.startDate || noValidDatesAvailable}
-                    readOnly={isEndDateReadOnly}
-                    helpText={
-                      isDiplomaCourse && !alreadyWroteDiploma
-                        ? "Automatically set to your diploma exam date"
-                        : minCompletionMonths
-                          ? `Must be at least ${minCompletionMonths} months after start date`
-                          : getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)
-                              ? `Must be completed by ${formatDateForDisplay(getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate))}`
-                              : "Recommended 5 months for course completion"
-                    }
-                    error={dateErrors.endDate}
-                    studentType={studentType}
-                    startDate={formData.startDate}
-                    timeSection={getEffectiveDateConstraints().timeSection}
-                    enrollmentYear={formData.enrollmentYear}
-                    recommendedEndDate={recommendedEndDate}
-                  />
-                </div>
-
-                {recommendedEndDate && formData.startDate && !isEndDateReadOnly && !noValidDatesAvailable && (
-                  <Alert className="bg-amber-50 border-amber-200">
-                    <InfoIcon className="h-4 w-4 text-amber-600" />
-                    <AlertDescription className="text-sm text-amber-700">
-                      <span className="font-semibold">Recommended completion date:</span> {formatDateForDisplay(recommendedEndDate)}
-                      {recommendedCompletionMonths ? 
-                        ` (based on the recommended ${recommendedCompletionMonths} month duration)` : 
-                        ' (based on a 5 month recommended duration)'}
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {dateErrors.summerNotice && (
-                  <Alert className="bg-amber-50 border-amber-200">
-                    <InfoIcon className="h-4 w-4 text-amber-600" />
-                    <AlertDescription className="text-sm text-amber-700">
-                      {dateErrors.summerNotice}
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {!getEffectiveDateConstraints().hasActiveWindow && (
-                  <Alert className="bg-amber-50 border-amber-200">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    <AlertDescription className="text-sm text-amber-700">
-                      There are currently no active registration windows for your student type. 
-                      Please check back later or contact support for assistance.
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {!formData.startDate && (
-                  <p className="text-sm text-gray-500">Please select a start date first</p>
-                )}
-
-                {/* Show warning if all registration deadlines have passed */}
-                {isDiplomaCourse && diplomaDates.length === 0 && (
-                  <Alert className="bg-red-50 border-red-200">
-                    <AlertTriangle className="h-4 w-4 text-red-600" />
-                    <AlertDescription className="text-sm text-red-700">
-                      Registration deadlines have passed for all upcoming diploma exams for this course.
-                      Please select a different course or contact support for assistance.
-                      </AlertDescription>
-                  </Alert>
-                )}
-
-                {formData.startDate && formData.endDate && !noValidDatesAvailable && (
-                  <div className="p-4 bg-gray-50 rounded-md space-y-2">
-                    <div>
-                      <h5 className="font-medium text-sm">Course Duration</h5>
-                      <p className="text-sm text-gray-600">
-                        {calculateDuration(formData.startDate, formData.endDate)}
-                      </p>
-                    </div>
-                    
-                    {courseHours && (
-                      <div>
-                        <h5 className="font-medium text-sm">Study Time Required</h5>
-                        <p className="text-sm text-gray-600">
-                          This is a {courseHours}-hour course. Based on your selected schedule, 
-                          you will need to study approximately{' '}
-                          <span className="font-medium">
-                            {calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours)}
-                          </span>{' '}
-                          hours per week.
-                        </p>
-                        
-                        {parseFloat(calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours)) > 20 && (
-                          <p className="text-sm text-amber-600 mt-1">
-                            <AlertTriangle className="inline-block h-4 w-4 mr-1" />
-                            This schedule may be intensive. Consider extending your end date for a more manageable pace.
-                          </p>
-                        )}
-                        
-                        {parseFloat(calculateHoursPerWeek(formData.startDate, formData.endDate, courseHours)) < 3 && (
-                          <p className="text-sm text-amber-600 mt-1">
-                            <AlertTriangle className="inline-block h-4 w-4 mr-1" />
-                            This schedule is quite spread out. Consider reducing the duration to maintain momentum.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {studentType === 'International Student' && (
-            <>
-              <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
-                <CardHeader>
-                  <h3 className="text-md font-semibold">Country Information</h3>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Country of Origin <span className="text-red-500">*</span>
-                    </label>
-                    {readOnlyFields.country ? (
-                      <input
-                        type="text"
-                        value={formData.country}
-                        className="w-full p-2 border rounded-md bg-gray-50 cursor-not-allowed"
-                        readOnly
-                      />
-                    ) : (
-                      <Select
-                        options={countryOptions}
-                        value={countryOptions.find(option => option.value === formData.country)}
-                        onChange={handleCountryChange}
-                        className={touched.country && errors.country ? 'border-red-500' : ''}
-                        placeholder="Select your country"
-                      />
-                    )}
-                    {readOnlyFields.country && (
-                      <p className="text-sm text-gray-500 mt-2">
-                        Country of origin cannot be changed as it's already set in your profile
-                      </p>
-                    )}
-                    {touched.country && errors.country && (
-                      <ValidationFeedback
-                        isValid={false}
-                        message={errors.country}
-                      />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <InternationalDocuments
-                onUploadComplete={handleDocumentUpload}
-                initialDocuments={documentUrls} 
-              />
-            </>
-          )}
+      
 
           {/* Additional Information Card */}
           <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
@@ -3026,7 +3088,10 @@ const DatePickerWithInfo = ({
   hasActiveWindow = true,
   timeSection = null,
   isNextYear = false,
-  recommendedEndDate = null
+  recommendedEndDate = null,
+  isDiplomaCourse = false,
+  alreadyWroteDiploma = false,
+  selectedDiplomaDate = null
  }) => {
   // Function to calculate the default open date (5 months from start date)
   const getOpenToDate = () => {
@@ -3086,7 +3151,12 @@ const DatePickerWithInfo = ({
       if (label === "Start Date") {
         return `Note: Your start date must be between ${formatDateForDisplay(minDate)} and ${formatDateForDisplay(maxDate)}.`;
       } else if (label === "Completion Date") {
-        return `Note: Your completion date must be on or before ${formatDateForDisplay(maxDate)}.`;
+        // For diploma courses, indicate exact date requirement
+        if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate) {
+          return `Note: Your completion date must be exactly on your diploma exam date (${formatDateForDisplay(maxDate)}).`;
+        } else {
+          return `Note: Your completion date must be on or before ${formatDateForDisplay(maxDate)}.`;
+        }
       }
     }
     

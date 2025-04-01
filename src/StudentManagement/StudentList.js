@@ -11,6 +11,7 @@ import { TutorialButton } from '../components/TutorialButton';
 import CustomCSVExport from './CustomCSVExport';
 import MassUpdateDialog from './Dialog/MassUpdateDialog';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { toast } from 'sonner';
 
 // Initialize Firebase Functions
 const functions = getFunctions();
@@ -104,17 +105,34 @@ function StudentList({
       .filter(Boolean);
 
     if (selectedStudentsData.length === 0) {
-      alert('No students selected');
+      toast.error('No students selected', {
+        duration: 3000
+      });
       return;
     }
+
+    // Show a loading toast that persists during the operation
+    const loadingId = toast.loading(`Updating schedules for ${selectedStudentsData.length} students...`);
 
     try {
       const result = await batchUpdateNormalizedSchedules({ students: selectedStudentsData });
       console.log('Batch update result:', result);
-      alert('Batch update started successfully');
+      
+      // Dismiss loading toast and show success
+      toast.dismiss(loadingId);
+      toast.success(`Schedule update started`, {
+        description: `Processing ${selectedStudentsData.length} students in background`,
+        duration: 5000,
+      });
     } catch (error) {
       console.error('Error during batch update:', error);
-      alert('Failed to start batch update');
+      
+      // Dismiss loading toast and show error
+      toast.dismiss(loadingId);
+      toast.error('Failed to start batch update', {
+        description: error.message || 'Please try again or contact support',
+        duration: 5000,
+      });
     }
   };
 

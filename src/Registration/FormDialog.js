@@ -519,7 +519,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
           {/* Header Section */}
 <SheetHeader className="px-1 pb-4">
   {currentStep === 'form' && selectedStudentType && (
-    <div className="flex items-center mb-3">
+    <div className="flex items-center justify-between mb-3">
       {(() => {
         const { color, icon: Icon, description } = getStudentTypeInfo(selectedStudentType);
         return (
@@ -528,28 +528,32 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
             style={{ backgroundColor: `${color}15`, color: color }}
           >
             {Icon && <Icon className="h-4 w-4 mr-2" />}
-            {selectedStudentType}
+            {selectedStudentType} Student Registration
           </div>
         );
       })()}
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        onClick={handleBack} 
+        className="text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+      >
+        Change Student Type
+      </Button>
     </div>
   )}
-  <SheetTitle className="text-2xl font-semibold">
-    {currentStep === 'type-selection'
-      ? 'Student Information Form'
-      : currentStep === 'form'
-      ? selectedStudentType === 'Home Education'
-        ? 'Home Education Student Registration'
-        : `Student Registration`
-      : 'Review Registration'}
-  </SheetTitle>
-  <SheetDescription className="text-gray-600">
-    {currentStep === 'type-selection'
-      ? 'Please determine your student type'
-      : currentStep === 'form'
-      ? ''
-      : 'Please review your information before submitting'}
-  </SheetDescription>
+  {currentStep !== 'form' && (
+    <>
+      <div className="text-2xl font-semibold">
+        {currentStep === 'type-selection' ? 'Student Information Form' : 'Review Registration'}
+      </div>
+      <div className="text-gray-600 text-sm">
+        {currentStep === 'type-selection'
+          ? 'Please determine your student type'
+          : 'Please review your information before submitting'}
+      </div>
+    </>
+  )}
 </SheetHeader>
 
             {/* Content Section - Scrollable */}

@@ -1617,18 +1617,18 @@ const batchUpdateNormalizedSchedulesV2 = onCall({
   memory: '2GiB',
   timeoutSeconds: 540,
   concurrency: 500,
-  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com"]
-}, async (data) => {
-  // Extract parameters
-  const { students, forceUpdate = false } = data;
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
+}, async (request) => {
+  // Extract parameters from request.data instead of directly from request
+  const { students, forceUpdate = false } = request.data;
   
   if (!students || !Array.isArray(students) || students.length === 0) {
     throw new Error('You must provide an array of students');
   }
   
-  // Increased limit to 200 students as requested
-  if (students.length > 200) {
-    throw new Error('Maximum 200 students can be processed in a single batch. Please reduce the selection and try again.');
+  // Increased limit to 500 students
+  if (students.length > 500) {
+    throw new Error('Maximum 500 students can be processed in a single batch. Please reduce the selection and try again.');
   }
   
   console.log(`Starting parallel batch update for ${students.length} students`);
@@ -1638,14 +1638,14 @@ const batchUpdateNormalizedSchedulesV2 = onCall({
   const batchId = db.ref('scheduleBatches').push().key;
   const batchRef = db.ref(`scheduleBatches/${batchId}`);
   
-  // Initialize batch status
+  // Initialize batch status with current timestamp instead of ServerValue.TIMESTAMP
   await batchRef.set({
     status: 'processing',
     total: students.length,
     completed: 0,
     successful: 0,
     failed: 0,
-    startTime: admin.database.ServerValue.TIMESTAMP,
+    startTime: Date.now(),
     students: students.map(s => ({
       studentKey: s.studentKey,
       courseId: s.courseId,
@@ -1697,17 +1697,15 @@ const batchUpdateNormalizedSchedulesV2 = onCall({
             throw new Error('Failed to generate schedule');
           }
           
-          // Update status in batch
+          // Update status in batch with current timestamp
           await batchRef.child('students').child(globalIndex).update({
             status: 'completed',
-            timestamp: admin.database.ServerValue.TIMESTAMP
+            timestamp: Date.now()
           });
           
-          // Update batch counts
-          await batchRef.update({
-            completed: admin.database.ServerValue.increment(1),
-            successful: admin.database.ServerValue.increment(1)
-          });
+          // Update batch counts using transactions instead of ServerValue.increment
+          await batchRef.child('completed').transaction(current => (current || 0) + 1);
+          await batchRef.child('successful').transaction(current => (current || 0) + 1);
           
           return {
             studentKey,
@@ -1722,11 +1720,9 @@ const batchUpdateNormalizedSchedulesV2 = onCall({
             error: error.message
           });
           
-          // Update batch counts
-          await batchRef.update({
-            completed: admin.database.ServerValue.increment(1),
-            failed: admin.database.ServerValue.increment(1)
-          });
+          // Update batch counts using transactions
+          await batchRef.child('completed').transaction(current => (current || 0) + 1);
+          await batchRef.child('failed').transaction(current => (current || 0) + 1);
           
           return {
             studentKey: student.studentKey,
@@ -1764,10 +1760,10 @@ const batchUpdateNormalizedSchedulesV2 = onCall({
     console.log(`Completed chunk ${chunkIndex + 1}/${chunks.length}: ${results.length} students processed`);
   }
   
-  // Update final batch status
+  // Update final batch status with current timestamp
   await batchRef.update({
     status: 'completed',
-    endTime: admin.database.ServerValue.TIMESTAMP
+    endTime: Date.now()
   });
   
   console.log(`Batch update completed: ${totalSuccessful} successful, ${totalFailed} failed`);
