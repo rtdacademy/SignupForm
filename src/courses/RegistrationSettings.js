@@ -32,7 +32,9 @@ import {
 import { 
   getSchoolYearOptions, 
   STUDENT_TYPE_OPTIONS, 
-  getStudentTypeInfo 
+  getStudentTypeInfo,
+  TERM_OPTIONS,
+  getTermInfo
 } from '../config/DropdownOptions';
 import { 
   Loader2, 
@@ -41,6 +43,7 @@ import {
   Save, 
   AlertTriangle,
   Calendar,
+  CalendarClock,
   Copy,
   CheckCircle
 } from 'lucide-react';
@@ -157,8 +160,55 @@ function RegistrationSettings() {
         const snapshot = await get(configRef);
         
         if (snapshot.exists()) {
-          setFormConfig(snapshot.val());
+          const existingConfig = snapshot.val();
+          
+          // Check if we need to add term to existing time sections
+          if (existingConfig.timeSections) {
+            existingConfig.timeSections = existingConfig.timeSections.map(section => {
+              const updatedSection = { ...section };
+              
+              // Set default term if missing
+              if (!updatedSection.term) {
+                let defaultTerm = 'Full Year';
+                
+                if (selectedStudentType === 'Non-Primary') {
+                  defaultTerm = 'Term 1';
+                } else if (selectedStudentType === 'Summer School') {
+                  defaultTerm = 'Summer';
+                } else if (selectedStudentType === 'Home Education') {
+                  defaultTerm = 'Full Year';
+                }
+                
+                updatedSection.term = defaultTerm;
+              }
+              
+              // Set startFromToday flag if missing
+              if (updatedSection.startFromToday === undefined) {
+                // Check if startBegins is 1900-01-01, which would indicate "start from today"
+                if (updatedSection.startBegins === '1900-01-01') {
+                  updatedSection.startFromToday = true;
+                } else {
+                  updatedSection.startFromToday = false;
+                }
+              }
+              
+              return updatedSection;
+            });
+          }
+          
+          setFormConfig(existingConfig);
         } else {
+          // Get default term for student type
+          let defaultTerm = 'Full Year';
+          
+          if (selectedStudentType === 'Non-Primary') {
+            defaultTerm = 'Term 1';
+          } else if (selectedStudentType === 'Summer School') {
+            defaultTerm = 'Summer';
+          } else if (selectedStudentType === 'Home Education') {
+            defaultTerm = 'Full Year';
+          }
+          
           // Initialize with default structure if no config exists
           setFormConfig({
             generalMessage: '',
@@ -172,7 +222,10 @@ function RegistrationSettings() {
                 completionBegins: '',
                 completionEnds: '',
                 message: '<p>Please select a start and completion date within the registration period.</p>',
-                isForNextYear: false
+                isForNextYear: false,
+                isActive: true,
+                term: defaultTerm,
+                startFromToday: false
               }
             ]
           });
@@ -257,6 +310,19 @@ function RegistrationSettings() {
 
   // Add a new time section
   const addTimeSection = (isForNextYear = false) => {
+    // Set default term based on student type
+    let defaultTerm = 'Full Year';
+    
+    if (selectedStudentType === 'Non-Primary') {
+      defaultTerm = 'Term 1'; // Non-primary defaults to Term 1
+    } else if (selectedStudentType === 'Summer School') {
+      defaultTerm = 'Summer'; // Summer School defaults to Summer
+    } else if (selectedStudentType === 'Home Education') {
+      defaultTerm = 'Full Year'; // Home Education defaults to Full Year
+    } else if (selectedStudentType === 'Adult Student' || selectedStudentType === 'International Student') {
+      defaultTerm = 'Full Year'; // Adult/International defaults to Full Year
+    }
+    
     const newSection = {
       id: `section_${Date.now()}`,
       title: `New ${isForNextYear ? 'Next Year' : 'Current Year'} Registration Period`,
@@ -265,7 +331,10 @@ function RegistrationSettings() {
       completionBegins: '',
       completionEnds: '',
       message: '<p>Please select a start and completion date within this registration period.</p>',
-      isForNextYear: isForNextYear
+      isForNextYear: isForNextYear,
+      isActive: true,
+      term: defaultTerm,
+      startFromToday: false
     };
     
     setFormConfig(prev => ({
@@ -330,26 +399,49 @@ function RegistrationSettings() {
   
   // Check if dates in a time section are valid
   const isTimeSectionValid = (section) => {
-    if (!section.startBegins || !section.startEnds || !section.completionBegins || !section.completionEnds) {
-      return false;
+    // Skip startBegins validation if startFromToday is true
+    if (section.startFromToday) {
+      if (!section.startEnds || !section.completionBegins || !section.completionEnds) {
+        return false;
+      }
+      
+      const startEnds = new Date(section.startEnds);
+      const completionBegins = new Date(section.completionBegins);
+      const completionEnds = new Date(section.completionEnds);
+      
+      return (
+        completionBegins <= completionEnds
+      );
+    } else {
+      if (!section.startBegins || !section.startEnds || !section.completionBegins || !section.completionEnds) {
+        return false;
+      }
+      
+      const startBegins = new Date(section.startBegins);
+      const startEnds = new Date(section.startEnds);
+      const completionBegins = new Date(section.completionBegins);
+      const completionEnds = new Date(section.completionEnds);
+      
+      return (
+        startBegins <= startEnds &&
+        startBegins <= completionBegins &&
+        completionBegins <= completionEnds
+      );
     }
-    
-    const startBegins = new Date(section.startBegins);
-    const startEnds = new Date(section.startEnds);
-    const completionBegins = new Date(section.completionBegins);
-    const completionEnds = new Date(section.completionEnds);
-    
-    return (
-      startBegins <= startEnds &&
-      startBegins <= completionBegins &&
-      completionBegins <= completionEnds
-    );
   };
   
   // Get color for validity visual indicator
   const getSectionStatusColor = (section) => {
-    if (!section.startBegins || !section.startEnds || !section.completionBegins || !section.completionEnds) {
-      return 'bg-gray-300';
+    if (section.startFromToday) {
+      // For sections with "start from today" enabled, we only need to check other date fields
+      if (!section.startEnds || !section.completionBegins || !section.completionEnds) {
+        return 'bg-gray-300';
+      }
+    } else {
+      // For normal sections, check all date fields
+      if (!section.startBegins || !section.startEnds || !section.completionBegins || !section.completionEnds) {
+        return 'bg-gray-300';
+      }
     }
     
     return isTimeSectionValid(section) ? 'bg-green-500' : 'bg-red-500';
@@ -586,19 +678,116 @@ function RegistrationSettings() {
                             />
                           </div>
                           
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              <Switch 
+                                id={`active-${section.id}`}
+                                checked={section.isActive !== false} 
+                                onCheckedChange={(checked) => updateTimeSection(section.id, 'isActive', checked)}
+                              />
+                              <Label htmlFor={`active-${section.id}`} className="font-medium">
+                                Active
+                              </Label>
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {section.isActive !== false ? 'This period is active and visible to students' : 'This period is inactive and hidden from students'}
+                            </div>
+                          </div>
+                          
+                          <div className="mb-4">
+                            <Label htmlFor={`term-${section.id}`} className="block text-sm font-medium mb-2">Term</Label>
+                            <Select 
+                              value={section.term || 'Full Year'} 
+                              onValueChange={(value) => updateTimeSection(section.id, 'term', value)} 
+                              id={`term-${section.id}`}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select term" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {TERM_OPTIONS
+                                  .filter(option => {
+                                    // Filter options based on student type
+                                    if (selectedStudentType === 'Non-Primary' || selectedStudentType === 'Home Education') {
+                                      // Only Term 1, Term 2 for Non-Primary/Home Ed
+                                      return option.value === 'Term 1' || option.value === 'Term 2';
+                                    } else if (selectedStudentType === 'Summer School') {
+                                      // Only Summer for Summer School
+                                      return option.value === 'Summer';
+                                    } else {
+                                      // All options for Adult/International Student
+                                      return true;
+                                    }
+                                  })
+                                  .map(option => {
+                                    const Icon = option.icon;
+                                    return (
+                                      <SelectItem 
+                                        key={option.value} 
+                                        value={option.value}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          {Icon && <Icon className="w-4 h-4" style={{ color: option.color }} />}
+                                          <span>{option.label}</span>
+                                        </div>
+                                      </SelectItem>
+                                    );
+                                  })
+                                }
+                              </SelectContent>
+                            </Select>
+                            <div className="text-xs text-gray-500 mt-1">
+                              The term will be displayed to students when selecting this registration period
+                            </div>
+                          </div>
+                          
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor={`start-begins-${section.id}`}>Start Date Begins</Label>
-                              <div className="relative">
-                                <Input 
-                                  id={`start-begins-${section.id}`}
-                                  type="date" 
-                                  value={section.startBegins || ''} 
-                                  onChange={(e) => updateTimeSection(section.id, 'startBegins', e.target.value)}
-                                  className="w-full pr-10"
-                                />
-                                <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <Label htmlFor={`start-begins-toggle-${section.id}`}>Start Date Begins</Label>
+                                <div className="flex items-center gap-2">
+                                  <Switch 
+                                    id={`start-begins-toggle-${section.id}`}
+                                    checked={!section.startFromToday} 
+                                    onCheckedChange={(checked) => {
+                                      if (!checked) {
+                                        // If toggled off, set to far past date (1900-01-01)
+                                        updateTimeSection(section.id, 'startBegins', '1900-01-01');
+                                        updateTimeSection(section.id, 'startFromToday', true);
+                                      } else {
+                                        // If toggled on, clear the far past date
+                                        updateTimeSection(section.id, 'startBegins', '');
+                                        updateTimeSection(section.id, 'startFromToday', false);
+                                      }
+                                    }}
+                                  />
+                                  <span className="text-xs text-gray-500">
+                                    {section.startFromToday ? "Always starts today" : "Specific date"}
+                                  </span>
+                                </div>
                               </div>
+                              
+                              {!section.startFromToday && (
+                                <div className="relative">
+                                  <Input 
+                                    id={`start-begins-${section.id}`}
+                                    type="date" 
+                                    value={section.startBegins || ''} 
+                                    onChange={(e) => updateTimeSection(section.id, 'startBegins', e.target.value)}
+                                    className="w-full pr-10"
+                                  />
+                                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                                </div>
+                              )}
+                              
+                              {section.startFromToday && (
+                                <Alert className="bg-blue-50 border-blue-200 py-2">
+                                  <CalendarClock className="h-4 w-4 text-blue-600" />
+                                  <AlertDescription className="text-xs text-blue-700">
+                                    Registration will always start from today's date
+                                  </AlertDescription>
+                                </Alert>
+                              )}
                             </div>
                             
                             <div className="space-y-2">
@@ -751,19 +940,116 @@ function RegistrationSettings() {
                                 />
                               </div>
                               
+                              <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                  <Switch 
+                                    id={`active-${section.id}`}
+                                    checked={section.isActive !== false} 
+                                    onCheckedChange={(checked) => updateTimeSection(section.id, 'isActive', checked)}
+                                  />
+                                  <Label htmlFor={`active-${section.id}`} className="font-medium">
+                                    Active
+                                  </Label>
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {section.isActive !== false ? 'This period is active and visible to students' : 'This period is inactive and hidden from students'}
+                                </div>
+                              </div>
+                              
+                              <div className="mb-4">
+                                <Label htmlFor={`term-${section.id}`} className="block text-sm font-medium mb-2">Term</Label>
+                                <Select 
+                                  value={section.term || 'Full Year'} 
+                                  onValueChange={(value) => updateTimeSection(section.id, 'term', value)} 
+                                  id={`term-${section.id}`}
+                                >
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select term" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {TERM_OPTIONS
+                                      .filter(option => {
+                                        // Filter options based on student type
+                                        if (selectedStudentType === 'Non-Primary' || selectedStudentType === 'Home Education') {
+                                          // Only Term 1, Term 2 for Non-Primary/Home Ed
+                                          return option.value === 'Term 1' || option.value === 'Term 2';
+                                        } else if (selectedStudentType === 'Summer School') {
+                                          // Only Summer for Summer School
+                                          return option.value === 'Summer';
+                                        } else {
+                                          // All options for Adult/International Student
+                                          return true;
+                                        }
+                                      })
+                                      .map(option => {
+                                        const Icon = option.icon;
+                                        return (
+                                          <SelectItem 
+                                            key={option.value} 
+                                            value={option.value}
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              {Icon && <Icon className="w-4 h-4" style={{ color: option.color }} />}
+                                              <span>{option.label}</span>
+                                            </div>
+                                          </SelectItem>
+                                        );
+                                      })
+                                    }
+                                  </SelectContent>
+                                </Select>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  The term will be displayed to students when selecting this registration period
+                                </div>
+                              </div>
+                              
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                  <Label htmlFor={`start-begins-${section.id}`}>Start Date Begins</Label>
-                                  <div className="relative">
-                                    <Input 
-                                      id={`start-begins-${section.id}`}
-                                      type="date" 
-                                      value={section.startBegins || ''} 
-                                      onChange={(e) => updateTimeSection(section.id, 'startBegins', e.target.value)}
-                                      className="w-full pr-10"
-                                    />
-                                    <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                                <div className="space-y-4">
+                                  <div className="flex items-center justify-between">
+                                    <Label htmlFor={`start-begins-toggle-${section.id}`}>Start Date Begins</Label>
+                                    <div className="flex items-center gap-2">
+                                      <Switch 
+                                        id={`start-begins-toggle-${section.id}`}
+                                        checked={!section.startFromToday} 
+                                        onCheckedChange={(checked) => {
+                                          if (!checked) {
+                                            // If toggled off, set to far past date (1900-01-01)
+                                            updateTimeSection(section.id, 'startBegins', '1900-01-01');
+                                            updateTimeSection(section.id, 'startFromToday', true);
+                                          } else {
+                                            // If toggled on, clear the far past date
+                                            updateTimeSection(section.id, 'startBegins', '');
+                                            updateTimeSection(section.id, 'startFromToday', false);
+                                          }
+                                        }}
+                                      />
+                                      <span className="text-xs text-gray-500">
+                                        {section.startFromToday ? "Always starts today" : "Specific date"}
+                                      </span>
+                                    </div>
                                   </div>
+                                  
+                                  {!section.startFromToday && (
+                                    <div className="relative">
+                                      <Input 
+                                        id={`start-begins-${section.id}`}
+                                        type="date" 
+                                        value={section.startBegins || ''} 
+                                        onChange={(e) => updateTimeSection(section.id, 'startBegins', e.target.value)}
+                                        className="w-full pr-10"
+                                      />
+                                      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                                    </div>
+                                  )}
+                                  
+                                  {section.startFromToday && (
+                                    <Alert className="bg-blue-50 border-blue-200 py-2">
+                                      <CalendarClock className="h-4 w-4 text-blue-600" />
+                                      <AlertDescription className="text-xs text-blue-700">
+                                        Registration will always start from today's date
+                                      </AlertDescription>
+                                    </Alert>
+                                  )}
                                 </div>
                                 
                                 <div className="space-y-2">

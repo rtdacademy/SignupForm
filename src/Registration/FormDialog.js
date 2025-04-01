@@ -327,6 +327,8 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
             "Id": 1,
             "Value": registrationData.formData.enrollmentYear || ''
           },
+          // Add Term information
+          "Term": registrationData.formData.term || 'Full Year',
           // Single DiplomaMonthChoices conditional that only adds if there's data
           ...(registrationData.formData.diplomaMonth && {
             "DiplomaMonthChoices": {

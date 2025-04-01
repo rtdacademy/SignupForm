@@ -5,7 +5,7 @@ import {
   Home,
   Sun,
   User,
-  Globe ,
+  Globe,
   Calculator,  // for Math courses
   Code,        // for Coding courses
   Beaker,      // for Science courses
@@ -20,7 +20,11 @@ import {
   AlertCircle, 
   AlertOctagon, 
   Archive,
-  MinusCircle
+  MinusCircle,
+  Calendar,        // for Term 1
+  CalendarDays,    // for Term 2
+  CalendarClock,   // for Full Year
+  Umbrella         // for Summer
 } from 'lucide-react';
 
 export const PAYMENT_STATUS_OPTIONS = [
@@ -1188,7 +1192,53 @@ export const getDiplomaMonthColor = (month) => {
   return option ? option.color : "#6B7280";  // Default to gray if month not found
 };
 
+export const TERM_OPTIONS = [
+  {
+    value: "Term 1",
+    label: "Term 1",
+    color: "#3B82F6", // Blue
+    icon: Calendar,
+    description: "First semester (September to January)"
+  },
+  {
+    value: "Term 2",
+    label: "Term 2",
+    color: "#8B5CF6", // Purple
+    icon: CalendarDays,
+    description: "Second semester (February to June)"
+  },
+  {
+    value: "Full Year",
+    label: "Full Year",
+    color: "#10B981", // Green
+    icon: CalendarClock,
+    description: "Full academic year (September to June)"
+  },
+  {
+    value: "Summer",
+    label: "Summer",
+    color: "#F59E0B", // Amber
+    icon: Umbrella,
+    description: "Summer session (July to August)"
+  }
+];
 
+// Helper function to get term info
+export const getTermInfo = (term) => {
+  const option = TERM_OPTIONS.find(opt => opt.value === term);
+  return {
+    color: option ? option.color : "#6B7280",
+    icon: option ? option.icon : null,
+    description: option ? option.description : null,
+    label: option ? option.label : term
+  };
+};
+
+// Helper function to get just the term color
+export const getTermColor = (term) => {
+  const option = TERM_OPTIONS.find(opt => opt.value === term);
+  return option ? option.color : "#6B7280";  // Default to gray if term not found
+};
 
 
 export const getActiveFutureArchivedColor = (status) => {

@@ -171,13 +171,27 @@ const useRegistrationSettings = (studentType) => {
     return relevantSections[0];
   }, [settings]);
 
-  // Check if a time section is currently active (today is within start window)
+  // Check if a time section is currently active (today is within start window AND isActive flag is true)
   const isTimeSectionActive = useCallback((timeSection) => {
     if (!timeSection) return false;
+    
+    // First check if the section is explicitly marked as inactive
+    if (timeSection.isActive === false) return false;
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // If startFromToday is true or startBegins is set to 1900-01-01, 
+    // we only need to check the end date
+    if (timeSection.startFromToday || timeSection.startBegins === '1900-01-01') {
+      const startEnds = toEdmontonDate(timeSection.startEnds);
+      startEnds.setHours(23, 59, 59, 999);
+      
+      // Only check if today is before the end date
+      return today <= startEnds;
+    }
+    
+    // Otherwise check the normal date range
     const startBegins = toEdmontonDate(timeSection.startBegins);
     const startEnds = toEdmontonDate(timeSection.startEnds);
     startBegins.setHours(0, 0, 0, 0);
@@ -194,11 +208,21 @@ const useRegistrationSettings = (studentType) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const startBegins = toEdmontonDate(timeSection.startBegins);
-      startBegins.setHours(0, 0, 0, 0);
-      
       const startEnds = toEdmontonDate(timeSection.startEnds);
       startEnds.setHours(23, 59, 59, 999);
+      
+      // Handle startFromToday flag or special date 1900-01-01
+      if (timeSection.startFromToday || timeSection.startBegins === '1900-01-01') {
+        // If start from today is enabled, min date is always today
+        return {
+          min: today,
+          max: startEnds
+        };
+      }
+      
+      // Normal case - use timeSection.startBegins
+      const startBegins = toEdmontonDate(timeSection.startBegins);
+      startBegins.setHours(0, 0, 0, 0);
       
       // Use the later of today or startBegins as the minimum date
       const minDate = today > startBegins ? today : startBegins;
@@ -389,6 +413,14 @@ const NonPrimaryStudentForm = forwardRef(({
   
     console.log('Default enrollment year:', defaultEnrollmentYear);
   
+    // Set default term based on student type
+    let defaultTerm = 'Full Year';
+    if (studentType === 'Non-Primary' || studentType === 'Home Education') {
+      defaultTerm = 'Term 1';
+    } else if (studentType === 'Summer School') {
+      defaultTerm = 'Summer';
+    }
+    
     const formData = {
       gender: '',
       firstName: validationRules.firstName.format(user?.displayName?.split(' ')[0] || ''),
@@ -413,6 +445,7 @@ const NonPrimaryStudentForm = forwardRef(({
       studentType: studentType || 'Non-Primary', // Initialize with studentType prop
       age: null,
       country: '', 
+      term: defaultTerm, // Initialize with default term based on student type
       documents: {
         passport: '',
         additionalID: '',
@@ -614,11 +647,17 @@ const NonPrimaryStudentForm = forwardRef(({
           summerNotice: ''
         }));
         
+        // Update term based on the new enrollment year's time section
+        const isNextYear = value !== getCurrentSchoolYear();
+        const timeSection = getTimeSection(isNextYear);
+        
         return {
           ...prev,
           [name]: value,
           startDate: '',
-          endDate: ''
+          endDate: '',
+          // Update term if available from time section
+          term: timeSection?.term || prev.term
         };
       }
       
@@ -632,7 +671,7 @@ const NonPrimaryStudentForm = forwardRef(({
     });
 
     handleBlur(name);
-  }, [handleBlur]);
+  }, [handleBlur, getCurrentSchoolYear, getTimeSection]);
 
   const handleCountryChange = (selectedOption) => {
     handleFormChange({
@@ -970,6 +1009,20 @@ const NonPrimaryStudentForm = forwardRef(({
       }));
       return;
     }
+    
+    // Check completionBegins constraint from registration settings
+    const endDateIsNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+    const endDateTimeSection = getTimeSection(endDateIsNextYear);
+    if (endDateTimeSection) {
+      const { min: completionBeginsDate } = getDateConstraints(endDateTimeSection, false);
+      if (completionBeginsDate && date < completionBeginsDate) {
+        setDateErrors(prev => ({
+          ...prev,
+          endDate: `End date must be on or after ${formatDateForDisplay(completionBeginsDate)} based on registration period constraints`
+        }));
+        return;
+      }
+    }
   
     // Get maximum end date from multiple constraints
     const maxEnd = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
@@ -990,14 +1043,7 @@ const NonPrimaryStudentForm = forwardRef(({
       return;
     }
     
-    // Summer school validation - only check end date for summer school student type
-    if (studentType === 'Summer School' && !isDateInSummer(date)) {
-      setDateErrors(prev => ({
-        ...prev,
-        endDate: 'Summer school courses must end in July or August'
-      }));
-      return;
-    }
+    // Remove special Summer School validation - rely on registration settings instead
   
     // School year boundary validation
     if (formData.startDate && crossesSchoolYearBoundary(formData.startDate, date)) {
@@ -1016,6 +1062,18 @@ const NonPrimaryStudentForm = forwardRef(({
       }
     });
     setDateErrors(prev => ({ ...prev, endDate: '' }));
+    
+    // Get term from the active time section and add it to form data
+    const isNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+    const timeSection = getTimeSection(isNextYear);
+    if (timeSection && timeSection.term) {
+      handleFormChange({
+        target: {
+          name: 'term',
+          value: timeSection.term
+        }
+      });
+    }
   
     // Add summer school notification for regular students
     if ((studentType === 'Non-Primary' || studentType === 'Home Education') && isDateInSummer(date)) {
@@ -1192,14 +1250,26 @@ const NonPrimaryStudentForm = forwardRef(({
     let availableYears = [];
     let message = '';
     
-    // Add current year if it has a section
+    // Add current year if it has a section and it's active
     if (hasCurrentYear) {
-      availableYears.push(currentSchoolYear);
-      if (isTimeSectionActive(currentYearSection)) {
-        message = `Registration is currently open for the ${currentSchoolYear} school year until ${formatDateForDisplay(currentYearSection.startEnds)}.`;
+      // Check if the section is marked as active
+      if (currentYearSection && currentYearSection.isActive !== false) {
+        availableYears.push(currentSchoolYear);
+        if (isTimeSectionActive(currentYearSection)) {
+          message = `Please select your course below to see available registration dates for the ${currentSchoolYear} school year.`;
+        } else {
+          // Check if the section has startFromToday enabled or special date 1900-01-01
+          if (currentYearSection.startFromToday || currentYearSection.startBegins === '1900-01-01') {
+            message = `Please select your course below to see available registration dates for the ${currentSchoolYear} school year.`;
+          } else {
+            message = `Registration for the ${currentSchoolYear} school year will open on ${formatDateForDisplay(currentYearSection.startBegins)}.`;
+          }
+        }
       } else {
-        message = `Registration for the ${currentSchoolYear} school year will open on ${formatDateForDisplay(currentYearSection.startBegins)}.`;
+        message = `Registration for this student type is currently closed for the ${currentSchoolYear} school year.`;
       }
+    } else {
+      message = `Registration for this student type is closed for the current school year.`;
     }
     
     // Add next year if allowed and has a section
@@ -1215,7 +1285,12 @@ const NonPrimaryStudentForm = forwardRef(({
       if (isTimeSectionActive(nextYearSection)) {
         message += ` until ${formatDateForDisplay(nextYearSection.startEnds)}.`;
       } else {
-        message += ` between ${formatDateForDisplay(nextYearSection.startBegins)} and ${formatDateForDisplay(nextYearSection.startEnds)}.`;
+        // Check if next year section has startFromToday enabled or special date 1900-01-01
+        if (nextYearSection.startFromToday || nextYearSection.startBegins === '1900-01-01') {
+          message += ` starting today until ${formatDateForDisplay(nextYearSection.startEnds)}.`;
+        } else {
+          message += ` between ${formatDateForDisplay(nextYearSection.startBegins)} and ${formatDateForDisplay(nextYearSection.startEnds)}.`;
+        }
       }
     }
 
@@ -1768,6 +1843,22 @@ const NonPrimaryStudentForm = forwardRef(({
         valid = false;
       }
     }
+    
+    // Check completionBegins constraint from registration settings
+    if (formData.endDate) {
+      const endDate = toEdmontonDate(formData.endDate);
+      const validateIsNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+      const validateTimeSection = getTimeSection(validateIsNextYear);
+      
+      if (validateTimeSection) {
+        const { min: completionBeginsDate } = getDateConstraints(validateTimeSection, false);
+        
+        if (completionBeginsDate && endDate < completionBeginsDate) {
+          newDateErrors.endDate = `End date must be on or after ${formatDateForDisplay(completionBeginsDate)} based on registration period constraints`;
+          valid = false;
+        }
+      }
+    }
 
     // Validate that end date doesn't exceed schedule end date constraint
     const maxEndDate = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
@@ -1887,6 +1978,18 @@ const NonPrimaryStudentForm = forwardRef(({
       diplomaDate: '',
       summerNotice: ''
     }));
+    
+    // Update term based on active time section
+    const isNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+    const timeSection = getTimeSection(isNextYear);
+    if (timeSection && timeSection.term) {
+      handleFormChange({
+        target: {
+          name: 'term',
+          value: timeSection.term
+        }
+      });
+    }
   
     handleBlur('courseId'); // Add this to mark the field as touched
   };
@@ -2207,6 +2310,31 @@ const NonPrimaryStudentForm = forwardRef(({
   <Alert className="bg-blue-50 border-blue-200">
     <InfoIcon className="h-4 w-4 text-blue-600 flex-shrink-0 mt-1" />
     <AlertDescription className="text-blue-700">
+      {/* Display term if available */}
+      {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term && (
+        <div className="flex items-center mb-2">
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium" 
+            style={{ 
+              backgroundColor: getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Term 1' ? '#dbeafe' :
+                               getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Term 2' ? '#ede9fe' :
+                               getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Full Year' ? '#d1fae5' : 
+                               getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Summer' ? '#fef3c7' : '#f3f4f6',
+              color: getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Term 1' ? '#1e40af' :
+                     getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Term 2' ? '#5b21b6' :
+                     getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Full Year' ? '#047857' : 
+                     getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Summer' ? '#b45309' : '#374151',
+              border: '1px solid',
+              borderColor: getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Term 1' ? '#bfdbfe' :
+                           getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Term 2' ? '#ddd6fe' :
+                           getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Full Year' ? '#a7f3d0' : 
+                           getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term === 'Summer' ? '#fde68a' : '#e5e7eb'
+            }}
+          >
+            {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).term}
+          </span>
+        </div>
+      )}
+      
       {getTimeSection(formData.enrollmentYear !== getCurrentSchoolYear()).message ? (
         <div 
           className="prose prose-sm max-w-none prose-blue"
@@ -2254,20 +2382,62 @@ const NonPrimaryStudentForm = forwardRef(({
                     label="Completion Date"
                     selected={formData.endDate}
                     onChange={handleEndDateChange}
-                    minDate={formData.startDate && minCompletionMonths ? 
-                      getMinCompletionDate(formData.startDate, minCompletionMonths) : 
-                      getMinEndDate(formData.startDate)}
+                    minDate={(() => {
+                      // Get min date from course requirements
+                      const courseMinDate = formData.startDate && minCompletionMonths ? 
+                        getMinCompletionDate(formData.startDate, minCompletionMonths) : 
+                        getMinEndDate(formData.startDate);
+                      
+                      // Get min date from registration settings
+                      const isNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+                      const timeSection = getTimeSection(isNextYear);
+                      const registrationMinDate = timeSection ? 
+                        getDateConstraints(timeSection, false).min : null;
+                      
+                      // Use the later of the two dates
+                      if (courseMinDate && registrationMinDate) {
+                        return registrationMinDate > courseMinDate ? registrationMinDate : courseMinDate;
+                      } else {
+                        return registrationMinDate || courseMinDate;
+                      }
+                    })()}
                     maxDate={getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)}
                     disabled={!formData.startDate || noValidDatesAvailable}
                     readOnly={isEndDateReadOnly}
-                    helpText={
-                      isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate
-                        ? `Must be completed exactly on your diploma exam date (${formatDateForDisplay(toEdmontonDate(selectedDiplomaDate.displayDate))})`
-                        : minCompletionMonths
-                          ? `Must be at least ${minCompletionMonths} months after start date`
-                          : getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate)
-                              ? `Must be completed by ${formatDateForDisplay(getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate))}`
-                              : "Recommended 5 months for course completion"
+                    helpText={(() => {
+                      // For diploma courses
+                      if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate) {
+                        return `Must be completed exactly on your diploma exam date (${formatDateForDisplay(toEdmontonDate(selectedDiplomaDate.displayDate))})`;
+                      }
+                      
+                      // Get constraints
+                      const helpIsNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+                      const helpTimeSection = getTimeSection(helpIsNextYear);
+                      const regMinDate = helpTimeSection ? getDateConstraints(helpTimeSection, false).min : null;
+                      const regMaxDate = getMaxEndDate(isDiplomaCourse, alreadyWroteDiploma, selectedDiplomaDate);
+                      const courseMinMonths = minCompletionMonths ? `at least ${minCompletionMonths} months after start date` : null;
+                      
+                      // Build message
+                      const constraints = [];
+                      
+                      if (regMinDate) {
+                        constraints.push(`on or after ${formatDateForDisplay(regMinDate)}`);
+                      }
+                      
+                      if (regMaxDate) {
+                        constraints.push(`on or before ${formatDateForDisplay(regMaxDate)}`);
+                      }
+                      
+                      if (courseMinMonths) {
+                        constraints.push(courseMinMonths);
+                      }
+                      
+                      if (constraints.length > 0) {
+                        return `Completion date must be ${constraints.join(' and ')}`;
+                      }
+                      
+                      return "Recommended 5 months for course completion";
+                    })()
                     }
                     error={dateErrors.endDate}
                     studentType={studentType}
@@ -3115,32 +3285,10 @@ const DatePickerWithInfo = ({
  
   // Function to get excluded date intervals based on student type
   const getExcludedIntervals = () => {
-    // For next year selections, don't exclude any dates
-    if (isNextYear) return [];
+    // For all student types including Summer School, rely on the registration settings
+    // rather than imposing special date restrictions
     
-    const currentYear = new Date().getFullYear();
-    const nextYear = currentYear + 1;
-    
-    if (studentType === 'Summer School') {
-      return [
-        {
-          start: new Date(currentYear, 0, 1),
-          end: new Date(currentYear, 5, 30)
-        },
-        {
-          start: new Date(currentYear, 8, 1),
-          end: new Date(currentYear, 11, 31)
-        },
-        {
-          start: new Date(nextYear, 0, 1),
-          end: new Date(nextYear, 5, 30)
-        },
-        {
-          start: new Date(nextYear, 8, 1),
-          end: new Date(nextYear, 11, 31)
-        }
-      ];
-    }
+    // No date exclusions - the min/max dates from registration settings will handle constraints
     return [];
   };
  
@@ -3169,9 +3317,7 @@ const getWarningMessage = () => {
     }
   }
   
-  if (studentType === 'Summer School') {
-    return "Note: Summer School courses must be completed in July or August.";
-  }
+  // Remove special Summer School message - rely on registration settings instead
   
   return null;
 };

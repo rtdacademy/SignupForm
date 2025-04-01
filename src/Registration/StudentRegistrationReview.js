@@ -133,6 +133,7 @@ const StudentRegistrationReview = ({ onBack }) => {
   const courseInfo = [
     ['Student Type', formData.studentType],
     ['School Year', formData.enrollmentYear],
+    ['Term', formData.term || 'Full Year'],
     ['Course', formData.courseName],
     ['Start Date', formData.startDate],
     ['End Date', formData.endDate],

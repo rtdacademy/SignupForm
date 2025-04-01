@@ -56,6 +56,11 @@ export const toDateString = (date) => {
 export const formatDateForDisplay = (date) => {
   if (!date) return '';
   
+  // Check for special "start from today" date
+  if (typeof date === 'string' && date === '1900-01-01') {
+    return 'today';
+  }
+  
   // Convert string to Date if necessary
   const dateObj = typeof date === 'string' ? toEdmontonDate(date) : date;
   
