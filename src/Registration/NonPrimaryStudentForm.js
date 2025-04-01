@@ -2002,7 +2002,14 @@ const NonPrimaryStudentForm = forwardRef(({
           )}
 
        {/* General Message from Settings */}
-       {settings?.generalMessage && (
+       {settings?.generalMessage && 
+  // Create a DOM element to parse the HTML
+  (() => {
+    const div = document.createElement('div');
+    div.innerHTML = settings.generalMessage;
+    // Check if there's any text content after parsing the HTML
+    return div.textContent.trim() !== '';
+  })() && (
   <Alert className="bg-blue-50 border-blue-200">
     <InfoIcon className="h-4 w-4 text-blue-600 flex-shrink-0 mt-1" />
     <AlertDescription className="text-blue-700">
@@ -3138,34 +3145,36 @@ const DatePickerWithInfo = ({
   };
  
   // Get appropriate warning message based on student type and constraints
-  const getWarningMessage = () => {
-    if (!hasActiveWindow) {
-      return "There are currently no active registration windows for your student type.";
-    }
-    
-    if (isRegistrationDeadline && maxDate) {
-      return `Note: You must register by ${formatDateForDisplay(maxDate)} to qualify for this diploma exam.`;
-    }
-    
-    if (timeSection) {
-      if (label === "Start Date") {
-        return `Note: Your start date must be between ${formatDateForDisplay(minDate)} and ${formatDateForDisplay(maxDate)}.`;
-      } else if (label === "Completion Date") {
-        // For diploma courses, indicate exact date requirement
-        if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate) {
-          return `Note: Your completion date must be exactly on your diploma exam date (${formatDateForDisplay(maxDate)}).`;
-        } else {
-          return `Note: Your completion date must be on or before ${formatDateForDisplay(maxDate)}.`;
-        }
+  // Get appropriate warning message based on student type and constraints
+const getWarningMessage = () => {
+  if (!hasActiveWindow) {
+    return "There are currently no active registration windows for your student type.";
+  }
+  
+  if (isRegistrationDeadline && maxDate) {
+    return `Note: You must register by ${formatDateForDisplay(maxDate)} to qualify for this diploma exam.`;
+  }
+  
+  if (timeSection) {
+    if (label === "Start Date") {
+      return `Note: Your start date must be between ${formatDateForDisplay(minDate)} and ${formatDateForDisplay(maxDate)}.`;
+    } else if (label === "Completion Date") {
+      // For diploma courses, indicate exact date requirement
+      if (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate) {
+        return `Note: Your completion date must be exactly on your diploma exam date (${formatDateForDisplay(maxDate)}).`;
+      } else if (studentType !== 'Adult Student' && studentType !== 'International Student') {
+        // Only show end date constraint for student types other than Adult or International
+        return `Note: Your completion date must be on or before ${formatDateForDisplay(maxDate)}.`;
       }
     }
-    
-    if (studentType === 'Summer School') {
-      return "Note: Summer School courses must be completed in July or August.";
-    }
-    
-    return null;
-  };
+  }
+  
+  if (studentType === 'Summer School') {
+    return "Note: Summer School courses must be completed in July or August.";
+  }
+  
+  return null;
+};
  
   return (
     <div className="space-y-2">

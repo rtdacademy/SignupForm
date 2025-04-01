@@ -83,6 +83,7 @@
     "react-modal": "^3.16.1",
     "react-phone-input-2": "^2.15.1",
     "react-quill": "^2.0.0",
+    "react-quill-new": "^3.4.6",
     "react-resizable-panels": "^2.1.3",
     "react-router-dom": "^6.26.2",
     "react-scripts": "^5.0.1",
@@ -123,7 +124,7 @@
     "tailwindcss-debug-screens": "^2.2.1",
     "typescript": "^4.9.5"
   },
-"scripts": {
+  "scripts": {
     "cleanup": "kill-port 3000 9099 5001 8080 9000 5000 9199 4400 4401 4000 4001 4500 4501 9299 9300 9499 9500",
     "start:main": "npm run cleanup && concurrently \"node scripts/build.js --start\" \"firebase emulators:start --only functions\"",
     "start:second": "npm run cleanup && concurrently \"node scripts/build.js --second-site --start\" \"firebase emulators:start --only functions\"",
@@ -137,7 +138,7 @@
     "clean": "node scripts/build.js --clean-only",
     "prebuild": "node scripts/build.js --clean-only",
     "emulator": "npm run cleanup && firebase emulators:start --only functions"
-},
+  },
   "browserslist": [
     ">0.2%",
     "not dead",

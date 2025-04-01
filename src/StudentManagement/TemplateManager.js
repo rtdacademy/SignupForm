@@ -40,8 +40,8 @@ import {
   AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, 
   Bookmark, Mail, Bell, Megaphone, Chat , Grid2X2Icon, ListFilterIcon
 } from 'lucide-react';
-import ReactQuill, { Quill } from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import { useAuth } from '../context/AuthContext';
 import { TutorialButton } from '../components/TutorialButton';
 
@@ -103,6 +103,8 @@ const modules = {
     ['bold', 'italic', 'underline', 'strike', 'blockquote'],
     [
       { list: 'ordered' },
+      // The toolbar can still use bullet list in UI but we'll use a different
+      // internal format name to make it compatible with react-quill-new
       { list: 'bullet' },
       { indent: '-1' },
       { indent: '+1' }
@@ -120,7 +122,7 @@ const formats = [
   'strike',
   'blockquote',
   'list',
-  'bullet',
+  // 'bullet' has been removed as it's not registered in the new package
   'indent',
   'link'
 ];
@@ -440,12 +442,25 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null, d
   // Get preview text for a template using the editor
   const getTemplatePreview = (template) => {
     if (!template.content) return '';
-
-    // Create a temporary div and Quill instance just for preview
-    const tempDiv = document.createElement('div');
-    const quill = new Quill(tempDiv);
-    quill.setContents(template.content);
-    return quill.getText().substring(0, 100);
+    
+    // Extract text without creating a Quill instance
+    try {
+      // Delta format typically contains ops array with insert operations
+      if (template.content.ops) {
+        return template.content.ops
+          .map(op => typeof op.insert === 'string' ? op.insert : '')
+          .join('')
+          .substring(0, 100);
+      }
+      
+      // Fallback for other formats
+      return typeof template.content === 'string' 
+        ? template.content.substring(0, 100) 
+        : '';
+    } catch (e) {
+      console.error('Error extracting text from template:', e);
+      return '';
+    }
   };
 
   
@@ -459,11 +474,43 @@ const renderTemplateList = (archived, templatesList = null) => {
   const list = templatesList !== null ? templatesList : templates.filter((template) => template.archived === archived);
 
   const getTemplateContent = (template) => {
-    // Create a temporary div and Quill instance to render the content
-    const tempDiv = document.createElement('div');
-    const quill = new Quill(tempDiv);
-    quill.setContents(template.content);
-    return quill.root.innerHTML;
+    if (!template.content) return '';
+    
+    // Extract HTML content without creating a Quill instance
+    try {
+      // If content is in Delta format (has ops array)
+      if (template.content.ops) {
+        // Create a container that's not attached to the DOM
+        const container = document.createElement('div');
+        
+        // Process ops and build HTML directly
+        template.content.ops.forEach(op => {
+          if (typeof op.insert === 'string') {
+            const span = document.createElement('span');
+            
+            // Apply basic formatting if available
+            if (op.attributes) {
+              if (op.attributes.bold) span.style.fontWeight = 'bold';
+              if (op.attributes.italic) span.style.fontStyle = 'italic';
+              if (op.attributes.underline) span.style.textDecoration = 'underline';
+            }
+            
+            span.textContent = op.insert;
+            container.appendChild(span);
+          }
+        });
+        
+        return container.innerHTML;
+      }
+      
+      // Fallback for other formats
+      return typeof template.content === 'string' 
+        ? template.content 
+        : '';
+    } catch (e) {
+      console.error('Error extracting HTML from template:', e);
+      return '';
+    }
   };
 
   const truncateText = (text, maxLength) => {
@@ -1069,15 +1116,12 @@ const renderTemplatesTab = () => (
                   </div>
                 )}
                 {(() => {
-                  // Create a temporary div and Quill instance for preview
-                  const tempDiv = document.createElement('div');
-                  const quill = new Quill(tempDiv);
-                  quill.setContents(previewTemplate.content);
+                  // Use our helper function instead of creating a Quill instance
                   return (
                     <div
                       className="ql-editor"
                       dangerouslySetInnerHTML={{
-                        __html: tempDiv.querySelector('.ql-editor').innerHTML
+                        __html: getTemplateContent(previewTemplate)
                       }}
                     />
                   );

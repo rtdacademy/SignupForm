@@ -20,6 +20,13 @@ import {
   DialogDescription,
   DialogFooter
 } from "../components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
+} from "../components/ui/tabs";
+import { Alert, AlertDescription } from "../components/ui/alert";
 
 const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = false }) => {
   const navigate = useNavigate();
@@ -27,20 +34,64 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
   const [error, setError] = useState(null);
   const [emailInput, setEmailInput] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(startWithSignUp); // Use the prop for initial state
+  const [activeTab, setActiveTab] = useState(startWithSignUp ? "signup" : "signin");
   const [message, setMessage] = useState(null);
   const [emailError, setEmailError] = useState(null);
   const [passwordError, setPasswordError] = useState(null);
   const [signInMethods, setSignInMethods] = useState([]);
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
+  const [isResetingPassword, setIsResetingPassword] = useState(false);
 
   const db = getDatabase();
+
+  // Convert Firebase error codes to user-friendly messages
+  const getFriendlyErrorMessage = (error) => {
+    console.log("Error code:", error.code);
+    
+    const errorMessages = {
+      // Sign in errors
+      'auth/invalid-credential': 'The email or password is incorrect. Please try again.',
+      'auth/invalid-email': 'Please enter a valid email address.',
+      'auth/user-disabled': 'This account has been disabled. Please contact support.',
+      'auth/user-not-found': 'We couldn\'t find an account with this email. Please check your email or create a new account.',
+      'auth/wrong-password': 'The password you entered is incorrect. Please try again.',
+      'auth/too-many-requests': 'Too many unsuccessful attempts. Please try again later or reset your password.',
+      'auth/network-request-failed': 'Connection problem. Please check your internet and try again.',
+      
+      // Sign up errors
+      'auth/email-already-in-use': 'An account with this email already exists. Please sign in instead.',
+      'auth/weak-password': 'Your password is too weak. Please use a stronger password with at least 7 characters including numbers and symbols.',
+      
+      // Social sign-in errors
+      'auth/account-exists-with-different-credential': 'An account already exists with this email. Try signing in with a different method.',
+      'auth/popup-closed-by-user': 'The sign-in window was closed. Please try again.',
+      'auth/popup-blocked': 'Your browser blocked the sign-in window. Please allow popups for this site and try again.',
+      'auth/cancelled-popup-request': 'Sign-in process was interrupted. Please try again.',
+      'auth/operation-not-allowed': 'This sign-in method is not enabled. Please try another method.',
+      
+      // Password reset errors
+      'auth/expired-action-code': 'The password reset link has expired. Please request a new one.',
+      'auth/invalid-action-code': 'The password reset link is invalid or has already been used.',
+      'auth/missing-ios-bundle-id': 'An error occurred. Please try again later.',
+      'auth/missing-android-pkg-name': 'An error occurred. Please try again later.',
+      'auth/missing-continue-uri': 'An error occurred. Please try again later.',
+      'auth/invalid-continue-uri': 'An error occurred. Please try again later.',
+      'auth/unauthorized-continue-uri': 'An error occurred. Please try again later.',
+      
+      // General errors
+      'auth/internal-error': 'An unexpected error occurred. Please try again later.',
+      'auth/requires-recent-login': 'For security reasons, please sign in again before continuing.',
+    };
+    
+    // Return friendly message if available, or a default message
+    return errorMessages[error.code] || `Something went wrong. Please try again. (${error.message})`;
+  };
 
   const isStaffEmail = (email) => {
     if (typeof email !== 'string') return false;
     const sanitized = sanitizeEmail(email);
-    return sanitized.endsWith("@rtdacademy.com"); // Corrected comma to dot
+    return sanitized.endsWith("@rtdacademy.com");
   };
 
   const handleStaffAttempt = () => {
@@ -76,7 +127,7 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
   const handleEmailChange = (e) => {
     const email = e.target.value;
     setEmailInput(email);
-    if (isSignUp) {
+    if (activeTab === "signup") {
       validateEmail(email);
     }
   };
@@ -84,7 +135,7 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
   const handlePasswordChange = (e) => {
     const pwd = e.target.value;
     setPassword(pwd);
-    if (isSignUp) {
+    if (activeTab === "signup") {
       validatePassword(pwd);
     }
   };
@@ -157,7 +208,7 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
     }
 
     try {
-      if (isSignUp) {
+      if (activeTab === "signup") {
         // Check for existing account during signup
         const methods = await checkExistingAccount(emailInput);
         console.log("Signup - checking methods:", methods);
@@ -175,7 +226,7 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
       }
     } catch (error) {
       console.error("Form submission error:", error);
-      setError("An unexpected error occurred. Please try again.");
+      setError(getFriendlyErrorMessage(error) || "An unexpected error occurred. Please try again.");
     }
   };
 
@@ -213,7 +264,7 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
       }
     } catch (error) {
       console.error("Sign-in error:", error);
-      setError(`Failed to sign in with ${provider.providerId}. Please try again.`);
+      setError(getFriendlyErrorMessage(error) || `Failed to sign in with ${provider.providerId}. Please try again.`);
     }
   };
 
@@ -252,19 +303,7 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
       
     } catch (error) {
       console.error("Sign-up error:", error.code, error.message);
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          setError("This email is already registered. Please sign in or use a different email.");
-          break;
-        case 'auth/invalid-email':
-          setError("Invalid email address. Please check and try again.");
-          break;
-        case 'auth/weak-password':
-          setError("Password is too weak. Please use a stronger password.");
-          break;
-        default:
-          setError("Failed to create account. Please try again.");
-      }
+      setError(getFriendlyErrorMessage(error));
     }
   };
 
@@ -296,22 +335,7 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
       
     } catch (error) {
       console.error("Sign-in error:", error.code, error.message);
-      switch (error.code) {
-        case 'auth/user-not-found':
-          setError("No account found with this email. Please sign up first.");
-          break;
-        case 'auth/wrong-password':
-          setError("Incorrect password. Please try again.");
-          break;
-        case 'auth/invalid-email':
-          setError("Invalid email address. Please check and try again.");
-          break;
-        case 'auth/too-many-requests':
-          setError("Too many unsuccessful login attempts. Please try again later.");
-          break;
-        default:
-          setError(`Sign in failed: ${error.message}`);
-      }
+      setError(getFriendlyErrorMessage(error));
     }
   };
 
@@ -338,19 +362,298 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
     try {
       await sendPasswordResetEmail(auth, emailInput.trim());
       setMessage("A password reset email has been sent. Please check your inbox.");
+      setIsResetingPassword(false);
     } catch (error) {
       console.error("Password reset error:", error.code, error.message);
-      switch (error.code) {
-        case 'auth/user-not-found':
-          setError("No account found with this email.");
-          break;
-        case 'auth/invalid-email':
-          setError("Invalid email address. Please check and try again.");
-          break;
-        default:
-          setError("Failed to send password reset email. Please try again.");
-      }
+      setError(getFriendlyErrorMessage(error));
     }
+  };
+
+  const resetState = () => {
+    setError(null);
+    setMessage(null);
+    setEmailError(null);
+    setPasswordError(null);
+    setEmailInput("");
+    setPassword("");
+    setIsResetingPassword(false);
+  };
+
+  const switchTab = (tab) => {
+    setActiveTab(tab);
+    resetState();
+  };
+
+  // Helper function to render alerts at the top of forms
+  const renderAlerts = () => {
+    if (!error && !message) return null;
+    
+    return (
+      <div className="mb-6">
+        {error && (
+          <Alert variant="destructive" className="border-red-500 bg-red-50">
+            <AlertDescription className="text-red-800">{error}</AlertDescription>
+          </Alert>
+        )}
+        {message && (
+          <Alert className="border-green-500 bg-green-50">
+            <AlertDescription className="text-green-800">{message}</AlertDescription>
+          </Alert>
+        )}
+      </div>
+    );
+  };
+
+  const renderAuthForm = () => {
+    if (isResetingPassword) {
+      return (
+        <div className="space-y-6">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900">Reset Your Password</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Enter your email address and we'll send you a link to reset your password.
+            </p>
+          </div>
+          
+          {renderAlerts()}
+
+          <form onSubmit={(e) => { e.preventDefault(); handlePasswordReset(); }} className="space-y-6">
+            <div>
+              <label htmlFor="reset-email" className="block text-sm font-medium text-gray-700">Email Address</label>
+              <input
+                id="reset-email"
+                type="email"
+                value={emailInput}
+                onChange={handleEmailChange}
+                required
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                placeholder="e.g., student@example.com"
+              />
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={() => setIsResetingPassword(false)}
+                className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              >
+                Back to Sign In
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              >
+                Send Reset Link
+              </button>
+            </div>
+          </form>
+        </div>
+      );
+    }
+
+    return (
+      <Tabs defaultValue={activeTab} value={activeTab} onValueChange={switchTab} className="w-full">
+        <TabsList className="grid grid-cols-2 mb-8">
+          <TabsTrigger value="signin" className="text-base">Sign In</TabsTrigger>
+          <TabsTrigger value="signup" className="text-base">Create Account</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="signin">
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
+              <p className="mt-2 text-sm text-gray-600">
+                Sign in to access your RTD Academy courses.
+              </p>
+            </div>
+            
+            {renderAlerts()}
+
+            <form onSubmit={handleEmailPasswordSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="signin-email" className="block text-sm font-medium text-gray-700">Email Address</label>
+                <input
+                  id="signin-email"
+                  type="email"
+                  value={emailInput}
+                  onChange={handleEmailChange}
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                  placeholder="e.g., student@example.com"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="signin-password" className="block text-sm font-medium text-gray-700">Password</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsResetingPassword(true)}
+                    className="text-xs text-primary hover:text-primary-dark focus:outline-none"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <input
+                  id="signin-password"
+                  type="password"
+                  value={password}
+                  onChange={handlePasswordChange}
+                  required
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                  placeholder="Your Password"
+                />
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                >
+                  Sign In
+                </button>
+              </div>
+            </form>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handleProviderSignIn(googleProvider)}
+                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <img
+                  className="h-5 w-5 mr-2"
+                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                  alt="Google logo"
+                />
+                <span>Google</span>
+              </button>
+
+              <button
+                onClick={() => handleProviderSignIn(microsoftProvider)}
+                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <img
+                  className="h-5 w-5 mr-2"
+                  src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
+                  alt="Microsoft logo"
+                />
+                <span>Microsoft</span>
+              </button>
+            </div>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="signup">
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900">Create Your Account</h2>
+              <p className="mt-2 text-sm text-gray-600">
+                Join RTD Academy to start learning today.
+              </p>
+            </div>
+            
+            {renderAlerts()}
+
+            <form onSubmit={handleEmailPasswordSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700">Email Address</label>
+                <input
+                  id="signup-email"
+                  type="email"
+                  value={emailInput}
+                  onChange={handleEmailChange}
+                  required
+                  className={`mt-1 block w-full border ${
+                    emailError ? 'border-red-500' : 'border-gray-300'
+                  } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
+                  placeholder="e.g., student@example.com"
+                />
+                {emailError && <p className="mt-2 text-sm text-red-600">{emailError}</p>}
+              </div>
+
+              <div>
+                <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700">Create Password</label>
+                <input
+                  id="signup-password"
+                  type="password"
+                  value={password}
+                  onChange={handlePasswordChange}
+                  required
+                  className={`mt-1 block w-full border ${
+                    passwordError ? 'border-red-500' : 'border-gray-300'
+                  } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
+                  placeholder="Create a secure password"
+                />
+                {passwordError && <p className="mt-2 text-sm text-red-600">{passwordError}</p>}
+                {!passwordError && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Password must be at least 7 characters with at least one number and one symbol.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  disabled={!!emailError || !!passwordError}
+                  className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                    emailError || passwordError
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-700'
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500`}
+                >
+                  Create Account
+                </button>
+              </div>
+            </form>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or sign up with</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handleProviderSignIn(googleProvider)}
+                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <img
+                  className="h-5 w-5 mr-2"
+                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                  alt="Google logo"
+                />
+                <span>Google</span>
+              </button>
+
+              <button
+                onClick={() => handleProviderSignIn(microsoftProvider)}
+                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <img
+                  className="h-5 w-5 mr-2"
+                  src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
+                  alt="Microsoft logo"
+                />
+                <span>Microsoft</span>
+              </button>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    );
   };
 
   return (
@@ -384,124 +687,14 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
       </Dialog>
 
       {compactView ? (
-        // Compact view - just the card
+        // Compact view 
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <div className="space-y-6">
-            <h2 className="text-center text-2xl font-bold text-gray-900">
-              {isSignUp ? "Sign Up" : "Sign In"}
-            </h2>
-
-            <form onSubmit={handleEmailPasswordSubmit} className="space-y-6">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={emailInput}
-                  onChange={handleEmailChange}
-                  required
-                  className={`mt-1 block w-full border ${
-                    emailError ? 'border-red-500' : 'border-gray-300'
-                  } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
-                  placeholder="e.g., student@example.com"
-                />
-                {emailError && <p className="mt-2 text-sm text-red-600">{emailError}</p>}
-              </div>
-
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={handlePasswordChange}
-                  required
-                  className={`mt-1 block w-full border ${
-                    passwordError ? 'border-red-500' : 'border-gray-300'
-                  } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
-                  placeholder="Your Password"
-                />
-                {passwordError && <p className="mt-2 text-sm text-red-600">{passwordError}</p>}
-              </div>
-
-              <div>
-                <button
-                  type="submit"
-                  disabled={isSignUp && (!!emailError || !!passwordError)}
-                  className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                    isSignUp && (emailError || passwordError)
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-primary hover:bg-primary-dark'
-                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary`}
-                >
-                  {isSignUp ? "Register with Email" : "Sign In with Email"}
-                </button>
-              </div>
-            </form>
-
-            {!isSignUp && (
-              <div className="text-sm">
-                <button
-                  onClick={handlePasswordReset}
-                  className="font-medium text-primary hover:text-primary-dark focus:outline-none"
-                >
-                  Forgot password?
-                </button>
-              </div>
-            )}
-
-            <div className="text-sm">
-              <button
-                onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null); setEmailError(null); setPasswordError(null); }}
-                className="font-medium text-primary hover:text-primary-dark focus:outline-none"
-              >
-                {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
-              </button>
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with</span>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                onClick={() => handleProviderSignIn(googleProvider)}
-                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <img
-                  className="h-5 w-5 mr-2"
-                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                  alt="Google logo"
-                />
-                <span>{isSignUp ? "Sign up with Google" : "Sign in with Google"}</span>
-              </button>
-
-              <button
-                onClick={() => handleProviderSignIn(microsoftProvider)}
-                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <img
-                  className="h-5 w-5 mr-2"
-                  src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
-                  alt="Microsoft logo"
-                />
-                <span>{isSignUp ? "Sign up with Microsoft" : "Sign in with Microsoft"}</span>
-              </button>
-            </div>
-
-            {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
-            {message && <p className="mt-2 text-center text-sm text-green-600">{message}</p>}
-
-            <div className="mt-6 text-center">
-              <Link to="/staff-login" className="font-medium text-secondary hover:text-secondary-dark">
-                Staff Login
-              </Link>
-            </div>
+          {renderAuthForm()}
+          
+          <div className="mt-6 text-center">
+            <Link to="/staff-login" className="font-medium text-secondary hover:text-secondary-dark">
+              Staff Login
+            </Link>
           </div>
         </div>
       ) : (
@@ -518,122 +711,12 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
 
           <div className={`${!hideWelcome ? 'mt-8' : ''} sm:mx-auto sm:w-full sm:max-w-md`}>
             <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-              <div className="space-y-6">
-                <h2 className="text-center text-2xl font-bold text-gray-900">
-                  {isSignUp ? "Sign Up" : "Sign In"}
-                </h2>
-
-                <form onSubmit={handleEmailPasswordSubmit} className="space-y-6">
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
-                    <input
-                      id="email"
-                      type="email"
-                      value={emailInput}
-                      onChange={handleEmailChange}
-                      required
-                      className={`mt-1 block w-full border ${
-                        emailError ? 'border-red-500' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
-                      placeholder="e.g., student@example.com"
-                    />
-                    {emailError && <p className="mt-2 text-sm text-red-600">{emailError}</p>}
-                  </div>
-
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-                    <input
-                      id="password"
-                      type="password"
-                      value={password}
-                      onChange={handlePasswordChange}
-                      required
-                      className={`mt-1 block w-full border ${
-                        passwordError ? 'border-red-500' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`}
-                      placeholder="Your Password"
-                    />
-                    {passwordError && <p className="mt-2 text-sm text-red-600">{passwordError}</p>}
-                  </div>
-
-                  <div>
-                    <button
-                      type="submit"
-                      disabled={isSignUp && (!!emailError || !!passwordError)}
-                      className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                        isSignUp && (emailError || passwordError)
-                          ? 'bg-gray-400 cursor-not-allowed'
-                          : 'bg-primary hover:bg-primary-dark'
-                      } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary`}
-                    >
-                      {isSignUp ? "Register with Email" : "Sign In with Email"}
-                    </button>
-                  </div>
-                </form>
-
-                {!isSignUp && (
-                  <div className="text-sm">
-                    <button
-                      onClick={handlePasswordReset}
-                      className="font-medium text-primary hover:text-primary-dark focus:outline-none"
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-                )}
-
-                <div className="text-sm">
-                  <button
-                    onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null); setEmailError(null); setPasswordError(null); }}
-                    className="font-medium text-primary hover:text-primary-dark focus:outline-none"
-                  >
-                    {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
-                  </button>
-                </div>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">Or continue with</span>
-                  </div>
-                </div>
-
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handleProviderSignIn(googleProvider)}
-                    className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    <img
-                      className="h-5 w-5 mr-2"
-                      src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                      alt="Google logo"
-                    />
-                    <span>{isSignUp ? "Sign up with Google" : "Sign in with Google"}</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleProviderSignIn(microsoftProvider)}
-                    className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    <img
-                      className="h-5 w-5 mr-2"
-                      src="https://learn.microsoft.com/en-us/entra/identity-platform/media/howto-add-branding-in-apps/ms-symbollockup_mssymbol_19.png"
-                      alt="Microsoft logo"
-                    />
-                    <span>{isSignUp ? "Sign up with Microsoft" : "Sign in with Microsoft"}</span>
-                  </button>
-                </div>
-
-                {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
-                {message && <p className="mt-2 text-center text-sm text-green-600">{message}</p>}
-
-                <div className="mt-6 text-center">
-                  <Link to="/staff-login" className="font-medium text-secondary hover:text-secondary-dark">
-                    Staff Login
-                  </Link>
-                </div>
+              {renderAuthForm()}
+              
+              <div className="mt-6 text-center">
+                <Link to="/staff-login" className="font-medium text-secondary hover:text-secondary-dark">
+                  Staff Login
+                </Link>
               </div>
             </div>
           </div>

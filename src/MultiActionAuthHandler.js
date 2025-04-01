@@ -8,6 +8,7 @@ function MultiActionAuthHandler() {
   const [newPassword, setNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState(null);
   const [signInMethods, setSignInMethods] = useState([]);
+  const [canResetPassword, setCanResetPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -66,10 +67,12 @@ function MultiActionAuthHandler() {
             console.log("Available sign-in methods:", methods);
             setSignInMethods(methods);
             
-            if (methods.includes('password')) {
+            if (methods.length === 0 || methods.includes('password')) {
               setStatus('Password reset code verified. Please enter a new password.');
+              setCanResetPassword(true);
             } else {
               setStatus('This account uses external authentication (Google or Microsoft). You cannot reset its password here.');
+              setCanResetPassword(false);
             }
           } catch (resetError) {
             console.error("Password reset verification error:", resetError);
@@ -165,7 +168,7 @@ function MultiActionAuthHandler() {
               </h2>
             </div>
 
-            {mode === 'resetPassword' && signInMethods.includes('password') ? (
+            {mode === 'resetPassword' && canResetPassword ? (
               <form onSubmit={(e) => { e.preventDefault(); handlePasswordReset(); }} className="space-y-6">
                 <div>
                   <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">New Password</label>
