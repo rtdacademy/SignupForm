@@ -2262,28 +2262,7 @@ const getChangedFields = (existingRecord, newRecord) => {
         </AccordionItem>
       </Accordion>
       
-  {/* Status mismatches warning */}
-{recordsWithStatusMismatch.length > 0 && (
-  <Alert variant="warning" className="bg-amber-50 border-amber-200">
-    <AlertTriangle className="h-4 w-4 text-amber-600" />
-    <AlertTitle className="text-amber-800">Status Mismatches Detected</AlertTitle>
-    <AlertDescription className="text-amber-700">
-      Found {recordsWithStatusMismatch.length} records with status values that may be incompatible with 
-      their corresponding YourWay status.
-    </AlertDescription>
-  </Alert>
-)}
 
-{/* Missing PASI records warning */}
-{countActualMissingRecords(missingPasiRecords) > 0 && (
-  <Alert variant="warning" className="bg-amber-50 border-amber-200 mt-4">
-    <AlertTriangle className="h-4 w-4 text-amber-600" />
-    <AlertTitle className="text-amber-800">Missing PASI Records</AlertTitle>
-    <AlertDescription className="text-amber-700">
-      Found {countActualMissingRecords(missingPasiRecords)} YourWay courses that need to be registered in PASI.
-    </AlertDescription>
-  </Alert>
-)}
       
       {/* Display cleanup results if available */}
       {cleanupResults && (

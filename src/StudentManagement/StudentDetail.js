@@ -6,7 +6,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Sheet, SheetContent } from "../components/ui/sheet";
-import { Calendar, Split, IdCard, AlertTriangle, Edit, ClipboardList, InfoIcon, DollarSign, LayoutGrid } from 'lucide-react';
+import { Calendar, Split, IdCard, AlertTriangle, Edit, ClipboardList, InfoIcon, DollarSign, LayoutGrid, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
@@ -43,7 +43,7 @@ const getColorFromInitials = (initials) => {
   return colors[hash % colors.length];
 };
 
-function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
+function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   const [studentData, setStudentData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -56,8 +56,8 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
   const [assignedStaff, setAssignedStaff] = useState([]);
   const [courseId, setCourseId] = useState(null);
   const [courseTitle, setCourseTitle] = useState('');
-  const [courseData, setCourseData] = useState(null); // Store the course data 
-  const [ltiLinksComplete, setLtiLinksComplete] = useState(false); // Track ltiLinksComplete status
+  const [courseData, setCourseData] = useState(null);
+  const [ltiLinksComplete, setLtiLinksComplete] = useState(false);
   const prevDataRef = useRef();
   const [jsonGradebookSchedule, setJsonGradebookSchedule] = useState(null);
   const [scheduleJSON, setScheduleJSON] = useState(null);
@@ -68,28 +68,53 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLMSStudentID, setLocalLMSStudentID] = useState(studentSummary?.LMSStudentID || null);
   const [isLMSIdDialogOpen, setIsLMSIdDialogOpen] = useState(false);
-  // Notes Sheet state
-  const [isNotesSheetOpen, setIsNotesSheetOpen] = useState(false);
+  
+  // Notes visibility state
+  const [isNotesVisible, setIsNotesVisible] = useState(true);
+  
   // Edge Admin sheet state
   const [isEdgeAdminSheetOpen, setIsEdgeAdminSheetOpen] = useState(false);
   // Payment sheet state
   const [isPaymentSheetOpen, setIsPaymentSheetOpen] = useState(false);
   // Documents sheet state (for international docs)
   const [isDocumentsSheetOpen, setIsDocumentsSheetOpen] = useState(false);
-
-  const [comparisonTab, setComparisonTab] = useState("unified");
-  const lmsId = studentData?.courses?.[courseId]?.LMSStudentID || "";
-
+  
+  // Notes panel width - store it for user preference
+  const [notesPanelWidth, setNotesPanelWidth] = useState(preferences?.notesPanelWidth || 300);
+  
   // New refs and state for dynamic font sizing
   const nameRef = useRef(null);
   const containerRef = useRef(null);
-  const [nameFontSize, setNameFontSize] = useState(20); // Starting font size - smaller now
+  const [nameFontSize, setNameFontSize] = useState(20);
+
+  const [comparisonTab, setComparisonTab] = useState("unified");
+  const lmsId = studentData?.courses?.[courseId]?.LMSStudentID || "";
 
   // Check if student has a schedule
   const hasSchedule = !!studentData?.courses?.[courseId]?.ScheduleJSON;
   
   // Check if student has international documents
   const hasInternationalDocs = !!studentData?.profile?.internationalDocuments;
+
+  // On component initialization, check if we have a user preference for notes visibility
+  useEffect(() => {
+    if (preferences?.notesVisible !== undefined) {
+      setIsNotesVisible(preferences.notesVisible);
+    }
+  }, [preferences]);
+
+  // Save notes visibility preference when it changes
+  useEffect(() => {
+    updatePreferences({
+      ...preferences,
+      notesVisible: isNotesVisible,
+      notesPanelWidth: notesPanelWidth
+    });
+  }, [isNotesVisible, notesPanelWidth]);
+
+  const handleToggleNotesPanel = () => {
+    setIsNotesVisible(!isNotesVisible);
+  };
 
   const handleStudentStatsChange = (checked) => {
     const db = getDatabase();
@@ -219,7 +244,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
     }
   };
 
-  // Right inside StudentDetail:
   useEffect(() => {
     console.log("StudentDetail MOUNTED (or re-mounted)");
     return () => console.log("StudentDetail UNMOUNTED");
@@ -858,7 +882,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
 
   return (
     <div className="relative h-full overflow-hidden flex flex-col">
-      {/* Header Section - REDESIGNED */}
+      {/* Header Section */}
       <div className="mb-3">
         {/* First row: Tabs and Action Buttons on same line */}
         {!isMobile ? (
@@ -887,15 +911,24 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
             
             {/* Action Buttons */}
             <div className="flex gap-2 flex-shrink-0">
-              {/* Notes Button - Always visible */}
+              {/* Notes Toggle Button */}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsNotesSheetOpen(true)}
+                onClick={handleToggleNotesPanel}
                 className="h-8 text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
               >
-                <ClipboardList className="h-4 w-4 mr-1" />
-                Notes
+                {isNotesVisible ? (
+                  <>
+                    <ChevronRight className="h-4 w-4 mr-1" />
+                    Hide Notes
+                  </>
+                ) : (
+                  <>
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Show Notes
+                  </>
+                )}
               </Button>
               
               {/* Edge Admin Button - Only visible in registration mode */}
@@ -984,15 +1017,24 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
           <>
             {/* Action buttons in a row */}
             <div className="flex flex-wrap gap-2 w-full mb-2">
-              {/* Notes Button - Always visible */}
+              {/* Notes Toggle Button */}
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsNotesSheetOpen(true)}
+                onClick={handleToggleNotesPanel}
                 className="flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center"
               >
-                <ClipboardList className="h-4 w-4 mr-1" />
-                Notes
+                {isNotesVisible ? (
+                  <>
+                    <ChevronRight className="h-4 w-4 mr-1" />
+                    Notes
+                  </>
+                ) : (
+                  <>
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Notes
+                  </>
+                )}
               </Button>
               
               {/* Edge Admin Button - Only visible in registration mode */}
@@ -1127,58 +1169,84 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
         )}
       </div>
 
-      {/* Main Content Sections */}
-      <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 h-full overflow-hidden">
-        {/* Registration Info Section - Only shown in registration mode */}
-        {currentMode === MODES.REGISTRATION && isSectionVisible('registration') && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/2'}`}>
-            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
-              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                <h4 className="font-semibold mb-2 text-[#1fa6a7]">Registration Info</h4>
-                <RegistrationInfo 
-                  studentData={studentData}
-                  courseId={courseId}
-                  readOnly={currentMode !== MODES.REGISTRATION}
-                />
-              </CardContent>
-            </Card>
-          </div>
-        )}
+      {/* Main Content - New 3-Column Layout */}
+      <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+        {/* Main Content Area - Takes available space except for notes panel */}
+        <div className="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-4 h-full overflow-hidden flex-1">
+          {/* Registration Info Section - Only shown in registration mode */}
+          {currentMode === MODES.REGISTRATION && isSectionVisible('registration') && (
+            <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
+              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
+                <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+                  <h4 className="font-semibold mb-2 text-[#1fa6a7]">Registration Info</h4>
+                  <RegistrationInfo 
+                    studentData={studentData}
+                    courseId={courseId}
+                    readOnly={currentMode !== MODES.REGISTRATION}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
-        {/* PASI Section */}
-        {currentMode === MODES.REGISTRATION && isSectionVisible('pasi') && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/2'}`}>
-            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
-              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                <h4 className="font-semibold mb-2 text-[#1fa6a7]">PASI Management</h4>
-                <PASIManager 
-                  studentData={studentData} 
-                  courseId={courseId} 
-                  assignedStaff={assignedStaff} 
-                />
-              </CardContent>
-            </Card>
-          </div>
-        )}
+          {/* PASI Section */}
+          {currentMode === MODES.REGISTRATION && isSectionVisible('pasi') && (
+            <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
+              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+                <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+                  <h4 className="font-semibold mb-2 text-[#1fa6a7]">PASI Management</h4>
+                  <PASIManager 
+                    studentData={studentData} 
+                    courseId={courseId} 
+                    assignedStaff={assignedStaff} 
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
-        {/* Grades Section - New section for ltiLinksComplete courses */}
-        {isSectionVisible('grades') && ltiLinksComplete && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/2'}`}>
-            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
-              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-          
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-semibold text-[#1fa6a7]">Progress</h4>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsScheduleDialogOpen(true)}
-                      className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
-                    >
-                      <Calendar className="h-4 w-4 mr-1" />
-                      {hasSchedule ? "" : "Create"}
-                    </Button>
+          {/* Grades Section - New section for ltiLinksComplete courses */}
+          {isSectionVisible('grades') && ltiLinksComplete && (
+            <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
+              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+                <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+            
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-[#1fa6a7]">Progress</h4>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsScheduleDialogOpen(true)}
+                        className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                      >
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {hasSchedule ? "" : "Create"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsComparisonSheetOpen(true)}
+                        className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                      >
+                        <Split className="h-4 w-4 mr-1" />
+                        All
+                      </Button>
+                    </div>
+                  </div>
+                  {renderGradesContent()}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Progress Section */}
+          {isSectionVisible('progress') && studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
+            <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
+              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+                <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-[#1fa6a7]">Progress</h4>
                     <Button
                       variant="outline"
                       size="sm"
@@ -1186,82 +1254,89 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
                       className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
                     >
                       <Split className="h-4 w-4 mr-1" />
-                      All
+                      Compare Views
                     </Button>
                   </div>
-                </div>
-                {renderGradesContent()}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                  {renderProgressContent()}
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
-        {/* Progress Section */}
-        {isSectionVisible('progress') && studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/2'}`}>
-            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
-              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-semibold text-[#1fa6a7]">Progress</h4>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsComparisonSheetOpen(true)}
-                    className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
-                  >
-                    <Split className="h-4 w-4 mr-1" />
-                    Compare Views
-                  </Button>
-                </div>
-                {renderProgressContent()}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+          {/* Schedule Section - Only shown for non-ltiLinksComplete courses */}
+          {isSectionVisible('schedule') && !studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
+            <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
+              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+                <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-[#1fa6a7]">Schedule</h4>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsComparisonSheetOpen(true)}
+                      className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                    >
+                      <Split className="h-4 w-4 mr-1" />
+                      Compare Views
+                    </Button>
+                  </div>
+                  {renderScheduleContent()}
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
-        {/* Schedule Section - Only shown for non-ltiLinksComplete courses */}
-        {isSectionVisible('schedule') && !studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/2'}`}>
-            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
-              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-semibold text-[#1fa6a7]">Schedule</h4>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsComparisonSheetOpen(true)}
-                    className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
-                  >
-                    <Split className="h-4 w-4 mr-1" />
-                    Compare Views
-                  </Button>
-                </div>
-                {renderScheduleContent()}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+          {/* Gradebook Section - Only shown for non-ltiLinksComplete courses */}
+          {isSectionVisible('gradebook') && !studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
+            <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
+              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+                <CardContent className="p-4 flex flex-col flex-1 min-h-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-[#1fa6a7]">Gradebook</h4>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsComparisonSheetOpen(true)}
+                      className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                    >
+                      <Split className="h-4 w-4 mr-1" />
+                      Compare Views
+                    </Button>
+                  </div>
+                  {renderGradebookContent()}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
 
-        {/* Gradebook Section - Only shown for non-ltiLinksComplete courses */}
-        {isSectionVisible('gradebook') && !studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
-          <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'sm:w-1/2'}`}>
-            <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
-              <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-semibold text-[#1fa6a7]">Gradebook</h4>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsComparisonSheetOpen(true)}
-                    className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
-                  >
-                    <Split className="h-4 w-4 mr-1" />
-                    Compare Views
-                  </Button>
-                </div>
-                {renderGradebookContent()}
-              </CardContent>
-            </Card>
+        {/* Notes Panel - Always visible on the right */}
+        {isNotesVisible && (
+          <div className="flex-shrink-0 lg:w-80 h-full ml-4 transition-all duration-300 border-l pl-4 lg:border-gray-200 mt-4 lg:mt-0 overflow-hidden">
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="font-semibold text-[#1fa6a7] flex items-center">
+                <ClipboardList className="h-4 w-4 mr-1" />
+                Student Notes
+              </h4>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={handleToggleNotesPanel}
+              >
+                <ChevronRight className="h-4 w-4 text-gray-500" />
+              </Button>
+            </div>
+            <div className="h-[calc(100%-2rem)] overflow-hidden">
+              <StudentNotes
+                studentEmail={sanitizeEmail(studentSummary.StudentEmail)}
+                courseId={courseId}
+                initialNotes={notes}
+                onNotesUpdate={setNotes}
+                readOnly={currentMode === MODES.REGISTRATION}
+                isExpanded={false}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -1360,35 +1435,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh  }) {
               studentKey={sanitizeEmail(studentSummary.StudentEmail)}
               onClose={() => setIsSheetOpen(false)}
             />
-          </SheetContent>
-        </Sheet>
-
-        {/* Notes Expanded Sheet */}
-        <Sheet open={isNotesSheetOpen} onOpenChange={setIsNotesSheetOpen}>
-          <SheetContent 
-            side="right" 
-            className="w-full md:w-2/3 bg-white p-6 overflow-hidden flex flex-col"
-          >
-            <div className="flex flex-col h-full">
-              {/* Header */}
-              <div className="mb-4 flex-shrink-0">
-                <h2 className="text-xl font-bold text-[#1fa6a7]">
-                  Student Notes
-                </h2>
-              </div>
-              
-              {/* StudentNotes with flex-1 to take remaining space */}
-              <div className="flex-1 overflow-hidden">
-                <StudentNotes 
-                  studentEmail={sanitizeEmail(studentSummary.StudentEmail)}
-                  courseId={courseId}
-                  initialNotes={notes}
-                  onNotesUpdate={setNotes}
-                  readOnly={currentMode === MODES.REGISTRATION}
-                  isExpanded={true}
-                />
-              </div>
-            </div>
           </SheetContent>
         </Sheet>
 
