@@ -24,7 +24,8 @@ import {
   Calendar,        // for Term 1
   CalendarDays,    // for Term 2
   CalendarClock,   // for Full Year
-  Umbrella         // for Summer
+  Umbrella,         // for Summer
+  Ban
 } from 'lucide-react';
 
 export const PAYMENT_STATUS_OPTIONS = [
@@ -1220,6 +1221,13 @@ export const TERM_OPTIONS = [
     color: "#F59E0B", // Amber
     icon: Umbrella,
     description: "Summer session (July to August)"
+  },
+  {
+    value: "N/A",
+    label: "N/A",
+    color: "#6B7280", // Gray
+    icon: Ban,
+    description: "Not applicable to a specific term"
   }
 ];
 

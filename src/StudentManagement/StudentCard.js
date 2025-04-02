@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, CheckCircle2, AlertOctagon, Archive } from 'lucide-react';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { getDatabase, ref, set, get, push, remove, update, runTransaction, serverTimestamp  } from 'firebase/database';
@@ -36,6 +36,8 @@ import PasiRecordsDialog from './PasiRecordsDialog';
 import AsnIssuesDialog from './AsnIssuesDialog';
 import PendingFinalizationDialog from './Dialog/PendingFinalizationDialog';
 import ResumingOnDialog from './Dialog/ResumingOnDialog';
+import { toast } from 'sonner';
+import PermissionIndicator from '../context/PermissionIndicator';
 
 // Helper function to safely extract values from status objects
 const getSafeValue = (value) => {
@@ -199,7 +201,7 @@ const StudentCard = React.memo(({
   const [isRemovalDialogOpen, setIsRemovalDialogOpen] = useState(false);
 
   // Access the logged-in teacher's info
-  const { user } = useAuth();
+  const { user, isAdminUser } = useAuth();
 
   const customHoverStyle = "hover:bg-accent hover:text-accent-foreground";
 
@@ -479,6 +481,36 @@ const handleStatusChange = useCallback(async (newStatus) => {
       console.error("Error updating category:", error);
     }
   }, [student.id, isPartOfMultiSelect, onBulkCategoryChange]);
+
+  // Handle term change for the student
+  const handleTermChange = useCallback(async (newTerm) => {
+    if (!isAdminUser) {
+      toast.error("Term changes require admin permissions");
+      return;
+    }
+
+    if (newTerm === student.Term) return; // No change needed
+
+    const db = getDatabase();
+    const lastUnderscoreIndex = student.id.lastIndexOf('_');
+    const studentKey = student.id.slice(0, lastUnderscoreIndex);
+    const courseId = student.id.slice(lastUnderscoreIndex + 1);
+    const termRef = ref(db, `students/${studentKey}/courses/${courseId}/Term`);
+    
+    try {
+      await set(termRef, newTerm);
+      toast.success(`Term updated to ${newTerm}`, {
+        description: `For ${student.preferredFirstName || student.firstName} ${student.lastName}`,
+        duration: 3000
+      });
+    } catch (error) {
+      console.error("Error updating term:", error);
+      toast.error("Failed to update term", {
+        description: error.message,
+        duration: 3000
+      });
+    }
+  }, [student.id, student.Term, student.preferredFirstName, student.firstName, student.lastName, isAdminUser]);
 
   // In StudentCard.js
   const handleRemoveCourse = useCallback(async () => {
@@ -829,18 +861,79 @@ const handleStatusChange = useCallback(async (newStatus) => {
                       </Badge>
                       
                       {student.Term && (
-                        <Badge 
-                          className="flex items-center gap-1 px-2 py-0.5 h-6 text-xs font-medium border-0 rounded-md"
-                          style={{
-                            backgroundColor: `${getTermInfo(student.Term).color}15`,
-                            color: getTermInfo(student.Term).color
-                          }}
-                        >
-                          {getTermInfo(student.Term).icon && React.createElement(getTermInfo(student.Term).icon, {
-                            className: "w-3 h-3 mr-1"
-                          })}
-                          {student.Term}
-                        </Badge>
+                        <TooltipProvider>
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <div className="relative">
+                                {isAdminUser ? (
+                                  // Interactive dropdown for admins
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Badge 
+                                        className="flex items-center gap-1 px-2 py-0.5 h-6 text-xs font-medium border-0 rounded-md cursor-pointer"
+                                        style={{
+                                          backgroundColor: `${getTermInfo(student.Term).color}15`,
+                                          color: getTermInfo(student.Term).color
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {getTermInfo(student.Term).icon && React.createElement(getTermInfo(student.Term).icon, {
+                                          className: "w-3 h-3 mr-1"
+                                        })}
+                                        {student.Term}
+                                        <div className="absolute -top-1 -right-1">
+                                          <PermissionIndicator type="ADMIN" className="h-3 w-3" />
+                                        </div>
+                                      </Badge>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent className="w-[180px]">
+                                      {TERM_OPTIONS.map((option) => (
+                                        <DropdownMenuItem
+                                          key={option.value}
+                                          className={customHoverStyle}
+                                          onSelect={(e) => {
+                                            e.preventDefault();
+                                            handleTermChange(option.value);
+                                          }}
+                                        >
+                                          <div className="flex items-center w-full">
+                                            {React.createElement(option.icon, {
+                                              className: "w-4 h-4 mr-2",
+                                              style: { color: option.color }
+                                            })}
+                                            <span>{option.value}</span>
+                                          </div>
+                                        </DropdownMenuItem>
+                                      ))}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                ) : (
+                                  // Static badge for non-admins
+                                  <Badge 
+                                    className="flex items-center gap-1 px-2 py-0.5 h-6 text-xs font-medium border-0 rounded-md"
+                                    style={{
+                                      backgroundColor: `${getTermInfo(student.Term).color}15`,
+                                      color: getTermInfo(student.Term).color
+                                    }}
+                                  >
+                                    {getTermInfo(student.Term).icon && React.createElement(getTermInfo(student.Term).icon, {
+                                      className: "w-3 h-3 mr-1"
+                                    })}
+                                    {student.Term}
+                                    <div className="absolute -top-1 -right-1">
+                                      <PermissionIndicator type="ADMIN" className="h-3 w-3" />
+                                    </div>
+                                  </Badge>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              {isAdminUser 
+                                ? 'Click to change term (Admin only)' 
+                                : 'Term change requires admin access'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       )}
                     </div>
                   );

@@ -46,6 +46,9 @@ import {
   Pencil,
   ClipboardList,
   Calendar,
+  CalendarDays,
+  CalendarClock,
+  Umbrella,
   GraduationCap,
   Database,
   Tags
@@ -58,6 +61,7 @@ import {
   STUDENT_TYPE_OPTIONS,
   getSchoolYearOptions,
   DIPLOMA_MONTH_OPTIONS,
+  TERM_OPTIONS,
 } from '../../config/DropdownOptions';
 import { toast } from 'sonner';
 
@@ -68,6 +72,9 @@ const iconMap = {
   'pencil': Pencil,
   'clipboard-list': ClipboardList,
   'calendar': Calendar,
+  'calendar-days': CalendarDays,
+  'calendar-clock': CalendarClock,
+  'umbrella': Umbrella,
   'graduation-cap': GraduationCap,
   'database': Database,
   'tags': Tags
@@ -80,6 +87,7 @@ const PROPERTY_OPTIONS = [
   { value: 'studentType', label: 'Student Type', icon: GraduationCap, path: 'StudentType/Value' },
   { value: 'schoolYear', label: 'School Year', icon: Calendar, path: 'School_x0020_Year/Value' },
   { value: 'diplomaMonth', label: 'Diploma Month', icon: Calendar, path: 'DiplomaMonthChoices/Value' },
+  { value: 'term', label: 'Term', icon: Calendar, path: 'Term' },
   { value: 'categories', label: 'Categories', icon: Tags }
 ];
 
@@ -121,6 +129,8 @@ const MassUpdateDialog = ({
         return getSchoolYearOptions();
       case 'diplomaMonth':
         return DIPLOMA_MONTH_OPTIONS;
+      case 'term':
+        return TERM_OPTIONS;
       default:
         return [];
     }
