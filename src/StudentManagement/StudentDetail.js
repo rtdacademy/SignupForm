@@ -6,7 +6,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Sheet, SheetContent } from "../components/ui/sheet";
-import { Calendar, Split, IdCard, AlertTriangle, Edit, ClipboardList, InfoIcon, DollarSign, LayoutGrid, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Calendar, Split, IdCard, AlertTriangle, Edit, ClipboardList, InfoIcon, DollarSign, LayoutGrid, ChevronRight, ChevronLeft, PanelLeft, PanelRight, Maximize2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
@@ -78,6 +78,9 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   const [isPaymentSheetOpen, setIsPaymentSheetOpen] = useState(false);
   // Documents sheet state (for international docs)
   const [isDocumentsSheetOpen, setIsDocumentsSheetOpen] = useState(false);
+  
+  // Notes expanded sheet state
+  const [isNotesSheetOpen, setIsNotesSheetOpen] = useState(false);
   
   // Notes panel width - store it for user preference
   const [notesPanelWidth, setNotesPanelWidth] = useState(preferences?.notesPanelWidth || 300);
@@ -887,6 +890,28 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
         {/* First row: Tabs and Action Buttons on same line */}
         {!isMobile ? (
           <div className="flex items-center justify-between mb-1 gap-2">
+            <div className="flex gap-2 flex-shrink-0">
+              {/* Notes Toggle Button - Moved to left side */}
+              <div className="flex bg-gray-100 rounded-lg p-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleToggleNotesPanel}
+                  className={`h-8 rounded-l-md flex items-center justify-center ${isNotesVisible ? 'bg-white shadow-sm' : 'bg-transparent'}`}
+                >
+                  {isNotesVisible ? <PanelLeft className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsNotesSheetOpen(true)}
+                  className="h-8 rounded-r-md flex items-center justify-center"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
             {/* Tabs - now on same level as buttons */}
             {availableTabs.length > 0 && (
               <div className="flex-1">
@@ -911,25 +936,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
             
             {/* Action Buttons */}
             <div className="flex gap-2 flex-shrink-0">
-              {/* Notes Toggle Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleToggleNotesPanel}
-                className="h-8 text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
-              >
-                {isNotesVisible ? (
-                  <>
-                    <ChevronRight className="h-4 w-4 mr-1" />
-                    Hide Notes
-                  </>
-                ) : (
-                  <>
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Show Notes
-                  </>
-                )}
-              </Button>
               
               {/* Edge Admin Button - Only visible in registration mode */}
               {currentMode === MODES.REGISTRATION && (
@@ -1017,25 +1023,25 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           <>
             {/* Action buttons in a row */}
             <div className="flex flex-wrap gap-2 w-full mb-2">
-              {/* Notes Toggle Button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleToggleNotesPanel}
-                className="flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center"
-              >
-                {isNotesVisible ? (
-                  <>
-                    <ChevronRight className="h-4 w-4 mr-1" />
-                    Notes
-                  </>
-                ) : (
-                  <>
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Notes
-                  </>
-                )}
-              </Button>
+              {/* Notes Toggle Button - Positioned first (leftmost) */}
+              <div className="flex flex-1 min-w-[80px] bg-gray-100 rounded-lg p-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleToggleNotesPanel}
+                  className={`flex-1 flex items-center justify-center rounded-l-md ${isNotesVisible ? 'bg-white shadow-sm' : 'bg-transparent'}`}
+                >
+                  {isNotesVisible ? <PanelLeft className="h-4 w-4" /> : <PanelRight className="h-4 w-4" />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsNotesSheetOpen(true)}
+                  className="flex-1 rounded-r-md flex items-center justify-center"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              </div>
               
               {/* Edge Admin Button - Only visible in registration mode */}
               {currentMode === MODES.REGISTRATION && (
@@ -1144,33 +1150,41 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           </TooltipProvider>
         </div>
 
-        {/* Global Create Schedule Button that appears when no schedule exists */}
-        {!hasSchedule && currentMode !== MODES.REGISTRATION && (
-          <div className="w-full bg-yellow-50 border border-yellow-200 rounded-lg p-2 flex items-center mt-2">
-            <div className="flex-1">
-              <div className="flex items-center text-amber-600 mb-1">
-                <AlertTriangle className="h-4 w-4 mr-2" />
-                <span className="font-medium">No Schedule Found</span>
-              </div>
-              <p className="text-sm text-yellow-700">
-                Student needs a schedule to track progress properly.
-              </p>
-            </div>
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => setIsScheduleDialogOpen(true)}
-              className="ml-3 bg-[#1fa6a7] text-white hover:bg-[#1a8f90] transition-colors flex-shrink-0"
-            >
-              <Calendar className="h-4 w-4 mr-2" />
-              Create Schedule
-            </Button>
-          </div>
-        )}
+     
       </div>
 
       {/* Main Content - New 3-Column Layout */}
       <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+        {/* Notes Panel - Moved to the left side */}
+        {isNotesVisible && (
+          <div className="flex-shrink-0 lg:w-80 h-full mr-4 transition-all duration-500 ease-in-out border-r pr-4 lg:border-gray-200 mt-4 lg:mt-0 overflow-hidden">
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="font-semibold text-[#1fa6a7] flex items-center">
+                <ClipboardList className="h-4 w-4 mr-1" />
+                Student Notes
+              </h4>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={handleToggleNotesPanel}
+              >
+                <PanelLeft className="h-4 w-4 text-gray-500" />
+              </Button>
+            </div>
+            <div className="h-[calc(100%-2rem)] overflow-hidden">
+              <StudentNotes
+                studentEmail={sanitizeEmail(studentSummary.StudentEmail)}
+                courseId={courseId}
+                initialNotes={notes}
+                onNotesUpdate={setNotes}
+                readOnly={currentMode === MODES.REGISTRATION}
+                isExpanded={false}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Main Content Area - Takes available space except for notes panel */}
         <div className="flex flex-col lg:flex-row space-y-4 lg:space-y-0 lg:space-x-4 h-full overflow-hidden flex-1">
           {/* Registration Info Section - Only shown in registration mode */}
@@ -1309,36 +1323,6 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
             </div>
           )}
         </div>
-
-        {/* Notes Panel - Always visible on the right */}
-        {isNotesVisible && (
-          <div className="flex-shrink-0 lg:w-80 h-full ml-4 transition-all duration-300 border-l pl-4 lg:border-gray-200 mt-4 lg:mt-0 overflow-hidden">
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="font-semibold text-[#1fa6a7] flex items-center">
-                <ClipboardList className="h-4 w-4 mr-1" />
-                Student Notes
-              </h4>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={handleToggleNotesPanel}
-              >
-                <ChevronRight className="h-4 w-4 text-gray-500" />
-              </Button>
-            </div>
-            <div className="h-[calc(100%-2rem)] overflow-hidden">
-              <StudentNotes
-                studentEmail={sanitizeEmail(studentSummary.StudentEmail)}
-                courseId={courseId}
-                initialNotes={notes}
-                onNotesUpdate={setNotes}
-                readOnly={currentMode === MODES.REGISTRATION}
-                isExpanded={false}
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* LMS Student ID Dialog */}
@@ -1520,6 +1504,33 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           <SheetContent side="right" className="w-[95%] max-w-5xl p-6 overflow-hidden">
             <div className="h-full flex flex-col">
               {renderComparisonSheetContent()}
+            </div>
+          </SheetContent>
+        </Sheet>
+        
+        {/* Notes Expanded Sheet */}
+        <Sheet open={isNotesSheetOpen} onOpenChange={setIsNotesSheetOpen}>
+          <SheetContent side="right" className="w-full md:w-2/3 bg-white p-6 overflow-hidden flex flex-col">
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="mb-4 flex-shrink-0">
+                <h2 className="text-xl font-bold text-[#1fa6a7] flex items-center">
+                  <ClipboardList className="h-5 w-5 mr-2" />
+                  Student Notes
+                </h2>
+              </div>
+              
+              {/* Notes Content */}
+              <div className="flex-1 overflow-auto">
+                <StudentNotes
+                  studentEmail={sanitizeEmail(studentSummary.StudentEmail)}
+                  courseId={courseId}
+                  initialNotes={notes}
+                  onNotesUpdate={setNotes}
+                  readOnly={currentMode === MODES.REGISTRATION}
+                  isExpanded={true}
+                />
+              </div>
             </div>
           </SheetContent>
         </Sheet>
