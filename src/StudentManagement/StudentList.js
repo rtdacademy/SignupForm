@@ -362,6 +362,7 @@ function StudentList({
     { value: 'School_x0020_Year_Value', label: 'School Year' },
     { value: 'StudentType_Value', label: 'Student Type' },
     { value: 'DiplomaMonthChoices_Value', label: 'Diploma Month' },
+    { value: 'Term', label: 'Term' },
     { value: 'ScheduleStartDate', label: 'Start Date' },
   ];
 

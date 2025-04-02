@@ -27,6 +27,7 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
       { key: 'School_x0020_Year_Value', label: 'School Year' },
       { key: 'StudentType_Value', label: 'Student Type' },
       { key: 'DiplomaMonthChoices_Value', label: 'Diploma Month' },
+      { key: 'Term', label: 'Term' },
       { key: 'ActiveFutureArchived_Value', label: 'State' },
       { key: 'categories', label: 'Categories' }
     ],

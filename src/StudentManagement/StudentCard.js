@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
+import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
 import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, CheckCircle2, AlertOctagon, Archive } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
@@ -814,18 +814,35 @@ const handleStatusChange = useCallback(async (newStatus) => {
                 (() => {
                   const courseInfo = findCourseById(student.CourseID);
                   return (
-                    <Badge 
-                      className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
-                      style={{
-                        backgroundColor: `${courseInfo?.color || '#6B7280'}15`,
-                        color: courseInfo?.color || '#6B7280'
-                      }}
-                    >
-                      {React.createElement(courseInfo?.icon || BookOpen, {
-                        className: "w-4 h-4"
-                      })}
-                      {courseInfo?.label || `Course ${student.CourseID}`}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
+                        style={{
+                          backgroundColor: `${courseInfo?.color || '#6B7280'}15`,
+                          color: courseInfo?.color || '#6B7280'
+                        }}
+                      >
+                        {React.createElement(courseInfo?.icon || BookOpen, {
+                          className: "w-4 h-4"
+                        })}
+                        {courseInfo?.label || `Course ${student.CourseID}`}
+                      </Badge>
+                      
+                      {student.Term && (
+                        <Badge 
+                          className="flex items-center gap-1 px-2 py-0.5 h-6 text-xs font-medium border-0 rounded-md"
+                          style={{
+                            backgroundColor: `${getTermInfo(student.Term).color}15`,
+                            color: getTermInfo(student.Term).color
+                          }}
+                        >
+                          {getTermInfo(student.Term).icon && React.createElement(getTermInfo(student.Term).icon, {
+                            className: "w-3 h-3 mr-1"
+                          })}
+                          {student.Term}
+                        </Badge>
+                      )}
+                    </div>
                   );
                 })()
               ) : (

@@ -186,7 +186,8 @@ const updateStudentCourseSummary = functions.database
         'section': 'section',
         'autoStatus': 'autoStatus',
         'categories': 'categories',
-        'inOldSharePoint': 'inOldSharePoint'
+        'inOldSharePoint': 'inOldSharePoint',
+        'Term': 'Term'
       };
 
       // Prepare additional fields that need special handling
@@ -387,7 +388,8 @@ const createStudentCourseSummaryOnCourseCreate = functions.database
         'section': 'section',
         'autoStatus': 'autoStatus',
         'categories': 'categories',
-        'inOldSharePoint': 'inOldSharePoint'
+        'inOldSharePoint': 'inOldSharePoint',
+        'Term': 'Term'
       };
     
       // Copy course fields
