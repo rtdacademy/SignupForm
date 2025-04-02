@@ -82,6 +82,9 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   // Notes expanded sheet state
   const [isNotesSheetOpen, setIsNotesSheetOpen] = useState(false);
   
+  // PASI sheet state
+  const [isPasiSheetOpen, setIsPasiSheetOpen] = useState(false);
+  
   // Notes panel width - store it for user preference
   const [notesPanelWidth, setNotesPanelWidth] = useState(preferences?.notesPanelWidth || 300);
   
@@ -226,14 +229,14 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     // If no student data or no courses, return minimal tabs
     if (!studentData || !studentData.courses || !courseId || !studentData.courses[courseId]) {
       if (currentMode === MODES.REGISTRATION) {
-        return ['registration', 'pasi'];
+        return ['registration'];
       }
       return [];
     }
   
-    // Registration mode tabs - now only registration and pasi
+    // Registration mode tabs - now only registration, PASI moved to button
     if (currentMode === MODES.REGISTRATION) {
-      return ['registration', 'pasi'];
+      return ['registration'];
     } else {
       // Non-registration mode tabs
       // If course has ltiLinksComplete, show grades tab instead of schedule/gradebook
@@ -912,20 +915,20 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
               </div>
             </div>
             
-            {/* Tabs - now on same level as buttons */}
-            {availableTabs.length > 0 && (
-              <div className="flex-1">
+            {/* Tabs - centered and only shown in non-registration mode or if there's more than one tab */}
+            {availableTabs.length > 0 && (currentMode !== MODES.REGISTRATION || availableTabs.length > 1) && (
+              <div className="flex-1 flex justify-center">
                 <ToggleGroup 
                   type="multiple" 
                   value={visibleSections} 
                   onValueChange={handleToggleSection}
-                  className="bg-[#40b3b3] p-1 rounded-full shadow-md"
+                  className="bg-gray-100 p-1 rounded-full shadow-md"
                 >
                   {availableTabs.map(tab => (
                     <ToggleGroupItem 
                       key={tab}
                       value={tab} 
-                      className="px-4 py-1 rounded-full data-[state=on]:bg-white data-[state=on]:text-[#40b3b3] text-white transition-colors whitespace-nowrap text-sm"
+                      className="px-4 py-1 rounded-full text-gray-600 data-[state=on]:bg-[#40b3b3] data-[state=on]:text-white hover:bg-[#e6f7f7] transition-colors whitespace-nowrap text-sm"
                     >
                       {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
                     </ToggleGroupItem>
@@ -936,6 +939,22 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
             
             {/* Action Buttons */}
             <div className="flex gap-2 flex-shrink-0">
+              
+              {/* PASI Button - Only visible in registration mode */}
+              {currentMode === MODES.REGISTRATION && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Show PASI content via sheet
+                    setIsPasiSheetOpen(true);
+                  }}
+                  className="h-8 text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                >
+                  <ClipboardList className="h-4 w-4 mr-1" />
+                  PASI
+                </Button>
+              )}
               
               {/* Edge Admin Button - Only visible in registration mode */}
               {currentMode === MODES.REGISTRATION && (
@@ -1043,6 +1062,19 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                 </Button>
               </div>
               
+              {/* PASI Button - Only visible in registration mode */}
+              {currentMode === MODES.REGISTRATION && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPasiSheetOpen(true)}
+                  className="flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center"
+                >
+                  <ClipboardList className="h-4 w-4 mr-1" />
+                  PASI
+                </Button>
+              )}
+              
               {/* Edge Admin Button - Only visible in registration mode */}
               {currentMode === MODES.REGISTRATION && (
                 <Button
@@ -1105,8 +1137,8 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
               </Button>
             </div>
             
-            {/* Tab selectors */}
-            {availableTabs.length > 0 && (
+            {/* Tab selectors - only shown in non-registration mode or if there's more than one tab */}
+            {availableTabs.length > 0 && (currentMode !== MODES.REGISTRATION || availableTabs.length > 1) && (
               <RadioGroup
                 value={visibleSections}
                 onValueChange={handleToggleSection}
@@ -1117,7 +1149,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                     <RadioGroupItem value={tab} id={tab} className="peer sr-only" />
                     <Label
                       htmlFor={tab}
-                      className="flex items-center justify-center px-2 py-1.5 w-full rounded-md border border-[#40b3b3] bg-white text-[#40b3b3] cursor-pointer transition-all peer-data-[state=checked]:bg-[#40b3b3] peer-data-[state=checked]:text-white hover:bg-[#40b3b3]/10"
+                      className="flex items-center justify-center px-2 py-1.5 w-full rounded-md border border-[#40b3b3] bg-white text-gray-600 cursor-pointer transition-all peer-data-[state=checked]:bg-[#40b3b3] peer-data-[state=checked]:text-white hover:bg-[#e6f7f7]"
                     >
                       <span className="text-xs font-medium text-center whitespace-nowrap">
                         {tab.charAt(0).toUpperCase() + tab.slice(1).replace('-', ' ')}
@@ -1157,20 +1189,12 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
       <div className="flex flex-col lg:flex-row h-full overflow-hidden">
         {/* Notes Panel - Moved to the left side */}
         {isNotesVisible && (
-          <div className="flex-shrink-0 lg:w-80 h-full mr-4 transition-all duration-500 ease-in-out border-r pr-4 lg:border-gray-200 mt-4 lg:mt-0 overflow-hidden">
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="font-semibold text-[#1fa6a7] flex items-center">
+          <div className="flex-shrink-0 lg:w-80 h-full mr-4 transition-all duration-500 ease-in-out mt-4 lg:mt-0 overflow-hidden bg-white rounded-xl border-t-4 border-t-indigo-500 border-x border-b border-gray-200 shadow-md p-3">
+            <div className="mb-2">
+              <h4 className="font-semibold text-indigo-600 flex items-center">
                 <ClipboardList className="h-4 w-4 mr-1" />
                 Student Notes
               </h4>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={handleToggleNotesPanel}
-              >
-                <PanelLeft className="h-4 w-4 text-gray-500" />
-              </Button>
             </div>
             <div className="h-[calc(100%-2rem)] overflow-hidden">
               <StudentNotes
@@ -1190,9 +1214,9 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           {/* Registration Info Section - Only shown in registration mode */}
           {currentMode === MODES.REGISTRATION && isSectionVisible('registration') && (
             <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
-              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md">
+              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md rounded-xl border-t-4 border-t-blue-500 border-x border-b border-gray-200">
                 <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                  <h4 className="font-semibold mb-2 text-[#1fa6a7]">Registration Info</h4>
+                  <h4 className="font-semibold mb-2 text-blue-600">Registration Info</h4>
                   <RegistrationInfo 
                     studentData={studentData}
                     courseId={courseId}
@@ -1206,9 +1230,9 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           {/* PASI Section */}
           {currentMode === MODES.REGISTRATION && isSectionVisible('pasi') && (
             <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
-              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto rounded-xl border-t-4 border-t-purple-500 border-x border-b border-gray-200">
                 <CardContent className="p-4 flex flex-col flex-1 min-h-0">
-                  <h4 className="font-semibold mb-2 text-[#1fa6a7]">PASI Management</h4>
+                  <h4 className="font-semibold mb-2 text-purple-600">PASI Management</h4>
                   <PASIManager 
                     studentData={studentData} 
                     courseId={courseId} 
@@ -1222,17 +1246,17 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           {/* Grades Section - New section for ltiLinksComplete courses */}
           {isSectionVisible('grades') && ltiLinksComplete && (
             <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
-              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto rounded-xl border-t-4 border-t-emerald-500 border-x border-b border-gray-200">
                 <CardContent className="p-4 flex flex-col flex-1 min-h-0">
             
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-[#1fa6a7]">Progress</h4>
+                    <h4 className="font-semibold text-emerald-600">Progress</h4>
                     <div className="flex space-x-2">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setIsScheduleDialogOpen(true)}
-                        className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                        className="text-emerald-600 border-emerald-600 hover:bg-emerald-600 hover:text-white flex items-center"
                       >
                         <Calendar className="h-4 w-4 mr-1" />
                         {hasSchedule ? "" : "Create"}
@@ -1241,7 +1265,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                         variant="outline"
                         size="sm"
                         onClick={() => setIsComparisonSheetOpen(true)}
-                        className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                        className="text-emerald-600 border-emerald-600 hover:bg-emerald-600 hover:text-white flex items-center"
                       >
                         <Split className="h-4 w-4 mr-1" />
                         All
@@ -1257,15 +1281,15 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           {/* Progress Section */}
           {isSectionVisible('progress') && studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
             <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
-              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto rounded-xl border-t-4 border-t-green-500 border-x border-b border-gray-200">
                 <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-[#1fa6a7]">Progress</h4>
+                    <h4 className="font-semibold text-green-600">Progress</h4>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setIsComparisonSheetOpen(true)}
-                      className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                      className="text-green-600 border-green-600 hover:bg-green-600 hover:text-white flex items-center"
                     >
                       <Split className="h-4 w-4 mr-1" />
                       Compare Views
@@ -1280,15 +1304,15 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           {/* Schedule Section - Only shown for non-ltiLinksComplete courses */}
           {isSectionVisible('schedule') && !studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
             <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
-              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto rounded-xl border-t-4 border-t-teal-500 border-x border-b border-gray-200">
                 <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-[#1fa6a7]">Schedule</h4>
+                    <h4 className="font-semibold text-teal-600">Schedule</h4>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setIsComparisonSheetOpen(true)}
-                      className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                      className="text-teal-600 border-teal-600 hover:bg-teal-600 hover:text-white flex items-center"
                     >
                       <Split className="h-4 w-4 mr-1" />
                       Compare Views
@@ -1303,15 +1327,15 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
           {/* Gradebook Section - Only shown for non-ltiLinksComplete courses */}
           {isSectionVisible('gradebook') && !studentData?.courses[courseId]?.jsonGradebookSchedule && !ltiLinksComplete && (
             <div className={`flex flex-col flex-1 overflow-hidden ${!isMobile && Array.isArray(visibleSections) && visibleSections.length === 1 ? 'w-full' : 'lg:w-1/2'}`}>
-              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto">
+              <Card className="flex-1 flex flex-col min-h-0 bg-white shadow-md overflow-auto rounded-xl border-t-4 border-t-slate-500 border-x border-b border-gray-200">
                 <CardContent className="p-4 flex flex-col flex-1 min-h-0">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-[#1fa6a7]">Gradebook</h4>
+                    <h4 className="font-semibold text-slate-600">Gradebook</h4>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setIsComparisonSheetOpen(true)}
-                      className="text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+                      className="text-slate-600 border-slate-600 hover:bg-slate-600 hover:text-white flex items-center"
                     >
                       <Split className="h-4 w-4 mr-1" />
                       Compare Views
@@ -1529,6 +1553,30 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                   onNotesUpdate={setNotes}
                   readOnly={currentMode === MODES.REGISTRATION}
                   isExpanded={true}
+                />
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+        
+        {/* PASI Sheet */}
+        <Sheet open={isPasiSheetOpen} onOpenChange={setIsPasiSheetOpen}>
+          <SheetContent side="right" className="w-full md:w-2/3 bg-white p-6 overflow-hidden flex flex-col">
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="mb-4 flex-shrink-0">
+                <h2 className="text-xl font-bold text-purple-600 flex items-center">
+                  <ClipboardList className="h-5 w-5 mr-2" />
+                  PASI Management
+                </h2>
+              </div>
+              
+              {/* PASI Content */}
+              <div className="flex-1 overflow-auto">
+                <PASIManager 
+                  studentData={studentData} 
+                  courseId={courseId} 
+                  assignedStaff={assignedStaff} 
                 />
               </div>
             </div>
