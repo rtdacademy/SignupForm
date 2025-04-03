@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Checkbox } from "../components/ui/checkbox";
 import StudentCard from './StudentCard';
-import { ChevronUp, ChevronDown, SortAsc, FileDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, SortAsc, FileDown, RefreshCw, Database } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { TutorialButton } from '../components/TutorialButton';
 import CustomCSVExport from './CustomCSVExport';
@@ -16,9 +16,14 @@ import { toast } from 'sonner';
 // Initialize Firebase Functions
 const functions = getFunctions();
 
-// Cloud Function call utility using new imports
+// Cloud Function call utilities
 const batchUpdateNormalizedSchedules = async (data) => {
   const callable = httpsCallable(functions, 'batchUpdateNormalizedSchedulesV2');
+  return callable(data);
+};
+
+const batchSyncStudentData = async (data) => {
+  const callable = httpsCallable(functions, 'batchSyncStudentDataV2');
   return callable(data);
 };
 
@@ -130,6 +135,55 @@ function StudentList({
       // Dismiss loading toast and show error
       toast.dismiss(loadingId);
       toast.error('Failed to start batch update', {
+        description: error.message || 'Please try again or contact support',
+        duration: 5000,
+      });
+    }
+  };
+
+  // Handle Batch Sync for Student Data
+  const handleBatchSyncStudentData = async () => {
+    const selectedStudentsData = Array.from(selectedStudents)
+      .map(id => {
+        const student = studentSummaries.find(s => s.id === id);
+        if (!student) return null;
+
+        // Parse the studentKey from the id (format: studentKey_courseId)
+        const studentKey = student.id.split('_')[0];
+        
+        return {
+          studentKey: studentKey, // Use the extracted studentKey
+          courseId: student.CourseID, // Use the courseId from the student object
+        };
+      })
+      .filter(Boolean);
+
+    if (selectedStudentsData.length === 0) {
+      toast.error('No students selected', {
+        duration: 3000
+      });
+      return;
+    }
+
+    // Show a loading toast that persists during the operation
+    const loadingId = toast.loading(`Syncing data for ${selectedStudentsData.length} students...`);
+
+    try {
+      const result = await batchSyncStudentData({ students: selectedStudentsData });
+      console.log('Batch sync result:', result);
+      
+      // Dismiss loading toast and show success
+      toast.dismiss(loadingId);
+      toast.success(`Data sync started`, {
+        description: `Processing ${selectedStudentsData.length} students in background`,
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error('Error during batch sync:', error);
+      
+      // Dismiss loading toast and show error
+      toast.dismiss(loadingId);
+      toast.error('Failed to start data sync', {
         description: error.message || 'Please try again or contact support',
         duration: 5000,
       });
@@ -495,7 +549,7 @@ function StudentList({
         </div>
 
         {selectedStudents.size > 0 && (
-          <div className="mt-2 flex items-center space-x-2">
+          <div className="mt-2 flex items-center space-x-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"
@@ -527,7 +581,17 @@ function StudentList({
               className="text-xs flex items-center"
               onClick={handleBatchUpdateNormalizedSchedules}
             >
+              <RefreshCw className="w-4 h-4 mr-1" />
               Update Schedules
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs flex items-center"
+              onClick={handleBatchSyncStudentData}
+            >
+              <Database className="w-4 h-4 mr-1" />
+              Sync Student Data
             </Button>
           </div>
         )}

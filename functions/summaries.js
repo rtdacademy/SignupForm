@@ -1,4 +1,6 @@
 const functions = require('firebase-functions');
+const { onCall } = require('firebase-functions/v2/https');
+const { setGlobalOptions } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 
 // Initialize admin if not already initialized
@@ -486,9 +488,322 @@ const createStudentCourseSummaryOnCourseCreate = functions.database
     }
   });
 
+  /**
+ * Cloud function to sync both profile and course data for selected students
+ * 2nd gen version with high concurrency
+ */
+const batchSyncStudentDataV2 = onCall({
+  memory: '2GiB',
+  timeoutSeconds: 540,
+  concurrency: 500,
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
+}, async (request) => {
+  // Extract parameters from request
+  const { students } = request.data;
+  
+  if (!students || !Array.isArray(students) || students.length === 0) {
+    throw new Error('You must provide an array of students');
+  }
+  
+  // Limit to 500 students per batch
+  if (students.length > 500) {
+    throw new Error('Maximum 500 students can be processed in a single batch. Please reduce the selection and try again.');
+  }
+  
+  console.log(`Starting complete data sync for ${students.length} students`);
+  const db = admin.database();
+  
+  // Create batch ID for tracking
+  const batchId = db.ref('dataSyncBatches').push().key;
+  const batchRef = db.ref(`dataSyncBatches/${batchId}`);
+  
+  // Initialize batch status
+  await batchRef.set({
+    status: 'processing',
+    total: students.length,
+    completed: 0,
+    successful: 0,
+    failed: 0,
+    startTime: Date.now(),
+    students: students.map(s => ({
+      studentKey: s.studentKey,
+      courseId: s.courseId,
+      status: 'pending'
+    }))
+  });
+  
+  // Process students in chunks to avoid overloading the system
+  const CHUNK_SIZE = 25; // Process 25 students at a time
+  const chunks = [];
+  
+  for (let i = 0; i < students.length; i += CHUNK_SIZE) {
+    chunks.push(students.slice(i, i + CHUNK_SIZE));
+  }
+  
+  let totalSuccessful = 0;
+  let totalFailed = 0;
+  const finalResults = {
+    successful: [],
+    failed: []
+  };
+  
+  // Process chunks sequentially to reduce database load
+  for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+    const chunk = chunks[chunkIndex];
+    console.log(`Processing chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} students)`);
+    
+    // Process students in this chunk in parallel
+    const results = await Promise.allSettled(
+      chunk.map(async (student, index) => {
+        const globalIndex = chunkIndex * CHUNK_SIZE + index;
+        try {
+          // Get student and course info
+          const { studentKey, courseId } = student;
+          
+          if (!studentKey || !courseId) {
+            throw new Error('Missing studentKey or courseId');
+          }
+          
+          // Update student status in batch
+          await batchRef.child('students').child(globalIndex).update({
+            status: 'processing'
+          });
+          
+          // Get student profile data
+          const profileSnapshot = await db.ref(`students/${studentKey}/profile`).once('value');
+          const profileData = profileSnapshot.val();
+          
+          if (!profileData) {
+            throw new Error(`No profile found for student ${studentKey}`);
+          }
+          
+          // Get course data
+          const courseDataSnapshot = await db.ref(`students/${studentKey}/courses/${courseId}`).once('value');
+          const courseData = courseDataSnapshot.val();
+          
+          if (!courseData) {
+            throw new Error(`No course data found for student ${studentKey}, course ${courseId}`);
+          }
+          
+          // Initialize summary data
+          let summaryData = {};
+          
+          // 1. Add profile fields
+          const profileFields = [
+            'LastSync', 'ParentEmail', 'ParentFirstName', 'ParentLastName', 
+            'ParentPhone_x0023_', 'StudentEmail', 'StudentPhone', 'age', 'asn', 
+            'birthday', 'firstName', 'lastName', 'originalEmail', 
+            'preferredFirstName', 'gender', 'uid'
+          ];
+          
+          // Copy profile fields
+          profileFields.forEach(field => {
+            summaryData[field] = profileData[field] !== undefined 
+              ? profileData[field] 
+              : (field === 'age' ? 0 : '');
+          });
+          
+          // Handle additional guardians
+          const guardians = profileData.AdditionalGuardians || [];
+          guardians.forEach((guardian, index) => {
+            summaryData[`guardianEmail${index + 1}`] = guardian.email || '';
+          });
+          
+          // Remove any extra guardian emails if needed
+          const currentGuardianCount = guardians.length;
+          for (let i = currentGuardianCount + 1; i <= 5; i++) { // Assuming max 5 guardians
+            summaryData[`guardianEmail${i}`] = null;
+          }
+          
+          // 2. Add course fields
+          const directCourseFields = {
+            'Status.Value': 'Status_Value',
+            'Status.SharepointValue': 'Status_SharepointValue', 
+            'Course.Value': 'Course_Value', 
+            'School_x0020_Year.Value': 'School_x0020_Year_Value',
+            'StudentType.Value': 'StudentType_Value',
+            'DiplomaMonthChoices.Value': 'DiplomaMonthChoices_Value',
+            'ActiveFutureArchived.Value': 'ActiveFutureArchived_Value',
+            'PercentScheduleComplete': 'PercentScheduleComplete',
+            'PercentCompleteGradebook': 'PercentCompleteGradebook',
+            'Created': 'Created',
+            'ScheduleStartDate': 'ScheduleStartDate',
+            'ScheduleEndDate': 'ScheduleEndDate',
+            'CourseID': 'CourseID',
+            'LMSStudentID': 'LMSStudentID',
+            'StatusCompare': 'StatusCompare',
+            'section': 'section',
+            'autoStatus': 'autoStatus',
+            'categories': 'categories',
+            'inOldSharePoint': 'inOldSharePoint',
+            'Term': 'Term'
+          };
+          
+          // Copy course fields
+          for (const [sourceField, targetField] of Object.entries(directCourseFields)) {
+            // Handle nested fields like Status.Value
+            if (sourceField.includes('.')) {
+              const [parent, child] = sourceField.split('.');
+              if (courseData[parent] && courseData[parent][child] !== undefined) {
+                summaryData[targetField] = courseData[parent][child];
+              } else {
+                summaryData[targetField] = '';
+              }
+            }
+            // Handle normal fields
+            else {
+              if (sourceField === 'CourseID') {
+                summaryData[targetField] = courseData[sourceField] || courseId;
+              } else if (sourceField === 'autoStatus' || sourceField === 'inOldSharePoint') {
+                summaryData[targetField] = courseData[sourceField] !== undefined ? courseData[sourceField] : false;
+              } else {
+                summaryData[targetField] = courseData[sourceField] !== undefined ? 
+                  courseData[sourceField] : 
+                  (sourceField === 'PercentScheduleComplete' || sourceField === 'PercentCompleteGradebook' ? 0 : '');
+              }
+            }
+          }
+          
+          // 3. Handle special fields
+          const additionalFields = {
+            'ScheduleJSON': 'hasSchedule',
+            'primarySchoolName': 'primarySchoolName',
+            'resumingOnDate': 'resumingOnDate',
+            'payment_status/status': 'payment_status'
+          };
+          
+          for (const [sourceField, targetField] of Object.entries(additionalFields)) {
+            if (sourceField.includes('/')) {
+              const [parent, child] = sourceField.split('/');
+              const fieldPath = `students/${studentKey}/courses/${courseId}/${parent}/${child}`;
+              const fieldSnap = await db.ref(fieldPath).once('value');
+              summaryData[targetField] = fieldSnap.val() || '';
+            } else if (sourceField === 'ScheduleJSON') {
+              const scheduleExists = await db.ref(`students/${studentKey}/courses/${courseId}/ScheduleJSON`).once('value');
+              summaryData[targetField] = scheduleExists.exists();
+            } else {
+              const fieldValue = await db.ref(`students/${studentKey}/courses/${courseId}/${sourceField}`).once('value');
+              summaryData[targetField] = fieldValue.val() || '';
+            }
+          }
+          
+          // Add timestamps
+          summaryData.lastUpdated = Date.now();
+          summaryData.profileLastUpdated = Date.now();
+          
+          // Use transaction to ensure we don't overwrite existing data unexpectedly
+          const result = await db.ref(`studentCourseSummaries/${studentKey}_${courseId}`)
+            .transaction(currentData => {
+              // If the data already exists, merge with existing data
+              if (currentData !== null) {
+                console.log(`Course summary already exists for student ${studentKey}, course ${courseId}, updating data`);
+                // Preserve creation timestamp if it exists
+                if (currentData.createdAt) {
+                  summaryData.createdAt = currentData.createdAt;
+                } else {
+                  summaryData.createdAt = Date.now();
+                }
+                return summaryData;
+              }
+              
+              // If no data exists, create it fresh with creation timestamp
+              summaryData.createdAt = Date.now();
+              return summaryData;
+            });
+            
+          if (result.committed) {
+            console.log(`Successfully synced all data for student ${studentKey}, course ${courseId}`);
+          } else {
+            console.log(`Transaction aborted for student ${studentKey} in course ${courseId}`);
+            throw new Error('Transaction aborted');
+          }
+          
+          // Update status in batch
+          await batchRef.child('students').child(globalIndex).update({
+            status: 'completed',
+            timestamp: Date.now()
+          });
+          
+          // Update batch counts using transactions
+          await batchRef.child('completed').transaction(current => (current || 0) + 1);
+          await batchRef.child('successful').transaction(current => (current || 0) + 1);
+          
+          return {
+            studentKey,
+            courseId,
+            success: true
+          };
+        } catch (error) {
+          console.error(`Error syncing data for student: ${error.message}`);
+          
+          // Update status in batch
+          await batchRef.child('students').child(globalIndex).update({
+            status: 'error',
+            error: error.message
+          });
+          
+          // Update batch counts using transactions
+          await batchRef.child('completed').transaction(current => (current || 0) + 1);
+          await batchRef.child('failed').transaction(current => (current || 0) + 1);
+          
+          return {
+            studentKey: student.studentKey,
+            courseId: student.courseId,
+            success: false,
+            error: error.message
+          };
+        }
+      })
+    );
+    
+    // Process results from this chunk
+    results.forEach((result, index) => {
+      const globalIndex = chunkIndex * CHUNK_SIZE + index;
+      if (result.status === 'fulfilled') {
+        const value = result.value;
+        if (value.success) {
+          totalSuccessful++;
+          finalResults.successful.push(value);
+        } else {
+          totalFailed++;
+          finalResults.failed.push(value);
+        }
+      } else {
+        totalFailed++;
+        finalResults.failed.push({
+          studentKey: chunks[chunkIndex][index].studentKey,
+          courseId: chunks[chunkIndex][index].courseId,
+          success: false,
+          error: result.reason?.message || 'Unknown error'
+        });
+      }
+    });
+    
+    console.log(`Completed chunk ${chunkIndex + 1}/${chunks.length}: ${results.length} students processed`);
+  }
+  
+  // Update final batch status
+  await batchRef.update({
+    status: 'completed',
+    endTime: Date.now()
+  });
+  
+  console.log(`Batch data sync completed: ${totalSuccessful} successful, ${totalFailed} failed`);
+  
+  // Return batch ID and summary
+  return {
+    batchId,
+    total: students.length,
+    successful: totalSuccessful,
+    failed: totalFailed,
+    results: finalResults
+  };
+});
+
 // Export all functions
 module.exports = {
   updateStudentCourseSummary,
   syncProfileToCourseSummaries,
-  createStudentCourseSummaryOnCourseCreate
+  createStudentCourseSummaryOnCourseCreate,
+  batchSyncStudentDataV2
 };
