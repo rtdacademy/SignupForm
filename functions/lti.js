@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const { onRequest } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
 const cors = require('cors')({ origin: true });
@@ -79,8 +79,8 @@ const cleanupExpiredLaunches = async () => {
     await Promise.all(deletePromises);
 };
 
-// JWKS Endpoint (No changes needed)
-exports.ltiJwks = functions.https.onRequest(async (req, res) => {
+// JWKS Endpoint (v2)
+exports.ltiJwksV2 = onRequest(async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET');
     res.set('Content-Type', 'application/json');
@@ -141,8 +141,8 @@ const sanitizeForLog = (obj) => {
     );
 };
 
-// LTI Authentication Endpoint (ltiAuth)
-exports.ltiAuth = functions.https.onRequest(async (req, res) => {
+// LTI Authentication Endpoint (v2)
+exports.ltiAuthV2 = onRequest(async (req, res) => {
     try {
         await logEvent('Auth Request Initial', sanitizeForLog({
             method: req.method,
@@ -338,7 +338,6 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
             ],
         };
         
-        // Add this code right after the payload definition
         // Determine context label and title to use
         let contextLabel = `Course ${launchData.course_id}`;
         let contextTitle = `Course ${launchData.course_id}`;
@@ -367,7 +366,6 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
                     courseId: launchData.course_id,
                     error: error.message
                 }, false);
-                // Continue with default values if there's an error
             }
         }
         
@@ -461,8 +459,8 @@ exports.ltiAuth = functions.https.onRequest(async (req, res) => {
     }
 });
 
-// LTI Login Endpoint (ltiLogin)
-exports.ltiLogin = functions.https.onRequest(async (req, res) => {
+// LTI Login Endpoint (v2)
+exports.ltiLoginV2 = onRequest((req, res) => {
     return cors(req, res, async () => {
         try {
             await logEvent('Login Request Initial', {
@@ -517,17 +515,16 @@ exports.ltiLogin = functions.https.onRequest(async (req, res) => {
             const nonce = crypto.randomBytes(32).toString('hex');
 
             // Create resource link ID based on role and context
-            // For students, use the deep_link_id as resource_link_id
             const resource_link_id = role === 'instructor'
                 ? `course_${course_id}`
-                : deep_link_id; // Use deep_link_id for students
+                : deep_link_id;
 
             // Create launch data object
             const launchData = {
                 user_id,
                 role,
                 course_id,
-                resource_link_id, // Now correctly set for both roles
+                resource_link_id,
                 deep_link_id,
                 nonce,
                 firstname,
@@ -586,10 +583,10 @@ const LTI_CONFIG = {
     base_url: process.env.LTI_BASE_URL,
     public_key: process.env.LTI_PUBLIC_KEY,
     client_id: process.env.LTI_CLIENT_ID
-  };
+};
 
-// LTI Deep Link Return Endpoint (ltiDeepLinkReturn)
-exports.ltiDeepLinkReturn = functions.https.onRequest(async (req, res) => {
+// LTI Deep Link Return Endpoint (v2)
+exports.ltiDeepLinkReturnV2 = onRequest((req, res) => {
     return cors(req, res, async () => {
         try {
             await logEvent('Deep Link Return Request', {
@@ -610,7 +607,7 @@ exports.ltiDeepLinkReturn = functions.https.onRequest(async (req, res) => {
             // Correctly extract deep_link_id from the top-level data claim
             const deep_link_id = decodedJwt['https://purl.imsglobal.org/spec/lti-dl/claim/data'];
 
-            console.log("deep_link_id", deep_link_id); // Log for debugging
+            console.log("deep_link_id", deep_link_id);
 
             if (!deep_link_id) {
                 throw new Error('deep_link_id not found in deep link response');
@@ -631,7 +628,7 @@ exports.ltiDeepLinkReturn = functions.https.onRequest(async (req, res) => {
                 const refaid = urlParams.get('refaid');
 
                 const linkData = {
-                    resource_link_id: deep_link_id, // Use the provided deep_link_id as resource_link_id
+                    resource_link_id: deep_link_id,
                     title: item.title,
                     url: item.url,
                     type: item.type,
@@ -654,7 +651,7 @@ exports.ltiDeepLinkReturn = functions.https.onRequest(async (req, res) => {
                 const deepLinkRef = db.ref(`lti/deep_links/${deep_link_id}`);
                 await deepLinkRef.set(linkData);
                 storedLinks.push({
-                    id: deep_link_id, // This is now the resource_link_id
+                    id: deep_link_id,
                     ...linkData
                 });
 
@@ -726,8 +723,8 @@ exports.ltiDeepLinkReturn = functions.https.onRequest(async (req, res) => {
     });
 });
 
-// Get LTI Links Endpoint (getLTILinks)
-exports.getLTILinks = functions.https.onRequest(async (req, res) => {
+// Get LTI Links Endpoint (v2)
+exports.getLTILinksV2 = onRequest((req, res) => {
     return cors(req, res, async () => {
         try {
             const { courseId } = req.query;
@@ -748,7 +745,7 @@ exports.getLTILinks = functions.https.onRequest(async (req, res) => {
             const links = [];
             snapshot.forEach((childSnapshot) => {
                 links.push({
-                    id: childSnapshot.key, // This is the resource_link_id
+                    id: childSnapshot.key,
                     ...childSnapshot.val()
                 });
             });
@@ -774,8 +771,8 @@ exports.getLTILinks = functions.https.onRequest(async (req, res) => {
     });
 });
 
-// LTI Grade Callback Endpoint (ltiGradeCallback)
-exports.ltiGradeCallback = functions.https.onRequest(async (req, res) => {
+// LTI Grade Callback Endpoint (v2)
+exports.ltiGradeCallbackV2 = onRequest((req, res) => {
     return cors(req, res, async () => {
         try {
             await logEvent('Grade Callback Request', {
@@ -814,7 +811,7 @@ exports.ltiGradeCallback = functions.https.onRequest(async (req, res) => {
             // The URL will include the resource link ID
             const referer = req.headers.referer || '';
             const urlParams = new URL(referer).searchParams;
-            const resourceLinkId = urlParams.get('resource_link_id'); // Now using resource_link_id
+            const resourceLinkId = urlParams.get('resource_link_id');
 
             if (!resourceLinkId) {
                 throw new Error('Missing resource link ID');
@@ -825,7 +822,7 @@ exports.ltiGradeCallback = functions.https.onRequest(async (req, res) => {
             await gradeRef.set(gradeData);
 
             await logEvent('Grade Stored', {
-                resourceLinkId, // Log the resourceLinkId
+                resourceLinkId,
                 userId: score.userId,
                 score: gradeData.score
             });

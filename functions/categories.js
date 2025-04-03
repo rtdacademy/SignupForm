@@ -1,25 +1,34 @@
 // functions/categories.js
 
-const functions = require('firebase-functions');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 
+// Ensure Firebase Admin is initialized
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
 /**
- * Cloud Function: deleteCategoryForStudents
+ * Cloud Function: deleteCategoryForStudentsV2
  *
  * Deletes or removes a category for all students associated with a teacher.
  */
-const deleteCategoryForStudents = functions.https.onCall(async (data, context) => {
-  // Ensure the user is authenticated
-  if (!context.auth) {
+const deleteCategoryForStudentsV2 = onCall({
+  concurrency: 50,
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+}, async (data) => {
+  // Verify that the user is authenticated
+  if (!data.auth) {
     console.log('Unauthenticated user attempted to delete a category');
-    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to perform this action.');
+    throw new HttpsError('unauthenticated', 'User must be authenticated to perform this action.');
   }
 
-  const { categoryId, teacherEmailKey, action } = data;
+  // Extract required parameters from the request payload
+  const { categoryId, teacherEmailKey, action } = data.data;
 
   if (!categoryId || !teacherEmailKey || !action) {
     console.log('Missing required parameters:', { categoryId, teacherEmailKey, action });
-    throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters.');
+    throw new HttpsError('invalid-argument', 'Missing required parameters.');
   }
 
   console.log(`Attempting to ${action} category ${categoryId} for teacher ${teacherEmailKey}`);
@@ -29,22 +38,22 @@ const deleteCategoryForStudents = functions.https.onCall(async (data, context) =
 
   try {
     // Check if the studentCourseSummaries node exists
-    const summariesExist = await db.ref('studentCourseSummaries').once('value');
-    if (!summariesExist.exists()) {
+    const summariesSnapshot = await db.ref('studentCourseSummaries').once('value');
+    if (!summariesSnapshot.exists()) {
       console.log('No studentCourseSummaries node found');
       return { success: true, message: "No students affected", affectedStudents: 0 };
     }
 
-    // Query all studentCourseSummaries with this category
-    const summariesSnapshot = await db.ref('studentCourseSummaries')
+    // Query all studentCourseSummaries that contain this category
+    const summariesQuery = db.ref('studentCourseSummaries')
       .orderByChild(`categories/${teacherEmailKey}/${categoryId}`)
-      .equalTo(true)
-      .once('value');
+      .equalTo(true);
+    const summariesSnapshot2 = await summariesQuery.once('value');
 
     const updates = {};
     let affectedStudents = 0;
 
-    summariesSnapshot.forEach(childSnapshot => {
+    summariesSnapshot2.forEach(childSnapshot => {
       const studentCourseKey = childSnapshot.key;
       updates[`studentCourseSummaries/${studentCourseKey}/categories/${teacherEmailKey}/${categoryId}`] = null;
       affectedStudents++;
@@ -52,7 +61,7 @@ const deleteCategoryForStudents = functions.https.onCall(async (data, context) =
 
     console.log(`Found ${affectedStudents} students with the category`);
 
-    // Perform all updates in a single transaction
+    // Perform all updates in a single transaction if necessary
     if (Object.keys(updates).length > 0) {
       await db.ref().update(updates);
       console.log(`Successfully updated ${affectedStudents} student records`);
@@ -73,10 +82,10 @@ const deleteCategoryForStudents = functions.https.onCall(async (data, context) =
     };
   } catch (error) {
     console.error(`Error ${action === 'delete' ? 'deleting' : 'removing'} category for students:`, error);
-    throw new functions.https.HttpsError('internal', `An error occurred while ${action === 'delete' ? 'deleting' : 'removing'} the category for students.`);
+    throw new HttpsError('internal', `An error occurred while ${action === 'delete' ? 'deleting' : 'removing'} the category for students.`);
   }
 });
 
 module.exports = {
-  deleteCategoryForStudents,
+  deleteCategoryForStudentsV2,
 };

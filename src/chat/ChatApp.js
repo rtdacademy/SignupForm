@@ -564,7 +564,7 @@ const ChatApp = ({
       }
 
       const functions = getFunctions();
-      const sendMessage = httpsCallable(functions, 'sendChatMessage');
+      const sendMessage = httpsCallable(functions, 'sendChatMessageV2');
 
       // Generate a new chatId if this is a new chat
       const chatIdToUse = currentChatId || push(ref(getDatabase(), 'chats')).key;
@@ -1054,7 +1054,7 @@ const ChatApp = ({
 
     try {
       const functions = getFunctions();
-      const removeUserFromChatFunction = httpsCallable(functions, 'removeUserFromChat');
+      const removeUserFromChatFunction = httpsCallable(functions, 'removeUserFromChatV2');
       await removeUserFromChatFunction({ chatId: currentChatId });
       //console.log(`ChatApp: removeUserFromChat Cloud Function called for chatId ${currentChatId}`);
 

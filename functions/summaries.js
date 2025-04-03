@@ -1,7 +1,7 @@
 // Import the necessary v2 modules
 const { onValueWritten, onValueCreated } = require('firebase-functions/v2/database');
 const { onCall } = require('firebase-functions/v2/https');
-const { setGlobalOptions } = require('firebase-functions/v2');
+
 const admin = require('firebase-admin');
 
 // Initialize admin if not already initialized
@@ -9,9 +9,29 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
+// Helper function to safely extract nested values from Firebase DataSnapshot
+const getNestedValue = (snapshot, path) => {
+  if (!snapshot || !snapshot.exists()) return null;
+  
+  if (path.includes('.')) {
+    const parts = path.split('.');
+    let current = snapshot;
+    
+    for (const part of parts) {
+      if (!current.child(part).exists()) return null;
+      current = current.child(part);
+    }
+    
+    return current.val();
+  } else {
+    // Handle non-nested paths
+    return snapshot.child(path).exists() ? snapshot.child(path).val() : null;
+  }
+};
+
 /**
  * Cloud Function: syncProfileToCourseSummariesV2
- * Uses transactions to safely update fields that have actually changed
+ * Uses event data directly and only updates fields that have changed
  */
 const syncProfileToCourseSummariesV2 = onValueWritten({
   ref: '/students/{studentId}/profile',
@@ -20,47 +40,74 @@ const syncProfileToCourseSummariesV2 = onValueWritten({
   concurrency: 100
 }, async (event) => {
   const studentId = event.params.studentId;
-  const newProfileData = event.data.after;
-  const oldProfileData = event.data.before || {};
   const db = admin.database();
 
-  if (!newProfileData) {
+  // Check if profile was deleted
+  if (!event.data.after.exists()) {
     console.log(`Profile data was deleted for student ${studentId}`);
     return null;
   }
 
   try {
-    // Determine which fields have actually changed
-    const changedFields = {};
-    const fieldsToCheck = [
+    // Define profile fields to sync
+    const profileFields = [
       'LastSync', 'ParentEmail', 'ParentFirstName', 'ParentLastName', 
       'ParentPhone_x0023_', 'StudentEmail', 'StudentPhone', 'age', 'asn', 
       'birthday', 'firstName', 'lastName', 'originalEmail', 
-      'preferredFirstName', 'gender', 'uid', 'AdditionalGuardians'
+      'preferredFirstName', 'gender', 'uid'
     ];
 
-    for (const field of fieldsToCheck) {
-      if (field === 'AdditionalGuardians') {
-        // Special handling for AdditionalGuardians array
-        const oldGuardians = JSON.stringify(oldProfileData.AdditionalGuardians || []);
-        const newGuardians = JSON.stringify(newProfileData.AdditionalGuardians || []);
-        if (oldGuardians !== newGuardians) {
-          changedFields.AdditionalGuardians = true;
+    // Collect changes by comparing before and after
+    const changes = {};
+    
+    // Check regular fields
+    for (const field of profileFields) {
+      const beforeValue = getNestedValue(event.data.before, field);
+      const afterValue = getNestedValue(event.data.after, field);
+      
+      if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
+        console.log(`Profile field ${field} changed from ${beforeValue} to ${afterValue}`);
+        changes[field] = afterValue !== null ? 
+          afterValue : 
+          (field === 'age' ? 0 : '');
+      }
+    }
+    
+    // Special handling for AdditionalGuardians
+    const beforeGuardians = event.data.before && 
+                           event.data.before.exists() && 
+                           event.data.before.child('AdditionalGuardians').exists() ?
+                           event.data.before.child('AdditionalGuardians').val() : [];
+    
+    const afterGuardians = event.data.after.child('AdditionalGuardians').exists() ?
+                          event.data.after.child('AdditionalGuardians').val() : [];
+    
+    // Check if guardians changed
+    const guardiansChanged = JSON.stringify(beforeGuardians) !== JSON.stringify(afterGuardians);
+    
+    if (guardiansChanged) {
+      console.log('AdditionalGuardians changed');
+      // Map guardian emails to target fields
+      afterGuardians.forEach((guardian, index) => {
+        changes[`guardianEmail${index + 1}`] = guardian.email || '';
+      });
+      
+      // Remove any extra guardian emails if the number of guardians has decreased
+      if (beforeGuardians.length > afterGuardians.length) {
+        for (let i = afterGuardians.length + 1; i <= beforeGuardians.length; i++) {
+          changes[`guardianEmail${i}`] = null;
         }
-      } else if (JSON.stringify(oldProfileData[field]) !== JSON.stringify(newProfileData[field])) {
-        changedFields[field] = true;
       }
     }
 
     // If nothing changed, exit early
-    if (Object.keys(changedFields).length === 0) {
-      console.log(`No relevant profile changes for student ${studentId}`);
+    if (Object.keys(changes).length === 0) {
+      console.log(`No profile changes detected for student ${studentId}`);
       return null;
     }
 
-    const coursesSnap = await db
-      .ref(`students/${studentId}/courses`)
-      .once('value');
+    // Get all courses for this student
+    const coursesSnap = await db.ref(`students/${studentId}/courses`).once('value');
     const courses = coursesSnap.val();
 
     if (!courses) {
@@ -68,58 +115,36 @@ const syncProfileToCourseSummariesV2 = onValueWritten({
       return null;
     }
 
-    // Create an array of promises for parallel processing
-    const transactionPromises = Object.keys(courses).map(courseId => {
-      // Use transaction to ensure atomic updates to each course summary
-      return db.ref(`studentCourseSummaries/${studentId}_${courseId}`)
-        .transaction(currentData => {
-          // If no current data, we can't update what doesn't exist
-          if (currentData === null) {
-            console.log(`No existing summary for student ${studentId}, course ${courseId}`);
-            return null; // Skip this update - will be created by other functions
-          }
+    // Add timestamp to track update
+    changes.profileLastUpdated = admin.database.ServerValue.TIMESTAMP;
 
-          // Start with current data and update only changed fields
-          const updatedData = { ...currentData };
-          
-          // Update only fields that have changed
-          for (const field of fieldsToCheck) {
-            if (field === 'AdditionalGuardians' && changedFields.AdditionalGuardians) {
-              // Handle guardian emails
-              const guardians = newProfileData.AdditionalGuardians || [];
-              for (let i = 0; i < guardians.length; i++) {
-                updatedData[`guardianEmail${i + 1}`] = guardians[i].email || '';
-              }
-              
-              // Remove any extra guardian emails if the number of guardians has decreased
-              const oldGuardians = oldProfileData.AdditionalGuardians || [];
-              if (guardians.length < oldGuardians.length) {
-                for (let i = guardians.length + 1; i <= oldGuardians.length; i++) {
-                  updatedData[`guardianEmail${i}`] = null;
-                }
-              }
-            } else if (changedFields[field]) {
-              updatedData[field] = newProfileData[field] !== undefined ? 
-                newProfileData[field] : (field === 'age' ? 0 : '');
-            }
-          }
-          
-          // Add timestamp to track which update is newest
-          updatedData.profileLastUpdated = admin.database.ServerValue.TIMESTAMP;
-          
-          return updatedData;
-        });
+    // Create an array of promises for parallel processing
+    const updatePromises = Object.keys(courses).map(async courseId => {
+      const summaryRef = db.ref(`studentCourseSummaries/${studentId}_${courseId}`);
+      const summaryExists = (await summaryRef.once('value')).exists();
+      
+      if (!summaryExists) {
+        console.log(`No summary exists for student ${studentId}, course ${courseId}`);
+        return { courseId, success: false, reason: 'Summary does not exist' };
+      }
+      
+      try {
+        await summaryRef.update(changes);
+        return { courseId, success: true };
+      } catch (error) {
+        console.error(`Error updating ${courseId}: ${error.message}`);
+        return { courseId, success: false, reason: error.message };
+      }
     });
 
-    // Execute all transactions in parallel
-    const results = await Promise.all(transactionPromises);
+    // Execute all updates in parallel
+    const results = await Promise.all(updatePromises);
     
     // Count successful updates
-    const successCount = results.filter(result => 
-      result.committed && result.snapshot.exists()).length;
+    const successCount = results.filter(result => result.success).length;
     
     console.log(
-      `Successfully synced ${Object.keys(changedFields).length} profile fields for student ${studentId} across ${successCount} courses`
+      `Successfully synced ${Object.keys(changes).length - 1} profile fields for student ${studentId} across ${successCount} courses`
     );
 
     return null;
@@ -141,7 +166,7 @@ const syncProfileToCourseSummariesV2 = onValueWritten({
 
 /**
  * Cloud Function: updateStudentCourseSummaryV2
- * Uses transactions to safely update fields that have actually changed
+ * Uses event data directly and only updates fields that have changed
  */
 const updateStudentCourseSummaryV2 = onValueWritten({
   ref: '/students/{studentId}/courses/{courseId}',
@@ -151,20 +176,18 @@ const updateStudentCourseSummaryV2 = onValueWritten({
 }, async (event) => {
   const studentId = event.params.studentId;
   const courseId = event.params.courseId;
-  const newValue = event.data.after;
-  const oldValue = event.data.before || {};
   const db = admin.database();
 
-  if (!newValue) {
+  console.log(`Processing update for student ${studentId}, course ${courseId}`);
+  
+  // Check if record was deleted
+  if (!event.data.after.exists()) {
     try {
+      console.log(`Course deleted for student ${studentId}, course ${courseId}`);
       // Use transaction to safely remove the course summary
       await db.ref(`studentCourseSummaries/${studentId}_${courseId}`)
         .transaction(currentData => {
-          // Only remove if it exists
-          if (currentData !== null) {
-            return null; // This removes the node
-          }
-          return currentData; // No change if it doesn't exist
+          return currentData !== null ? null : currentData; // Remove if exists
         });
         
       console.log(`Successfully removed course summary for student ${studentId}, course ${courseId}`);
@@ -176,8 +199,8 @@ const updateStudentCourseSummaryV2 = onValueWritten({
   }
 
   try {
-    // Prepare course fields to check for changes
-    const directCourseFields = {
+    // Define field mappings
+    const fieldMappings = {
       'Status.Value': 'Status_Value',
       'Status.SharepointValue': 'Status_SharepointValue', 
       'Course.Value': 'Course_Value', 
@@ -200,118 +223,161 @@ const updateStudentCourseSummaryV2 = onValueWritten({
       'Term': 'Term'
     };
 
-    // Prepare additional fields that need special handling
-    const additionalFields = {
+    // Define special fields that need custom handling
+    const specialFieldMappings = {
       'ScheduleJSON': 'hasSchedule',
       'primarySchoolName': 'primarySchoolName',
       'resumingOnDate': 'resumingOnDate',
       'payment_status/status': 'payment_status'
     };
 
-    // Gather changes for direct course fields
-    const directFieldChanges = {};
-    for (const [sourceField, targetField] of Object.entries(directCourseFields)) {
-      if (sourceField.includes('.')) {
-        const [parent, child] = sourceField.split('.');
-        const newFieldValue = newValue[parent]?.[child];
-        const oldFieldValue = oldValue[parent]?.[child];
+    // Collect changes by comparing before and after
+    const changes = {};
+    
+    // Process standard field mappings
+    for (const [sourcePath, targetField] of Object.entries(fieldMappings)) {
+      const beforeValue = getNestedValue(event.data.before, sourcePath);
+      const afterValue = getNestedValue(event.data.after, sourcePath);
+      
+      // String comparison is needed for things like arrays or objects
+      if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
+        console.log(`Field ${sourcePath} changed from ${beforeValue} to ${afterValue}`);
         
-        if (JSON.stringify(newFieldValue) !== JSON.stringify(oldFieldValue)) {
-          directFieldChanges[targetField] = newFieldValue || '';
-        }
-      } else if (JSON.stringify(newValue[sourceField]) !== JSON.stringify(oldValue[sourceField])) {
-        if (sourceField === 'CourseID') {
-          directFieldChanges[targetField] = newValue[sourceField] || courseId;
-        } else if (sourceField === 'autoStatus' || sourceField === 'inOldSharePoint') {
-          directFieldChanges[targetField] = newValue[sourceField] !== undefined ? newValue[sourceField] : false;
+        // Handle special cases
+        if (sourcePath === 'CourseID') {
+          changes[targetField] = afterValue || courseId;
+        } else if (sourcePath === 'autoStatus' || sourcePath === 'inOldSharePoint') {
+          changes[targetField] = afterValue !== null ? afterValue : false;
+        } else if (sourcePath === 'PercentScheduleComplete' || sourcePath === 'PercentCompleteGradebook') {
+          changes[targetField] = afterValue !== null ? afterValue : 0;
         } else {
-          directFieldChanges[targetField] = newValue[sourceField] !== undefined ? 
-            newValue[sourceField] : 
-            (sourceField === 'PercentScheduleComplete' || sourceField === 'PercentCompleteGradebook' ? 0 : '');
+          changes[targetField] = afterValue !== null ? afterValue : '';
+        }
+      }
+    }
+    
+    // Process special fields needing custom handling
+    for (const [sourcePath, targetField] of Object.entries(specialFieldMappings)) {
+      // For paths with nested structures like "payment_status/status"
+      if (sourcePath.includes('/')) {
+        const [parent, child] = sourcePath.split('/');
+        const beforeExists = event.data.before && 
+                           event.data.before.exists() && 
+                           event.data.before.child(parent).exists() && 
+                           event.data.before.child(parent).child(child).exists();
+        const afterExists = event.data.after && 
+                          event.data.after.exists() && 
+                          event.data.after.child(parent).exists() && 
+                          event.data.after.child(parent).child(child).exists();
+        
+        const beforeValue = beforeExists ? event.data.before.child(parent).child(child).val() : null;
+        const afterValue = afterExists ? event.data.after.child(parent).child(child).val() : null;
+        
+        if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
+          console.log(`Nested path ${sourcePath} changed from ${beforeValue} to ${afterValue}`);
+          changes[targetField] = afterValue !== null ? afterValue : '';
+        }
+      } 
+      // Special case for ScheduleJSON which only checks existence
+      else if (sourcePath === 'ScheduleJSON') {
+        const beforeExists = event.data.before && 
+                           event.data.before.exists() && 
+                           event.data.before.child('ScheduleJSON').exists();
+        const afterExists = event.data.after && 
+                          event.data.after.exists() && 
+                          event.data.after.child('ScheduleJSON').exists();
+        
+        if (beforeExists !== afterExists) {
+          console.log(`ScheduleJSON existence changed from ${beforeExists} to ${afterExists}`);
+          changes[targetField] = afterExists;
+        }
+      } 
+      // Regular fields
+      else {
+        const beforeValue = event.data.before && 
+                          event.data.before.exists() && 
+                          event.data.before.child(sourcePath).exists() ? 
+                          event.data.before.child(sourcePath).val() : null;
+        const afterValue = event.data.after && 
+                         event.data.after.exists() && 
+                         event.data.after.child(sourcePath).exists() ? 
+                         event.data.after.child(sourcePath).val() : null;
+        
+        if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
+          console.log(`Field ${sourcePath} changed from ${beforeValue} to ${afterValue}`);
+          changes[targetField] = afterValue !== null ? afterValue : '';
         }
       }
     }
 
-    // Gather changes for special fields that need extra processing
-    const specialFieldChanges = {};
-    for (const [sourceField, targetField] of Object.entries(additionalFields)) {
-      let newFieldValue, oldFieldValue;
-      
-      if (sourceField.includes('/')) {
-        const fieldPath = sourceField.split('/');
-        const fieldSnap = await db
-          .ref(`students/${studentId}/courses/${courseId}/${fieldPath[0]}/${fieldPath[1]}`)
-          .once('value');
-        newFieldValue = fieldSnap.val();
-        
-        const oldFieldSnap = await db
-          .ref(`students/${studentId}/courses/${courseId}/${fieldPath[0]}/${fieldPath[1]}`)
-          .once('value');
-        oldFieldValue = oldFieldSnap.val();
-      } else if (sourceField === 'ScheduleJSON') {
-        const scheduleJsonSnap = await db
-          .ref(`students/${studentId}/courses/${courseId}/ScheduleJSON`)
-          .once('value');
-        newFieldValue = scheduleJsonSnap.exists();
-        
-        // Try to determine if old value existed
-        let oldScheduleCheck = false;
-        try {
-          oldScheduleCheck = event.data.before && event.data.before.hasChild('ScheduleJSON');
-        } catch (e) {
-          // Can't determine previous existence, assume it's changed
-        }
-        oldFieldValue = oldScheduleCheck;
-      } else {
-        const fieldSnap = await db
-          .ref(`students/${studentId}/courses/${courseId}/${sourceField}`)
-          .once('value');
-        newFieldValue = fieldSnap.val() || '';
-        oldFieldValue = oldValue[sourceField];
-      }
-      
-      if (JSON.stringify(newFieldValue) !== JSON.stringify(oldFieldValue)) {
-        specialFieldChanges[targetField] = newFieldValue || '';
-      }
-    }
-
-    // Check if we have any changes to make
-    const hasChanges = 
-      Object.keys(directFieldChanges).length > 0 || 
-      Object.keys(specialFieldChanges).length > 0;
-
-    if (!hasChanges) {
-      console.log(`No relevant changes detected for student ${studentId} in course ${courseId}`);
+    // Check if there are any changes to apply
+    if (Object.keys(changes).length === 0) {
+      console.log(`No changes detected for student ${studentId}, course ${courseId}`);
       return null;
     }
 
-    // Use transaction to safely update the course summary
-    const result = await db.ref(`studentCourseSummaries/${studentId}_${courseId}`)
-      .transaction(currentData => {
-        // If summary doesn't exist, initialize with full data
-        if (currentData === null) {
-          console.log(`Creating new course summary during update for student ${studentId}, course ${courseId}`);
-          // This will be initialized by createStudentCourseSummaryOnCourseCreate
-          // But we'll return empty object to avoid null error, will be filled by other function
-          return {}; 
-        }
-        
-        // Update current data with our changes
-        const updatedData = { ...currentData, ...directFieldChanges, ...specialFieldChanges };
-        
-        // Always update lastUpdated timestamp
-        updatedData.lastUpdated = admin.database.ServerValue.TIMESTAMP;
-        
-        return updatedData;
-      });
+    // Check if summary exists before updating
+    const summaryRef = db.ref(`studentCourseSummaries/${studentId}_${courseId}`);
+    const summaryExists = (await summaryRef.once('value')).exists();
 
-    if (result.committed) {
-      console.log(
-        `Successfully updated ${Object.keys(directFieldChanges).length + Object.keys(specialFieldChanges).length} fields in studentCourseSummary for student ${studentId} in course ${courseId}`
-      );
-    } else {
-      console.log(`Transaction aborted for student ${studentId} in course ${courseId}`);
+    // If record doesn't exist, create a new complete record
+    if (!summaryExists) {
+      console.log(`Creating new course summary for student ${studentId}, course ${courseId}`);
+      
+      // Get profile data to create the complete record
+      const profileSnap = await db.ref(`/students/${studentId}/profile`).once('value');
+      const profileData = profileSnap.val();
+      
+      if (!profileData) {
+        console.error(`No profile found for student ${studentId} - cannot create summary`);
+        return null;
+      }
+      
+      // Create complete data object
+      let summaryData = {};
+      
+      // Add profile fields
+      const profileFields = [
+        'LastSync', 'ParentEmail', 'ParentFirstName', 'ParentLastName', 
+        'ParentPhone_x0023_', 'StudentEmail', 'StudentPhone', 'age', 'asn', 
+        'birthday', 'firstName', 'lastName', 'originalEmail', 
+        'preferredFirstName', 'gender', 'uid'
+      ];
+      
+      // Copy profile fields
+      profileFields.forEach(field => {
+        summaryData[field] = profileData[field] !== undefined 
+          ? profileData[field] 
+          : (field === 'age' ? 0 : '');
+      });
+      
+      // Handle additional guardians
+      const guardians = profileData.AdditionalGuardians || [];
+      guardians.forEach((guardian, index) => {
+        summaryData[`guardianEmail${index + 1}`] = guardian.email || '';
+      });
+      
+      // Merge with detected changes
+      summaryData = { ...summaryData, ...changes };
+      
+      // Add timestamps
+      summaryData.lastUpdated = admin.database.ServerValue.TIMESTAMP;
+      summaryData.createdAt = admin.database.ServerValue.TIMESTAMP;
+      
+      // Set the complete data
+      await summaryRef.set(summaryData);
+      
+      console.log(`Created new course summary for student ${studentId}, course ${courseId}`);
+      return null;
     }
+    
+    // For existing records, update only the changed fields
+    changes.lastUpdated = admin.database.ServerValue.TIMESTAMP;
+    
+    await summaryRef.update(changes);
+    
+    console.log(`Updated ${Object.keys(changes).length - 1} fields for student ${studentId}, course ${courseId}`);
+    console.log(`Fields updated: ${JSON.stringify(changes)}`);
     
     return null;
   } catch (error) {
@@ -333,7 +399,7 @@ const updateStudentCourseSummaryV2 = onValueWritten({
 
 /**
  * Cloud Function: createStudentCourseSummaryOnCourseCreateV2
- * Uses transactions to safely create course summaries
+ * Uses event data directly from the creation event
  */
 const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
   ref: '/students/{studentId}/courses/{courseId}',
@@ -345,19 +411,33 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
   const courseId = event.params.courseId;
   const db = admin.database();
   
-  // Retrieve course data
-  const courseData = event.data;
+  console.log(`Processing course creation for student ${studentId}, course ${courseId}`);
   
-  // Retrieve the student's profile data
-  const profileSnap = await db.ref(`/students/${studentId}/profile`).once('value');
-  const profileData = profileSnap.val();
-
-  if (!profileData) {
-    console.log(`No profile found for student ${studentId}`);
+  // Check if we have course data in the event
+  if (!event.data.exists()) {
+    console.log(`No course data found in event for student ${studentId}, course ${courseId}`);
     return null;
   }
   
   try {
+    // Check if the summary already exists (race condition safety)
+    const summaryRef = db.ref(`studentCourseSummaries/${studentId}_${courseId}`);
+    const summaryExists = (await summaryRef.once('value')).exists();
+    
+    if (summaryExists) {
+      console.log(`Summary already exists for student ${studentId}, course ${courseId}. Skipping creation.`);
+      return null;
+    }
+    
+    // Retrieve the student's profile data
+    const profileSnap = await db.ref(`/students/${studentId}/profile`).once('value');
+    const profileData = profileSnap.val();
+
+    if (!profileData) {
+      console.log(`No profile found for student ${studentId}`);
+      return null;
+    }
+    
     // Initialize summary data
     let summaryData = {};
     
@@ -382,8 +462,8 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
       summaryData[`guardianEmail${index + 1}`] = guardian.email || '';
     });
     
-    // Add course fields as defined in updateStudentCourseSummary
-    const directCourseFields = {
+    // Define field mappings to extract from event data
+    const fieldMappings = {
       'Status.Value': 'Status_Value',
       'Status.SharepointValue': 'Status_SharepointValue', 
       'Course.Value': 'Course_Value', 
@@ -405,83 +485,66 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
       'inOldSharePoint': 'inOldSharePoint',
       'Term': 'Term'
     };
-  
-    // Copy course fields
-    for (const [sourceField, targetField] of Object.entries(directCourseFields)) {
-      // Handle nested fields like Status.Value
-      if (sourceField.includes('.')) {
-        const [parent, child] = sourceField.split('.');
-        if (courseData[parent] && courseData[parent][child] !== undefined) {
-          summaryData[targetField] = courseData[parent][child];
-        } else {
-          summaryData[targetField] = '';
-        }
-      }
-      // Handle normal fields
-      else {
-        if (sourceField === 'CourseID') {
-          summaryData[targetField] = courseData[sourceField] || courseId;
-        } else if (sourceField === 'autoStatus' || sourceField === 'inOldSharePoint') {
-          summaryData[targetField] = courseData[sourceField] !== undefined ? courseData[sourceField] : false;
-        } else {
-          summaryData[targetField] = courseData[sourceField] !== undefined ? 
-            courseData[sourceField] : 
-            (sourceField === 'PercentScheduleComplete' || sourceField === 'PercentCompleteGradebook' ? 0 : '');
-        }
+
+    // Extract fields from event data
+    for (const [sourcePath, targetField] of Object.entries(fieldMappings)) {
+      const value = getNestedValue(event.data, sourcePath);
+      
+      // Handle special cases
+      if (sourcePath === 'CourseID') {
+        summaryData[targetField] = value || courseId;
+      } else if (sourcePath === 'autoStatus' || sourcePath === 'inOldSharePoint') {
+        summaryData[targetField] = value !== null ? value : false;
+      } else if (sourcePath === 'PercentScheduleComplete' || sourcePath === 'PercentCompleteGradebook') {
+        summaryData[targetField] = value !== null ? value : 0;
+      } else {
+        summaryData[targetField] = value !== null ? value : '';
       }
     }
-    
+
     // Handle special fields
-    const additionalFields = {
-      'ScheduleJSON': 'hasSchedule',
-      'primarySchoolName': 'primarySchoolName',
-      'resumingOnDate': 'resumingOnDate',
-      'payment_status/status': 'payment_status'
-    };
-  
-    for (const [sourceField, targetField] of Object.entries(additionalFields)) {
-      if (sourceField.includes('/')) {
-        const [parent, child] = sourceField.split('/');
-        const fieldPath = `students/${studentId}/courses/${courseId}/${parent}/${child}`;
-        const fieldSnap = await db.ref(fieldPath).once('value');
-        summaryData[targetField] = fieldSnap.val() || '';
-      } else if (sourceField === 'ScheduleJSON') {
-        const scheduleExists = await db.ref(`students/${studentId}/courses/${courseId}/ScheduleJSON`).once('value');
-        summaryData[targetField] = scheduleExists.exists();
-      } else {
-        const fieldValue = await db.ref(`students/${studentId}/courses/${courseId}/${sourceField}`).once('value');
-        summaryData[targetField] = fieldValue.val() || '';
-      }
+    // For ScheduleJSON, just check existence
+    summaryData['hasSchedule'] = event.data.child('ScheduleJSON').exists();
+    
+    // For primarySchoolName
+    if (event.data.child('primarySchoolName').exists()) {
+      summaryData['primarySchoolName'] = event.data.child('primarySchoolName').val();
+    } else {
+      summaryData['primarySchoolName'] = '';
+    }
+    
+    // For resumingOnDate
+    if (event.data.child('resumingOnDate').exists()) {
+      summaryData['resumingOnDate'] = event.data.child('resumingOnDate').val();
+    } else {
+      summaryData['resumingOnDate'] = '';
+    }
+    
+    // For payment_status/status
+    if (event.data.child('payment_status').exists() && 
+        event.data.child('payment_status').child('status').exists()) {
+      summaryData['payment_status'] = event.data.child('payment_status').child('status').val();
+    } else {
+      summaryData['payment_status'] = '';
     }
     
     // Add creation and update timestamps
     summaryData.lastUpdated = admin.database.ServerValue.TIMESTAMP;
     summaryData.createdAt = admin.database.ServerValue.TIMESTAMP;
     
-    // Use transaction to ensure we don't overwrite existing data
-    const result = await db.ref(`studentCourseSummaries/${studentId}_${courseId}`)
-      .transaction(currentData => {
-        // If the data already exists (possibly from a race condition with updateStudentCourseSummary)
-        if (currentData !== null) {
-          console.log(`Course summary already exists for student ${studentId}, course ${courseId}, merging data`);
-          // Merge our data with existing data, but don't overwrite newer timestamps
-          return { ...summaryData, ...currentData, 
-            // Only update these if they don't exist
-            lastUpdated: currentData.lastUpdated || summaryData.lastUpdated,
-            createdAt: currentData.createdAt || summaryData.createdAt
-          };
-        }
-        
-        // If no data exists, create it fresh
-        return summaryData;
-      });
+    // Use transaction to ensure we don't create duplicate data
+    await summaryRef.transaction(currentData => {
+      // If the data already exists, don't overwrite
+      if (currentData !== null) {
+        console.log(`Summary already exists for student ${studentId}, course ${courseId} (race condition)`);
+        return currentData;
+      }
       
-    if (result.committed) {
-      console.log(`Successfully created/merged course summary for student ${studentId}, course ${courseId}`);
-    } else {
-      console.log(`Transaction aborted for student ${studentId} in course ${courseId}`);
-    }
-    
+      // If no data exists, create it fresh
+      return summaryData;
+    });
+      
+    console.log(`Successfully created summary for student ${studentId}, course ${courseId}`);
     return null;
   } catch (error) {
     console.error(
@@ -501,7 +564,8 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
 });
 
 /**
- * Keep the existing batchSyncStudentDataV2 function as it's already using v2
+ * Callable function: batchSyncStudentDataV2
+ * Uses helper function to extract nested values and only updates what's necessary
  */
 const batchSyncStudentDataV2 = onCall({
   memory: '2GiB',
@@ -676,9 +740,9 @@ const batchSyncStudentDataV2 = onCall({
               'Term': 'Term'
             };
             
-            // Copy course fields
+            // Copy course fields using getNestedValue helper
             for (const [sourceField, targetField] of Object.entries(directCourseFields)) {
-              // Handle nested fields like Status.Value
+              // For nested fields we need a different approach since it's not a DataSnapshot
               if (sourceField.includes('.')) {
                 const [parent, child] = sourceField.split('.');
                 if (courseData[parent] && courseData[parent][child] !== undefined) {
@@ -686,9 +750,8 @@ const batchSyncStudentDataV2 = onCall({
                 } else {
                   summaryData[targetField] = '';
                 }
-              }
-              // Handle normal fields
-              else {
+              } else {
+                // Handle normal fields
                 if (sourceField === 'CourseID') {
                   summaryData[targetField] = courseData[sourceField] || courseId;
                 } else if (sourceField === 'autoStatus' || sourceField === 'inOldSharePoint') {
@@ -702,58 +765,42 @@ const batchSyncStudentDataV2 = onCall({
             }
             
             // 3. Handle special fields
-            const additionalFields = {
-              'ScheduleJSON': 'hasSchedule',
-              'primarySchoolName': 'primarySchoolName',
-              'resumingOnDate': 'resumingOnDate',
-              'payment_status/status': 'payment_status'
-            };
+            // For ScheduleJSON, just check existence
+            const scheduleExists = courseData.ScheduleJSON !== undefined;
+            summaryData['hasSchedule'] = scheduleExists;
             
-            for (const [sourceField, targetField] of Object.entries(additionalFields)) {
-              if (sourceField.includes('/')) {
-                const [parent, child] = sourceField.split('/');
-                const fieldPath = `students/${studentKey}/courses/${courseId}/${parent}/${child}`;
-                const fieldSnap = await db.ref(fieldPath).once('value');
-                summaryData[targetField] = fieldSnap.val() || '';
-              } else if (sourceField === 'ScheduleJSON') {
-                const scheduleExists = await db.ref(`students/${studentKey}/courses/${courseId}/ScheduleJSON`).once('value');
-                summaryData[targetField] = scheduleExists.exists();
-              } else {
-                const fieldValue = await db.ref(`students/${studentKey}/courses/${courseId}/${sourceField}`).once('value');
-                summaryData[targetField] = fieldValue.val() || '';
-              }
+            // For primarySchoolName
+            summaryData['primarySchoolName'] = courseData.primarySchoolName || '';
+            
+            // For resumingOnDate
+            summaryData['resumingOnDate'] = courseData.resumingOnDate || '';
+            
+            // For payment_status/status
+            if (courseData.payment_status && courseData.payment_status.status !== undefined) {
+              summaryData['payment_status'] = courseData.payment_status.status;
+            } else {
+              summaryData['payment_status'] = '';
             }
             
             // Add timestamps
             summaryData.lastUpdated = Date.now();
             summaryData.profileLastUpdated = Date.now();
             
-            // Use transaction to ensure we don't overwrite existing data unexpectedly
-            const result = await db.ref(`studentCourseSummaries/${studentKey}_${courseId}`)
-              .transaction(currentData => {
-                // If the data already exists, merge with existing data
-                if (currentData !== null) {
-                  console.log(`Course summary already exists for student ${studentKey}, course ${courseId}, updating data`);
-                  // Preserve creation timestamp if it exists
-                  if (currentData.createdAt) {
-                    summaryData.createdAt = currentData.createdAt;
-                  } else {
-                    summaryData.createdAt = Date.now();
-                  }
-                  return summaryData;
-                }
-                
-                // If no data exists, create it fresh with creation timestamp
-                summaryData.createdAt = Date.now();
-                return summaryData;
-              });
-              
-            if (result.committed) {
-              console.log(`Successfully synced all data for student ${studentKey}, course ${courseId}`);
+            // Check if summary already exists
+            const summaryRef = db.ref(`studentCourseSummaries/${studentKey}_${courseId}`);
+            const existingSummary = await summaryRef.once('value');
+            
+            if (existingSummary.exists()) {
+              // If it exists, preserve the creation timestamp
+              summaryData.createdAt = existingSummary.val().createdAt || Date.now();
+              await summaryRef.update(summaryData);
             } else {
-              console.log(`Transaction aborted for student ${studentKey} in course ${courseId}`);
-              throw new Error('Transaction aborted');
+              // If it doesn't exist, set creation timestamp
+              summaryData.createdAt = Date.now();
+              await summaryRef.set(summaryData);
             }
+            
+            console.log(`Successfully synced all data for student ${studentKey}, course ${courseId}`);
             
             // Update status in batch
             await batchRef.child('students').child(globalIndex).update({
@@ -860,5 +907,6 @@ module.exports = {
   syncProfileToCourseSummariesV2,
   updateStudentCourseSummaryV2,
   createStudentCourseSummaryOnCourseCreateV2,
-  batchSyncStudentDataV2
+  batchSyncStudentDataV2,
+  getNestedValue
 };

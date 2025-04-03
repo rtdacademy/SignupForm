@@ -116,7 +116,7 @@ const [preparedRecipients, setPreparedRecipients] = useState(null);
 
   const { currentUser, user_email_key} = useAuth(); 
   const functions = getFunctions();
-  const sendBulkEmails = httpsCallable(functions, 'sendBulkEmails');
+  const sendBulkEmails = httpsCallable(functions, 'sendBulkEmailsV2');
 
   const modules = {
     toolbar: [

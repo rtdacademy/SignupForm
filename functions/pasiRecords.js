@@ -1,4 +1,8 @@
-const functions = require('firebase-functions');
+// Import 2nd gen Firebase Functions
+const { onCall } = require('firebase-functions/v2/https');
+const { onValueDeleted } = require('firebase-functions/v2/database');
+
+// Other dependencies
 const admin = require('firebase-admin');
 
 // Initialize admin if not already initialized
@@ -7,16 +11,18 @@ if (!admin.apps.length) {
 }
 
 /**
- * Cloud Function: cleanupOrphanedPasiLinks
+ * Cloud Function: cleanupOrphanedPasiLinksV2
  * 
  * This function scans all PASI links and cleans up orphaned links
  * with concurrent batch processing for improved performance.
+ * V2 version with enhanced configuration.
  */
-const cleanupOrphanedPasiLinks = functions.runWith({
+const cleanupOrphanedPasiLinksV2 = onCall({
   timeoutSeconds: 540,  // 9 minutes (max is 540 seconds)
-  memory: '1GB',       
-  maxInstances: 1       
-}).https.onCall(async (data, context) => {
+  memory: '1GiB',      
+  maxInstances: 1,
+  concurrency: 1
+}, async (data) => {
   const db = admin.database();
   console.log('Starting cleanup of orphaned PASI links...');
   
@@ -218,15 +224,13 @@ const cleanupOrphanedPasiLinks = functions.runWith({
       results
     });
     
-    // For callable functions, we throw a HttpsError
-    throw new functions.https.HttpsError('internal', `Error during PASI link cleanup: ${error.message}`, { 
-      partial_results: results 
-    });
+    // For callable functions in v2, we throw a regular Error
+    throw new Error(`Error during PASI link cleanup: ${error.message}`);
   }
 });
 
 /**
- * Cloud Function: cleanupDeletedPasiRecord
+ * Cloud Function: cleanupDeletedPasiRecordV2
  * 
  * This function is triggered when a PASI record is deleted.
  * It cleans up all the associated data:
@@ -234,82 +238,86 @@ const cleanupOrphanedPasiLinks = functions.runWith({
  * 2. Gets the studentCourseSummaryKey from that link
  * 3. Removes the record reference from studentCourseSummaries
  * 4. Deletes the link
+ * V2 version with enhanced configuration.
  */
-const cleanupDeletedPasiRecord = functions.database
-  .ref('/pasiRecords/{pasiRecordId}')
-  .onDelete(async (snapshot, context) => {
-    const { pasiRecordId } = context.params;
-    const deletedData = snapshot.val();
-    const db = admin.database();
-    
-    console.log(`PASI record deleted: ${pasiRecordId}. Starting cleanup process...`);
+const cleanupDeletedPasiRecordV2 = onValueDeleted({
+  ref: '/pasiRecords/{pasiRecordId}',
+  region: 'us-central1',
+  memory: '256MiB',
+  maxInstances: 10
+}, async (event) => {
+  const pasiRecordId = event.params.pasiRecordId;
+  const deletedData = event.data.val();
+  const db = admin.database();
+  
+  console.log(`PASI record deleted: ${pasiRecordId}. Starting cleanup process...`);
 
-    try {
-      // 1. Find the corresponding link by querying pasiLinks by pasiRecordId
-      const pasiLinksRef = db.ref('pasiLinks');
-      const query = pasiLinksRef.orderByChild('pasiRecordId').equalTo(pasiRecordId);
-      const linksSnapshot = await query.once('value');
-      
-      if (!linksSnapshot.exists()) {
-        console.log(`No linked data found for PASI record: ${pasiRecordId}. No cleanup needed.`);
-        return null;
-      }
-      
-      // Process each link (normally there should be just one, but let's handle multiple just in case)
-      const updates = {};
-      
-      linksSnapshot.forEach((linkSnapshot) => {
-        const linkId = linkSnapshot.key;
-        const linkData = linkSnapshot.val();
-        const studentCourseSummaryKey = linkData.studentCourseSummaryKey;
-        const courseCode = linkData.courseCode; // Make sure to use courseCode
-        
-        console.log(`Found link: ${linkId} for PASI record: ${pasiRecordId}`);
-        
-        if (studentCourseSummaryKey && courseCode) {
-          // Remove the PASI record reference from student course summary using courseCode
-          updates[`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${courseCode}`] = null;
-          console.log(`Marked for removal: PASI record reference from studentCourseSummary: ${studentCourseSummaryKey}, courseCode: ${courseCode}`);
-        }
-        
-        // Mark the link for deletion
-        updates[`pasiLinks/${linkId}`] = null;
-        console.log(`Marked for deletion: pasiLink: ${linkId}`);
-      });
-      
-      // Apply all updates in a single batch
-      if (Object.keys(updates).length > 0) {
-        await db.ref().update(updates);
-        console.log(`Successfully cleaned up all associated data for PASI record: ${pasiRecordId}`);
-      }
-      
-      // Log the deletion event for audit purposes
-      await db.ref('logs/pasiRecordDeletions').push({
-        pasiRecordId,
-        studentName: deletedData?.studentName || 'Unknown',
-        courseCode: deletedData?.courseCode || 'Unknown',
-        deletionTime: admin.database.ServerValue.TIMESTAMP,
-        linksRemoved: Object.keys(linksSnapshot.val() || {}).length
-      });
-      
+  try {
+    // 1. Find the corresponding link by querying pasiLinks by pasiRecordId
+    const pasiLinksRef = db.ref('pasiLinks');
+    const query = pasiLinksRef.orderByChild('pasiRecordId').equalTo(pasiRecordId);
+    const linksSnapshot = await query.once('value');
+    
+    if (!linksSnapshot.exists()) {
+      console.log(`No linked data found for PASI record: ${pasiRecordId}. No cleanup needed.`);
       return null;
-    } catch (error) {
-      console.error(`Error cleaning up PASI record: ${pasiRecordId}`, error);
-      
-      // Log the error for debugging
-      await db.ref('errorLogs/cleanupDeletedPasiRecord').push({
-        pasiRecordId,
-        error: error.message,
-        stack: error.stack,
-        timestamp: admin.database.ServerValue.TIMESTAMP,
-      });
-      
-      // Re-throw to mark the function as failed
-      throw error;
     }
-  });
+    
+    // Process each link (normally there should be just one, but let's handle multiple just in case)
+    const updates = {};
+    
+    linksSnapshot.forEach((linkSnapshot) => {
+      const linkId = linkSnapshot.key;
+      const linkData = linkSnapshot.val();
+      const studentCourseSummaryKey = linkData.studentCourseSummaryKey;
+      const courseCode = linkData.courseCode; // Make sure to use courseCode
+      
+      console.log(`Found link: ${linkId} for PASI record: ${pasiRecordId}`);
+      
+      if (studentCourseSummaryKey && courseCode) {
+        // Remove the PASI record reference from student course summary using courseCode
+        updates[`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${courseCode}`] = null;
+        console.log(`Marked for removal: PASI record reference from studentCourseSummary: ${studentCourseSummaryKey}, courseCode: ${courseCode}`);
+      }
+      
+      // Mark the link for deletion
+      updates[`pasiLinks/${linkId}`] = null;
+      console.log(`Marked for deletion: pasiLink: ${linkId}`);
+    });
+    
+    // Apply all updates in a single batch
+    if (Object.keys(updates).length > 0) {
+      await db.ref().update(updates);
+      console.log(`Successfully cleaned up all associated data for PASI record: ${pasiRecordId}`);
+    }
+    
+    // Log the deletion event for audit purposes
+    await db.ref('logs/pasiRecordDeletions').push({
+      pasiRecordId,
+      studentName: deletedData?.studentName || 'Unknown',
+      courseCode: deletedData?.courseCode || 'Unknown',
+      deletionTime: admin.database.ServerValue.TIMESTAMP,
+      linksRemoved: Object.keys(linksSnapshot.val() || {}).length
+    });
+    
+    return null;
+  } catch (error) {
+    console.error(`Error cleaning up PASI record: ${pasiRecordId}`, error);
+    
+    // Log the error for debugging
+    await db.ref('errorLogs/cleanupDeletedPasiRecord').push({
+      pasiRecordId,
+      error: error.message,
+      stack: error.stack,
+      timestamp: admin.database.ServerValue.TIMESTAMP,
+    });
+    
+    // Re-throw to mark the function as failed
+    throw error;
+  }
+});
 
 module.exports = {
-  cleanupDeletedPasiRecord,
-  cleanupOrphanedPasiLinks
+  cleanupDeletedPasiRecordV2,
+  cleanupOrphanedPasiLinksV2
 };

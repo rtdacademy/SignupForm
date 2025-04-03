@@ -1,15 +1,25 @@
 // functions/edge.js
-const functions = require('firebase-functions');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const fetch = require('node-fetch');
 const { sanitizeEmail } = require('./utils');
 
-exports.fetchLMSStudentId = functions.https.onCall(async (data, context) => {
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
+exports.fetchLMSStudentIdV2 = onCall({
+  concurrency: 50,
+  memory: '256MiB',
+  timeoutSeconds: 60,
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+}, async (data, context) => {
   try {
-    const { email, courseId } = data;
+    // For v2, the actual payload is nested inside data.data
+    const { email, courseId } = data.data;
     
     if (!email || !courseId) {
-      throw new Error('Email and courseId are required');
+      throw new HttpsError('invalid-argument', 'Email and courseId are required');
     }
 
     console.log('Attempting to fetch LMS ID for:', email);
@@ -31,14 +41,14 @@ exports.fetchLMSStudentId = functions.https.onCall(async (data, context) => {
       result = JSON.parse(responseText);
     } catch (e) {
       console.error('Failed to parse response:', e);
-      throw new Error('Invalid response from Edge system');
+      throw new HttpsError('internal', 'Invalid response from Edge system');
     }
 
     console.log('Parsed result:', result);
 
     if (!result.success) {
       console.log('Edge system returned error:', result.message);
-      throw new Error(result.message || 'Failed to fetch LMS ID');
+      throw new HttpsError('internal', result.message || 'Failed to fetch LMS ID');
     }
 
     const sanitizedEmail = sanitizeEmail(email);
@@ -64,7 +74,7 @@ exports.fetchLMSStudentId = functions.https.onCall(async (data, context) => {
     };
 
   } catch (error) {
-    console.error('Error in fetchLMSStudentId:', error);
-    throw new functions.https.HttpsError('internal', error.message);
+    console.error('Error in fetchLMSStudentIdV2:', error);
+    throw new HttpsError('internal', error.message);
   }
 });

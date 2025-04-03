@@ -328,7 +328,7 @@ const CategoryManager = ({ onCategoryChange }) => {
         }
   
         const functions = getFunctions();
-        const deleteCategoryForStudents = httpsCallable(functions, 'deleteCategoryForStudents');
+        const deleteCategoryForStudents = httpsCallable(functions, 'deleteCategoryForStudentsV2');
         try {
           const result = await deleteCategoryForStudents({
             categoryId,

@@ -28,8 +28,5 @@
     "pako": "^2.1.0",
     "stripe": "^17.3.1"
   },
-  "devDependencies": {
-    "firebase-functions-test": "^3.1.0"
-  },
   "private": true
 }

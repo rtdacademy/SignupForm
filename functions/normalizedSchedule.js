@@ -2,7 +2,7 @@
 const { onCall } = require('firebase-functions/v2/https');
 const { onValueWritten } = require('firebase-functions/v2/database');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const { setGlobalOptions } = require('firebase-functions/v2');
+
 
 
 
@@ -12,11 +12,7 @@ const { sanitizeEmail } = require('./utils');
 const { updateStudentAutoStatus } = require('./autoStatus');
 const fetch = require('node-fetch');
 
-// Set global options for all 2nd gen functions
-setGlobalOptions({
-  region: 'us-central1', // Update this to your preferred region
-  maxInstances: 10
-});
+
 
 // Initialize Firebase Admin SDK if not already initialized
 if (admin.apps.length === 0) {
