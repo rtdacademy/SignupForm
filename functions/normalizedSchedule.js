@@ -1611,34 +1611,34 @@ const updateDailyScheduleAdherenceV2 = onSchedule({
 
 /**
  * Cloud function to update normalized schedules for a batch of students in parallel
- * 2nd gen version
+ * 2nd gen version with support for up to 3000 students
  */
 const batchUpdateNormalizedSchedulesV2 = onCall({
   memory: '2GiB',
-  timeoutSeconds: 540,
+  timeoutSeconds: 540, // 9 minutes should be enough for 3000 students
   concurrency: 500,
   cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
 }, async (request) => {
-  // Extract parameters from request.data instead of directly from request
+  // Extract parameters from request.data
   const { students, forceUpdate = false } = request.data;
   
   if (!students || !Array.isArray(students) || students.length === 0) {
     throw new Error('You must provide an array of students');
   }
   
-  // Increased limit to 500 students
-  if (students.length > 500) {
-    throw new Error('Maximum 500 students can be processed in a single batch. Please reduce the selection and try again.');
+  // Increase max students to 3000 to match batchSyncStudentDataV2
+  if (students.length > 3000) {
+    throw new Error('Maximum 3000 students can be processed in a single batch. Please reduce the selection and try again.');
   }
   
-  console.log(`Starting parallel batch update for ${students.length} students`);
+  console.log(`Starting complete schedule update for ${students.length} students`);
   const db = admin.database();
   
   // Create batch ID for tracking
   const batchId = db.ref('scheduleBatches').push().key;
   const batchRef = db.ref(`scheduleBatches/${batchId}`);
   
-  // Initialize batch status with current timestamp instead of ServerValue.TIMESTAMP
+  // Initialize batch status
   await batchRef.set({
     status: 'processing',
     total: students.length,
@@ -1646,6 +1646,7 @@ const batchUpdateNormalizedSchedulesV2 = onCall({
     successful: 0,
     failed: 0,
     startTime: Date.now(),
+    studentsTotal: students.length,
     students: students.map(s => ({
       studentKey: s.studentKey,
       courseId: s.courseId,
@@ -1654,11 +1655,12 @@ const batchUpdateNormalizedSchedulesV2 = onCall({
   });
   
   // Process students in chunks to avoid overloading the system
-  const CHUNK_SIZE = 25; // Process 25 students at a time
-  const chunks = [];
+  // Main chunking - break into 500-student chunks for backend processing
+  const MAIN_CHUNK_SIZE = 500; 
+  const mainChunks = [];
   
-  for (let i = 0; i < students.length; i += CHUNK_SIZE) {
-    chunks.push(students.slice(i, i + CHUNK_SIZE));
+  for (let i = 0; i < students.length; i += MAIN_CHUNK_SIZE) {
+    mainChunks.push(students.slice(i, i + MAIN_CHUNK_SIZE));
   }
   
   let totalSuccessful = 0;
@@ -1668,105 +1670,149 @@ const batchUpdateNormalizedSchedulesV2 = onCall({
     failed: []
   };
   
-  // Process chunks sequentially to reduce database load
-  for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
-    const chunk = chunks[chunkIndex];
-    console.log(`Processing chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} students)`);
+  // Process main chunks sequentially
+  for (let mainChunkIndex = 0; mainChunkIndex < mainChunks.length; mainChunkIndex++) {
+    const mainChunk = mainChunks[mainChunkIndex];
+    console.log(`Processing main chunk ${mainChunkIndex + 1}/${mainChunks.length} (${mainChunk.length} students)`);
     
-    // Process students in this chunk in parallel
-    const results = await Promise.allSettled(
-      chunk.map(async (student, index) => {
-        const globalIndex = chunkIndex * CHUNK_SIZE + index;
-        try {
-          // Get student and course info
-          const { studentKey, courseId } = student;
-          
-          if (!studentKey || !courseId) {
-            throw new Error('Missing studentKey or courseId');
-          }
-          
-          // Update student status in batch
-          await batchRef.child('students').child(globalIndex).update({
-            status: 'processing'
-          });
-          
-          // Call internal function to generate schedule
-          const result = await generateNormalizedScheduleInternal(studentKey, courseId, null, forceUpdate);
-          
-          if (!result) {
-            throw new Error('Failed to generate schedule');
-          }
-          
-          // Update status in batch with current timestamp
-          await batchRef.child('students').child(globalIndex).update({
-            status: 'completed',
-            timestamp: Date.now()
-          });
-          
-          // Update batch counts using transactions instead of ServerValue.increment
-          await batchRef.child('completed').transaction(current => (current || 0) + 1);
-          await batchRef.child('successful').transaction(current => (current || 0) + 1);
-          
-          return {
-            studentKey,
-            courseId,
-            success: true,
-            timestamp: result.timestamp
-          };
-        } catch (error) {
-          // Update status in batch
-          await batchRef.child('students').child(globalIndex).update({
-            status: 'error',
-            error: error.message
-          });
-          
-          // Update batch counts using transactions
-          await batchRef.child('completed').transaction(current => (current || 0) + 1);
-          await batchRef.child('failed').transaction(current => (current || 0) + 1);
-          
-          return {
-            studentKey: student.studentKey,
-            courseId: student.courseId,
-            success: false,
-            error: error.message
-          };
-        }
-      })
-    );
-    
-    // Process results from this chunk
-    results.forEach((result, index) => {
-      const globalIndex = chunkIndex * CHUNK_SIZE + index;
-      if (result.status === 'fulfilled') {
-        const value = result.value;
-        if (value.success) {
-          totalSuccessful++;
-          finalResults.successful.push(value);
-        } else {
-          totalFailed++;
-          finalResults.failed.push(value);
-        }
-      } else {
-        totalFailed++;
-        finalResults.failed.push({
-          studentKey: chunks[chunkIndex][index].studentKey,
-          courseId: chunks[chunkIndex][index].courseId,
-          success: false,
-          error: result.reason?.message || 'Unknown error'
-        });
-      }
+    // Update batch status for this main chunk
+    await batchRef.update({
+      currentMainChunk: mainChunkIndex + 1,
+      totalMainChunks: mainChunks.length,
+      mainChunkSize: mainChunk.length
     });
     
-    console.log(`Completed chunk ${chunkIndex + 1}/${chunks.length}: ${results.length} students processed`);
+    // Sub-chunking - break each 500-student chunk into smaller 25-student chunks for parallel processing
+    const SUB_CHUNK_SIZE = 25;
+    const subChunks = [];
+    
+    for (let i = 0; i < mainChunk.length; i += SUB_CHUNK_SIZE) {
+      subChunks.push(mainChunk.slice(i, i + SUB_CHUNK_SIZE));
+    }
+    
+    // Process sub-chunks sequentially to reduce database load
+    for (let subChunkIndex = 0; subChunkIndex < subChunks.length; subChunkIndex++) {
+      const subChunk = subChunks[subChunkIndex];
+      const globalChunkIndex = `${mainChunkIndex+1}.${subChunkIndex+1}`;
+      console.log(`Processing sub-chunk ${globalChunkIndex} (${subChunk.length} students)`);
+      
+      // Process students in this sub-chunk in parallel
+      const results = await Promise.allSettled(
+        subChunk.map(async (student, index) => {
+          // Calculate the global student index across all chunks
+          const globalIndex = (mainChunkIndex * MAIN_CHUNK_SIZE) + 
+                             (subChunkIndex * SUB_CHUNK_SIZE) + index;
+          
+          try {
+            // Get student and course info
+            const { studentKey, courseId } = student;
+            
+            if (!studentKey || !courseId) {
+              throw new Error('Missing studentKey or courseId');
+            }
+            
+            // Update student status in batch
+            await batchRef.child('students').child(globalIndex).update({
+              status: 'processing'
+            });
+            
+            // Call internal function to generate schedule
+            const result = await generateNormalizedScheduleInternal(studentKey, courseId, null, forceUpdate);
+            
+            if (!result) {
+              throw new Error('Failed to generate schedule');
+            }
+            
+            // Update status in batch
+            await batchRef.child('students').child(globalIndex).update({
+              status: 'completed',
+              timestamp: Date.now()
+            });
+            
+            // Update batch counts using transactions
+            await batchRef.child('completed').transaction(current => (current || 0) + 1);
+            await batchRef.child('successful').transaction(current => (current || 0) + 1);
+            
+            return {
+              studentKey,
+              courseId,
+              success: true,
+              timestamp: result.timestamp
+            };
+          } catch (error) {
+            console.error(`Error updating schedule for student: ${error.message}`);
+            
+            // Update status in batch
+            await batchRef.child('students').child(globalIndex).update({
+              status: 'error',
+              error: error.message
+            });
+            
+            // Update batch counts using transactions
+            await batchRef.child('completed').transaction(current => (current || 0) + 1);
+            await batchRef.child('failed').transaction(current => (current || 0) + 1);
+            
+            return {
+              studentKey: student.studentKey,
+              courseId: student.courseId,
+              success: false,
+              error: error.message
+            };
+          }
+        })
+      );
+      
+      // Process results from this sub-chunk
+      results.forEach((result, index) => {
+        const globalIndex = (mainChunkIndex * MAIN_CHUNK_SIZE) + 
+                           (subChunkIndex * SUB_CHUNK_SIZE) + index;
+        
+        if (result.status === 'fulfilled') {
+          const value = result.value;
+          if (value.success) {
+            totalSuccessful++;
+            finalResults.successful.push(value);
+          } else {
+            totalFailed++;
+            finalResults.failed.push(value);
+          }
+        } else {
+          totalFailed++;
+          finalResults.failed.push({
+            studentKey: subChunk[index].studentKey,
+            courseId: subChunk[index].courseId,
+            success: false,
+            error: result.reason?.message || 'Unknown error'
+          });
+        }
+      });
+      
+      // Update progress info for this sub-chunk
+      await batchRef.update({
+        currentSubChunk: subChunkIndex + 1,
+        totalSubChunks: subChunks.length,
+        subChunkSize: subChunk.length,
+        progress: Math.round((totalSuccessful + totalFailed) / students.length * 100)
+      });
+      
+      console.log(`Completed sub-chunk ${globalChunkIndex}: ${results.length} students processed`);
+    }
+    
+    // Checkpoint after each main chunk
+    console.log(`Completed main chunk ${mainChunkIndex + 1}/${mainChunks.length}`);
+    console.log(`Progress: ${totalSuccessful} successful, ${totalFailed} failed`);
   }
   
-  // Update final batch status with current timestamp
+  // Update final batch status
   await batchRef.update({
     status: 'completed',
-    endTime: Date.now()
+    endTime: Date.now(),
+    totalSuccessful,
+    totalFailed,
+    progress: 100
   });
   
-  console.log(`Batch update completed: ${totalSuccessful} successful, ${totalFailed} failed`);
+  console.log(`Batch schedule update completed: ${totalSuccessful} successful, ${totalFailed} failed`);
   
   // Return batch ID and summary
   return {

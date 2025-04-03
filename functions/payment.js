@@ -1,19 +1,23 @@
 // functions/payment.js
 
-const functions = require('firebase-functions');
+const { onRequest } = require('firebase-functions/v2/https');
+const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('./utils');
+
+// Define secret
+const apiKey = defineSecret('API_KEY');
 
 /**
  * Cloud Function: updatePaymentInfo
  *
  * Updates or adds payment information, handling both allPayments and student-specific Payments nodes.
  */
-const updatePaymentInfo = functions
-  .runWith({
-    secrets: ["API_KEY"]
-  })
-  .https.onRequest(async (req, res) => {
+const updatePaymentInfo = onRequest(
+  {
+    secrets: [apiKey]
+  },
+  async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
 
     if (req.method === 'OPTIONS') {
@@ -29,7 +33,7 @@ const updatePaymentInfo = functions
 
     // Check for the Authorization header using API_KEY from Secret Manager
     const authHeader = req.headers.authorization;
-    if (!authHeader || authHeader !== `Bearer ${process.env.API_KEY}`) {
+    if (!authHeader || authHeader !== `Bearer ${apiKey.value()}`) {
       return res.status(401).send('Invalid or missing API key');
     }
 

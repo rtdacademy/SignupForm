@@ -8,7 +8,7 @@ if (!admin.apps.length) {
 }
 
 // Export functions from other files
-const gradebookFunctions = require('./gradebook');
+//const gradebookFunctions = require('./gradebook');
 const paymentFunctions = require('./payment');
 const chatFunctions = require('./chat');
 const categoryFunctions = require('./categories');
@@ -27,10 +27,10 @@ const normalizedScheduleFunctions = require('./normalizedSchedule');
 const pasiRecordsFunctions = require('./pasiRecords');
 
 // Export gradebook functions
-exports.updateGradebookData = gradebookFunctions.updateGradebookData;
+//exports.updateGradebookData = gradebookFunctions.updateGradebookData;
 
-exports.updateJsonGradebookSchedule = gradebookFunctions.updateJsonGradebookSchedule;
-exports.updateJsonGradebookScheduleOnScheduleChange = gradebookFunctions.updateJsonGradebookScheduleOnScheduleChange;
+//exports.updateJsonGradebookSchedule = gradebookFunctions.updateJsonGradebookSchedule;
+//exports.updateJsonGradebookScheduleOnScheduleChange = gradebookFunctions.updateJsonGradebookScheduleOnScheduleChange;
 
 // Export payment functions
 exports.updatePaymentInfo = paymentFunctions.updatePaymentInfo;
@@ -44,9 +44,9 @@ exports.sendChatMessage = chatFunctions.sendChatMessage;
 exports.deleteCategoryForStudents = categoryFunctions.deleteCategoryForStudents;
 
 // Export summary functions
-exports.updateStudentCourseSummary = summaryFunctions.updateStudentCourseSummary;
-exports.syncProfileToCourseSummaries = summaryFunctions.syncProfileToCourseSummaries;
-exports.createStudentCourseSummaryOnCourseCreate = summaryFunctions.createStudentCourseSummaryOnCourseCreate;
+exports.syncProfileToCourseSummariesV2 = summaryFunctions.syncProfileToCourseSummariesV2;
+exports.updateStudentCourseSummaryV2 = summaryFunctions.updateStudentCourseSummaryV2;
+exports.createStudentCourseSummaryOnCourseCreateV2 = summaryFunctions.createStudentCourseSummaryOnCourseCreateV2;
 exports.batchSyncStudentDataV2 = summaryFunctions.batchSyncStudentDataV2;
 
 
@@ -111,11 +111,11 @@ exports.primarySchoolNameUpdate = httpFunctions.primarySchoolNameUpdate;
 
 // Export original normalized schedule functions (1st gen)
 // Keeping these to allow gradual migration
-exports.onGradeUpdateTriggerNormalizedSchedule = normalizedScheduleFunctions.onGradeUpdateTriggerNormalizedSchedule;
-exports.generateNormalizedSchedule = normalizedScheduleFunctions.generateNormalizedSchedule;
-exports.onLMSStudentIDAssignedTriggerSchedule = normalizedScheduleFunctions.onLMSStudentIDAssignedTriggerSchedule;
-exports.updateDailyScheduleAdherence = normalizedScheduleFunctions.updateDailyScheduleAdherence;
-exports.batchUpdateNormalizedSchedules = normalizedScheduleFunctions.batchUpdateNormalizedSchedules;
+//exports.onGradeUpdateTriggerNormalizedSchedule = normalizedScheduleFunctions.onGradeUpdateTriggerNormalizedSchedule;
+//exports.generateNormalizedSchedule = normalizedScheduleFunctions.generateNormalizedSchedule;
+//exports.onLMSStudentIDAssignedTriggerSchedule = normalizedScheduleFunctions.onLMSStudentIDAssignedTriggerSchedule;
+//exports.updateDailyScheduleAdherence = normalizedScheduleFunctions.updateDailyScheduleAdherence;
+//exports.batchUpdateNormalizedSchedules = normalizedScheduleFunctions.batchUpdateNormalizedSchedules;
 
 // Export new V2 normalized schedule functions (2nd gen)
 // Triggered when a grade is updated in imathas_grades, automatically updates student's normalized schedule
