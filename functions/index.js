@@ -43,7 +43,7 @@ setGlobalOptions({
 //exports.updatePaymentInfo = paymentFunctions.updatePaymentInfo;
 
 // Export chat functions
-//exports.sendChatNotificationV2 = chatFunctions.sendChatNotificationV2;
+exports.sendChatNotificationV2 = chatFunctions.sendChatNotificationV2;
 exports.removeUserFromChatV2 = chatFunctions.removeUserFromChatV2;
 exports.sendChatMessageV2 = chatFunctions.sendChatMessageV2;
 
