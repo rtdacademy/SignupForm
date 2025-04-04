@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,13 @@ import { Card } from "../components/ui/card";
 import { FaCreditCard, FaClock, FaFileInvoice, FaExternalLinkAlt, FaCalendarAlt, FaHistory } from 'react-icons/fa';
 
 const PaymentDetailsDialog = ({ isOpen, onOpenChange, paymentDetails }) => {
+
+  useEffect(() => {
+    if (paymentDetails) {
+      console.log('PaymentDetailsDialog - paymentDetails:', paymentDetails);
+    }
+  }, [paymentDetails]);
+
   if (!paymentDetails) return null;
 
   const formatDate = (timestamp) => {

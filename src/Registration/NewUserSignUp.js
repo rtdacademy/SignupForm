@@ -71,6 +71,7 @@ const NewUserSignUp = () => {
       await createUserData(userCredential.user);
       
       localStorage.setItem('verificationEmailSent', 'true');
+      localStorage.setItem('verificationEmail', email.trim());
       await auth.signOut();
       
       navigate("/login");

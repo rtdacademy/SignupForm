@@ -85,20 +85,49 @@ async function addPaymentNote(userEmail, courseId, paymentData, metadata) {
 // Updated updatePaymentStatus function
 async function updatePaymentStatus(userEmail, courseId, paymentData, eventType) {
   const sanitizedEmail = sanitizeEmail(userEmail);
-  const updates = {};
   
-  // Update main payment record
-  updates[`payments/${sanitizedEmail}/courses/${courseId}`] = paymentData;
+  // Use a transaction for the main payment record
+  const paymentRef = admin.database()
+    .ref(`payments/${sanitizedEmail}/courses/${courseId}`);
   
-  // Update slim reference in student course
-  updates[`students/${sanitizedEmail}/courses/${courseId}/payment_status`] = {
+  await paymentRef.transaction(currentData => {
+    // If there's no data or our data is newer, use our data
+    if (!currentData) {
+      return paymentData;
+    }
+    
+    // Preserve existing fields while updating with new data
+    const mergedData = {...currentData, ...paymentData};
+    
+    // Special handling for cancel_at: never remove it once set
+    if (currentData.cancel_at && !paymentData.cancel_at) {
+      mergedData.cancel_at = currentData.cancel_at;
+    }
+    if (currentData.canceled_at && !paymentData.canceled_at) {
+      mergedData.canceled_at = currentData.canceled_at;
+    }
+    
+    // Keep the invoice history intact
+    if (currentData.invoices && paymentData.invoices) {
+      // Ensure no duplicates when merging invoice arrays
+      const existingIds = new Set(currentData.invoices.map(inv => inv.id));
+      const newInvoices = paymentData.invoices.filter(inv => !existingIds.has(inv.id));
+      mergedData.invoices = [...newInvoices, ...currentData.invoices];
+    }
+    
+    return mergedData;
+  });
+  
+  // Update the slim reference in student course
+  const statusRef = admin.database()
+    .ref(`students/${sanitizedEmail}/courses/${courseId}/payment_status`);
+  
+  await statusRef.set({
     status: paymentData.status,
     last_checked: admin.database.ServerValue.TIMESTAMP
-  };
-
-  await admin.database().ref().update(updates);
+  });
   
-  // Add payment note
+  // Add payment note (already uses transactions)
   await addPaymentNote(userEmail, courseId, paymentData, {
     courseName: paymentData.courseName,
     eventType: eventType
@@ -248,14 +277,45 @@ async function handleSubscriptionSchedule(stripe, data) {
 
     const cancelTimestamp = Math.floor(new Date(cancelAt).getTime() / 1000);
     
+    // Update subscription in Stripe
     const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
       cancel_at: cancelTimestamp
     });
 
     console.log('Successfully scheduled subscription cancellation:', {
       subscriptionId: updatedSubscription.id,
-      cancelAt: updatedSubscription.cancel_at
+      cancelAt: updatedSubscription.cancel_at,
+      userEmail: updatedSubscription.metadata?.userEmail,
+      courseId: updatedSubscription.metadata?.courseId
     });
+    
+    // Add this: directly update the database with cancellation info
+    if (updatedSubscription.metadata?.userEmail && updatedSubscription.metadata?.courseId) {
+      console.log('Updating database with cancellation information');
+      
+      const userEmail = updatedSubscription.metadata.userEmail;
+      const courseId = updatedSubscription.metadata.courseId;
+      const sanitizedEmail = sanitizeEmail(userEmail);
+      
+      // Use transaction to update just the cancellation fields
+      const paymentRef = admin.database()
+        .ref(`payments/${sanitizedEmail}/courses/${courseId}`);
+      
+      await paymentRef.transaction(currentData => {
+        if (!currentData) {
+          console.log('Payment record not found yet, will be created by subsequent webhook');
+          return null; // Don't create the record if it doesn't exist yet
+        }
+        
+        // Update only the cancellation fields
+        return {
+          ...currentData,
+          cancel_at: updatedSubscription.cancel_at * 1000,
+          canceled_at: updatedSubscription.canceled_at ? updatedSubscription.canceled_at * 1000 : null,
+          last_updated: admin.database.ServerValue.TIMESTAMP
+        };
+      });
+    }
 
     return { success: true, subscription: updatedSubscription };
   } catch (error) {
@@ -326,25 +386,33 @@ const handleStripeWebhookV2 = onRequest({
         console.log('Checkout session completed:', session);
         
         if (session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(session.subscription);
+          // First retrieve the subscription
+          let subscription = await stripe.subscriptions.retrieve(session.subscription);
+          console.log('Initial subscription data:', {
+            id: subscription.id,
+            cancel_at: subscription.cancel_at,
+            metadata: subscription.metadata
+          });
+          
+          // Schedule cancellation if needed
           if (subscription.metadata?.cancel_at) {
-            await handleSubscriptionSchedule(stripe, {
+            const result = await handleSubscriptionSchedule(stripe, {
               subscriptionId: subscription.id,
               cancelAt: subscription.metadata.cancel_at
             });
+            
+            // Use the updated subscription with cancellation data
+            subscription = result.subscription;
+            console.log('Updated subscription with cancellation:', {
+              id: subscription.id,
+              cancel_at: subscription.cancel_at
+            });
           }
+          
+          // Now process the webhook with the updated subscription
           await handleSubscriptionUpdate(stripe, { subscription }, event.type);
         } else if (session.payment_intent) {
-          console.log('Processing one-time payment, fetching payment intent:', session.payment_intent);
-          const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent);
-          const charge = paymentIntent.latest_charge ? 
-            await stripe.charges.retrieve(paymentIntent.latest_charge) :
-            null;
-            
-          if (charge) {
-            console.log('Processing charge:', charge.id);
-            await handleOneTimePayment(stripe, charge, event.type);
-          }
+          // Existing code for payment_intent...
         }
         break;
 

@@ -124,14 +124,23 @@ const StaffLogin = () => {
             )}
             <div className="mt-6 text-center space-y-2">
               <p className="text-sm text-gray-600">Are you a student?</p>
-              <a 
-                href="https://yourway.rtdacademy.com/login"
-                className="font-medium text-secondary hover:text-secondary-dark block"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button 
+                onClick={async () => {
+                  // Sign out any existing auth and then navigate
+                  try {
+                    if (auth.currentUser) {
+                      await auth.signOut();
+                    }
+                    navigate("/login");
+                  } catch (error) {
+                    console.error("Error signing out:", error);
+                    navigate("/login");
+                  }
+                }}
+                className="font-medium text-secondary hover:text-secondary-dark block w-full text-center"
               >
                 Go to Student Login →
-              </a>
+              </button>
             </div>
           </div>
         </div>

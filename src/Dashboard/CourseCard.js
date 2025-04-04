@@ -270,7 +270,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
           latest_invoice: course.payment?.details?.latest_invoice,
           invoices: course.payment?.details?.invoices,
           // For one-time payments
-          payment_date: course.payment?.details?.created,
+          payment_date: course.payment?.details?.payment_date,
           amount_paid: course.payment?.details?.amount_paid,
           receipt_url: course.payment?.details?.receipt_url
         }}

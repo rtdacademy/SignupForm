@@ -28,14 +28,16 @@ import {
   HelpCircle,
   ChevronDown, 
   ChevronRight,
-  GraduationCap
+  GraduationCap,
+  Wrench,
+  Mail
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { toast, Toaster } from 'sonner';
-import { getSchoolYearOptions } from '../config/DropdownOptions';
 import PASIPreviewDialog from './PASIPreviewDialog';
 import { getDatabase, ref, query, orderByChild, equalTo, onValue, off, get, update, remove } from 'firebase/database';
 import { validatePasiRecordsLinkStatus } from '../utils/pasiValidation';
+import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { getFunctions, httpsCallable } from 'firebase/functions'; // Add this import
 import {
   Tooltip,
@@ -79,7 +81,7 @@ import CourseLinkingDialog from './CourseLinkingDialog';
 import { processPasiLinkCreation, formatSchoolYearWithSlash, processPasiRecordDeletions, getCourseIdsForPasiCode } from '../utils/pasiLinkUtils';
 import CreateStudentDialog from './CreateStudentDialog';
 import MissingPasiRecordsTab from './MissingPasiRecordsTab';
-import { COURSE_OPTIONS, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
+import { COURSE_OPTIONS, ACTIVE_FUTURE_ARCHIVED_OPTIONS, getSchoolYearOptions } from '../config/DropdownOptions';
 import RevenueTab from './RevenueTab';
 import PermissionIndicator from '../context/PermissionIndicator';
 import { useAuth } from '../context/AuthContext';
@@ -189,6 +191,8 @@ const SortableHeader = ({ column, label, currentSort, onSort }) => {
 const ITEMS_PER_PAGE = 100;
 
 const PASIDataUpload = () => {
+  // Add debugging for the component at render time
+  console.log("PASIDataUpload component rendered");
  
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('');
   const [schoolYearOptions, setSchoolYearOptions] = useState([]);
@@ -216,6 +220,11 @@ const PASIDataUpload = () => {
   const [showStatusMismatchOnly, setShowStatusMismatchOnly] = useState(false);
   const [recordsWithStatusMismatch, setRecordsWithStatusMismatch] = useState([]);
   const [summaryDataMap, setSummaryDataMap] = useState({});
+  
+  // New state for email editing
+  const [isEmailEditDialogOpen, setIsEmailEditDialogOpen] = useState(false);
+  const [recordToEdit, setRecordToEdit] = useState(null);
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
 
   // Validation state
   const [isValidating, setIsValidating] = useState(false);
@@ -621,25 +630,35 @@ const findMissingPasiRecords = () => {
   
   setIsLoadingMissing(true);
   try {
-    // Step 1: We already have the student course summaries from our listener
-    console.log("Records matching school year from real-time data:", studentCourseSummaries.length);
-
-    // Step 3: Find missing records - SIMPLIFIED APPROACH
-    console.time("Finding missing records");
     const missing = [];
 
     for (const summary of studentCourseSummaries) {
-      // Check if the summary has pasiRecords property with any entries
-      if (!summary.pasiRecords || Object.keys(summary.pasiRecords).length === 0) {
-        missing.push({...summary, reason: 'No PASI records found'});
+      // Get the PASI code for this course using the courseId
+      const courseId = summary.courseId || summary.CourseID;
+      const pasiCode = courseIdToPasiCode[courseId];
+      
+      // If we can't determine the PASI code for this course, skip it
+      if (!pasiCode) {
+        continue;
+      }
+      
+      // Check if the student has a PASI record for THIS specific course
+      const hasPasiRecordForThisCourse = 
+        summary.pasiRecords && 
+        Object.keys(summary.pasiRecords).includes(pasiCode);
+      
+      if (!hasPasiRecordForThisCourse) {
+        missing.push({
+          ...summary, 
+          reason: `Missing PASI record for course: ${pasiCode} (${summary.Course_Value})`
+        });
         
         // Log a sample for debugging
         if (missing.length <= 3) {
-          console.log(`Missing record: ${summary.studentName}, courseId: ${summary.courseId}, studentKey: ${summary.studentKey}`);
+          console.log(`Missing record: ${summary.studentName}, courseId: ${courseId}, pasiCode: ${pasiCode}`);
         }
       }
     }
-    console.timeEnd("Finding missing records");
     
     console.log("Final missing PASI records count:", missing.length);
     if (missing.length > 0) {
@@ -728,7 +747,7 @@ useEffect(() => {
     
     try {
       const functions = getFunctions();
-      const cleanupOrphanedPasiLinks = httpsCallable(functions, 'cleanupOrphanedPasiLinks');
+      const cleanupOrphanedPasiLinks = httpsCallable(functions, 'cleanupOrphanedPasiLinksV2');
       
       toast.info("Starting PASI link cleanup process...");
       
@@ -756,6 +775,48 @@ useEffect(() => {
       });
     } finally {
       setIsCleaningUp(false);
+    }
+  };
+
+  // Function to open email edit dialog
+  const handleOpenEmailEditDialog = (record) => {
+    setRecordToEdit(record);
+    setIsEmailEditDialogOpen(true);
+  };
+  
+  // Function to update email and summaryKey in PASI record
+  const handleUpdatePasiRecordEmail = async (recordId, newEmail, summaryKey = null) => {
+    if (!recordId || !newEmail) return;
+    
+    setIsUpdatingEmail(true);
+    try {
+      const db = getDatabase();
+      
+      // Update the email in the PASI record
+      const updates = {};
+      updates[`pasiRecords/${recordId}/email`] = newEmail;
+      
+      // If summaryKey is provided, update it as well
+      if (summaryKey !== null) {
+        updates[`pasiRecords/${recordId}/summaryKey`] = summaryKey;
+      }
+      
+      await update(ref(db), updates);
+      
+      // Success message
+      if (summaryKey) {
+        toast.success(`PASI record fixed! Email: ${newEmail}, linked with key: ${summaryKey}`);
+      } else {
+        toast.success(`Email updated successfully to ${newEmail}`);
+      }
+      
+      setIsEmailEditDialogOpen(false);
+      setRecordToEdit(null);
+    } catch (error) {
+      console.error('Error updating PASI record:', error);
+      toast.error(error.message || 'Failed to update record');
+    } finally {
+      setIsUpdatingEmail(false);
     }
   };
 
@@ -1884,6 +1945,7 @@ const getChangedFields = (existingRecord, newRecord) => {
   };
 
   const handleViewRecordDetails = (record) => {
+    console.log("Selected record:", record);
     setSelectedRecord(record);
     setShowRecordDetails(true);
   };
@@ -2597,6 +2659,9 @@ const getChangedFields = (existingRecord, newRecord) => {
                 const recordIndex = pasiRecords.findIndex(r => r.id === record.id);
                 const hasMismatch = hasStatusMismatch(record);
                 
+                // Debug log full record data for each row being rendered
+                console.log(`Rendering record row ${recordIndex}:`, JSON.stringify(record));
+                
                 rows.push(
                   <Tooltip key={record.id}>
                     <TooltipTrigger asChild>
@@ -2684,10 +2749,14 @@ const getChangedFields = (existingRecord, newRecord) => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleViewRecordDetails(record)}
+                              onClick={() => {
+                                console.log("View button clicked, record:", record);
+                                handleViewRecordDetails(record);
+                              }}
                               title="View Details"
                             >
                               <EyeIcon className="h-4 w-4" />
+                              {console.log("Eye icon for record:", record)}
                             </Button>
                             <Button
                               variant="ghost"
@@ -2727,16 +2796,27 @@ const getChangedFields = (existingRecord, newRecord) => {
                               </Button>
                               
                             )}
+                              
+                            {/* Fix PASI Record button */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenEmailEditDialog(record)}
+                              title="Fix PASI Record Links"
+                              className="text-purple-500 hover:text-purple-700 hover:bg-purple-50"
+                            >
+                              <Wrench className="h-4 w-4" />
+                            </Button>
 
-<Button
-  variant="ghost"
-  size="sm"
-  onClick={() => handleOpenGradebook(record)}
-  title="View Gradebook"
-  className="text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50"
->
-  <GraduationCap className="h-4 w-4" />
-</Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenGradebook(record)}
+                              title="View Gradebook"
+                              className="text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50"
+                            >
+                              <GraduationCap className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -3249,6 +3329,15 @@ const getChangedFields = (existingRecord, newRecord) => {
           </DialogContent>
         </Dialog>
 
+        {/* Email Edit Dialog */}
+        <EmailEditDialog 
+          record={recordToEdit}
+          isOpen={isEmailEditDialogOpen}
+          onClose={() => setIsEmailEditDialogOpen(false)}
+          onUpdate={handleUpdatePasiRecordEmail}
+          isUpdating={isUpdatingEmail}
+        />
+        
         {/* Delete all confirmation dialog */}
         <Dialog open={isDeleteAllDialogOpen} onOpenChange={setIsDeleteAllDialogOpen}>
           <DialogContent className="sm:max-w-md">
@@ -3435,6 +3524,186 @@ const getChangedFields = (existingRecord, newRecord) => {
 const handleGeneratePasiCsv = async () => {
   // Implementation would go here - this was referenced but not defined in the original code
   // This function would generate a CSV file with missing PASI records
+};
+
+// Fix PASI Record Dialog Component
+const EmailEditDialog = ({ record, isOpen, onClose, onUpdate, isUpdating }) => {
+  const [newEmail, setNewEmail] = useState(record?.email || '');
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [summaryKey, setSummaryKey] = useState(record?.summaryKey || '');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (record) {
+      setNewEmail(record.email || '');
+      setSummaryKey(record.summaryKey || '');
+      setSelectedCourseId('');
+      setError('');
+    }
+  }, [record]);
+
+  const handleEmailChange = (e) => {
+    setNewEmail(e.target.value);
+    // Clear error when user types
+    if (error) setError('');
+    
+    // Auto-update summary key when email changes if course is selected
+    if (selectedCourseId) {
+      const sanitizedEmail = sanitizeEmail(e.target.value);
+      setSummaryKey(`${sanitizedEmail}_${selectedCourseId}`);
+    }
+  };
+
+  const handleCourseChange = (courseId) => {
+    setSelectedCourseId(courseId);
+    
+    // Auto-update summary key when course changes
+    if (courseId && newEmail) {
+      const sanitizedEmail = sanitizeEmail(newEmail);
+      setSummaryKey(`${sanitizedEmail}_${courseId}`);
+    }
+  };
+
+  const handleSummaryKeyChange = (e) => {
+    setSummaryKey(e.target.value);
+  };
+
+  const handleSubmit = () => {
+    // Simple email validation
+    if (!newEmail || !newEmail.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    
+    onUpdate(record.id, newEmail, summaryKey);
+  };
+
+  // Group courses by grade for easier selection
+  const coursesByGrade = COURSE_OPTIONS.reduce((acc, course) => {
+    const grade = course.grade || 'Other';
+    if (!acc[grade]) {
+      acc[grade] = [];
+    }
+    acc[grade].push(course);
+    return acc;
+  }, {});
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Fix PASI Record</DialogTitle>
+          <DialogDescription>
+            Update email and link {record?.studentName}'s PASI record to a YourWay course.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <label htmlFor="current-email" className="text-sm font-medium text-gray-700">
+              Current Email
+            </label>
+            <Input 
+              id="current-email" 
+              value={record?.email || ''} 
+              disabled 
+              className="bg-gray-50"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <label htmlFor="new-email" className="text-sm font-medium text-gray-700">
+              New Email
+            </label>
+            <Input 
+              id="new-email" 
+              value={newEmail} 
+              onChange={handleEmailChange}
+              placeholder="Enter new email address"
+              disabled={isUpdating}
+            />
+            {error && <p className="text-sm text-red-500">{error}</p>}
+          </div>
+          
+          <div className="space-y-2">
+            <label htmlFor="course-select" className="text-sm font-medium text-gray-700">
+              YourWay Course
+            </label>
+            <Select
+              onValueChange={handleCourseChange}
+              value={selectedCourseId}
+              disabled={isUpdating}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a course to link" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.keys(coursesByGrade).sort((a, b) => {
+                  // Convert 'Other' to a high number so it appears last
+                  const aNum = a === 'Other' ? 9999 : parseInt(a);
+                  const bNum = b === 'Other' ? 9999 : parseInt(b);
+                  return aNum - bNum;
+                }).map(grade => (
+                  <div key={grade}>
+                    <p className="px-2 pt-1 text-xs text-muted-foreground">Grade {grade}</p>
+                    {coursesByGrade[grade].map(course => (
+                      <SelectItem key={course.courseId} value={course.courseId.toString()}>
+                        <div className="flex items-center">
+                          <span className="mr-2" style={{ color: course.color }}>
+                            {course.icon && <course.icon className="h-4 w-4 inline mr-1" />}
+                            {course.value}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            (ID: {course.courseId}{course.pasiCode ? `, PASI: ${course.pasiCode}` : ''})
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </div>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2 border-t pt-4">
+            <div className="flex justify-between items-center">
+              <label htmlFor="summary-key" className="text-sm font-medium text-gray-700">
+                Summary Key
+              </label>
+              <span className="text-xs text-muted-foreground">Auto-generated from Email + Course</span>
+            </div>
+            <Input 
+              id="summary-key" 
+              value={summaryKey} 
+              onChange={handleSummaryKeyChange}
+              placeholder="e.g., student,email,com_89"
+              disabled={isUpdating}
+              className={summaryKey ? "bg-blue-50 font-mono text-sm" : "font-mono text-sm"}
+            />
+            <p className="text-xs text-muted-foreground">
+              Links PASI record to a specific YourWay course. Format: sanitizedEmail_courseId
+            </p>
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isUpdating}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isUpdating}>
+            {isUpdating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              'Fix Record'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 export default PASIDataUpload;

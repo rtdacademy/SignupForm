@@ -17,10 +17,6 @@ import {
   ChevronDown,
   ChevronUp,
   Star,
-  Filter,
-  Maximize2,
-  Info,
-  Bell,
   // Icons for statuses
   CheckCircle2,
   Eye,
@@ -40,37 +36,8 @@ import { useAuth } from '../context/AuthContext';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
-import NewFeatureDialog from './Dialog/NewFeatureDialog';
 import { useUserPreferences } from '../context/UserPreferencesContext';
 
-// Feature info configuration
-const FEATURE_ID = 'importantNotesFeature';
-
-const FEATURE_CUTOFF_DATE = new Date('2025-04-13T23:59:59'); 
-const FEATURE_INFO = {
-  title: 'New Notes Features',
-  description: '',
-  icon: Star,
-  sections: [
-    {
-      title: 'Important Notes',
-      icon: Star,
-      content: 'You can now mark important notes with a star. These notes are highlighted and can be filtered to quickly find critical information.'
-    },
-    {
-      title: 'Notes Filtering',
-      icon: Filter,
-      content: 'Use the tabs at the top to switch between viewing all notes or just the important ones.'
-    },
-    {
-      title: 'Expanded View',
-      icon: Maximize2,
-      content: 'When viewing notes in the expanded panel, you have more space to read and manage student notes.'
-    }
-  ],
-  note: 'This feature helps ensure important student information doesn\'t get lost as more notes are added. Try marking key information as important to make it easier to find later.'
-};
 
 /**
  * Tailwind badge classes based on the email status.
@@ -216,11 +183,8 @@ const StudentNotes = ({
   // Store the tracking data from /sendGridTracking/{emailId} in real time
   const [emailTracking, setEmailTracking] = useState({});
 
-  // Feature info dialog state
-  const [showFeatureInfo, setShowFeatureInfo] = useState(false);
-  
   // Get user preferences
-  const { preferences, updatePreferences } = useUserPreferences();
+  const { preferences } = useUserPreferences();
 
   const { user } = useAuth();
 
@@ -228,22 +192,6 @@ const StudentNotes = ({
   const unsubscribeMapRef = useRef({});
   const containerRef = useRef(null);
 
-  // --------------------------------------------------------------------------
-  // Check if user has seen this feature before
-  // --------------------------------------------------------------------------
-  useEffect(() => {
-    const hasSeenFeature = preferences?.seenFeatures?.[FEATURE_ID];
-    const currentDate = new Date();
-    const isWithinNotificationPeriod = currentDate <= FEATURE_CUTOFF_DATE;
-    
-    // Only show if: 
-    // 1. User hasn't seen it yet
-    // 2. We're still within the notification period
-    // 3. Not in single note mode
-    if (!hasSeenFeature && isWithinNotificationPeriod && !singleNoteMode) {
-      setShowFeatureInfo(true);
-    }
-  }, [preferences, singleNoteMode]);
 
   // --------------------------------------------------------------------------
   // Load initial notes, handle single-note mode
@@ -576,10 +524,6 @@ const StudentNotes = ({
   // Get count for the important filter
   const importantNotesCount = notes.filter(note => note.isImportant).length;
 
-  // Determine if we should show the NEW badge
-  const shouldShowNewBadge = !preferences?.seenFeatures?.[FEATURE_ID] && 
-                           new Date() <= FEATURE_CUTOFF_DATE && 
-                           !singleNoteMode;
 
   // --------------------------------------------------------------------------
   // Main Render
@@ -609,27 +553,6 @@ const StudentNotes = ({
         </div>
       ) : (
         <div className={`flex flex-col ${isExpanded ? 'h-full' : ''}`}>
-          {/* "NEW" Feature Badge */}
-          {shouldShowNewBadge && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-2 right-2 z-10 h-8 px-2 py-0 bg-blue-600 text-white hover:bg-blue-700 rounded-full flex items-center"
-                    onClick={() => setShowFeatureInfo(true)}
-                  >
-                    <Bell className="h-3 w-3 mr-1" />
-                    <span className="text-xs font-bold">NEW</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Click to learn about the new notes features</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
 
           {/* ADD NOTE SECTION */}
           <div className="flex mb-1 space-x-1 items-center flex-shrink-0">
@@ -828,13 +751,6 @@ const StudentNotes = ({
         </div>
       )}
 
-      {/* Feature Info Dialog */}
-      <NewFeatureDialog 
-        isOpen={showFeatureInfo} 
-        onOpenChange={setShowFeatureInfo}
-        featureId={FEATURE_ID}
-        {...FEATURE_INFO}
-      />
 
       {/* Edit Note Dialog */}
       {editingNote && (

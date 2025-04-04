@@ -172,13 +172,22 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
   };
 
   useEffect(() => {
-    const verificationFlag = localStorage.getItem('verificationEmailSent');
-    if (verificationFlag) {
-      setVerificationEmail(localStorage.getItem('verificationEmail') || emailInput);
-      setShowVerificationDialog(true);
-      localStorage.removeItem('verificationEmailSent');
-      localStorage.removeItem('verificationEmail');
-    }
+    // Only check and handle verification flag once on initial mount
+    const handleVerificationFlag = () => {
+      const verificationFlag = localStorage.getItem('verificationEmailSent');
+      if (verificationFlag) {
+        const email = localStorage.getItem('verificationEmail');
+        if (email) {
+          setVerificationEmail(email);
+          setShowVerificationDialog(true);
+        }
+        // Always clean up localStorage items, regardless of whether email was found
+        localStorage.removeItem('verificationEmailSent');
+        localStorage.removeItem('verificationEmail');
+      }
+    };
+    
+    handleVerificationFlag();
 
     // Check for navigation state message
     const state = location?.state;

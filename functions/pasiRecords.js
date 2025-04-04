@@ -1,4 +1,3 @@
-// Import 2nd gen Firebase Functions
 const { onCall } = require('firebase-functions/v2/https');
 const { onValueDeleted } = require('firebase-functions/v2/database');
 
@@ -15,13 +14,14 @@ if (!admin.apps.length) {
  * 
  * This function scans all PASI links and cleans up orphaned links
  * with concurrent batch processing for improved performance.
- * V2 version with enhanced configuration.
+ * Updated to handle up to 10,000 records with enhanced concurrency.
  */
 const cleanupOrphanedPasiLinksV2 = onCall({
-  timeoutSeconds: 540,  // 9 minutes (max is 540 seconds)
-  memory: '1GiB',      
-  maxInstances: 1,
-  concurrency: 1
+  timeoutSeconds: 540,   // 9 minutes
+  memory: '2GiB',        // Increased memory for larger workloads
+  maxInstances: 10,      // Allow more instances to run concurrently
+  concurrency: 50,       // Increase concurrency per instance
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]  // Added CORS config here
 }, async (data) => {
   const db = admin.database();
   console.log('Starting cleanup of orphaned PASI links...');
@@ -34,7 +34,7 @@ const cleanupOrphanedPasiLinksV2 = onCall({
   };
   
   try {
-    // 1. Get all pasiLinks
+    // 1. Retrieve all PASI links
     const linksSnapshot = await db.ref('pasiLinks').once('value');
     if (!linksSnapshot.exists()) {
       console.log('No PASI links found. Nothing to cleanup.');
@@ -45,7 +45,7 @@ const cleanupOrphanedPasiLinksV2 = onCall({
       };
     }
     
-    // 2. Process each link in batches to avoid timeouts
+    // 2. Collect links into an array
     const links = [];
     linksSnapshot.forEach(snapshot => {
       links.push({
@@ -57,16 +57,18 @@ const cleanupOrphanedPasiLinksV2 = onCall({
     results.total = links.length;
     console.log(`Found ${links.length} PASI links to check`);
     
-    // Process in batches of 50
-    const BATCH_SIZE = 50;
-    const CONCURRENT_BATCHES = 8; // Process 8 batches concurrently
+    // Define batch parameters:
+    // - BATCH_SIZE: how many links to process in one update call
+    // - CONCURRENT_BATCHES: how many batches to process in parallel
+    const BATCH_SIZE = 100;
+    const CONCURRENT_BATCHES = 20;
     
     const batches = [];
     for (let i = 0; i < links.length; i += BATCH_SIZE) {
       batches.push(links.slice(i, i + BATCH_SIZE));
     }
     
-    // Process batches in groups
+    // Process the batches in groups to control parallelism
     for (let groupIndex = 0; groupIndex < batches.length; groupIndex += CONCURRENT_BATCHES) {
       const batchGroup = batches.slice(groupIndex, groupIndex + CONCURRENT_BATCHES);
       console.log(`Processing batch group ${Math.floor(groupIndex / CONCURRENT_BATCHES) + 1} (${batchGroup.length} batches)`);
@@ -91,7 +93,7 @@ const cleanupOrphanedPasiLinksV2 = onCall({
               const { id, data } = link;
               const { pasiRecordId, studentCourseSummaryKey, courseCode } = data;
               
-              // Skip links without basic required data
+              // Skip links missing required fields
               if (!pasiRecordId || !studentCourseSummaryKey || !courseCode) {
                 console.log(`Link ${id} is missing required fields. Deleting.`);
                 updates[`pasiLinks/${id}`] = null;
@@ -106,18 +108,22 @@ const cleanupOrphanedPasiLinksV2 = onCall({
               }
               
               // Check if PASI record exists
-              const pasiRecordExists = await db.ref(`pasiRecords/${pasiRecordId}`).once('value').then(snap => snap.exists());
+              const pasiRecordExists = await db.ref(`pasiRecords/${pasiRecordId}`)
+                                                .once('value')
+                                                .then(snap => snap.exists());
               
               // Check if student course summary exists
-              const studentCourseSummaryExists = await db.ref(`studentCourseSummaries/${studentCourseSummaryKey}`).once('value').then(snap => snap.exists());
+              const studentCourseSummaryExists = await db.ref(`studentCourseSummaries/${studentCourseSummaryKey}`)
+                                                           .once('value')
+                                                           .then(snap => snap.exists());
               
-              // Case 1: Both exist - keep the link
+              // Case 1: Both exist - verify link reference in student course summary
               if (pasiRecordExists && studentCourseSummaryExists) {
-                // Verify that the link is correctly set in studentCourseSummaries
-                const pasiRefInSummary = await db.ref(`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${courseCode}`).once('value');
+                const pasiRefInSummary = await db.ref(`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${courseCode}`)
+                                                  .once('value');
                 
                 if (!pasiRefInSummary.exists()) {
-                  // The link is correct but reference is missing, add it
+                  // If missing, add the reference
                   updates[`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${courseCode}`] = true;
                   batchDetails.updates[`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${courseCode}`] = true;
                   batchDetails.detailsList.push({
@@ -126,11 +132,10 @@ const cleanupOrphanedPasiLinksV2 = onCall({
                     action: 'Added missing reference'
                   });
                 }
-                
                 continue;
               }
               
-              // Case 2 & 3: If student course summary doesn't exist or both don't exist
+              // Case 2 & 3: If student course summary doesn't exist (or both are missing)
               if (!studentCourseSummaryExists) {
                 updates[`pasiLinks/${id}`] = null;
                 batchDetails.updates[`pasiLinks/${id}`] = null;
@@ -143,13 +148,10 @@ const cleanupOrphanedPasiLinksV2 = onCall({
                 continue;
               }
               
-              // Case 4: Only PASI record doesn't exist
+              // Case 4: PASI record is missing while student course summary exists
               if (!pasiRecordExists && studentCourseSummaryExists) {
-                // Remove the reference from studentCourseSummary using courseCode
                 updates[`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${courseCode}`] = null;
                 batchDetails.updates[`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${courseCode}`] = null;
-                
-                // Delete the link
                 updates[`pasiLinks/${id}`] = null;
                 batchDetails.updates[`pasiLinks/${id}`] = null;
                 batchDetails.deletedCount++;
@@ -170,7 +172,7 @@ const cleanupOrphanedPasiLinksV2 = onCall({
             }
           }
           
-          // Apply updates in a single batch for efficiency
+          // Apply all updates at once for this batch
           if (Object.keys(updates).length > 0) {
             await db.ref().update(updates);
             console.log(`Batch ${batchNumber}: Applied ${Object.keys(updates).length} updates`);
@@ -182,21 +184,21 @@ const cleanupOrphanedPasiLinksV2 = onCall({
         })
       );
       
-      // Consolidate batch results
+      // Consolidate results from the current group of batches
       batchResults.forEach(batchResult => {
         results.processed += batchResult.processedCount;
         results.deleted += batchResult.deletedCount;
         results.errors += batchResult.errorCount;
-        results.details = [...results.details, ...batchResult.detailsList];
+        results.details = results.details.concat(batchResult.detailsList);
       });
       
       // Log progress after each group
       console.log(`Progress: ${Math.round((results.processed / links.length) * 100)}% complete (${results.processed}/${links.length})`);
     }
     
-    // Log the cleanup results for audit purposes
+    // Log the cleanup results for audit purposes - FIXED HERE
     await db.ref('logs/pasiLinkCleanups').push({
-      timestamp: admin.database.ServerValue.TIMESTAMP,
+      timestamp: admin.database.ServerValue.TIMESTAMP, 
       results: {
         total: results.total,
         processed: results.processed,
@@ -216,15 +218,14 @@ const cleanupOrphanedPasiLinksV2 = onCall({
   } catch (error) {
     console.error('Error during PASI link cleanup:', error);
     
-    // Log the error
+    // Log the error details - FIXED HERE
     await db.ref('errorLogs/cleanupOrphanedPasiLinks').push({
       error: error.message,
       stack: error.stack,
-      timestamp: admin.database.ServerValue.TIMESTAMP,
+      timestamp:  admin.database.ServerValue.TIMESTAMP,  
       results
     });
     
-    // For callable functions in v2, we throw a regular Error
     throw new Error(`Error during PASI link cleanup: ${error.message}`);
   }
 });
@@ -232,19 +233,18 @@ const cleanupOrphanedPasiLinksV2 = onCall({
 /**
  * Cloud Function: cleanupDeletedPasiRecordV2
  * 
- * This function is triggered when a PASI record is deleted.
- * It cleans up all the associated data:
- * 1. Finds the corresponding link using pasiRecordId
- * 2. Gets the studentCourseSummaryKey from that link
- * 3. Removes the record reference from studentCourseSummaries
- * 4. Deletes the link
- * V2 version with enhanced configuration.
+ * Triggered when a PASI record is deleted.
+ * Cleans up associated data by:
+ * 1. Finding the corresponding link(s) using pasiRecordId
+ * 2. Removing the record reference from studentCourseSummaries
+ * 3. Deleting the orphaned link(s)
+ * Updated to support higher concurrency.
  */
 const cleanupDeletedPasiRecordV2 = onValueDeleted({
   ref: '/pasiRecords/{pasiRecordId}',
   region: 'us-central1',
   memory: '256MiB',
-  maxInstances: 10
+  maxInstances: 50  // Increase max instances to handle many deletions concurrently
 }, async (event) => {
   const pasiRecordId = event.params.pasiRecordId;
   const deletedData = event.data.val();
@@ -253,7 +253,7 @@ const cleanupDeletedPasiRecordV2 = onValueDeleted({
   console.log(`PASI record deleted: ${pasiRecordId}. Starting cleanup process...`);
 
   try {
-    // 1. Find the corresponding link by querying pasiLinks by pasiRecordId
+    // 1. Query pasiLinks by pasiRecordId
     const pasiLinksRef = db.ref('pasiLinks');
     const query = pasiLinksRef.orderByChild('pasiRecordId').equalTo(pasiRecordId);
     const linksSnapshot = await query.once('value');
@@ -263,40 +263,37 @@ const cleanupDeletedPasiRecordV2 = onValueDeleted({
       return null;
     }
     
-    // Process each link (normally there should be just one, but let's handle multiple just in case)
+    // 2. Build a batch update to remove orphaned links and references
     const updates = {};
-    
     linksSnapshot.forEach((linkSnapshot) => {
       const linkId = linkSnapshot.key;
       const linkData = linkSnapshot.val();
       const studentCourseSummaryKey = linkData.studentCourseSummaryKey;
-      const courseCode = linkData.courseCode; // Make sure to use courseCode
+      const courseCode = linkData.courseCode;
       
       console.log(`Found link: ${linkId} for PASI record: ${pasiRecordId}`);
       
       if (studentCourseSummaryKey && courseCode) {
-        // Remove the PASI record reference from student course summary using courseCode
         updates[`studentCourseSummaries/${studentCourseSummaryKey}/pasiRecords/${courseCode}`] = null;
-        console.log(`Marked for removal: PASI record reference from studentCourseSummary: ${studentCourseSummaryKey}, courseCode: ${courseCode}`);
+        console.log(`Marked for removal: PASI record reference from studentCourseSummary ${studentCourseSummaryKey} (courseCode: ${courseCode})`);
       }
       
-      // Mark the link for deletion
       updates[`pasiLinks/${linkId}`] = null;
-      console.log(`Marked for deletion: pasiLink: ${linkId}`);
+      console.log(`Marked for deletion: pasiLink ${linkId}`);
     });
     
-    // Apply all updates in a single batch
+    // 3. Execute the batch update
     if (Object.keys(updates).length > 0) {
       await db.ref().update(updates);
       console.log(`Successfully cleaned up all associated data for PASI record: ${pasiRecordId}`);
     }
     
-    // Log the deletion event for audit purposes
+    // 4. Log the deletion event for auditing - FIXED HERE
     await db.ref('logs/pasiRecordDeletions').push({
       pasiRecordId,
       studentName: deletedData?.studentName || 'Unknown',
       courseCode: deletedData?.courseCode || 'Unknown',
-      deletionTime: admin.database.ServerValue.TIMESTAMP,
+      deletionTime: admin.database.ServerValue.TIMESTAMP, 
       linksRemoved: Object.keys(linksSnapshot.val() || {}).length
     });
     
@@ -304,15 +301,14 @@ const cleanupDeletedPasiRecordV2 = onValueDeleted({
   } catch (error) {
     console.error(`Error cleaning up PASI record: ${pasiRecordId}`, error);
     
-    // Log the error for debugging
+    // Log error details for debugging purposes - FIXED HERE
     await db.ref('errorLogs/cleanupDeletedPasiRecord').push({
       pasiRecordId,
       error: error.message,
       stack: error.stack,
-      timestamp: admin.database.ServerValue.TIMESTAMP,
+      timestamp: admin.database.ServerValue.TIMESTAMP,  
     });
     
-    // Re-throw to mark the function as failed
     throw error;
   }
 });

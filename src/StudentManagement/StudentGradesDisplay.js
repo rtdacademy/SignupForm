@@ -898,16 +898,7 @@ const StudentGradesDisplay = ({
         normalizedSchedule={normalizedSchedule}
         onRefresh={handleRefresh}
         refreshing={refreshing}
-        onShowFeatureInfo={() => setShowFeatureInfo(true)}
         onOpenActionLog={handleOpenActionLog}
-      />
-      
-      {/* Feature Info Dialog */}
-      <NewFeatureDialog 
-        isOpen={showFeatureInfo} 
-        onOpenChange={setShowFeatureInfo}
-        featureId={FEATURE_ID}
-        {...FEATURE_INFO}
       />
       
       {/* Activity Log Sheet with iframe */}
