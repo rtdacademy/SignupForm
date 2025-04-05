@@ -1293,6 +1293,52 @@ function DeleteConfirmDialog({ isOpen, onClose, onConfirm, itemInfo, itemType = 
 function CalendarViewSheet({ isOpen, onClose, dates, courses }) {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedView, setSelectedView] = useState('registration');
+  
+  // Get calendar data from Firebase
+  const [icsCalendars, setIcsCalendars] = useState([]);
+  
+  // Load ICS calendars
+  useEffect(() => {
+    if (!isOpen) return; // Only load when sheet is open
+    
+    const db = getDatabase();
+    const calendarsRef = ref(db, 'calendars');
+    
+    const fetchCalendars = async () => {
+      try {
+        const snapshot = await get(calendarsRef);
+        if (snapshot.exists()) {
+          const calendarData = snapshot.val();
+          const calendars = [];
+          
+          // Process all calendar categories
+          for (const category in calendarData) {
+            if (Object.prototype.hasOwnProperty.call(calendarData, category)) {
+              const categoryCalendars = calendarData[category];
+              
+              // Convert each calendar in this category to an array item
+              for (const calId in categoryCalendars) {
+                if (Object.prototype.hasOwnProperty.call(categoryCalendars, calId)) {
+                  calendars.push({
+                    id: calId,
+                    category,
+                    ...categoryCalendars[calId]
+                  });
+                }
+              }
+            }
+          }
+          
+          setIcsCalendars(calendars);
+        }
+      } catch (error) {
+        console.error("Error fetching calendars:", error);
+      }
+    };
+    
+    fetchCalendars();
+  }, [isOpen]);
   
   // Filter to only include registration dates with defensive check for dates
   const registrationDates = useMemo(() => {
@@ -1305,11 +1351,6 @@ function CalendarViewSheet({ isOpen, onClose, dates, courses }) {
     // Make sure we're filtering to only registration events
     return dates.filter(date => date && date.type === 'Registration');
   }, [dates]);
-  
-  // Debug - log registration dates
-  useEffect(() => {
-    console.log('Registration dates passed to calendar view:', registrationDates);
-  }, [registrationDates]);
 
   // Generate year options (current year and next 5 years)
   const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear + i);
@@ -1319,32 +1360,48 @@ function CalendarViewSheet({ isOpen, onClose, dates, courses }) {
       <SheetContent side="right" className="w-[95%] max-w-[1200px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center justify-between">
-            <span>Registration Calendar View</span>
-            <Select
-              value={selectedYear.toString()}
-              onValueChange={(value) => setSelectedYear(parseInt(value))}
-            >
-              <SelectTrigger className="w-[100px]">
-                <SelectValue placeholder="Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {yearOptions.map(year => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <span>Calendar View</span>
+            <div className="flex items-center gap-2">
+              <Select
+                value={selectedView}
+                onValueChange={setSelectedView}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select view" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="registration">Registration Periods</SelectItem>
+                  <SelectItem value="ics">Uploaded Calendars</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select
+                value={selectedYear.toString()}
+                onValueChange={(value) => setSelectedYear(parseInt(value))}
+              >
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearOptions.map(year => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </SheetTitle>
-       
         </SheetHeader>
         
         <div className="mt-6">
-          {/* Pass the courses prop to YearlyCalendarView */}
           <YearlyCalendarView 
             dates={registrationDates || []} 
+            icsCalendars={icsCalendars || []}
             year={selectedYear}
-            courses={courses} 
+            courses={courses}
+            defaultView={selectedView === 'registration' ? 'registration' : 'icsCalendars'}
+            title={selectedView === 'registration' ? 'Registration Calendar' : 'Events Calendar'}
           />
         </div>
         
@@ -2411,7 +2468,7 @@ function ImportantDates({ courses, selectedCourseId, courseData, onCourseSelect 
       isOpen={calendarSheetOpen}
       onClose={() => setCalendarSheetOpen(false)}
       dates={filteredDates}
-      courses={courses} 
+      courses={courses}
     />
   </div>
 );

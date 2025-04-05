@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLayout } from '../context/LayoutContext';
+import { useUserPreferences } from '../context/UserPreferencesContext';
 import { Sheet, SheetContent, SheetTrigger } from "../components/ui/sheet";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Button } from "../components/ui/button";
@@ -45,12 +47,89 @@ import PASIDataUpload from '../PASI/PASIDataUpload';
 function TeacherDashboard() {
   const { user, isStaff, hasAdminAccess } = useAuth();
   const { isFullScreen, setIsFullScreen } = useLayout();
+  const { preferences, updateFilterPreferences, clearAllFilters } = useUserPreferences();
   const [activeSection, setActiveSection] = useState('react-dashboard');
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [invoicesData, setInvoicesData] = useState({});
   const [unreadChatsCount, setUnreadChatsCount] = useState(0);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState({});
+  
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Check for URL parameters on component mount and when URL changes
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    
+    // Check for asn parameter first (more specific than general search)
+    const asnParam = searchParams.get('asn');
+    if (asnParam) {
+      console.log(`ASN parameter found: ${asnParam}`);
+      clearFiltersAndSetSearch(asnParam);
+      return;
+    }
+    
+    // Check for general search parameter
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      console.log(`Search parameter found: ${searchParam}`);
+      clearFiltersAndSetSearch(searchParam);
+    }
+  }, [location.search]); // Re-run when URL changes
+
+  // Function to clear filters and set search term
+  const clearFiltersAndSetSearch = useCallback((searchValue) => {
+    console.log(`Clearing filters and setting search to: ${searchValue}`);
+    
+    // Clear all filters
+    const clearedFilters = {
+      categories: [],
+      hasSchedule: [],
+      dateFilters: {},
+      // Reset any other filter properties your application uses
+      CourseID: [],
+      Status_Value: [],
+      StudentType_Value: [],
+      DiplomaMonthChoices_Value: [],
+      Term: [],
+      School_x0020_Year_Value: [],
+      currentMode: undefined, // This will let the default mode be applied
+    };
+    
+    // Update local state
+    setFilters(clearedFilters);
+    setSearchTerm(searchValue);
+    
+    // Also update user preferences to persist the changes
+    updateFilterPreferences({
+      ...clearedFilters,
+      searchTerm: searchValue
+    });
+    
+    // Remove the parameter from the URL to prevent re-applying
+    // when navigating back to this page
+    const updatedSearchParams = new URLSearchParams(location.search);
+    updatedSearchParams.delete('asn');
+    updatedSearchParams.delete('search');
+    
+    // Only navigate if there are other params, otherwise just use the path
+    const newPath = updatedSearchParams.toString() 
+      ? `${location.pathname}?${updatedSearchParams.toString()}`
+      : location.pathname;
+      
+    navigate(newPath, { replace: true });
+  }, [location, navigate, updateFilterPreferences]);
+
+  // Initialize filters from user preferences
+  useEffect(() => {
+    if (preferences?.filters && !location.search.includes('asn') && !location.search.includes('search')) {
+      setFilters(preferences.filters);
+      setSearchTerm(preferences.filters.searchTerm || '');
+    }
+  }, [preferences, location.search]);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -151,7 +230,14 @@ function TeacherDashboard() {
         return <CoursesWithSheet />;
       case 'students':
       case 'react-dashboard':
-        return <StudentManagement isFullScreen={isFullScreen} onFullScreenToggle={toggleFullScreen} />;
+        return <StudentManagement 
+          isFullScreen={isFullScreen} 
+          onFullScreenToggle={toggleFullScreen}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          filters={filters}
+          onFilterChange={setFilters}
+        />;
       case 'external-links':
         return <ExternalLinks />;
       case 'calendar-creator':
@@ -267,7 +353,6 @@ function TeacherDashboard() {
       )}
   
       <div className="flex-grow flex flex-col h-full">
-        {/* Removed overflow-hidden here to prevent layout conflicts */}
         <div className={`flex-grow ${activeSection === 'courses' ? 'flex flex-col' : 'overflow-auto'} p-4`}>
           {renderContent()}
         </div>

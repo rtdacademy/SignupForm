@@ -1,5 +1,3 @@
-// StudentManagement.js
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getDatabase, ref, onChildAdded, onChildChanged, onChildRemoved, onValue, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
@@ -16,7 +14,15 @@ import { getSchoolYearOptions } from '../config/DropdownOptions';
 import SchoolYearSelector from './SchoolYearSelector';
 import { query, orderByChild, equalTo } from 'firebase/database';
 
-function StudentManagement({ isFullScreen, onFullScreenToggle }) {
+function StudentManagement({ 
+  isFullScreen, 
+  onFullScreenToggle,
+  // Add props for URL parameter support
+  searchTerm: propSearchTerm,
+  onSearchChange: propOnSearchChange,
+  filters: propFilters,
+  onFilterChange: propOnFilterChange 
+}) {
   console.log('StudentManagement component rendered');
 
   // Define available filters explicitly
@@ -44,10 +50,11 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
   }, [filtersList]);
 
   const [studentSummaries, setStudentSummaries] = useState([]);
-  const [filters, setFilters] = useState(initialFilters);
+  // Maintain local state but use props if provided
+  const [localFilters, setLocalFilters] = useState(initialFilters);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [availableFilters, setAvailableFilters] = useState(filtersList);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [localSearchTerm, setLocalSearchTerm] = useState('');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showStudentDetail, setShowStudentDetail] = useState(false);
   const [teacherCategories, setTeacherCategories] = useState({});
@@ -58,18 +65,20 @@ function StudentManagement({ isFullScreen, onFullScreenToggle }) {
 
   const { user_email_key } = useAuth();
 
-// Holds a count or a toggle to force re-mount
-const [detailRefreshKey, setDetailRefreshKey] = useState(0);
+  // Holds a count or a toggle to force re-mount
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
 
-const handleRefreshStudent = useCallback(() => {
-  setDetailRefreshKey(prev => prev + 1);
-}, []);
+  const handleRefreshStudent = useCallback(() => {
+    setDetailRefreshKey(prev => prev + 1);
+  }, []);
 
-const [selectedSchoolYear, setSelectedSchoolYear] = useState(
-  getSchoolYearOptions().find(option => option.isDefault)?.value
-);
+  const [selectedSchoolYear, setSelectedSchoolYear] = useState(
+    getSchoolYearOptions().find(option => option.isDefault)?.value
+  );
 
-
+  // Use props if provided, otherwise use local state
+  const filters = propFilters !== undefined ? propFilters : localFilters;
+  const searchTerm = propSearchTerm !== undefined ? propSearchTerm : localSearchTerm;
 
   const handleMessagingNotification = useCallback((message, type = 'success') => {
     switch (type) {
@@ -92,15 +101,12 @@ const [selectedSchoolYear, setSelectedSchoolYear] = useState(
 
   // Handle window resize to update isMobile state
   useEffect(() => {
-    //console.log('useEffect - Window resize listener added');
     const handleResize = () => {
-     // console.log('Window resized, updating isMobile state');
       setIsMobile(window.innerWidth < 768);
     };
 
     window.addEventListener('resize', handleResize);
     return () => {
-     // console.log('useEffect cleanup - Window resize listener removed');
       window.removeEventListener('resize', handleResize);
     };
   }, []);
@@ -120,29 +126,29 @@ const [selectedSchoolYear, setSelectedSchoolYear] = useState(
     const unsubscribe = onValue(asnsRef, handleAsnData);
 
     return () => unsubscribe();
-}, []);
+  }, []);
 
-      // Fetch category types
-useEffect(() => {
-  const db = getDatabase();
-  const typesRef = ref(db, 'categoryTypes');
+  // Fetch category types
+  useEffect(() => {
+    const db = getDatabase();
+    const typesRef = ref(db, 'categoryTypes');
 
-  const handleTypes = (snapshot) => {
-    if (snapshot.exists()) {
-      const typesData = snapshot.val();
-      const typesArray = Object.entries(typesData).map(([id, type]) => ({
-        id,
-        ...type
-      }));
-      setCategoryTypes(typesArray);
-    } else {
-      setCategoryTypes([]);
-    }
-  };
+    const handleTypes = (snapshot) => {
+      if (snapshot.exists()) {
+        const typesData = snapshot.val();
+        const typesArray = Object.entries(typesData).map(([id, type]) => ({
+          id,
+          ...type
+        }));
+        setCategoryTypes(typesArray);
+      } else {
+        setCategoryTypes([]);
+      }
+    };
 
-  const unsubscribe = onValue(typesRef, handleTypes);
-  return () => unsubscribe();
-}, []);
+    const unsubscribe = onValue(typesRef, handleTypes);
+    return () => unsubscribe();
+  }, []);
 
   // Fetch student summaries from Firebase
   useEffect(() => {
@@ -208,8 +214,6 @@ useEffect(() => {
   useEffect(() => {
     if (!user_email_key) return;
 
-    //console.log('useEffect - Fetching teacher categories for:', user_email_key);
-
     const db = getDatabase();
     const categoriesRef = ref(db, `teacherCategories`);
 
@@ -224,10 +228,8 @@ useEffect(() => {
             .map(([id, category]) => ({ id, teacherEmailKey, ...category }));
           allCategories[teacherEmailKey] = categoryList;
         });
-       // console.log('Fetched teacher categories:', allCategories);
         setTeacherCategories(allCategories);
       } else {
-        //console.log('No teacher categories found.');
         setTeacherCategories({});
       }
     };
@@ -254,23 +256,24 @@ useEffect(() => {
 
     fetchTeacherNames();
 
-    // Cleanup function
     return () => {
       console.log('useEffect cleanup - Teacher categories listener removed');
       unsubscribe();
     };
   }, [user_email_key]);
 
-  // Handle filter changes
+  // Handle filter changes - updated to use prop function if available
   const handleFilterChange = useCallback((newFilters) => {
-  //  console.log('Filters changed:', newFilters);
-    setFilters(newFilters);
-  }, []);
+    if (propOnFilterChange) {
+      propOnFilterChange(newFilters);
+    } else {
+      setLocalFilters(newFilters);
+    }
+  }, [propOnFilterChange]);
 
   // Handle student selection
   const handleStudentSelect = useCallback(
     (student) => {
-      //console.log('Student selected:', student);
       setSelectedStudent(student);
       if (isMobile) {
         setShowStudentDetail(true);
@@ -279,17 +282,17 @@ useEffect(() => {
     [isMobile]
   );
 
-
-
-  // Handle search term changes
+  // Handle search term changes - updated to use prop function if available
   const handleSearchChange = useCallback((value) => {
-   // console.log('Search term changed:', value);
-    setSearchTerm(value);
-  }, []);
+    if (propOnSearchChange) {
+      propOnSearchChange(value);
+    } else {
+      setLocalSearchTerm(value);
+    }
+  }, [propOnSearchChange]);
 
   // Handle back navigation on mobile
   const handleBackToList = useCallback(() => {
-   // console.log('Back to student list');
     setShowStudentDetail(false);
   }, []);
 
@@ -307,10 +310,8 @@ useEffect(() => {
   const memoizedStudentSummaries = useMemo(() => studentSummaries, [studentSummaries]);
   const memoizedAvailableFilters = useMemo(() => availableFilters, [availableFilters]);
 
-
   // Render student list
   const renderStudentList = useCallback(() => {
-   // console.log('Rendering student list');
     return (
       <Card className="h-full bg-white shadow-md">
         <CardContent className="h-full p-2 overflow-hidden">
@@ -352,35 +353,33 @@ useEffect(() => {
     return (
       <Card className="h-full bg-white shadow-md">
         <CardContent className="h-full p-4 overflow-auto">
-        <StudentDetail
-  key={detailRefreshKey}           // Force a full unmount/remount on increment
-  studentSummary={selectedStudent}
-  isMobile={isMobile}
-  onRefresh={handleRefreshStudent} // If you want a button in the child to do this
-/>
-
+          <StudentDetail
+            key={detailRefreshKey}           // Force a full unmount/remount on increment
+            studentSummary={selectedStudent}
+            isMobile={isMobile}
+            onRefresh={handleRefreshStudent} // If you want a button in the child to do this
+          />
         </CardContent>
       </Card>
     );
   }, [
     selectedStudent, 
     isMobile, 
-  + detailRefreshKey
+    detailRefreshKey,
+    handleRefreshStudent
   ]);
   
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      
-      {console.log('Rendering main StudentManagement component')}
       {(!isMobile || !showStudentDetail) && (
         <div className="flex-shrink-0 space-y-2 mb-4 relative z-50">
           <div className="flex items-center space-x-4">
-          <div className="flex-shrink-0"> 
-      <SchoolYearSelector
-        selectedYear={selectedSchoolYear}
-        onYearChange={handleSchoolYearChange}
-      />
-    </div>
+            <div className="flex-shrink-0"> 
+              <SchoolYearSelector
+                selectedYear={selectedSchoolYear}
+                onYearChange={handleSchoolYearChange}
+              />
+            </div>
             <div className="flex-1">
               <FilterPanel
                 filters={filters}
@@ -457,6 +456,7 @@ useEffect(() => {
                     studentSummaries.find(s => s.id === id)
                   ).filter(Boolean)}
                   onClose={handleCloseMessaging}
+                  onNotification={handleMessagingNotification}
                 />
               ) : (
                 renderStudentDetail()

@@ -84,6 +84,7 @@ import MissingPasiRecordsTab from './MissingPasiRecordsTab';
 import { COURSE_OPTIONS, ACTIVE_FUTURE_ARCHIVED_OPTIONS, getSchoolYearOptions } from '../config/DropdownOptions';
 import RevenueTab from './RevenueTab';
 import PermissionIndicator from '../context/PermissionIndicator';
+import NPAdjustments from './NPAdjustments';
 import { useAuth } from '../context/AuthContext';
 
 
@@ -347,30 +348,41 @@ const isWithinTwoMonths = (dateString) => {
   // Create this function in your component
   const combineRecordsWithSummaries = (records, summariesMap) => {
     return records.map(record => {
+      // Rename 'term' to 'pasiTerm' for each record
+      const { term, ...restRecord } = record;
+      const recordWithRenamedTerm = {
+        ...restRecord,
+        pasiTerm: term  // Rename term to pasiTerm
+      };
+      
       // Get summary data if available
       const summary = record.summaryKey && summariesMap[record.summaryKey] 
         ? summariesMap[record.summaryKey] 
         : null;
       
-      // If no summary exists, just return the original record
+      // If no summary exists, just return the record with renamed term
       if (!summary) {
         return {
-          ...record,
+          ...recordWithRenamedTerm,
           courseID: null,
           statusValue: null,
           studentType: null,
-          summaryState: 'Not Set'
+          summaryState: 'Not Set',
+          yourWayTerm: null  // Add this with null value since there's no summary
         };
       }
       
       // Return record with all summary fields flattened
       return {
-        ...record,
+        ...recordWithRenamedTerm,
         // Fields you already had
         courseID: summary.CourseID || null,
         statusValue: summary.Status_Value || null,
         studentType: summary.StudentType_Value || null,
         summaryState: summary.ActiveFutureArchived_Value || 'Not Set',
+        
+        // Add the YourWay term from summary.Term
+        yourWayTerm: summary.Term || null,
         
         // Adding all the additional fields from summary
         activeFutureArchivedValue: summary.ActiveFutureArchived_Value || null,
@@ -420,12 +432,9 @@ const isWithinTwoMonths = (dateString) => {
         
         // Categories are nested objects, we'll keep them as they are
         categories: summary.categories || null,
-        
-      
       };
     });
   };
-
   
 
 
@@ -505,6 +514,33 @@ const isWithinTwoMonths = (dateString) => {
     return mapping;
   }, []);
 
+  const isStudentTypePeriodCompatible = (studentType, period) => {
+    // Check Non-Primary and Home Education should have Regular period
+    if ((studentType === "Non-Primary" || studentType === "Home Education") && period !== "Regular") {
+      return false;
+    }
+    
+    // Check Summer School should have Summer period
+    if (studentType === "Summer School" && period !== "Summer") {
+      return false;
+    }
+    
+    return true;
+  };
+  
+  // Add explanation for student type/period mismatches
+  const getStudentTypePeriodMismatchExplanation = (studentType, period) => {
+    if ((studentType === "Non-Primary" || studentType === "Home Education") && period !== "Regular") {
+      return `Student type "${studentType}" should have a "Regular" period, but has "${period}" instead.`;
+    }
+    
+    if (studentType === "Summer School" && period !== "Summer") {
+      return `Student type "Summer School" should have a "Summer" period, but has "${period}" instead.`;
+    }
+    
+    return "Student type and period incompatibility.";
+  };
+
   // Check if a record has a status mismatch with its summary
 
   // Function to show status mismatch details
@@ -513,63 +549,86 @@ const isWithinTwoMonths = (dateString) => {
     setStatusMismatchDialogOpen(true);
   };
 
-const checkStatusMismatch = (pasiRecords, summaryDataMap) => {
-  const recordsWithMismatch = [];
-  
-  pasiRecords.forEach(record => {
-    // Skip if not linked (no summary to compare with)
-    if (!record.linked) return;
+  const checkStatusMismatch = (pasiRecords, summaryDataMap) => {
+    const recordsWithMismatch = [];
     
-    // Get the email key for lookup
-    const emailKey = record.email.replace(/\./g, ',');
-    
-    // Find all summaries for this student
-    Object.keys(summaryDataMap).forEach(summaryKey => {
-      // Check if this summary belongs to the student
-      if (summaryKey.startsWith(emailKey)) {
-        const summaryCourseId = parseInt(summaryKey.split('_')[1], 10);
-        const summary = summaryDataMap[summaryKey];
-        
-        // Find summaries with matching course and student
-        // For PASI records, we have courseCode (e.g., "MAT3791")
-        // For summaries, we have courseId (a number)
-        // We need to check if they match using our courseIdToPasiCode mapping
-        const summaryPasiCode = courseIdToPasiCode[summaryCourseId];
-        
-        if (summaryPasiCode === record.courseCode) {
-          // Now check if statuses are compatible, including ActiveFutureArchived value
-          const isCompatible = isStatusCompatible(
-            record.status, 
-            summary.Status_Value,
-            summary.ActiveFutureArchived_Value
-          );
+    pasiRecords.forEach(record => {
+      // Skip if not linked (no summary to compare with)
+      if (!record.linked) return;
+      
+      // Get the email key for lookup
+      const emailKey = record.email.replace(/\./g, ',');
+      
+      // Find all summaries for this student
+      Object.keys(summaryDataMap).forEach(summaryKey => {
+        // Check if this summary belongs to the student
+        if (summaryKey.startsWith(emailKey)) {
+          const summaryCourseId = parseInt(summaryKey.split('_')[1], 10);
+          const summary = summaryDataMap[summaryKey];
           
-          if (!isCompatible) {
-            recordsWithMismatch.push({
-              ...record,
-              summaryStatus: summary.Status_Value,
-              summaryState: summary.ActiveFutureArchived_Value || 'Not Set',
-              summaryKey, // Store the summaryKey for later use
-              studentKey: summaryKey.split('_')[0], // Extract the studentKey
-              courseId: summaryCourseId.toString(), // Store courseId as string
-              needsArchived: record.status === "Completed" && 
-                             summary.Status_Value === "Unenrolled" && 
-                             summary.ActiveFutureArchived_Value !== "Archived",
-              explanation: getStatusMismatchExplanation(
-                record.status, 
-                summary.Status_Value,
-                summary.ActiveFutureArchived_Value
-              )
-            });
+          // Find summaries with matching course and student
+          const summaryPasiCode = courseIdToPasiCode[summaryCourseId];
+          
+          if (summaryPasiCode === record.courseCode) {
+            // Get student type from summary
+            const studentType = summary.StudentType_Value;
+            
+            // Check if statuses are compatible
+            const isCompatible = isStatusCompatible(
+              record.status, 
+              summary.Status_Value,
+              summary.ActiveFutureArchived_Value
+            );
+            
+            // Check if student type and period are compatible
+            const isTypePeriodCompatible = isStudentTypePeriodCompatible(
+              studentType,
+              record.period
+            );
+            
+            // Add to mismatches if either check fails
+            if (!isCompatible || !isTypePeriodCompatible) {
+              let explanation = '';
+              let needsArchived = false;
+              
+              if (!isCompatible) {
+                explanation = getStatusMismatchExplanation(
+                  record.status, 
+                  summary.Status_Value,
+                  summary.ActiveFutureArchived_Value
+                );
+                
+                needsArchived = record.status === "Completed" && 
+                               summary.Status_Value === "Unenrolled" && 
+                               summary.ActiveFutureArchived_Value !== "Archived";
+              } else {
+                explanation = getStudentTypePeriodMismatchExplanation(
+                  studentType,
+                  record.period
+                );
+              }
+              
+              recordsWithMismatch.push({
+                ...record,
+                summaryStatus: summary.Status_Value,
+                summaryState: summary.ActiveFutureArchived_Value || 'Not Set',
+                summaryKey,
+                studentKey: summaryKey.split('_')[0],
+                courseId: summaryCourseId.toString(),
+                needsArchived,
+                explanation,
+                studentType,
+                isStudentTypePeriodMismatch: !isTypePeriodCompatible
+              });
+            }
           }
         }
-      }
+      });
     });
-  });
-  
-  setRecordsWithStatusMismatch(recordsWithMismatch);
-  return recordsWithMismatch;
-};
+    
+    setRecordsWithStatusMismatch(recordsWithMismatch);
+    return recordsWithMismatch;
+  };
 
 
 
@@ -1038,10 +1097,10 @@ const handleDeleteAllRecords = async () => {
             aValue = a.period || '';
             bValue = b.period || '';
             break;
-          case 'term':
-            aValue = a.term || '';
-            bValue = b.term || '';
-            break;
+            case 'term':
+              aValue = a.pasiTerm || '';
+              bValue = b.pasiTerm || '';
+              break;
           case 'asn':
             aValue = a.asn || '';
             bValue = b.asn || '';
@@ -1050,6 +1109,10 @@ const handleDeleteAllRecords = async () => {
             aValue = a.email || '';
             bValue = b.email || '';
             break;
+            case 'yourWayTerm':
+  aValue = a.yourWayTerm || '';
+  bValue = b.yourWayTerm || '';
+  break;
           
           // New columns from summary data
           case 'courseID':
@@ -2417,6 +2480,13 @@ const getChangedFields = (existingRecord, newRecord) => {
         <PermissionIndicator type="SUPER_ADMIN" className="ml-2" />
       </TabsTrigger>
     )}
+
+<TabsTrigger 
+  value="npAdjustments"
+  className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+>
+  NP Adjustments
+</TabsTrigger>
   </TabsList>
                 
                 <TabsContent value="records">
@@ -2458,7 +2528,11 @@ const getChangedFields = (existingRecord, newRecord) => {
       onChange={() => setShowStatusMismatchOnly(!showStatusMismatchOnly)}
     />
     <label htmlFor="showMismatchesOnly" className="text-sm">
-      Show status mismatches only ({getUniqueMismatchAsnsCount()})
+      Filter issues ({getUniqueMismatchAsnsCount()}) 
+      <span className="text-muted-foreground ml-1">
+        <AlertTriangle className="h-3 w-3 inline mx-1 text-amber-500" title="Status issues" />
+        <HelpCircle className="h-3 w-3 inline mx-1 text-blue-500" title="Student type/period issues" />
+      </span>
     </label>
   </div>
 )}
@@ -2684,16 +2758,25 @@ const getChangedFields = (existingRecord, newRecord) => {
                         <TableCell>
   <div className="flex items-center gap-1">
     {record.status}
-    {(hasStatusMismatch(record) || groups[record.asn]?.mismatchedRecords?.includes(record.id)) && (
+    {hasStatusMismatch(record) && (
       <Tooltip>
         <TooltipTrigger asChild>
-          <AlertTriangle 
-            className="h-4 w-4 text-amber-500 cursor-pointer"
-            onClick={() => showStatusMismatchDetails(getStatusMismatchForRecord(record))}
-          />
+          {getStatusMismatchForRecord(record)?.isStudentTypePeriodMismatch ? (
+            <HelpCircle 
+              className="h-4 w-4 text-blue-500 cursor-pointer"
+              onClick={() => showStatusMismatchDetails(getStatusMismatchForRecord(record))}
+            />
+          ) : (
+            <AlertTriangle 
+              className="h-4 w-4 text-amber-500 cursor-pointer"
+              onClick={() => showStatusMismatchDetails(getStatusMismatchForRecord(record))}
+            />
+          )}
         </TooltipTrigger>
         <TooltipContent className="max-w-xs">
-          <p>Status compatibility issue. Click for details.</p>
+          <p>{getStatusMismatchForRecord(record)?.isStudentTypePeriodMismatch ? 
+            "Student type and period compatibility issue. Click for details." : 
+            "Status compatibility issue. Click for details."}</p>
         </TooltipContent>
       </Tooltip>
     )}
@@ -3023,7 +3106,11 @@ const getChangedFields = (existingRecord, newRecord) => {
   <TabsContent value="revenue">
     <RevenueTab records={unfilteredCombinedRecords} />
   </TabsContent>
+  
 )}
+<TabsContent value="npAdjustments">
+  <NPAdjustments records={unfilteredCombinedRecords} />
+</TabsContent>
 
               </Tabs>
             </CardContent>
@@ -3207,9 +3294,15 @@ const getChangedFields = (existingRecord, newRecord) => {
 <Dialog open={statusMismatchDialogOpen} onOpenChange={setStatusMismatchDialogOpen}>
   <DialogContent className="sm:max-w-md">
     <DialogHeader>
-      <DialogTitle>Status Compatibility Issue</DialogTitle>
+      <DialogTitle>
+        {selectedMismatch?.isStudentTypePeriodMismatch 
+          ? "Student Type/Period Mismatch" 
+          : "Status Compatibility Issue"}
+      </DialogTitle>
       <DialogDescription>
-        This record has a status that may be incompatible with its YourWay status.
+        {selectedMismatch?.isStudentTypePeriodMismatch 
+          ? "This record has a student type and period combination that is invalid." 
+          : "This record has a status that may be incompatible with its YourWay status."}
       </DialogDescription>
     </DialogHeader>
     
@@ -3221,21 +3314,34 @@ const getChangedFields = (existingRecord, newRecord) => {
             <p><span className="font-medium">Course:</span> {selectedMismatch.courseCode} - {selectedMismatch.courseDescription}</p>
           </div>
           
-          {/* Update this grid to include the state */}
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="border p-3 rounded-md">
-              <p className="text-sm font-medium mb-1">PASI Status:</p>
-              <p className="text-lg">{selectedMismatch.status}</p>
+          {/* Conditionally render different content based on mismatch type */}
+          {selectedMismatch.isStudentTypePeriodMismatch ? (
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="border p-3 rounded-md">
+                <p className="text-sm font-medium mb-1">Student Type:</p>
+                <p className="text-lg">{selectedMismatch.studentType}</p>
+              </div>
+              <div className="border p-3 rounded-md">
+                <p className="text-sm font-medium mb-1">Period:</p>
+                <p className="text-lg">{selectedMismatch.period}</p>
+              </div>
             </div>
-            <div className="border p-3 rounded-md">
-              <p className="text-sm font-medium mb-1">YourWay Status:</p>
-              <p className="text-lg">{selectedMismatch.summaryStatus}</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="border p-3 rounded-md">
+                <p className="text-sm font-medium mb-1">PASI Status:</p>
+                <p className="text-lg">{selectedMismatch.status}</p>
+              </div>
+              <div className="border p-3 rounded-md">
+                <p className="text-sm font-medium mb-1">YourWay Status:</p>
+                <p className="text-lg">{selectedMismatch.summaryStatus}</p>
+              </div>
+              <div className="border p-3 rounded-md bg-blue-50">
+                <p className="text-sm font-medium mb-1 text-blue-800">YourWay State:</p>
+                <p className="text-lg text-blue-800">{selectedMismatch.summaryState || 'Not Set'}</p>
+              </div>
             </div>
-            <div className="border p-3 rounded-md bg-blue-50">
-              <p className="text-sm font-medium mb-1 text-blue-800">YourWay State:</p>
-              <p className="text-lg text-blue-800">{selectedMismatch.summaryState || 'Not Set'}</p>
-            </div>
-          </div>
+          )}
           
           <Alert className="bg-amber-50 border-amber-200">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -3245,8 +3351,8 @@ const getChangedFields = (existingRecord, newRecord) => {
             </AlertDescription>
           </Alert>
           
-          {/* Add state update UI if needed */}
-          {selectedMismatch.needsArchived && (
+          {/* Add state update UI if needed - only for status mismatches that need archived */}
+          {!selectedMismatch.isStudentTypePeriodMismatch && selectedMismatch.needsArchived && (
             <div className="mt-4 p-3 border border-blue-200 rounded-md bg-blue-50">
               <h3 className="text-sm font-medium text-blue-800 mb-2">Required Action</h3>
               <p className="text-sm text-blue-700">
@@ -3258,12 +3364,29 @@ const getChangedFields = (existingRecord, newRecord) => {
             </div>
           )}
           
+          {/* For student type/period mismatches, show how to fix */}
+          {selectedMismatch.isStudentTypePeriodMismatch && (
+            <div className="mt-4 p-3 border border-blue-200 rounded-md bg-blue-50">
+              <h3 className="text-sm font-medium text-blue-800 mb-2">How to Resolve</h3>
+              <p className="text-sm text-blue-700">
+                {selectedMismatch.studentType === "Summer School" 
+                  ? "Summer School students should have a 'Summer' period value in PASI."
+                  : "Non-Primary and Home Education students should have a 'Regular' period value in PASI."}
+              </p>
+              <p className="text-sm text-blue-700 mt-2">
+                Please correct this in PASI and re-upload the data.
+              </p>
+            </div>
+          )}
+          
           <div className="mt-4">
             <p className="text-sm text-muted-foreground">
               <HelpCircle className="h-4 w-4 inline-block mr-1" />
-              {selectedMismatch.needsArchived 
-                ? "Set the YourWay State to 'Archived' to resolve this issue."
-                : "To resolve this issue, either update the PASI record status or adjust the YourWay course status."}
+              {selectedMismatch.isStudentTypePeriodMismatch 
+                ? "This mismatch needs to be corrected in PASI before uploading again."
+                : selectedMismatch.needsArchived 
+                  ? "Set the YourWay State to 'Archived' to resolve this issue."
+                  : "To resolve this issue, either update the PASI record status or adjust the YourWay course status."}
             </p>
           </div>
         </div>
