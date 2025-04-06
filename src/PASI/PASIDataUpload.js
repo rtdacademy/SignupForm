@@ -368,7 +368,8 @@ const isWithinTwoMonths = (dateString) => {
           statusValue: null,
           studentType: null,
           summaryState: 'Not Set',
-          yourWayTerm: null  // Add this with null value since there's no summary
+          yourWayTerm: null
+         
         };
       }
       

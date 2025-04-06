@@ -1204,7 +1204,7 @@ export const TERM_OPTIONS = [
   {
     value: "Term 2",
     label: "Term 2",
-    color: "#8B5CF6", // Purple
+    color: "#F97316", // Orange
     icon: CalendarDays,
     description: "Second semester (February to June)"
   },
