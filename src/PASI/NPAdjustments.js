@@ -515,15 +515,15 @@ const StudentRecordsTable = ({
       style={{ 
         width: "100%", 
         ...(isFullScreen 
-          ? { height: "calc(100vh - 200px)" } 
-          : { maxHeight: "calc(100vh - 200px)" }),
+          ? { height: "calc(100vh - 140px)" } 
+          : { maxHeight: "calc(100vh - 190px)", overflowY: "auto", scrollbarWidth: "auto" }),
         overflowY: "auto",
         scrollbarWidth: "auto",
         scrollbarColor: "rgba(155, 155, 155, 0.7) transparent"
       }}
     >
       <Table className="w-full table-fixed text-xs pr-4">
-        <TableHeader sticky={isFullScreen}>
+        <TableHeader sticky={true}>
           <TableRow>
             <SortableHeader 
               column="termChecked" 
@@ -643,21 +643,21 @@ const StudentRecordsTable = ({
                   }
                   onClick={() => console.log(record)}
                 >
-                  <TableCell className="bg-purple-50 p-1 text-center" style={{ width: "30px" }}>
+                  <TableCell className="p-1 text-center" style={{ width: "30px" }}>
                     {renderCheckedStatus(record)}
                   </TableCell>
-                  <TableCell className="bg-indigo-50 p-1" style={{ width: "65px" }}>
+                  <TableCell className="p-1" style={{ width: "65px" }}>
                     {renderYourWayTerm(record)}
                   </TableCell>
-                  <TableCell className="bg-amber-50 p-1" style={{ width: "50px" }}>
+                  <TableCell className="p-1" style={{ width: "50px" }}>
                     {renderPasiTerm(record)}
                   </TableCell>
-                  <TableCell className="bg-green-50 p-1" style={{ width: "50px" }}>
+                  <TableCell className="p-1" style={{ width: "50px" }}>
                     {renderSuggestedTerm(record)}
                   </TableCell>
                   <TableCell 
                     className="p-1 whitespace-nowrap overflow-hidden text-ellipsis cursor-pointer" 
-                    style={{ maxWidth: "140px" }}
+                    style={{ maxWidth: "140px !important" }}
                     onClick={() => handleCellClick(record.studentName, "Student Name")}
                   >
                     {(() => {
@@ -685,7 +685,7 @@ const StudentRecordsTable = ({
                   </TableCell>
                   <TableCell 
                     className="p-1 cursor-pointer" 
-                    style={{ width: "30px" }}
+                    style={{ width: "30px !important" }}
                     onClick={() => handleCellClick(record.asn, "ASN")}
                   >
                     <div className="flex items-center">
@@ -705,14 +705,14 @@ const StudentRecordsTable = ({
                   </TableCell>
                   <TableCell 
                     className="p-1 truncate cursor-pointer" 
-                    style={{ width: "60px" }} 
+                    style={{ width: "60px !important" }} 
                     title={record.courseCode}
                     onClick={() => handleCellClick(record.courseCode, "Course Code")}
                   >
                     {isValidDateValue(record.courseCode) ? record.courseCode : 'N/A'}
                   </TableCell>
                   <TableCell 
-                    className="bg-purple-50 p-1 truncate cursor-pointer" 
+                    className="p-1 truncate cursor-pointer" 
                     style={{ width: "75px" }}
                     onClick={() => handleCellClick(record.startDateFormatted, "Registered Date")}
                   >
@@ -725,7 +725,7 @@ const StudentRecordsTable = ({
                     </span>
                   </TableCell>
                   <TableCell 
-                    className="bg-red-50 p-1 truncate cursor-pointer" 
+                    className="p-1 truncate cursor-pointer" 
                     style={{ width: "75px" }}
                     onClick={() => handleCellClick(record.exitDateFormatted, "Exit Date")}
                   >
@@ -747,7 +747,7 @@ const StudentRecordsTable = ({
                     </span>
                   </TableCell>
                   <TableCell 
-                    className="bg-blue-50 p-1 truncate cursor-pointer" 
+                    className="p-1 truncate cursor-pointer" 
                     style={{ width: "75px" }}
                     onClick={() => handleCellClick(record.statusValue, "YW Status")}
                   >
@@ -765,7 +765,7 @@ const StudentRecordsTable = ({
                     </span>
                   </TableCell>
                   <TableCell 
-                    className="bg-green-50 p-1 truncate cursor-pointer" 
+                    className="p-1 truncate cursor-pointer" 
                     style={{ width: "75px" }}
                     onClick={() => handleCellClick(record.status, "PASI Status")}
                   >
@@ -778,7 +778,7 @@ const StudentRecordsTable = ({
                       {record.status || 'N/A'}
                     </span>
                   </TableCell>
-                  <TableCell className="p-1" style={{ width: "90px" }}>
+                  <TableCell className="p-1" style={{ width: "90px !important" }}>
                     <div className="flex items-center gap-1">
                       <Button
                         variant="outline"
@@ -1041,12 +1041,13 @@ const PaginationControls = ({ currentPage, totalPages, setCurrentPage }) => {
   if (totalPages <= 1) return null;
 
   return (
-    <Pagination className="mt-4">
-      <PaginationContent>
+    <Pagination className="mt-2">
+      <PaginationContent className="h-8">
         <PaginationItem>
           <PaginationPrevious 
             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
             disabled={currentPage === 1}
+            className="h-8 min-w-8 px-2"
           />
         </PaginationItem>
         
@@ -1064,7 +1065,7 @@ const PaginationControls = ({ currentPage, totalPages, setCurrentPage }) => {
             } else if (i === 5) {
               return (
                 <PaginationItem key="ellipsis-start">
-                  <span className="px-2">...</span>
+                  <span className="px-1">...</span>
                 </PaginationItem>
               );
             } else {
@@ -1077,7 +1078,7 @@ const PaginationControls = ({ currentPage, totalPages, setCurrentPage }) => {
             } else if (i === 1) {
               return (
                 <PaginationItem key="ellipsis-end">
-                  <span className="px-2">...</span>
+                  <span className="px-1">...</span>
                 </PaginationItem>
               );
             } else {
@@ -1090,13 +1091,13 @@ const PaginationControls = ({ currentPage, totalPages, setCurrentPage }) => {
             } else if (i === 1) {
               return (
                 <PaginationItem key="ellipsis-start">
-                  <span className="px-2">...</span>
+                  <span className="px-1">...</span>
                 </PaginationItem>
               );
             } else if (i === 5) {
               return (
                 <PaginationItem key="ellipsis-end">
-                  <span className="px-2">...</span>
+                  <span className="px-1">...</span>
                 </PaginationItem>
               );
             } else if (i === 6) {
@@ -1111,6 +1112,7 @@ const PaginationControls = ({ currentPage, totalPages, setCurrentPage }) => {
               <PaginationLink
                 isActive={currentPage === pageToShow}
                 onClick={() => setCurrentPage(pageToShow)}
+                className="h-8 w-8 p-0"
               >
                 {pageToShow}
               </PaginationLink>
@@ -1122,6 +1124,7 @@ const PaginationControls = ({ currentPage, totalPages, setCurrentPage }) => {
           <PaginationNext
             onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
             disabled={currentPage === totalPages}
+            className="h-8 min-w-8 px-2"
           />
         </PaginationItem>
       </PaginationContent>
@@ -1865,7 +1868,10 @@ const NPAdjustments = ({ records = [] }) => {
 
       {/* Fullscreen mode */}
       <Sheet open={isFullScreen} onOpenChange={setIsFullScreen}>
-        <SheetContent className="w-[100vw] sm:w-[100vw] flex flex-col" size="full">
+      <SheetContent 
+  className="w-[100vw] sm:w-[100vw] flex flex-col sheet-no-footer" 
+  size="full"
+>
           <div className="space-y-4">
             {/* Search bar, filters, and statistics for fullscreen mode */}
             <SearchFilterBar 

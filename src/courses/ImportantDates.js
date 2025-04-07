@@ -33,8 +33,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { toast } from 'sonner';
 import { Checkbox } from '../components/ui/checkbox';
 
-// Import YearlyCalendarView component
-import YearlyCalendarView from './YearlyCalendarView';
+// Import calendar components
+import CalendarSelector from './CalendarSelector';
 
 // Import student type options
 import { STUDENT_TYPE_OPTIONS } from '../config/DropdownOptions';
@@ -995,14 +995,14 @@ function AddGeneralEventDialog({ onAddEvent }) {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button className="flex items-center">
-          <Plus className="h-4 w-4 mr-2" /> Add Registration Date
+          <Plus className="h-4 w-4 mr-2" /> Add Event
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px] max-h-[100vh]">
         <DialogHeader>
-          <DialogTitle>Add Registration Date</DialogTitle>
+          <DialogTitle>Add Event</DialogTitle>
           <DialogDescription>
-            Add a new registration period with optional course completion deadline.
+            Add a new event that will be visible in the student dashboard.
           </DialogDescription>
         </DialogHeader>
         
@@ -1293,7 +1293,6 @@ function DeleteConfirmDialog({ isOpen, onClose, onConfirm, itemInfo, itemType = 
 function CalendarViewSheet({ isOpen, onClose, dates, courses }) {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [selectedView, setSelectedView] = useState('registration');
   
   // Get calendar data from Firebase
   const [icsCalendars, setIcsCalendars] = useState([]);
@@ -1361,47 +1360,32 @@ function CalendarViewSheet({ isOpen, onClose, dates, courses }) {
         <SheetHeader>
           <SheetTitle className="flex items-center justify-between">
             <span>Calendar View</span>
-            <div className="flex items-center gap-2">
-              <Select
-                value={selectedView}
-                onValueChange={setSelectedView}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select view" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="registration">Registration Periods</SelectItem>
-                  <SelectItem value="ics">Uploaded Calendars</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select
-                value={selectedYear.toString()}
-                onValueChange={(value) => setSelectedYear(parseInt(value))}
-              >
-                <SelectTrigger className="w-[100px]">
-                  <SelectValue placeholder="Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {yearOptions.map(year => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select
+              value={selectedYear.toString()}
+              onValueChange={(value) => setSelectedYear(parseInt(value))}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue placeholder="Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {yearOptions.map(year => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </SheetTitle>
         </SheetHeader>
         
         <div className="mt-6">
-          <YearlyCalendarView 
+          {/* Use the new CalendarSelector component */}
+          <CalendarSelector 
             dates={registrationDates || []} 
             icsCalendars={icsCalendars || []}
             year={selectedYear}
             courses={courses}
-            defaultView={selectedView === 'registration' ? 'registration' : 'icsCalendars'}
-            title={selectedView === 'registration' ? 'Registration Calendar' : 'Events Calendar'}
+            title="Calendar View"
           />
         </div>
         

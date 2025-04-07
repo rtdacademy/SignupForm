@@ -1,11 +1,10 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { STUDENT_TYPE_OPTIONS } from '../config/DropdownOptions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import { ChevronLeft, ChevronRight, CalendarIcon, Info, Home, Bookmark, SunIcon, GraduationCap, Globe, Filter, Calendar } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
 // Helper functions
 const getDaysInMonth = (year, month) => {
@@ -140,160 +139,18 @@ const getStudentTypeInfo = (type) => {
   };
 };
 
-// Transform ICS calendar events to compatible format
-const transformIcsEvents = (calendar) => {
-  if (!calendar || !calendar.events) return [];
-  
-  return calendar.events.map(event => ({
-    id: `ics-${Math.random().toString(36).substr(2, 9)}`,
-    title: event.summary,
-    startDate: event.startDate,
-    endDate: event.endDate,
-    color: '#3b82f6', // Blue color for ICS events
-    calendarName: calendar.name
-  }));
-};
-
 const YearlyCalendarView = ({ 
-  dates = [], 
-  icsCalendars = [],
   year: initialYear = new Date().getFullYear(),
   title = "Calendar View",
-  defaultView = "registration",
-  showFilters = true,
+  filteredDates = [],
+  selectedStudentType = '',
+  selectedEventType = '',
+  selectedEventSource = 'registration',
+  selectionComplete = false,
   courses = {}
 }) => {
-  const [selectedEventSource, setSelectedEventSource] = useState(defaultView);
-  const [selectedCalendar, setSelectedCalendar] = useState('');
-  const [processedDates, setProcessedDates] = useState([]);
-  const [selectedStudentType, setSelectedStudentType] = useState('');
-  const [selectedEventType, setSelectedEventType] = useState('');
-  const [selectionComplete, setSelectionComplete] = useState(false);
   const today = new Date();
   const currentYear = initialYear;
-  
-  // Available calendar sources
-  const calendarSources = [
-    { id: 'registration', label: 'Registration Periods', filterType: 'studentType' },
-    { id: 'icsCalendars', label: 'ICS Calendars', filterType: 'calendar' }
-  ];
-  
-  // Process dates effect based on selected source
-  useEffect(() => {
-    if (selectedEventSource === 'registration') {
-      if (!dates || !Array.isArray(dates)) {
-        setProcessedDates([]);
-        return;
-      }
-      
-      const filtered = dates.filter(date => date && date.type === 'Registration');
-      setProcessedDates(filtered);
-      setSelectionComplete(false);
-    } else if (selectedEventSource === 'icsCalendars') {
-      // When ICS is selected, clear student type filters
-      setSelectedStudentType('');
-      setSelectedEventType('');
-      
-      if (selectedCalendar && icsCalendars && icsCalendars.length > 0) {
-        const calendar = icsCalendars.find(cal => cal.name === selectedCalendar);
-        if (calendar) {
-          const transformedEvents = transformIcsEvents(calendar);
-          setProcessedDates(transformedEvents);
-          setSelectionComplete(true);
-        } else {
-          setProcessedDates([]);
-          setSelectionComplete(false);
-        }
-      } else {
-        setProcessedDates([]);
-        setSelectionComplete(false);
-      }
-    }
-  }, [dates, icsCalendars, selectedEventSource, selectedCalendar]);
-  
-  // Get unique student types from registration dates
-  const uniqueStudentTypes = useMemo(() => {
-    if (selectedEventSource !== 'registration' || !processedDates || !processedDates.length) return [];
-    
-    const typesSet = new Set();
-    
-    processedDates.forEach(date => {
-      if (!date) return;
-      
-      const types = date.applicableStudentTypes || [];
-      if (types.length === 0 || types.length === STUDENT_TYPE_OPTIONS.length) {
-        // If no types specified, it applies to all
-        STUDENT_TYPE_OPTIONS.forEach(option => typesSet.add(option.value));
-      } else {
-        types.forEach(type => typesSet.add(type));
-      }
-    });
-    
-    return Array.from(typesSet);
-  }, [processedDates, selectedEventSource]);
-  
-  // Get unique event categories (titles) for registration dates
-  const uniqueEventCategories = useMemo(() => {
-    if (selectedEventSource !== 'registration' || !processedDates || !processedDates.length) return [];
-    
-    const categoriesSet = new Set();
-    
-    processedDates.forEach(date => {
-      if (date && date.title) {
-        categoriesSet.add(date.title);
-      }
-    });
-    
-    return Array.from(categoriesSet);
-  }, [processedDates, selectedEventSource]);
-  
-  // Get available ICS calendars
-  const availableIcsCalendars = useMemo(() => {
-    return icsCalendars.map(calendar => calendar.name) || [];
-  }, [icsCalendars]);
-  
-  // Get filtered event types based on selected student type
-  const filteredEventTypes = useMemo(() => {
-    if (selectedEventSource !== 'registration' || !selectedStudentType) return [];
-    
-    return uniqueEventCategories.filter(eventType => {
-      // Find events of this type that apply to the selected student type
-      return processedDates.some(date => 
-        date.title === eventType && 
-        (date.applicableStudentTypes?.includes(selectedStudentType) || 
-         date.applicableStudentTypes?.length === 0 || 
-         date.applicableStudentTypes?.length === STUDENT_TYPE_OPTIONS.length)
-      );
-    });
-  }, [selectedStudentType, uniqueEventCategories, processedDates, selectedEventSource]);
-  
-  // Filter dates based on selected criteria
-  const filteredDates = useMemo(() => {
-    if (selectedEventSource === 'registration') {
-      if (!selectedStudentType || !selectedEventType) return [];
-      
-      return processedDates.filter(date => {
-        if (!date) return false;
-        
-        // Check event type match
-        if (date.title !== selectedEventType) return false;
-        
-        // Check student type match
-        const types = date.applicableStudentTypes || [];
-        if (types.length === 0 || types.length === STUDENT_TYPE_OPTIONS.length) {
-          // If applies to all, it matches any selected type
-          return true;
-        }
-        
-        return types.includes(selectedStudentType);
-      });
-    } else if (selectedEventSource === 'icsCalendars') {
-      // For ICS calendars, we already filtered by calendar in the useEffect
-      return processedDates;
-    }
-    
-    return [];
-  }, [processedDates, selectedStudentType, selectedEventType, selectedEventSource]);
   
   // Get periods for the entire year (all months)
   const yearlyPeriods = useMemo(() => {
@@ -316,45 +173,6 @@ const YearlyCalendarView = ({
     
     return allMonthsPeriods;
   }, [currentYear, filteredDates, selectedEventSource]);
-  
-  // Handle selection changes
-  const handleEventSourceChange = (value) => {
-    setSelectedEventSource(value);
-    setSelectedStudentType('');
-    setSelectedEventType('');
-    setSelectedCalendar('');
-    setSelectionComplete(false);
-  };
-  
-  const handleStudentTypeChange = (value) => {
-    setSelectedStudentType(value);
-    // Reset event type when student type changes
-    setSelectedEventType('');
-    setSelectionComplete(false);
-  };
-  
-  const handleEventTypeChange = (value) => {
-    setSelectedEventType(value);
-  };
-  
-  const handleCalendarChange = (value) => {
-    setSelectedCalendar(value);
-  };
-  
-  const applyFilters = () => {
-    if (selectedEventSource === 'registration' && selectedStudentType && selectedEventType) {
-      setSelectionComplete(true);
-    } else if (selectedEventSource === 'icsCalendars' && selectedCalendar) {
-      setSelectionComplete(true);
-    }
-  };
-  
-  const resetFilters = () => {
-    setSelectedStudentType('');
-    setSelectedEventType('');
-    setSelectedCalendar('');
-    setSelectionComplete(false);
-  };
   
   // Render a single month in the yearly view
   const renderMonth = (month, periodsForMonth) => {
@@ -536,124 +354,6 @@ const YearlyCalendarView = ({
     );
   };
   
-  // Render the selection form
-  const renderSelectionForm = () => {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Select Calendar View</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Event Source Selection */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Calendar Type</label>
-              <Select value={selectedEventSource} onValueChange={handleEventSourceChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a calendar type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {calendarSources.map(source => (
-                    <SelectItem key={source.id} value={source.id}>
-                      {source.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {selectedEventSource === 'registration' && (
-              <>
-                {/* Student Type Selection */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Student Type</label>
-                  <Select value={selectedStudentType} onValueChange={handleStudentTypeChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a student type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {uniqueStudentTypes.map(type => {
-                        const typeInfo = getStudentTypeInfo(type);
-                        const IconComponent = typeInfo.icon;
-                        
-                        return (
-                          <SelectItem key={type} value={type}>
-                            <div className="flex items-center gap-2">
-                              <IconComponent 
-                                className="h-4 w-4" 
-                                style={{ color: typeInfo.color }}
-                              />
-                              <span>{type}</span>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {/* Event Type Selection */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Registration Period</label>
-                  <Select 
-                    value={selectedEventType} 
-                    onValueChange={handleEventTypeChange}
-                    disabled={!selectedStudentType}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={selectedStudentType ? "Select a registration period" : "Select a student type first"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredEventTypes.map(eventType => (
-                        <SelectItem key={eventType} value={eventType}>
-                          {eventType}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
-            
-            {selectedEventSource === 'icsCalendars' && (
-              <div>
-                <label className="block text-sm font-medium mb-1">Calendar</label>
-                <Select 
-                  value={selectedCalendar} 
-                  onValueChange={handleCalendarChange}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a calendar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableIcsCalendars.map(calendar => (
-                      <SelectItem key={calendar} value={calendar}>
-                        {calendar}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            
-            {/* Action buttons */}
-            <div className="flex gap-2 pt-2">
-              <Button 
-                onClick={applyFilters} 
-                disabled={(selectedEventSource === 'registration' && (!selectedStudentType || !selectedEventType)) || 
-                         (selectedEventSource === 'icsCalendars' && !selectedCalendar)}
-                className="flex-1"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                View Calendar
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-  
   // Render the full year calendar view
   const renderYearlyCalendar = () => {
     if (!selectionComplete) return null;
@@ -684,12 +384,12 @@ const YearlyCalendarView = ({
           </div>
         </div>
       );
-    } else if (selectedEventSource === 'icsCalendars' && selectedCalendar) {
+    } else if (selectedEventSource === 'icsCalendars') {
       headerInfo = (
         <div className="flex items-center mt-2 gap-2">
           <Badge className="flex items-center gap-1">
             <Calendar className="h-3 w-3 mr-1" />
-            {selectedCalendar}
+            {/* Calendar name would go here */}
           </Badge>
           <div className="text-xs text-gray-500 ml-2">
             {filteredDates.length} event{filteredDates.length !== 1 ? 's' : ''}
@@ -704,11 +404,6 @@ const YearlyCalendarView = ({
           <CardHeader className="pb-2">
             <div className="flex justify-between items-center">
               <CardTitle className="text-lg">{currentYear} {title}</CardTitle>
-              {showFilters && (
-                <Button variant="outline" size="sm" onClick={resetFilters}>
-                  Change Selection
-                </Button>
-              )}
             </div>
             {headerInfo}
           </CardHeader>
@@ -833,7 +528,6 @@ const YearlyCalendarView = ({
   
   return (
     <div className="space-y-4">
-      {showFilters && !selectionComplete && renderSelectionForm()}
       {renderYearlyCalendar()}
       
       {/* No data message */}
