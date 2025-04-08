@@ -53,7 +53,7 @@ import {
 
 // Import database functionality
 import { ref, update, get, onValue, off } from 'firebase/database';
-import { database } from '../firebase';
+import { database, auth } from '../firebase';
 
 // Import term options and helpers
 import { TERM_OPTIONS, getTermInfo, getStatusColor, COURSE_OPTIONS, getTermColor } from "../config/DropdownOptions";
@@ -225,20 +225,23 @@ const formatDate = (dateValue, isFormatted = false) => {
   }
   
   try {
+    // Import from timeZoneUtils.js
+    const { toEdmontonDate, toDateString } = require('../utils/timeZoneUtils');
+    
     // Check if it's a numeric timestamp (as string or number)
     if (!isNaN(dateValue) && typeof dateValue !== 'object') {
-      const date = new Date(parseInt(dateValue));
+      const date = toEdmontonDate(new Date(parseInt(dateValue)).toISOString());
       // Check if valid date
       if (!isNaN(date.getTime()) && date.getFullYear() >= 1971) {
-        return date.toISOString().split('T')[0];
+        return toDateString(date);
       }
       return 'N/A';
     }
     
     // If it's a date object or ISO string
-    const date = new Date(dateValue);
+    const date = toEdmontonDate(dateValue);
     if (!isNaN(date.getTime()) && date.getFullYear() >= 1971) {
-      return date.toISOString().split('T')[0];
+      return toDateString(date);
     }
     
     // Fallback for strings that may already be formatted
@@ -259,17 +262,24 @@ const formatUserFriendlyDate = (dateValue, isFormatted = false) => {
   if (!isValidDateValue(dateValue)) return 'N/A';
   
   try {
-    // Get the standard formatted date first
-    const isoDate = formatDate(dateValue, isFormatted);
-    if (isoDate === 'N/A') return 'N/A';
+    // Import from timeZoneUtils.js
+    const { toEdmontonDate, formatDateForDisplay } = require('../utils/timeZoneUtils');
     
-    // Convert to user-friendly format
-    const date = new Date(isoDate);
-    return date.toLocaleDateString('en-US', {
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric'
-    });
+    // Get the standard formatted date first if needed
+    let dateToFormat = dateValue;
+    if (!isFormatted) {
+      const isoDate = formatDate(dateValue, isFormatted);
+      if (isoDate === 'N/A') return 'N/A';
+      dateToFormat = isoDate;
+    }
+    
+    // Use the Edmonton-specific date formatting
+    const edmontonDate = toEdmontonDate(dateToFormat);
+    if (!edmontonDate) return 'N/A';
+    
+    // Format date in Edmonton timezone
+    const options = { month: 'short', day: 'numeric', year: 'numeric' };
+    return edmontonDate.toLocaleDateString('en-US', options);
   } catch (error) {
     console.error("Error formatting user-friendly date:", error);
     return 'N/A';
@@ -318,7 +328,9 @@ const StudentRecordsTable = ({
   openTeacherDashboard,
   handleCopyData,
   selectedRecordId,
-  isFullScreen = false
+  generateEmailColor, 
+  isFullScreen = false,
+  termCutoffDate
 }) => {
   // Function to render the YourWay term dropdown
   const renderYourWayTerm = (record) => {
@@ -437,21 +449,42 @@ const StudentRecordsTable = ({
     );
   };
   
-  // Function to render the checked status checkbox
+  // Function to render the checked status checkbox with the user who checked it
   const renderCheckedStatus = (record) => {
     const isUpdating = updatingCheckedFor === record.id;
-    // The termChecked property is now populated from record.termChecked in enrichedRecords
     const isChecked = record.termChecked || false;
+    const checkedBy = record.checkedBy || null;
     
     return (
       <div className="flex items-center justify-center">
         {isUpdating ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          <Checkbox
-            checked={isChecked}
-            onCheckedChange={(checked) => updateTermChecked(record, checked)}
-          />
+          <div className="flex flex-col items-center space-y-1">
+            {!isChecked && (
+              <Checkbox
+                checked={isChecked}
+                onCheckedChange={(checked) => updateTermChecked(record, checked)}
+              />
+            )}
+            {isChecked && checkedBy && (
+              <div 
+                className="text-xxs px-1 py-0.5 rounded-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px] cursor-pointer"
+                title={`Checked by: ${checkedBy} (click to uncheck)`}
+                style={(() => {
+                  // Use the generateEmailColor function passed as prop
+                  const colors = generateEmailColor(checkedBy);
+                  return {
+                    backgroundColor: colors.backgroundColor,
+                    color: colors.textColor
+                  };
+                })()}
+                onClick={() => updateTermChecked(record, false)}
+              >
+                {checkedBy.split('@')[0]}
+              </div>
+            )}
+          </div>
         )}
       </div>
     );
@@ -502,6 +535,40 @@ const StudentRecordsTable = ({
     );
   };
 
+  // Function to render schedule start date with conditional coloring
+  const renderScheduleStartDate = (record) => {
+    // Get the formatted date
+    const scheduleStartDate = record.scheduleStartDateFormatted;
+    
+    // Check if date is valid
+    if (!scheduleStartDate || scheduleStartDate === 'N/A') {
+      return <span className="text-gray-400">N/A</span>;
+    }
+    
+    // Convert to date object for comparison with cutoff date
+    const dateObj = new Date(scheduleStartDate);
+    const cutoffDateObj = new Date(termCutoffDate);
+    
+    // Determine the color based on whether the date is before or after cutoff
+    const isTerm1Date = dateObj < cutoffDateObj;
+    
+    // Style for the badge
+    const badgeStyle = {
+      backgroundColor: isTerm1Date ? '#e0f2fe' : '#f0fdf4', // blue-50 for term 1, green-50 for term 2
+      color: isTerm1Date ? '#0369a1' : '#15803d' // blue-700 for term 1, green-700 for term 2
+    };
+    
+    return (
+      <div 
+        className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+        style={badgeStyle}
+        title={`Schedule Start Date: ${scheduleStartDate} (${isTerm1Date ? 'Term 1' : 'Term 2'})`}
+      >
+        {formatUserFriendlyDate(scheduleStartDate)}
+      </div>
+    );
+  };
+  
   // Function to handle cell click for copying content
   const handleCellClick = (content, label) => {
     // Don't copy if there's no content or it's invalid
@@ -587,6 +654,13 @@ const StudentRecordsTable = ({
               currentSort={currentSort} 
               onSort={onSort}
               className="text-red-700 bg-red-50 w-[75px]"
+            />
+            <SortableHeader 
+              column="scheduleStartDate" 
+              label="Sched Start" 
+              currentSort={currentSort} 
+              onSort={onSort}
+              className="text-teal-700 bg-teal-50 w-[75px]"
             />
             <SortableHeader 
               column="value" 
@@ -738,6 +812,13 @@ const StudentRecordsTable = ({
                     </span>
                   </TableCell>
                   <TableCell 
+                    className="p-1 truncate cursor-pointer" 
+                    style={{ width: "75px" }}
+                    onClick={() => handleCellClick(record.scheduleStartDateFormatted, "Schedule Start Date")}
+                  >
+                    {renderScheduleStartDate(record)}
+                  </TableCell>
+                  <TableCell 
                     className="p-1 text-center cursor-pointer" 
                     style={{ width: "40px" }}
                     onClick={() => handleCellClick(record.value, "Grade")}
@@ -834,7 +915,8 @@ const SearchFilterBar = ({
   enrichedRecords,
   isFullScreen,
   toggleFullScreen,
-  termStats
+  termStats,
+  generateEmailColor
 }) => {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1025,12 +1107,51 @@ const SearchFilterBar = ({
         <Badge variant="outline" className="bg-amber-50 text-amber-700">
           {termStats.incorrectTerm} incorrect term
         </Badge>
-        <Badge variant="outline" className="bg-green-50 text-green-700">
-          {termStats.checked} checked
-        </Badge>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Badge variant="outline" className="bg-green-50 text-green-700 cursor-help">
+              {termStats.checked} checked
+            </Badge>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-2">
+            <div className="text-xs font-semibold mb-1">Checked by user:</div>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {Object.entries(termStats.checksByUser).sort((a, b) => b[1] - a[1]).map(([username, count]) => (
+                <div key={username} className="flex justify-between items-center">
+                  <span>{username}:</span>
+                  <Badge variant="outline" size="sm">{count}</Badge>
+                </div>
+              ))}
+              {Object.keys(termStats.checksByUser).length === 0 && (
+                <div className="text-gray-500 italic text-xs">No checks yet</div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
         <Badge variant="outline" className="bg-amber-50 text-amber-700">
           {termStats.unchecked} unchecked
         </Badge>
+        {(() => {
+          // Get the current user's email
+          const currentUser = auth.currentUser;
+          const currentUserEmail = currentUser ? currentUser.email : "";
+          
+          // Generate color using the same function used for the user badge
+          const colors = generateEmailColor(currentUserEmail);
+          
+          return (
+            <Badge 
+              variant="outline" 
+              className="cursor-help"
+              style={{
+                backgroundColor: colors.backgroundColor,
+                color: colors.textColor
+              }}
+            >
+              {termStats.currentUserChecks} by me
+            </Badge>
+          );
+        })()}
       </div>
     </div>
   );
@@ -1267,6 +1388,10 @@ const NPAdjustments = ({ records = [] }) => {
                           companionData.NPAdjustments && 
                           companionData.NPAdjustments.termChecked !== undefined ? 
                           companionData.NPAdjustments.termChecked : false;
+      const checkedBy = companionData && 
+                        companionData.NPAdjustments && 
+                        companionData.NPAdjustments.checkedBy ? 
+                        companionData.NPAdjustments.checkedBy : null;
       
       return {
         ...record,
@@ -1285,7 +1410,8 @@ const NPAdjustments = ({ records = [] }) => {
         isCorrectTerm,
         termChecked,
         isValidForSelect,
-        termMismatch
+        termMismatch,
+        checkedBy
       };
     });
     
@@ -1345,6 +1471,36 @@ const NPAdjustments = ({ records = [] }) => {
     };
   }, [records]);
 
+  // Function to generate a color based on user email
+  const generateEmailColor = (email) => {
+    if (!email) return { backgroundColor: '#f3f4f6', textColor: '#374151' }; // Default gray
+    
+    // Extract the username part (before @)
+    const username = email.split('@')[0].toLowerCase();
+    
+    // Take first 4 characters or the entire username if shorter
+    const colorSeed = username.substring(0, 4); 
+    
+    // Convert characters to numbers and calculate a hue value
+    let hueValue = 0;
+    for (let i = 0; i < colorSeed.length; i++) {
+      hueValue += colorSeed.charCodeAt(i) * (i + 1);
+    }
+    
+    // Create consistent hue (0-360)
+    const hue = hueValue % 360;
+    
+    // Other HSL values for a consistent, readable palette
+    const saturation = 85; // Fairly saturated
+    const lightness = 87;  // Light background for readability
+    const textLightness = 30; // Darker text for contrast
+    
+    return {
+      backgroundColor: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+      textColor: `hsl(${hue}, ${saturation}%, ${textLightness}%)`
+    };
+  };
+
   // Function to update the checked status in Firebase
   const updateTermChecked = async (record, isChecked) => {
     if (!record || !record.id) {
@@ -1356,11 +1512,16 @@ const NPAdjustments = ({ records = [] }) => {
     setUpdatingCheckedFor(record.id);
     
     try {
+      // Get current user email from Firebase Authentication
+      const currentUser = auth.currentUser;
+      const userEmail = currentUser ? currentUser.email : "unknown@user.com";
+      
       // Update the termChecked field in pasiRecordsCompanion/{record.id}/NPAdjustments
       const dbPath = `/pasiRecordsCompanion/${record.id}/NPAdjustments`;
       
       await update(ref(database, dbPath), {
-        termChecked: isChecked
+        termChecked: isChecked,
+        checkedBy: isChecked ? userEmail : null // Store email when checked, remove when unchecked
       });
       
       // Toast removed - no notification when checkbox is toggled
@@ -1759,7 +1920,9 @@ const NPAdjustments = ({ records = [] }) => {
         correctTerm: 0,
         checked: 0,
         unchecked: 0,
-        total: 0
+        total: 0,
+        checksByUser: {},
+        currentUserChecks: 0
       };
     }
     
@@ -1770,6 +1933,27 @@ const NPAdjustments = ({ records = [] }) => {
     const checked = filteredRecords.filter(record => record.termChecked).length;
     const unchecked = filteredRecords.filter(record => !record.termChecked).length;
     
+    // Get the current user's email
+    const currentUser = auth.currentUser;
+    const currentUserEmail = currentUser ? currentUser.email : "";
+    
+    // Count checks by user
+    const checksByUser = {};
+    let currentUserChecks = 0;
+    
+    filteredRecords.forEach(record => {
+      if (record.termChecked && record.checkedBy) {
+        // Increment the count for this user
+        const username = record.checkedBy.split('@')[0];
+        checksByUser[username] = (checksByUser[username] || 0) + 1;
+        
+        // Count checks by the current user
+        if (record.checkedBy === currentUserEmail) {
+          currentUserChecks++;
+        }
+      }
+    });
+    
     return { 
       term1, 
       term2, 
@@ -1777,7 +1961,9 @@ const NPAdjustments = ({ records = [] }) => {
       correctTerm,
       checked,
       unchecked,
-      total: filteredRecords.length
+      total: filteredRecords.length,
+      checksByUser,
+      currentUserChecks
     };
   }, [filteredRecords]);
   
@@ -1828,6 +2014,7 @@ const NPAdjustments = ({ records = [] }) => {
         isFullScreen={isFullScreen}
         toggleFullScreen={toggleFullScreen}
         termStats={termStats}
+        generateEmailColor={generateEmailColor}
       />
 
       {/* Records table */}
@@ -1842,19 +2029,22 @@ const NPAdjustments = ({ records = [] }) => {
             </div>
           ) : (
             <StudentRecordsTable 
-              records={paginatedRecords}
-              currentSort={sortTerm}
-              onSort={handleSort}
-              updatingTermFor={updatingTermFor}
-              updatingCheckedFor={updatingCheckedFor}
-              termMappings={termMappings}
-              updateTerm={updateTerm}
-              updateTermChecked={updateTermChecked}
-              openPasiLink={openPasiLink}
-              openTeacherDashboard={openTeacherDashboard}
-              handleCopyData={handleCopyData}
-              selectedRecordId={selectedRecordId}
-            />
+  records={paginatedRecords}
+  currentSort={sortTerm}
+  onSort={handleSort}
+  updatingTermFor={updatingTermFor}
+  updatingCheckedFor={updatingCheckedFor}
+  termMappings={termMappings}
+  updateTerm={updateTerm}
+  updateTermChecked={updateTermChecked}
+  openPasiLink={openPasiLink}
+  openTeacherDashboard={openTeacherDashboard}
+  handleCopyData={handleCopyData}
+  selectedRecordId={selectedRecordId}
+  generateEmailColor={generateEmailColor}
+  isFullScreen={isFullScreen}
+  termCutoffDate={termCutoffDate}
+/>
           )}
         </CardContent>
       </Card>
@@ -1896,33 +2086,35 @@ const NPAdjustments = ({ records = [] }) => {
               isFullScreen={isFullScreen}
               toggleFullScreen={toggleFullScreen}
               termStats={termStats}
+              generateEmailColor={generateEmailColor}
             />
             
-            {/* Records table for fullscreen mode */}
-            {isLoading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="flex flex-col items-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-                  <p className="text-sm text-muted-foreground">Loading records...</p>
-                </div>
-              </div>
-            ) : (
-              <StudentRecordsTable 
-                records={paginatedRecords}
-                currentSort={sortTerm}
-                onSort={handleSort}
-                updatingTermFor={updatingTermFor}
-                updatingCheckedFor={updatingCheckedFor}
-                termMappings={termMappings}
-                updateTerm={updateTerm}
-                updateTermChecked={updateTermChecked}
-                openPasiLink={openPasiLink}
-                openTeacherDashboard={openTeacherDashboard}
-                handleCopyData={handleCopyData}
-                selectedRecordId={selectedRecordId}
-                isFullScreen={true}
-              />
-            )}
+          {/* Records table for fullscreen mode */}
+{isLoading ? (
+  <div className="flex items-center justify-center h-64">
+    <div className="flex flex-col items-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+      <p className="text-sm text-muted-foreground">Loading records...</p>
+    </div>
+  </div>
+) : (
+  <StudentRecordsTable 
+    records={paginatedRecords}
+    currentSort={sortTerm}
+    onSort={handleSort}
+    updatingTermFor={updatingTermFor}
+    updatingCheckedFor={updatingCheckedFor}
+    termMappings={termMappings}
+    updateTerm={updateTerm}
+    updateTermChecked={updateTermChecked}
+    openPasiLink={openPasiLink}
+    openTeacherDashboard={openTeacherDashboard}
+    handleCopyData={handleCopyData}
+    selectedRecordId={selectedRecordId}
+    generateEmailColor={generateEmailColor} // Add this line
+    isFullScreen={true}
+  />
+)}
             
             {/* Pagination controls for fullscreen mode */}
             <PaginationControls 

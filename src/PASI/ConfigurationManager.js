@@ -26,6 +26,7 @@ import { database } from '../firebase';
 const ConfigurationManager = ({ onConfigChange, onCutoffDateChange }) => {
   // State for configurations
   const [termCutoffDate, setTermCutoffDate] = useState('2025-01-30'); // Default date from the original code
+  const [septemberCutoffDate, setSeptemberCutoffDate] = useState('2024-09-01'); // Default date for September cutoff
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
@@ -52,8 +53,16 @@ const ConfigurationManager = ({ onConfigChange, onCutoffDateChange }) => {
             
             if (onConfigChange) {
               // Notify parent component of initial configuration
-              onConfigChange({ termCutoffDate: configData.termCutoffDate });
+              onConfigChange({ 
+                termCutoffDate: configData.termCutoffDate,
+                septemberCutoffDate: configData.septemberCutoffDate || '2024-09-01'
+              });
             }
+          }
+          
+          // Load September cutoff date if it exists
+          if (configData.septemberCutoffDate) {
+            setSeptemberCutoffDate(configData.septemberCutoffDate);
           }
         } else {
           // Initialize with default date if not yet set
@@ -62,7 +71,10 @@ const ConfigurationManager = ({ onConfigChange, onCutoffDateChange }) => {
           }
           
           if (onConfigChange) {
-            onConfigChange({ termCutoffDate });
+            onConfigChange({ 
+              termCutoffDate,
+              septemberCutoffDate 
+            });
           }
         }
       } catch (error) {
@@ -89,15 +101,19 @@ const ConfigurationManager = ({ onConfigChange, onCutoffDateChange }) => {
         await set(configRef, { initialized: true });
       }
       
-      // Save the term cutoff date and any other configurations
+      // Save both cutoff dates and any other configurations
       await update(ref(database, CONFIG_PATH), {
         termCutoffDate,
+        septemberCutoffDate,
         lastUpdated: new Date().toISOString()
       });
       
       // Notify parent of the change
       if (onConfigChange) {
-        onConfigChange({ termCutoffDate });
+        onConfigChange({ 
+          termCutoffDate,
+          septemberCutoffDate
+        });
       }
       
       // Also notify through the specific cutoff date handler if available
@@ -118,6 +134,12 @@ const ConfigurationManager = ({ onConfigChange, onCutoffDateChange }) => {
   const handleCutoffDateChange = (e) => {
     const newDate = e.target.value;
     setTermCutoffDate(newDate);
+  };
+
+  // Handle September cutoff date change
+  const handleSeptemberCutoffDateChange = (e) => {
+    const newDate = e.target.value;
+    setSeptemberCutoffDate(newDate);
   };
 
   // Format a date for display
@@ -192,6 +214,50 @@ const ConfigurationManager = ({ onConfigChange, onCutoffDateChange }) => {
                     <div>
                       <p>Students who have completed courses <strong>before</strong> {formatDateForDisplay(termCutoffDate)} will be classified as Term 1 students.</p>
                       <p>Students who complete courses <strong>on or after</strong> {formatDateForDisplay(termCutoffDate)} will be classified as Term 2 students.</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* September cutoff configuration */}
+                <div className="space-y-2 mt-4">
+                  <Label htmlFor="september-cutoff-date">
+                    September Cutoff Date
+                  </Label>
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <Input
+                        id="september-cutoff-date"
+                        type="date"
+                        value={septemberCutoffDate}
+                        onChange={handleSeptemberCutoffDateChange}
+                        className="w-full pr-10"
+                        disabled={loading}
+                      />
+                      <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                    </div>
+                    <Button
+                      onClick={saveConfiguration}
+                      disabled={saving || loading}
+                      className="min-w-[100px]"
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Save
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="flex items-start gap-2 mt-2 text-sm text-muted-foreground">
+                    <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p>The September Cutoff Date is used to determine the start of the new school year.</p>
+                      <p>This date is typically set to September 1st of the current school year.</p>
                     </div>
                   </div>
                 </div>
