@@ -1928,6 +1928,40 @@ const handleConfirmUpload = async (additionalData = {}) => {
       updates[`pasiRecords/${record.id}`] = null;
     });
 
+    // Process records to add
+    changePreview.recordsToAdd.forEach(record => {
+      updates[`pasiRecords/${record.id}`] = record;
+      
+      // Check if the value field contains a numeric grade
+      // Store it in the companion path for future reference
+      if (record.value && record.value !== '-' && !isNaN(record.value)) {
+        console.log(`Storing original grade ${record.value} for record ${record.id}`);
+        updates[`pasiRecordsCompanion/${record.id}/originalGrade`] = record.value;
+      }
+    });
+    
+    // Process records to update
+    changePreview.recordsToUpdate.forEach(updateObj => {
+      const { old: existingRecord, new: newRecord } = updateObj;
+      
+      // Get updated fields excluding the grade if it's being removed or set to '-'
+      const updatedFields = getUpdatedFields(existingRecord, newRecord);
+      
+      // Prepare update for the main record
+      updates[`pasiRecords/${existingRecord.id}`] = {
+        ...existingRecord,
+        ...updatedFields
+      };
+      
+      // Handle the grade specifically
+      // If the new record has a valid numeric grade, update the companion record
+      if (newRecord.value && newRecord.value !== '-' && !isNaN(newRecord.value)) {
+        console.log(`Updating original grade to ${newRecord.value} for record ${existingRecord.id}`);
+        updates[`pasiRecordsCompanion/${existingRecord.id}/originalGrade`] = newRecord.value;
+      }
+      // If the new record has no grade or a placeholder but there was a grade before, we'll leave the companion record as is
+      // This ensures we preserve valid grades even when they're removed in subsequent uploads
+    });
   
     // Update the database with the prepared updates
     if (Object.keys(updates).length > 0) {
