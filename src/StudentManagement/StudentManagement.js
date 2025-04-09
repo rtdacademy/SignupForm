@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getDatabase, ref, onChildAdded, onChildChanged, onChildRemoved, onValue, get } from 'firebase/database';
+import { getDatabase, ref, onValue, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
+import { useSchoolYear } from '../context/SchoolYearContext';
 import FilterPanel from './FilterPanel';
 import StudentList from './StudentList';
 import StudentDetail from './StudentDetail';
@@ -9,10 +10,8 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { toast, Toaster } from "sonner";
-import { getSchoolYearOptions } from '../config/DropdownOptions';
-import SchoolYearSelector from './SchoolYearSelector';
-import { query, orderByChild, equalTo } from 'firebase/database';
+import { toast } from "sonner";
+//import SchoolYearSelector from './SchoolYearSelector';
 
 function StudentManagement({ 
   isFullScreen, 
@@ -24,6 +23,14 @@ function StudentManagement({
   onFilterChange: propOnFilterChange 
 }) {
   console.log('StudentManagement component rendered');
+
+  // Use the school year context for both year and student summaries
+  const { 
+    currentSchoolYear, 
+    setCurrentSchoolYear, 
+    studentSummaries,
+    isLoadingStudents 
+  } = useSchoolYear();
 
   // Define available filters explicitly
   const filtersList = useMemo(
@@ -49,7 +56,9 @@ function StudentManagement({
     return initial;
   }, [filtersList]);
 
-  const [studentSummaries, setStudentSummaries] = useState([]);
+  // No longer need student summaries state as it comes from context
+  // const [studentSummaries, setStudentSummaries] = useState([]);
+  
   // Maintain local state but use props if provided
   const [localFilters, setLocalFilters] = useState(initialFilters);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -71,10 +80,6 @@ function StudentManagement({
   const handleRefreshStudent = useCallback(() => {
     setDetailRefreshKey(prev => prev + 1);
   }, []);
-
-  const [selectedSchoolYear, setSelectedSchoolYear] = useState(
-    getSchoolYearOptions().find(option => option.isDefault)?.value
-  );
 
   // Use props if provided, otherwise use local state
   const filters = propFilters !== undefined ? propFilters : localFilters;
@@ -150,65 +155,12 @@ function StudentManagement({
     return () => unsubscribe();
   }, []);
 
-  // Fetch student summaries from Firebase
-  useEffect(() => {
-    console.log('Setting up Firebase listeners for school year:', selectedSchoolYear);
-    
-    const db = getDatabase();
-    const studentSummariesRef = ref(db, 'studentCourseSummaries');
-    
-    // Create a query filtered by school year
-    const yearQuery = query(
-      studentSummariesRef,
-      orderByChild('School_x0020_Year_Value'),
-      equalTo(selectedSchoolYear)
-    );
-  
-    const handleChildAdded = (snapshot) => {
-      const key = snapshot.key;
-      const data = snapshot.val();
-      const student = { ...data, id: key };
-      
-      setStudentSummaries((prevSummaries) => [...prevSummaries, student]);
-    };
-  
-    const handleChildChanged = (snapshot) => {
-      const key = snapshot.key;
-      const data = snapshot.val();
-      const updatedStudent = { ...data, id: key };
-  
-      setStudentSummaries((prevSummaries) =>
-        prevSummaries.map((student) => 
-          student.id === key ? updatedStudent : student
-        )
-      );
-    };
-  
-    const handleChildRemoved = (snapshot) => {
-      const key = snapshot.key;
-      setStudentSummaries((prevSummaries) =>
-        prevSummaries.filter((student) => student.id !== key)
-      );
-    };
-  
-    // Clear existing data when changing school year
-    setStudentSummaries([]);
-  
-    // Attach the listeners to the filtered query
-    const unsubscribeChildAdded = onChildAdded(yearQuery, handleChildAdded);
-    const unsubscribeChildChanged = onChildChanged(yearQuery, handleChildChanged);
-    const unsubscribeChildRemoved = onChildRemoved(yearQuery, handleChildRemoved);
-  
-    return () => {
-      unsubscribeChildAdded();
-      unsubscribeChildChanged();
-      unsubscribeChildRemoved();
-    };
-  }, [selectedSchoolYear]); 
+  // Removed Firebase student summaries effect as it's now in the context
 
+  // Updated to use context
   const handleSchoolYearChange = useCallback((year) => {
-    setSelectedSchoolYear(year);
-  }, []);
+    setCurrentSchoolYear(year);
+  }, [setCurrentSchoolYear]);
 
   // Fetch teacher categories and names
   useEffect(() => {
@@ -312,6 +264,16 @@ function StudentManagement({
 
   // Render student list
   const renderStudentList = useCallback(() => {
+    if (isLoadingStudents) {
+      return (
+        <Card className="h-full bg-white shadow-md">
+          <CardContent className="h-full p-2 overflow-hidden flex items-center justify-center">
+            <div className="text-gray-500">Loading students...</div>
+          </CardContent>
+        </Card>
+      );
+    }
+    
     return (
       <Card className="h-full bg-white shadow-md">
         <CardContent className="h-full p-2 overflow-hidden">
@@ -341,11 +303,13 @@ function StudentManagement({
     selectedStudent?.id,
     isMobile,
     teacherCategories,
+    categoryTypes,
     user_email_key,
     handleSelectedStudentsChange,
     selectedStudents,
     handleCourseRemoved,
-    studentAsns
+    studentAsns,
+    isLoadingStudents
   ]);
 
   // Render student detail
@@ -374,12 +338,7 @@ function StudentManagement({
       {(!isMobile || !showStudentDetail) && (
         <div className="flex-shrink-0 space-y-2 mb-4 relative z-50">
           <div className="flex items-center space-x-4">
-            <div className="flex-shrink-0"> 
-              <SchoolYearSelector
-                selectedYear={selectedSchoolYear}
-                onYearChange={handleSchoolYearChange}
-              />
-            </div>
+         
             <div className="flex-1">
               <FilterPanel
                 filters={filters}

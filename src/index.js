@@ -7,6 +7,7 @@ import { ModeProvider } from './context/ModeContext';
 import { UserPreferencesProvider } from './context/UserPreferencesContext';
 import { TutorialProvider } from './context/TutorialContext';
 import { CourseProvider } from './context/CourseContext'; 
+import { SchoolYearProvider } from './context/SchoolYearContext'; 
 import App from "./App";
 import { Toaster } from 'sonner'; 
 import './index.css';
@@ -23,8 +24,10 @@ root.render(
             <ModeProvider>
             <TutorialProvider> 
             <CourseProvider> 
+            <SchoolYearProvider>
                   <App isSecondSite={isSecondSite} />
-                  <Toaster position="top-right" />  {/* Render Toaster here */}
+                  <Toaster position="top-right" />  
+                  </SchoolYearProvider>
                 </CourseProvider> 
               </TutorialProvider> 
             </ModeProvider>

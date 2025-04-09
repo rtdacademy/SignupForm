@@ -5,7 +5,7 @@ import { Input } from "../components/ui/input";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { useMode, MODES } from '../context/ModeContext';
 import { useUserPreferences } from '../context/UserPreferencesContext';
-import { getSchoolYearOptions, TERM_OPTIONS, getTermInfo } from '../config/DropdownOptions';
+//import { getSchoolYearOptions, TERM_OPTIONS, getTermInfo } from '../config/DropdownOptions';
 import {
   ChevronDown, X, Maximize, Minimize, Search,
   Star, Flag, Bookmark, Circle, Square, Triangle, BookOpen as BookOpenIcon, 

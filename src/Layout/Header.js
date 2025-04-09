@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FaSignOutAlt, FaArrowLeft, FaUserCircle } from 'react-icons/fa';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, ChevronDown } from 'lucide-react';
+import { useSchoolYear } from '../context/SchoolYearContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "../components/ui/dropdown-menu";
 
 const RTDLogo = () => (
   <svg 
@@ -32,6 +39,19 @@ function Header({
   hasIncompleteProfile
 }) {
   const navigate = useNavigate();
+  const { currentSchoolYear, setCurrentSchoolYear, schoolYearOptions } = useSchoolYear();
+
+  // Get the currently selected option or default to the first option
+  const selectedOption = schoolYearOptions.find(opt => opt.value === currentSchoolYear) || 
+                          schoolYearOptions.find(opt => opt.isDefault) || 
+                          schoolYearOptions[0];
+
+  // Ensure we have a valid selection on initial render
+  useEffect(() => {
+    if (currentSchoolYear !== selectedOption?.value && selectedOption) {
+      setCurrentSchoolYear(selectedOption.value);
+    }
+  }, [currentSchoolYear, selectedOption, setCurrentSchoolYear]);
 
   const getUserDisplayName = () => {
     if (profile) {
@@ -76,6 +96,42 @@ function Header({
                 </div>
               </div>
             </div>
+            
+            {/* School Year Selector - Only for staff */}
+            {isStaffUser && selectedOption && (
+              <div className="ml-6">
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="px-3 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600 text-sm flex items-center gap-2">
+                    <span>School Year: </span>
+                    <span 
+                      className="font-medium"
+                      style={{ 
+                        color: selectedOption.color || 'inherit'
+                      }}
+                    >
+                      {selectedOption.value}
+                    </span>
+                    <ChevronDown className="h-4 w-4" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {schoolYearOptions.map(option => (
+                      <DropdownMenuItem 
+                        key={option.value}
+                        onClick={() => setCurrentSchoolYear(option.value)}
+                        className={currentSchoolYear === option.value ? "bg-blue-50" : ""}
+                      >
+                        <span style={{ color: option.color }}>
+                          {option.value}
+                        </span>
+                        {option.isDefault && (
+                          <span className="ml-2 text-xs text-gray-500">(Current)</span>
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           </div>
 
           {/* Right section */}

@@ -18,16 +18,16 @@ import {
   ArrowUp, 
   ArrowDown, 
   Copy, 
-  ExternalLink, 
   CheckCircle, 
   Loader2,
   Info,
   AlertTriangle,
   Maximize2,
   Minimize2,
-  Calendar,
   Filter,
-  ClipboardCheck
+  ClipboardCheck,
+  History, 
+  Edit,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -331,7 +331,8 @@ const StudentRecordsTable = ({
   generateEmailColor, 
   isFullScreen = false,
   termCutoffDate,
-  septemberCutoffDate
+  septemberCutoffDate,
+  pasiRecordsCompanion 
 }) => {
   // Function to render the YourWay term dropdown
   const renderYourWayTerm = (record) => {
@@ -576,6 +577,12 @@ const StudentRecordsTable = ({
     if (!content || content === 'N/A') return;
     handleCopyData(content, label);
   };
+
+  // Helper function to check if a value is a valid number
+const isValidNumber = (value) => {
+  if (value === null || value === undefined) return false;
+  return !isNaN(parseFloat(value)) && isFinite(value);
+};
 
   return (
     <div 
@@ -896,12 +903,88 @@ const StudentRecordsTable = ({
                     })()}
                   </TableCell>
                   <TableCell 
-                    onClick={() => handleCellClick(record.value, "Grade")}
-                  >
-                    <span title={`Grade: ${isValidGradeValue(record.value) ? record.value : 'N/A'}`}>
-                      {isValidGradeValue(record.value) ? record.value : 'N/A'}
-                    </span>
-                  </TableCell>
+  className="p-1" 
+  style={{ width: "60px !important" }}
+>
+  <div className="flex flex-col gap-1">
+    {(() => {
+      // Get the original grade if it exists
+      const originalGrade = record.id && 
+                            pasiRecordsCompanion[record.id] && 
+                            pasiRecordsCompanion[record.id].originalGrade;
+      
+      // Check if both values exist and are numbers
+      const bothAreNumbers = isValidGradeValue(record.value) && 
+                            originalGrade && 
+                            isValidNumber(record.value) && 
+                            isValidNumber(originalGrade);
+      
+      // If both are numbers, check if they're the same
+      const numbersAreEqual = bothAreNumbers && 
+                             parseFloat(record.value) === parseFloat(originalGrade);
+      
+      // Show current grade if it exists
+      if (isValidGradeValue(record.value)) {
+        return (
+          <div 
+            className="flex items-center gap-1 cursor-pointer" 
+            onClick={() => handleCellClick(record.value, "Current Grade")}
+            title={`Current Grade: ${record.value}`}
+          >
+            <Edit className="h-3 w-3 text-blue-500" />
+            <span className="font-medium">{record.value}</span>
+          </div>
+        );
+      }
+      
+      return null;
+    })()}
+    
+    {/* Original grade with history icon, only shown if it exists AND differs from current grade */}
+    {(() => {
+      const originalGrade = record.id && 
+                            pasiRecordsCompanion[record.id] && 
+                            pasiRecordsCompanion[record.id].originalGrade;
+      
+      // Only show original grade if it exists and either:
+      // 1. Current grade doesn't exist, or
+      // 2. They are different values, or
+      // 3. They are not both valid numbers (can't directly compare)
+      if (originalGrade && 
+          (!isValidGradeValue(record.value) || 
+           record.value !== originalGrade)) {
+        
+        // For numeric values, only show if they're different when parsed as numbers
+        if (isValidNumber(record.value) && isValidNumber(originalGrade)) {
+          if (parseFloat(record.value) === parseFloat(originalGrade)) {
+            return null; // Don't show if numeric values are equal
+          }
+        }
+        
+        return (
+          <div 
+            className="flex items-center gap-1 cursor-pointer text-gray-600" 
+            onClick={() => handleCopyData(originalGrade, "Original Grade")}
+            title={`Original Grade: ${originalGrade}`}
+          >
+            <History className="h-3 w-3 text-amber-500" />
+            <span className="text-gray-600">{originalGrade}</span>
+          </div>
+        );
+      }
+      
+      return null;
+    })()}
+    
+    {/* Display N/A if no valid grades are available */}
+    {!isValidGradeValue(record.value) && 
+     !(record.id && 
+       pasiRecordsCompanion[record.id] && 
+       pasiRecordsCompanion[record.id].originalGrade) && (
+      <span className="text-gray-400">N/A</span>
+    )}
+  </div>
+</TableCell>
                   <TableCell 
                     className="p-1 truncate cursor-pointer" 
                     style={{ width: "75px" }}
@@ -2186,6 +2269,7 @@ const NPAdjustments = ({ records = [] }) => {
               isFullScreen={isFullScreen}
               termCutoffDate={termCutoffDate}
               septemberCutoffDate={septemberCutoffDate}
+              pasiRecordsCompanion={pasiRecordsCompanion} 
             />
           )}
         </CardContent>
