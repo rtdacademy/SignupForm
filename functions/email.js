@@ -88,7 +88,7 @@ const sendBulkEmailsV2 = onCall({
   }
 
   const senderName = data.auth.token.name || senderEmail;
-  const timestamp = admin.database.ServerValue.TIMESTAMP;
+  const timestamp = Date.now();
   const db = admin.database();
   const senderKey = sanitizeEmail(senderEmail);
 
@@ -466,8 +466,8 @@ const sendBulkEmailsV2 = onCall({
         success: true,
         batchId,
         timestamp,
-        totalSuccessful,
-        totalFailed,
+        successfulCount: totalSuccessful,
+        failedCount: totalFailed,
         invalidEmails: invalidEmails.length > 0 ? invalidEmails : undefined
       };
     }

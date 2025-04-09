@@ -351,6 +351,8 @@ const [preparedRecipients, setPreparedRecipients] = useState(null);
       });
   
       const result = await sendBulkEmails({ recipients: formattedRecipients });
+
+      console.log('API response:', result.data); // For debugging
   
       if (result.data.success) {
         // Handle successful sends

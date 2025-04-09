@@ -330,7 +330,8 @@ const StudentRecordsTable = ({
   selectedRecordId,
   generateEmailColor, 
   isFullScreen = false,
-  termCutoffDate
+  termCutoffDate,
+  septemberCutoffDate
 }) => {
   // Function to render the YourWay term dropdown
   const renderYourWayTerm = (record) => {
@@ -547,22 +548,22 @@ const StudentRecordsTable = ({
     
     // Convert to date object for comparison with cutoff date
     const dateObj = new Date(scheduleStartDate);
-    const cutoffDateObj = new Date(termCutoffDate);
+    const septCutoffDate = new Date(septemberCutoffDate);
     
-    // Determine the color based on whether the date is before or after cutoff
-    const isTerm1Date = dateObj < cutoffDateObj;
+    // Determine the color based on whether the date is before or after September cutoff
+    const isBeforeSeptCutoff = dateObj < septCutoffDate;
     
-    // Style for the badge
+    // Style for the badge - using more distinct colors
     const badgeStyle = {
-      backgroundColor: isTerm1Date ? '#e0f2fe' : '#f0fdf4', // blue-50 for term 1, green-50 for term 2
-      color: isTerm1Date ? '#0369a1' : '#15803d' // blue-700 for term 1, green-700 for term 2
+      backgroundColor: isBeforeSeptCutoff ? '#dbeafe' : '#dcfce7', // blue-100 for before Sept, green-100 for after Sept
+      color: isBeforeSeptCutoff ? '#1e40af' : '#166534' // blue-800 for before Sept, green-800 for after Sept
     };
     
     return (
       <div 
         className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
         style={badgeStyle}
-        title={`Schedule Start Date: ${scheduleStartDate} (${isTerm1Date ? 'Term 1' : 'Term 2'})`}
+        title={`Schedule Start Date: ${scheduleStartDate} (${isBeforeSeptCutoff ? 'Before' : 'After'} September Cutoff)`}
       >
         {formatUserFriendlyDate(scheduleStartDate)}
       </div>
@@ -707,6 +708,10 @@ const StudentRecordsTable = ({
                   className={
                     isSelected
                       ? "bg-blue-50 hover:bg-blue-100"
+                      : record.checkedBy // Check if record has been manually verified by a user
+                        ? record.termChecked
+                          ? "bg-green-200 hover:bg-green-300" // Darker green for checked rows with override
+                          : "bg-green-100 hover:bg-green-200" // Light green for rows with override
                       : needsTermUpdate
                         ? "bg-yellow-100 hover:bg-yellow-200"
                         : record.isCorrectTerm
@@ -790,37 +795,107 @@ const StudentRecordsTable = ({
                     style={{ width: "75px" }}
                     onClick={() => handleCellClick(record.startDateFormatted, "Registered Date")}
                   >
-                    <span 
-                      className={missingDate ? "text-amber-700 font-medium" : "text-purple-700"}
-                      title={record.startDateFormatted}
-                      data-original-format={record.startDateFormatted}
-                    >
-                      {record.startDateFormatted !== 'N/A' ? formatUserFriendlyDate(record.startDateFormatted) : 'N/A'}
-                    </span>
+                    {(() => {
+                      // Check if date is valid
+                      if (!record.startDateFormatted || record.startDateFormatted === 'N/A') {
+                        return <span className="text-gray-400">N/A</span>;
+                      }
+                      
+                      // Convert to date object for comparison with cutoff date
+                      const dateObj = new Date(record.startDateFormatted);
+                      const septCutoffDate = new Date(septemberCutoffDate);
+                      
+                      // Determine if date is before September cutoff
+                      const isBeforeSeptCutoff = dateObj < septCutoffDate;
+                      
+                      // More distinct colors for the badge
+                      const badgeStyle = {
+                        backgroundColor: isBeforeSeptCutoff ? '#dbeafe' : '#fef3c7', // blue-100 for before Sept, amber-100 for after Sept
+                        color: isBeforeSeptCutoff ? '#1e40af' : '#92400e' // blue-800 for before Sept, amber-800 for after Sept
+                      };
+                      
+                      return (
+                        <div 
+                          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                          style={badgeStyle}
+                          title={`Registration Date: ${record.startDateFormatted} (${isBeforeSeptCutoff ? 'Before' : 'After'} September Cutoff)`}
+                        >
+                          {formatUserFriendlyDate(record.startDateFormatted)}
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell 
                     className="p-1 truncate cursor-pointer" 
                     style={{ width: "75px" }}
                     onClick={() => handleCellClick(record.exitDateFormatted, "Exit Date")}
                   >
-                    <span 
-                      className="text-red-700"
-                      title={record.exitDateFormatted}
-                      data-original-format={record.exitDateFormatted}
-                    >
-                      {record.exitDateFormatted !== 'N/A' ? formatUserFriendlyDate(record.exitDateFormatted) : 'N/A'}
-                    </span>
+                    {(() => {
+                      // Check if date is valid
+                      if (!record.exitDateFormatted || record.exitDateFormatted === 'N/A') {
+                        return <span className="text-gray-400">N/A</span>;
+                      }
+                      
+                      // Convert to date object for comparison with cutoff date
+                      const dateObj = new Date(record.exitDateFormatted);
+                      const termCutoffDateObj = new Date(termCutoffDate);
+                      
+                      // Determine if date is before term cutoff
+                      const isBeforeTermCutoff = dateObj < termCutoffDateObj;
+                      
+                      // Style for the badge - distinct colors for exit date
+                      const badgeStyle = {
+                        backgroundColor: isBeforeTermCutoff ? '#fee2e2' : '#dcfce7', // red-100 for before cutoff, green-100 for after cutoff
+                        color: isBeforeTermCutoff ? '#b91c1c' : '#166534' // red-800 for before cutoff, green-800 for after cutoff
+                      };
+                      
+                      return (
+                        <div 
+                          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                          style={badgeStyle}
+                          title={`Exit Date: ${record.exitDateFormatted} (${isBeforeTermCutoff ? 'Before' : 'After'} Term Cutoff)`}
+                        >
+                          {formatUserFriendlyDate(record.exitDateFormatted)}
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell 
                     className="p-1 truncate cursor-pointer" 
                     style={{ width: "75px" }}
                     onClick={() => handleCellClick(record.scheduleStartDateFormatted, "Schedule Start Date")}
                   >
-                    {renderScheduleStartDate(record)}
+                    {(() => {
+                      // Check if date is valid
+                      if (!record.scheduleStartDateFormatted || record.scheduleStartDateFormatted === 'N/A') {
+                        return <span className="text-gray-400">N/A</span>;
+                      }
+                      
+                      // Convert to date object for comparison with cutoff date
+                      const dateObj = new Date(record.scheduleStartDateFormatted);
+                      const septCutoffDate = new Date(septemberCutoffDate);
+                      
+                      // Determine the color based on whether the date is before or after September cutoff
+                      const isBeforeSeptCutoff = dateObj < septCutoffDate;
+                      
+                      // Style for the badge - more distinct colors for schedule date
+                      const badgeStyle = {
+                        backgroundColor: isBeforeSeptCutoff ? '#e9d5ff' : '#fef9c3', // purple-100 for before Sept, yellow-100 for after Sept
+                        color: isBeforeSeptCutoff ? '#7e22ce' : '#854d0e' // purple-800 for before Sept, yellow-800 for after Sept
+                      };
+                      
+                      return (
+                        <div 
+                          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                          style={badgeStyle}
+                          title={`Schedule Start Date: ${record.scheduleStartDateFormatted} (${isBeforeSeptCutoff ? 'Before' : 'After'} September Cutoff)`}
+                        >
+                          {formatUserFriendlyDate(record.scheduleStartDateFormatted)}
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell 
-                    className="p-1 text-center cursor-pointer" 
-                    style={{ width: "40px" }}
                     onClick={() => handleCellClick(record.value, "Grade")}
                   >
                     <span title={`Grade: ${isValidGradeValue(record.value) ? record.value : 'N/A'}`}>
@@ -1300,6 +1375,9 @@ const NPAdjustments = ({ records = [] }) => {
   // State for term cutoff date from configuration
   const [termCutoffDate, setTermCutoffDate] = useState('2025-01-30'); // Default date
   
+  // State for September cutoff date from configuration
+  const [septemberCutoffDate, setSeptemberCutoffDate] = useState('2024-09-01'); // Default date
+  
   // State for filtering by course code
   const [courseCodeFilter, setCourseCodeFilter] = useState('all');
   
@@ -1341,15 +1419,71 @@ const NPAdjustments = ({ records = [] }) => {
       
       // Check if this is a valid course
       const isValidCourse = COURSE_OPTIONS.some(opt => opt.pasiCode === record.courseCode);
-
-      // Determine if this is a Term 1 student using the configured cutoff date
-      const isTerm1 = isTerm1Student(record, termCutoffDate);
       
-      // Determine suggested term
-      const suggestedTerm = isTerm1 ? 'Term 1' : 'Term 2';
-
-      // Add isValidForSelect property to determine if dropdown should be shown
+      // Check if this record would get a dropdown
       const isValidForSelect = COURSE_OPTIONS.some(opt => opt.pasiCode === record.courseCode) && record.statusValue;
+
+      // NEW LOGIC: Determine suggested term based on both cutoff dates
+      let suggestedTerm = 'Term 2'; // Default to Term 2
+
+      try {
+        // Parse the start date from startDateInfo or scheduleStartDate
+        const startDate = startDateInfo.value ? 
+          new Date(startDateInfo.value) : 
+          (record.scheduleStartDate && record.scheduleStartDate !== '-' ? 
+            new Date(record.scheduleStartDate) : null);
+            
+        // Parse the exit date (using exitDate field)
+        const exitDate = record.exitDate && record.exitDate !== '-' ? 
+          new Date(record.exitDate) : null;
+
+        // Special logic for records without dropdown
+        if (!isValidForSelect) {
+          if (exitDate && !isNaN(exitDate.getTime())) {
+            const septCutoffDateObj = new Date(septemberCutoffDate);
+            // If exit date is after September cutoff, set to Term 2
+            suggestedTerm = exitDate >= septCutoffDateObj ? 'Term 2' : 'Term 1';
+          } else {
+            // If no valid exit date, default to Term 2
+            suggestedTerm = 'Term 2';
+          }
+        }
+        // Regular logic for records with dropdown
+        else if (startDate && !isNaN(startDate.getTime())) {
+          // Parse the cutoff dates
+          const septCutoffDate = new Date(septemberCutoffDate);
+          const termCutoffDateObj = new Date(termCutoffDate);
+
+          // Rule 1: If before September cutoff, always Term 1
+          if (startDate < septCutoffDate) {
+            suggestedTerm = 'Term 1';
+          }
+          // Rule 2: If after September cutoff, check exit date against term cutoff
+          else if (startDate >= septCutoffDate) {
+            // If exit date exists and is on or after term cutoff date, it's Term 2
+            if (exitDate && !isNaN(exitDate.getTime()) && exitDate >= termCutoffDateObj) {
+              suggestedTerm = 'Term 2';
+            }
+            // If exit date exists and is before term cutoff, it's Term 1
+            else if (exitDate && !isNaN(exitDate.getTime()) && exitDate < termCutoffDateObj) {
+              suggestedTerm = 'Term 1';
+            }
+            // If no valid exit date or other cases, use start date for comparison
+            else if (startDate >= termCutoffDateObj) {
+              suggestedTerm = 'Term 2';
+            } else {
+              suggestedTerm = 'Term 1';
+            }
+          }
+        } else {
+          // Fallback to the old logic for students without start date
+          suggestedTerm = isTerm1Student(record, termCutoffDate) ? 'Term 1' : 'Term 2';
+        }
+      } catch (error) {
+        console.error("Error determining suggested term:", error);
+        // Fallback to the old logic
+        suggestedTerm = isTerm1Student(record, termCutoffDate) ? 'Term 1' : 'Term 2';
+      }
       
       // Add termMismatch property to check for mismatch between YW term and suggested term
       const termMismatch = isValidForSelect && record.yourWayTerm && suggestedTerm && 
@@ -1405,7 +1539,7 @@ const NPAdjustments = ({ records = [] }) => {
         exitDateFormatted: exitDateFormatted,
         hasValidYourWayTerm,
         isTermCompatible,
-        isTerm1Student: isTerm1,
+        isTerm1Student: suggestedTerm === 'Term 1', // Update this to use the new determination
         suggestedTerm,
         isCorrectTerm,
         termChecked,
@@ -1416,7 +1550,7 @@ const NPAdjustments = ({ records = [] }) => {
     });
     
     return enriched;
-  }, [records, termMappings, termCutoffDate, pasiRecordsCompanion]);
+  }, [records, termMappings, termCutoffDate, pasiRecordsCompanion, septemberCutoffDate]);
 
   // Handler for when mappings change in the TermMappingManager
   const handleMappingsChange = useCallback((newMappings) => {
@@ -1987,7 +2121,14 @@ const NPAdjustments = ({ records = [] }) => {
         
         {/* Configuration Manager component */}
         <div className="bg-gray-100 border border-gray-300 rounded-lg">
-          <ConfigurationManager onCutoffDateChange={setTermCutoffDate} />
+          <ConfigurationManager 
+            onCutoffDateChange={setTermCutoffDate} 
+            onConfigChange={config => {
+              if (config.septemberCutoffDate) {
+                setSeptemberCutoffDate(config.septemberCutoffDate);
+              }
+            }}
+          />
         </div>
       </div>
       
@@ -2029,22 +2170,23 @@ const NPAdjustments = ({ records = [] }) => {
             </div>
           ) : (
             <StudentRecordsTable 
-  records={paginatedRecords}
-  currentSort={sortTerm}
-  onSort={handleSort}
-  updatingTermFor={updatingTermFor}
-  updatingCheckedFor={updatingCheckedFor}
-  termMappings={termMappings}
-  updateTerm={updateTerm}
-  updateTermChecked={updateTermChecked}
-  openPasiLink={openPasiLink}
-  openTeacherDashboard={openTeacherDashboard}
-  handleCopyData={handleCopyData}
-  selectedRecordId={selectedRecordId}
-  generateEmailColor={generateEmailColor}
-  isFullScreen={isFullScreen}
-  termCutoffDate={termCutoffDate}
-/>
+              records={paginatedRecords}
+              currentSort={sortTerm}
+              onSort={handleSort}
+              updatingTermFor={updatingTermFor}
+              updatingCheckedFor={updatingCheckedFor}
+              termMappings={termMappings}
+              updateTerm={updateTerm}
+              updateTermChecked={updateTermChecked}
+              openPasiLink={openPasiLink}
+              openTeacherDashboard={openTeacherDashboard}
+              handleCopyData={handleCopyData}
+              selectedRecordId={selectedRecordId}
+              generateEmailColor={generateEmailColor}
+              isFullScreen={isFullScreen}
+              termCutoffDate={termCutoffDate}
+              septemberCutoffDate={septemberCutoffDate}
+            />
           )}
         </CardContent>
       </Card>
@@ -2113,6 +2255,8 @@ const NPAdjustments = ({ records = [] }) => {
     selectedRecordId={selectedRecordId}
     generateEmailColor={generateEmailColor} // Add this line
     isFullScreen={true}
+    termCutoffDate={termCutoffDate}
+    septemberCutoffDate={septemberCutoffDate}
   />
 )}
             

@@ -1659,9 +1659,18 @@ useEffect(() => {
   
           const expectedSchoolYear = formatSchoolYear(selectedSchoolYear);
           const processedRecords = [];
+          let skippedRecords = 0;
   
           for (let i = 0; i < results.data.length; i++) {
             const row = results.data[i];
+            
+            // Skip records with status 'Continuing' only
+            const status = row['Status']?.trim() || 'Active';
+            if (status === 'Continuing') {
+              skippedRecords++;
+              continue; // Skip this record
+            }
+            
             const extractedYear = extractSchoolYear(row['School Enrolment']);
             if (!extractedYear) {
               toast.error(`Invalid School Enrolment format in row ${i + 2}`);
@@ -1686,8 +1695,7 @@ useEffect(() => {
             const uniqueId = `${asn}_${courseCode.toLowerCase()}_${schoolYear}_${period.toLowerCase()}`;
             const existingRecord = pasiRecords.find(record => record.id === uniqueId);
             const oldLinkValue = existingRecord?.linked === true; 
-
-            
+  
             processedRecords.push({
               asn,
               email,
@@ -1695,7 +1703,7 @@ useEffect(() => {
               studentName: row['Student Name']?.trim() || '',
               courseCode,
               courseDescription: row[' Description']?.trim() || '',
-              status: row['Status']?.trim() || 'Active',
+              status,
               period,
               schoolYear,
               value: row['Value']?.trim() || '-',
@@ -1718,6 +1726,11 @@ useEffect(() => {
               linked: oldLinkValue,
               id: uniqueId
             });
+          }
+          
+          // Show toast about skipped records if any
+          if (skippedRecords > 0) {
+            toast.info(`Skipped ${skippedRecords} record(s) with status 'Continuing'`);
           }
           
           // Create the differential change analysis
