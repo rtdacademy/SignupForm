@@ -1715,6 +1715,7 @@ useEffect(() => {
               exitDate: row['Exit Date']?.trim() || '-',
               fundingRequested: row['Funding Requested']?.trim() || 'No',
               term: row['Term']?.trim() || 'Full Year',
+              referenceNumber: row['Reference #']?.trim() || '',
               lastUpdated: new Date().toLocaleString('en-US', {
                 year: 'numeric',
                 month: '2-digit',
@@ -1920,12 +1921,28 @@ const handleConfirmUpload = async (additionalData = {}) => {
       }
     }
 
+    // Fetch current companion data to check existing values
+    let currentCompanionData = {};
+    try {
+      const companionRef = ref(db, 'pasiRecordsCompanion');
+      const companionSnapshot = await get(companionRef);
+      if (companionSnapshot.exists()) {
+        currentCompanionData = companionSnapshot.val();
+      }
+    } catch (error) {
+      console.warn("Error fetching companion data:", error);
+      // Continue with empty companion data
+    }
+
     // Now prepare database updates with the correct linked status
     const updates = {};
 
     // Process records to delete
     changePreview.recordsToDelete.forEach(record => {
       updates[`pasiRecords/${record.id}`] = null;
+      
+      // Also delete the companion record to avoid orphaned data
+      updates[`pasiRecordsCompanion/${record.id}`] = null;
     });
 
     // Process records to add
@@ -1938,29 +1955,56 @@ const handleConfirmUpload = async (additionalData = {}) => {
         console.log(`Storing original grade ${record.value} for record ${record.id}`);
         updates[`pasiRecordsCompanion/${record.id}/originalGrade`] = record.value;
       }
+      
+      // Store exit date in companion if it's valid
+      if (record.exitDate && record.exitDate !== '-') {
+        console.log(`Storing original exitDate ${record.exitDate} for record ${record.id}`);
+        updates[`pasiRecordsCompanion/${record.id}/originalExitDate`] = record.exitDate;
+      }
     });
     
     // Process records to update
     changePreview.recordsToUpdate.forEach(updateObj => {
       const { old: existingRecord, new: newRecord } = updateObj;
       
-      // Get updated fields excluding the grade if it's being removed or set to '-'
+      // Get updated fields
       const updatedFields = getUpdatedFields(existingRecord, newRecord);
       
       // Prepare update for the main record
       updates[`pasiRecords/${existingRecord.id}`] = {
         ...existingRecord,
-        ...updatedFields
+        ...updatedFields,
+        // Add explicit null fallbacks for critical fields
+        linked: existingRecord.linked === true, // Ensure boolean
+        linkedAt: existingRecord.linkedAt || null,
+        summaryKey: existingRecord.summaryKey || null,
+        referenceNumber: newRecord.referenceNumber || existingRecord.referenceNumber || null
       };
+      
+      // Get the current companion data for this record
+      const existingCompanionData = currentCompanionData[existingRecord.id] || {};
       
       // Handle the grade specifically
       // If the new record has a valid numeric grade, update the companion record
       if (newRecord.value && newRecord.value !== '-' && !isNaN(newRecord.value)) {
-        console.log(`Updating original grade to ${newRecord.value} for record ${existingRecord.id}`);
-        updates[`pasiRecordsCompanion/${existingRecord.id}/originalGrade`] = newRecord.value;
+        // Only store the grade if it doesn't already exist or if it's changed
+        if (!existingCompanionData.originalGrade || existingCompanionData.originalGrade !== newRecord.value) {
+          console.log(`Updating original grade to ${newRecord.value} for record ${existingRecord.id}`);
+          updates[`pasiRecordsCompanion/${existingRecord.id}/originalGrade`] = newRecord.value;
+        }
       }
-      // If the new record has no grade or a placeholder but there was a grade before, we'll leave the companion record as is
-      // This ensures we preserve valid grades even when they're removed in subsequent uploads
+      
+      // Handle the exitDate
+      // If the new record has a valid exitDate
+      if (newRecord.exitDate && newRecord.exitDate !== '-') {
+        // Check if we already have an originalExitDate
+        if (!existingCompanionData.originalExitDate) {
+          // If no originalExitDate exists yet, store this one
+          console.log(`Adding original exitDate ${newRecord.exitDate} for record ${existingRecord.id}`);
+          updates[`pasiRecordsCompanion/${existingRecord.id}/originalExitDate`] = newRecord.exitDate;
+        }
+        // If we already have an originalExitDate stored, keep that one (we want to retain the first valid date)
+      }
     });
   
     // Update the database with the prepared updates
@@ -1991,7 +2035,7 @@ const hasRecordChanged = (existingRecord, newRecord) => {
     'asn', 'studentName', 'courseCode', 'courseDescription', 
     'status', 'period', 'value', 'approved', 'assignmentDate', 
     'creditsAttempted', 'deleted', 'dualEnrolment', 'exitDate', 
-    'fundingRequested', 'term'
+    'fundingRequested', 'term', 'referenceNumber' 
   ];
   
   return fieldsToCompare.some(field => existingRecord[field] !== newRecord[field]);
@@ -2003,7 +2047,7 @@ const getChangedFields = (existingRecord, newRecord) => {
     'asn', 'studentName', 'courseCode', 'courseDescription', 
     'status', 'period', 'value', 'approved', 'assignmentDate', 
     'creditsAttempted', 'deleted', 'dualEnrolment', 'exitDate', 
-    'fundingRequested', 'term'
+    'fundingRequested', 'term', 'email', 'referenceNumber' // Added referenceNumber
   ];
   
   const changedFields = {};

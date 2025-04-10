@@ -833,40 +833,97 @@ const isValidNumber = (value) => {
                     })()}
                   </TableCell>
                   <TableCell 
-                    className="p-1 truncate cursor-pointer" 
-                    style={{ width: "75px" }}
-                    onClick={() => handleCellClick(record.exitDateFormatted, "Exit Date")}
-                  >
-                    {(() => {
-                      // Check if date is valid
-                      if (!record.exitDateFormatted || record.exitDateFormatted === 'N/A') {
-                        return <span className="text-gray-400">N/A</span>;
-                      }
-                      
-                      // Convert to date object for comparison with cutoff date
-                      const dateObj = new Date(record.exitDateFormatted);
-                      const termCutoffDateObj = new Date(termCutoffDate);
-                      
-                      // Determine if date is before term cutoff
-                      const isBeforeTermCutoff = dateObj < termCutoffDateObj;
-                      
-                      // Style for the badge - distinct colors for exit date
-                      const badgeStyle = {
-                        backgroundColor: isBeforeTermCutoff ? '#fee2e2' : '#dcfce7', // red-100 for before cutoff, green-100 for after cutoff
-                        color: isBeforeTermCutoff ? '#b91c1c' : '#166534' // red-800 for before cutoff, green-800 for after cutoff
-                      };
-                      
-                      return (
-                        <div 
-                          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                          style={badgeStyle}
-                          title={`Exit Date: ${record.exitDateFormatted} (${isBeforeTermCutoff ? 'Before' : 'After'} Term Cutoff)`}
-                        >
-                          {formatUserFriendlyDate(record.exitDateFormatted)}
-                        </div>
-                      );
-                    })()}
-                  </TableCell>
+  className="p-1 truncate" 
+  style={{ width: "75px" }}
+>
+  <div className="flex flex-col gap-1">
+    {/* Current exit date with edit icon */}
+    {(() => {
+      // Check if date is valid
+      if (!record.exitDateFormatted || record.exitDateFormatted === 'N/A') {
+        return null; // We'll handle the empty case at the end
+      }
+      
+      // Convert to date object for comparison with cutoff date
+      const dateObj = new Date(record.exitDateFormatted);
+      const termCutoffDateObj = new Date(termCutoffDate);
+      
+      // Determine if date is before term cutoff
+      const isBeforeTermCutoff = dateObj < termCutoffDateObj;
+      
+      // Style for the badge - distinct colors for exit date
+      const badgeStyle = {
+        backgroundColor: isBeforeTermCutoff ? '#fee2e2' : '#dcfce7', // red-100 for before cutoff, green-100 for after cutoff
+        color: isBeforeTermCutoff ? '#b91c1c' : '#166534' // red-800 for before cutoff, green-800 for after cutoff
+      };
+      
+      return (
+        <div 
+          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium cursor-pointer"
+          style={badgeStyle}
+          title={`Exit Date: ${record.exitDateFormatted} (${isBeforeTermCutoff ? 'Before' : 'After'} Term Cutoff)`}
+          onClick={() => handleCellClick(record.exitDateFormatted, "Exit Date")}
+        >
+          <Edit className="h-3 w-3 mr-1" style={{ color: badgeStyle.color }} />
+          {formatUserFriendlyDate(record.exitDateFormatted)}
+        </div>
+      );
+    })()}
+    
+    {/* Original exit date with history icon */}
+    {(() => {
+      // Log the record ID and companion data for debugging
+      console.log(`Rendering original exit date for record ${record.id}`);
+      
+      // Get the original exit date
+      const originalExitDate = record.id && 
+                               pasiRecordsCompanion[record.id] && 
+                               pasiRecordsCompanion[record.id].originalExitDate;
+      
+      // Log original exit date value
+      console.log(`Original exit date: ${originalExitDate}`, 
+                  `Companion data exists: ${!!pasiRecordsCompanion[record.id]}`);
+      
+      // Skip if no original exit date
+      if (!originalExitDate || originalExitDate === '-') {
+        return null;
+      }
+      
+      // Format the original exit date for display
+      const formattedOriginalExitDate = formatDate(originalExitDate);
+      console.log(`Formatted original exit date: ${formattedOriginalExitDate}`);
+      console.log(`Current exit date: ${record.exitDateFormatted}`);
+      
+      // More lenient comparison - only skip if they're exactly the same formatted string
+      // AND they're the same original raw values
+      if (formattedOriginalExitDate === record.exitDateFormatted && 
+          originalExitDate === record.exitDate) {
+        console.log("Dates match exactly - not showing original");
+        return null;
+      }
+      
+      // Don't do the complex date object equality check - if the strings are different,
+      // show both dates since they likely represent different data
+
+      return (
+        <div 
+          className="flex items-center gap-1 cursor-pointer text-gray-600" 
+          onClick={() => handleCopyData(originalExitDate, "Original Exit Date")}
+          title={`Original Exit Date: ${originalExitDate}`}
+        >
+          <History className="h-3 w-3 text-amber-500" />
+          <span className="text-gray-600">{formatUserFriendlyDate(formattedOriginalExitDate)}</span>
+        </div>
+      );
+    })()}
+    
+    {/* Show N/A if neither current nor original exit date exists - simplified condition */}
+    {(!record.exitDateFormatted || record.exitDateFormatted === 'N/A') && 
+     !pasiRecordsCompanion[record.id]?.originalExitDate && (
+      <span className="text-gray-400">N/A</span>
+    )}
+  </div>
+</TableCell>
                   <TableCell 
                     className="p-1 truncate cursor-pointer" 
                     style={{ width: "75px" }}

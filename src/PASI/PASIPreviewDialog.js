@@ -218,6 +218,7 @@ const UpdateRecordRow = ({ record }) => {
           )}
         </TableCell>
         <TableCell>{newRecord.email || '-'}</TableCell>
+        <TableCell>{newRecord.referenceNumber || '-'}</TableCell>
       </TableRow>
       
       {expanded && (
@@ -388,7 +389,8 @@ const PASIPreviewDialog = ({
     { key: 'studentName', label: 'Student Name' },
     { key: 'courseCode', label: 'Course Code' },
     { key: 'courseDescription', label: 'Description' },
-    { key: 'status', label: 'Status' }
+    { key: 'status', label: 'Status' },
+    { key: 'referenceNumber', label: 'Reference #' } 
   ];
 
   // For the Unmatched tab, we define custom columns: remove email and grade, add comment column
@@ -538,6 +540,11 @@ const PASIPreviewDialog = ({
 
   // Create student function
   const createStudent = async (record) => {
+
+    if (!record.referenceNumber) {
+      toast.error('Cannot create student: Reference # is missing in the CSV');
+      return;
+    }
     // Set creatingStatus for this record
     setCreatingStudents(prev => ({ ...prev, [record.id]: true }));
     
@@ -599,6 +606,7 @@ const PASIPreviewDialog = ({
       updates[`students/${studentKey}/courses/${courseId}/StudentType/Value`] = studentType;
       updates[`students/${studentKey}/courses/${courseId}/ActiveFutureArchived/Value`] = activeOrArchived;
       updates[`students/${studentKey}/courses/${courseId}/categories/kyle@rtdacademy,com/1740839540398`] = true;
+      updates[`students/${studentKey}/courses/${courseId}/referenceNumber`] = record.referenceNumber;
       
       // Student note
       const authorName = user?.displayName || 'System';
@@ -639,7 +647,8 @@ const PASIPreviewDialog = ({
         courseDescription: record.courseDescription,
         creditsAttempted: record.creditsAttempted || '',
         period: record.period || '',
-        studentName: `${firstName} ${lastName}`
+        studentName: `${firstName} ${lastName}`,
+        referenceNumber: record.referenceNumber // Add this line
       };
       
       setCreatedStudentLinks(prev => ({
@@ -939,7 +948,8 @@ const handleConfirmUpload = async (additionalData = {}) => {
         ...record,
         linked: isLinked,
         linkedAt: isLinked ? new Date().toISOString() : null,
-        summaryKey: linkedRecordSummaryKeys.get(record.id)
+        summaryKey: linkedRecordSummaryKeys.get(record.id) || record.summaryKey || null,
+        referenceNumber: record.referenceNumber
       };
       
       currentBatch[`pasiRecords/${record.id}`] = recordWithLinked;
@@ -972,7 +982,8 @@ const handleConfirmUpload = async (additionalData = {}) => {
         ...updatedFields,
         linked: isLinked,
         linkedAt: isLinked ? (existingRecord.linkedAt || new Date().toISOString()) : null,
-        summaryKey: linkedRecordSummaryKeys.get(existingRecord.id) || existingRecord.summaryKey
+        summaryKey: linkedRecordSummaryKeys.get(existingRecord.id) || existingRecord.summaryKey,
+        referenceNumber: newRecord.referenceNumber || existingRecord.referenceNumber
       };
       
       // Flush when batch is full
@@ -1019,7 +1030,7 @@ const getUpdatedFields = (existingRecord, newRecord) => {
     'asn', 'studentName', 'courseCode', 'courseDescription', 
     'status', 'period', 'value', 'approved', 'assignmentDate', 
     'creditsAttempted', 'deleted', 'dualEnrolment', 'exitDate', 
-    'fundingRequested', 'term', 'email'
+    'fundingRequested', 'term', 'email', 'referenceNumber'
   ];
   
   const updatedFields = {};
@@ -1435,26 +1446,36 @@ const getUpdatedFields = (existingRecord, newRecord) => {
                               
                                 {/* Create Student Button */}
                                 <Button 
-                                  size="sm" 
-                                  variant={createdStudents[record.id] ? "success" : "outline"} 
-                                  className={`mt-1 text-xs ${createdStudents[record.id] ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}`}
-                                  onClick={() => createStudent(record)}
-                                  disabled={
-                                    !selectedCourses[record.id] ||
-                                    (!useAsn[record.id] && !emailInputs[record.id]) ||
-                                    !studentTypeInputs[record.id] ||
-                                    createdStudents[record.id] ||
-                                    creatingStudents[record.id]
-                                  }
-                                >
-                                  {creatingStudents[record.id] ? (
-                                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Creating...</>
-                                  ) : createdStudents[record.id] ? (
-                                    "✓ Student Created"
-                                  ) : (
-                                    "Create Student"
-                                  )}
-                                </Button>
+  size="sm" 
+  variant={createdStudents[record.id] ? "success" : "outline"} 
+  className={`mt-1 text-xs ${createdStudents[record.id] ? "bg-green-100 text-green-800 hover:bg-green-200" : ""}`}
+  onClick={() => createStudent(record)}
+  disabled={
+    !selectedCourses[record.id] ||
+    (!useAsn[record.id] && !emailInputs[record.id]) ||
+    !studentTypeInputs[record.id] ||
+    !record.referenceNumber || // Add this condition
+    createdStudents[record.id] ||
+    creatingStudents[record.id]
+  }
+  title={!record.referenceNumber ? "Reference # is required to create student" : ""}
+>
+  {creatingStudents[record.id] ? (
+    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Creating...</>
+  ) : createdStudents[record.id] ? (
+    "✓ Student Created"
+  ) : (
+    "Create Student"
+  )}
+</Button>
+
+{/* Add warning message if Reference # is missing */}
+{!record.referenceNumber && (
+  <div className="text-xs text-red-500 mt-1 flex items-center">
+    <AlertCircle className="h-3 w-3 mr-1" />
+    Reference # required to create student
+  </div>
+)}
                               </div>
                             </TableCell>
                             
