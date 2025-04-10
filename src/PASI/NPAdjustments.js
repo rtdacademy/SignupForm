@@ -65,6 +65,7 @@ import { parseStudentSummaryKey } from "../utils/sanitizeEmail";
 import TermMappingManager from './TermMappingManager';
 // Import the new Configuration Manager component
 import ConfigurationManager from './ConfigurationManager';
+import PasiActionButtons from "../components/PasiActionButtons"; // Import the new component
 
 // For pagination
 const ITEMS_PER_PAGE = 100;
@@ -324,7 +325,6 @@ const StudentRecordsTable = ({
   termMappings,
   updateTerm,
   updateTermChecked,
-  openPasiLink,
   openTeacherDashboard,
   handleCopyData,
   selectedRecordId,
@@ -1076,16 +1076,10 @@ const isValidNumber = (value) => {
                   </TableCell>
                   <TableCell className="p-1" style={{ width: "90px !important" }}>
                     <div className="flex items-center gap-1">
-                    <Button
-  variant={record.referenceNumber ? "secondary" : "outline"}
-  size="xs"
-  onClick={() => openPasiLink(record.asn, record)}
-  title={record.referenceNumber ? "Open PASI Enrollment" : "Open in PASI"}
-  className={`h-5 text-xs px-1 ${record.referenceNumber ? "bg-amber-500 hover:bg-amber-600 text-white" : ""}`}
-  disabled={!isValidDateValue(record.asn)}
->
-  PASI
-</Button>
+                      <PasiActionButtons 
+                        asn={record.asn} 
+                        referenceNumber={record.referenceNumber} 
+                      />
                       <Button
                         variant="outline"
                         size="xs"
@@ -1477,8 +1471,7 @@ const NPAdjustments = ({ records = [] }) => {
   const [paginatedRecords, setPaginatedRecords] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
 
-  // State for external links
-  const [pasiWindowRef, setPasiWindowRef] = useState(null);
+  // State for external links (only keep dashboardWindowRef)
   const [dashboardWindowRef, setDashboardWindowRef] = useState(null);
   
   // State for loading
@@ -2096,36 +2089,6 @@ const NPAdjustments = ({ records = [] }) => {
     toast.success(`Copied ${label ? label + ': ' : ''}${displayText}`);
   };
 
-  // Open PASI link in a new window
-
-const openPasiLink = (asn, record) => {
-  if (!asn) return;
-  
-  let url;
-  let isEnrollmentLink = false;
-  
-  // Check if record.referenceNumber exists
-  if (record && record.referenceNumber) {
-    url = `https://extranet.education.alberta.ca/PASI/PASIprep/course-enrolment/${record.referenceNumber}`;
-    isEnrollmentLink = true;
-  } else {
-    // Use the original URL if referenceNumber doesn't exist
-    const asnWithoutDashes = asn.replace(/-/g, '');
-    url = `https://extranet.education.alberta.ca/PASI/PASIprep/view-student/${asnWithoutDashes}`;
-  }
-  
-  // If we already have a window reference, use it, otherwise create a new one
-  if (pasiWindowRef && !pasiWindowRef.closed) {
-    pasiWindowRef.location.href = url;
-    pasiWindowRef.focus();
-  } else {
-    const newWindow = window.open(url, 'pasiWindow');
-    setPasiWindowRef(newWindow);
-  }
-  
-  return isEnrollmentLink; // Return whether it's an enrollment link for button color
-};
-
   // Open teacher dashboard with ASN parameter
   const openTeacherDashboard = (asn) => {
     if (!asn) return;
@@ -2331,7 +2294,6 @@ const openPasiLink = (asn, record) => {
               termMappings={termMappings}
               updateTerm={updateTerm}
               updateTermChecked={updateTermChecked}
-              openPasiLink={openPasiLink}
               openTeacherDashboard={openTeacherDashboard}
               handleCopyData={handleCopyData}
               selectedRecordId={selectedRecordId}
@@ -2403,7 +2365,6 @@ const openPasiLink = (asn, record) => {
     termMappings={termMappings}
     updateTerm={updateTerm}
     updateTermChecked={updateTermChecked}
-    openPasiLink={openPasiLink}
     openTeacherDashboard={openTeacherDashboard}
     handleCopyData={handleCopyData}
     selectedRecordId={selectedRecordId}
