@@ -56,28 +56,54 @@ export const SchoolYearProvider = ({ children }) => {
       orderByChild('School_x0020_Year_Value'),
       equalTo(currentSchoolYear)
     );
-  
+
+    // Listen for added students that match the current school year
     const handleChildAdded = (snapshot) => {
       const key = snapshot.key;
       const data = snapshot.val();
       const student = { ...data, id: key };
       
-      setStudentSummaries((prevSummaries) => [...prevSummaries, student]);
+      setStudentSummaries((prevSummaries) => {
+        // Check if this student is already in our list to avoid duplicates
+        if (!prevSummaries.some(s => s.id === key)) {
+          return [...prevSummaries, student];
+        }
+        return prevSummaries;
+      });
       setIsLoadingStudents(false);
     };
-  
+
+    // For changes, listen to the entire collection
+    // This helps catch updates where school year changes to/from our target year
     const handleChildChanged = (snapshot) => {
       const key = snapshot.key;
       const data = snapshot.val();
-      const updatedStudent = { ...data, id: key };
-  
-      setStudentSummaries((prevSummaries) =>
-        prevSummaries.map((student) => 
-          student.id === key ? updatedStudent : student
-        )
-      );
+      
+      if (data && data.School_x0020_Year_Value === currentSchoolYear) {
+        // This student should be in our list
+        const updatedStudent = { ...data, id: key };
+        
+        setStudentSummaries((prevSummaries) => {
+          // If student is already in our list, update it
+          if (prevSummaries.some(s => s.id === key)) {
+            return prevSummaries.map((student) => 
+              student.id === key ? updatedStudent : student
+            );
+          } 
+          // If not in our list yet, add it
+          else {
+            return [...prevSummaries, updatedStudent];
+          }
+        });
+      } else {
+        // This student should NOT be in our list (school year doesn't match)
+        setStudentSummaries((prevSummaries) =>
+          prevSummaries.filter((student) => student.id !== key)
+        );
+      }
     };
-  
+
+    // For removals, listen to all removals that might affect our current view
     const handleChildRemoved = (snapshot) => {
       const key = snapshot.key;
       setStudentSummaries((prevSummaries) =>
@@ -88,10 +114,12 @@ export const SchoolYearProvider = ({ children }) => {
     // Clear existing data when changing school year
     setStudentSummaries([]);
   
-    // Attach the listeners to the filtered query
+    // Attach listeners - child added uses the filtered query
     const unsubscribeChildAdded = onChildAdded(yearQuery, handleChildAdded);
-    const unsubscribeChildChanged = onChildChanged(yearQuery, handleChildChanged);
-    const unsubscribeChildRemoved = onChildRemoved(yearQuery, handleChildRemoved);
+    
+    // Changes and removes should listen to the broader collection
+    const unsubscribeChildChanged = onChildChanged(studentSummariesRef, handleChildChanged);
+    const unsubscribeChildRemoved = onChildRemoved(studentSummariesRef, handleChildRemoved);
   
     return () => {
       unsubscribeChildAdded();

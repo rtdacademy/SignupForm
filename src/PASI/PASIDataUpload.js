@@ -1755,55 +1755,58 @@ useEffect(() => {
   };
 
   // Add this new function to analyze changes
-const analyzeChanges = (newRecords) => {
-  try {
-    // Step 1: Create a map of existing records for easy lookup
-    const existingRecordsMap = {};
-    pasiRecords.forEach(record => {
-      existingRecordsMap[record.id] = record;
-    });
-    
-    // Step 2: Create a map of new records
-    const newRecordsMap = {};
-    newRecords.forEach(record => {
-      newRecordsMap[record.id] = record;
-    });
-    
-    // Step 3: Identify records by change type
-    const recordsToAdd = [];
-    const recordsToUpdate = [];
-    const recordsToDelete = [];
-    const recordsUnchanged = [];
-    
-    // Find records to delete (in existingRecordsMap but not in newRecordsMap)
-    Object.keys(existingRecordsMap).forEach(recordId => {
-      if (!newRecordsMap[recordId]) {
-        recordsToDelete.push(existingRecordsMap[recordId]);
-      }
-    });
-    
-    // Process new records - categorize as add, update, or unchanged
-    Object.keys(newRecordsMap).forEach(recordId => {
-      const newRecord = newRecordsMap[recordId];
-      const existingRecord = existingRecordsMap[recordId];
+  const analyzeChanges = (newRecords) => {
+    try {
+      // Step 1: Create a map of existing records for easy lookup
+      const existingRecordsMap = {};
+      pasiRecords.forEach(record => {
+        existingRecordsMap[record.id] = record;
+      });
       
-      if (!existingRecord) {
-        // This is a new record to add
-        recordsToAdd.push(newRecord);
-      } else {
-        // Check if it has changed
-        if (hasRecordChanged(existingRecord, newRecord)) {
-          // Store both records to show what's changing
-          recordsToUpdate.push({
-            old: existingRecord,
-            new: newRecord,
-            changes: getChangedFields(existingRecord, newRecord)
-          });
-        } else {
-          recordsUnchanged.push(newRecord);
+      // Step 2: Create a map of new records
+      const newRecordsMap = {};
+      newRecords.forEach(record => {
+        newRecordsMap[record.id] = record;
+      });
+      
+      // Step 3: Identify records by change type
+      const recordsToAdd = [];
+      const recordsToUpdate = [];
+      const recordsToDelete = [];
+      const recordsUnchanged = [];
+      
+      // Find records to delete (in existingRecordsMap but not in newRecordsMap)
+      Object.keys(existingRecordsMap).forEach(recordId => {
+        if (!newRecordsMap[recordId]) {
+          recordsToDelete.push(existingRecordsMap[recordId]);
         }
-      }
-    });
+      });
+      
+      // Process new records - categorize as add, update, or unchanged
+      Object.keys(newRecordsMap).forEach(recordId => {
+        const newRecord = newRecordsMap[recordId];
+        const existingRecord = existingRecordsMap[recordId];
+        
+        if (!existingRecord) {
+          // This is a new record to add
+          recordsToAdd.push(newRecord);
+        } else {
+          // Get the changed fields
+          const changes = getChangedFields(existingRecord, newRecord);
+          
+          // Only mark as needing update if there are actual changes
+          if (Object.keys(changes).length > 0) {
+            // Store both records to show what's changing
+            recordsToUpdate.push({
+              old: existingRecord,
+              new: newRecord,
+              changes: changes
+            });
+          } else {
+            recordsUnchanged.push(newRecord);
+          }
+        }
+      });
     
     // Step 4: Check for potential status compatibility issues
     const recordsWithStatusIssues = [];
@@ -1964,48 +1967,55 @@ const handleConfirmUpload = async (additionalData = {}) => {
     });
     
     // Process records to update
-    changePreview.recordsToUpdate.forEach(updateObj => {
-      const { old: existingRecord, new: newRecord } = updateObj;
-      
-      // Get updated fields
-      const updatedFields = getUpdatedFields(existingRecord, newRecord);
-      
-      // Prepare update for the main record
-      updates[`pasiRecords/${existingRecord.id}`] = {
-        ...existingRecord,
-        ...updatedFields,
-        // Add explicit null fallbacks for critical fields
-        linked: existingRecord.linked === true, // Ensure boolean
-        linkedAt: existingRecord.linkedAt || null,
-        summaryKey: existingRecord.summaryKey || null,
-        referenceNumber: newRecord.referenceNumber || existingRecord.referenceNumber || null
-      };
-      
-      // Get the current companion data for this record
-      const existingCompanionData = currentCompanionData[existingRecord.id] || {};
-      
-      // Handle the grade specifically
-      // If the new record has a valid numeric grade, update the companion record
-      if (newRecord.value && newRecord.value !== '-' && !isNaN(newRecord.value)) {
-        // Only store the grade if it doesn't already exist or if it's changed
-        if (!existingCompanionData.originalGrade || existingCompanionData.originalGrade !== newRecord.value) {
-          console.log(`Updating original grade to ${newRecord.value} for record ${existingRecord.id}`);
-          updates[`pasiRecordsCompanion/${existingRecord.id}/originalGrade`] = newRecord.value;
-        }
-      }
-      
-      // Handle the exitDate
-      // If the new record has a valid exitDate
-      if (newRecord.exitDate && newRecord.exitDate !== '-') {
-        // Check if we already have an originalExitDate
-        if (!existingCompanionData.originalExitDate) {
-          // If no originalExitDate exists yet, store this one
-          console.log(`Adding original exitDate ${newRecord.exitDate} for record ${existingRecord.id}`);
-          updates[`pasiRecordsCompanion/${existingRecord.id}/originalExitDate`] = newRecord.exitDate;
-        }
-        // If we already have an originalExitDate stored, keep that one (we want to retain the first valid date)
-      }
-    });
+   // Process records to update
+changePreview.recordsToUpdate.forEach(updateObj => {
+  const { old: existingRecord, new: newRecord } = updateObj;
+  
+  // Get updated fields
+  const updatedFields = getUpdatedFields(existingRecord, newRecord);
+  
+  // Prepare update for the main record
+  updates[`pasiRecords/${existingRecord.id}`] = {
+    ...existingRecord,
+    ...updatedFields,
+    // Add explicit null fallbacks for critical fields
+    linked: existingRecord.linked === true, // Ensure boolean
+    linkedAt: existingRecord.linkedAt || null,
+    summaryKey: existingRecord.summaryKey || null,
+   
+   // Only use existing reference number if new one is blank or doesn't exist
+referenceNumber: (newRecord.referenceNumber !== undefined && 
+  newRecord.referenceNumber !== null && 
+  newRecord.referenceNumber !== '') 
+ ? newRecord.referenceNumber 
+ : (existingRecord.referenceNumber || null)
+  };
+  
+  // Get the current companion data for this record
+  const existingCompanionData = currentCompanionData[existingRecord.id] || {};
+  
+  // Handle the grade specifically
+  // If the new record has a valid numeric grade, update the companion record
+  if (newRecord.value && newRecord.value !== '-' && !isNaN(newRecord.value)) {
+    // Only store the grade if it doesn't already exist or if it's changed
+    if (!existingCompanionData.originalGrade || existingCompanionData.originalGrade !== newRecord.value) {
+      console.log(`Updating original grade to ${newRecord.value} for record ${existingRecord.id}`);
+      updates[`pasiRecordsCompanion/${existingRecord.id}/originalGrade`] = newRecord.value;
+    }
+  }
+  
+  // Handle the exitDate
+  // If the new record has a valid exitDate
+  if (newRecord.exitDate && newRecord.exitDate !== '-') {
+    // Check if we already have an originalExitDate
+    if (!existingCompanionData.originalExitDate) {
+      // If no originalExitDate exists yet, store this one
+      console.log(`Adding original exitDate ${newRecord.exitDate} for record ${existingRecord.id}`);
+      updates[`pasiRecordsCompanion/${existingRecord.id}/originalExitDate`] = newRecord.exitDate;
+    }
+    // If we already have an originalExitDate stored, keep that one (we want to retain the first valid date)
+  }
+});
   
     // Update the database with the prepared updates
     if (Object.keys(updates).length > 0) {
@@ -2047,16 +2057,30 @@ const getChangedFields = (existingRecord, newRecord) => {
     'asn', 'studentName', 'courseCode', 'courseDescription', 
     'status', 'period', 'value', 'approved', 'assignmentDate', 
     'creditsAttempted', 'deleted', 'dualEnrolment', 'exitDate', 
-    'fundingRequested', 'term', 'email', 'referenceNumber' // Added referenceNumber
+    'fundingRequested', 'term', 'email', 'referenceNumber'
   ];
   
   const changedFields = {};
   fieldsToCompare.forEach(field => {
-    if (existingRecord[field] !== newRecord[field]) {
-      changedFields[field] = {
-        old: existingRecord[field],
-        new: newRecord[field]
-      };
+    if (field === 'referenceNumber') {
+      // Special handling for referenceNumber - only mark as changed if new value is non-empty
+      if (existingRecord[field] !== newRecord[field] && 
+          newRecord[field] !== undefined && 
+          newRecord[field] !== null && 
+          newRecord[field] !== '') {
+        changedFields[field] = {
+          old: existingRecord[field],
+          new: newRecord[field]
+        };
+      }
+    } else {
+      // Original behavior for other fields
+      if (existingRecord[field] !== newRecord[field]) {
+        changedFields[field] = {
+          old: existingRecord[field],
+          new: newRecord[field]
+        };
+      }
     }
   });
   
@@ -2069,16 +2093,19 @@ const getChangedFields = (existingRecord, newRecord) => {
       'asn', 'studentName', 'courseCode', 'courseDescription', 
       'status', 'period', 'value', 'approved', 'assignmentDate', 
       'creditsAttempted', 'deleted', 'dualEnrolment', 'exitDate', 
-      'fundingRequested', 'term', 'email'
+      'fundingRequested', 'term', 'email', 'referenceNumber' 
+     
     ];
     
     const updatedFields = {};
-  fieldsToCompare.forEach(field => {
-    // Only add defined values, and if they've changed
-    if (existingRecord[field] !== newRecord[field] && newRecord[field] !== undefined) {
-      updatedFields[field] = newRecord[field];
-    }
-  });
+    
+    // Only add defined values that have changed
+    fieldsToCompare.forEach(field => {
+      // Original behavior for all fields
+      if (existingRecord[field] !== newRecord[field] && newRecord[field] !== undefined) {
+        updatedFields[field] = newRecord[field];
+      }
+    });
     
     // Always update the lastUpdated field
     updatedFields.lastUpdated = new Date().toLocaleString('en-US', {
@@ -2092,6 +2119,7 @@ const getChangedFields = (existingRecord, newRecord) => {
     
     return updatedFields;
   };
+
 
   const handleCopyData = (text) => {
     if (!text) return;

@@ -961,36 +961,39 @@ const handleConfirmUpload = async (additionalData = {}) => {
     }
     
     // Process records to update
-    for (const { old: existingRecord, new: newRecord } of changePreview.recordsToUpdate) {
-      // Safety check - ensure we have a valid record object
-      if (!existingRecord || !existingRecord.id) {
-        console.warn("Skipping invalid record update:", existingRecord);
-        continue;
-      }
-      
-      const updatedFields = getUpdatedFields(existingRecord, newRecord);
-      
-      // Use our tracked linked status - IMPORTANT: default to false if undefined
-      const isLinked = linkedRecordIds.has(existingRecord.id) ? true : false;
-      
-      if (existingRecord.linked !== isLinked) {
-        console.log(`Setting update record ${existingRecord.id} linked status to ${isLinked}`);
-      }
-      
-      currentBatch[`pasiRecords/${existingRecord.id}`] = {
-        ...existingRecord,
-        ...updatedFields,
-        linked: isLinked,
-        linkedAt: isLinked ? (existingRecord.linkedAt || new Date().toISOString()) : null,
-        summaryKey: linkedRecordSummaryKeys.get(existingRecord.id) || existingRecord.summaryKey,
-        referenceNumber: newRecord.referenceNumber || existingRecord.referenceNumber
-      };
-      
-      // Flush when batch is full
-      if (Object.keys(currentBatch).length >= BATCH_SIZE) {
-        await flushBatch();
-      }
-    }
+  // Process records to update
+for (const { old: existingRecord, new: newRecord } of changePreview.recordsToUpdate) {
+  // Safety check - ensure we have a valid record object
+  if (!existingRecord || !existingRecord.id) {
+    console.warn("Skipping invalid record update:", existingRecord);
+    continue;
+  }
+  
+  const updatedFields = getUpdatedFields(existingRecord, newRecord);
+  
+  // Use our tracked linked status - IMPORTANT: default to false if undefined
+  const isLinked = linkedRecordIds.has(existingRecord.id) ? true : false;
+  
+  if (existingRecord.linked !== isLinked) {
+    console.log(`Setting update record ${existingRecord.id} linked status to ${isLinked}`);
+  }
+  
+  currentBatch[`pasiRecords/${existingRecord.id}`] = {
+    ...existingRecord,
+    ...updatedFields,
+    linked: isLinked,
+    linkedAt: isLinked ? (existingRecord.linkedAt || new Date().toISOString()) : null,
+    summaryKey: linkedRecordSummaryKeys.get(existingRecord.id) || existingRecord.summaryKey,
+    
+    // Always use existing reference number, never update it
+    referenceNumber: existingRecord.referenceNumber
+  };
+  
+  // Flush when batch is full
+  if (Object.keys(currentBatch).length >= BATCH_SIZE) {
+    await flushBatch();
+  }
+}
     
     // Flush any remaining updates
     await flushBatch();
@@ -1024,19 +1027,20 @@ const handleConfirmUpload = async (additionalData = {}) => {
   }
 };
 
-  // Helper function needed for update operations
 const getUpdatedFields = (existingRecord, newRecord) => {
   const fieldsToCompare = [
     'asn', 'studentName', 'courseCode', 'courseDescription', 
     'status', 'period', 'value', 'approved', 'assignmentDate', 
     'creditsAttempted', 'deleted', 'dualEnrolment', 'exitDate', 
-    'fundingRequested', 'term', 'email', 'referenceNumber'
+    'fundingRequested', 'term', 'email'
+    // Removed 'referenceNumber' from this list
   ];
   
   const updatedFields = {};
   
   // Only add defined values that have changed
   fieldsToCompare.forEach(field => {
+    // Original behavior for all fields
     if (existingRecord[field] !== newRecord[field] && newRecord[field] !== undefined) {
       updatedFields[field] = newRecord[field];
     }
@@ -1071,18 +1075,26 @@ const getUpdatedFields = (existingRecord, newRecord) => {
     return filtered;
   }, [changePreview, searchTerm, matchFilter]);
 
-  const filteredUpdateRecords = useMemo(() => {
-    if (!changePreview) return [];
-    let filtered = [...changePreview.recordsToUpdate];
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(record =>
-        record.new.asn?.toLowerCase().includes(searchLower) ||
-        record.new.studentName?.toLowerCase().includes(searchLower)
-      );
-    }
-    return filtered;
-  }, [changePreview, searchTerm]);
+// Modify the filteredUpdateRecords useMemo to filter out records with no changes
+const filteredUpdateRecords = useMemo(() => {
+  if (!changePreview) return [];
+  
+  // First filter out records with empty changes
+  let filtered = changePreview.recordsToUpdate.filter(record => {
+    // Only include records that have at least one change
+    return Object.keys(record.changes || {}).length > 0;
+  });
+  
+  // Then apply the search term filter
+  if (searchTerm.trim()) {
+    const searchLower = searchTerm.toLowerCase();
+    filtered = filtered.filter(record =>
+      record.new.asn?.toLowerCase().includes(searchLower) ||
+      record.new.studentName?.toLowerCase().includes(searchLower)
+    );
+  }
+  return filtered;
+}, [changePreview, searchTerm]);
 
   const filteredDeleteRecords = useMemo(() => {
     if (!changePreview) return [];
@@ -1245,12 +1257,14 @@ const getUpdatedFields = (existingRecord, newRecord) => {
               </Badge>
             </TabsTrigger>
             <TabsTrigger value="update" className="flex items-center gap-2">
-              <Edit className="h-4 w-4" />
-              <span>Updating</span>
-              <Badge variant="secondary" className="text-white bg-gray-500">
-                {changePreview.recordsToUpdate.length}
-              </Badge>
-            </TabsTrigger>
+  <Edit className="h-4 w-4" />
+  <span>Updating</span>
+  <Badge variant="secondary" className="text-white bg-gray-500">
+    {changePreview.recordsToUpdate.filter(record => 
+      Object.keys(record.changes || {}).length > 0
+    ).length}
+  </Badge>
+</TabsTrigger>
             <TabsTrigger value="delete" className="flex items-center gap-2">
               <Minus className="h-4 w-4" />
               <span>Deleting</span>
@@ -1531,21 +1545,21 @@ const getUpdatedFields = (existingRecord, newRecord) => {
                   </Table>
                   
                   {filteredUpdateRecords.length === 0 ? (
-                    <div className="text-center py-8">
-                      {searchTerm ? 'No matching records found' : 'No records to update'}
-                    </div>
-                  ) : (
-                    <div style={{ height: 'calc(70vh - 190px)', overflow: 'auto' }}>
-                      {/* We don't use VirtualizedRecordList here because UpdateRecordRow has expandable content */}
-                      <Table>
-                        <TableBody>
-                          {filteredUpdateRecords.map((record, index) => (
-                            <UpdateRecordRow key={index} record={record} />
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
+  <div className="text-center py-8">
+    {searchTerm ? 'No matching records found' : 'No records to update'}
+  </div>
+) : (
+  <div style={{ height: 'calc(70vh - 190px)', overflow: 'auto' }}>
+    {/* We don't use VirtualizedRecordList here because UpdateRecordRow has expandable content */}
+    <Table>
+      <TableBody>
+        {filteredUpdateRecords.map((record, index) => (
+          <UpdateRecordRow key={index} record={record} />
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+)}
                 </div>
               </div>
             </TabsContent>

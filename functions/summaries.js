@@ -424,10 +424,7 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
     const summaryRef = db.ref(`studentCourseSummaries/${studentId}_${courseId}`);
     const summaryExists = (await summaryRef.once('value')).exists();
     
-    if (summaryExists) {
-      console.log(`Summary already exists for student ${studentId}, course ${courseId}. Skipping creation.`);
-      return null;
-    }
+ 
     
     // Retrieve the student's profile data
     const profileSnap = await db.ref(`/students/${studentId}/profile`).once('value');
@@ -534,13 +531,11 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
     
     // Use transaction to ensure we don't create duplicate data
     await summaryRef.transaction(currentData => {
-      // If the data already exists, don't overwrite
       if (currentData !== null) {
-        console.log(`Summary already exists for student ${studentId}, course ${courseId} (race condition)`);
-        return currentData;
+        // Even if data exists, update it with new information
+        console.log(`Updating existing summary for student ${studentId}, course ${courseId}`);
+        return {...currentData, ...summaryData};
       }
-      
-      // If no data exists, create it fresh
       return summaryData;
     });
       
