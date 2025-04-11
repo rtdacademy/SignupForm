@@ -1,7 +1,7 @@
 // src/components/PasiActionButtons.js
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from "./ui/button";
-import { ExternalLink, Edit } from 'lucide-react';
+import { ExternalLink, Edit, ChevronDown, Database, X, Layers } from 'lucide-react';
 import { openManagedWindow } from '../utils/windowUtils';
 import {
   Tooltip,
@@ -9,6 +9,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "./ui/dialog";
+import { Badge } from "./ui/badge";
 
 // Helper to remove dashes from ASN and ensure it's a string
 const formatAsnForUrl = (asn) => {
@@ -21,6 +30,118 @@ const isValidValue = (value) => {
   if (value === null || value === undefined) return false;
   const stringValue = String(value).trim();
   return stringValue !== '' && stringValue !== 'N/A' && stringValue !== '-';
+};
+
+// Multiple PASI Records component for displaying records with multiple entries
+export const MultipleRecordsDisplay = ({ records, asn, onSelect, selectedRecord }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Sort records by exitDate (newest first)
+  const sortedRecords = [...records].sort((a, b) => {
+    if (!a.exitDate) return 1;
+    if (!b.exitDate) return -1;
+    return new Date(b.exitDate) - new Date(a.exitDate);
+  });
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="outline"
+          size="xs"
+          className="h-7 px-2 flex items-center gap-1 bg-indigo-50/80 hover:bg-indigo-100/90 text-indigo-700 border-indigo-200"
+        >
+          <Layers className="h-3.5 w-3.5" />
+          <span className="text-xs font-medium">{records.length}</span>
+        </Button>
+      </DialogTrigger>
+      
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Database className="h-4 w-4 text-indigo-500" />
+            Multiple PASI Records ({records.length})
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="mt-2">
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+            {sortedRecords.map((record) => (
+              <div 
+                key={record.referenceNumber} 
+                className={`p-3 rounded border cursor-pointer transition-colors ${
+                  selectedRecord && selectedRecord.referenceNumber === record.referenceNumber 
+                    ? "bg-blue-50 border-blue-300" 
+                    : "hover:bg-gray-50 border-gray-200"
+                }`}
+                onClick={() => {
+                  onSelect(record);
+                  setIsOpen(false); // Close dialog after selection
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
+                      {record.term || "No Term"}
+                    </Badge>
+                    {record.value && (
+                      <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                        {record.value}%
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <PasiActionButtons 
+                    asn={asn} 
+                    referenceNumber={record.referenceNumber} 
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div>
+                    <span className="text-gray-500">Status:</span>{" "}
+                    <span className="font-medium">{record.status || "N/A"}</span>
+                  </div>
+                  
+                  <div>
+                    <span className="text-gray-500">Exit Date:</span>{" "}
+                    <span className="font-medium">{record.exitDate || "N/A"}</span>
+                  </div>
+                  
+                  {record.approved && (
+                    <div>
+                      <span className="text-gray-500">Approved:</span>{" "}
+                      <span className="font-medium">{record.approved}</span>
+                    </div>
+                  )}
+                  
+                  {record.deleted && (
+                    <div>
+                      <span className="text-gray-500">Deleted:</span>{" "}
+                      <span className="font-medium">{record.deleted}</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Ref number at bottom for reference */}
+                <div className="mt-2 text-xs text-gray-500 truncate">
+                  Ref: {record.referenceNumber}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div className="mt-4 flex justify-end">
+          <DialogClose asChild>
+            <Button type="button" variant="secondary">
+              Close
+            </Button>
+          </DialogClose>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
 const PasiActionButtons = ({ asn, referenceNumber }) => {

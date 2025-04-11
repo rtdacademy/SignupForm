@@ -372,6 +372,40 @@ export const COURSE_OPTIONS = [
   },
 ];
 
+export const COURSE_CODE_TO_ID = {
+  // Grade 10 Courses
+  "KAE1782": 82,  // Math 10-4
+  "MAT1793": 78,  // Math 10-3
+  "MAT1791": 97,  // Math 10C
+  "LDC1515": 90,  // Math 15
+
+  // Grade 11 Courses
+  "KAE2782": 84,  // Math 20-4
+  "MAT2793": 96,  // Math 20-3
+  "MAT2792": 98,  // Math 20-2
+  "MAT2791": 95,  // Math 20-1
+  "SCN2797": 137, // Physics 20
+
+  // Grade 12 Courses
+  "MAT3793": 86,  // Math 30-3
+  "MAT3792": 87,  // Math 30-2
+  "MAT3791": 89,  // Math 30-1
+  "MAT3211": 93,  // Math 31 (Calculus)
+
+  // CTS Courses (using first value from the courseId arrays)
+  "CSE1210": 1111, // Client-side Scripting 1
+  "CSE1110": 1111, // Structured Programming 1
+  "CSE1120": 1111, // Structured Programming 2
+  "CSE1220": 1111, // Client-side Scripting 2
+  "CSE2110": 1111, // Client-side Scripting 3
+  "CSE1910": 1111, // CSE Project A
+
+  // the number 2000 is used to indicate that the course can be linked to any courseId
+  "COM1255": 2000,   // E-Learning & Learning Management Systems
+  "INF2020": 2000,   // Keyboarding
+};
+
+
 // Color scheme reference
 export const GRADE_COLORS = {
   10: "#3B82F6", // Blue
@@ -618,6 +652,8 @@ export const PASI_COURSES = [
     courseId: [82, 78, 97, 90, 84, 96, 98, 95, 86, 87, 89, 93, 1111] 
   }
 ];
+
+
 
 // Helper function to get courses for dropdown
 export const getPASICoursesForDropdown = () => {

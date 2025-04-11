@@ -28,6 +28,7 @@ import {
   ClipboardCheck,
   History, 
   Edit,
+  Database 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -65,7 +66,9 @@ import { parseStudentSummaryKey } from "../utils/sanitizeEmail";
 import TermMappingManager from './TermMappingManager';
 // Import the new Configuration Manager component
 import ConfigurationManager from './ConfigurationManager';
-import PasiActionButtons from "../components/PasiActionButtons"; // Import the new component
+import PasiActionButtons, { MultipleRecordsDisplay } from "../components/PasiActionButtons"; // Import both components
+
+
 
 // For pagination
 const ITEMS_PER_PAGE = 100;
@@ -334,6 +337,17 @@ const StudentRecordsTable = ({
   septemberCutoffDate,
   pasiRecordsCompanion 
 }) => {
+  // Add state to track selected PASI record for records with multiple entries
+  const [selectedPasiRecords, setSelectedPasiRecords] = useState({});
+
+  // Function to handle selecting a PASI record from multiple records
+  const handleSelectPasiRecord = (recordId, pasiRecord) => {
+    setSelectedPasiRecords(prev => ({
+      ...prev,
+      [recordId]: pasiRecord
+    }));
+  };
+
   // Function to render the YourWay term dropdown
   const renderYourWayTerm = (record) => {
     const term = record.yourWayTerm;
@@ -400,44 +414,39 @@ const StudentRecordsTable = ({
     );
   };
 
-  // Function to render the PASI term with compatibility icons
-  const renderPasiTerm = (record) => {
-    const pasiTerm = record.pasiTerm;
-    const yourWayTerm = record.yourWayTerm;
-    const suggestedTerm = record.suggestedTerm;
-    
-    // If there's no PASI term, show N/A
-    if (!pasiTerm) return <span className="text-gray-400">N/A</span>;
-    
-    // Get the short label for display
-    const shortTerm = getShortTermLabel(pasiTerm);
-    
-    // Check if we have a valid course to evaluate
-    const isValidCourse = COURSE_OPTIONS.some(opt => opt.pasiCode === record.courseCode);
-    
-    // Default to showing incompatible
-    let isCompatible = false;
-    
-    // Handle missing term mappings
-    if (!termMappings || Object.keys(termMappings).length === 0) {
-      // If mappings aren't loaded yet, show a neutral state
-      return (
-        <div className="flex items-center gap-1" title="Term mappings not yet loaded">
-          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-          <span className="font-medium text-gray-700 truncate">{shortTerm}</span>
-        </div>
-      );
-    }
-    
-    if (suggestedTerm === 'Term 1') {
-      // For Term 1, check if pasiTerm is in the allowed Term 1 pasiTerms array
-      isCompatible = termMappings['Term 1'] && termMappings['Term 1'].includes(pasiTerm);
-    } else if (suggestedTerm === 'Term 2') {
-      // For Term 2, check if pasiTerm is in the allowed Term 2 pasiTerms array
-      isCompatible = termMappings['Term 2'] && termMappings['Term 2'].includes(pasiTerm);
-    }
-    
+// Function to render the PASI term with compatibility icons
+const renderPasiTerm = (record) => {
+  const pasiTerm = record.pasiTerm;
+  const suggestedTerm = record.suggestedTerm;
+  
+  // If there's no PASI term, show N/A
+  if (!pasiTerm) return <span className="text-gray-400">N/A</span>;
+  
+  // Get the short label for display
+  const shortTerm = getShortTermLabel(pasiTerm);
+  
+  // Handle missing term mappings
+  if (!termMappings || Object.keys(termMappings).length === 0) {
+    // If mappings aren't loaded yet, show a neutral state
     return (
+      <div className="flex items-center gap-1" title="Term mappings not yet loaded">
+        <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+        <span className="font-medium text-gray-700 truncate">{shortTerm}</span>
+      </div>
+    );
+  }
+  
+  // Determine compatibility for main term
+  let isCompatible = false;
+  if (suggestedTerm === 'Term 1') {
+    isCompatible = termMappings['Term 1'] && termMappings['Term 1'].includes(pasiTerm);
+  } else if (suggestedTerm === 'Term 2') {
+    isCompatible = termMappings['Term 2'] && termMappings['Term 2'].includes(pasiTerm);
+  }
+  
+  return (
+    <div className="flex flex-col gap-1">
+      {/* Main PASI term with compatibility icon */}
       <div className="flex items-center gap-1" title={`PASI Term: ${pasiTerm}`}>
         {isCompatible ? (
           <CheckCircle className="h-4 w-4 text-green-500" />
@@ -448,8 +457,40 @@ const StudentRecordsTable = ({
           {shortTerm}
         </span>
       </div>
-    );
-  };
+      
+      {/* Additional PASI terms from multipleRecords */}
+      {record.multipleRecords && record.multipleRecords.length > 0 && 
+        record.multipleRecords.map((r, index) => {
+          if (!r.term) return null;
+          
+          // Skip if this term is the same as the main term
+          if (r.term === pasiTerm) return null;
+          
+          // Get the short label for this term
+          const additionalShortTerm = getShortTermLabel(r.term);
+          
+          return (
+            <div 
+              key={r.referenceNumber || index}
+              className="flex items-center gap-1 ml-2 text-gray-500"
+              title={`Additional PASI Term ${index + 1}: ${r.term}`}
+            >
+              <span className="text-xs truncate">
+                {additionalShortTerm}
+              </span>
+              <Badge 
+                variant="outline" 
+                className="ml-1 h-4 px-1 text-[10px] flex items-center bg-gray-50 text-gray-600 border-gray-200"
+              >
+                {index + 1}
+              </Badge>
+            </div>
+          );
+        })
+      }
+    </div>
+  );
+};
   
   // Function to render the checked status checkbox with the user who checked it
   const renderCheckedStatus = (record) => {
@@ -612,14 +653,14 @@ const isValidNumber = (value) => {
               label="YW Term" 
               currentSort={currentSort} 
               onSort={onSort}
-              className="text-indigo-700 bg-indigo-50 w-[65px]"
+              className="text-indigo-700 bg-indigo-50 w-[55px]"
             />
             <SortableHeader 
               column="pasiTerm" 
               label="PASI" 
               currentSort={currentSort} 
               onSort={onSort}
-              className="text-amber-700 bg-amber-50 w-[50px]"
+              className="text-amber-700 bg-amber-50 w-[70px]"
             />
             <SortableHeader 
               column="suggestedTerm" 
@@ -661,7 +702,7 @@ const isValidNumber = (value) => {
               label="Exit Date" 
               currentSort={currentSort} 
               onSort={onSort}
-              className="text-red-700 bg-red-50 w-[75px]"
+              className="text-red-700 bg-red-50 w-[90px]"
             />
             <SortableHeader 
               column="scheduleStartDate" 
@@ -675,21 +716,21 @@ const isValidNumber = (value) => {
               label="Grade" 
               currentSort={currentSort} 
               onSort={onSort}
-              className="w-[40px]"
+              className="w-[60px]"
             />
             <SortableHeader 
               column="status" 
               label="YW Status" 
               currentSort={currentSort} 
               onSort={onSort} 
-              className="text-blue-700 bg-blue-50 w-[75px]"
+              className="text-blue-700 bg-blue-50 w-[55px]"
             />
             <SortableHeader 
               column="pasiStatus" 
               label="PASI Status" 
               currentSort={currentSort} 
               onSort={onSort} 
-              className="text-green-700 bg-green-50 w-[75px]"
+              className="text-green-700 bg-green-50 w-[90px]"
             />
             <TableHead className="w-[90px]">Actions</TableHead>
           </TableRow>
@@ -834,93 +875,130 @@ const isValidNumber = (value) => {
                   </TableCell>
                   <TableCell 
   className="p-1 truncate" 
-  style={{ width: "75px" }}
+  style={{ width: "90px" }}
 >
   <div className="flex flex-col gap-1">
-    {/* Current exit date with edit icon */}
-    {(() => {
-      // Check if date is valid
-      if (!record.exitDateFormatted || record.exitDateFormatted === 'N/A') {
-        return null; // We'll handle the empty case at the end
-      }
-      
-      // Convert to date object for comparison with cutoff date
-      const dateObj = new Date(record.exitDateFormatted);
-      const termCutoffDateObj = new Date(termCutoffDate);
-      
-      // Determine if date is before term cutoff
-      const isBeforeTermCutoff = dateObj < termCutoffDateObj;
-      
-      // Style for the badge - distinct colors for exit date
-      const badgeStyle = {
-        backgroundColor: isBeforeTermCutoff ? '#fee2e2' : '#dcfce7', // red-100 for before cutoff, green-100 for after cutoff
-        color: isBeforeTermCutoff ? '#b91c1c' : '#166534' // red-800 for before cutoff, green-800 for after cutoff
-      };
-      
-      return (
-        <div 
-          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium cursor-pointer"
-          style={badgeStyle}
-          title={`Exit Date: ${record.exitDateFormatted} (${isBeforeTermCutoff ? 'Before' : 'After'} Term Cutoff)`}
-          onClick={() => handleCellClick(record.exitDateFormatted, "Exit Date")}
-        >
-          <Edit className="h-3 w-3 mr-1" style={{ color: badgeStyle.color }} />
-          {formatUserFriendlyDate(record.exitDateFormatted)}
-        </div>
-      );
-    })()}
-    
-    {/* Original exit date with history icon */}
-    {(() => {
-      // Log the record ID and companion data for debugging
-      console.log(`Rendering original exit date for record ${record.id}`);
-      
-      // Get the original exit date
-      const originalExitDate = record.id && 
-                               pasiRecordsCompanion[record.id] && 
-                               pasiRecordsCompanion[record.id].originalExitDate;
-      
-      // Log original exit date value
-      console.log(`Original exit date: ${originalExitDate}`, 
-                  `Companion data exists: ${!!pasiRecordsCompanion[record.id]}`);
-      
-      // Skip if no original exit date
-      if (!originalExitDate || originalExitDate === '-') {
-        return null;
-      }
-      
-      // Format the original exit date for display
-      const formattedOriginalExitDate = formatDate(originalExitDate);
-      console.log(`Formatted original exit date: ${formattedOriginalExitDate}`);
-      console.log(`Current exit date: ${record.exitDateFormatted}`);
-      
-      // More lenient comparison - only skip if they're exactly the same formatted string
-      // AND they're the same original raw values
-      if (formattedOriginalExitDate === record.exitDateFormatted && 
-          originalExitDate === record.exitDate) {
-        console.log("Dates match exactly - not showing original");
-        return null;
-      }
-      
-      // Don't do the complex date object equality check - if the strings are different,
-      // show both dates since they likely represent different data
+    {/* For records with multiple entries, show all exit dates */}
+    {record.multipleRecords && record.multipleRecords.length > 0 ? (
+      record.multipleRecords.map((r, index) => {
+        if (!r.exitDate) return null;
+        
+        // Convert to date object for comparison with cutoff date
+        const dateObj = new Date(r.exitDate);
+        const termCutoffDateObj = new Date(termCutoffDate);
+        
+        // Determine if date is before term cutoff
+        const isBeforeTermCutoff = dateObj < termCutoffDateObj;
+        
+        // Style for the badge with different colors for each record
+        const badgeStyle = {
+          backgroundColor: index === 0 
+            ? (isBeforeTermCutoff ? '#fee2e2' : '#dcfce7')  // red-100/green-100 for first record
+            : (isBeforeTermCutoff ? '#fecaca' : '#bbf7d0'), // red-200/green-200 for second record
+          color: index === 0
+            ? (isBeforeTermCutoff ? '#b91c1c' : '#166534')  // red-800/green-800 for first record
+            : (isBeforeTermCutoff ? '#991b1b' : '#15803d')  // red-900/green-900 for second record
+        };
+        
+        return (
+          <div 
+            key={r.referenceNumber}
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium cursor-pointer"
+            style={badgeStyle}
+            title={`Exit Date: ${r.exitDate} (${r.term || 'No Term'} / ${isBeforeTermCutoff ? 'Before' : 'After'} Term Cutoff)`}
+            onClick={() => handleCellClick(r.exitDate, "Exit Date")}
+          >
+            <Edit className="h-3 w-3 mr-1" style={{ color: badgeStyle.color }} />
+            {formatUserFriendlyDate(r.exitDate)}
+            <Badge 
+              variant="outline" 
+              className={`ml-1 h-4 px-1 text-[10px] flex items-center ${
+                index === 0 
+                  ? 'bg-blue-50 text-blue-600 border-blue-200' 
+                  : 'bg-purple-50 text-purple-600 border-purple-200'
+              }`}
+            >
+              {index === 0 ? '1' : '2'}
+            </Badge>
+          </div>
+        );
+      })
+    ) : (
+      // Original code for single records
+      <>
+        {/* Current exit date with edit icon */}
+        {(() => {
+          // Check if date is valid
+          if (!record.exitDateFormatted || record.exitDateFormatted === 'N/A') {
+            return null; // We'll handle the empty case at the end
+          }
+          
+          // Convert to date object for comparison with cutoff date
+          const dateObj = new Date(record.exitDateFormatted);
+          const termCutoffDateObj = new Date(termCutoffDate);
+          
+          // Determine if date is before term cutoff
+          const isBeforeTermCutoff = dateObj < termCutoffDateObj;
+          
+          // Style for the badge - distinct colors for exit date
+          const badgeStyle = {
+            backgroundColor: isBeforeTermCutoff ? '#fee2e2' : '#dcfce7', // red-100 for before cutoff, green-100 for after cutoff
+            color: isBeforeTermCutoff ? '#b91c1c' : '#166534' // red-800 for before cutoff, green-800 for after cutoff
+          };
+          
+          return (
+            <div 
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium cursor-pointer"
+              style={badgeStyle}
+              title={`Exit Date: ${record.exitDateFormatted} (${isBeforeTermCutoff ? 'Before' : 'After'} Term Cutoff)`}
+              onClick={() => handleCellClick(record.exitDateFormatted, "Exit Date")}
+            >
+              <Edit className="h-3 w-3 mr-1" style={{ color: badgeStyle.color }} />
+              {formatUserFriendlyDate(record.exitDateFormatted)}
+            </div>
+          );
+        })()}
+        
+        {/* Original exit date with history icon */}
+        {(() => {
+          // Get the original exit date
+          const originalExitDate = record.id && 
+                                pasiRecordsCompanion[record.id] && 
+                                pasiRecordsCompanion[record.id].originalExitDate;
+          
+          // Skip if no original exit date
+          if (!originalExitDate || originalExitDate === '-') {
+            return null;
+          }
+          
+          // Format the original exit date for display
+          const formattedOriginalExitDate = formatDate(originalExitDate);
+          
+          // More lenient comparison - only skip if they're exactly the same formatted string
+          // AND they're the same original raw values
+          if (formattedOriginalExitDate === record.exitDateFormatted && 
+              originalExitDate === record.exitDate) {
+            return null;
+          }
 
-      return (
-        <div 
-          className="flex items-center gap-1 cursor-pointer text-gray-600" 
-          onClick={() => handleCopyData(originalExitDate, "Original Exit Date")}
-          title={`Original Exit Date: ${originalExitDate}`}
-        >
-          <History className="h-3 w-3 text-amber-500" />
-          <span className="text-gray-600">{formatUserFriendlyDate(formattedOriginalExitDate)}</span>
-        </div>
-      );
-    })()}
-    
-    {/* Show N/A if neither current nor original exit date exists - simplified condition */}
-    {(!record.exitDateFormatted || record.exitDateFormatted === 'N/A') && 
-     !pasiRecordsCompanion[record.id]?.originalExitDate && (
-      <span className="text-gray-400">N/A</span>
+          return (
+            <div 
+              className="flex items-center gap-1 cursor-pointer text-gray-600" 
+              onClick={() => handleCopyData(originalExitDate, "Original Exit Date")}
+              title={`Original Exit Date: ${originalExitDate}`}
+            >
+              <History className="h-3 w-3 text-amber-500" />
+              <span className="text-gray-600">{formatUserFriendlyDate(formattedOriginalExitDate)}</span>
+            </div>
+          );
+        })()}
+        
+        {/* Show N/A if neither current nor original exit date exists - simplified condition */}
+        {(!record.exitDateFormatted || record.exitDateFormatted === 'N/A') && 
+        !pasiRecordsCompanion[record.id]?.originalExitDate && (
+          <span className="text-gray-400">N/A</span>
+        )}
+      </>
     )}
   </div>
 </TableCell>
@@ -965,10 +1043,48 @@ const isValidNumber = (value) => {
 >
   <div className="flex flex-col gap-1">
     {(() => {
+      // Check if the record has multiple records
+      if (record.multipleRecords && record.multipleRecords.length > 0) {
+        // Display all grades from multiple records with distinct styling but without term badges
+        return (
+          <div>
+            {record.multipleRecords.map((r, index) => (
+              isValidGradeValue(r.value) && (
+                <div 
+                  key={r.referenceNumber}
+                  className={`flex items-center gap-1 cursor-pointer mb-1 ${
+                    index === 0 ? 'text-indigo-700' : 'text-purple-700'
+                  }`} 
+                  title={`Grade: ${r.value} (${r.term || 'No Term'} / ${r.exitDate || 'No Exit Date'})`}
+                  onClick={() => handleCellClick(r.value, "Grade")}
+                >
+                  <Edit className={`h-3 w-3 ${index === 0 ? 'text-indigo-500' : 'text-purple-500'}`} />
+                  <span className="font-medium">{r.value}%</span>
+                  {/* Term badge removed, info now only in tooltip */}
+                  <Badge 
+                    variant="outline" 
+                    className={`ml-1 h-4 px-1 text-[10px] flex items-center ${
+                      index === 0 
+                        ? 'bg-indigo-50 text-indigo-600 border-indigo-200' 
+                        : 'bg-purple-50 text-purple-600 border-purple-200'
+                    }`}
+                  >
+                    {index === 0 ? '1' : '2'}
+                  </Badge>
+                </div>
+              )
+            ))}
+            {!record.multipleRecords.some(r => isValidGradeValue(r.value)) && (
+              <span className="text-gray-400">N/A</span>
+            )}
+          </div>
+        );
+      }
+      
       // Get the original grade if it exists
       const originalGrade = record.id && 
-                            pasiRecordsCompanion[record.id] && 
-                            pasiRecordsCompanion[record.id].originalGrade;
+                           pasiRecordsCompanion[record.id] && 
+                           pasiRecordsCompanion[record.id].originalGrade;
       
       // Check if both values exist and are numbers
       const bothAreNumbers = isValidGradeValue(record.value) && 
@@ -1037,7 +1153,8 @@ const isValidNumber = (value) => {
     {!isValidGradeValue(record.value) && 
      !(record.id && 
        pasiRecordsCompanion[record.id] && 
-       pasiRecordsCompanion[record.id].originalGrade) && (
+       pasiRecordsCompanion[record.id].originalGrade) && 
+     (!record.multipleRecords || record.multipleRecords.length === 0) && (
       <span className="text-gray-400">N/A</span>
     )}
   </div>
@@ -1047,6 +1164,7 @@ const isValidNumber = (value) => {
                     style={{ width: "75px" }}
                     onClick={() => handleCellClick(record.statusValue, "YW Status")}
                   >
+                    {/* YW Status only comes from Your Way, so we don't need multiple entries */}
                     <span 
                       className={`font-medium ${
                         record.statusValue === 'N/A' ? 'text-gray-400' : ''
@@ -1062,24 +1180,69 @@ const isValidNumber = (value) => {
                   </TableCell>
                   <TableCell 
                     className="p-1 truncate cursor-pointer" 
-                    style={{ width: "75px" }}
+                    style={{ width: "90px" }}
                     onClick={() => handleCellClick(record.status, "PASI Status")}
                   >
-                    <span 
-                      className={`font-medium ${
-                        record.status === 'Completed' ? 'text-green-700' : 'text-blue-700'
-                      }`}
-                      title={record.status || 'N/A'}
-                    >
-                      {record.status || 'N/A'}
-                    </span>
+                    {record.multipleRecords && record.multipleRecords.length > 0 ? (
+                      // Display multiple statuses with distinct styling
+                      <div className="flex flex-col gap-1">
+                        {record.multipleRecords.map((r, index) => (
+                          <div 
+                            key={r.referenceNumber}
+                            className="flex items-center gap-1"
+                            title={`Status: ${r.status || 'N/A'} (${r.term || 'No Term'} / ${r.exitDate || 'No Exit Date'})`}
+                          >
+                            <span 
+                              className={`font-medium ${
+                                index === 0 
+                                  ? (r.status === 'Completed' ? 'text-green-700' : 'text-blue-700')
+                                  : (r.status === 'Completed' ? 'text-emerald-700' : 'text-indigo-700')
+                              }`}
+                            >
+                              {r.status || 'N/A'}
+                            </span>
+                            <Badge 
+                              variant="outline" 
+                              className={`ml-1 h-4 px-1 text-[10px] flex items-center ${
+                                index === 0 
+                                  ? 'bg-blue-50 text-blue-600 border-blue-200' 
+                                  : 'bg-purple-50 text-purple-600 border-purple-200'
+                              }`}
+                            >
+                              {index === 0 ? '1' : '2'}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      // Original rendering for single status records
+                      <span 
+                        className={`font-medium ${
+                          record.status === 'Completed' ? 'text-green-700' : 'text-blue-700'
+                        }`}
+                        title={record.status || 'N/A'}
+                      >
+                        {record.status || 'N/A'}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="p-1" style={{ width: "90px !important" }}>
                     <div className="flex items-center gap-1">
-                      <PasiActionButtons 
-                        asn={record.asn} 
-                        referenceNumber={record.referenceNumber} 
-                      />
+                      {record.multipleRecords && record.multipleRecords.length > 0 ? (
+                        // If the record has multiple PASI records, use the MultipleRecordsDisplay component
+                        <MultipleRecordsDisplay 
+                          records={record.multipleRecords}
+                          asn={record.asn}
+                          onSelect={(selectedRecord) => handleSelectPasiRecord(record.id, selectedRecord)}
+                          selectedRecord={selectedPasiRecords[record.id]}
+                        />
+                      ) : (
+                        // If the record has a single PASI record, use the standard PasiActionButtons
+                        <PasiActionButtons 
+                          asn={record.asn} 
+                          referenceNumber={record.referenceNumber} 
+                        />
+                      )}
                       <Button
                         variant="outline"
                         size="xs"
@@ -1551,9 +1714,6 @@ const NPAdjustments = ({ records = [] }) => {
       const hasValidYourWayTerm = record.yourWayTerm && record.yourWayTerm !== 'N/A';
       
       // Check if this is a valid course
-      const isValidCourse = COURSE_OPTIONS.some(opt => opt.pasiCode === record.courseCode);
-      
-      // Check if this record would get a dropdown
       const isValidForSelect = COURSE_OPTIONS.some(opt => opt.pasiCode === record.courseCode) && record.statusValue;
 
       // NEW LOGIC: Determine suggested term based on both cutoff dates
@@ -1625,7 +1785,7 @@ const NPAdjustments = ({ records = [] }) => {
       // Determine compatibility based on course validity
       let isTermCompatible = false;
 
-      if (isValidCourse) {
+      if (isValidForSelect) {
         // For valid courses, directly compare PASI term with suggested term
         isTermCompatible = record.pasiTerm === suggestedTerm;
       } else {
@@ -1646,7 +1806,7 @@ const NPAdjustments = ({ records = [] }) => {
         isCorrectTerm = termMappings['Term 2'] && termMappings['Term 2'].includes(record.pasiTerm);
       } else {
         // For other terms, consider correct if valid course
-        isCorrectTerm = !isValidCourse;
+        isCorrectTerm = !isValidForSelect;
       }
 
       // Get the checked status from pasiRecordsCompanion data if available

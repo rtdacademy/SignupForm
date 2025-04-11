@@ -8,7 +8,6 @@ import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { 
   Upload, 
-  ExternalLink, 
   Search, 
   X, 
   ArrowUp, 
@@ -18,7 +17,6 @@ import {
   Link2,
   AlertTriangle,
   Trash,
-  CleanIcon,
   Sparkles, 
   Loader2,
   AlertCircle,
@@ -81,11 +79,12 @@ import CourseLinkingDialog from './CourseLinkingDialog';
 import { processPasiLinkCreation, formatSchoolYearWithSlash, processPasiRecordDeletions, getCourseIdsForPasiCode } from '../utils/pasiLinkUtils';
 import CreateStudentDialog from './CreateStudentDialog';
 import MissingPasiRecordsTab from './MissingPasiRecordsTab';
-import { COURSE_OPTIONS, ACTIVE_FUTURE_ARCHIVED_OPTIONS, getSchoolYearOptions } from '../config/DropdownOptions';
+import { COURSE_OPTIONS, COURSE_CODE_TO_ID, ACTIVE_FUTURE_ARCHIVED_OPTIONS, getSchoolYearOptions } from '../config/DropdownOptions';
 import RevenueTab from './RevenueTab';
 import PermissionIndicator from '../context/PermissionIndicator';
 import NPAdjustments from './NPAdjustments';
 import { useAuth } from '../context/AuthContext';
+import { useSchoolYear } from '../context/SchoolYearContext';
 
 
 // Validation rules for status compatibility
@@ -192,8 +191,8 @@ const SortableHeader = ({ column, label, currentSort, onSort }) => {
 const ITEMS_PER_PAGE = 100;
 
 const PASIDataUpload = () => {
-  // Add debugging for the component at render time
-  console.log("PASIDataUpload component rendered");
+
+  const { studentSummaries, isLoadingStudents } = useSchoolYear();
  
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('');
   const [schoolYearOptions, setSchoolYearOptions] = useState([]);
@@ -966,7 +965,7 @@ const handleDeleteAllRecords = async () => {
     let deletedCount = 0;
     
     // Process in batches to avoid Firebase limits
-    const BATCH_SIZE = 200; // Adjust this number based on Firebase limits
+    const BATCH_SIZE = 400; // Adjust this number based on Firebase limits
     const batches = [];
     
     // Split records into batches
@@ -1606,435 +1605,620 @@ useEffect(() => {
 
   const summary = getSummary();
 
-  const extractSchoolYear = (enrollmentString) => {
-    try {
-      const matches = enrollmentString.match(/\((\d{4})\/\d{2}\/\d{2} to (\d{4})\/\d{2}\/\d{2}\)/);
-      if (matches) {
-        const startYear = matches[1];
-        const endYear = matches[2];
-        if (startYear === endYear) {
-          return `${(parseInt(startYear) - 1).toString().slice(-2)}_${startYear.slice(-2)}`;
-        } else {
-          return `${startYear.slice(-2)}_${endYear.slice(-2)}`;
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error('Error parsing school enrollment date:', error);
-      return null;
-    }
-  };
   
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) {
-      toast.error('Please select a file');
-      return;
-    }
-  
-    if (!selectedSchoolYear) {
-      toast.error('Please select a school year before uploading');
-      return;
-    }
-  
-    setIsProcessing(true);
-    setChangePreview(null); // Reset change preview
-    setShowPreview(false); 
-  
-    const config = {
-      header: true,
-      skipEmptyLines: 'greedy',
-      complete: (results) => {
-        try {
-          if (!results?.data?.length) {
-            throw new Error('No valid data found in CSV file');
-          }
-  
-          const missingAsnRow = results.data.findIndex(row => !row['ASN']?.trim());
-          if (missingAsnRow !== -1) {
-            toast.error(`Missing ASN value in row ${missingAsnRow + 2}`);
-            setIsProcessing(false);
-            return;
-          }
-  
-          const expectedSchoolYear = formatSchoolYear(selectedSchoolYear);
-          const processedRecords = [];
-          let skippedRecords = 0;
-  
-          for (let i = 0; i < results.data.length; i++) {
-            const row = results.data[i];
-            
-            // Skip records with status 'Continuing' only
-            const status = row['Status']?.trim() || 'Active';
-            if (status === 'Continuing') {
-              skippedRecords++;
-              continue; // Skip this record
-            }
-            
-            const extractedYear = extractSchoolYear(row['School Enrolment']);
-            if (!extractedYear) {
-              toast.error(`Invalid School Enrolment format in row ${i + 2}`);
-              setIsProcessing(false);
-              return;
-            }
-            
-            if (extractedYear !== expectedSchoolYear) {
-              toast.error(
-                `School year mismatch in row ${i + 2}: Expected ${expectedSchoolYear}, found ${extractedYear}`
-              );
-              setIsProcessing(false);
-              return;
-            }
-  
-            const asn = row['ASN']?.trim() || '';
-            const email = asnEmails[asn] || '-';
-            const matchStatus = asnEmails[asn] ? 'Found in Database' : 'Not Found';
-            const courseCode = row[' Code']?.trim().toUpperCase() || '';
-            const period = row['Period']?.trim() || 'Regular';
-            const schoolYear = expectedSchoolYear;
-            const uniqueId = `${asn}_${courseCode.toLowerCase()}_${schoolYear}_${period.toLowerCase()}`;
-            const existingRecord = pasiRecords.find(record => record.id === uniqueId);
-            const oldLinkValue = existingRecord?.linked === true; 
-  
-            processedRecords.push({
-              asn,
-              email,
-              matchStatus,
-              studentName: row['Student Name']?.trim() || '',
-              courseCode,
-              courseDescription: row[' Description']?.trim() || '',
-              status,
-              period,
-              schoolYear,
-              value: row['Value']?.trim() || '-',
-              approved: row['Approved']?.trim() || 'No',
-              assignmentDate: row['Assignment Date']?.trim() || '-',
-              creditsAttempted: row['Credits Attempted']?.trim() || '-',
-              deleted: row['Deleted']?.trim() || 'No',
-              dualEnrolment: row['Dual Enrolment']?.trim() || 'No',
-              exitDate: row['Exit Date']?.trim() || '-',
-              fundingRequested: row['Funding Requested']?.trim() || 'No',
-              term: row['Term']?.trim() || 'Full Year',
-              referenceNumber: row['Reference #']?.trim() || '',
-              lastUpdated: new Date().toLocaleString('en-US', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-              }),
-              linked: oldLinkValue,
-              id: uniqueId
-            });
-          }
-          
-          // Show toast about skipped records if any
-          if (skippedRecords > 0) {
-            toast.info(`Skipped ${skippedRecords} record(s) with status 'Continuing'`);
-          }
-          
-          // Create the differential change analysis
-          analyzeChanges(processedRecords);
-          
-          event.target.value = '';
-        } catch (error) {
-          console.error('Error processing CSV:', error);
-          toast.error(error.message || 'Error processing CSV file');
-          setIsProcessing(false);
-        }
-      },
-      error: (error) => {
-        console.error('Papa Parse error:', error);
-        toast.error('Failed to parse CSV file');
-        setIsProcessing(false);
-      }
-    };
-  
-    Papa.parse(file, config);
-  };
-
-  // Add this new function to analyze changes
-  const analyzeChanges = (newRecords) => {
-    try {
-      // Step 1: Create a map of existing records for easy lookup
-      const existingRecordsMap = {};
-      pasiRecords.forEach(record => {
-        existingRecordsMap[record.id] = record;
-      });
-      
-      // Step 2: Create a map of new records
-      const newRecordsMap = {};
-      newRecords.forEach(record => {
-        newRecordsMap[record.id] = record;
-      });
-      
-      // Step 3: Identify records by change type
-      const recordsToAdd = [];
-      const recordsToUpdate = [];
-      const recordsToDelete = [];
-      const recordsUnchanged = [];
-      
-      // Find records to delete (in existingRecordsMap but not in newRecordsMap)
-      Object.keys(existingRecordsMap).forEach(recordId => {
-        if (!newRecordsMap[recordId]) {
-          recordsToDelete.push(existingRecordsMap[recordId]);
-        }
-      });
-      
-      // Process new records - categorize as add, update, or unchanged
-      Object.keys(newRecordsMap).forEach(recordId => {
-        const newRecord = newRecordsMap[recordId];
-        const existingRecord = existingRecordsMap[recordId];
-        
-        if (!existingRecord) {
-          // This is a new record to add
-          recordsToAdd.push(newRecord);
-        } else {
-          // Get the changed fields
-          const changes = getChangedFields(existingRecord, newRecord);
-          
-          // Only mark as needing update if there are actual changes
-          if (Object.keys(changes).length > 0) {
-            // Store both records to show what's changing
-            recordsToUpdate.push({
-              old: existingRecord,
-              new: newRecord,
-              changes: changes
-            });
-          } else {
-            recordsUnchanged.push(newRecord);
-          }
-        }
-      });
-    
-    // Step 4: Check for potential status compatibility issues
-    const recordsWithStatusIssues = [];
-    
-    // Check status compatibility for all records
-    [...recordsToAdd, ...recordsToUpdate.map(update => update.new)].forEach(record => {
-      // Skip if the record isn't linked
-      if (!record.linked) return;
-      
-      // Get the student email key for lookup
-      const emailKey = record.email.replace(/\./g, ',');
-      
-      // Find summaries for this student
-      Object.keys(summaryDataMap).forEach(summaryKey => {
-        if (summaryKey.startsWith(emailKey)) {
-          const summaryCourseId = parseInt(summaryKey.split('_')[1], 10);
-          const summary = summaryDataMap[summaryKey];
-          
-          // Find summaries with matching course code
-          const summaryPasiCode = courseIdToPasiCode[summaryCourseId];
-          
-          if (summaryPasiCode === record.courseCode) {
-            // Check if statuses are compatible
-            const isCompatible = isStatusCompatible(record.status, summary.Status_Value);
-            
-            if (!isCompatible) {
-              recordsWithStatusIssues.push({
-                record,
-                summaryStatus: summary.Status_Value,
-                explanation: getStatusMismatchExplanation(record.status, summary.Status_Value)
-              });
-            }
-          }
-        }
-      });
-    });
-    
-    // Set change preview state
-    setChangePreview({
-      recordsToAdd,
-      recordsToUpdate,
-      recordsToDelete,
-      recordsUnchanged,
-      totalChanges: recordsToAdd.length + recordsToUpdate.length + recordsToDelete.length,
-      recordsWithStatusIssues
-    });
-    
-    // Show the preview dialog
-    setShowPreview(true);
-    setIsProcessing(false);
-    
-    // Log summary for debugging
-    console.log(`Change analysis completed: ${recordsToAdd.length} to add, ${recordsToUpdate.length} to update, ${recordsToDelete.length} to delete, ${recordsUnchanged.length} unchanged, ${recordsWithStatusIssues.length} with status issues`);
-  } catch (error) {
-    console.error('Error analyzing changes:', error);
-    toast.error(error.message || 'Error analyzing changes');
-    setIsProcessing(false);
-  }
-};
-
-
-const handleConfirmUpload = async (additionalData = {}) => {
-  if (!changePreview) {
-    toast.error('No changes to apply');
+ // Enhanced file upload function with context integration
+ const handleFileUpload = (event) => {
+  const file = event.target.files[0];
+  if (!file) {
+    toast.error('Please select a file');
     return;
   }
 
-  const { linksToCreate = [] } = additionalData;
+  if (!selectedSchoolYear) {
+    toast.error('Please select a school year before uploading');
+    return;
+  }
+  
+  if (isLoadingStudents) {
+    toast.error('Still loading student data. Please wait a moment...');
+    return;
+  }
 
+  setIsProcessing(true);
+  setChangePreview(null); // Reset change preview
+  setShowPreview(false); 
+
+  const config = {
+    header: true,
+    skipEmptyLines: 'greedy',
+    complete: async (results) => {
+      try {
+        if (!results?.data?.length) {
+          throw new Error('No valid data found in CSV file');
+        }
+
+        if (isLoadingCourseSummaries || !studentSummaries || Object.keys(studentSummaries).length === 0) {
+          toast.error("Student course summaries are still loading. Please wait a moment and try again.");
+          setIsProcessing(false);
+          event.target.value = ''; // Reset file input
+          return;
+        }
+        
+        // Validate ASN data
+        const missingAsnRow = results.data.findIndex(row => !row['ASN']?.trim());
+        if (missingAsnRow !== -1) {
+          toast.error(`Missing ASN value in row ${missingAsnRow + 2}`);
+          setIsProcessing(false);
+          return;
+        }
+
+        const formattedYear = formatSchoolYear(selectedSchoolYear);
+        const schoolYearWithSlash = formatSchoolYearWithSlash(selectedSchoolYear);
+        
+        // Create a lookup for student summaries by ASN and course code
+        const summariesByAsnAndCourse = {};
+        
+        // Create a map of courseId to PASI code
+        const courseIdToPasiCode = {};
+        COURSE_OPTIONS.forEach(course => {
+          if (course.courseId && course.pasiCode) {
+            courseIdToPasiCode[course.courseId] = course.pasiCode.toLowerCase();
+          }
+        });
+        
+        // Organize student summaries for efficient lookup
+        Object.entries(studentSummaries).forEach(([summaryKey, summary]) => {
+          if (summary.asn && summary.CourseID) {
+            const courseId = summary.CourseID;
+            const pasiCode = courseIdToPasiCode[courseId];
+            
+            if (pasiCode) {
+              // Create a unique key combining ASN and PASI code
+              const lookupKey = `${summary.asn}_${pasiCode}`;
+              
+              if (!summariesByAsnAndCourse[lookupKey]) {
+                summariesByAsnAndCourse[lookupKey] = [];
+              }
+              
+              summariesByAsnAndCourse[lookupKey].push({
+                summaryKey,
+                summary,
+                courseId,
+                pasiCode
+              });
+            }
+          }
+        });
+        
+        // Fetch existing PASI records for this school year
+        const db = getDatabase();
+        const pasiRef = ref(db, 'pasiRecords');
+        const schoolYearQuery = query(
+          pasiRef,
+          orderByChild('schoolYear'),
+          equalTo(formattedYear)
+        );
+        
+        const snapshot = await get(schoolYearQuery);
+        const existingRecords = {};
+        
+        if (snapshot.exists()) {
+          snapshot.forEach((child) => {
+            existingRecords[child.key] = child.val();
+          });
+        }
+        
+        // Process CSV into new records map
+        const newRecordsMap = {};
+        const studentSummaryUpdates = {};
+        
+        // Track existing summary entries for comparison
+        const existingSummaryEntries = {};
+        
+        // For each existing record, if it has a summaryKey, note the existing entry
+        Object.entries(existingRecords).forEach(([recordId, record]) => {
+          if (record.summaryKey && record.courseCode) {
+            const key = `${record.summaryKey}/${record.courseCode.toLowerCase()}`;
+            existingSummaryEntries[key] = recordId;
+          }
+        });
+        
+        const stats = {
+          total: results.data.length,
+          new: 0,
+          updated: 0,
+          linked: 0,
+          newLinks: 0,
+          removedLinks: 0,
+          removed: Object.keys(existingRecords).length,
+          duplicates: 0
+        };
+        
+        // Track duplicates with multiple records
+        const recordsWithMultipleVersions = {};
+        
+        // First pass: identify duplicates
+        results.data.forEach(row => {
+          const asn = row['ASN']?.trim() || '';
+          const courseCode = row[' Code']?.trim().toUpperCase() || '';
+          const period = row['Period']?.trim() || 'Regular';
+          const recordId = `${asn}_${courseCode.toLowerCase()}_${formattedYear}_${period.toLowerCase()}`;
+          
+          if (!recordsWithMultipleVersions[recordId]) {
+            recordsWithMultipleVersions[recordId] = [];
+          }
+          
+          recordsWithMultipleVersions[recordId].push(row);
+        });
+        
+        // Count duplicates for statistics
+        Object.keys(recordsWithMultipleVersions).forEach(recordId => {
+          if (recordsWithMultipleVersions[recordId].length > 1) {
+            stats.duplicates++;
+          }
+        });
+        
+        // Process each unique record
+        Object.entries(recordsWithMultipleVersions).forEach(([recordId, rows]) => {
+          // Get the primary row (first one, will be enhanced with multiple records data)
+          const primaryRow = rows[0];
+          
+          const asn = primaryRow['ASN']?.trim() || '';
+          const email = asnEmails[asn] || '-';
+          const courseCode = primaryRow[' Code']?.trim().toUpperCase() || '';
+          const period = primaryRow['Period']?.trim() || 'Regular';
+          
+          // Create new record object from CSV data
+          const newRecord = {
+            asn,
+            email,
+            matchStatus: asnEmails[asn] ? 'Found in Database' : 'Not Found',
+            studentName: primaryRow['Student Name']?.trim() || '',
+            courseCode,
+            courseDescription: primaryRow[' Description']?.trim() || '',
+            status: primaryRow['Status']?.trim() || 'Active',
+            period,
+            schoolYear: formattedYear,
+            value: primaryRow['Value']?.trim() || '-',
+            approved: primaryRow['Approved']?.trim() || 'No',
+            assignmentDate: primaryRow['Assignment Date']?.trim() || '-',
+            creditsAttempted: primaryRow['Credits Attempted']?.trim() || '-',
+            deleted: primaryRow['Deleted']?.trim() || 'No',
+            dualEnrolment: primaryRow['Dual Enrolment']?.trim() || 'No',
+            exitDate: primaryRow['Exit Date']?.trim() || '-',
+            fundingRequested: primaryRow['Funding Requested']?.trim() || 'No',
+            term: primaryRow['Term']?.trim() || 'Full Year',
+            referenceNumber: primaryRow['Reference #']?.trim() || '',
+            lastUpdated: new Date().toLocaleString('en-US'),
+            id: recordId
+          };
+          
+          // Create multiple records data ONLY if there are multiple rows
+          if (rows.length > 1) {
+            newRecord.multipleRecords = rows.map(row => ({
+              referenceNumber: row['Reference #']?.trim() || null,
+              term: row['Term']?.trim() || null,
+              status: row['Status']?.trim() || null,
+              exitDate: row['Exit Date']?.trim() || '-',
+              deleted: row['Deleted']?.trim() || null,
+              approved: row['Approved']?.trim() || null,
+              value: row['Value']?.trim() || null
+            }));
+            
+            // Sort records to prioritize Completed status and later exit dates
+            newRecord.multipleRecords.sort((a, b) => {
+              // Completed status takes priority
+              if (a.status === "Completed" && b.status !== "Completed") return -1;
+              if (a.status !== "Completed" && b.status === "Completed") return 1;
+              
+              // Then compare by exitDate (latest date wins)
+              const aDate = a.exitDate && a.exitDate !== '-' ? new Date(a.exitDate) : new Date(0);
+              const bDate = b.exitDate && b.exitDate !== '-' ? new Date(b.exitDate) : new Date(0);
+              return bDate - aDate; // Descending order (latest first)
+            });
+            
+            // Update primary record fields to match the primary version
+            const primaryVersion = newRecord.multipleRecords[0];
+            newRecord.status = primaryVersion.status || newRecord.status;
+            newRecord.term = primaryVersion.term || newRecord.term;
+            newRecord.exitDate = primaryVersion.exitDate || newRecord.exitDate;
+            newRecord.value = primaryVersion.value || newRecord.value;
+            newRecord.approved = primaryVersion.approved || newRecord.approved;
+            newRecord.referenceNumber = primaryVersion.referenceNumber || newRecord.referenceNumber;
+          }
+          // Removed the else clause that was creating unnecessary multipleRecords for single records
+          
+          // Check if record already exists to preserve link metadata
+          if (existingRecords[recordId]) {
+            stats.removed--; // Not actually removing this one
+            
+            // Preserve critical metadata
+            newRecord.linked = existingRecords[recordId].linked === true;
+            newRecord.linkedAt = existingRecords[recordId].linkedAt || null;
+            newRecord.summaryKey = existingRecords[recordId].summaryKey || null;
+            
+            // If already linked, count it
+            if (newRecord.linked) {
+              stats.linked++;
+            }
+            
+            // Check if anything changed
+            const recordChanged = hasRecordChanged(existingRecords[recordId], newRecord);
+            if (recordChanged) {
+              stats.updated++;
+              
+              // If record changed AND it's linked, we need to update the student summary
+              if (newRecord.linked && newRecord.summaryKey) {
+                const summaryKey = newRecord.summaryKey;
+                
+                // Only update if the actual student-visible data changed
+                const relevantDataChanged = [
+                  'courseDescription',
+                  'creditsAttempted',
+                  'term',
+                  'period',
+                  'studentName'
+                ].some(field => existingRecords[recordId][field] !== newRecord[field]);
+                
+                if (relevantDataChanged) {
+                  // Add to our updates
+                  studentSummaryUpdates[`${summaryKey}/pasiRecords/${courseCode.toLowerCase()}`] = {
+                    courseDescription: newRecord.courseDescription,
+                    creditsAttempted: newRecord.creditsAttempted,
+                    term: newRecord.term,
+                    period: newRecord.period,
+                    schoolYear: schoolYearWithSlash,
+                    studentName: newRecord.studentName,
+                    pasiRecordID: recordId
+                  };
+                }
+              }
+            }
+            
+            // Handle multipleRecords merging - only if one of them actually has multipleRecords
+            if (existingRecords[recordId].multipleRecords && existingRecords[recordId].multipleRecords.length > 1) {
+              if (!newRecord.multipleRecords) {
+                // New record doesn't have multiple versions, but existing one does
+                // In this case, keep the existing multipleRecords
+                newRecord.multipleRecords = existingRecords[recordId].multipleRecords;
+              } else {
+                // Both have multiple records - merge them carefully
+                const combinedRecords = [...existingRecords[recordId].multipleRecords];
+                
+                // Add any new versions that don't already exist
+                newRecord.multipleRecords.forEach(newVersion => {
+                  const versionExists = combinedRecords.some(existing => 
+                    existing.term === newVersion.term && 
+                    existing.status === newVersion.status &&
+                    existing.exitDate === newVersion.exitDate &&
+                    existing.value === newVersion.value
+                  );
+                  
+                  if (!versionExists) {
+                    combinedRecords.push(newVersion);
+                  }
+                });
+                
+                // Sort combined records
+                combinedRecords.sort((a, b) => {
+                  if (a.status === "Completed" && b.status !== "Completed") return -1;
+                  if (a.status !== "Completed" && b.status === "Completed") return 1;
+                  
+                  const aDate = a.exitDate && a.exitDate !== '-' ? new Date(a.exitDate) : new Date(0);
+                  const bDate = b.exitDate && b.exitDate !== '-' ? new Date(b.exitDate) : new Date(0);
+                  return bDate - aDate;
+                });
+                
+                newRecord.multipleRecords = combinedRecords;
+              }
+            }
+          } else {
+            // This is a brand new record
+            stats.new++;
+            
+            // Initialize link status (we'll update this later if we find a match)
+            newRecord.linked = false;
+            newRecord.linkedAt = null;
+            newRecord.summaryKey = null;
+          }
+  
+
+// NEW: Build the summaryKey using our desired process
+if (asn) {
+  // 1. Sanitize the email from newRecord
+  const sanitizedEmail = sanitizeEmail(newRecord.email);
+  
+  // 2. Look up the base courseId using the COURSE_CODE_TO_ID mapping
+  let baseCourseId = COURSE_CODE_TO_ID[newRecord.courseCode];
+  
+  // 3. If baseCourseId is 2000, then we need to look up an actual course ID from a matching student summary
+  if (baseCourseId === 2000) {
+    // Look for a matching student summary that has this student's ASN and a valid CourseID.
+    const potentialSummary = Object.values(studentSummaries).find(summary =>
+      summary.asn === asn && summary.CourseID
+    );
+    if (potentialSummary) {
+      baseCourseId = potentialSummary.CourseID;
+    }
+  }
+  
+  // 4. Create the computed summaryKey as: sanitizedEmail + "_" + baseCourseId
+  const computedSummaryKey = `${sanitizedEmail}_${baseCourseId}`;
+  
+  // 5. If this record isn't already linked or has a different summaryKey, update it.
+  if (!newRecord.linked || newRecord.summaryKey !== computedSummaryKey) {
+    if (!newRecord.linked) {
+      stats.newLinks++;
+    }
+    
+    newRecord.linked = true;
+    newRecord.linkedAt = new Date().toISOString();
+    newRecord.summaryKey = computedSummaryKey;
+    
+    // Update the student summary update map using the computed key
+    studentSummaryUpdates[`${computedSummaryKey}/pasiRecords/${courseCode.toLowerCase()}`] = {
+      courseDescription: newRecord.courseDescription,
+      creditsAttempted: newRecord.creditsAttempted,
+      term: newRecord.term,
+      period: newRecord.period,
+      schoolYear: schoolYearWithSlash,
+      studentName: newRecord.studentName,
+      pasiRecordID: recordId
+    };
+    
+    // ADD THIS BLOCK: Check if this is a placeholder course (2000) and flag it
+    if (baseCourseId === 2000) {
+      // Add a flag to indicate this needs course assignment
+      studentSummaryUpdates[`${computedSummaryKey}/needsCourseAssignment`] = true;
+      console.log(`Created placeholder link with courseId 2000 for ASN: ${asn}, Student: ${newRecord.studentName}`);
+    } else {
+      // Make sure to remove the flag if it exists and the course ID is now valid
+      studentSummaryUpdates[`${computedSummaryKey}/needsCourseAssignment`] = null;
+    }
+    
+    // Mark this link in the existing summary entries map
+    const entryKey = `${computedSummaryKey}/${courseCode.toLowerCase()}`;
+    existingSummaryEntries[entryKey] = recordId;
+  }
+  
+  stats.linked++;
+}
+
+
+          
+          // Add to new records map
+          newRecordsMap[recordId] = newRecord;
+        });
+        
+        // Find links that need to be removed (existing entries not in new data)
+        Object.entries(existingSummaryEntries).forEach(([entryKey, recordId]) => {
+          // If the record ID is not in our new map, this link needs to be removed
+          if (!newRecordsMap[recordId]) {
+            const [summaryKey, courseCode] = entryKey.split('/');
+            studentSummaryUpdates[`${summaryKey}/pasiRecords/${courseCode}`] = null;
+            stats.removedLinks++;
+          }
+        });
+        
+        // Set preview data with enhanced statistics
+        setChangePreview({
+          newRecordsMap,
+          studentSummaryUpdates,
+          stats,
+          recordsBeingRemoved: stats.removed,
+          totalChanges: stats.new + stats.updated + stats.removed,
+          totalLinks: stats.linked,
+          newLinks: stats.newLinks,
+          removedLinks: stats.removedLinks,
+          duplicateCount: stats.duplicates
+        });
+        setShowPreview(true);
+      } catch (error) {
+        console.error('Error processing CSV:', error);
+        toast.error(error.message || 'Error processing CSV file');
+      } finally {
+        setIsProcessing(false);
+        event.target.value = ''; // Reset file input
+      }
+    },
+    error: (error) => {
+      console.error('Papa Parse error:', error);
+      toast.error('Failed to parse CSV file');
+      setIsProcessing(false);
+      event.target.value = ''; // Reset file input
+    }
+  };
+
+  Papa.parse(file, config);
+};
+
+
+
+// Updated handleConfirmUpload function compatible with optimized multipleRecords handling
+const handleConfirmUpload = async () => {
+  if (!changePreview || !changePreview.newRecordsMap) {
+    toast.error('No changes to apply');
+    return;
+  }
+  
   // Close the dialog immediately
   setShowPreview(false);
-
+  
   // Show a toast to indicate background processing
-  toast.info("Processing changes in the background...");
-
-  // Continue with the processing in the background
+  const progressToast = toast.loading("Processing changes in the background...", {
+    duration: Infinity,
+    id: "pasi-upload-progress"
+  });
+  
   setIsProcessing(true);
   try {
     const db = getDatabase();
+    const { newRecordsMap, studentSummaryUpdates, stats } = changePreview;
+    const formattedYear = formatSchoolYear(selectedSchoolYear);
     
-    // First, process link deletions for records being removed
-    if (changePreview.recordsToDelete.length > 0) {
-      console.log(`Processing ${changePreview.recordsToDelete.length} record deletions with potential links`);
-      const deletionResults = await processPasiRecordDeletions(changePreview.recordsToDelete);
-
-      if (deletionResults.failed > 0) {
-        console.warn(`Failed to remove links for ${deletionResults.failed} records`, deletionResults.errors);
-      }
-
-      if (deletionResults.success > 0) {
-        console.log(`Successfully removed links for ${deletionResults.success} records`);
-      }
+    // Simplified approach: Replace all PASI records for this school year
+    // Step 1: Get all existing records for this school year
+    const pasiRef = ref(db, 'pasiRecords');
+    const schoolYearQuery = query(
+      pasiRef,
+      orderByChild('schoolYear'),
+      equalTo(formattedYear)
+    );
+    
+    const snapshot = await get(schoolYearQuery);
+    const recordsToDelete = [];
+    
+    if (snapshot.exists()) {
+      snapshot.forEach((child) => {
+        const recordId = child.key;
+        // If record exists in DB but not in our new set, it needs to be deleted
+        if (!newRecordsMap[recordId]) {
+          recordsToDelete.push({
+            id: recordId,
+            ...child.val()
+          });
+        }
+      });
     }
-
-    // Process link creations first if there are any
-    let newlyLinkedRecordIds = new Set();
-    if (linksToCreate.length > 0) {
-      console.log(`Processing ${linksToCreate.length} new course links`);
-      const linkResults = await processPasiLinkCreation(linksToCreate);
-
-      if (linkResults.failed > 0) {
-        console.warn(`Failed to create ${linkResults.failed} links`, linkResults.errors);
-        toast.warning(`Failed to create ${linkResults.failed} course links.`);
-      }
-
-      if (linkResults.success > 0) {
-        console.log(`Successfully created ${linkResults.success} links`);
+    
+    // Step 2: Process in batches to respect Firebase limits
+    const BATCH_SIZE = 400;
+    let batchCount = 0;
+    let operationsProcessed = 0;
+    
+    // Helper function to create flushable batches with validation
+    const createBatch = (operations) => {
+      const updates = {};
+      operations.forEach(op => {
+        // Skip operations with undefined values
+        if (op.value === undefined) {
+          console.warn(`Skipping operation with undefined value for path: ${op.path}`);
+          return;
+        }
         
-        // Keep track of which records were just linked
-        linkResults.createdLinks.forEach(link => {
-          newlyLinkedRecordIds.add(link.pasiRecordId);
+        // For objects, validate all properties to avoid Firebase errors
+        if (op.value !== null && typeof op.value === 'object') {
+          // Create a clean copy to avoid mutating the original
+          const cleanValue = { ...op.value };
+          
+          // Check for and remove undefined values in the object
+          Object.keys(cleanValue).forEach(key => {
+            if (cleanValue[key] === undefined) {
+              console.warn(`Removing undefined property ${key} from object at path: ${op.path}`);
+              delete cleanValue[key];
+            }
+          });
+          
+          // Check if multipleRecords exists but is empty or has only one item
+          if (cleanValue.multipleRecords && cleanValue.multipleRecords.length <= 1) {
+            console.log(`Removing unnecessary multipleRecords array for record at path: ${op.path}`);
+            delete cleanValue.multipleRecords;
+          }
+          
+          updates[op.path] = cleanValue;
+        } else {
+          updates[op.path] = op.value;
+        }
+      });
+      
+      return updates;
+    };
+    
+    // Collect all operations
+    const allOperations = [];
+    
+    // Add all new/updated records
+    Object.entries(newRecordsMap).forEach(([recordId, record]) => {
+      // Create a clean copy of the record
+      const cleanRecord = { ...record };
+      
+      // Only include multipleRecords if it has multiple items
+      if (cleanRecord.multipleRecords && cleanRecord.multipleRecords.length <= 1) {
+        delete cleanRecord.multipleRecords;
+      }
+      
+      allOperations.push({ 
+        path: `pasiRecords/${recordId}`,
+        value: cleanRecord
+      });
+    });
+    
+    // Add all deletions
+    recordsToDelete.forEach(record => {
+      allOperations.push({
+        path: `pasiRecords/${record.id}`,
+        value: null
+      });
+    });
+    
+    // Add all student summary updates. This is where we update studentCourseSummaries records 
+    if (studentSummaryUpdates) {
+      Object.entries(studentSummaryUpdates).forEach(([path, value]) => {
+        const fullPath = `studentCourseSummaries/${path}`;
+        console.log(`Adding update for: ${fullPath}`, value);
+        allOperations.push({
+          path: fullPath,
+          value
         });
-        
-        toast.success(`Created ${linkResults.success} new course links`);
-      }
+      });
     }
-
-    // Fetch current companion data to check existing values
-    let currentCompanionData = {};
-    try {
-      const companionRef = ref(db, 'pasiRecordsCompanion');
-      const companionSnapshot = await get(companionRef);
-      if (companionSnapshot.exists()) {
-        currentCompanionData = companionSnapshot.val();
-      }
-    } catch (error) {
-      console.warn("Error fetching companion data:", error);
-      // Continue with empty companion data
-    }
-
-    // Now prepare database updates with the correct linked status
-    const updates = {};
-
-    // Process records to delete
-    changePreview.recordsToDelete.forEach(record => {
-      updates[`pasiRecords/${record.id}`] = null;
-      
-      // Also delete the companion record to avoid orphaned data
-      updates[`pasiRecordsCompanion/${record.id}`] = null;
-    });
-
-    // Process records to add
-    changePreview.recordsToAdd.forEach(record => {
-      updates[`pasiRecords/${record.id}`] = record;
-      
-      // Check if the value field contains a numeric grade
-      // Store it in the companion path for future reference
-      if (record.value && record.value !== '-' && !isNaN(record.value)) {
-        console.log(`Storing original grade ${record.value} for record ${record.id}`);
-        updates[`pasiRecordsCompanion/${record.id}/originalGrade`] = record.value;
-      }
-      
-      // Store exit date in companion if it's valid
-      if (record.exitDate && record.exitDate !== '-') {
-        console.log(`Storing original exitDate ${record.exitDate} for record ${record.id}`);
-        updates[`pasiRecordsCompanion/${record.id}/originalExitDate`] = record.exitDate;
-      }
-    });
     
-    // Process records to update
-   // Process records to update
-changePreview.recordsToUpdate.forEach(updateObj => {
-  const { old: existingRecord, new: newRecord } = updateObj;
-  
-  // Get updated fields
-  const updatedFields = getUpdatedFields(existingRecord, newRecord);
-  
-  // Prepare update for the main record
-  updates[`pasiRecords/${existingRecord.id}`] = {
-    ...existingRecord,
-    ...updatedFields,
-    // Add explicit null fallbacks for critical fields
-    linked: existingRecord.linked === true, // Ensure boolean
-    linkedAt: existingRecord.linkedAt || null,
-    summaryKey: existingRecord.summaryKey || null,
-   
-   // Only use existing reference number if new one is blank or doesn't exist
-referenceNumber: (newRecord.referenceNumber !== undefined && 
-  newRecord.referenceNumber !== null && 
-  newRecord.referenceNumber !== '') 
- ? newRecord.referenceNumber 
- : (existingRecord.referenceNumber || null)
-  };
-  
-  // Get the current companion data for this record
-  const existingCompanionData = currentCompanionData[existingRecord.id] || {};
-  
-  // Handle the grade specifically
-  // If the new record has a valid numeric grade, update the companion record
-  if (newRecord.value && newRecord.value !== '-' && !isNaN(newRecord.value)) {
-    // Only store the grade if it doesn't already exist or if it's changed
-    if (!existingCompanionData.originalGrade || existingCompanionData.originalGrade !== newRecord.value) {
-      console.log(`Updating original grade to ${newRecord.value} for record ${existingRecord.id}`);
-      updates[`pasiRecordsCompanion/${existingRecord.id}/originalGrade`] = newRecord.value;
+    // Split into batches
+    const batches = [];
+    for (let i = 0; i < allOperations.length; i += BATCH_SIZE) {
+      batches.push(allOperations.slice(i, i + BATCH_SIZE));
     }
-  }
-  
-  // Handle the exitDate
-  // If the new record has a valid exitDate
-  if (newRecord.exitDate && newRecord.exitDate !== '-') {
-    // Check if we already have an originalExitDate
-    if (!existingCompanionData.originalExitDate) {
-      // If no originalExitDate exists yet, store this one
-      console.log(`Adding original exitDate ${newRecord.exitDate} for record ${existingRecord.id}`);
-      updates[`pasiRecordsCompanion/${existingRecord.id}/originalExitDate`] = newRecord.exitDate;
+    
+    // Process batches sequentially
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      const batchNumber = i + 1;
+      
+      toast.loading(`Processing batch ${batchNumber}/${batches.length}...`, {
+        id: progressToast
+      });
+      
+      const updates = createBatch(batch);
+      
+      // Only proceed if there are actual updates to make
+      if (Object.keys(updates).length > 0) {
+        // Apply this batch of updates
+        await update(ref(db), updates);
+      }
+      
+      batchCount++;
+      operationsProcessed += Object.keys(updates).length;
     }
-    // If we already have an originalExitDate stored, keep that one (we want to retain the first valid date)
-  }
-});
-  
-    // Update the database with the prepared updates
-    if (Object.keys(updates).length > 0) {
-      await update(ref(db), updates);
+    
+    // Dismiss the progress toast
+    toast.dismiss(progressToast);
+    
+    // Construct a detailed success message
+    const summaryUpdateCount = studentSummaryUpdates ? Object.keys(studentSummaryUpdates).length : 0;
+    const totalChanges = stats.new + stats.updated + stats.removed;
+    
+    let successMessage = `Updated PASI records for ${selectedSchoolYear}: ${totalChanges} changes applied`;
+    
+    if (stats.linked > 0) {
+      successMessage += ` with ${stats.linked} linked records`;
     }
-
-    // Show success message
-    if (Object.keys(updates).length > 0 || linksToCreate.length > 0) {
-      toast.success(`Updated PASI records for ${selectedSchoolYear}: ${changePreview.totalChanges} changes applied`);
-    } else {
-      toast.success(`Updated PASI records for ${selectedSchoolYear}: ${changePreview.totalChanges} changes applied`);
+    
+    if (stats.newLinks > 0 || stats.removedLinks > 0) {
+      successMessage += ` (${stats.newLinks} new links, ${stats.removedLinks} removed links)`;
     }
-
+    
+    if (summaryUpdateCount > 0) {
+      successMessage += `. Updated ${summaryUpdateCount} student course summaries.`;
+    }
+    
+    toast.success(successMessage);
+    
   } catch (error) {
     console.error('Error updating records:', error);
     toast.error(error.message || 'Failed to update records');
+    toast.dismiss(progressToast);
   } finally {
     setIsProcessing(false);
-    setChangePreview(null); // Reset the change preview after processing
   }
 };
   
@@ -2051,74 +2235,6 @@ const hasRecordChanged = (existingRecord, newRecord) => {
   return fieldsToCompare.some(field => existingRecord[field] !== newRecord[field]);
 };
 
-// Helper function to get the fields that have changed (for UI display)
-const getChangedFields = (existingRecord, newRecord) => {
-  const fieldsToCompare = [
-    'asn', 'studentName', 'courseCode', 'courseDescription', 
-    'status', 'period', 'value', 'approved', 'assignmentDate', 
-    'creditsAttempted', 'deleted', 'dualEnrolment', 'exitDate', 
-    'fundingRequested', 'term', 'email', 'referenceNumber'
-  ];
-  
-  const changedFields = {};
-  fieldsToCompare.forEach(field => {
-    if (field === 'referenceNumber') {
-      // Special handling for referenceNumber - only mark as changed if new value is non-empty
-      if (existingRecord[field] !== newRecord[field] && 
-          newRecord[field] !== undefined && 
-          newRecord[field] !== null && 
-          newRecord[field] !== '') {
-        changedFields[field] = {
-          old: existingRecord[field],
-          new: newRecord[field]
-        };
-      }
-    } else {
-      // Original behavior for other fields
-      if (existingRecord[field] !== newRecord[field]) {
-        changedFields[field] = {
-          old: existingRecord[field],
-          new: newRecord[field]
-        };
-      }
-    }
-  });
-  
-  return changedFields;
-};
-  
-  // Additional function needed when performing the actual update
-  const getUpdatedFields = (existingRecord, newRecord) => {
-    const fieldsToCompare = [
-      'asn', 'studentName', 'courseCode', 'courseDescription', 
-      'status', 'period', 'value', 'approved', 'assignmentDate', 
-      'creditsAttempted', 'deleted', 'dualEnrolment', 'exitDate', 
-      'fundingRequested', 'term', 'email', 'referenceNumber' 
-     
-    ];
-    
-    const updatedFields = {};
-    
-    // Only add defined values that have changed
-    fieldsToCompare.forEach(field => {
-      // Original behavior for all fields
-      if (existingRecord[field] !== newRecord[field] && newRecord[field] !== undefined) {
-        updatedFields[field] = newRecord[field];
-      }
-    });
-    
-    // Always update the lastUpdated field
-    updatedFields.lastUpdated = new Date().toLocaleString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-    
-    return updatedFields;
-  };
 
 
   const handleCopyData = (text) => {
