@@ -79,12 +79,13 @@ import CourseLinkingDialog from './CourseLinkingDialog';
 import { processPasiLinkCreation, formatSchoolYearWithSlash, processPasiRecordDeletions, getCourseIdsForPasiCode } from '../utils/pasiLinkUtils';
 import CreateStudentDialog from './CreateStudentDialog';
 import MissingPasiRecordsTab from './MissingPasiRecordsTab';
-import { COURSE_OPTIONS, COURSE_CODE_TO_ID, ACTIVE_FUTURE_ARCHIVED_OPTIONS, getSchoolYearOptions } from '../config/DropdownOptions';
+import { COURSE_OPTIONS, COURSE_CODE_TO_ID, ACTIVE_FUTURE_ARCHIVED_OPTIONS, getSchoolYearOptions, COURSE_ID_TO_CODE } from '../config/DropdownOptions';
 import RevenueTab from './RevenueTab';
 import PermissionIndicator from '../context/PermissionIndicator';
 import NPAdjustments from './NPAdjustments';
 import { useAuth } from '../context/AuthContext';
 import { useSchoolYear } from '../context/SchoolYearContext';
+import { hasPasiRecordForCourse, isRecordActuallyMissing, getPasiCodesForCourseId} from '../utils/pasiRecordsUtils';
 
 
 // Validation rules for status compatibility
@@ -290,59 +291,12 @@ const toggleAllGroups = (expand) => {
   setExpandedGroups(newState);
 };
 
-// Find the countActualMissingRecords function - around line 136
+// With this function:
 const countActualMissingRecords = (records) => {
   if (!records || records.length === 0) return 0;
-  
-  return records.filter(record => {
-    // Check if it's an archived/unenrolled-like record
-    const isArchived = record.ActiveFutureArchived_Value === "Archived";
-    const isUnenrolledLikeStatus = 
-      record.status === "Unenrolled" || 
-      record.status === "✅ Mark Added to PASI" || 
-      record.status === "☑️ Removed From PASI (Funded)";
-    
-    // Check if it has future start/resume date (more than 2 months away)
-    const hasFutureDate = 
-      (record.status === "Starting on (Date)" && record.ScheduleStartDate && isWithinTwoMonths(record.ScheduleStartDate)) ||
-      (record.status === "Resuming on (date)" && record.resumingOnDate && isWithinTwoMonths(record.resumingOnDate));
-    
-    // Check if it's a registration record (newly enrolled student in registration process)
-    const isRegistration = record.status === "Newly Enrolled" && record.ActiveFutureArchived_Value === "Registration";
-    
-    // Check if the courseId is 139
-    const isCourseId139 = record.courseId === 139;
-    
-    // We only want to count records that are NOT archived/unenrolled-like, 
-    // don't have future dates, are NOT in registration, and are NOT courseId 139
-    return !(isArchived && isUnenrolledLikeStatus) && !hasFutureDate && !isRegistration && !isCourseId139;
-  }).length;
+  return records.filter(record => isRecordActuallyMissing(record)).length;
 };
 
-// Updated function - despite the name, it now checks if date is MORE than 2 months away
-const isWithinTwoMonths = (dateString) => {
-  if (!dateString) return false;
-  
-  try {
-    const date = new Date(dateString);
-    
-    // Check if date is valid
-    if (isNaN(date.getTime())) return false;
-    
-    // Get today's date
-    const today = new Date();
-    
-    // Calculate date 2 months in the future
-    const twoMonthsFuture = new Date();
-    twoMonthsFuture.setMonth(today.getMonth() + 2);
-    
-    // The date is MORE than 2 months away if it's after the twoMonthsFuture date
-    return date > twoMonthsFuture;
-  } catch (error) {
-    console.error("Error checking date range:", error);
-    return false;
-  }
-};
 
   // Create this function in your component
   const combineRecordsWithSummaries = (records, summariesMap) => {
@@ -503,16 +457,34 @@ const isWithinTwoMonths = (dateString) => {
   );
 };
 
-  // Create a mapping of courseIds to PASI codes
+ 
   const courseIdToPasiCode = useMemo(() => {
-    const mapping = {};
+    // Start with the COURSE_ID_TO_CODE mapping
+    const mapping = { ...COURSE_ID_TO_CODE };
+    
+    // Add any additional mappings from COURSE_OPTIONS
     COURSE_OPTIONS.forEach(course => {
       if (course.courseId && course.pasiCode) {
-        mapping[course.courseId] = course.pasiCode;
+        const courseId = parseInt(course.courseId, 10);
+        
+        // If this courseId already has a mapping, make sure it's an array
+        if (mapping[courseId]) {
+          if (!Array.isArray(mapping[courseId])) {
+            mapping[courseId] = [mapping[courseId]];
+          }
+          // Add the new pasiCode if it's not already included
+          if (!mapping[courseId].includes(course.pasiCode)) {
+            mapping[courseId].push(course.pasiCode);
+          }
+        } else {
+          // New mapping
+          mapping[courseId] = course.pasiCode;
+        }
       }
     });
+    
     return mapping;
-  }, []);
+  }, [COURSE_OPTIONS, COURSE_ID_TO_CODE]); 
 
   const isStudentTypePeriodCompatible = (studentType, period) => {
     // Check Non-Primary and Home Education should have Regular period
@@ -550,6 +522,7 @@ const isWithinTwoMonths = (dateString) => {
   };
 
   const checkStatusMismatch = (pasiRecords, summaryDataMap) => {
+    console.log("Running checkStatusMismatch with", pasiRecords.length, "records");
     const recordsWithMismatch = [];
     
     pasiRecords.forEach(record => {
@@ -625,7 +598,7 @@ const isWithinTwoMonths = (dateString) => {
         }
       });
     });
-    
+    console.log("Found", recordsWithMismatch.length, "mismatches");
     setRecordsWithStatusMismatch(recordsWithMismatch);
     return recordsWithMismatch;
   };
@@ -690,36 +663,52 @@ const findMissingPasiRecords = () => {
   setIsLoadingMissing(true);
   try {
     const missing = [];
+    let skippedDueToNoCode = 0;
+    let skippedDueToHavingRecord = 0;
 
     for (const summary of studentCourseSummaries) {
-      // Get the PASI code for this course using the courseId
+      // Get the course ID (try both properties)
       const courseId = summary.courseId || summary.CourseID;
-      const pasiCode = courseIdToPasiCode[courseId];
       
-      // If we can't determine the PASI code for this course, skip it
-      if (!pasiCode) {
+      // Skip courses with no ID
+      if (!courseId) {
         continue;
       }
       
-      // Check if the student has a PASI record for THIS specific course
-      const hasPasiRecordForThisCourse = 
-        summary.pasiRecords && 
-        Object.keys(summary.pasiRecords).includes(pasiCode);
+      // Check if we can find a PASI code for this course
+      const pasiCodes = getPasiCodesForCourseId(courseId, courseIdToPasiCode);
+      if (!pasiCodes || pasiCodes.length === 0) {
+        skippedDueToNoCode++;
+        continue;
+      }
       
-      if (!hasPasiRecordForThisCourse) {
+      // Check if the student has a PASI record for this course using our new utility
+      const hasPasiRecord = hasPasiRecordForCourse(summary, courseIdToPasiCode);
+      
+      if (!hasPasiRecord) {
+        // Add the record to missing list
+        const primaryPasiCode = pasiCodes[0]; // Use the first PASI code for display
+        
         missing.push({
           ...summary, 
-          reason: `Missing PASI record for course: ${pasiCode} (${summary.Course_Value})`
+          pasiCode: primaryPasiCode, // Set a primary PASI code for display purposes
+          possiblePasiCodes: pasiCodes, // Keep all possible codes for reference
+          reason: `Missing PASI record for course: ${primaryPasiCode} (${summary.Course_Value})`
         });
         
         // Log a sample for debugging
         if (missing.length <= 3) {
-          console.log(`Missing record: ${summary.studentName}, courseId: ${courseId}, pasiCode: ${pasiCode}`);
+          console.log(`Missing record: ${summary.studentName}, courseId: ${courseId}, pasiCode: ${primaryPasiCode}`);
         }
+      } else {
+        skippedDueToHavingRecord++;
       }
     }
     
     console.log("Final missing PASI records count:", missing.length);
+    console.log("Skipped due to no PASI code:", skippedDueToNoCode);
+    console.log("Skipped due to having a record:", skippedDueToHavingRecord);
+    
     if (missing.length > 0) {
       console.log("Sample missing record:", missing[0]);
     }
@@ -1606,51 +1595,60 @@ useEffect(() => {
   const summary = getSummary();
 
   
- // Enhanced file upload function with context integration
- const handleFileUpload = (event) => {
-  const file = event.target.files[0];
-  if (!file) {
-    toast.error('Please select a file');
-    return;
-  }
-
-  if (!selectedSchoolYear) {
-    toast.error('Please select a school year before uploading');
-    return;
-  }
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) {
+      toast.error('Please select a file');
+      return;
+    }
   
-  if (isLoadingStudents) {
-    toast.error('Still loading student data. Please wait a moment...');
-    return;
-  }
-
-  setIsProcessing(true);
-  setChangePreview(null); // Reset change preview
-  setShowPreview(false); 
-
-  const config = {
-    header: true,
-    skipEmptyLines: 'greedy',
-    complete: async (results) => {
-      try {
-        if (!results?.data?.length) {
-          throw new Error('No valid data found in CSV file');
-        }
-
-        if (isLoadingCourseSummaries || !studentSummaries || Object.keys(studentSummaries).length === 0) {
-          toast.error("Student course summaries are still loading. Please wait a moment and try again.");
-          setIsProcessing(false);
-          event.target.value = ''; // Reset file input
-          return;
-        }
-        
-        // Validate ASN data
-        const missingAsnRow = results.data.findIndex(row => !row['ASN']?.trim());
-        if (missingAsnRow !== -1) {
-          toast.error(`Missing ASN value in row ${missingAsnRow + 2}`);
-          setIsProcessing(false);
-          return;
-        }
+    if (!selectedSchoolYear) {
+      toast.error('Please select a school year before uploading');
+      return;
+    }
+    
+    if (isLoadingStudents) {
+      toast.error('Still loading student data. Please wait a moment...');
+      return;
+    }
+  
+    setIsProcessing(true);
+    setChangePreview(null); // Reset change preview
+    setShowPreview(false); 
+  
+    const config = {
+      header: true,
+      skipEmptyLines: 'greedy',
+      complete: async (results) => {
+        try {
+          if (!results?.data?.length) {
+            throw new Error('No valid data found in CSV file');
+          }
+  
+          // Define required fields
+          const requiredFields = ['ASN','Work Items', ' Code', 'Student Name', ' Description', 'Status', 'School Enrolment', 'Value', 'Approved?', 'Assignment Date', 'Credits Attempted', 'Deleted?', 'Dual Enrolment?', 'Exit Date', 'Funding Requested?', 'Term', 'Reference #'];
+          
+          // Check if all required fields are present in the CSV headers
+          const csvHeaders = Object.keys(results.data[0] || {});
+          const missingFields = requiredFields.filter(field => !csvHeaders.includes(field));
+          
+          // Specifically check for Reference # field
+          const hasReferenceNumber = csvHeaders.includes('Reference #');
+  
+          if (isLoadingCourseSummaries || !studentSummaries || Object.keys(studentSummaries).length === 0) {
+            toast.error("Student course summaries are still loading. Please wait a moment and try again.");
+            setIsProcessing(false);
+            event.target.value = ''; // Reset file input
+            return;
+          }
+          
+          // Validate ASN data
+          const missingAsnRow = results.data.findIndex(row => !row['ASN']?.trim());
+          if (missingAsnRow !== -1) {
+            toast.error(`Missing ASN value in row ${missingAsnRow + 2}`);
+            setIsProcessing(false);
+            return;
+          }
 
         const formattedYear = formatSchoolYear(selectedSchoolYear);
         const schoolYearWithSlash = formatSchoolYearWithSlash(selectedSchoolYear);
@@ -1770,31 +1768,40 @@ useEffect(() => {
           
           // Create new record object from CSV data
           const newRecord = {
-            asn,
-            email,
-            matchStatus: asnEmails[asn] ? 'Found in Database' : 'Not Found',
+            asn, // Assumes 'asn' variable holds the value from 'ASN' column
+            email, // Assumes 'email' variable is determined elsewhere (e.g., from asnEmails)
+            matchStatus: asnEmails[asn] ? 'Found in Database' : 'Not Found', // Calculated field
             studentName: primaryRow['Student Name']?.trim() || '',
-            courseCode,
-            courseDescription: primaryRow[' Description']?.trim() || '',
+            // New field added:
+            workItems: primaryRow['Work Items']?.trim() || '', // Added based on requiredFields
+            courseCode, // Assumes 'courseCode' variable holds the value from ' Code' column
+            courseDescription: primaryRow[' Description']?.trim() || '', // Maps to ' Description' (note space)
             status: primaryRow['Status']?.trim() || 'Active',
-            period,
-            schoolYear: formattedYear,
+            // New field added:
+            schoolEnrolment: primaryRow['School Enrolment']?.trim() || '', // Added based on requiredFields
+            period, // Assumes 'period' variable is determined elsewhere
+            schoolYear: formattedYear, // Assumes 'formattedYear' variable holds the school year
             value: primaryRow['Value']?.trim() || '-',
-            approved: primaryRow['Approved']?.trim() || 'No',
+            // Corrected key to match requiredFields ('Approved?')
+            approved: primaryRow['Approved?']?.trim() || 'No',
             assignmentDate: primaryRow['Assignment Date']?.trim() || '-',
             creditsAttempted: primaryRow['Credits Attempted']?.trim() || '-',
-            deleted: primaryRow['Deleted']?.trim() || 'No',
-            dualEnrolment: primaryRow['Dual Enrolment']?.trim() || 'No',
+            // Corrected key to match requiredFields ('Deleted?')
+            deleted: primaryRow['Deleted?']?.trim() || 'No',
+             // Corrected key to match requiredFields ('Dual Enrolment?')
+            dualEnrolment: primaryRow['Dual Enrolment?']?.trim() || 'No',
             exitDate: primaryRow['Exit Date']?.trim() || '-',
-            fundingRequested: primaryRow['Funding Requested']?.trim() || 'No',
-            term: primaryRow['Term']?.trim() || 'Full Year',
+            fundingRequested: primaryRow['Funding Requested?']?.trim() || 'No',
+            term: primaryRow['Term']?.trim() || 'Full Year', // This is the PASI Term from the file
             referenceNumber: primaryRow['Reference #']?.trim() || '',
-            lastUpdated: new Date().toLocaleString('en-US'),
-            id: recordId
+            lastUpdated: new Date().toLocaleString('en-US'), // Calculated field
+            id: recordId // Assumes 'recordId' variable is generated elsewhere
           };
           
           // Create multiple records data ONLY if there are multiple rows
           if (rows.length > 1) {
+            // Current upload has duplicates, create fresh multipleRecords array 
+            // from current upload only - don't merge with previous data
             newRecord.multipleRecords = rows.map(row => ({
               referenceNumber: row['Reference #']?.trim() || null,
               term: row['Term']?.trim() || null,
@@ -1825,8 +1832,15 @@ useEffect(() => {
             newRecord.value = primaryVersion.value || newRecord.value;
             newRecord.approved = primaryVersion.approved || newRecord.approved;
             newRecord.referenceNumber = primaryVersion.referenceNumber || newRecord.referenceNumber;
+          } else {
+            // Current upload does NOT have duplicates - ensure no multipleRecords exists
+            // This ensures we don't carry over multipleRecords from previous uploads
+            delete newRecord.multipleRecords;
+            
+            // Use the single row's data directly (already added to newRecord during creation)
+            // Nothing more to do here since the single record is already the primary record
           }
-          // Removed the else clause that was creating unnecessary multipleRecords for single records
+          
           
           // Check if record already exists to preserve link metadata
           if (existingRecords[recordId]) {
@@ -1875,43 +1889,47 @@ useEffect(() => {
               }
             }
             
-            // Handle multipleRecords merging - only if one of them actually has multipleRecords
-            if (existingRecords[recordId].multipleRecords && existingRecords[recordId].multipleRecords.length > 1) {
-              if (!newRecord.multipleRecords) {
-                // New record doesn't have multiple versions, but existing one does
-                // In this case, keep the existing multipleRecords
-                newRecord.multipleRecords = existingRecords[recordId].multipleRecords;
-              } else {
-                // Both have multiple records - merge them carefully
-                const combinedRecords = [...existingRecords[recordId].multipleRecords];
-                
-                // Add any new versions that don't already exist
-                newRecord.multipleRecords.forEach(newVersion => {
-                  const versionExists = combinedRecords.some(existing => 
-                    existing.term === newVersion.term && 
-                    existing.status === newVersion.status &&
-                    existing.exitDate === newVersion.exitDate &&
-                    existing.value === newVersion.value
-                  );
-                  
-                  if (!versionExists) {
-                    combinedRecords.push(newVersion);
-                  }
-                });
-                
-                // Sort combined records
-                combinedRecords.sort((a, b) => {
-                  if (a.status === "Completed" && b.status !== "Completed") return -1;
-                  if (a.status !== "Completed" && b.status === "Completed") return 1;
-                  
-                  const aDate = a.exitDate && a.exitDate !== '-' ? new Date(a.exitDate) : new Date(0);
-                  const bDate = b.exitDate && b.exitDate !== '-' ? new Date(b.exitDate) : new Date(0);
-                  return bDate - aDate;
-                });
-                
-                newRecord.multipleRecords = combinedRecords;
-              }
-            }
+          // Current upload has duplicates, create fresh multipleRecords array 
+// from current upload only - don't merge with previous data
+if (rows.length > 1) {
+  newRecord.multipleRecords = rows.map(row => ({
+    referenceNumber: row['Reference #']?.trim() || null,
+    term: row['Term']?.trim() || null,
+    status: row['Status']?.trim() || null,
+    exitDate: row['Exit Date']?.trim() || '-',
+    deleted: row['Deleted']?.trim() || null,
+    approved: row['Approved']?.trim() || null,
+    value: row['Value']?.trim() || null
+  }));
+  
+  // Sort records to prioritize Completed status and later exit dates
+  newRecord.multipleRecords.sort((a, b) => {
+    // Completed status takes priority
+    if (a.status === "Completed" && b.status !== "Completed") return -1;
+    if (a.status !== "Completed" && b.status === "Completed") return 1;
+    
+    // Then compare by exitDate (latest date wins)
+    const aDate = a.exitDate && a.exitDate !== '-' ? new Date(a.exitDate) : new Date(0);
+    const bDate = b.exitDate && b.exitDate !== '-' ? new Date(b.exitDate) : new Date(0);
+    return bDate - aDate; // Descending order (latest first)
+  });
+  
+  // Update primary record fields to match the primary version
+  const primaryVersion = newRecord.multipleRecords[0];
+  newRecord.status = primaryVersion.status || newRecord.status;
+  newRecord.term = primaryVersion.term || newRecord.term;
+  newRecord.exitDate = primaryVersion.exitDate || newRecord.exitDate;
+  newRecord.value = primaryVersion.value || newRecord.value;
+  newRecord.approved = primaryVersion.approved || newRecord.approved;
+  newRecord.referenceNumber = primaryVersion.referenceNumber || newRecord.referenceNumber;
+} else {
+  // Current upload does NOT have duplicates - ensure no multipleRecords exists
+  // This ensures we don't carry over multipleRecords from previous uploads
+  delete newRecord.multipleRecords;
+  
+  // Use the single row's data directly (already added to newRecord during creation)
+  // Nothing more to do here since the single record is already the primary record
+}
           } else {
             // This is a brand new record
             stats.new++;
@@ -2010,7 +2028,10 @@ if (asn) {
           totalLinks: stats.linked,
           newLinks: stats.newLinks,
           removedLinks: stats.removedLinks,
-          duplicateCount: stats.duplicates
+          duplicateCount: stats.duplicates,
+          hasReferenceNumber: hasReferenceNumber,
+          missingFields: missingFields,
+          allFieldsPresent: missingFields.length === 0
         });
         setShowPreview(true);
       } catch (error) {
@@ -2031,7 +2052,6 @@ if (asn) {
 
   Papa.parse(file, config);
 };
-
 
 
 // Updated handleConfirmUpload function compatible with optimized multipleRecords handling
@@ -2665,6 +2685,8 @@ const hasRecordChanged = (existingRecord, newRecord) => {
   onConfirm={handleConfirmUpload}
   isConfirming={isProcessing}
   selectedSchoolYear={selectedSchoolYear}
+  hasAllRequiredFields={changePreview?.allFieldsPresent || false}
+  missingFields={changePreview?.missingFields || []}
 />
         </Card>
 
@@ -2689,16 +2711,16 @@ const hasRecordChanged = (existingRecord, newRecord) => {
     </TabsTrigger>
     
     <TabsTrigger 
-      value="missingPasi"
-      className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-    >
-      Missing PASI
-      {missingPasiRecords.length > 0 && (
-        <Badge variant="destructive" className="ml-2 bg-red-100 hover:bg-red-100 text-red-600">
-          {countActualMissingRecords(missingPasiRecords)}
-        </Badge>
-      )}
-    </TabsTrigger>
+  value="missingPasi"
+  className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+>
+  Missing PASI
+  {missingPasiRecords.length > 0 && (
+    <Badge variant="destructive" className="ml-2 bg-red-100 hover:bg-red-100 text-red-600">
+      {countActualMissingRecords(missingPasiRecords)}
+    </Badge>
+  )}
+</TabsTrigger>
 
     <TabsTrigger 
       value="validation"
@@ -2754,24 +2776,25 @@ const hasRecordChanged = (existingRecord, newRecord) => {
                     </Badge>
                     
                     {/* Status mismatch filter toggle */}
-                    {recordsWithStatusMismatch.length > 0 && (
-  <div className="flex items-center gap-2">
-    <input 
-      type="checkbox" 
-      id="showMismatchesOnly"
-      className="h-4 w-4 rounded border-gray-300"
-      checked={showStatusMismatchOnly}
-      onChange={() => setShowStatusMismatchOnly(!showStatusMismatchOnly)}
-    />
-    <label htmlFor="showMismatchesOnly" className="text-sm">
-      Filter issues ({getUniqueMismatchAsnsCount()}) 
-      <span className="text-muted-foreground ml-1">
-        <AlertTriangle className="h-3 w-3 inline mx-1 text-amber-500" title="Status issues" />
-        <HelpCircle className="h-3 w-3 inline mx-1 text-blue-500" title="Student type/period issues" />
-      </span>
-    </label>
-  </div>
-)}
+                  
+<div className="flex items-center gap-2">
+  <input 
+    type="checkbox" 
+    id="showMismatchesOnly"
+    className="h-4 w-4 rounded border-gray-300"
+    checked={showStatusMismatchOnly}
+    onChange={() => setShowStatusMismatchOnly(!showStatusMismatchOnly)}
+    disabled={getUniqueMismatchAsnsCount() === 0}
+  />
+  <label htmlFor="showMismatchesOnly" className="text-sm">
+    Filter issues ({getUniqueMismatchAsnsCount()}) 
+    <span className="text-muted-foreground ml-1">
+      <AlertTriangle className="h-3 w-3 inline mx-1 text-amber-500" title="Status issues" />
+      <HelpCircle className="h-3 w-3 inline mx-1 text-blue-500" title="Student type/period issues" />
+    </span>
+  </label>
+</div>
+
                   </div>
 
                  

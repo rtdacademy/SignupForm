@@ -1,11 +1,9 @@
 import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Button } from "../components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import { AlertCircle, Loader2, FileStack, Plus, Minus, RefreshCw, Link, Link2Off } from 'lucide-react';
+import { Loader2, FileStack, Plus, Minus, RefreshCw, Link, Link2Off, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { getDatabase, ref, query, orderByChild, equalTo, get, update } from 'firebase/database';
-import { formatSchoolYearWithSlash } from '../utils/pasiLinkUtils';
+import { Alert, AlertTitle, AlertDescription } from "../components/ui/alert";
 
 /**
  * Simplified PASIPreviewDialog that shows a summary of the changes that will be made
@@ -17,12 +15,14 @@ const PASIPreviewDialog = ({
   changePreview, 
   onConfirm, 
   isConfirming = false,
-  selectedSchoolYear 
+  selectedSchoolYear,
+  hasAllRequiredFields = true,
+  missingFields = []
 }) => {
   if (!changePreview) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Processing records...</DialogTitle>
           </DialogHeader>
@@ -45,6 +45,9 @@ const PASIPreviewDialog = ({
     removedLinks = 0,
     duplicateCount = 0
   } = changePreview;
+
+  // Check if Reference # field is missing specifically
+  const isReferenceNumberMissing = missingFields.includes('Reference #');
 
   // Count student course summary updates
   const studentSummaryUpdateCount = changePreview.studentSummaryUpdates ? 
@@ -75,14 +78,44 @@ const PASIPreviewDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>PASI Records Update Summary for {selectedSchoolYear}</DialogTitle>
         </DialogHeader>
         
         <div className="py-4">
+          {/* Warning for missing required fields */}
+          {!hasAllRequiredFields && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Missing Required Fields</AlertTitle>
+              <AlertDescription>
+                <p className="mb-2">The uploaded CSV is missing the following required fields:</p>
+                <ul className="list-disc pl-5 mb-3">
+                  {missingFields.map(field => (
+                    <li key={field}>{field}</li>
+                  ))}
+                </ul>
+                
+                {isReferenceNumberMissing && (
+                  <div className="mt-3 p-3 border border-amber-300 bg-amber-50 rounded-md text-amber-800">
+                    <p className="font-medium mb-1">About the "Reference #" field:</p>
+                    <p>
+                      This field is not included in the default PASI export view. You need to customize 
+                      the PASI export to include the Reference # column before downloading the CSV.
+                    </p>
+                    <p className="mt-2">
+                      The Reference # is critical as it allows us to directly link records to students 
+                      in PASI and ensures proper identification of records.
+                    </p>
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Summary Statistics */}
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-3 gap-3 mb-4">
             {/* Total Records */}
             <div className="bg-slate-50 p-3 rounded-md">
               <div className="text-sm text-slate-500">Total Records</div>
@@ -150,7 +183,7 @@ const PASIPreviewDialog = ({
           {(totalLinks > 0 || newLinks > 0 || removedLinks > 0) && (
             <div className="border border-blue-200 bg-blue-50 p-3 rounded-md mb-4">
               <h3 className="text-sm font-medium text-blue-800 mb-2">Link Information</h3>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {totalLinks > 0 && (
                   <div>
                     <div className="text-xs text-blue-600">Linked Records</div>
@@ -187,8 +220,6 @@ const PASIPreviewDialog = ({
               </div>
             </div>
           )}
-        
-        
         </div>
         
         <DialogFooter>
@@ -197,13 +228,15 @@ const PASIPreviewDialog = ({
           </Button>
           <Button 
             onClick={handleConfirm} 
-            disabled={isConfirming || totalChanges === 0}
+            disabled={isConfirming || totalChanges === 0 || !hasAllRequiredFields}
           >
             {isConfirming ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Applying Changes...
               </>
+            ) : !hasAllRequiredFields ? (
+              "Missing Required Fields"
             ) : (
               `Apply ${totalChanges} Changes`
             )}

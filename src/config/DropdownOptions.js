@@ -405,6 +405,43 @@ export const COURSE_CODE_TO_ID = {
   "INF2020": 2000,   // Keyboarding
 };
 
+export const COURSE_ID_TO_CODE = (() => {
+  const idToCode = {};
+  
+  // Handle unique course IDs
+  Object.entries(COURSE_CODE_TO_ID).forEach(([code, id]) => {
+    // Skip the 2000 special case as it's a many-to-one mapping
+    if (id !== 2000) {
+      // If this ID is already in our map and it's not 1111 (which has multiple codes)
+      if (idToCode[id] && id !== 1111) {
+        // Convert to array if it's not already
+        if (!Array.isArray(idToCode[id])) {
+          idToCode[id] = [idToCode[id]];
+        }
+        // Add the new code
+        idToCode[id].push(code);
+      } else if (id === 1111) {
+        // For 1111, we'll collect all codes
+        if (!idToCode[id]) {
+          idToCode[id] = [];
+        }
+        if (!Array.isArray(idToCode[id])) {
+          idToCode[id] = [idToCode[id]];
+        }
+        idToCode[id].push(code);
+      } else {
+        // First time seeing this ID
+        idToCode[id] = code;
+      }
+    }
+  });
+  
+  // Handle special case for ID 2000 (can be linked to any courseId)
+  idToCode[2000] = ["COM1255", "INF2020"];
+  
+  return idToCode;
+})();
+
 
 // Color scheme reference
 export const GRADE_COLORS = {

@@ -104,8 +104,8 @@ exports.updateDailyScheduleAdherenceV2 = normalizedScheduleFunctions.updateDaily
 exports.batchUpdateNormalizedSchedulesV2 = normalizedScheduleFunctions.batchUpdateNormalizedSchedulesV2;
 
 
-exports.cleanupDeletedPasiRecordV2 = pasiRecordsFunctions.cleanupDeletedPasiRecordV2;
-exports.cleanupOrphanedPasiLinksV2 = pasiRecordsFunctions.cleanupOrphanedPasiLinksV2;
+//exports.cleanupDeletedPasiRecordV2 = pasiRecordsFunctions.cleanupDeletedPasiRecordV2;
+//exports.cleanupOrphanedPasiLinksV2 = pasiRecordsFunctions.cleanupOrphanedPasiLinksV2;
 
 
 

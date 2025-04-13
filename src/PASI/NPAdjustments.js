@@ -28,7 +28,10 @@ import {
   ClipboardCheck,
   History, 
   Edit,
-  Database 
+  Database,
+  BellRing,
+  AlertCircle,
+  HelpCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -51,6 +54,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "../components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  TooltipProvider,
+} from "../components/ui/tooltip";
 
 // Import database functionality
 import { ref, update, get, onValue, off } from 'firebase/database';
@@ -732,6 +741,13 @@ const isValidNumber = (value) => {
               onSort={onSort} 
               className="text-green-700 bg-green-50 w-[90px]"
             />
+            <SortableHeader 
+              column="workItems" 
+              label={<AlertCircle className="h-4 w-4" />} 
+              currentSort={currentSort} 
+              onSort={onSort} 
+              className="text-amber-700 bg-amber-50 w-[40px]"
+            />
             <TableHead className="w-[90px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -1225,6 +1241,36 @@ const isValidNumber = (value) => {
                         {record.status || 'N/A'}
                       </span>
                     )}
+                  </TableCell>
+                  <TableCell className="p-1" style={{ width: "40px !important" }}>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center justify-center">
+                            {(() => {
+                              // Check for workItems property
+                              if (!record.workItems) return null;
+                              
+                              // Determine which icon to show based on workItems value
+                              if (record.workItems === 'Advice') {
+                                return <Info className="h-4 w-4 text-blue-500" />;
+                              } else if (record.workItems === 'Warning') {
+                                return <AlertTriangle className="h-4 w-4 text-amber-500" />;
+                              } else if (record.workItems === 'Unknown') {
+                                return <HelpCircle className="h-4 w-4 text-purple-500" />;
+                              } else if (record.workItems) {
+                                return <BellRing className="h-4 w-4 text-gray-500" />;
+                              }
+                              
+                              return null;
+                            })()}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{record.workItems || 'No work items'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableCell>
                   <TableCell className="p-1" style={{ width: "90px !important" }}>
                     <div className="flex items-center gap-1">
