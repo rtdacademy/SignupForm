@@ -21,7 +21,7 @@ const cleanupOrphanedPasiLinksV2 = onCall({
   memory: '2GiB',        // Increased memory for larger workloads
   maxInstances: 10,      // Allow more instances to run concurrently
   concurrency: 50,       // Increase concurrency per instance
-  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]  // Added CORS config here
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"]  // Added CORS config here
 }, async (data) => {
   const db = admin.database();
   console.log('Starting cleanup of orphaned PASI links...');

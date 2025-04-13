@@ -510,9 +510,9 @@ const renderPasiTerm = (record) => {
     return (
       <div className="flex items-center justify-center">
         {isUpdating ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
         ) : (
-          <div className="flex flex-col items-center space-y-1">
+          <div className="flex flex-col items-center space-y-0.5">
             {!isChecked && (
               <Checkbox
                 checked={isChecked}
@@ -1858,13 +1858,27 @@ const NPAdjustments = ({ records = [] }) => {
       // Get the checked status from pasiRecordsCompanion data if available
       const companionData = pasiRecordsCompanion[record.id];
       const termChecked = companionData && 
-                          companionData.NPAdjustments && 
-                          companionData.NPAdjustments.termChecked !== undefined ? 
-                          companionData.NPAdjustments.termChecked : false;
+        companionData.NPAdjustments &&
+        (companionData.NPAdjustments.termChecked === true || 
+         companionData.NPAdjustments.checkedBy === "kyle@rtdacademy.com");
+        
+      // If initially checked, ensure checkedBy is set to "kyle@rtdacademy.com"
+      if (termChecked && (!companionData.NPAdjustments.checkedBy || 
+                          companionData.NPAdjustments.checkedBy !== "kyle@rtdacademy.com")) {
+        // We're modifying the data for initial load only, not updating Firebase here
+        // The updateTermChecked function will handle Firebase writes
+        console.warn(`Record ${record.id} was initially checked but missing checkedBy. Setting to "kyle@rtdacademy.com" for display.`);
+        // In the actual update function, ensure we update Firebase
+      }
+      
       const checkedBy = companionData && 
-                        companionData.NPAdjustments && 
-                        companionData.NPAdjustments.checkedBy ? 
-                        companionData.NPAdjustments.checkedBy : null;
+        companionData.NPAdjustments && 
+        companionData.NPAdjustments.checkedBy !== undefined &&
+        companionData.NPAdjustments.checkedBy !== null 
+        ? companionData.NPAdjustments.checkedBy
+        : termChecked 
+          ? "kyle@rtdacademy.com" 
+          : null;
       
       return {
         ...record,
@@ -1920,7 +1934,12 @@ const NPAdjustments = ({ records = [] }) => {
       
       const handleData = (snapshot) => {
         if (snapshot.exists()) {
-          // Update our temp object with this record's data
+          let data = snapshot.val();
+          
+          // Initial check: Set checkedBy to "kyle@rtdacademy.com" if termChecked is true
+          if (data.NPAdjustments && data.NPAdjustments.termChecked === true && !data.NPAdjustments.checkedBy) {
+            data = { ...data, NPAdjustments: { ...data.NPAdjustments, checkedBy: "kyle@rtdacademy.com" } };
+          }
           companionData[recordId] = snapshot.val();
           // Update the state with the latest data
           setPasiRecordsCompanion(prevData => ({
@@ -1990,12 +2009,26 @@ const NPAdjustments = ({ records = [] }) => {
       const userEmail = currentUser ? currentUser.email : "unknown@user.com";
       
       // Update the termChecked field in pasiRecordsCompanion/{record.id}/NPAdjustments
-      const dbPath = `/pasiRecordsCompanion/${record.id}/NPAdjustments`;
+      const updates = {};
+      const npAdjustmentsPath = `/pasiRecordsCompanion/${record.id}/NPAdjustments`;
       
-      await update(ref(database, dbPath), {
-        termChecked: isChecked,
-        checkedBy: isChecked ? userEmail : null // Store email when checked, remove when unchecked
-      });
+      if (isChecked) {
+        // When checking, always ensure checkedBy is "kyle@rtdacademy.com"
+        updates[npAdjustmentsPath] = {
+          termChecked: true,
+          checkedBy: "kyle@rtdacademy.com"
+        };
+      } else {
+        // When unchecking, remove both termChecked and checkedBy
+        updates[npAdjustmentsPath] = {
+          termChecked: null, 
+          checkedBy: null
+        };
+      }
+      
+      await update(ref(database), updates)
+        .then(() => console.log("Check status updated successfully:", updates))
+        .catch((error) => console.error("Error updating check status:", error));
       
       // Toast removed - no notification when checkbox is toggled
     } catch (error) {

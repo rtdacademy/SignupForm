@@ -118,7 +118,7 @@ const generateNormalizedScheduleV2 = onCall({
   concurrency: 50,
   memory: '1GiB', 
   timeoutSeconds: 300,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"] 
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"] 
 }, async (data) => {
   // Extract required parameters
 
@@ -1613,7 +1613,7 @@ const batchUpdateNormalizedSchedulesV2 = onCall({
   memory: '2GiB',
   timeoutSeconds: 540, // 9 minutes should be enough for 3000 students
   concurrency: 500,
-  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"]
 }, async (request) => {
   // Extract parameters from request.data
   const { students, forceUpdate = false } = request.data;

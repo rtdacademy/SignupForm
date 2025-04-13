@@ -566,7 +566,7 @@ const batchSyncStudentDataV2 = onCall({
   memory: '2GiB',
   timeoutSeconds: 540, // 9 minutes should be enough for 3000 students
   concurrency: 500,
-  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"]
 }, async (request) => {
   // Extract parameters from request
   const { students } = request.data;

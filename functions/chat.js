@@ -22,7 +22,7 @@ const sendChatMessageV2 = onCall({
   concurrency: 50,
   memory: '1GiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000","https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"]
 }, async (data) => {
   if (!data.auth) {
     throw new Error(
@@ -172,7 +172,7 @@ const removeUserFromChatV2 = onCall({
   concurrency: 50,
   memory: '256MiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000","https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"]
 }, async (data) => {
   // Ensure the user is authenticated
   if (!data.auth) {

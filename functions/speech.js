@@ -10,7 +10,7 @@ exports.textToSpeechV2 = onCall({
   concurrency: 50,
   memory: '256MiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"]
 }, async (data, context) => {
   console.log('Received TTS request with data:', data);
 

@@ -15,7 +15,7 @@ if (!admin.apps.length) {
  */
 const deleteCategoryForStudentsV2 = onCall({
   concurrency: 50,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"]
 }, async (data) => {
   // Verify that the user is authenticated
   if (!data.auth) {

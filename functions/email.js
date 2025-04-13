@@ -54,7 +54,7 @@ const sendBulkEmailsV2 = onCall({
   memory: '2GiB',
   timeoutSeconds: 540, // 9 minutes should be enough for 3000 emails
   concurrency: 500,
-  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"],
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"],
   secrets: ["SENDGRID_KEY"]
 }, async (data) => {
   // Initialize SendGrid with API key from Secret Manager
