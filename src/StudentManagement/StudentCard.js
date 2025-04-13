@@ -578,6 +578,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
   }, [teacherCategories, student.categories]);
 
   const handleCardClick = useCallback(() => {
+    console.log('Selected student object:', student); 
       onStudentSelect(student);
   }, [isMobile, onStudentSelect, student]);
 

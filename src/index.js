@@ -25,8 +25,10 @@ root.render(
             <TutorialProvider> 
             <CourseProvider> 
             <SchoolYearProvider>
+           
                   <App isSecondSite={isSecondSite} />
                   <Toaster position="top-right" />  
+                
                   </SchoolYearProvider>
                 </CourseProvider> 
               </TutorialProvider> 
