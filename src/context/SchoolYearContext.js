@@ -184,10 +184,10 @@ export const SchoolYearProvider = ({ children }) => {
         };
       }
       
-      // Return record with original summary fields preserved
+      // Return combined object, ensuring record.id takes precedence
       return {
-        ...recordWithRenamedTerm,
-        ...summary  // This preserves all original field names (ParentPhone_x0023_, etc.)
+        ...summary, // Spread summary first
+        ...recordWithRenamedTerm // Spread record second, its id will overwrite summary's id
       };
     });
 

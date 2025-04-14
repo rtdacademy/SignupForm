@@ -24,7 +24,8 @@ import {
   Upload,
   FilePenLine,
   Shield,
-  Grid
+  Grid,
+  FileText
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import CoursesWithSheet from '../courses/CoursesWithSheet';
@@ -43,6 +44,7 @@ import IMathASGradeImporter from './IMathASGradeImporter';
 import LTIManagement from '../LTI/LTIManagement';
 import EnrollmentStatistics from '../Statistics/EnrollmentStatistics'; 
 import PASIDataUpload from '../PASI/PASIDataUpload';
+import PasiRecords from './pasiRecords';
 
 function TeacherDashboard() {
   const { user, isStaff, hasAdminAccess } = useAuth();
@@ -180,6 +182,7 @@ function TeacherDashboard() {
   const navItems = useMemo(() => {
     const baseItems = [
       { icon: Grid, label: 'React Dashboard', key: 'react-dashboard' },
+      { icon: FileText, label: 'PASI Records', key: 'pasi-records' },
       { 
         icon: Bell, 
         label: 'Notifications', 
@@ -260,6 +263,8 @@ function TeacherDashboard() {
         return <EnrollmentStatistics />;
       case 'pasi-data-upload':
         return <PASIDataUpload />;
+      case 'pasi-records':
+        return <PasiRecords />;
       default:
         return null;
     }
