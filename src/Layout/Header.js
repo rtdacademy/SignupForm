@@ -1,14 +1,22 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FaSignOutAlt, FaArrowLeft, FaUserCircle } from 'react-icons/fa';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, ChevronDown } from 'lucide-react';
+import { AlertCircle, ChevronDown, RefreshCw } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
+import { useMode, MODES } from '../context/ModeContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "../components/ui/dropdown-menu";
+import { Button } from "../components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "../components/ui/tooltip";
 
 const RTDLogo = () => (
   <svg 
@@ -39,7 +47,16 @@ function Header({
   hasIncompleteProfile
 }) {
   const navigate = useNavigate();
-  const { currentSchoolYear, setCurrentSchoolYear, schoolYearOptions } = useSchoolYear();
+  const { 
+    currentSchoolYear, 
+    setCurrentSchoolYear, 
+    schoolYearOptions, 
+    refreshStudentSummaries,
+    isLoadingStudents 
+  } = useSchoolYear();
+  const { currentMode } = useMode();
+  
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Get the currently selected option or default to the first option
   const selectedOption = schoolYearOptions.find(opt => opt.value === currentSchoolYear) || 
@@ -66,6 +83,13 @@ function Header({
       return user.displayName || user.email.split('@')[0] || 'User';
     }
     return 'User';
+  };
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    refreshStudentSummaries();
+    // Add a slight delay to show the refresh animation
+    setTimeout(() => setIsRefreshing(false), 1000);
   };
 
   return (
@@ -97,9 +121,9 @@ function Header({
               </div>
             </div>
             
-            {/* School Year Selector - Only for staff */}
+            {/* School Year Selector with Refresh Button - Only for staff */}
             {isStaffUser && selectedOption && (
-              <div className="ml-6">
+              <div className="ml-6 flex items-center space-x-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger className="px-3 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600 text-sm flex items-center gap-2">
                     <span>School Year: </span>
@@ -130,6 +154,31 @@ function Header({
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
+                
+                {/* Refresh Button - Only visible in registration mode */}
+                {currentMode === MODES.REGISTRATION && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRefresh}
+                          disabled={isLoadingStudents || isRefreshing}
+                          className="bg-gray-700 hover:bg-gray-600 text-gray-200 border-gray-600 h-7"
+                        >
+                          <RefreshCw className={`h-3 w-3 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+                          <span className="text-xs">Refresh</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p className="text-xs max-w-xs">
+                          Although data is updated in realtime, you will need to refresh to see NEW registrations.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </div>
             )}
           </div>

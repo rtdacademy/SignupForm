@@ -255,7 +255,7 @@ export const COURSE_OPTIONS = [
     courseId: 90,
     pasiCode: "LDC1515"
   },
-
+/*
   { 
     value: "Coding",
     label: "Coding", 
@@ -265,7 +265,7 @@ export const COURSE_OPTIONS = [
     icon: Code,
     courseId: 1111
   },
-
+*/
   // Grade 11 Courses - Purple theme
   { 
     value: "Math 20-4",

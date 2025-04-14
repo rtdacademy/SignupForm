@@ -19,6 +19,7 @@ import MassUpdateDialog from './Dialog/MassUpdateDialog';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { toast } from 'sonner';
 import { parseStudentSummaryKey } from '../utils/sanitizeEmail';
+import { COURSE_OPTIONS } from '../config/DropdownOptions';
 
 // Initialize Firebase Functions
 const functions = getFunctions();
@@ -202,14 +203,15 @@ function StudentList({
   // Apply filters and search using useMemo for performance optimization
   const filteredStudents = useMemo(() => {
     const normalizedSearchTerm = String(searchTerm || '').toLowerCase().trim();
-
+    
+  
     // Helper function to normalize ASN for comparison
     const normalizeASN = (asn) => {
       if (!asn) return '';
       // Remove hyphens and convert to lowercase
       return asn.replace(/-/g, '').toLowerCase();
     };
-
+  
     // Helper function to check full name matches
     const matchesFullName = (student, searchTerm) => {
       // Create both possible full name combinations
@@ -220,168 +222,170 @@ function StudentList({
       return firstNameLastName.includes(searchTerm) || 
              preferredFirstNameLastName.includes(searchTerm);
     };
-
+  
     return studentSummaries.filter((student) => {
-     // Basic validation - skip invalid student records
-     if (!student || 
-      typeof student.firstName === 'undefined' || 
-      typeof student.lastName === 'undefined' || 
-      !student.StudentEmail) {
-    console.warn('Skipping invalid student record:', student);
-    return false;
-  }
-
-  // Helper function to compare dates
-  const compareDates = (studentDate, filterDate) => {
-    if (!studentDate || !filterDate) return false;
-    const studentDateTime = new Date(studentDate).getTime();
-    const filterDateTime = new Date(filterDate).getTime();
-    return !isNaN(studentDateTime) && !isNaN(filterDateTime) ? { studentDateTime, filterDateTime } : false;
-  };
-
-  // Handle hasSchedule filter
-  if (filters.hasSchedule?.length > 0) {
-    const shouldHaveSchedule = filters.hasSchedule[0];
-    const hasSchedule = Boolean(student.hasSchedule);
-    if (shouldHaveSchedule !== hasSchedule) {
-      return false;
-    }
-  }
-
-  // Handle category filters
-  const matchesCategories = !filters.categories || filters.categories.length === 0 || 
-    filters.categories.some((teacherCat) => {
-      const teacherEmailKey = Object.keys(teacherCat)[0];
-      const categoryIds = teacherCat[teacherEmailKey];
-      return student.categories && 
-             student.categories[teacherEmailKey] && 
-             categoryIds.some(categoryId => student.categories[teacherEmailKey][categoryId] === true);
-    });
-
-  if (!matchesCategories) {
-    return false;
-  }
-
-  // Handle all other filters
-  const matchesFilters = Object.keys(filters).every((filterKey) => {
-    // Skip special filter cases
-    if (filterKey === 'hasSchedule' || filterKey === 'categories') return true;
-    
-    // Handle date filters
-    if (filterKey === 'dateFilters') {
-      if (!filters.dateFilters || Object.keys(filters.dateFilters).length === 0) return true;
+      // Basic validation - skip invalid student records
+      if (!student || 
+        typeof student.firstName === 'undefined' || 
+        typeof student.lastName === 'undefined' || 
+        !student.StudentEmail) {
+        console.warn('Skipping invalid student record:', student);
+        return false;
+      }
       
-      // Handle Created date filters
-      if (filters.dateFilters.created) {
-        const createdFilter = filters.dateFilters.created;
-        
-        if (createdFilter.between) {
-          const startComparison = compareDates(student.Created, createdFilter.between.start);
-          const endComparison = compareDates(student.Created, createdFilter.between.end);
-          
-          if (!startComparison || !endComparison) return false;
-          
-          return startComparison.studentDateTime >= startComparison.filterDateTime && 
-                 endComparison.studentDateTime <= endComparison.filterDateTime;
-        }
-        
-        if (createdFilter.after) {
-          const comparison = compareDates(student.Created, createdFilter.after);
-          return comparison && comparison.studentDateTime >= comparison.filterDateTime;
-        }
-        
-        if (createdFilter.before) {
-          const comparison = compareDates(student.Created, createdFilter.before);
-          return comparison && comparison.studentDateTime <= comparison.filterDateTime;
+
+      // Helper function to compare dates
+      const compareDates = (studentDate, filterDate) => {
+        if (!studentDate || !filterDate) return false;
+        const studentDateTime = new Date(studentDate).getTime();
+        const filterDateTime = new Date(filterDate).getTime();
+        return !isNaN(studentDateTime) && !isNaN(filterDateTime) ? { studentDateTime, filterDateTime } : false;
+      };
+  
+      // Handle hasSchedule filter
+      if (filters.hasSchedule?.length > 0) {
+        const shouldHaveSchedule = filters.hasSchedule[0];
+        const hasSchedule = Boolean(student.hasSchedule);
+        if (shouldHaveSchedule !== hasSchedule) {
+          return false;
         }
       }
-
-      // Handle Schedule Start date filters
-      if (filters.dateFilters.scheduleStart) {
-        const startFilter = filters.dateFilters.scheduleStart;
-        
-        if (startFilter.between) {
-          const startComparison = compareDates(student.ScheduleStartDate, startFilter.between.start);
-          const endComparison = compareDates(student.ScheduleStartDate, startFilter.between.end);
-          
-          if (!startComparison || !endComparison) return false;
-          
-          return startComparison.studentDateTime >= startComparison.filterDateTime && 
-                 endComparison.studentDateTime <= endComparison.filterDateTime;
-        }
-        
-        if (startFilter.after) {
-          const comparison = compareDates(student.ScheduleStartDate, startFilter.after);
-          return comparison && comparison.studentDateTime >= comparison.filterDateTime;
-        }
-        
-        if (startFilter.before) {
-          const comparison = compareDates(student.ScheduleStartDate, startFilter.before);
-          return comparison && comparison.studentDateTime <= comparison.filterDateTime;
-        }
+  
+      // Handle category filters
+      const matchesCategories = !filters.categories || filters.categories.length === 0 || 
+        filters.categories.some((teacherCat) => {
+          const teacherEmailKey = Object.keys(teacherCat)[0];
+          const categoryIds = teacherCat[teacherEmailKey];
+          return student.categories && 
+                 student.categories[teacherEmailKey] && 
+                 categoryIds.some(categoryId => student.categories[teacherEmailKey][categoryId] === true);
+        });
+  
+      if (!matchesCategories) {
+        return false;
       }
-
-      // Handle Schedule End date filters
-      if (filters.dateFilters.scheduleEnd) {
-        const endFilter = filters.dateFilters.scheduleEnd;
+  
+      // Handle all other filters
+      const matchesFilters = Object.keys(filters).every((filterKey) => {
+        // Skip special filter cases
+        if (filterKey === 'hasSchedule' || filterKey === 'categories') return true;
         
-        if (endFilter.between) {
-          const startComparison = compareDates(student.ScheduleEndDate, endFilter.between.start);
-          const endComparison = compareDates(student.ScheduleEndDate, endFilter.between.end);
+        // Handle date filters
+        if (filterKey === 'dateFilters') {
+          if (!filters.dateFilters || Object.keys(filters.dateFilters).length === 0) return true;
           
-          if (!startComparison || !endComparison) return false;
-          
-          return startComparison.studentDateTime >= startComparison.filterDateTime && 
-                 endComparison.studentDateTime <= endComparison.filterDateTime;
+          // Handle Created date filters
+          if (filters.dateFilters.created) {
+            const createdFilter = filters.dateFilters.created;
+            
+            if (createdFilter.between) {
+              const startComparison = compareDates(student.Created, createdFilter.between.start);
+              const endComparison = compareDates(student.Created, createdFilter.between.end);
+              
+              if (!startComparison || !endComparison) return false;
+              
+              return startComparison.studentDateTime >= startComparison.filterDateTime && 
+                     endComparison.studentDateTime <= endComparison.filterDateTime;
+            }
+            
+            if (createdFilter.after) {
+              const comparison = compareDates(student.Created, createdFilter.after);
+              return comparison && comparison.studentDateTime >= comparison.filterDateTime;
+            }
+            
+            if (createdFilter.before) {
+              const comparison = compareDates(student.Created, createdFilter.before);
+              return comparison && comparison.studentDateTime <= comparison.filterDateTime;
+            }
+          }
+  
+          // Handle Schedule Start date filters
+          if (filters.dateFilters.scheduleStart) {
+            const startFilter = filters.dateFilters.scheduleStart;
+            
+            if (startFilter.between) {
+              const startComparison = compareDates(student.ScheduleStartDate, startFilter.between.start);
+              const endComparison = compareDates(student.ScheduleStartDate, startFilter.between.end);
+              
+              if (!startComparison || !endComparison) return false;
+              
+              return startComparison.studentDateTime >= startComparison.filterDateTime && 
+                     endComparison.studentDateTime <= endComparison.filterDateTime;
+            }
+            
+            if (startFilter.after) {
+              const comparison = compareDates(student.ScheduleStartDate, startFilter.after);
+              return comparison && comparison.studentDateTime >= comparison.filterDateTime;
+            }
+            
+            if (startFilter.before) {
+              const comparison = compareDates(student.ScheduleStartDate, startFilter.before);
+              return comparison && comparison.studentDateTime <= comparison.filterDateTime;
+            }
+          }
+  
+          // Handle Schedule End date filters
+          if (filters.dateFilters.scheduleEnd) {
+            const endFilter = filters.dateFilters.scheduleEnd;
+            
+            if (endFilter.between) {
+              const startComparison = compareDates(student.ScheduleEndDate, endFilter.between.start);
+              const endComparison = compareDates(student.ScheduleEndDate, endFilter.between.end);
+              
+              if (!startComparison || !endComparison) return false;
+              
+              return startComparison.studentDateTime >= startComparison.filterDateTime && 
+                     endComparison.studentDateTime <= endComparison.filterDateTime;
+            }
+            
+            if (endFilter.after) {
+              const comparison = compareDates(student.ScheduleEndDate, endFilter.after);
+              return comparison && comparison.studentDateTime >= comparison.filterDateTime;
+            }
+            
+            if (endFilter.before) {
+              const comparison = compareDates(student.ScheduleEndDate, endFilter.before);
+              return comparison && comparison.studentDateTime <= comparison.filterDateTime;
+            }
+          }
+  
+          return true;
         }
+  
+        // Handle CourseID specifically
+        if (filterKey === 'CourseID') {
+          if (!Array.isArray(filters[filterKey]) || filters[filterKey].length === 0) return true;
+          return filters[filterKey].includes(String(student.CourseID));
+        }
+  
+        // Handle regular array-based filters
+        if (!Array.isArray(filters[filterKey])) return true;
+        if (filters[filterKey].length === 0) return true;
         
-        if (endFilter.after) {
-          const comparison = compareDates(student.ScheduleEndDate, endFilter.after);
-          return comparison && comparison.studentDateTime >= comparison.filterDateTime;
-        }
+        // Skip Course_Value since we're using CourseID now
+        if (filterKey === 'Course_Value') return true;
         
-        if (endFilter.before) {
-          const comparison = compareDates(student.ScheduleEndDate, endFilter.before);
-          return comparison && comparison.studentDateTime <= comparison.filterDateTime;
-        }
-      }
+        const studentValue = String(student[filterKey] || '').toLowerCase();
+        return filters[filterKey].some(
+          (filterValue) => String(filterValue).toLowerCase() === studentValue
+        );
+      });
+  
+      // Handle search term
+      const matchesSearch =
+        !normalizedSearchTerm || 
+        matchesFullName(student, normalizedSearchTerm) ||
+        String(student.firstName || '').toLowerCase().includes(normalizedSearchTerm) ||
+        String(student.preferredFirstName || '').toLowerCase().includes(normalizedSearchTerm) ||
+        String(student.lastName || '').toLowerCase().includes(normalizedSearchTerm) ||
+        String(student.StudentEmail || '').toLowerCase().includes(normalizedSearchTerm) ||
+        String(student.ParentEmail || '').toLowerCase().includes(normalizedSearchTerm) || 
+        normalizeASN(student.asn).includes(normalizeASN(searchTerm));
+  
+      return matchesFilters && matchesSearch;
+    });
+  }, [studentSummaries, filters, searchTerm]);
 
-      return true;
-    }
-
-    // Handle CourseID specifically
-    if (filterKey === 'CourseID') {
-      if (!Array.isArray(filters[filterKey]) || filters[filterKey].length === 0) return true;
-      return filters[filterKey].includes(String(student.CourseID));
-    }
-
-    // Handle regular array-based filters
-    if (!Array.isArray(filters[filterKey])) return true;
-    if (filters[filterKey].length === 0) return true;
-    
-    // Skip Course_Value since we're using CourseID now
-    if (filterKey === 'Course_Value') return true;
-    
-    const studentValue = String(student[filterKey] || '').toLowerCase();
-    return filters[filterKey].some(
-      (filterValue) => String(filterValue).toLowerCase() === studentValue
-    );
-  });
-
-  // Handle search term
-  const matchesSearch =
-    !normalizedSearchTerm || 
-    matchesFullName(student, normalizedSearchTerm) ||
-    String(student.firstName || '').toLowerCase().includes(normalizedSearchTerm) ||
-    String(student.preferredFirstName || '').toLowerCase().includes(normalizedSearchTerm) ||
-    String(student.lastName || '').toLowerCase().includes(normalizedSearchTerm) ||
-    String(student.StudentEmail || '').toLowerCase().includes(normalizedSearchTerm) ||
-    String(student.ParentEmail || '').toLowerCase().includes(normalizedSearchTerm) || 
-    normalizeASN(student.asn).includes(normalizeASN(searchTerm));
-
-  return matchesFilters && matchesSearch;
-});
-}, [studentSummaries, filters, searchTerm]);
 
 // Sorting using useMemo for performance optimization
 const sortedStudents = useMemo(() => {

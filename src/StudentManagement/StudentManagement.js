@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getDatabase, ref, onValue, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useSchoolYear } from '../context/SchoolYearContext';
@@ -11,7 +11,6 @@ import { Button } from "../components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
-//import SchoolYearSelector from './SchoolYearSelector';
 
 function StudentManagement({ 
   isFullScreen, 
@@ -31,6 +30,10 @@ function StudentManagement({
     studentSummaries,
     isLoadingStudents 
   } = useSchoolYear();
+
+  // Container ref for layout measurements
+  const containerRef = useRef(null);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   // Define available filters explicitly
   const filtersList = useMemo(
@@ -55,9 +58,6 @@ function StudentManagement({
     });
     return initial;
   }, [filtersList]);
-
-  // No longer need student summaries state as it comes from context
-  // const [studentSummaries, setStudentSummaries] = useState([]);
   
   // Maintain local state but use props if provided
   const [localFilters, setLocalFilters] = useState(initialFilters);
@@ -104,17 +104,44 @@ function StudentManagement({
     setSelectedStudent(null);
   }, []);
 
-  // Handle window resize to update isMobile state
+  // Setup ResizeObserver to monitor container width changes
   useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const updateContainerWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.offsetWidth);
+      }
+    };
+    
+    // Initial measurement
+    updateContainerWidth();
+    
+    // Setup ResizeObserver
+    const resizeObserver = new ResizeObserver(updateContainerWidth);
+    resizeObserver.observe(containerRef.current);
+    
+    // Handle window resize
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      const newIsMobile = window.innerWidth < 768;
+      setIsMobile(newIsMobile);
+      updateContainerWidth();
     };
 
     window.addEventListener('resize', handleResize);
+    
     return () => {
+      resizeObserver.disconnect();
       window.removeEventListener('resize', handleResize);
     };
   }, []);
+
+  // Additional effect to update width when selected students change
+  useEffect(() => {
+    if (containerRef.current) {
+      setContainerWidth(containerRef.current.offsetWidth);
+    }
+  }, [selectedStudents.size]);
 
   useEffect(() => {
     const db = getDatabase();
@@ -154,8 +181,6 @@ function StudentManagement({
     const unsubscribe = onValue(typesRef, handleTypes);
     return () => unsubscribe();
   }, []);
-
-  // Removed Firebase student summaries effect as it's now in the context
 
   // Updated to use context
   const handleSchoolYearChange = useCallback((year) => {
@@ -248,12 +273,12 @@ function StudentManagement({
     setShowStudentDetail(false);
   }, []);
 
-  // Add this handler
+  // Handle selected students change
   const handleSelectedStudentsChange = useCallback((newSelectedStudents) => {
     setSelectedStudents(newSelectedStudents);
   }, []);
 
-  // Add this handler
+  // Handle close messaging
   const handleCloseMessaging = useCallback(() => {
     setSelectedStudents(new Set());
   }, []);
@@ -261,6 +286,28 @@ function StudentManagement({
   // Memoize student summaries and available filters
   const memoizedStudentSummaries = useMemo(() => studentSummaries, [studentSummaries]);
   const memoizedAvailableFilters = useMemo(() => availableFilters, [availableFilters]);
+
+  // Calculate list width based on container width and view state
+  const listWidth = useMemo(() => {
+    if (isMobile) return '100%';
+    
+    // Ensure we have a valid containerWidth
+    if (!containerWidth) return '33.333%';
+    
+    // Always use 1/3 of the container for non-mobile
+    return `${Math.floor(containerWidth / 3)}px`;
+  }, [containerWidth, isMobile]);
+
+  // Calculate detail width based on container width and view state
+  const detailWidth = useMemo(() => {
+    if (isMobile) return '100%';
+    
+    // Ensure we have a valid containerWidth
+    if (!containerWidth) return '66.666%';
+    
+    // Always use 2/3 of the container for non-mobile
+    return `${containerWidth - Math.floor(containerWidth / 3) - 16}px`; // 16px for gap
+  }, [containerWidth, isMobile]);
 
   // Render student list
   const renderStudentList = useCallback(() => {
@@ -278,7 +325,7 @@ function StudentManagement({
       <Card className="h-full bg-white shadow-md">
         <CardContent className="h-full p-2 overflow-hidden">
           <StudentList
-            studentSummaries={memoizedStudentSummaries}
+            studentSummaries={memoizedStudentSummaries} 
             filters={filters}
             onStudentSelect={handleStudentSelect}
             searchTerm={searchTerm}
@@ -318,10 +365,10 @@ function StudentManagement({
       <Card className="h-full bg-white shadow-md">
         <CardContent className="h-full p-4 overflow-auto">
           <StudentDetail
-            key={detailRefreshKey}           // Force a full unmount/remount on increment
+            key={detailRefreshKey}
             studentSummary={selectedStudent}
             isMobile={isMobile}
-            onRefresh={handleRefreshStudent} // If you want a button in the child to do this
+            onRefresh={handleRefreshStudent}
           />
         </CardContent>
       </Card>
@@ -334,11 +381,10 @@ function StudentManagement({
   ]);
   
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden" ref={containerRef}>
       {(!isMobile || !showStudentDetail) && (
         <div className="flex-shrink-0 space-y-2 mb-4 relative z-50">
           <div className="flex items-center space-x-4">
-         
             <div className="flex-1">
               <FilterPanel
                 filters={filters}
@@ -404,11 +450,12 @@ function StudentManagement({
             )}
           </AnimatePresence>
         ) : (
-          <div className="flex h-full space-x-4">
-            <div className="w-1/3 h-full overflow-hidden"> 
+          <div className="flex h-full" style={{ gap: '16px' }}>
+            {/* Use explicit pixel width for consistent sizing */}
+            <div style={{ width: listWidth, height: '100%', overflow: 'hidden', flexShrink: 0 }}>
               {renderStudentList()}
             </div>
-            <div className="flex-1 h-full overflow-hidden">
+            <div style={{ width: detailWidth, height: '100%', overflow: 'hidden', flexShrink: 0 }}>
               {selectedStudents.size > 0 ? (
                 <StudentMessaging
                   selectedStudents={Array.from(selectedStudents).map(id => 
