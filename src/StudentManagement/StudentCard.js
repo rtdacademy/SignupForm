@@ -1406,45 +1406,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
           ) : statusHistory.length > 0 ? (
             <table className="min-w-full text-sm">
               <thead>
-                <tr>
-                  <th className="px-2 py-1 text-left">Timestamp</th>
-                  <th className="px-2 py-1 text-left">Status</th>
-                  <th className="px-2 py-1 text-left">Previous Status</th>
-                  <th className="px-2 py-1 text-left">Updated By</th>
-                  <th className="px-2 py-1 text-left">Type</th>
-                </tr>
+                <tr><th className="px-2 py-1 text-left">Timestamp</th><th className="px-2 py-1 text-left">Status</th><th className="px-2 py-1 text-left">Previous Status</th><th className="px-2 py-1 text-left">Updated By</th><th className="px-2 py-1 text-left">Type</th></tr>
               </thead>
               <tbody>
                 {statusHistory.map((logEntry, index) => (
                   <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-                    <td className="px-2 py-1">{new Date(logEntry.timestamp).toLocaleString()}</td>
-                    <td className="px-2 py-1">{getSafeValue(logEntry.status)}</td>
-                    <td className="px-2 py-1">{getSafeValue(logEntry.previousStatus)}</td>
-                    <td className="px-2 py-1">
-                      {logEntry.updatedByType === 'teacher' ? (
-                        <>
-                          {logEntry.updatedBy.name} ({logEntry.updatedBy.email})
-                        </>
-                      ) : (
-                        'Auto Status'
-                      )}
-                    </td>
-                    <td className="px-2 py-1">
-                      {logEntry.bulkUpdate && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="inline-flex items-center text-blue-600">
-                                <Users className="h-4 w-4" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Part of a bulk update</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </td>
+                    <td className="px-2 py-1">{new Date(logEntry.timestamp).toLocaleString()}</td><td className="px-2 py-1">{getSafeValue(logEntry.status)}</td><td className="px-2 py-1">{getSafeValue(logEntry.previousStatus)}</td><td className="px-2 py-1">{logEntry.updatedByType === 'teacher' ? (<>{logEntry.updatedBy.name} ({logEntry.updatedBy.email})</>) : ('Auto Status')}</td><td className="px-2 py-1">{logEntry.bulkUpdate && (<TooltipProvider><Tooltip><TooltipTrigger asChild><div className="inline-flex items-center text-blue-600"><Users className="h-4 w-4" /></div></TooltipTrigger><TooltipContent><p>Part of a bulk update</p></TooltipContent></Tooltip></TooltipProvider>)}</td>
                   </tr>
                 ))}
               </tbody>
