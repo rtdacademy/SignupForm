@@ -35,7 +35,6 @@ import {
   ClipboardCheck
 } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
-import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../components/ui/pagination";
@@ -255,13 +254,13 @@ const PasiRecords = () => {
 
   // Function to update records in Firebase
   const updateRecordField = (record, field, value) => {
-    if (!record.summaryKey) {
-      toast.error("Cannot update: Missing summary key");
+    if (!record.id) {
+      toast.error("Cannot update: Missing record id");
       return;
     }
     
     const db = getDatabase();
-    const summaryRef = ref(db, `/studentCourseSummaries/${record.summaryKey}`);
+    const summaryRef = ref(db, `/studentCourseSummaries/${record.id}`);
     
     const updates = {};
     updates[field] = value;
@@ -272,7 +271,7 @@ const PasiRecords = () => {
         // Update local state to reflect the change
         setFilteredRecords(prevRecords => 
           prevRecords.map(r => 
-            r.summaryKey === record.summaryKey 
+            r.id === record.id 
               ? { ...r, [field]: value } 
               : r
           )
@@ -836,7 +835,7 @@ const PasiRecords = () => {
                   <SortableHeader column="exitDate" label="Exit Date" />
                   <SortableHeader column="workItems" label={<AlertTriangle className="h-3 w-3" />} />
                   {/* New column headers for checkboxes */}
-                  <TableHead className="px-2 py-1 text-xs" title="COM1255">
+                  <TableHead className="px-1 py-1 text-xs w-6 max-w-6" title="COM1255">
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger>
@@ -848,7 +847,7 @@ const PasiRecords = () => {
                       </Tooltip>
                     </TooltipProvider>
                   </TableHead>
-                  <TableHead className="px-2 py-1 text-xs" title="Staff Review">
+                  <TableHead className="px-1 py-1 text-xs w-6 max-w-6" title="Staff Review">
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger>
@@ -1044,7 +1043,7 @@ const PasiRecords = () => {
                         </TableCell>
                         
                         {/* Work Items Cell */}
-                        <TableCell className="p-1 w-8 max-w-8">
+                        <TableCell className="p-1 w-6 max-w-6">
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -1071,7 +1070,7 @@ const PasiRecords = () => {
                         </TableCell>
                         
                         {/* COM1255 Checkbox Cell */}
-                        <TableCell className="p-1 w-10 max-w-10">
+                        <TableCell className="p-0 w-6 max-w-6">
                           <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
                             <Checkbox 
                               checked={isCom1255Checked(record)}
@@ -1083,7 +1082,7 @@ const PasiRecords = () => {
                         </TableCell>
                         
                         {/* Staff Review Checkbox Cell */}
-                        <TableCell className="p-1 w-10 max-w-10">
+                        <TableCell className="p-0 w-6 max-w-6">
                           <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
                             <Checkbox 
                               checked={record.staffReview === true}
@@ -1139,7 +1138,7 @@ const PasiRecords = () => {
                               </TableCell>
                               
                               <TableCell className="p-1 text-gray-500 truncate max-w-14 w-14">
-                                {record.asn || 'N/A'}
+                                {record.asn || '-'}
                               </TableCell>
                               
                               <TableCell className="p-1 text-gray-500 truncate max-w-16 w-16">
@@ -1198,7 +1197,7 @@ const PasiRecords = () => {
                               </TableCell>
                               
                               <TableCell className="p-1 text-gray-500 truncate max-w-10 w-10">
-                                {record.value && record.value !== '-' ? record.value : 'N/A'}
+                                {record.value && record.value !== '-' ? record.value : '-'}
                               </TableCell>
                               
                               <TableCell className="p-1 truncate max-w-20 w-20">

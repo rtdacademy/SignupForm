@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { ACTIVE_FUTURE_ARCHIVED_OPTIONS, STUDENT_TYPE_OPTIONS, STATUS_OPTIONS } from "../config/DropdownOptions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
 
 const ITEMS_PER_PAGE = 100;
 
@@ -686,6 +687,44 @@ case "missing":
     );
   };
 
+  // Add this function to update staffReview in the database
+  const updateStaffReview = async (record, checked) => {
+    if (!record.summaryKey) {
+      toast.error("Cannot update: Missing summary key");
+      return;
+    }
+    try {
+      const db = getDatabase();
+      const summaryRef = ref(db, `studentCourseSummaries/${record.summaryKey}`);
+      
+      // First, read the current record to get the staffReview value
+      const snapshot = await get(summaryRef);
+      if (snapshot.exists()) {
+        // Update the database
+        await update(summaryRef, { staffReview: checked });
+        
+        // Update local state by creating a modified copy of our records
+        const updatedRecords = [...paginatedRecords].map(r => {
+          if (r.summaryKey === record.summaryKey) {
+            return { ...r, staffReview: checked };
+          }
+          return r;
+        });
+        
+        // Update the paginated records
+        setPaginatedRecords(updatedRecords);
+        
+        toast.success("Staff review updated");
+        if (onRecordUpdated) onRecordUpdated();
+      } else {
+        toast.error("Record not found in database");
+      }
+    } catch (error) {
+      console.error("Error updating staff review:", error);
+      toast.error("Failed to update staff review");
+    }
+  };
+
   return (
     <TooltipProvider>
       <div className="space-y-4">
@@ -850,13 +889,14 @@ case "missing":
                 <SortableHeader column="ActiveFutureArchived_Value" label="State" />
                 <SortableHeader column="status" label="Status" />
                 <SortableHeader column="pasiCode" label="PASI Code" />
+                <TableHead>Staff Review</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedRecords.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center text-blue-600 bg-blue-50">
+                  <TableCell colSpan={10} className="h-24 text-center text-blue-600 bg-blue-50">
                     {searchTerm || activeFilterTab !== "missing" ? 'No matching records found.' : 'No records available.'}
                   </TableCell>
                 </TableRow>
@@ -1022,6 +1062,16 @@ case "missing":
                         <Badge variant="outline" className="font-mono bg-blue-50 text-blue-800 border-blue-300">
                           {record.pasiCode || 'N/A'}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-center">
+                          <Checkbox
+                            checked={record.staffReview === true}
+                            onCheckedChange={(checked) => updateStaffReview(record, checked)}
+                            className="h-4 w-4 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                            aria-label="Staff Review Checkbox"
+                          />
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

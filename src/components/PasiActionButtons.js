@@ -1,7 +1,7 @@
 // src/components/PasiActionButtons.js
 import React, { useState } from 'react';
 import { Button } from "./ui/button";
-import { ExternalLink, Edit, ChevronDown, Database, X, Layers } from 'lucide-react';
+import { ExternalLink, Edit, ChevronDown, Database, X, Layers, BookOpen } from 'lucide-react';
 import { openManagedWindow } from '../utils/windowUtils';
 import {
   Tooltip,
@@ -172,6 +172,14 @@ const PasiActionButtons = ({ asn, referenceNumber }) => {
     openManagedWindow(url, 'pasiWindow'); // Reuse the same named window
   };
 
+  const handleViewAllCourses = () => {
+    if (!validAsn) return;
+    
+    const asnWithoutDashes = formatAsnForUrl(asn);
+    const url = `https://extranet.education.alberta.ca/PASI/PASIprep/view-student/${asnWithoutDashes}?useDefault=true&left=Courses%20%26%20Marks&view-44c81633-77e8-4ac8-aafe-6c1302479f6c=All%20Marks`;
+    openManagedWindow(url, 'pasiWindow');
+  };
+
   return (
     <TooltipProvider>
       <div className="flex h-7">
@@ -188,11 +196,12 @@ const PasiActionButtons = ({ asn, referenceNumber }) => {
                 disabled={!validAsn}
               >
                 <ExternalLink className="h-4 w-4 text-emerald-700" />
-                
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{validReferenceNumber ? "Open PASI Enrollment" : "Open Student in PASI"}</p>
+              <p>{validReferenceNumber 
+                ? "Open PASI Enrollment - View, edit, delete, approve or clone this record" 
+                : "Open Student in PASI"}</p>
             </TooltipContent>
           </Tooltip>
 
@@ -209,17 +218,40 @@ const PasiActionButtons = ({ asn, referenceNumber }) => {
                   variant="ghost"
                   size="xs"
                   onClick={handleEditPasi}
-                  className="h-full w-8 p-0 flex items-center justify-center rounded-l-none bg-emerald-50/80 hover:bg-emerald-100/90"
+                  className="h-full w-8 p-0 flex items-center justify-center rounded-l-none rounded-r-none bg-emerald-50/80 hover:bg-emerald-100/90"
                   disabled={!validAsn}
                 >
                   <Edit className="h-4 w-4 text-emerald-700" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Edit PASI Enrollment</p>
+                <p>Edit PASI Enrollment - Go directly to edit screen for this record</p>
               </TooltipContent>
             </Tooltip>
           )}
+
+          {/* Divider line between buttons */}
+          {validAsn && (
+            <div className="w-px h-full bg-emerald-200"></div>
+          )}
+
+          {/* View All Courses Button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={handleViewAllCourses}
+                className="h-full w-8 p-0 flex items-center justify-center rounded-l-none bg-emerald-50/80 hover:bg-emerald-100/90"
+                disabled={!validAsn}
+              >
+                <BookOpen className="h-4 w-4 text-emerald-700" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>View All Courses - See all course registrations for this student</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
     </TooltipProvider>

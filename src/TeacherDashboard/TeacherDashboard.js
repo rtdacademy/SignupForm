@@ -45,6 +45,7 @@ import LTIManagement from '../LTI/LTIManagement';
 import EnrollmentStatistics from '../Statistics/EnrollmentStatistics'; 
 import PASIDataUpload from '../PASI/PASIDataUpload';
 import PasiRecords from './pasiRecords';
+import PasiTabsContainer from './PasiTabsContainer';
 
 function TeacherDashboard() {
   const { user, isStaff, hasAdminAccess } = useAuth();
@@ -264,7 +265,7 @@ function TeacherDashboard() {
       case 'pasi-data-upload':
         return <PASIDataUpload />;
       case 'pasi-records':
-        return <PasiRecords />;
+        return <PasiTabsContainer />;
       default:
         return null;
     }

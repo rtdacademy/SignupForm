@@ -3,13 +3,15 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Checkbox } from "../components/ui/checkbox";
+import Select, { components } from 'react-select';
 import { 
-  Select, 
+  Select as UISelect, 
   SelectContent, 
   SelectItem, 
   SelectTrigger, 
   SelectValue 
 } from "../components/ui/select";
+
 import {
   Accordion,
   AccordionContent,
@@ -71,6 +73,69 @@ import {
   TabsList,
   TabsTrigger
 } from "../components/ui/tabs";
+import { COURSE_OPTIONS } from '../config/DropdownOptions.js';
+
+// Custom styled option components for react-select
+const ColoredOption = ({ data, children, ...props }) => {
+  const color = data?.color || '#6B7280';
+  return (
+    <components.Option {...props}>
+      <div className="flex items-center">
+        <div
+          className="w-3 h-3 rounded-full mr-2"
+          style={{ backgroundColor: color }}
+        />
+        {children}
+      </div>
+    </components.Option>
+  );
+};
+
+const IconOption = ({ data, children, ...props }) => {
+  const color = data?.color || '#6B7280';
+  const Icon = data?.icon;
+  return (
+    <components.Option {...props}>
+      <div className="flex items-center">
+        {Icon &&
+          React.createElement(Icon, {
+            className: "w-4 h-4 mr-2",
+            style: { color },
+          })}
+        <span>{children}</span>
+      </div>
+    </components.Option>
+  );
+};
+
+// Default styles for react-select
+const selectStyles = {
+  option: (provided, state) => ({
+    ...provided,
+    color: state.data?.color || provided.color,
+    backgroundColor: state.isSelected
+      ? `${state.data?.color || '#6B7280'}15`
+      : state.isFocused
+      ? `${state.data?.color || '#6B7280'}10`
+      : provided.backgroundColor,
+  }),
+  multiValue: (provided, state) => ({
+    ...provided,
+    backgroundColor: `${state.data?.color || '#6B7280'}15`,
+  }),
+  multiValueLabel: (provided, state) => ({
+    ...provided,
+    color: state.data?.color || provided.color,
+  }),
+  multiValueRemove: (provided, state) => ({
+    ...provided,
+    color: state.data?.color || provided.color,
+    ':hover': {
+      backgroundColor: `${state.data?.color || '#6B7280'}25`,
+      color: state.data?.color || provided.color,
+    },
+  }),
+};
 
 // Simplified helper function to extract month from date
 const extractMonthFromDate = (dateStr) => {
@@ -95,6 +160,72 @@ const extractMonthFromDate = (dateStr) => {
     console.error("Error extracting month:", error);
     return null;
   }
+};
+
+// Helper function to render react-select dropdown for filter options
+const renderMultiSelectFilter = (options, value, onChange, label, Icon = null, colorMap = {}) => {
+  if (!options || options.length === 0) return null;
+  
+  // Convert options to the format expected by react-select
+  const selectOptions = options.map(option => ({
+    value: option,
+    label: option || "(Empty)",
+    color: colorMap[option] || '#6B7280'
+  }));
+  
+  // For icon options, add the icon
+  if (Icon) {
+    selectOptions.forEach(option => {
+      option.icon = Icon;
+    });
+  }
+  
+  // Currently selected values
+  const selectedOptions = selectOptions.filter(option => 
+    value.includes(option.value)
+  );
+  
+  // Configure the styling
+  const customStyles = {
+    ...selectStyles,
+    control: (base) => ({
+      ...base,
+      minHeight: '36px',
+    }),
+    valueContainer: (base) => ({
+      ...base,
+      padding: '0 6px',
+    }),
+    dropdownIndicator: (base) => ({
+      ...base,
+      padding: '0 6px',
+    }),
+    clearIndicator: (base) => ({
+      ...base,
+      padding: '0 6px',
+    }),
+  };
+  
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={`multiselect-${label}`} className="text-sm">{label}</Label>
+      <Select
+        isMulti
+        id={`multiselect-${label}`}
+        options={selectOptions}
+        value={selectedOptions}
+        onChange={(selected) => onChange(selected ? selected.map(option => option.value) : [])}
+        placeholder={`Select ${label.toLowerCase()}`}
+        classNamePrefix="select"
+        className="w-full"
+        styles={customStyles}
+        components={Icon ? { Option: IconOption } : { Option: ColoredOption }}
+        isClearable
+        menuPlacement="auto"
+        menuPosition="fixed"
+      />
+    </div>
+  );
 };
 
 const PasiRecordsFilter = ({ 
@@ -135,6 +266,9 @@ const PasiRecordsFilter = ({
   openAccordionItems,
   setOpenAccordionItems
 }) => {
+  // Import needed modules at the top of your file
+  // import Select, { components } from 'react-select';
+  
   // Filter states
   const [filterApplied, setFilterApplied] = useState(false);
   const [filterCount, setFilterCount] = useState(0);
@@ -154,6 +288,15 @@ const PasiRecordsFilter = ({
   
   // Auth context to get current user
   const { user_email_key, user } = useAuth();
+
+  // First, add this helper function at the beginning of your component
+const studentHasCourse = (asn, courseCode, allRecords) => {
+  if (!asn || !courseCode || !allRecords) return false;
+  return allRecords.some(record => 
+    record.asn === asn && 
+    record.courseCode === courseCode
+  );
+};
   
   // List of months for the UI
   const monthsList = [
@@ -511,13 +654,32 @@ const PasiRecordsFilter = ({
     setIsDeleteDialogOpen(true);
   };
 
-  // Apply filters and return filtered data to parent
+  const validPasiCodes = useMemo(() => {
+    return new Set(COURSE_OPTIONS.map(option => option.pasiCode));
+  }, []);
+  
+
+
+
   const applyFilters = () => {
     if (!pasiStudentSummariesCombined) {
       setFilteredRecords([]);
       onFilteredDataChange([]);
       return;
     }
+
+      // Pre-compute sets of students with specific courses for more efficient filtering
+  const com1255Students = new Set();
+  const inf2020Students = new Set();
+  
+  pasiStudentSummariesCombined.forEach(record => {
+    if (record.asn && record.courseCode === "COM1255") {
+      com1255Students.add(record.asn);
+    }
+    if (record.asn && record.courseCode === "INF2020") {
+      inf2020Students.add(record.asn);
+    }
+  });
     
     const filteredData = pasiStudentSummariesCombined.filter(record => {
       // Search term filter (search across multiple fields)
@@ -639,23 +801,46 @@ const PasiRecordsFilter = ({
         if (!record.workItems) return false;
         if (!workItemsFilter.includes(record.workItems)) return false;
       }
-      
-      // COM1255 and INF2020 filters
       if (hasCom1255Filter) {
-        if (!record.pasiRecords || !record.pasiRecords.com1255) return false;
+        // First check if student has COM1255
+        if (!record.asn || !com1255Students.has(record.asn)) 
+          return false;
+        
+        // Then check if this specific record is for a course in our valid PASI codes list
+        if (!validPasiCodes.has(record.courseCode))
+          return false;
       }
       
       if (noCom1255Filter) {
-        if (record.pasiRecords && record.pasiRecords.com1255) return false;
+        // First check if student does NOT have COM1255
+        if (record.asn && com1255Students.has(record.asn)) 
+          return false;
+        
+        // Then check if this specific record is for a course in our valid PASI codes list
+        if (!validPasiCodes.has(record.courseCode))
+          return false;
       }
       
       if (hasInf2020Filter) {
-        if (!record.pasiRecords || !record.pasiRecords.inf2020) return false;
+        // First check if student has INF2020
+        if (!record.asn || !inf2020Students.has(record.asn)) 
+          return false;
+        
+        // Then check if this specific record is for a course in our valid PASI codes list
+        if (!validPasiCodes.has(record.courseCode))
+          return false;
       }
       
       if (noInf2020Filter) {
-        if (record.pasiRecords && record.pasiRecords.inf2020) return false;
+        // First check if student does NOT have INF2020
+        if (record.asn && inf2020Students.has(record.asn)) 
+          return false;
+        
+        // Then check if this specific record is for a course in our valid PASI codes list
+        if (!validPasiCodes.has(record.courseCode))
+          return false;
       }
+      
       
       // YourWay Related filters
       if (studentTypeFilter.length > 0) {
@@ -871,101 +1056,73 @@ const PasiRecordsFilter = ({
   };
   
   // Generate summary statistics
-  const stats = useMemo(() => {
-    if (!pasiStudentSummariesCombined) return {};
-    
-    const totalRecords = pasiStudentSummariesCombined.length;
-    
-    const statusCounts = {};
-    const termCounts = {};
-    const courseCounts = {};
-    
-    // Count COM1255 and INF2020
-    let com1255Count = 0;
-    let inf2020Count = 0;
-    
-    pasiStudentSummariesCombined.forEach(record => {
-      // Count statuses
-      if (record.status) {
-        statusCounts[record.status] = (statusCounts[record.status] || 0) + 1;
-      }
-      
-      // Count terms
-      const term = record.term || record.pasiTerm;
-      if (term) {
-        termCounts[term] = (termCounts[term] || 0) + 1;
-      }
-      
-      // Count courses
-      if (record.courseCode) {
-        courseCounts[record.courseCode] = (courseCounts[record.courseCode] || 0) + 1;
-      }
-      
-      // Count COM1255 and INF2020
-      if (record.pasiRecords) {
-        if (record.pasiRecords.com1255) {
-          com1255Count++;
-        }
-        if (record.pasiRecords.inf2020) {
-          inf2020Count++;
-        }
-      }
-    });
-    
-    return {
-      totalRecords,
-      statusCounts,
-      termCounts,
-      courseCounts,
-      com1255Count,
-      inf2020Count
-    };
-  }, [pasiStudentSummariesCombined]);
+// Generate summary statistics
+const stats = useMemo(() => {
+  if (!pasiStudentSummariesCombined) return {};
   
-  // Helper function to render select dropdown for filter options
-  const renderSelectFilter = (options, value, onChange, label) => {
-    if (!options || options.length === 0) return null;
+  const totalRecords = pasiStudentSummariesCombined.length;
+  
+  const statusCounts = {};
+  const termCounts = {};
+  const courseCounts = {};
+  
+  // Track students with valid PASI courses
+  const studentsWithValidPasiCourses = new Set();
+  const com1255ASNs = new Set();
+  const inf2020ASNs = new Set();
+  
+  pasiStudentSummariesCombined.forEach(record => {
+    // Count statuses
+    if (record.status) {
+      statusCounts[record.status] = (statusCounts[record.status] || 0) + 1;
+    }
     
-    return (
-      <div className="space-y-2">
-        <Label htmlFor={`select-${label}`} className="text-sm">{label}</Label>
-        <Select
-          value={value.length === 1 ? value[0] : ""}
-          onValueChange={(val) => onChange(val ? [val] : [])}
-        >
-          <SelectTrigger id={`select-${label}`} className="w-full">
-            <SelectValue placeholder={`Select ${label}`} />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map(option => (
-              <SelectItem key={option} value={option}>
-                {option || "(Empty)"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        {/* Show selected values if multiple are selected */}
-        {value.length > 1 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {value.map(item => (
-              <Badge 
-                key={item} 
-                variant="secondary"
-                className="flex items-center gap-1"
-              >
-                {item || "(Empty)"}
-                <X 
-                  className="h-3 w-3 cursor-pointer" 
-                  onClick={() => onChange(value.filter(v => v !== item))}
-                />
-              </Badge>
-            ))}
-          </div>
-        )}
-      </div>
-    );
+    // Count terms
+    const term = record.term || record.pasiTerm;
+    if (term) {
+      termCounts[term] = (termCounts[term] || 0) + 1;
+    }
+    
+    // Count courses
+    if (record.courseCode) {
+      courseCounts[record.courseCode] = (courseCounts[record.courseCode] || 0) + 1;
+    }
+    
+    // Track students with valid PASI courses
+    if (record.asn && validPasiCodes.has(record.courseCode)) {
+      studentsWithValidPasiCourses.add(record.asn);
+    }
+    
+    // Count COM1255 and INF2020 students
+    if (record.asn) {
+      if (record.courseCode === "COM1255") {
+        com1255ASNs.add(record.asn);
+      } else if (record.courseCode === "INF2020") {
+        inf2020ASNs.add(record.asn);
+      }
+    }
+  });
+
+  // Count students who have valid PASI courses AND have the required courses
+  const com1255Count = [...studentsWithValidPasiCourses].filter(asn => com1255ASNs.has(asn)).length;
+  const noCom1255Count = studentsWithValidPasiCourses.size - com1255Count;
+  const inf2020Count = [...studentsWithValidPasiCourses].filter(asn => inf2020ASNs.has(asn)).length; 
+  const noInf2020Count = studentsWithValidPasiCourses.size - inf2020Count;
+  
+  return {
+    totalRecords,
+    statusCounts,
+    termCounts,
+    courseCounts,
+    com1255Count,
+    noCom1255Count,
+    inf2020Count,
+    noInf2020Count,
+    validPasiStudentCount: studentsWithValidPasiCourses.size
   };
+}, [pasiStudentSummariesCombined, validPasiCodes]);
+  
+ 
   
   return (
     <div className="space-y-4">
@@ -1142,90 +1299,90 @@ const PasiRecordsFilter = ({
   onValueChange={setOpenAccordionItems}
   className="w-full space-y-2"
 >
-        {/* Course Requirements Filter */}
-        <AccordionItem value="course-requirements">
-          <AccordionTrigger className="text-sm py-2 bg-amber-100">
-            <div className="flex items-center">
-              <Laptop className="h-4 w-4 mr-2" />
-              Course Requirements
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">COM1255 (E-Learning & LMS)</Label>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="hasCom1255"
-                      checked={hasCom1255Filter}
-                      onCheckedChange={setHasCom1255Filter}
-                    />
-                    <Label htmlFor="hasCom1255" className="text-sm flex items-center">
-                      Has COM1255
-                      {stats.com1255Count > 0 && (
-                        <Badge variant="outline" className="ml-2 text-xs">
-                          {stats.com1255Count}
-                        </Badge>
-                      )}
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="noCom1255"
-                      checked={noCom1255Filter}
-                      onCheckedChange={setNoCom1255Filter}
-                    />
-                    <Label htmlFor="noCom1255" className="text-sm flex items-center">
-                      Missing COM1255
-                      {stats.totalRecords && stats.com1255Count > 0 && (
-                        <Badge variant="outline" className="ml-2 text-xs">
-                          {stats.totalRecords - stats.com1255Count}
-                        </Badge>
-                      )}
-                    </Label>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">INF2020 (Computer Science 2)</Label>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="hasInf2020"
-                      checked={hasInf2020Filter}
-                      onCheckedChange={setHasInf2020Filter}
-                    />
-                    <Label htmlFor="hasInf2020" className="text-sm flex items-center">
-                      Has INF2020
-                      {stats.inf2020Count > 0 && (
-                        <Badge variant="outline" className="ml-2 text-xs">
-                          {stats.inf2020Count}
-                        </Badge>
-                      )}
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="noInf2020"
-                      checked={noInf2020Filter}
-                      onCheckedChange={setNoInf2020Filter}
-                    />
-                    <Label htmlFor="noInf2020" className="text-sm flex items-center">
-                      Missing INF2020
-                      {stats.totalRecords && stats.inf2020Count > 0 && (
-                        <Badge variant="outline" className="ml-2 text-xs">
-                          {stats.totalRecords - stats.inf2020Count}
-                        </Badge>
-                      )}
-                    </Label>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
+      {/* Course Requirements Filter */}
+<AccordionItem value="course-requirements">
+  <AccordionTrigger className="text-sm py-2 bg-amber-100">
+    <div className="flex items-center">
+      <Laptop className="h-4 w-4 mr-2" />
+      Course Requirements
+    </div>
+  </AccordionTrigger>
+  <AccordionContent>
+    <div className="space-y-4 pt-2">
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">COM1255 (E-Learning & LMS)</Label>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="hasCom1255"
+              checked={hasCom1255Filter}
+              onCheckedChange={setHasCom1255Filter}
+            />
+            <Label htmlFor="hasCom1255" className="text-sm flex items-center">
+              Has COM1255
+              {stats.com1255Count > 0 && (
+                <Badge variant="outline" className="ml-2 text-xs">
+                  {stats.com1255Count}
+                </Badge>
+              )}
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="noCom1255"
+              checked={noCom1255Filter}
+              onCheckedChange={setNoCom1255Filter}
+            />
+            <Label htmlFor="noCom1255" className="text-sm flex items-center">
+              Missing COM1255
+              {stats.noCom1255Count > 0 && (
+                <Badge variant="outline" className="ml-2 text-xs">
+                  {stats.noCom1255Count}
+                </Badge>
+              )}
+            </Label>
+          </div>
+        </div>
+      </div>
+      
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">INF2020 (Keyboarding)</Label>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="hasInf2020"
+              checked={hasInf2020Filter}
+              onCheckedChange={setHasInf2020Filter}
+            />
+            <Label htmlFor="hasInf2020" className="text-sm flex items-center">
+              Has INF2020
+              {stats.inf2020Count > 0 && (
+                <Badge variant="outline" className="ml-2 text-xs">
+                  {stats.inf2020Count}
+                </Badge>
+              )}
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="noInf2020"
+              checked={noInf2020Filter}
+              onCheckedChange={setNoInf2020Filter}
+            />
+            <Label htmlFor="noInf2020" className="text-sm flex items-center">
+              Missing INF2020
+              {stats.noInf2020Count > 0 && (
+                <Badge variant="outline" className="ml-2 text-xs">
+                  {stats.noInf2020Count}
+                </Badge>
+              )}
+            </Label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </AccordionContent>
+</AccordionItem>
         
         {/* YourWay Related Filter */}
         <AccordionItem value="yourway-related">
@@ -1237,40 +1394,42 @@ const PasiRecordsFilter = ({
           </AccordionTrigger>
           <AccordionContent>
             <div className="space-y-4 pt-2">
-              {/* Student Type Filter */}
-              {renderSelectFilter(
+              {/* Student Type Filter - Updated to use react-select */}
+              {renderMultiSelectFilter(
                 filterOptions.studentTypes,
                 studentTypeFilter,
                 setStudentTypeFilter,
-                "Student Type"
+                "Student Type",
+                User
               )}
               
-              {/* Active/Future/Archived Status Filter */}
-              {renderSelectFilter(
+              {/* Active/Future/Archived Status Filter - Updated to use react-select */}
+              {renderMultiSelectFilter(
                 filterOptions.activeStatuses,
                 activeStatusFilter,
                 setActiveStatusFilter,
                 "Status"
               )}
               
-              {/* Diploma Month Choices Filter */}
-              {renderSelectFilter(
+              {/* Diploma Month Choices Filter - Updated to use react-select */}
+              {renderMultiSelectFilter(
                 filterOptions.diplomaMonths,
                 diplomaMonthFilter,
                 setDiplomaMonthFilter,
-                "Diploma Month"
+                "Diploma Month",
+                GraduationCap
               )}
               
-              {/* Status Value Filter */}
-              {renderSelectFilter(
+              {/* Status Value Filter - Updated to use react-select */}
+              {renderMultiSelectFilter(
                 filterOptions.statusValues,
                 statusValueFilter,
                 setStatusValueFilter,
                 "Status Value"
               )}
               
-              {/* Payment Status Filter */}
-              {renderSelectFilter(
+              {/* Payment Status Filter - Updated to use react-select */}
+              {renderMultiSelectFilter(
                 filterOptions.paymentStatuses,
                 paymentStatusFilter,
                 setPaymentStatusFilter,
@@ -1290,56 +1449,57 @@ const PasiRecordsFilter = ({
           </AccordionTrigger>
           <AccordionContent>
             <div className="space-y-4 pt-2">
-              {/* Approved Filter */}
-              {renderSelectFilter(
+              {/* Approved Filter - Updated to use react-select */}
+              {renderMultiSelectFilter(
                 filterOptions.approved,
                 approvedFilter,
                 setApprovedFilter,
                 "Approved"
               )}
               
-              {/* Deleted Filter */}
-              {renderSelectFilter(
+              {/* Deleted Filter - Updated to use react-select */}
+              {renderMultiSelectFilter(
                 filterOptions.deleted,
                 deletedFilter,
                 setDeletedFilter,
                 "Deleted"
               )}
               
-              {/* Dual Enrolment Filter */}
-              {renderSelectFilter(
+              {/* Dual Enrolment Filter - Updated to use react-select */}
+              {renderMultiSelectFilter(
                 filterOptions.dualEnrolment,
                 dualEnrolmentFilter,
                 setDualEnrolmentFilter,
                 "Dual Enrolment"
               )}
               
-              {/* School Enrolment Filter */}
-              {renderSelectFilter(
+              {/* School Enrolment Filter - Updated to use react-select */}
+              {renderMultiSelectFilter(
                 filterOptions.schoolEnrolment,
                 schoolEnrolmentFilter,
                 setSchoolEnrolmentFilter,
                 "School Enrolment"
               )}
               
-              {/* PASI Status Filter */}
-              {renderSelectFilter(
+              {/* PASI Status Filter - Updated to use react-select */}
+              {renderMultiSelectFilter(
                 filterOptions.pasiStatuses,
                 pasiStatusFilter,
                 setPasiStatusFilter,
                 "PASI Status"
               )}
               
-              {/* PASI Work Items Filter */}
-              {renderSelectFilter(
+              {/* PASI Work Items Filter - Updated to use react-select */}
+              {renderMultiSelectFilter(
                 filterOptions.pasiWorkItems,
                 pasiWorkItemsFilter,
                 setPasiWorkItemsFilter,
-                "Work Items"
+                "Work Items",
+                FileText
               )}
               
-              {/* PASI Term Filter */}
-              {renderSelectFilter(
+              {/* PASI Term Filter - Updated to use react-select */}
+              {renderMultiSelectFilter(
                 filterOptions.pasiTerms,
                 pasiTermFilter,
                 setPasiTermFilter,
