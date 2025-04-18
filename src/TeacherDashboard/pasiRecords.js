@@ -50,9 +50,6 @@ import PasiActionButtons, { MultipleRecordsDisplay } from "../components/PasiAct
 import PasiRecordsFilter from "./PasiRecordsFilter";
 // Import the PasiAnalysisDashboard
 import PasiAnalysisDashboard from "./PasiAnalysisDashboard";
-import CSVFileUpload from '../components/CSVFileUpload';
-import PasiCSVPreview from '../components/PasiCSVPreview';
-import { processPasiCsvData, savePasiRecords } from '../utils/pasiCsvUtils';
 import { useAuth } from '../context/AuthContext'; // If permission checking is needed
 
 
@@ -256,8 +253,6 @@ const PasiRecords = () => {
 
   // State for filter accordion open/closed states
   const [openFilterAccordionItems, setOpenFilterAccordionItems] = useState();
-
-  const [isLoadingAsns, setIsLoadingAsns] = useState(true);
 
   // Function to update records in Firebase
   const updateRecordField = (record, field, value) => {
@@ -676,73 +671,6 @@ const PasiRecords = () => {
     );
   };
 
-  // Handle PASI CSV processing
-  const handleProcessPasiCsv = async (csvData) => {
-    if (!currentSchoolYear) {
-      throw new Error("Please select a school year first");
-    }
-    const processedData = await processPasiCsvData(csvData, currentSchoolYear, asnEmails);
-    return processedData;
-  };
-
-  // Handle PASI CSV upload confirmation
-  const handleConfirmPasiUpload = async (previewData) => {
-    if (!previewData || !previewData.data) {
-      throw new Error("No data to upload");
-    }
-    const result = await savePasiRecords(previewData.data);
-    // After successful upload, refresh the data if needed
-    return result;
-  };
-
-  // Fetch ASN emails for CSV import
-  useEffect(() => {
-    let isMounted = true;
-    const fetchAsns = async () => {
-      if (!isMounted) return;
-      try {
-        const db = getDatabase();
-        const asnsRef = ref(db, 'ASNs');
-        const snapshot = await get(asnsRef);
-        if (!snapshot.exists()) {
-          throw new Error('No ASN data found');
-        }
-        const emailMapping = {};
-        snapshot.forEach(childSnapshot => {
-          const asn = childSnapshot.key;
-          const data = childSnapshot.val();
-          const emailKeys = data.emailKeys || {};
-          const currentEmail = Object.entries(emailKeys)
-            .find(([_, value]) => value === true)?.[0];
-          if (currentEmail) {
-            const formattedEmail = currentEmail.replace(/,/g, '.');
-            emailMapping[asn] = formattedEmail;
-          }
-        });
-        if (isMounted) {
-          setAsnEmails(emailMapping);
-        }
-      } catch (error) {
-        console.error('Error fetching ASNs:', error);
-        toast.error("Failed to fetch ASN data: " + error.message);
-      } finally {
-        if (isMounted) {
-          setIsLoadingAsns(false);
-        }
-      }
-    };
-    fetchAsns();
-    return () => { isMounted = false; };
-  }, []);
-
-  // Required PASI CSV fields
-  const requiredPasiFields = [
-    'ASN', 'Work Items', ' Code', 'Student Name', ' Description',
-    'Status', 'School Enrolment', 'Value', 'Approved?', 'Assignment Date',
-    'Credits Attempted', 'Deleted?', 'Dual Enrolment?', 'Exit Date',
-    'Funding Requested?', 'Term', 'Reference #'
-  ];
-
   return (
     <TooltipProvider>
       <div className="container mx-auto p-4">
@@ -865,21 +793,7 @@ const PasiRecords = () => {
         {/* Main content */}
         <div className="mb-4 flex justify-between items-center">
           <div className="flex gap-2">
-            {/* Add the CSV Upload component here */}
-            <CSVFileUpload
-              buttonText="Import PASI CSV"
-              buttonVariant="outline"
-              disabled={isLoadingAsns || !currentSchoolYear}
-              title="PASI CSV Import Preview"
-              description="Review the data before uploading to the database"
-              requiredFields={requiredPasiFields}
-              onDataProcessed={handleProcessPasiCsv}
-              onConfirmUpload={handleConfirmPasiUpload}
-              renderPreview={(previewData) => (
-                <PasiCSVPreview previewData={previewData} />
-              )}
-            />
-            {/* Filter button already handled in Sheet trigger above */}
+            {/* CSV import button removed */}
           </div>
           
           {/* Analysis Dashboard Button */}
