@@ -142,3 +142,18 @@ export const isWithinTwoMonths = (dateString) => {
     return false;
   }
 };
+
+/**
+ * Filters student summaries to determine which ones are relevant for missing PASI records display
+ * @param {Array} records - The student summaries/records to filter
+ * @returns {Array} - Filtered array of records
+ */
+export const filterRelevantMissingPasiRecords = (records) => {
+  if (!records || !Array.isArray(records)) return [];
+  
+  return records
+    // Filter out a specific test email
+    .filter(record => (record.StudentEmail || record.email) !== '000kyle.e.brown13@gmail.com')
+    // Filter out records with irrelevant status values
+    .filter(record => record.Status_Value !== '✗ Removed (Not Funded)' && record.Status_Value !== 'Unenrolled');
+};

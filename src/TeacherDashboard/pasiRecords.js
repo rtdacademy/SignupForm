@@ -674,127 +674,119 @@ const PasiRecords = () => {
   return (
     <TooltipProvider>
       <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-6 flex items-center">
-          <FileText className="mr-2" /> PASI Records Management
-        </h1>
-        
-        {/* Filter Sheet */}
-        <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
-          <SheetTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="mb-4 flex items-center"
-            >
-              <Filter className="h-4 w-4 mr-1" /> 
-              Filters
-              {filterCount > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {filterCount} active
-                </Badge>
-              )}
-            </Button>
-          </SheetTrigger>
-          <SheetContent className="w-full sm:max-w-md overflow-y-auto" side="left">
-            <SheetHeader className="mb-4">
-              <SheetTitle>Filter PASI Records</SheetTitle>
-              <SheetDescription>
-                Apply filters to find specific PASI records
-              </SheetDescription>
-            </SheetHeader>
-            
-            <div className="flex-1 overflow-y-auto pr-6">
-              <PasiRecordsFilter 
-                pasiStudentSummariesCombined={processedDataForFilter}
-                onFilteredDataChange={handleFilteredDataChange}
-                
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                statusFilter={statusFilter}
-                setStatusFilter={setStatusFilter}
-                termFilter={termFilter}
-                setTermFilter={setTermFilter}
-                courseFilter={courseFilter}
-                setCourseFilter={setCourseFilter}
-                dateRangeStart={dateRangeStart}
-                setDateRangeStart={setDateRangeStart}
-                dateRangeEnd={dateRangeEnd}
-                setDateRangeEnd={setDateRangeEnd}
-                hasGradeFilter={hasGradeFilter}
-                setHasGradeFilter={setHasGradeFilter}
-                noGradeFilter={noGradeFilter}
-                setNoGradeFilter={setNoGradeFilter}
-                hasMultipleRecordsFilter={hasMultipleRecordsFilter}
-                setHasMultipleRecordsFilter={setHasMultipleRecordsFilter}
-                workItemsFilter={workItemsFilter}
-                setWorkItemsFilter={setWorkItemsFilter}
-                startDateRange={startDateRange}
-                setStartDateRange={setStartDateRange}
-                assignmentDateRange={assignmentDateRange}
-                setAssignmentDateRange={setAssignmentDateRange}
-                resumingOnDateRange={resumingOnDateRange}
-                setResumingOnDateRange={setResumingOnDateRange}
-                scheduleEndDateRange={scheduleEndDateRange}
-                setScheduleEndDateRange={setScheduleEndDateRange}
-                selectedMonths={selectedMonths}
-                setSelectedMonths={setSelectedMonths}
-                
-                
-                hasCom1255Filter={hasCom1255Filter}
-                setHasCom1255Filter={setHasCom1255Filter}
-                noCom1255Filter={noCom1255Filter}
-                setNoCom1255Filter={setNoCom1255Filter}
-                hasInf2020Filter={hasInf2020Filter}
-                setHasInf2020Filter={setHasInf2020Filter}
-                noInf2020Filter={noInf2020Filter}
-                setNoInf2020Filter={setNoInf2020Filter}
-                
-               
-                studentTypeFilter={studentTypeFilter}
-                setStudentTypeFilter={setStudentTypeFilter}
-                activeStatusFilter={activeStatusFilter}
-                setActiveStatusFilter={setActiveStatusFilter}
-                diplomaMonthFilter={diplomaMonthFilter}
-                setDiplomaMonthFilter={setDiplomaMonthFilter}
-                statusValueFilter={statusValueFilter}
-                setStatusValueFilter={setStatusValueFilter}
-                paymentStatusFilter={paymentStatusFilter}
-                setPaymentStatusFilter={setPaymentStatusFilter}
-                
-                
-                approvedFilter={approvedFilter}
-                setApprovedFilter={setApprovedFilter}
-                deletedFilter={deletedFilter}
-                setDeletedFilter={setDeletedFilter}
-                dualEnrolmentFilter={dualEnrolmentFilter}
-                setDualEnrolmentFilter={setDualEnrolmentFilter}
-                schoolEnrolmentFilter={schoolEnrolmentFilter}
-                setSchoolEnrolmentFilter={setSchoolEnrolmentFilter}
-                pasiStatusFilter={pasiStatusFilter}
-                setPasiStatusFilter={setPasiStatusFilter}
-                pasiWorkItemsFilter={pasiWorkItemsFilter}
-                setPasiWorkItemsFilter={setPasiWorkItemsFilter}
-                pasiTermFilter={pasiTermFilter}
-                setPasiTermFilter={setPasiTermFilter}
-
-                openAccordionItems={openFilterAccordionItems}
-                setOpenAccordionItems={setOpenFilterAccordionItems}
-              />
-            </div>
-            
-            <SheetFooter className="mt-4 border-t pt-4">
-              <SheetClose asChild>
-                <Button variant="outline">Done</Button>
-              </SheetClose>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
-        
         {/* Main content */}
         <div className="mb-4 flex justify-between items-center">
-          <div className="flex gap-2">
-            {/* CSV import button removed */}
-          </div>
+          {/* Filter button */}
+          <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+            <SheetTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center"
+              >
+                <Filter className="h-4 w-4 mr-1" /> 
+                Filters
+                {filterCount > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {filterCount} active
+                  </Badge>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="w-full sm:max-w-md overflow-y-auto" side="left">
+              <SheetHeader className="mb-4">
+                <SheetTitle>Filter PASI Records</SheetTitle>
+                <SheetDescription>
+                  Apply filters to find specific PASI records
+                </SheetDescription>
+              </SheetHeader>
+              
+              <div className="flex-1 overflow-y-auto pr-6">
+                <PasiRecordsFilter 
+                  pasiStudentSummariesCombined={processedDataForFilter}
+                  onFilteredDataChange={handleFilteredDataChange}
+                  
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                  statusFilter={statusFilter}
+                  setStatusFilter={setStatusFilter}
+                  termFilter={termFilter}
+                  setTermFilter={setTermFilter}
+                  courseFilter={courseFilter}
+                  setCourseFilter={setCourseFilter}
+                  dateRangeStart={dateRangeStart}
+                  setDateRangeStart={setDateRangeStart}
+                  dateRangeEnd={dateRangeEnd}
+                  setDateRangeEnd={setDateRangeEnd}
+                  hasGradeFilter={hasGradeFilter}
+                  setHasGradeFilter={setHasGradeFilter}
+                  noGradeFilter={noGradeFilter}
+                  setNoGradeFilter={setNoGradeFilter}
+                  hasMultipleRecordsFilter={hasMultipleRecordsFilter}
+                  setHasMultipleRecordsFilter={setHasMultipleRecordsFilter}
+                  workItemsFilter={workItemsFilter}
+                  setWorkItemsFilter={setWorkItemsFilter}
+                  startDateRange={startDateRange}
+                  setStartDateRange={setStartDateRange}
+                  assignmentDateRange={assignmentDateRange}
+                  setAssignmentDateRange={setAssignmentDateRange}
+                  resumingOnDateRange={resumingOnDateRange}
+                  setResumingOnDateRange={setResumingOnDateRange}
+                  scheduleEndDateRange={scheduleEndDateRange}
+                  setScheduleEndDateRange={setScheduleEndDateRange}
+                  selectedMonths={selectedMonths}
+                  setSelectedMonths={setSelectedMonths}
+                  
+                  
+                  hasCom1255Filter={hasCom1255Filter}
+                  setHasCom1255Filter={setHasCom1255Filter}
+                  noCom1255Filter={noCom1255Filter}
+                  setNoCom1255Filter={setNoCom1255Filter}
+                  hasInf2020Filter={hasInf2020Filter}
+                  setHasInf2020Filter={setHasInf2020Filter}
+                  noInf2020Filter={noInf2020Filter}
+                  setNoInf2020Filter={setNoInf2020Filter}
+                  
+                 
+                  studentTypeFilter={studentTypeFilter}
+                  setStudentTypeFilter={setStudentTypeFilter}
+                  activeStatusFilter={activeStatusFilter}
+                  setActiveStatusFilter={setActiveStatusFilter}
+                  diplomaMonthFilter={diplomaMonthFilter}
+                  setDiplomaMonthFilter={setDiplomaMonthFilter}
+                  statusValueFilter={statusValueFilter}
+                  setStatusValueFilter={setStatusValueFilter}
+                  paymentStatusFilter={paymentStatusFilter}
+                  setPaymentStatusFilter={setPaymentStatusFilter}
+                  
+                  
+                  approvedFilter={approvedFilter}
+                  setApprovedFilter={setApprovedFilter}
+                  deletedFilter={deletedFilter}
+                  setDeletedFilter={setDeletedFilter}
+                  dualEnrolmentFilter={dualEnrolmentFilter}
+                  setDualEnrolmentFilter={setDualEnrolmentFilter}
+                  schoolEnrolmentFilter={schoolEnrolmentFilter}
+                  setSchoolEnrolmentFilter={setSchoolEnrolmentFilter}
+                  pasiStatusFilter={pasiStatusFilter}
+                  setPasiStatusFilter={setPasiStatusFilter}
+                  pasiWorkItemsFilter={pasiWorkItemsFilter}
+                  setPasiWorkItemsFilter={setPasiWorkItemsFilter}
+                  pasiTermFilter={pasiTermFilter}
+                  setPasiTermFilter={setPasiTermFilter}
+
+                  openAccordionItems={openFilterAccordionItems}
+                  setOpenAccordionItems={setOpenFilterAccordionItems}
+                />
+              </div>
+              
+              <SheetFooter className="mt-4 border-t pt-4">
+                <SheetClose asChild>
+                  <Button variant="outline">Done</Button>
+                </SheetClose>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
           
           {/* Analysis Dashboard Button */}
           <Button 

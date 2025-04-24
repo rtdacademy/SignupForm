@@ -8,31 +8,15 @@ import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { 
   Upload, 
-  Search, 
-  X, 
-  ArrowUp, 
-  ArrowDown,
-  Copy,
-  EyeIcon,
-  Link2,
   AlertTriangle,
   Trash,
   Sparkles, 
   Loader2,
   AlertCircle,
-  UserPlus,
-  XCircle,
-  CheckCircle,
-  HelpCircle,
-  ChevronDown, 
-  ChevronRight,
-  GraduationCap,
-  Wrench,
-  Mail
+  HelpCircle
 } from 'lucide-react';
 import Papa from 'papaparse';
 import { toast, Toaster } from 'sonner';
-import PASIPreviewDialog from './PASIPreviewDialog';
 import { getDatabase, ref, query, orderByChild, equalTo, onValue, off, get, update, remove } from 'firebase/database';
 import { validatePasiRecordsLinkStatus } from '../utils/pasiValidation';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
@@ -51,42 +35,22 @@ import {
   DialogFooter,
   DialogDescription,
 } from "../components/ui/dialog";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "../components/ui/pagination";
-import { 
-  Accordion, 
-  AccordionContent, 
-  AccordionItem, 
-  AccordionTrigger 
-} from "../components/ui/accordion";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetClose
-} from "../components/ui/sheet";
+
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Progress } from "../components/ui/progress";
 import CourseLinkingDialog from './CourseLinkingDialog';
 import { processPasiLinkCreation, formatSchoolYearWithSlash, processPasiRecordDeletions, getCourseIdsForPasiCode } from '../utils/pasiLinkUtils';
 import CreateStudentDialog from './CreateStudentDialog';
-import MissingPasiRecordsTab from './MissingPasiRecordsTab';
+import MissingPasi from '../TeacherDashboard/MissingPasi';
 import { COURSE_OPTIONS, COURSE_CODE_TO_ID, ACTIVE_FUTURE_ARCHIVED_OPTIONS, COURSE_ID_TO_CODE } from '../config/DropdownOptions';
 import RevenueTab from './RevenueTab';
 import PermissionIndicator from '../context/PermissionIndicator';
 import NPAdjustments from './NPAdjustments';
 import { useAuth } from '../context/AuthContext';
 import { useSchoolYear } from '../context/SchoolYearContext';
-import { hasPasiRecordForCourse, isRecordActuallyMissing, getPasiCodesForCourseId} from '../utils/pasiRecordsUtils';
+import { hasPasiRecordForCourse, isRecordActuallyMissing, getPasiCodesForCourseId, filterRelevantMissingPasiRecords } from '../utils/pasiRecordsUtils';
 import PasiRecords from '../TeacherDashboard/pasiRecords';
+
 
 // Validation rules for status compatibility
 const ValidationRules = {
@@ -321,6 +285,11 @@ const PASIDataUpload = () => {
     if (!records || records.length === 0) return 0;
     return records.filter(record => isRecordActuallyMissing(record)).length;
   };
+
+ 
+const filteredMissingRecords = useMemo(() => {
+  return filterRelevantMissingPasiRecords(unmatchedStudentSummaries);
+}, [unmatchedStudentSummaries]);
 
   const courseIdToPasiCode = useMemo(() => {
     // Start with the COURSE_ID_TO_CODE mapping
@@ -1129,16 +1098,16 @@ const PASIDataUpload = () => {
                   </TabsTrigger>
                   
                   <TabsTrigger 
-                    value="missingPasi"
-                    className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                  >
-                    Missing PASI
-                    {missingPasiRecords.length > 0 && (
-                      <Badge variant="destructive" className="ml-2 bg-red-100 hover:bg-red-100 text-red-600">
-                        {countActualMissingRecords(missingPasiRecords)}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
+  value="missingPasi"
+  className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+>
+  Missing PASI
+  {unmatchedStudentSummaries.length > 0 && (
+    <Badge variant="destructive" className="ml-2 bg-red-100 hover:bg-red-100 text-red-600">
+      {filteredMissingRecords.length}
+    </Badge>
+  )}
+</TabsTrigger>
                   
                   <TabsTrigger 
                     value="validation"
@@ -1195,11 +1164,7 @@ const PASIDataUpload = () => {
                       </div>
                     </div>
                   ) : (
-                    <MissingPasiRecordsTab 
-                      missingRecords={missingPasiRecords}
-                      onGeneratePasiFile={handleGeneratePasiCsv}
-                      isProcessing={isGeneratingCsv}
-                    />
+                    <MissingPasi />
                   )}
                 </TabsContent>
 

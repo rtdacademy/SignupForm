@@ -30,112 +30,15 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { Checkbox } from "../components/ui/checkbox";
 import { toast } from 'sonner';
-// Import Firebase DB functionality
 import { getDatabase, ref, update } from 'firebase/database';
-import PasiActionButtons, { MultipleRecordsDisplay } from "../components/PasiActionButtons";
+import PasiActionButtons from "../components/PasiActionButtons";
+import { filterRelevantMissingPasiRecords } from '../utils/pasiRecordsUtils';
 
 const ITEMS_PER_PAGE = 20;
 
-// Helper function to check if a date value is valid and not empty
-const isValidDateValue = (value) => {
-  if (!value) return false;
-  if (value === '-') return false;
-  if (value === 'N/A') return false;
-  if (value === '') return false;
-  
-  // If it's a timestamp that would result in an invalid date (like 0), it's not valid
-  if (!isNaN(value) && new Date(parseInt(value)).getFullYear() < 1971) return false;
-  
-  return true;
-};
-
-// Function to get startDate based on available fields
-const getStartDate = (record) => {
-  // First check createdAt
-  if (record.createdAt && isValidDateValue(record.createdAt)) {
-    return {
-      value: record.createdAt,
-      source: 'createdAt',
-      formatted: typeof record.createdAt === 'string' && !isNaN(Date.parse(record.createdAt))
-    };
-  } 
-  // Then check Created (with capital C)
-  else if (record.Created && isValidDateValue(record.Created)) {
-    return {
-      value: record.Created,
-      source: 'Created',
-      formatted: false // ISO date string, not a timestamp
-    };
-  } 
-  // Then check created (with lowercase c)
-  else if (record.created && isValidDateValue(record.created)) {
-    return {
-      value: record.created,
-      source: 'created',
-      formatted: false // ISO date string, not a timestamp
-    };
-  } 
-  // Finally check assignmentDate
-  else if (record.assignmentDate && isValidDateValue(record.assignmentDate)) {
-    return {
-      value: record.assignmentDate,
-      source: 'assignmentDate',
-      formatted: true // Already formatted correctly
-    };
-  }
-  
-  return {
-    value: null,
-    source: null,
-    formatted: false
-  };
-};
-
-// Format date for display with timezone handling
-const formatDate = (dateValue, isFormatted = false) => {
-  if (!isValidDateValue(dateValue)) return 'N/A';
-  
-  // If it's already formatted, return as is
-  if (isFormatted && typeof dateValue === 'string') {
-    return dateValue;
-  }
-  
-  try {
-    // Import from timeZoneUtils.js
-    const { toEdmontonDate, toDateString } = require('../utils/timeZoneUtils');
-    
-    // Check if it's a numeric timestamp (as string or number)
-    if (!isNaN(dateValue) && typeof dateValue !== 'object') {
-      const date = toEdmontonDate(new Date(parseInt(dateValue)).toISOString());
-      // Check if valid date
-      if (!isNaN(date.getTime()) && date.getFullYear() >= 1971) {
-        return toDateString(date);
-      }
-      return 'N/A';
-    }
-    
-    // If it's a date object or ISO string
-    const date = toEdmontonDate(dateValue);
-    if (!isNaN(date.getTime()) && date.getFullYear() >= 1971) {
-      return toDateString(date);
-    }
-    
-    // Fallback for strings that may already be formatted
-    if (typeof dateValue === 'string' && dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return dateValue;
-    }
-    
-    // Fallback
-    return 'N/A';
-  } catch (error) {
-    console.error("Error formatting date:", error);
-    return 'N/A';
-  }
-};
-
 // Format date for user-friendly display (e.g. "Jan 15, 2025")
 const formatUserFriendlyDate = (dateValue, isFormatted = false) => {
-  if (!isValidDateValue(dateValue)) return 'N/A';
+  if (!dateValue || dateValue === '-' || dateValue === 'N/A' || dateValue === '') return 'N/A';
   
   try {
     // Import from timeZoneUtils.js
@@ -143,11 +46,6 @@ const formatUserFriendlyDate = (dateValue, isFormatted = false) => {
     
     // Get the standard formatted date first if needed
     let dateToFormat = dateValue;
-    if (!isFormatted) {
-      const isoDate = formatDate(dateValue, isFormatted);
-      if (isoDate === 'N/A') return 'N/A';
-      dateToFormat = isoDate;
-    }
     
     // Use the Edmonton-specific date formatting
     const edmontonDate = toEdmontonDate(dateToFormat);
@@ -169,8 +67,8 @@ const MissingPasi = () => {
   // State for selected record
   const [selectedRecord, setSelectedRecord] = useState(null);
   
-  // Toggle for showing raw data
-  const [showRawData, setShowRawData] = useState(true);
+  // Toggle for showing raw data - default to closed
+  const [showRawData, setShowRawData] = useState(false);
   
   // State for pagination and sorting
   const [currentPage, setCurrentPage] = useState(1);
@@ -202,32 +100,30 @@ const MissingPasi = () => {
     updateRecordField(record, 'staffReview', checked);
   };
 
-  // Process the records with proper date formatting
+  // Process the records with proper date formatting using the new utility function
   const processedRecords = useMemo(() => {
-    if (!unmatchedStudentSummaries) return [];
-    return unmatchedStudentSummaries
-      .filter(record => (record.StudentEmail || record.email) !== '000kyle.e.brown13@gmail.com')
-      .filter(record => record.Status_Value !== '✗ Removed (Not Funded)' && record.Status_Value !== 'Unenrolled')
-      .map(record => {
-        // Registration date: prefer createdAt, fallback to Created
-        let regDate = record.createdAt || record.Created || '';
-        // Format all date fields in a friendly way
-        const formatFriendly = (date) => date ? formatUserFriendlyDate(date) : 'N/A';
-        return {
-          ...record,
-          lastName: record.lastName || '',
-          firstName: record.firstName || '',
-          studentType: record.StudentType_Value || record.studentType_Value || '',
-          regDateFormatted: formatFriendly(regDate),
-          studentEmail: record.StudentEmail || record.email || '',
-          statusValue: record.Status_Value || '',
-          scheduleStart: formatFriendly(record.ScheduleStartDate),
-          scheduleEnd: formatFriendly(record.ScheduleEndDate),
-          state: record.ActiveFutureArchived_Value || '',
-          schoolYear: record.School_x0020_Year_Value || '',
-          courseValue: record.Course_Value || '',
-        };
-      });
+    const filteredRecords = filterRelevantMissingPasiRecords(unmatchedStudentSummaries);
+    
+    return filteredRecords.map(record => {
+      // Registration date: prefer createdAt, fallback to Created
+      let regDate = record.createdAt || record.Created || '';
+      // Format all date fields in a friendly way
+      const formatFriendly = (date) => date ? formatUserFriendlyDate(date) : 'N/A';
+      return {
+        ...record,
+        lastName: record.lastName || '',
+        firstName: record.firstName || '',
+        studentType: record.StudentType_Value || record.studentType_Value || '',
+        regDateFormatted: formatFriendly(regDate),
+        studentEmail: record.StudentEmail || record.email || '',
+        statusValue: record.Status_Value || '',
+        scheduleStart: formatFriendly(record.ScheduleStartDate),
+        scheduleEnd: formatFriendly(record.ScheduleEndDate),
+        state: record.ActiveFutureArchived_Value || '',
+        schoolYear: record.School_x0020_Year_Value || '',
+        courseValue: record.Course_Value || '',
+      };
+    });
   }, [unmatchedStudentSummaries]);
 
   // Handle record selection
@@ -313,37 +209,6 @@ const MissingPasi = () => {
     Math.ceil(sortedRecords.length / ITEMS_PER_PAGE) || 1, 
     [sortedRecords]
   );
-
-  // Function to generate a consistent color for a student based on initials
-  const getColorForName = (fullName) => {
-    if (!fullName) return { backgroundColor: '#f3f4f6', textColor: '#374151' }; // Default gray
-    
-    // Extract first and last name
-    const nameParts = fullName.split(', ');
-    const lastName = nameParts[0] || '';
-    const firstName = nameParts.length > 1 ? nameParts[1] : '';
-    
-    // Get first characters and convert to uppercase
-    const firstInitial = firstName.charAt(0).toUpperCase();
-    const lastInitial = lastName.charAt(0).toUpperCase();
-    
-    // Convert to character codes and use for HSL values
-    const firstCharCode = firstInitial.charCodeAt(0);
-    const lastCharCode = lastInitial.charCodeAt(0);
-    
-    // Generate a hue value between 0 and 360 based on the initials
-    const hue = ((firstCharCode * 11 + lastCharCode * 17) % 360);
-    
-    // Other HSL values for a consistent, readable palette
-    const saturation = 85;  // Fairly saturated
-    const lightness = 87;   // Light background for readability
-    const textLightness = 30;   // Darker text for contrast
-    
-    return {
-      backgroundColor: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
-      textColor: `hsl(${hue}, ${saturation}%, ${textLightness}%)`
-    };
-  };
 
   // Sortable table header component
   const SortableHeader = ({ column, label }) => {
@@ -634,9 +499,8 @@ const MissingPasi = () => {
                     <dd>{selectedRecord.schoolYear || selectedRecord.School_x0020_Year_Value || 'N/A'}</dd>
                     
                     <dt className="font-medium text-gray-500">Registration Date:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.startDateFormatted, "Registration Date")}>
-                      {selectedRecord.startDateFormatted && selectedRecord.startDateFormatted !== 'N/A' ? 
-                        formatUserFriendlyDate(selectedRecord.startDateFormatted, true) : 'N/A'}
+                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.regDateFormatted, "Registration Date")}>
+                      {selectedRecord.regDateFormatted || 'N/A'}
                     </dd>
                   </dl>
                 </div>
@@ -656,7 +520,7 @@ const MissingPasi = () => {
                     </dd>
                     
                     <dt className="font-medium text-gray-500">Status:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.status, "Status")}>
+                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.statusValue, "Status")}>
                       <Badge 
                         variant={selectedRecord.status === 'Completed' ? 'success' : 'secondary'}
                         className={`
@@ -676,12 +540,6 @@ const MissingPasi = () => {
                     <dt className="font-medium text-gray-500">Grade:</dt>
                     <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.value, "Grade")}>
                       {selectedRecord.value && selectedRecord.value !== '-' ? selectedRecord.value : 'N/A'}
-                    </dd>
-                    
-                    <dt className="font-medium text-gray-500">Exit Date:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.exitDateFormatted || selectedRecord.exitDate, "Exit Date")}>
-                      {selectedRecord.exitDateFormatted && selectedRecord.exitDateFormatted !== 'N/A' ? 
-                        formatUserFriendlyDate(selectedRecord.exitDateFormatted, true) : 'N/A'}
                     </dd>
                   </dl>
                 </div>
