@@ -71,6 +71,7 @@ function StudentManagement({
   const [teacherNames, setTeacherNames] = useState({});
   const [selectedStudents, setSelectedStudents] = useState(new Set());
   const [studentAsns, setStudentAsns] = useState({});
+  const [showMultipleAsnsOnly, setShowMultipleAsnsOnly] = useState(false);
 
   const { user_email_key } = useAuth();
 
@@ -79,6 +80,11 @@ function StudentManagement({
 
   const handleRefreshStudent = useCallback(() => {
     setDetailRefreshKey(prev => prev + 1);
+  }, []);
+
+  // Handle toggle for filtering by multiple ASNs
+  const handleToggleMultipleAsnsOnly = useCallback(() => {
+    setShowMultipleAsnsOnly(prev => !prev);
   }, []);
 
   // Use props if provided, otherwise use local state
@@ -338,6 +344,8 @@ function StudentManagement({
             selectedStudents={selectedStudents} 
             onCourseRemoved={handleCourseRemoved}
             studentAsns={studentAsns}
+            showMultipleAsnsOnly={showMultipleAsnsOnly}
+            onToggleMultipleAsnsOnly={handleToggleMultipleAsnsOnly}
           />
         </CardContent>
       </Card>
@@ -356,7 +364,9 @@ function StudentManagement({
     selectedStudents,
     handleCourseRemoved,
     studentAsns,
-    isLoadingStudents
+    isLoadingStudents,
+    showMultipleAsnsOnly,
+    handleToggleMultipleAsnsOnly
   ]);
 
   // Render student detail

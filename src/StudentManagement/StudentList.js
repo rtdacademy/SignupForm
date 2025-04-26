@@ -11,7 +11,7 @@ import {
   AccordionTrigger 
 } from "../components/ui/accordion";
 import StudentCard from './StudentCard';
-import { ChevronUp, ChevronDown, SortAsc, FileDown, RefreshCw, Database, ListChecks } from 'lucide-react';
+import { ChevronUp, ChevronDown, SortAsc, FileDown, RefreshCw, Database, ListChecks, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { TutorialButton } from '../components/TutorialButton';
 import CustomCSVExport from './CustomCSVExport';
@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { parseStudentSummaryKey } from '../utils/sanitizeEmail';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
 import { useSchoolYear } from '../context/SchoolYearContext';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 // Initialize Firebase Functions
 const functions = getFunctions();
@@ -600,6 +601,24 @@ return (
         >
           {sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={showMultipleAsnsOnly ? "secondary" : "outline"}
+                size="icon"
+                onClick={() => onToggleMultipleAsnsOnly()}
+                className="h-8 w-8"
+                aria-label={showMultipleAsnsOnly ? "Show all students" : "Show students with ASN issues only"}
+              >
+                <Users className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {showMultipleAsnsOnly ? "Show all students" : "Show ASN issues only"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
 
