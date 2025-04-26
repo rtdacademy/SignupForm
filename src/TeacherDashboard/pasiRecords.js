@@ -32,7 +32,11 @@ import {
   Filter,
   Settings,
   CheckCircle,
-  ClipboardCheck
+  ClipboardCheck,
+  Link2,
+  Wrench,
+  Mail,
+  ExternalLink
 } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { Button } from "../components/ui/button";
@@ -51,6 +55,11 @@ import PasiRecordsFilter from "./PasiRecordsFilter";
 // Import the PasiAnalysisDashboard
 import PasiAnalysisDashboard from "./PasiAnalysisDashboard";
 import { useAuth } from '../context/AuthContext'; // If permission checking is needed
+import { Input } from "../components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../components/ui/dialog";
+import { COURSE_OPTIONS } from '../config/DropdownOptions';
 
 
 const ITEMS_PER_PAGE = 20;
@@ -183,7 +192,7 @@ const formatUserFriendlyDate = (dateValue, isFormatted = false) => {
 
 const PasiRecords = () => {
   // Get PASI records from context
-  const { pasiStudentSummariesCombined, isLoadingStudents, currentSchoolYear } = useSchoolYear();
+  const { pasiStudentSummariesCombined, isLoadingStudents, currentSchoolYear, refreshStudentSummaries } = useSchoolYear();
   
   // State for selected record
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -210,6 +219,11 @@ const PasiRecords = () => {
   
   // State for tracking number of active filters
   const [filterCount, setFilterCount] = useState(0);
+
+  // State for email editing dialog
+  const [isEmailEditDialogOpen, setIsEmailEditDialogOpen] = useState(false);
+  const [recordToEdit, setRecordToEdit] = useState(null);
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
 
   // --- BEGIN: Persisted Filter State ---
   const [statusFilter, setStatusFilter] = useState([]);
@@ -253,6 +267,55 @@ const PasiRecords = () => {
 
   // State for filter accordion open/closed states
   const [openFilterAccordionItems, setOpenFilterAccordionItems] = useState();
+
+  // Function to open email edit dialog
+  const handleOpenEmailEditDialog = (record, e) => {
+    if (e) e.stopPropagation(); // Prevent row selection
+    setRecordToEdit(record);
+    setIsEmailEditDialogOpen(true);
+  };
+  
+  // Function to update email and summaryKey in PASI record
+  const handleUpdatePasiRecordEmail = async (recordId, newEmail, summaryKey = null) => {
+    if (!recordId || !newEmail) return;
+    
+    setIsUpdatingEmail(true);
+    try {
+      const db = getDatabase();
+      
+      // Update the email in the PASI record
+      const updates = {};
+      updates[`pasiRecords/${recordId}/email`] = newEmail;
+      
+      // If summaryKey is provided, update it as well
+      if (summaryKey !== null) {
+        updates[`pasiRecords/${recordId}/summaryKey`] = summaryKey;
+        
+        // Also set the linked status to true if a summaryKey is provided
+        updates[`pasiRecords/${recordId}/linked`] = true;
+      }
+      
+      await update(ref(db), updates);
+      
+      // Success message
+      if (summaryKey) {
+        toast.success(`PASI record fixed! Email: ${newEmail}, linked with key: ${summaryKey}`);
+      } else {
+        toast.success(`Email updated successfully to ${newEmail}`);
+      }
+      
+      // Refresh data from context
+      refreshStudentSummaries();
+      
+      setIsEmailEditDialogOpen(false);
+      setRecordToEdit(null);
+    } catch (error) {
+      console.error('Error updating PASI record:', error);
+      toast.error(error.message || 'Failed to update record');
+    } finally {
+      setIsUpdatingEmail(false);
+    }
+  };
 
   // Function to update records in Firebase
   const updateRecordField = (record, field, value) => {
@@ -335,6 +398,9 @@ const PasiRecords = () => {
         }));
       }
       
+      // Add a linkStatus field for sorting
+      const linkStatus = record.summaryKey ? 'linked' : 'unlinked';
+      
       return {
         ...record,
         startDate: startDateInfo.value,
@@ -342,7 +408,8 @@ const PasiRecords = () => {
         startDateSource: startDateInfo.source,
         exitDateFormatted,
         hasMultipleRecords: record.multipleRecords && record.multipleRecords.length > 0,
-        multipleRecords: formattedMultipleRecords || record.multipleRecords
+        multipleRecords: formattedMultipleRecords || record.multipleRecords,
+        linkStatus // Add the linkStatus field for sorting
       };
     });
   }, [pasiStudentSummariesCombined]);
@@ -393,6 +460,9 @@ const PasiRecords = () => {
         }));
       }
       
+      // Add a linkStatus field for sorting
+      const linkStatus = record.summaryKey ? 'linked' : 'unlinked';
+      
       return {
         ...record,
         startDate: startDateInfo.value,
@@ -400,7 +470,8 @@ const PasiRecords = () => {
         startDateSource: startDateInfo.source,
         exitDateFormatted,
         hasMultipleRecords: record.multipleRecords && record.multipleRecords.length > 0,
-        multipleRecords: formattedMultipleRecords || record.multipleRecords
+        multipleRecords: formattedMultipleRecords || record.multipleRecords,
+        linkStatus // Add the linkStatus field for sorting
       };
     });
   }, [filteredRecords]);
@@ -472,6 +543,14 @@ const PasiRecords = () => {
         const severityOrder = { 'Warning': 3, 'Advice': 2, 'Unknown': 1 };
         aValue = severityOrder[aValue] || 0;
         bValue = severityOrder[bValue] || 0;
+      }
+      
+      // Handle linkStatus sorting (linked should appear before unlinked)
+      if (sortState.column === 'linkStatus') {
+        // For linkStatus, we might want to sort in a specific order (linked first, then unlinked)
+        const order = { 'linked': 1, 'unlinked': 2 };
+        aValue = order[aValue] || 3;
+        bValue = order[bValue] || 3;
       }
 
       // For numeric fields
@@ -853,7 +932,8 @@ const PasiRecords = () => {
                       </Tooltip>
                     </TooltipProvider>
                   </TableHead>
-                  <TableHead className="text-xs px-2 py-1 w-14 max-w-14 truncate">Actions</TableHead>
+                  <SortableHeader column="linkStatus" label="Link Status" />
+                  <TableHead className="text-xs px-1 py-1 w-14 max-w-14 truncate">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1087,6 +1167,38 @@ const PasiRecords = () => {
                           </div>
                         </TableCell>
                         
+                        {/* Link Status Cell */}
+                        <TableCell className="p-0 w-10 max-w-10">
+                          <div className="flex justify-center">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost" 
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                    onClick={(e) => handleOpenEmailEditDialog(record, e)}
+                                  >
+                                    {record.summaryKey ? (
+                                      <Link2 className="h-4 w-4 text-green-600" />
+                                    ) : (
+                                      <Wrench className="h-4 w-4 text-amber-600" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  {record.summaryKey ? (
+                                    <p>Record linked ({record.summaryKey}) - Click to edit</p>
+                                  ) : (
+                                    <p>Record not linked - Click to link</p>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </TableCell>
+                        
+                        {/* Actions Cell */}
                         <TableCell className="p-1 w-14 max-w-14 truncate">
                           {record.hasMultipleRecords ? (
                             <MultipleRecordsDisplay 
@@ -1268,6 +1380,44 @@ const PasiRecords = () => {
                                 </div>
                               </TableCell>
                               
+                              {/* Link Status for Sub-Record */}
+                              <TableCell className="p-0 w-10 max-w-10">
+                                <div className="flex justify-center">
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0 opacity-50"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenEmailEditDialog({
+                                              ...record,
+                                              ...subRecord,
+                                              id: subRecord.id || record.id
+                                            }, e);
+                                          }}
+                                        >
+                                          {subRecord.summaryKey ? (
+                                            <Link2 className="h-4 w-4 text-green-600" />
+                                          ) : (
+                                            <Wrench className="h-4 w-4 text-amber-600" />
+                                          )}
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top">
+                                        {subRecord.summaryKey ? (
+                                          <p>Record linked ({subRecord.summaryKey}) - Click to edit</p>
+                                        ) : (
+                                          <p>Record not linked - Click to link</p>
+                                        )}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+                              </TableCell>
+                              
                               <TableCell className="p-1 w-14 max-w-14 truncate">
                                 <PasiActionButtons 
                                   asn={record.asn} 
@@ -1323,7 +1473,22 @@ const PasiRecords = () => {
                     <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.studentName, "Name")}>{selectedRecord.studentName || 'N/A'}</dd>
                     
                     <dt className="font-medium text-gray-500">Email:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.email, "Email")}>{selectedRecord.email || 'N/A'}</dd>
+                    <dd className="flex items-center gap-1">
+                      <span 
+                        className="cursor-pointer hover:text-blue-600" 
+                        onClick={() => handleCellClick(selectedRecord.email, "Email")}
+                      >
+                        {selectedRecord.email || 'N/A'}
+                      </span>
+                      <Button 
+                        variant="ghost" 
+                        size="xs" 
+                        className="h-5 w-5 p-0" 
+                        onClick={() => handleOpenEmailEditDialog(selectedRecord)}
+                      >
+                        <Edit className="h-3 w-3 text-blue-500" />
+                      </Button>
+                    </dd>
                     
                     <dt className="font-medium text-gray-500">Student Type:</dt>
                     <dd>{selectedRecord.studentType_Value || 'N/A'}</dd>
@@ -1385,6 +1550,44 @@ const PasiRecords = () => {
                     <dt className="font-medium text-gray-500">Reference #:</dt>
                     <dd className="cursor-pointer hover:text-blue-600 break-all" onClick={() => handleCellClick(selectedRecord.referenceNumber, "Reference Number")}>
                       {selectedRecord.referenceNumber || 'N/A'}
+                    </dd>
+                    
+                    {/* Added Link Status to Details */}
+                    <dt className="font-medium text-gray-500">Link Status:</dt>
+                    <dd className="flex items-center gap-2">
+                      {selectedRecord.summaryKey ? (
+                        <>
+                          <Link2 className="h-4 w-4 text-green-600" />
+                          <span className="text-green-600">Linked</span>
+                          <span className="text-xs text-gray-500 ml-1">({selectedRecord.summaryKey})</span>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="text-xs h-6 ml-1"
+                            onClick={() => handleOpenEmailEditDialog(selectedRecord)}
+                          >
+                            Edit
+                          </Button>
+                        </>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center">
+                            <Wrench className="h-4 w-4 text-amber-600" />
+                            <span className="text-amber-600 ml-1">Not linked</span>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="text-xs h-6 flex items-center gap-1"
+                              onClick={() => handleOpenEmailEditDialog(selectedRecord)}
+                            >
+                              <Mail className="h-3 w-3" />
+                              Link Now
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </dd>
                     
                     {/* Added COM1255 Status to Details */}
@@ -1485,9 +1688,197 @@ const PasiRecords = () => {
             </CardFooter>
           </Card>
         )}
+
+        {/* Email Edit Dialog */}
+        <EmailEditDialog 
+          isOpen={isEmailEditDialogOpen}
+          onClose={() => setIsEmailEditDialogOpen(false)}
+          record={recordToEdit}
+          onUpdate={handleUpdatePasiRecordEmail}
+          isUpdating={isUpdatingEmail}
+        />
       </div>
     </TooltipProvider>
   );
+};
+
+// Email Edit Dialog Component
+const EmailEditDialog = ({ record, isOpen, onClose, onUpdate, isUpdating }) => {
+  const [newEmail, setNewEmail] = useState(record?.email || '');
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [summaryKey, setSummaryKey] = useState(record?.summaryKey || '');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (record) {
+      setNewEmail(record.email || '');
+      setSummaryKey(record.summaryKey || '');
+      setSelectedCourseId('');
+      setError('');
+    }
+  }, [record]);
+
+  const handleEmailChange = (e) => {
+    setNewEmail(e.target.value);
+    // Clear error when user types
+    if (error) setError('');
+    
+    // Auto-update summary key when email changes if course is selected
+    if (selectedCourseId) {
+      const sanitizedEmail = sanitizeEmail(e.target.value);
+      setSummaryKey(`${sanitizedEmail}_${selectedCourseId}`);
+    }
+  };
+
+  const handleCourseChange = (courseId) => {
+    setSelectedCourseId(courseId);
+    
+    // Auto-update summary key when course changes
+    if (courseId && newEmail) {
+      const sanitizedEmail = sanitizeEmail(newEmail);
+      setSummaryKey(`${sanitizedEmail}_${courseId}`);
+    }
+  };
+
+  const handleSummaryKeyChange = (e) => {
+    setSummaryKey(e.target.value);
+  };
+
+  const handleSubmit = () => {
+    // Simple email validation
+    if (!newEmail || !newEmail.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    
+    onUpdate(record.id, newEmail, summaryKey);
+  };
+
+  // Group courses by grade for easier selection
+  const coursesByGrade = COURSE_OPTIONS.reduce((acc, course) => {
+    const grade = course.grade || 'Other';
+    if (!acc[grade]) {
+      acc[grade] = [];
+    }
+    acc[grade].push(course);
+    return acc;
+  }, {});
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Fix PASI Record</DialogTitle>
+          <DialogDescription>
+            Update email and link {record?.studentName}'s PASI record to a YourWay course.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <label htmlFor="current-email" className="text-sm font-medium text-gray-700">
+              Current Email
+            </label>
+            <Input 
+              id="current-email" 
+              value={record?.email || ''} 
+              disabled 
+              className="bg-gray-50"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <label htmlFor="new-email" className="text-sm font-medium text-gray-700">
+              New Email
+            </label>
+            <Input 
+              id="new-email" 
+              value={newEmail} 
+              onChange={handleEmailChange}
+              placeholder="Enter new email address"
+              disabled={isUpdating}
+            />
+            {error && <p className="text-sm text-red-500">{error}</p>}
+          </div>
+          
+          <div className="space-y-2">
+            <label htmlFor="course-select" className="text-sm font-medium text-gray-700">
+              YourWay Course
+            </label>
+            <Select
+              onValueChange={handleCourseChange}
+              value={selectedCourseId}
+              disabled={isUpdating}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a course to link" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.keys(coursesByGrade).sort((a, b) => {
+                  // Convert 'Other' to a high number so it appears last
+                  const aNum = a === 'Other' ? 9999 : parseInt(a);
+                  const bNum = b === 'Other' ? 9999 : parseInt(b);
+                  return aNum - bNum;
+                }).map(grade => (
+                  <div key={grade}>
+                    <p className="px-2 pt-1 text-xs text-muted-foreground">Grade {grade}</p>
+                    {coursesByGrade[grade].map(course => (
+                      <SelectItem key={course.courseId} value={course.courseId.toString()}>
+                        <div className="flex items-center">
+                          <span className="mr-2" style={{ color: course.color }}>
+                            {course.icon && <course.icon className="h-4 w-4 inline mr-1" />}
+                            {course.value}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            (ID: {course.courseId}{course.pasiCode ? `, PASI: ${course.pasiCode}` : ''})
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}</div>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2 border-t pt-4">
+              <div className="flex justify-between items-center">
+                <label htmlFor="summary-key" className="text-sm font-medium text-gray-700">
+                  Summary Key
+                </label>
+                <span className="text-xs text-muted-foreground">Auto-generated from Email + Course</span>
+              </div>
+              <Input 
+                id="summary-key" 
+                value={summaryKey} 
+                onChange={handleSummaryKeyChange}
+                placeholder="e.g., student,email,com_89"
+                disabled={isUpdating}
+                className={summaryKey ? "bg-blue-50 font-mono text-sm" : "font-mono text-sm"}
+              />
+              <p className="text-xs text-muted-foreground">
+                Links PASI record to a specific YourWay course. Format: sanitizedEmail_courseId
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose} disabled={isUpdating}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} disabled={isUpdating}>
+              {isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Fix Record'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
 };
 
 export default PasiRecords;

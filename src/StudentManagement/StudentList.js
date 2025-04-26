@@ -20,6 +20,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { toast } from 'sonner';
 import { parseStudentSummaryKey } from '../utils/sanitizeEmail';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
+import { useSchoolYear } from '../context/SchoolYearContext';
 
 // Initialize Firebase Functions
 const functions = getFunctions();
@@ -91,9 +92,12 @@ function StudentList({
   onSelectedStudentsChange,
   isMobile,
   onCourseRemoved,
-  studentAsns, 
+  studentAsns,
+  showMultipleAsnsOnly,
+  onToggleMultipleAsnsOnly
 }) {
   const { getTeacherForCourse } = useAuth();
+  const { asnsRecords } = useSchoolYear();
   const [sortKey, setSortKey] = useState('lastName');
   const [sortOrder, setSortOrder] = useState('asc');
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
@@ -204,6 +208,24 @@ function StudentList({
   const filteredStudents = useMemo(() => {
     const normalizedSearchTerm = String(searchTerm || '').toLowerCase().trim();
     
+    // Helper function to check if a student has multiple email keys for their ASN
+    const hasMultipleEmailKeysForASN = (studentAsn) => {
+      if (!studentAsn || !asnsRecords) return false;
+      
+      // Find the ASN record for this student
+      const asnRecord = asnsRecords.find(record => record.id === studentAsn);
+      
+      // Check if the record exists and has emailKeys
+      if (!asnRecord || !asnRecord.emailKeys) return false;
+      
+      // Count how many email keys have values set to true
+      const trueKeysCount = Object.values(asnRecord.emailKeys)
+        .filter(value => value === true)
+        .length;
+      
+      // Return true if there are multiple keys set to true
+      return trueKeysCount > 1;
+    };
   
     // Helper function to normalize ASN for comparison
     const normalizeASN = (asn) => {
@@ -233,6 +255,13 @@ function StudentList({
         return false;
       }
       
+      // Check for multiple ASNs filter if enabled
+      if (showMultipleAsnsOnly) {
+        // Skip this student if they don't have an ASN or if their ASN doesn't have multiple email keys
+        if (!student.asn || !hasMultipleEmailKeysForASN(student.asn)) {
+          return false;
+        }
+      }
 
       // Helper function to compare dates
       const compareDates = (studentDate, filterDate) => {
@@ -384,7 +413,7 @@ function StudentList({
   
       return matchesFilters && matchesSearch;
     });
-  }, [studentSummaries, filters, searchTerm]);
+  }, [studentSummaries, filters, searchTerm, showMultipleAsnsOnly, asnsRecords]);
 
 
 // Sorting using useMemo for performance optimization

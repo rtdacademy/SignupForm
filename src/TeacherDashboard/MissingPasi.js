@@ -20,7 +20,7 @@ import {
   FileText, 
   Loader2, 
   AlertTriangle,
-  ClipboardCheck,
+  XCircle,
   Code
 } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
@@ -28,11 +28,18 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../components/ui/pagination";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
-import { Checkbox } from "../components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 import { toast } from 'sonner';
-import { getDatabase, ref, update } from 'firebase/database';
+import { getDatabase, ref, update, get } from 'firebase/database';
 import PasiActionButtons from "../components/PasiActionButtons";
-import { filterRelevantMissingPasiRecords } from '../utils/pasiRecordsUtils';
+import { filterRelevantMissingPasiRecordsWithEmailCheck } from '../utils/pasiRecordsUtils';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -60,6 +67,42 @@ const formatUserFriendlyDate = (dateValue, isFormatted = false) => {
   }
 };
 
+// Enhanced function to filter records that have staffReview set to true
+const enhancedFilterRecords = async (records) => {
+  if (!records) return [];
+  
+  try {
+    // First apply the existing email check filter
+    const emailFilteredRecords = await filterRelevantMissingPasiRecordsWithEmailCheck(records);
+    
+    // Now filter out records that have staffReview set to true
+    const db = getDatabase();
+    const filteredRecords = [];
+    
+    for (const record of emailFilteredRecords) {
+      if (!record.id) {
+        filteredRecords.push(record);
+        continue;
+      }
+      
+      // Check if staffReview is true for this record
+      const summaryRef = ref(db, `/studentCourseSummaries/${record.id}`);
+      const snapshot = await get(summaryRef);
+      const data = snapshot.val();
+      
+      if (!data || data.staffReview !== true) {
+        filteredRecords.push(record);
+      }
+    }
+    
+    return filteredRecords;
+  } catch (error) {
+    console.error("Error in enhanced filter:", error);
+    // Fallback to original filter if our enhanced one fails
+    return filterRelevantMissingPasiRecordsWithEmailCheck(records);
+  }
+};
+
 const MissingPasi = () => {
   // Get unmatchedStudentSummaries from context
   const { unmatchedStudentSummaries, isLoadingStudents } = useSchoolYear();
@@ -73,6 +116,14 @@ const MissingPasi = () => {
   // State for pagination and sorting
   const [currentPage, setCurrentPage] = useState(1);
   const [sortState, setSortState] = useState({ column: 'studentName', direction: 'asc' });
+  
+  // State for filtered records
+  const [filteredRecords, setFilteredRecords] = useState([]);
+  const [isFiltering, setIsFiltering] = useState(false);
+
+  // State for dialog visibility
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const [recordToRemove, setRecordToRemove] = useState(null);
   
   // Function to update records in Firebase
   const updateRecordField = (record, field, value) => {
@@ -93,17 +144,63 @@ const MissingPasi = () => {
         toast.error(`Failed to update ${field}`);
       });
   };
-  
-  // Handle Staff Review checkbox change
-  const handleStaffReviewChange = (checked, record, e) => {
-    if (e) e.stopPropagation(); // Prevent row selection
-    updateRecordField(record, 'staffReview', checked);
+
+  // Modified function to mark a record for staff review instead of removing it
+  const markForStaffReview = (record) => {
+    if (!record.id) {
+      toast.error("Cannot mark for review: Missing record id");
+      return;
+    }
+    const db = getDatabase();
+    const summaryRef = ref(db, `/studentCourseSummaries/${record.id}`);
+    
+    // Set both staffReview and isRemoved
+    update(summaryRef, { 
+      staffReview: true,
+      isRemoved: true  // Keep the original functionality
+    })
+      .then(() => {
+        toast.success("Record marked for staff review");
+        // Update local state to remove the record from the UI
+        setFilteredRecords((prev) => prev.filter((r) => r.id !== record.id));
+      })
+      .catch((error) => {
+        console.error("Error marking record for review:", error);
+        toast.error("Failed to mark record for review");
+      });
   };
+
+  // Show confirmation dialog for record removal/review
+  const showRemoveDialog = (record) => {
+    setRecordToRemove(record);
+    setDialogVisible(true);
+  };
+
+  // Load filtered records when component mounts or unmatchedStudentSummaries changes
+  useEffect(() => {
+    const loadFilteredRecords = async () => {
+      if (!unmatchedStudentSummaries) return;
+      
+      setIsFiltering(true);
+      try {
+        // Use our enhanced filter that also checks staffReview status
+        const filtered = await enhancedFilterRecords(unmatchedStudentSummaries);
+        setFilteredRecords(filtered);
+      } catch (error) {
+        console.error("Error filtering records:", error);
+        toast.error("Error filtering records");
+        // Fallback to basic filtered records
+        setFilteredRecords(unmatchedStudentSummaries);
+      } finally {
+        setIsFiltering(false);
+      }
+    };
+    
+    loadFilteredRecords();
+  }, [unmatchedStudentSummaries]);
 
   // Process the records with proper date formatting using the new utility function
   const processedRecords = useMemo(() => {
-    const filteredRecords = filterRelevantMissingPasiRecords(unmatchedStudentSummaries);
-    
     return filteredRecords.map(record => {
       // Registration date: prefer createdAt, fallback to Created
       let regDate = record.createdAt || record.Created || '';
@@ -124,7 +221,7 @@ const MissingPasi = () => {
         courseValue: record.Course_Value || '',
       };
     });
-  }, [unmatchedStudentSummaries]);
+  }, [filteredRecords]);
 
   // Handle record selection
   const handleRecordSelect = (record) => {
@@ -361,10 +458,10 @@ const MissingPasi = () => {
     
         {/* Missing PASI Records Table */}
         <div className="bg-white rounded-lg shadow-md p-4 overflow-x-auto">
-          {isLoadingStudents ? (
+          {isLoadingStudents || isFiltering ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-blue-500 mr-2" />
-              <span>Loading records...</span>
+              <span>{isFiltering ? 'Filtering records...' : 'Loading records...'}</span>
             </div>
           ) : paginatedRecords && paginatedRecords.length > 0 ? (
             <>
@@ -404,14 +501,14 @@ const MissingPasi = () => {
                     <SortableHeader column="state" label="State" />
                     <SortableHeader column="schoolYear" label="School Year" />
                     <SortableHeader column="courseValue" label="Course" />
-                    <TableHead className="px-1 py-1 text-xs w-6 max-w-6" title="Staff Review">
+                    <TableHead className="px-1 py-1 text-xs w-6 max-w-6" title="Mark for Review">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger>
-                            <ClipboardCheck className="h-3 w-3" />
+                            <XCircle className="h-3 w-3" />
                           </TooltipTrigger>
                           <TooltipContent side="top">
-                            <p>Staff Review</p>
+                            <p>Mark for Review</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -435,12 +532,15 @@ const MissingPasi = () => {
                       <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.courseValue, "Course"); }}>{record.courseValue || 'N/A'}</TableCell>
                       <TableCell className="p-0 w-6 max-w-6">
                         <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
-                          <Checkbox 
-                            checked={record.staffReview === true}
-                            onCheckedChange={(checked) => handleStaffReviewChange(checked, record)}
-                            className="h-4 w-4 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                            aria-label="Staff Review Checkbox"
-                          />
+                          <Button 
+                            variant="destructive" 
+                            size="xs" 
+                            onClick={() => showRemoveDialog(record)}
+                            className="h-4 w-4"
+                            aria-label="Mark for Review"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -454,7 +554,7 @@ const MissingPasi = () => {
           ) : (
             <div className="text-center py-8 text-gray-500 text-sm">
               {unmatchedStudentSummaries && unmatchedStudentSummaries.length > 0 
-                ? 'No matching records found.' 
+                ? 'No matching records found with valid ASN-email associations or records have been already reviewed.' 
                 : 'No missing PASI records found for the current school year.'}
             </div>
           )}
@@ -574,6 +674,31 @@ const MissingPasi = () => {
               </Button>
             </CardFooter>
           </Card>
+        )}
+
+        {/* Remove Record Confirmation Dialog */}
+        {dialogVisible && (
+          <Dialog open={dialogVisible} onOpenChange={setDialogVisible}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Remove from List</DialogTitle>
+                <DialogDescription>
+                  This will remove this student from the missing pasi list.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDialogVisible(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={() => {
+                  markForStaffReview(recordToRemove);
+                  setDialogVisible(false);
+                }}>
+                  Remove
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     </TooltipProvider>

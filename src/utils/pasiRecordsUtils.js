@@ -4,13 +4,62 @@
  */
 
 import { COURSE_ID_TO_CODE } from '../config/DropdownOptions';
+import { sanitizeEmail } from './sanitizeEmail'; // Import sanitizeEmail function
+import { getDatabase, ref, get } from 'firebase/database'; // Import Firebase functions
 
 /**
- * Checks if a student has a PASI record for a specific course
- * @param {Object} summary - The student course summary object
- * @param {Object} pasiCodeMapping - Mapping of courseIds to PASI codes
- * @returns {boolean} - True if the student has a PASI record for the course, false otherwise
+ * Checks if a student has a valid ASN-email association in Firebase
+ * @param {Object} record - The student record to check
+ * @returns {Promise<boolean>} - Promise that resolves to true if the association exists
  */
+export const hasValidAsnEmailAssociation = async (record) => {
+  if (!record || !record.asn || (!record.StudentEmail && !record.email)) {
+    return false;
+  }
+
+  const email = record.StudentEmail || record.email;
+  const sanitizedEmailValue = sanitizeEmail(email);
+  
+  const db = getDatabase();
+  const associationRef = ref(db, `ASNs/${record.asn}/emailKeys/${sanitizedEmailValue}`);
+  
+  try {
+    const snapshot = await get(associationRef);
+    return snapshot.exists() && snapshot.val() === true;
+  } catch (error) {
+    console.error(`Error checking ASN-email association for ASN ${record.asn}:`, error);
+    return false;
+  }
+};
+
+/**
+ * Filters student summaries to determine which ones are relevant for missing PASI records display
+ * with additional check for valid ASN-email association and staff review status
+ * @param {Array} records - The student summaries/records to filter
+ * @returns {Promise<Array>} - Promise that resolves to filtered array of records
+ */
+export const filterRelevantMissingPasiRecordsWithEmailCheck = async (records) => {
+  if (!records || !Array.isArray(records)) return [];
+  
+  // First apply basic filters
+  const basicFilteredRecords = records
+    .filter(record => (record.StudentEmail || record.email) !== '000kyle.e.brown13@gmail.com')
+    .filter(record => record.Status_Value !== '✗ Removed (Not Funded)' && record.Status_Value !== 'Unenrolled')
+    .filter(record => record.staffReview !== true); // Exclude records that have been reviewed by staff
+  
+  // Then check ASN-email association for each record
+  const recordsWithAssociationChecks = await Promise.all(
+    basicFilteredRecords.map(async (record) => {
+      const hasAssociation = await hasValidAsnEmailAssociation(record);
+      return { ...record, hasValidAssociation: hasAssociation };
+    })
+  );
+  
+  // Return only records with valid associations
+  return recordsWithAssociationChecks.filter(record => record.hasValidAssociation);
+};
+
+// Keep existing functions
 export const hasPasiRecordForCourse = (summary, pasiCodeMapping) => {
     if (!summary || !summary.pasiRecords) {
       return false;
@@ -34,8 +83,6 @@ export const hasPasiRecordForCourse = (summary, pasiCodeMapping) => {
     const normalizedPasiRecordKeys = Object.keys(summary.pasiRecords).map(key => key.toLowerCase());
     const normalizedPasiCodes = pasiCodes.map(code => code.toLowerCase());
     
-    //console.log(`Comparing normalized keys: ${JSON.stringify(normalizedPasiRecordKeys)} with normalized codes: ${JSON.stringify(normalizedPasiCodes)}`);
-    
     // Check if any of the possible PASI codes exist in the normalized pasiRecords keys
     const hasMatch = normalizedPasiCodes.some(code => 
       normalizedPasiRecordKeys.includes(code)
@@ -47,13 +94,9 @@ export const hasPasiRecordForCourse = (summary, pasiCodeMapping) => {
     }
   
     return hasMatch;
-  };
-/**
- * Gets all possible PASI codes for a course ID
- * @param {number|string} courseId - The course ID to get PASI codes for
- * @param {Object} pasiCodeMapping - Mapping of courseIds to PASI codes from courseIdToPasiCode
- * @returns {string[]} - Array of possible PASI codes
- */
+};
+
+// Rest of existing functions remain the same
 export const getPasiCodesForCourseId = (courseId, pasiCodeMapping) => {
   // Convert courseId to number for consistency
   const courseIdNum = parseInt(courseId, 10);
@@ -82,11 +125,6 @@ export const getPasiCodesForCourseId = (courseId, pasiCodeMapping) => {
   return [];
 };
 
-/**
- * Determines if a record should be considered "actually missing"
- * @param {Object} record - The record to check
- * @returns {boolean} - True if the record should be considered missing, false otherwise
- */
 export const isRecordActuallyMissing = (record) => {
   if (!record) return false;
 
@@ -114,11 +152,6 @@ export const isRecordActuallyMissing = (record) => {
   return !isArchivedUnenrolled && !hasUpcomingStartResumeDate && !isRegistration && !isExcludedCourse;
 };
 
-/**
- * Checks if a date is MORE than 2 months away
- * @param {string} dateString - The date string to check
- * @returns {boolean} - True if the date is more than 2 months away, false otherwise
- */
 export const isWithinTwoMonths = (dateString) => {
   if (!dateString) return false;
   
@@ -143,11 +176,7 @@ export const isWithinTwoMonths = (dateString) => {
   }
 };
 
-/**
- * Filters student summaries to determine which ones are relevant for missing PASI records display
- * @param {Array} records - The student summaries/records to filter
- * @returns {Array} - Filtered array of records
- */
+// Keep original function but note it's being replaced by the async version
 export const filterRelevantMissingPasiRecords = (records) => {
   if (!records || !Array.isArray(records)) return [];
   
