@@ -7,27 +7,39 @@
 const EDMONTON_TIMEZONE = 'America/Edmonton';
 
 /**
- * Convert a date string to a Date object
+ * Convert a date string or Unix timestamp to a Date object
  * This interprets the date as midnight in Edmonton timezone
  * 
- * @param {string} dateString - Date in YYYY-MM-DD format or ISO format (YYYY-MM-DDTHH:MM:SS.sssZ)
+ * @param {string|number} dateValue - Date in YYYY-MM-DD format, ISO format (YYYY-MM-DDTHH:MM:SS.sssZ), or Unix timestamp
  * @returns {Date} Date object representing midnight in Edmonton on the specified date
  */
-export const toEdmontonDate = (dateString) => {
-  if (!dateString) return null;
+export const toEdmontonDate = (dateValue) => {
+  if (!dateValue) return null;
+  
+  // Check if the value is a Unix timestamp (number or string containing only digits)
+  if (typeof dateValue === 'number' || /^\d+$/.test(dateValue)) {
+    const timestamp = typeof dateValue === 'string' ? parseInt(dateValue, 10) : dateValue;
+    return new Date(timestamp);
+  }
   
   // Check if the string is in ISO format (contains T)
-  if (dateString.includes('T')) {
+  if (typeof dateValue === 'string' && dateValue.includes('T')) {
     // For ISO string format (like "2026-01-19T07:00:00.000Z"), use the Date constructor directly
-    return new Date(dateString);
-  } else {
-    // For YYYY-MM-DD format
-    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(dateValue);
+  }
+  
+  // For YYYY-MM-DD format
+  if (typeof dateValue === 'string') {
+    const [year, month, day] = dateValue.split('-').map(Number);
     
     // Create a date at the specified day with time set to midnight
     const date = new Date(year, month - 1, day, 0, 0, 0, 0);
     return date;
   }
+  
+  // If we get here, try to parse it as a date anyway
+  const date = new Date(dateValue);
+  return isNaN(date.getTime()) ? null : date;
 };
 
 /**

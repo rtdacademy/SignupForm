@@ -21,7 +21,9 @@ import {
   Loader2, 
   AlertTriangle,
   XCircle,
-  Code
+  Code,
+  Filter,
+  Search
 } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { Button } from "../components/ui/button";
@@ -36,10 +38,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose, SheetTrigger } from "../components/ui/sheet";
+import { Input } from "../components/ui/input";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../components/ui/accordion";
+import { Checkbox } from "../components/ui/checkbox";
 import { toast } from 'sonner';
 import { getDatabase, ref, update, get } from 'firebase/database';
 import PasiActionButtons from "../components/PasiActionButtons";
 import { filterRelevantMissingPasiRecordsWithEmailCheck } from '../utils/pasiRecordsUtils';
+import { STUDENT_TYPE_OPTIONS, getStudentTypeInfo } from '../config/DropdownOptions';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -48,11 +55,20 @@ const formatUserFriendlyDate = (dateValue, isFormatted = false) => {
   if (!dateValue || dateValue === '-' || dateValue === 'N/A' || dateValue === '') return 'N/A';
   
   try {
-    // Import from timeZoneUtils.js
     const { toEdmontonDate, formatDateForDisplay } = require('../utils/timeZoneUtils');
     
-    // Get the standard formatted date first if needed
     let dateToFormat = dateValue;
+    
+    // Check if dateValue is a Unix timestamp in milliseconds (as a number OR string)
+    if (typeof dateValue === 'number' && !isNaN(dateValue)) {
+      dateToFormat = new Date(dateValue);
+    } else if (typeof dateValue === 'string' && /^\d+$/.test(dateValue)) {
+      // Convert string timestamp to number, then to Date
+      const timestamp = parseInt(dateValue, 10);
+      if (!isNaN(timestamp)) {
+        dateToFormat = new Date(timestamp);
+      }
+    }
     
     // Use the Edmonton-specific date formatting
     const edmontonDate = toEdmontonDate(dateToFormat);
@@ -103,6 +119,37 @@ const enhancedFilterRecords = async (records) => {
   }
 };
 
+// Function to generate a consistent color for a student based on initials
+const getColorForName = (fullName) => {
+  if (!fullName) return { backgroundColor: '#f3f4f6', textColor: '#374151' }; // Default gray
+  
+  // Extract first and last name
+  const nameParts = fullName.split(', ');
+  const lastName = nameParts[0] || '';
+  const firstName = nameParts.length > 1 ? nameParts[1] : '';
+  
+  // Get first characters and convert to uppercase
+  const firstInitial = firstName.charAt(0).toUpperCase();
+  const lastInitial = lastName.charAt(0).toUpperCase();
+  
+  // Convert to character codes and use for HSL values
+  const firstCharCode = firstInitial.charCodeAt(0);
+  const lastCharCode = lastInitial.charCodeAt(0);
+  
+  // Generate a hue value between 0 and 360 based on the initials
+  const hue = ((firstCharCode * 11 + lastCharCode * 17) % 360);
+  
+  // Other HSL values for a consistent, readable palette
+  const saturation = 85;  // Fairly saturated
+  const lightness = 87;   // Light background for readability
+  const textLightness = 30;   // Darker text for contrast
+  
+  return {
+    backgroundColor: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+    textColor: `hsl(${hue}, ${saturation}%, ${textLightness}%)`
+  };
+};
+
 const MissingPasi = () => {
   // Get unmatchedStudentSummaries from context
   const { unmatchedStudentSummaries, isLoadingStudents } = useSchoolYear();
@@ -125,6 +172,25 @@ const MissingPasi = () => {
   const [dialogVisible, setDialogVisible] = useState(false);
   const [recordToRemove, setRecordToRemove] = useState(null);
   
+  // State for filters
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [courseFilter, setCourseFilter] = useState([]);
+  const [studentTypeFilter, setStudentTypeFilter] = useState([]);
+  const [stateFilter, setStateFilter] = useState([]);
+  const [filterCount, setFilterCount] = useState(0);
+
+  // Function to clear all filters
+  const clearFilters = () => {
+    setSearchTerm('');
+    setCourseFilter([]);
+    setStudentTypeFilter([]);
+    setStateFilter([]);
+    // Reset to first page when filters are cleared
+    setCurrentPage(1);
+    toast.success("All filters cleared");
+  };
+
   // Function to update records in Firebase
   const updateRecordField = (record, field, value) => {
     if (!record.id) {
@@ -206,10 +272,15 @@ const MissingPasi = () => {
       let regDate = record.createdAt || record.Created || '';
       // Format all date fields in a friendly way
       const formatFriendly = (date) => date ? formatUserFriendlyDate(date) : 'N/A';
+      
+      // Create a combined student name field for consistency with PasiRecords
+      const studentName = `${record.lastName || ''}, ${record.firstName || ''}`.trim();
+      
       return {
         ...record,
         lastName: record.lastName || '',
         firstName: record.firstName || '',
+        studentName: studentName || 'N/A',
         studentType: record.StudentType_Value || record.studentType_Value || '',
         regDateFormatted: formatFriendly(regDate),
         studentEmail: record.StudentEmail || record.email || '',
@@ -222,6 +293,75 @@ const MissingPasi = () => {
       };
     });
   }, [filteredRecords]);
+
+  // Filter logic
+  const filterAndSortRecords = useMemo(() => {
+    let filtered = [...processedRecords];
+    
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(record => {
+        return (
+          (record.asn && record.asn.toLowerCase().includes(searchLower)) ||
+          (record.studentName && record.studentName.toLowerCase().includes(searchLower)) ||
+          (record.studentEmail && record.studentEmail.toLowerCase().includes(searchLower)) ||
+          (record.firstName && record.firstName.toLowerCase().includes(searchLower)) ||
+          (record.lastName && record.lastName.toLowerCase().includes(searchLower))
+        );
+      });
+    }
+    
+    // Apply course filter
+    if (courseFilter.length > 0) {
+      filtered = filtered.filter(record => 
+        courseFilter.includes(record.courseValue)
+      );
+    }
+    
+    // Apply student type filter
+    if (studentTypeFilter.length > 0) {
+      filtered = filtered.filter(record => 
+        studentTypeFilter.includes(record.studentType)
+      );
+    }
+    
+    // Apply state filter
+    if (stateFilter.length > 0) {
+      filtered = filtered.filter(record => 
+        stateFilter.includes(record.state)
+      );
+    }
+    
+    // Update filter count
+    let activeFilterCount = 0;
+    if (searchTerm.trim()) activeFilterCount++;
+    if (courseFilter.length > 0) activeFilterCount++;
+    if (studentTypeFilter.length > 0) activeFilterCount++;
+    if (stateFilter.length > 0) activeFilterCount++;
+    setFilterCount(activeFilterCount);
+    
+    return filtered;
+  }, [processedRecords, searchTerm, courseFilter, studentTypeFilter, stateFilter]);
+
+  // Get unique options for filters
+  const filterOptions = useMemo(() => {
+    const courseOptions = new Set();
+    const studentTypeOptions = new Set();
+    const stateOptions = new Set();
+    
+    processedRecords.forEach(record => {
+      if (record.courseValue) courseOptions.add(record.courseValue);
+      if (record.studentType) studentTypeOptions.add(record.studentType);
+      if (record.state) stateOptions.add(record.state);
+    });
+    
+    return {
+      courses: Array.from(courseOptions).sort(),
+      studentTypes: Array.from(studentTypeOptions).sort(),
+      states: Array.from(stateOptions).sort()
+    };
+  }, [processedRecords]);
 
   // Handle record selection
   const handleRecordSelect = (record) => {
@@ -257,7 +397,7 @@ const MissingPasi = () => {
 
   // Get local sorted results from processed records
   const sortedRecords = useMemo(() => {
-    return [...processedRecords].sort((a, b) => {
+    return [...filterAndSortRecords].sort((a, b) => {
       let aValue = a[sortState.column] || '';
       let bValue = b[sortState.column] || '';
 
@@ -286,7 +426,7 @@ const MissingPasi = () => {
         ? (aValue > bValue ? 1 : -1) 
         : (aValue < bValue ? 1 : -1);
     });
-  }, [processedRecords, sortState]);
+  }, [filterAndSortRecords, sortState]);
 
   // Paginate records
   const paginatedRecords = useMemo(() => {
@@ -430,16 +570,178 @@ const MissingPasi = () => {
   return (
     <TooltipProvider>
       <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-6 flex items-center">
-          <FileText className="mr-2" /> Missing PASI Records
-        </h1>
+      
         
         {/* Main content */}
         <div className="mb-4 flex justify-between items-center">
           <div className="flex gap-2">
-            <Badge variant="destructive" className="font-normal text-sm py-1">
-              <AlertTriangle className="h-4 w-4 mr-1" /> Missing PASI Records: {sortedRecords?.length || 0}
-            </Badge>
+           
+            
+            {/* Filter button */}
+            <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+              <SheetTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center"
+                >
+                  <Filter className="h-4 w-4 mr-1" /> 
+                  Filters
+                  {filterCount > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {filterCount} active
+                    </Badge>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="w-full sm:max-w-md overflow-y-auto" side="left">
+                <SheetHeader className="mb-4">
+                  <SheetTitle>Filter Missing PASI Records</SheetTitle>
+                  <SheetDescription>
+                    Apply filters to find specific missing records
+                  </SheetDescription>
+                </SheetHeader>
+                
+                <div className="flex-1 overflow-y-auto pr-6">
+                  {/* Search Bar - Now outside the accordion */}
+                  <div className="mb-6">
+                    <h3 className="text-sm font-medium mb-2">Quick Search</h3>
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by ASN, name, or email..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
+                  </div>
+                  
+                  <Accordion type="multiple" className="w-full space-y-3">
+                    {/* Course Filter */}
+                    <AccordionItem value="course" className="border rounded-lg bg-blue-50/30 px-3">
+                      <AccordionTrigger className="text-sm hover:no-underline">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
+                          Course
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2 pb-3">
+                        <div className="space-y-2">
+                          {filterOptions.courses.map(course => (
+                            <div key={course} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`course-${course}`}
+                                checked={courseFilter.includes(course)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setCourseFilter([...courseFilter, course]);
+                                  } else {
+                                    setCourseFilter(courseFilter.filter(c => c !== course));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={`course-${course}`} className="text-sm">
+                                {course}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                    
+                    {/* Student Type Filter */}
+                    <AccordionItem value="studentType" className="border rounded-lg bg-green-50/30 px-3">
+                      <AccordionTrigger className="text-sm hover:no-underline">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
+                          Student Type
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2 pb-3">
+                        <div className="space-y-2">
+                          {filterOptions.studentTypes.map(type => (
+                            <div key={type} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`studentType-${type}`}
+                                checked={studentTypeFilter.includes(type)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setStudentTypeFilter([...studentTypeFilter, type]);
+                                  } else {
+                                    setStudentTypeFilter(studentTypeFilter.filter(t => t !== type));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={`studentType-${type}`} className="text-sm">
+                                {type}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                    
+                    {/* State Filter */}
+                    <AccordionItem value="state" className="border rounded-lg bg-purple-50/30 px-3">
+                      <AccordionTrigger className="text-sm hover:no-underline">
+                        <div className="flex items-center">
+                          <div className="w-2 h-2 rounded-full bg-purple-500 mr-2"></div>
+                          State
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2 pb-3">
+                        <div className="space-y-2">
+                          {filterOptions.states.map(state => (
+                            <div key={state} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`state-${state}`}
+                                checked={stateFilter.includes(state)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setStateFilter([...stateFilter, state]);
+                                  } else {
+                                    setStateFilter(stateFilter.filter(s => s !== state));
+                                  }
+                                }}
+                              />
+                              <label htmlFor={`state-${state}`} className="text-sm">
+                                {state}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </div>
+                
+                <SheetFooter className="mt-4 border-t pt-4">
+                  <Button variant="outline" onClick={clearFilters}>
+                    Clear Filters
+                  </Button>
+                  <SheetClose asChild>
+                    <Button variant="outline">Done</Button>
+                  </SheetClose>
+                </SheetFooter>
+              </SheetContent>
+            </Sheet>
+            
+            {/* Clear filters button - only show when filters are active */}
+            {filterCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="flex items-center text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 mr-1">
+                  <path d="M18 6 6 18"/>
+                  <path d="m6 6 12 12"/>
+                </svg>
+                Clear Filters
+              </Button>
+            )}
           </div>
           
           {/* Show Raw Data Toggle */}
@@ -490,8 +792,7 @@ const MissingPasi = () => {
                 <TableHeader>
                   <TableRow>
                     <SortableHeader column="asn" label="ASN" />
-                    <SortableHeader column="lastName" label="Last Name" />
-                    <SortableHeader column="firstName" label="First Name" />
+                    <SortableHeader column="studentName" label="Student Name" />
                     <SortableHeader column="studentType" label="Student Type" />
                     <SortableHeader column="regDateFormatted" label="Registration Date" />
                     <SortableHeader column="studentEmail" label="Student Email" />
@@ -501,14 +802,14 @@ const MissingPasi = () => {
                     <SortableHeader column="state" label="State" />
                     <SortableHeader column="schoolYear" label="School Year" />
                     <SortableHeader column="courseValue" label="Course" />
-                    <TableHead className="px-1 py-1 text-xs w-6 max-w-6" title="Mark for Review">
+                    <TableHead className="px-1 py-1 text-xs w-6 max-w-6" >
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger>
                             <XCircle className="h-3 w-3" />
                           </TooltipTrigger>
                           <TooltipContent side="top">
-                            <p>Mark for Review</p>
+                            <p>Remove from this list</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -516,38 +817,195 @@ const MissingPasi = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedRecords.map((record) => (
-                    <TableRow key={record.id || record.asn}>
-                      <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.asn, "ASN"); }}>{record.asn || 'N/A'}</TableCell>
-                      <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.lastName, "Last Name"); }}>{record.lastName || 'N/A'}</TableCell>
-                      <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.firstName, "First Name"); }}>{record.firstName || 'N/A'}</TableCell>
-                      <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.studentType, "Student Type"); }}>{record.studentType || 'N/A'}</TableCell>
-                      <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.regDateFormatted, "Registration Date"); }}>{record.regDateFormatted || 'N/A'}</TableCell>
-                      <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.studentEmail, "Student Email"); }}>{record.studentEmail || 'N/A'}</TableCell>
-                      <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.statusValue, "Status"); }}>{record.statusValue || 'N/A'}</TableCell>
-                      <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.scheduleStart, "Schedule Start"); }}>{record.scheduleStart || 'N/A'}</TableCell>
-                      <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.scheduleEnd, "Schedule End"); }}>{record.scheduleEnd || 'N/A'}</TableCell>
-                      <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.state, "State"); }}>{record.state || 'N/A'}</TableCell>
-                      <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.schoolYear, "School Year"); }}>{record.schoolYear || 'N/A'}</TableCell>
-                      <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.courseValue, "Course"); }}>{record.courseValue || 'N/A'}</TableCell>
-                      <TableCell className="p-0 w-6 max-w-6">
-                        <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
-                          <Button 
-                            variant="destructive" 
-                            size="xs" 
-                            onClick={() => showRemoveDialog(record)}
-                            className="h-4 w-4"
-                            aria-label="Mark for Review"
+                  {paginatedRecords.map((record) => {
+                    // Get colors for styling student name
+                    const { backgroundColor, textColor } = getColorForName(record.studentName);
+                    
+                    return (
+                      <TableRow key={record.id || record.asn}>
+                        <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.asn, "ASN"); }}>{record.asn || 'N/A'}</TableCell>
+                        <TableCell 
+                          className="p-1 cursor-pointer truncate max-w-32 w-32" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCellClick(record.studentName, "Student Name");
+                          }}
+                        >
+                          <div 
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium max-w-full truncate"
+                            style={{ 
+                              backgroundColor, 
+                              color: textColor
+                            }}
+                            title={record.studentName}
                           >
-                            <XCircle className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <PasiActionButtons asn={record.asn} referenceNumber={record.referenceNumber} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {record.studentName || 'N/A'}
+                          </div>
+                        </TableCell>
+                        <TableCell 
+                          className="p-1 cursor-pointer" 
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            handleCellClick(record.studentType, "Student Type"); 
+                          }}
+                        >
+                          {record.studentType ? (
+                            (() => {
+                              // Get student type info using the helper function from DropdownOptions
+                              const studentTypeInfo = getStudentTypeInfo(record.studentType);
+                              const TypeIcon = studentTypeInfo.icon;
+                              
+                              return (
+                                <div className="flex items-center">
+                                  {TypeIcon && (
+                                    <TypeIcon 
+                                      className="h-3 w-3 mr-1" 
+                                      style={{ color: studentTypeInfo.color }} 
+                                    />
+                                  )}
+                                  <span 
+                                    className="text-xs"
+                                    style={{ color: studentTypeInfo.color }}
+                                  >
+                                    {record.studentType}
+                                  </span>
+                                </div>
+                              );
+                            })()
+                          ) : (
+                            <span className="text-gray-400">N/A</span>
+                          )}
+                        </TableCell>
+                        <TableCell 
+                          className="p-1 cursor-pointer truncate max-w-20 w-20" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCellClick(record.regDateFormatted, "Registration Date");
+                          }}
+                        >
+                          {record.regDateFormatted && record.regDateFormatted !== 'N/A' ? (
+                            <div 
+                              className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium truncate"
+                              style={{
+                                backgroundColor: '#dbeafe', // blue-100
+                                color: '#1e40af' // blue-800
+                              }}
+                            >
+                              {record.regDateFormatted}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">N/A</span>
+                          )}
+                        </TableCell>
+                        <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.studentEmail, "Student Email"); }}>{record.studentEmail || 'N/A'}</TableCell>
+                        <TableCell 
+                          onClick={(e) => { e.stopPropagation(); handleCellClick(record.statusValue, "Status"); }}
+                        >
+                          <Badge 
+                            variant={record.statusValue === 'Completed' ? 'success' : 'secondary'}
+                            className={`
+                              text-xs py-0 px-1.5
+                              ${record.statusValue === 'Completed' 
+                                ? 'bg-green-50 text-green-700 border-green-200' 
+                                : record.statusValue === 'Active'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
+                              }
+                            `}
+                          >
+                            {record.statusValue || 'N/A'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell 
+                          className="p-1 cursor-pointer truncate max-w-20 w-20" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCellClick(record.scheduleStart, "Schedule Start");
+                          }}
+                        >
+                          {record.scheduleStart && record.scheduleStart !== 'N/A' ? (
+                            <div 
+                              className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium truncate"
+                              style={{
+                                backgroundColor: '#dcfce7', // green-100
+                                color: '#166534' // green-800
+                              }}
+                            >
+                              {record.scheduleStart}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">N/A</span>
+                          )}
+                        </TableCell>
+                        <TableCell 
+                          className="p-1 cursor-pointer truncate max-w-20 w-20" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCellClick(record.scheduleEnd, "Schedule End");
+                          }}
+                        >
+                          {record.scheduleEnd && record.scheduleEnd !== 'N/A' ? (
+                            <div 
+                              className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium truncate"
+                              style={{
+                                backgroundColor: '#fee2e2', // red-100
+                                color: '#b91c1c' // red-800
+                              }}
+                            >
+                              {record.scheduleEnd}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">N/A</span>
+                          )}
+                        </TableCell>
+                        <TableCell 
+                          onClick={(e) => { e.stopPropagation(); handleCellClick(record.state, "State"); }}
+                        >
+                          <Badge 
+                            variant="outline"
+                            className={`
+                              text-xs py-0 px-1.5
+                              ${record.state === 'Active' 
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : record.state === 'Archived'
+                                  ? 'bg-gray-50 text-gray-700 border-gray-200'
+                                  : 'bg-purple-50 text-purple-700 border-purple-200'
+                              }
+                            `}
+                          >
+                            {record.state || 'N/A'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.schoolYear, "School Year"); }}>{record.schoolYear || 'N/A'}</TableCell>
+                        <TableCell 
+                          onClick={(e) => { e.stopPropagation(); handleCellClick(record.courseValue, "Course"); }}
+                        >
+                          <Badge 
+                            variant="outline"
+                            className="bg-indigo-50 text-indigo-700 border-indigo-200 text-xs py-0 px-1.5"
+                          >
+                            {record.courseValue || 'N/A'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="p-0 w-6 max-w-6">
+                          <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
+                            <Button 
+                              variant="destructive" 
+                              size="xs" 
+                              onClick={() => showRemoveDialog(record)}
+                              className="h-4 w-4"
+                              aria-label="Mark for Review"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <PasiActionButtons asn={record.asn} referenceNumber={record.referenceNumber} />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </>
@@ -575,7 +1033,7 @@ const MissingPasi = () => {
                 </Badge>
               </CardTitle>
               <CardDescription className="text-xs">
-                {selectedRecord.studentName} - {selectedRecord.courseCode} ({selectedRecord.courseDescription})
+                {selectedRecord.studentName} - {selectedRecord.courseValue}
               </CardDescription>
             </CardHeader>
             <CardContent className="text-xs py-2">
@@ -590,13 +1048,13 @@ const MissingPasi = () => {
                     <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.studentName, "Name")}>{selectedRecord.studentName || 'N/A'}</dd>
                     
                     <dt className="font-medium text-gray-500">Email:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.email, "Email")}>{selectedRecord.email || 'N/A'}</dd>
+                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.studentEmail, "Email")}>{selectedRecord.studentEmail || 'N/A'}</dd>
                     
                     <dt className="font-medium text-gray-500">Student Type:</dt>
-                    <dd>{selectedRecord.studentType_Value || 'N/A'}</dd>
+                    <dd>{selectedRecord.studentType || 'N/A'}</dd>
                     
                     <dt className="font-medium text-gray-500">School Year:</dt>
-                    <dd>{selectedRecord.schoolYear || selectedRecord.School_x0020_Year_Value || 'N/A'}</dd>
+                    <dd>{selectedRecord.schoolYear || 'N/A'}</dd>
                     
                     <dt className="font-medium text-gray-500">Registration Date:</dt>
                     <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.regDateFormatted, "Registration Date")}>
@@ -608,38 +1066,53 @@ const MissingPasi = () => {
                 <div>
                   <h3 className="font-medium mb-2 text-sm">Course Information</h3>
                   <dl className="grid grid-cols-[1fr_2fr] gap-1">
-                    <dt className="font-medium text-gray-500">Course Code:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.courseCode, "Course Code")}>{selectedRecord.courseCode || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">Description:</dt>
-                    <dd>{selectedRecord.courseDescription || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">Term:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.term, "Term")}>
-                      <Badge className="text-xs py-0 px-1.5">{selectedRecord.term || 'N/A'}</Badge>
-                    </dd>
+                    <dt className="font-medium text-gray-500">Course:</dt>
+                    <dd>{selectedRecord.courseValue || 'N/A'}</dd>
                     
                     <dt className="font-medium text-gray-500">Status:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.statusValue, "Status")}>
+                    <dd>
                       <Badge 
-                        variant={selectedRecord.status === 'Completed' ? 'success' : 'secondary'}
+                        variant={selectedRecord.statusValue === 'Completed' ? 'success' : 'secondary'}
                         className={`
                           text-xs py-0 px-1.5
-                          ${selectedRecord.status === 'Completed' 
+                          ${selectedRecord.statusValue === 'Completed' 
                             ? 'bg-green-50 text-green-700 border-green-200' 
-                            : selectedRecord.status === 'Active'
+                            : selectedRecord.statusValue === 'Active'
                               ? 'bg-blue-50 text-blue-700 border-blue-200'
                               : 'bg-amber-50 text-amber-700 border-amber-200'
                           }
                         `}
                       >
-                        {selectedRecord.status || 'N/A'}
+                        {selectedRecord.statusValue || 'N/A'}
                       </Badge>
                     </dd>
                     
-                    <dt className="font-medium text-gray-500">Grade:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.value, "Grade")}>
-                      {selectedRecord.value && selectedRecord.value !== '-' ? selectedRecord.value : 'N/A'}
+                    <dt className="font-medium text-gray-500">State:</dt>
+                    <dd>
+                      <Badge 
+                        variant="outline"
+                        className={`
+                          text-xs py-0 px-1.5
+                          ${selectedRecord.state === 'Active' 
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : selectedRecord.state === 'Archived'
+                              ? 'bg-gray-50 text-gray-700 border-gray-200'
+                              : 'bg-purple-50 text-purple-700 border-purple-200'
+                          }
+                        `}
+                      >
+                        {selectedRecord.state || 'N/A'}
+                      </Badge>
+                    </dd>
+                    
+                    <dt className="font-medium text-gray-500">Schedule Start:</dt>
+                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.scheduleStart, "Schedule Start")}>
+                      {selectedRecord.scheduleStart || 'N/A'}
+                    </dd>
+                    
+                    <dt className="font-medium text-gray-500">Schedule End:</dt>
+                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.scheduleEnd, "Schedule End")}>
+                      {selectedRecord.scheduleEnd || 'N/A'}
                     </dd>
                   </dl>
                 </div>

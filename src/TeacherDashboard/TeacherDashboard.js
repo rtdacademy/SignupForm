@@ -24,8 +24,7 @@ import {
   Upload,
   FilePenLine,
   Shield,
-  Grid,
-  FileText
+  Grid
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import CoursesWithSheet from '../courses/CoursesWithSheet';
@@ -183,7 +182,7 @@ function TeacherDashboard() {
   const navItems = useMemo(() => {
     const baseItems = [
       { icon: Grid, label: 'React Dashboard', key: 'react-dashboard' },
-      { icon: FileText, label: 'PASI Records', key: 'pasi-records' },
+      { icon: Shield, label: 'PASI Records', key: 'pasi-records' },
       { 
         icon: Bell, 
         label: 'Notifications', 
@@ -198,7 +197,6 @@ function TeacherDashboard() {
       { icon: Link, label: 'Links', key: 'external-links' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
       { icon: BarChart2, label: 'Enrollment Stats', key: 'enrollment-stats' },
-      { icon: Shield, label: 'PASI Data Upload', key: 'pasi-data-upload' },
     ];
 
     // Only add admin items if user has admin access
@@ -265,7 +263,7 @@ function TeacherDashboard() {
       case 'pasi-data-upload':
         return <PASIDataUpload />;
       case 'pasi-records':
-        return <PasiTabsContainer />;
+        return <PASIDataUpload />;
       default:
         return null;
     }

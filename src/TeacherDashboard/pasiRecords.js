@@ -357,12 +357,6 @@ const PasiRecords = () => {
     return record.pasiRecords?.com1255 ? true : false;
   };
   
-  // Handle COM1255 checkbox change
-  const handleCom1255Change = (checked, record, e) => {
-    if (e) e.stopPropagation(); // Prevent row selection
-    updateRecordField(record, 'com1255Checked', checked);
-  };
-  
   // Handle Staff Review checkbox change
   const handleStaffReviewChange = (checked, record, e) => {
     if (e) e.stopPropagation(); // Prevent row selection
@@ -898,6 +892,7 @@ const PasiRecords = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-6"></TableHead>
+                
                   <SortableHeader column="asn" label="ASN" />
                   <SortableHeader column="courseCode" label="Course Code" />
                   <SortableHeader column="studentName" label="Student Name" />
@@ -907,33 +902,8 @@ const PasiRecords = () => {
                   <SortableHeader column="value" label="Grade" />
                   <SortableHeader column="exitDate" label="Exit Date" />
                   <SortableHeader column="workItems" label={<AlertTriangle className="h-3 w-3" />} />
-                  {/* New column headers for checkboxes */}
-                  <TableHead className="px-1 py-1 text-xs w-6 max-w-6" title="COM1255">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <CheckCircle className="h-3 w-3" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <p>COM1255</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </TableHead>
-                  <TableHead className="px-1 py-1 text-xs w-6 max-w-6" title="Staff Review">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <ClipboardCheck className="h-3 w-3" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          <p>Staff Review</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </TableHead>
-                  <SortableHeader column="linkStatus" label="Link Status" />
-                  <TableHead className="text-xs px-1 py-1 w-14 max-w-14 truncate">Actions</TableHead>
+                  <SortableHeader column="linkStatus" label="Linked" />
+                  <TableHead className="text-xs px-1 py-1 w-20 max-w-20 truncate">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -975,6 +945,8 @@ const PasiRecords = () => {
                             </Button>
                           ) : null}
                         </TableCell>
+                        
+                      
                         
                         <TableCell 
                           className="p-1 cursor-pointer truncate max-w-14 w-14" 
@@ -1143,30 +1115,6 @@ const PasiRecords = () => {
                           </TooltipProvider>
                         </TableCell>
                         
-                        {/* COM1255 Checkbox Cell */}
-                        <TableCell className="p-0 w-6 max-w-6">
-                          <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
-                            <Checkbox 
-                              checked={isCom1255Checked(record)}
-                              onCheckedChange={(checked) => handleCom1255Change(checked, record)}
-                              className="h-4 w-4 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-                              aria-label="COM1255 Checkbox"
-                            />
-                          </div>
-                        </TableCell>
-                        
-                        {/* Staff Review Checkbox Cell */}
-                        <TableCell className="p-0 w-6 max-w-6">
-                          <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
-                            <Checkbox 
-                              checked={record.staffReview === true}
-                              onCheckedChange={(checked) => handleStaffReviewChange(checked, record)}
-                              className="h-4 w-4 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                              aria-label="Staff Review Checkbox"
-                            />
-                          </div>
-                        </TableCell>
-                        
                         {/* Link Status Cell */}
                         <TableCell className="p-0 w-10 max-w-10">
                           <div className="flex justify-center">
@@ -1242,6 +1190,8 @@ const PasiRecords = () => {
                                   {index + 1}
                                 </Badge>
                               </TableCell>
+                              
+                             
                               
                               <TableCell className="p-1 text-gray-500 truncate max-w-14 w-14">
                                 {record.asn || '-'}
@@ -1354,30 +1304,6 @@ const PasiRecords = () => {
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
-                              </TableCell>
-                              
-                              {/* COM1255 Checkbox for Sub-Record - disabled and inherits from parent */}
-                              <TableCell className="p-1 w-10 max-w-10">
-                                <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
-                                  <Checkbox 
-                                    checked={isCom1255Checked(record)}
-                                    disabled={true}
-                                    className="h-4 w-4 opacity-50"
-                                    aria-label="COM1255 Checkbox (Inherited)"
-                                  />
-                                </div>
-                              </TableCell>
-                              
-                              {/* Staff Review Checkbox for Sub-Record - disabled and inherits from parent */}
-                              <TableCell className="p-1 w-10 max-w-10">
-                                <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
-                                  <Checkbox 
-                                    checked={record.staffReview === true}
-                                    disabled={true}
-                                    className="h-4 w-4 opacity-50"
-                                    aria-label="Staff Review Checkbox (Inherited)"
-                                  />
-                                </div>
                               </TableCell>
                               
                               {/* Link Status for Sub-Record */}
@@ -1588,17 +1514,6 @@ const PasiRecords = () => {
                           </div>
                         </div>
                       )}
-                    </dd>
-                    
-                    {/* Added COM1255 Status to Details */}
-                    <dt className="font-medium text-gray-500">COM1255:</dt>
-                    <dd className="flex items-center gap-2">
-                      <Checkbox 
-                        checked={isCom1255Checked(selectedRecord)}
-                        onCheckedChange={(checked) => handleCom1255Change(checked, selectedRecord)}
-                        className="h-4 w-4 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-                      />
-                      <span>{isCom1255Checked(selectedRecord) ? 'Checked' : 'Not checked'}</span>
                     </dd>
                     
                     {/* Added Staff Review Status to Details */}

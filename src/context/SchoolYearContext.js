@@ -184,8 +184,8 @@ export const SchoolYearProvider = ({ children }) => {
   // Other derived lists (unlinked, unmatched, duplicates)
   const unlinkedPasiRecords = useMemo(() => {
     if (!isStaffUser || pasiRecords.length === 0) return [];
-    const summaryIdSet = new Set(studentSummaries.map(s => s.id));
-    return pasiRecords.filter(r => !r.summaryKey || !summaryIdSet.has(r.summaryKey)).map(record => {
+    // Removed the summaryIdSet creation since we're not using it anymore
+    return pasiRecords.filter(r => !r.summaryKey).map(record => {
       const { term, ...rest } = record;
       return { ...rest, pasiTerm: term };
     });

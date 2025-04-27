@@ -42,18 +42,16 @@ import CourseLinkingDialog from './CourseLinkingDialog';
 import { processPasiLinkCreation, formatSchoolYearWithSlash, processPasiRecordDeletions, getCourseIdsForPasiCode } from '../utils/pasiLinkUtils';
 import CreateStudentDialog from './CreateStudentDialog';
 import MissingPasi from '../TeacherDashboard/MissingPasi';
+import MissingYourWay from '../TeacherDashboard/MissingYourWay';
 import { COURSE_OPTIONS, COURSE_CODE_TO_ID, ACTIVE_FUTURE_ARCHIVED_OPTIONS, COURSE_ID_TO_CODE } from '../config/DropdownOptions';
-import RevenueTab from './RevenueTab';
 import PermissionIndicator from '../context/PermissionIndicator';
-import NPAdjustments from './NPAdjustments';
 import { useAuth } from '../context/AuthContext';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { hasPasiRecordForCourse, isRecordActuallyMissing, getPasiCodesForCourseId, filterRelevantMissingPasiRecords, filterRelevantMissingPasiRecordsWithEmailCheck, hasValidAsnEmailAssociation } from '../utils/pasiRecordsUtils';
 import PasiRecords from '../TeacherDashboard/pasiRecords';
-// Import the new DuplicateAsnStudents component
-import DuplicateAsnStudents from '../TeacherDashboard/DuplicateAsnStudents';
 import { processCsvFile, applyChanges } from '../utils/pasiCsvUtils';
 import PASIPreviewDialog from './PASIPreviewDialog'; 
+import StatusConflicts from '../TeacherDashboard/StatusConflicts';
 
 // Validation rules for status compatibility
 const ValidationRules = {
@@ -81,54 +79,7 @@ const ValidationRules = {
   }
 };
 
-// Function to check if a record's status is compatible with the summary's status
-const isStatusCompatible = (recordStatus, summaryStatus, activeFutureArchived) => {
-  if (!recordStatus || !summaryStatus) return true; // Can't validate if either status is missing
-  
-  // Special case: If Completed and Unenrolled, check ActiveFutureArchived_Value
-  if (recordStatus === "Completed" && 
-      summaryStatus === "Unenrolled") {
-    // Only compatible if ActiveFutureArchived_Value is "Archived"
-    return activeFutureArchived === "Archived";
-  }
-  
-  // Check Active status incompatibilities
-  if (recordStatus === "Active" && 
-      ValidationRules.statusCompatibility.Active.incompatibleStatuses.includes(summaryStatus)) {
-    return false;
-  }
-  
-  // Check Completed status validations (excluding the special case we handled above)
-  if (recordStatus === "Completed" && 
-      summaryStatus !== "Unenrolled" && // Skip Unenrolled since we handled it above
-      !ValidationRules.statusCompatibility.Completed.validStatuses.includes(summaryStatus)) {
-    return false;
-  }
-  
-  return true;
-};
 
-// Get the explanation for a status mismatch
-const getStatusMismatchExplanation = (recordStatus, summaryStatus, activeFutureArchived) => {
-  // Special case for Completed and Unenrolled with wrong ActiveFutureArchived value
-  if (recordStatus === "Completed" && 
-      summaryStatus === "Unenrolled" && 
-      activeFutureArchived !== "Archived") {
-    return `PASI Record status "${recordStatus}" is compatible with YourWay status "${summaryStatus}" only when the YourWay State is "Archived". Current State: "${activeFutureArchived || 'Not Set'}"`;
-  }
-  
-  if (recordStatus === "Active" && 
-      ValidationRules.statusCompatibility.Active.incompatibleStatuses.includes(summaryStatus)) {
-    return `PASI Record status "${recordStatus}" is incompatible with YourWay status "${summaryStatus}". Active PASI records should not have completed or removed YourWay statuses.`;
-  }
-  
-  if (recordStatus === "Completed" && 
-      !ValidationRules.statusCompatibility.Completed.validStatuses.includes(summaryStatus)) {
-    return `PASI Record status "${recordStatus}" is incompatible with YourWay status "${summaryStatus}". Completed PASI records should only be linked to completed or removed YourWay statuses.`;
-  }
-  
-  return "Status compatibility issue. Please review the record.";
-};
 
 const ITEMS_PER_PAGE = 100;
 
@@ -268,15 +219,31 @@ const PASIDataUpload = () => {
     setIsGradebookSheetOpen(true);
   };
 
-  // Count actual missing records
-  const countActualMissingRecords = (records) => {
-    if (!records || records.length === 0) return 0;
-    return records.filter(record => isRecordActuallyMissing(record)).length;
-  };
+// Add this useMemo near the top where other useMemo hooks are defined
+const filteredUnlinkedCount = useMemo(() => {
+  if (!unlinkedPasiRecords) return 0;
+  
+  // Apply the same filter logic as in MissingYourWay component
+  // Default to filtering out completed courses with courseId 1111 or 2000
+  const filtered = unlinkedPasiRecords.filter(record => {
+    // Keep the record if it's not completed
+    if (record.status !== 'Completed') {
+      return true;
+    }
 
-  const filteredMissingRecords = useMemo(() => {
-    return filterRelevantMissingPasiRecords(unmatchedStudentSummaries);
-  }, [unmatchedStudentSummaries]);
+    // If it's completed, check if the courseCode maps to courseId 1111 or 2000
+    const courseId = COURSE_CODE_TO_ID[record.courseCode];
+    
+    // Keep the record if courseId is NOT 1111 or 2000
+    // (i.e., filter out completed courses with courseId 1111 or 2000)
+    return courseId !== 1111 && courseId !== 2000;
+  });
+  
+  return filtered.length;
+}, [unlinkedPasiRecords]);
+
+
+
 
   useEffect(() => {
     const fetchFiltered = async () => {
@@ -325,20 +292,6 @@ const PASIDataUpload = () => {
     
     return mapping;
   }, []);
-
-  const isStudentTypePeriodCompatible = (studentType, period) => {
-    // Check Non-Primary and Home Education should have Regular period
-    if ((studentType === "Non-Primary" || studentType === "Home Education") && period !== "Regular") {
-      return false;
-    }
-    
-    // Check Summer School should have Summer period
-    if (studentType === "Summer School" && period !== "Summer") {
-      return false;
-    }
-    
-    return true;
-  };
   
   // Add explanation for student type/period mismatches
   const getStudentTypePeriodMismatchExplanation = (studentType, period) => {
@@ -359,87 +312,47 @@ const PASIDataUpload = () => {
     setStatusMismatchDialogOpen(true);
   };
 
-  const checkStatusMismatch = (pasiRecords, summaryDataMap) => {
+  const checkStatusMismatch = (pasiRecords) => {
     console.log("Running checkStatusMismatch with", pasiRecords.length, "records");
-    const recordsWithMismatch = [];
     
-    pasiRecords.forEach(record => {
-      // Skip if not linked (no summary to compare with)
-      if (!record.linked) return;
+    const recordsWithMismatch = pasiRecords.filter(record => {
+      // Skip if either status is missing
+      if (!record.status || !record.Status_Value) return false;
       
-      // Get the email key for lookup
-      const emailKey = record.email.replace(/\./g, ',');
-      
-      // Find all summaries for this student
-      Object.keys(summaryDataMap).forEach(summaryKey => {
-        // Check if this summary belongs to the student
-        if (summaryKey.startsWith(emailKey)) {
-          const summaryCourseId = parseInt(summaryKey.split('_')[1], 10);
-          const summary = summaryDataMap[summaryKey];
-          
-          // Find summaries with matching course and student
-          const summaryPasiCode = courseIdToPasiCode[summaryCourseId];
-          
-          if (summaryPasiCode === record.courseCode) {
-            // Get student type from summary
-            const studentType = summary.StudentType_Value;
-            
-            // Check if statuses are compatible
-            const isCompatible = isStatusCompatible(
-              record.status, 
-              summary.Status_Value,
-              summary.ActiveFutureArchived_Value
-            );
-            
-            // Check if student type and period are compatible
-            const isTypePeriodCompatible = isStudentTypePeriodCompatible(
-              studentType,
-              record.period
-            );
-            
-            // Add to mismatches if either check fails
-            if (!isCompatible || !isTypePeriodCompatible) {
-              let explanation = '';
-              let needsArchived = false;
-              
-              if (!isCompatible) {
-                explanation = getStatusMismatchExplanation(
-                  record.status, 
-                  summary.Status_Value,
-                  summary.ActiveFutureArchived_Value
-                );
-                
-                needsArchived = record.status === "Completed" && 
-                               summary.Status_Value === "Unenrolled" && 
-                               summary.ActiveFutureArchived_Value !== "Archived";
-              } else {
-                explanation = getStudentTypePeriodMismatchExplanation(
-                  studentType,
-                  record.period
-                );
-              }
-              
-              recordsWithMismatch.push({
-                ...record,
-                summaryStatus: summary.Status_Value,
-                summaryState: summary.ActiveFutureArchived_Value || 'Not Set',
-                summaryKey,
-                studentKey: summaryKey.split('_')[0],
-                courseId: summaryCourseId.toString(),
-                needsArchived,
-                explanation,
-                studentType,
-                isStudentTypePeriodMismatch: !isTypePeriodCompatible
-              });
-            }
-          }
+      // Skip if courseCode maps to courseId 1111 or 2000
+      if (record.courseCode) {
+        const courseId = COURSE_CODE_TO_ID[record.courseCode];
+        if (courseId === 1111 || courseId === 2000) {
+          return false;
         }
-      });
+      }
+      
+      // Check Active status incompatibilities
+      if (record.status === "Active" && 
+          ValidationRules.statusCompatibility.Active.incompatibleStatuses.includes(record.Status_Value)) {
+        return true;
+      }
+      
+      // Check Completed status validations
+      if (record.status === "Completed" && 
+          !ValidationRules.statusCompatibility.Completed.validStatuses.includes(record.Status_Value)) {
+        return true;
+      }
+      
+      return false;
     });
+    
     console.log("Found", recordsWithMismatch.length, "mismatches");
     setRecordsWithStatusMismatch(recordsWithMismatch);
     return recordsWithMismatch;
   };
+  
+  // Update the useEffect to use the simplified check
+  useEffect(() => {
+    if (pasiStudentSummariesCombined && pasiStudentSummariesCombined.length > 0) {
+      checkStatusMismatch(pasiStudentSummariesCombined);
+    }
+  }, [pasiStudentSummariesCombined]);
 
   // Add this new function to update the ActiveFutureArchived_Value
   const updateCourseState = async (studentKey, courseId, newState) => {
@@ -929,28 +842,6 @@ const PASIDataUpload = () => {
     await applyChanges(changePreview, context);
   };
 
-  // Get count of unique ASNs with duplicates
-  const getDuplicateAsnCount = () => {
-    if (!duplicateAsnStudents || duplicateAsnStudents.length === 0) return 0;
-    
-    // Group by ASN and count only those with more than one record
-    const asnGroups = {};
-    duplicateAsnStudents.forEach(student => {
-      if (!student.asn) return;
-      
-      if (!asnGroups[student.asn]) {
-        asnGroups[student.asn] = [];
-      }
-      asnGroups[student.asn].push(student);
-    });
-    
-    // Count only ASNs that appear in multiple records
-    return Object.keys(asnGroups).length;
-  };
-
-  // Calculate the badge count for tab
-  const duplicateAsnBadgeCount = getDuplicateAsnCount();
-
   return (
     <TooltipProvider>
       <div className="space-y-2">
@@ -995,18 +886,36 @@ const PASIDataUpload = () => {
               {/* Add Tabs for Records and Validation */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="mb-4 bg-slate-800 p-1 rounded-lg">
+                <TabsTrigger 
+  value="records" 
+  className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+>
+  All Records
+  {pasiRecords.length > 0 && (
+    <Badge variant="default" className="ml-2 bg-slate-100 hover:bg-slate-100 text-slate-700">
+      {pasiRecords.length}
+    </Badge>
+  )}
+</TabsTrigger>
+
                   <TabsTrigger 
-                    value="records" 
-                    className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                  >
-                    Records
-                  </TabsTrigger>
+  value="statusConflicts"
+  className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+>
+Updates Required
+  {recordsWithStatusMismatch.length > 0 && (
+    <Badge variant="destructive" className="ml-2 bg-amber-100 hover:bg-amber-100 text-amber-600">
+      {recordsWithStatusMismatch.length}
+    </Badge>
+  )}
+</TabsTrigger>
+
                   
                   <TabsTrigger 
                     value="missingPasi"
                     className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
                   >
-                    Missing PASI
+                    Add to PASI
                     {isFilteringMissingWithEmail
                       ? <Loader2 className="h-4 w-4 animate-spin text-primary ml-2" />
                       : filteredMissingWithEmail.length > 0 && (
@@ -1015,36 +924,19 @@ const PASIDataUpload = () => {
                           </Badge>
                         )}
                   </TabsTrigger>
-                  
-                  {/* Replace Validation tab with DuplicateAsn tab */}
-                  <TabsTrigger 
-                    value="duplicateAsn"
-                    className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                  >
-                    Duplicate ASNs
-                    {duplicateAsnBadgeCount > 0 && (
-                      <Badge variant="destructive" className="ml-2 bg-amber-100 hover:bg-amber-100 text-amber-800">
-                        {duplicateAsnBadgeCount}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-
-                  {hasSuperAdminAccess() && (
-                    <TabsTrigger 
-                      value="revenue"
-                      className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                    >
-                      Revenue
-                      <PermissionIndicator type="SUPER_ADMIN" className="ml-2" />
-                    </TabsTrigger>
-                  )}
 
                   <TabsTrigger 
-                    value="npAdjustments"
-                    className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                  >
-                    NP Adjustments
-                  </TabsTrigger>
+  value="missingYourWay"
+  className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+>
+  Missing YourWay
+  {filteredUnlinkedCount > 0 && (
+    <Badge variant="destructive" className="ml-2 bg-orange-100 hover:bg-orange-100 text-orange-600">
+      {filteredUnlinkedCount}
+    </Badge>
+  )}
+</TabsTrigger>
+
                 </TabsList>
                 
                 <TabsContent value="records">
@@ -1065,6 +957,14 @@ const PASIDataUpload = () => {
                     getUniqueMismatchAsnsCount={getUniqueMismatchAsnsCount}
                   />
                 </TabsContent>
+
+                <TabsContent value="statusConflicts">
+  <StatusConflicts 
+    recordsWithStatusMismatch={recordsWithStatusMismatch}
+    onFixState={updateCourseState}
+    onViewRecordDetails={handleViewRecordDetails}
+  />
+</TabsContent>
                 
                 <TabsContent value="missingPasi">
                   {isLoadingMissing ? (
@@ -1081,20 +981,10 @@ const PASIDataUpload = () => {
                   )}
                 </TabsContent>
 
-                {/* New Duplicate ASN Tab Content */}
-                <TabsContent value="duplicateAsn">
-                  <DuplicateAsnStudents />
+                <TabsContent value="missingYourWay">
+                  <MissingYourWay />
                 </TabsContent>
 
-                {hasSuperAdminAccess() && (
-                  <TabsContent value="revenue">
-                    <RevenueTab records={unfilteredCombinedRecords} />
-                  </TabsContent>
-                )}
-
-                <TabsContent value="npAdjustments">
-                  <NPAdjustments records={unfilteredCombinedRecords} />
-                </TabsContent>
               </Tabs>
             </CardContent>
           </Card>
