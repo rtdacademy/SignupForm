@@ -50,6 +50,14 @@ import {
 import EmailRecipientSelector from './EmailRecipientSelector';
 import { TutorialButton } from '../components/TutorialButton';
 import DuplicateEmailDialog from '../components/DuplicateEmailDialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../components/ui/dialog";
 
 const database = getDatabase();
 
@@ -91,6 +99,55 @@ const iconOptions = [
   { value: 'message-circle', label: 'Chat', icon: MessageCircle }
 ];
 
+// Non-Active Students Confirmation Dialog
+const NonActiveStudentsDialog = ({ open, onOpenChange, nonActiveStudents, onContinue }) => {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-yellow-500" />
+            Non-Active Students Detected
+          </DialogTitle>
+          <DialogDescription>
+            The following students are not marked as Active. Are you sure you want to include them in this email?
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {Object.entries(nonActiveStudents).map(([status, students]) => (
+            <div key={status} className="border rounded-lg p-3">
+              <h4 className="font-medium mb-2 capitalize">{status} Students ({students.length})</h4>
+              <div className="space-y-1 max-h-32 overflow-y-auto">
+                {students.map((student, index) => (
+                  <div key={index} className="text-sm flex items-center gap-2">
+                    <span className="font-medium">
+                      {student.preferredFirstName || student.firstName} {student.lastName}
+                    </span>
+                    <span className="text-gray-500">- {student.StudentEmail}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => {
+            onContinue();
+            onOpenChange(false);
+          }}>
+            Continue with Non-Active Students
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const StudentMessaging = ({ 
   selectedStudents, 
   onClose,
@@ -111,8 +168,10 @@ const StudentMessaging = ({
   const [showCcOptions, setShowCcOptions] = useState(false); // State for the CC options dialog
   const [ccRecipients, setCcRecipients] = useState({}); // State to store CC recipient selections
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
-const [duplicateEmails, setDuplicateEmails] = useState([]);
-const [preparedRecipients, setPreparedRecipients] = useState(null);
+  const [duplicateEmails, setDuplicateEmails] = useState([]);
+  const [preparedRecipients, setPreparedRecipients] = useState(null);
+  const [showNonActiveDialog, setShowNonActiveDialog] = useState(false);
+  const [nonActiveStudents, setNonActiveStudents] = useState({});
 
   const { currentUser, user_email_key} = useAuth(); 
   const functions = getFunctions();
@@ -325,8 +384,6 @@ const [preparedRecipients, setPreparedRecipients] = useState(null);
     return processedContent;
   };
 
-
-
   const sendEmails = async (recipients) => {
     setIsSending(true);
   
@@ -434,7 +491,28 @@ const [preparedRecipients, setPreparedRecipients] = useState(null);
       onNotification("Please enter both subject and message content", 'error');
       return;
     }
-  
+
+    // Check for non-active students
+    const categorizedStudents = selectedStudents.reduce((acc, student) => {
+      const status = student.ActiveFutureArchived_Value || 'Unknown';
+      if (status !== 'Active') {
+        if (!acc[status]) acc[status] = [];
+        acc[status].push(student);
+      }
+      return acc;
+    }, {});
+
+    if (Object.keys(categorizedStudents).length > 0) {
+      setNonActiveStudents(categorizedStudents);
+      setShowNonActiveDialog(true);
+      return;
+    }
+
+    // If all students are active, proceed with the original send logic
+    proceedWithSend();
+  };
+
+  const proceedWithSend = async () => {
     // First prepare the recipients and check for duplicates
     const recipients = selectedStudents.map(student => {
       const studentEmail = student.StudentEmail?.toLowerCase();
@@ -509,9 +587,6 @@ const [preparedRecipients, setPreparedRecipients] = useState(null);
     await sendEmails(recipients);
   };
 
-
-
-
   useEffect(() => {
     const db = getDatabase();
     const typesRef = ref(db, 'templateTypes'); // Shared template types path
@@ -536,68 +611,86 @@ const [preparedRecipients, setPreparedRecipients] = useState(null);
     };
   }, []);
 
+  // Group students by status for display
+  const groupedStudents = selectedStudents.reduce((acc, student) => {
+    const status = student.ActiveFutureArchived_Value || 'Unknown';
+    if (!acc[status]) {
+      acc[status] = [];
+    }
+    acc[status].push(student);
+    return acc;
+  }, {});
 
   return (
     <>
-     
       <Card className="h-full flex flex-col">
-      <CardHeader className="border-b">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-lg font-semibold">
-              Message Students ({totalSelected})
-            </CardTitle>
-            <TutorialButton tutorialId="student-messaging" tooltipText="Learn about messaging" />
+        <CardHeader className="border-b">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-lg font-semibold">
+                Message Students ({totalSelected})
+              </CardTitle>
+              <TutorialButton tutorialId="student-messaging" tooltipText="Learn about messaging" />
+            </div>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardHeader>
+        </CardHeader>
         <CardContent className="flex-grow overflow-auto p-4 space-y-4">
-          {/* Recipients Summary */}
+          {/* Recipients Summary - Updated to group by status */}
           <div className="bg-gray-50 p-3 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
               <Users className="h-4 w-4" />
               <h3 className="text-sm font-medium">Recipients</h3>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {selectedStudents.map((student) => (
-                <TooltipProvider key={student.id}>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <div
-                        className="bg-white px-3 py-1.5 rounded-full text-xs border flex items-center gap-2 cursor-pointer"
-                      >
-                        <span>
-      {(student?.preferredFirstName || student?.firstName || '') + ' ' + (student?.lastName || '')}
-    </span>
-
-                        {student.ParentEmail && (
-                          <Mail 
-                            className="h-3.5 w-3.5 text-blue-500" 
-                          />
-                        )}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="space-y-1 text-xs">
-                        <div>Student: {student.StudentEmail}</div>
-                        {student.ParentEmail && (
-                          <div>Parent: {student.ParentEmail}</div>
-                        )}
-                        {Array.from({ length: 10 }, (_, i) => i + 1).map(i => {
-                          const email = student[`guardianEmail${i}`];
-                          return (
-                            email && (
-                              <div key={i}>Guardian {i}: {email}</div>
-                            )
-                          );
-                        })}
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+            <div className="space-y-4">
+              {Object.entries(groupedStudents).map(([status, statusStudents]) => (
+                <div key={status} className="space-y-2">
+                  <h4 className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    {status} Students ({statusStudents.length})
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {statusStudents.map((student) => (
+                      <TooltipProvider key={student.id}>
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <div
+                              className={`bg-white px-3 py-1.5 rounded-full text-xs border flex items-center gap-2 cursor-pointer 
+                                ${status !== 'Active' ? 'border-yellow-400' : ''}`}
+                            >
+                              <span>
+                                {(student?.preferredFirstName || student?.firstName || '') + ' ' + (student?.lastName || '')}
+                              </span>
+                              {student.ParentEmail && (
+                                <Mail 
+                                  className="h-3.5 w-3.5 text-blue-500" 
+                                />
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="space-y-1 text-xs">
+                              <div>Student: {student.StudentEmail}</div>
+                              <div>Status: {status}</div>
+                              {student.ParentEmail && (
+                                <div>Parent: {student.ParentEmail}</div>
+                              )}
+                              {Array.from({ length: 10 }, (_, i) => i + 1).map(i => {
+                                const email = student[`guardianEmail${i}`];
+                                return (
+                                  email && (
+                                    <div key={i}>Guardian {i}: {email}</div>
+                                  )
+                                );
+                              })}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
             {Object.values(ccRecipients).some(cc => Object.values(cc).some(checked => checked)) && (
@@ -963,26 +1056,34 @@ const [preparedRecipients, setPreparedRecipients] = useState(null);
         </CardContent>
       </Card>
   
-     {/* CC Options Dialog */}
-  <EmailRecipientSelector
-    open={showCcOptions}
-    onOpenChange={setShowCcOptions}
-    students={selectedStudents}
-    ccRecipients={ccRecipients}
-    onCcRecipientsChange={setCcRecipients}
-  />
+      {/* CC Options Dialog */}
+      <EmailRecipientSelector
+        open={showCcOptions}
+        onOpenChange={setShowCcOptions}
+        students={selectedStudents}
+        ccRecipients={ccRecipients}
+        onCcRecipientsChange={setCcRecipients}
+      />
 
-<DuplicateEmailDialog
-      open={showDuplicateDialog}
-      onOpenChange={setShowDuplicateDialog}
-      duplicates={duplicateEmails}
-      onContinue={() => {
-        if (preparedRecipients) {
-          sendEmails(preparedRecipients);
-        }
-      }}
-    />
-  
+      {/* Non-Active Students Dialog */}
+      <NonActiveStudentsDialog
+        open={showNonActiveDialog}
+        onOpenChange={setShowNonActiveDialog}
+        nonActiveStudents={nonActiveStudents}
+        onContinue={proceedWithSend}
+      />
+
+      {/* Duplicate Email Dialog */}
+      <DuplicateEmailDialog
+        open={showDuplicateDialog}
+        onOpenChange={setShowDuplicateDialog}
+        duplicates={duplicateEmails}
+        onContinue={() => {
+          if (preparedRecipients) {
+            sendEmails(preparedRecipients);
+          }
+        }}
+      />
     </>
   );
 };

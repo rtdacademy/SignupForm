@@ -722,7 +722,7 @@ export const ACTIVE_FUTURE_ARCHIVED_OPTIONS = [
   { value: "Pending", color: "#8B5CF6" },    // Purple
   { value: "Registration", color: "#3B82F6" }, // Blue
   { value: "Archived", color: "#6B7280" },    // Gray
-  { value: "Cold Storage", color: "#A5F3FC" }, // Ice Blue
+ // { value: "Cold Storage", color: "#A5F3FC" }, // I am using Archived for this instead now
 ];
 
 export const PASI_OPTIONS = [

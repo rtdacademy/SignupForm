@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban } from 'lucide-react';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { getDatabase, ref, set, get, push, remove, update, runTransaction, serverTimestamp  } from 'firebase/database';
@@ -31,7 +31,6 @@ import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../components/ui/tooltip";
 import { TutorialButton } from '../components/TutorialButton';
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
-import PasiRecordsDialog from './PasiRecordsDialog';
 import AsnIssuesDialog from './AsnIssuesDialog';
 import PendingFinalizationDialog from './Dialog/PendingFinalizationDialog';
 import ResumingOnDialog from './Dialog/ResumingOnDialog';
@@ -198,6 +197,9 @@ const StudentCard = React.memo(({
 
   // New state variable for removal dialog
   const [isRemovalDialogOpen, setIsRemovalDialogOpen] = useState(false);
+
+  // Add state for restoring from cold storage
+  const [isRestoring, setIsRestoring] = useState(false);
 
   // Access the logged-in teacher's info
   const { user, isAdminUser } = useAuth();
@@ -532,6 +534,37 @@ const handleStatusChange = useCallback(async (newStatus) => {
     }
   }, [student.id, student.preferredFirstName, student.firstName, student.lastName, student.Course_Value, onCourseRemoved]);
 
+  const handleRestoreFromColdStorage = useCallback(async (e) => {
+    e.stopPropagation(); // Prevent card click
+    setIsRestoring(true);
+    
+    const db = getDatabase();
+    const lastUnderscoreIndex = student.id.lastIndexOf('_');
+    const studentKey = student.id.slice(0, lastUnderscoreIndex);
+    const courseId = student.id.slice(lastUnderscoreIndex + 1);
+    const summaryKey = `${studentKey}_${courseId}`;
+    
+    try {
+      // Update the ActiveFutureArchived_Value to 'Active' in the studentCourseSummaries
+      const summaryRef = ref(db, `studentCourseSummaries/${summaryKey}/ActiveFutureArchived_Value`);
+      await set(summaryRef, 'Active');
+      
+      // Show success message
+      toast.success('Student is being restored from Archived', {
+        description: 'This may take a few moments to complete.',
+        duration: 5000
+      });
+    } catch (error) {
+      console.error('Error restoring student from archived:', error);
+      toast.error('Failed to restore student', {
+        description: error.message,
+        duration: 3000
+      });
+    } finally {
+      setIsRestoring(false);
+    }
+  }, [student.id]);
+
   const groupedTeacherCategories = useMemo(() => {
     if (!teacherCategories || typeof teacherCategories !== 'object') {
       console.error('teacherCategories is not an object:', teacherCategories);
@@ -737,6 +770,10 @@ const handleStatusChange = useCallback(async (newStatus) => {
   
   // Add a debugging section to help identify problematic students
   const hasObjectStatusValue = typeof student.Status_Value === 'object' && student.Status_Value !== null;
+
+  // Get safe Active Future Archived value
+  const safeActiveFutureArchivedValue = getSafeValue(student?.ActiveFutureArchived_Value);
+  const isColdStorage = safeActiveFutureArchivedValue === 'Archived';
 
   return (
     <>
@@ -970,7 +1007,15 @@ const handleStatusChange = useCallback(async (newStatus) => {
           {/* Status Dropdown, Last Week Status, and Auto Status Toggle */}
           <div className="flex items-center space-x-2 mb-2">
             <div className="flex-grow">
-           
+            {isColdStorage ? (
+              <div className="border rounded-md p-2 text-center bg-cyan-50 border-cyan-200">
+                <div className="flex items-center justify-center mb-1 text-cyan-700">
+                  <span className="mr-2"><ArchiveRestore className="h-4 w-4" /></span>
+                  <span className="font-medium">Student is Archived</span>
+                </div>
+                <p className="text-xs text-cyan-600">This student's data has been archived. Use the Restore button below to restore access.</p>
+              </div>
+            ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button 
@@ -1034,13 +1079,13 @@ const handleStatusChange = useCallback(async (newStatus) => {
                   </DropdownMenuContent>
                 </DropdownMenuPortal>
               </DropdownMenu>
+            )}
             </div>
           </div>
 
-
           {/* New Auto Status Suggestion Row */}
           <div className="flex items-center space-x-2 mb-2">
-            {student.autoStatus_Value ? (
+            {!isColdStorage && student.autoStatus_Value ? (
               <TooltipProvider>
                 <Tooltip delayDuration={200}>
                   <TooltipTrigger asChild>
@@ -1278,21 +1323,6 @@ const handleStatusChange = useCallback(async (newStatus) => {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2 mt-2">
-            {student.asn && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsPasiDialogOpen(true);
-                }}
-              >
-                <Database className="w-4 h-4 mr-1" />
-                PASI
-              </Button>
-            )}
-
             {checkAsnIssues && (
               <Button
                 variant="outline"
@@ -1351,6 +1381,19 @@ const handleStatusChange = useCallback(async (newStatus) => {
               >
                 <Trash2 className="w-4 h-4 mr-1" />
                 Remove
+              </Button>
+            )}
+
+            {isColdStorage && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs text-green-600 hover:text-green-700"
+                onClick={handleRestoreFromColdStorage}
+                disabled={isRestoring}
+              >
+                <ArchiveRestore className="w-4 h-4 mr-1" />
+                {isRestoring ? 'Restoring...' : 'Restore'}
               </Button>
             )}
           </div>
@@ -1466,15 +1509,6 @@ const handleStatusChange = useCallback(async (newStatus) => {
         </DialogContent>
       </Dialog>
       </TooltipProvider>
-
-      {/* PASI Records Dialog */}
-      <PasiRecordsDialog
-        isOpen={isPasiDialogOpen}
-        onOpenChange={setIsPasiDialogOpen}
-        studentAsn={student.asn}
-        student={student} 
-        courseId={student.CourseID}
-      />
 
       {/* ASN Issues Dialog */}
       <AsnIssuesDialog

@@ -19,11 +19,11 @@ const archiveStudentDataV2 = onValueWritten({
 }, async (event) => {
   const summaryKey = event.params.summaryKey;
   
-  // Check if value changed to "Cold Storage"
+  // Check if value changed to "Archived"
   const beforeValue = event.data.before.val();
   const afterValue = event.data.after.val();
   
-  if (afterValue !== 'Cold Storage' || beforeValue === 'Cold Storage') {
+  if (afterValue !== 'Archived' || beforeValue === 'Archived') {
     console.log(`No action needed: value changed from ${beforeValue} to ${afterValue}`);
     return null;
   }
@@ -195,11 +195,11 @@ const restoreStudentDataV2 = onValueWritten({
 }, async (event) => {
   const summaryKey = event.params.summaryKey;
   
-  // Check if value changed from "Cold Storage" to something else
+  // Check if value changed from "Archived" to something else
   const beforeValue = event.data.before.val();
   const afterValue = event.data.after.val();
   
-  if (beforeValue !== 'Cold Storage' || afterValue === 'Cold Storage') {
+  if (beforeValue !== 'Archived' || afterValue === 'Archived') {
     console.log(`No restoration needed: value changed from ${beforeValue} to ${afterValue}`);
     return null;
   }
@@ -243,6 +243,16 @@ const restoreStudentDataV2 = onValueWritten({
     
     // Restore course data
     if (archiveData.courseData && restorationData.courseDataExists) {
+      // Update the ActiveFutureArchived.Value before restoration to prevent triggering archive function
+      if (archiveData.courseData.ActiveFutureArchived) {
+        archiveData.courseData.ActiveFutureArchived.Value = afterValue;
+        console.log(`Updated ActiveFutureArchived.Value to ${afterValue} before restoration`);
+      } else {
+        // If the structure doesn't exist, create it
+        archiveData.courseData.ActiveFutureArchived = { Value: afterValue };
+        console.log(`Created ActiveFutureArchived.Value with ${afterValue} before restoration`);
+      }
+      
       await db.ref(restorationData.coursePath).set(archiveData.courseData);
       console.log(`Restored course data to ${restorationData.coursePath}`);
     }
@@ -260,7 +270,8 @@ const restoreStudentDataV2 = onValueWritten({
     await db.ref(`/studentCourseSummaries/${summaryKey}/restorationInfo`).set({
       restoredAt: admin.database.ServerValue.TIMESTAMP,
       restoredFrom: archiveFilePath,
-      messageCount: Object.keys(archiveData.courseMessages || {}).length
+      messageCount: Object.keys(archiveData.courseMessages || {}).length,
+      restoredStatus: afterValue
     });
     
     await db.ref(`/studentCourseSummaries/${summaryKey}/archiveStatus`).set('Restored');

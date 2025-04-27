@@ -184,11 +184,22 @@ const updateStudentCourseSummaryV2 = onValueWritten({
   if (!event.data.after.exists()) {
     try {
       console.log(`Course deleted for student ${studentId}, course ${courseId}`);
-      // Use transaction to safely remove the course summary
-      await db.ref(`studentCourseSummaries/${studentId}_${courseId}`)
-        .transaction(currentData => {
-          return currentData !== null ? null : currentData; // Remove if exists
-        });
+      
+      // Check if the summary exists and if it's Archived
+      const summaryRef = db.ref(`studentCourseSummaries/${studentId}_${courseId}`);
+      const summarySnapshot = await summaryRef.once('value');
+      const summaryData = summarySnapshot.val();
+      
+      // If summary exists and ActiveFutureArchived_Value is 'Archived', don't remove it
+      if (summaryData && summaryData.ActiveFutureArchived_Value === 'Archived') {
+        console.log(`Summary is Archived - preserving for student ${studentId}, course ${courseId}`);
+        return null;
+      }
+      
+      // Otherwise, proceed with deletion
+      await summaryRef.transaction(currentData => {
+        return currentData !== null ? null : currentData; // Remove if exists
+      });
         
       console.log(`Successfully removed course summary for student ${studentId}, course ${courseId}`);
       return null;
