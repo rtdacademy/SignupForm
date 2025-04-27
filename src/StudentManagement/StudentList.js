@@ -107,6 +107,35 @@ function StudentList({
   const [accordionValue, setAccordionValue] = useState("");
   const [userClickedAccordion, setUserClickedAccordion] = useState(false);
 
+  // Check if any students have ASN issues
+  const hasAsnIssues = useMemo(() => {
+    if (!asnsRecords || !studentSummaries || studentSummaries.length === 0) return false;
+    
+    // Helper function to check if a student has multiple email keys for their ASN
+    const hasMultipleEmailKeysForASN = (studentAsn) => {
+      if (!studentAsn) return false;
+      
+      // Find the ASN record for this student
+      const asnRecord = asnsRecords.find(record => record.id === studentAsn);
+      
+      // Check if the record exists and has emailKeys
+      if (!asnRecord || !asnRecord.emailKeys) return false;
+      
+      // Count how many email keys have values set to true
+      const trueKeysCount = Object.values(asnRecord.emailKeys)
+        .filter(value => value === true)
+        .length;
+      
+      // Return true if there are multiple keys set to true
+      return trueKeysCount > 1;
+    };
+
+    // Return true if any student has multiple ASN email keys
+    return studentSummaries.some(student => 
+      student && student.asn && hasMultipleEmailKeysForASN(student.asn)
+    );
+  }, [studentSummaries, asnsRecords]);
+
   // Handle Batch Update for Normalized Schedules
   const handleBatchUpdateNormalizedSchedules = async () => {
     const selectedStudentsData = Array.from(selectedStudents)
@@ -601,24 +630,26 @@ return (
         >
           {sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </Button>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={showMultipleAsnsOnly ? "secondary" : "outline"}
-                size="icon"
-                onClick={() => onToggleMultipleAsnsOnly()}
-                className="h-8 w-8"
-                aria-label={showMultipleAsnsOnly ? "Show all students" : "Show students with ASN issues only"}
-              >
-                <Users className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {showMultipleAsnsOnly ? "Show all students" : "Show ASN issues only"}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        {hasAsnIssues && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={showMultipleAsnsOnly ? "secondary" : "outline"}
+                  size="icon"
+                  onClick={() => onToggleMultipleAsnsOnly()}
+                  className="h-8 w-8"
+                  aria-label={showMultipleAsnsOnly ? "Show all students" : "Show students with ASN issues only"}
+                >
+                  <Users className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {showMultipleAsnsOnly ? "Show all students" : "Show ASN issues only"}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
     </div>
 

@@ -24,8 +24,10 @@ const asnFunctions = require('./asnSync');
 //const httpFunctions = require('./httpTrigger');
 const speechFunctions = require('./speech'); 
 const normalizedScheduleFunctions = require('./normalizedSchedule');
-const pasiRecordsFunctions = require('./pasiRecords');
-const tempFunctions = require('./TempFunction');
+//const pasiRecordsFunctions = require('./pasiRecords');
+//const tempFunctions = require('./TempFunction');
+
+const archiveStudentDataFunctions = require('./archiveStudentDataV2');
 
 setGlobalOptions({
   region: 'us-central1',
@@ -110,3 +112,5 @@ exports.batchUpdateNormalizedSchedulesV2 = normalizedScheduleFunctions.batchUpda
 
 
 //exports.cleanupIncorrectRootNodes = tempFunctions.cleanupIncorrectRootNodes;
+
+exports.archiveStudentDataV2 = archiveStudentDataFunctions.archiveStudentDataV2;

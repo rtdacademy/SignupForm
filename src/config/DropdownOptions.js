@@ -719,9 +719,10 @@ export const getPASICoursesByType = () => {
 
 export const ACTIVE_FUTURE_ARCHIVED_OPTIONS = [
   { value: "Active", color: "#10B981" },     // Green
-  { value: "Pending", color: "#8B5CF6" },  //Purple
+  { value: "Pending", color: "#8B5CF6" },    // Purple
   { value: "Registration", color: "#3B82F6" }, // Blue
-  { value: "Archived", color: "#6B7280" }    // Gray
+  { value: "Archived", color: "#6B7280" },    // Gray
+  { value: "Cold Storage", color: "#A5F3FC" }, // Ice Blue
 ];
 
 export const PASI_OPTIONS = [
