@@ -138,10 +138,6 @@ const PASIDataUpload = () => {
   const [isCleaningUp, setIsCleaningUp] = useState(false);
 
 
-  const [isCreateStudentDialogOpen, setIsCreateStudentDialogOpen] = useState(false);
-  const [selectedRecordForCreate, setSelectedRecordForCreate] = useState(null);
-
-
   const [missingPasiRecords, setMissingPasiRecords] = useState([]);
   const [isLoadingMissing, setIsLoadingMissing] = useState(false);
 
@@ -291,18 +287,7 @@ const filteredUnlinkedCount = useMemo(() => {
     return mapping;
   }, []);
   
-  // Add explanation for student type/period mismatches
-  const getStudentTypePeriodMismatchExplanation = (studentType, period) => {
-    if ((studentType === "Non-Primary" || studentType === "Home Education") && period !== "Regular") {
-      return `Student type "${studentType}" should have a "Regular" period, but has "${period}" instead.`;
-    }
-    
-    if (studentType === "Summer School" && period !== "Summer") {
-      return `Student type "Summer School" should have a "Summer" period, but has "${period}" instead.`;
-    }
-    
-    return "Student type and period incompatibility.";
-  };
+
 
   // Function to show status mismatch details
   const showStatusMismatchDetails = (record) => {
@@ -392,18 +377,6 @@ const filteredUnlinkedCount = useMemo(() => {
     }
   };
 
-  const findMissingPasiRecords = () => {
-    // We now use unmatchedStudentSummaries from context, but we keep the function signature
-    // for compatibility with other code that calls it
-    setIsLoadingMissing(true);
-    
-    // Data is now coming from context's unmatchedStudentSummaries
-    // Just ensure our local state is updated
-    setMissingPasiRecords(unmatchedStudentSummaries || []);
-    
-    setIsLoadingMissing(false);
-  };
-
   useEffect(() => {
     if (pasiRecords.length > 0 && Object.keys(summaryDataMap).length > 0 && !isLoadingCourseSummaries) {
       setUnfilteredCombinedRecords(pasiRecords); // pasiRecords is already combined from context
@@ -427,17 +400,7 @@ const filteredUnlinkedCount = useMemo(() => {
     setIsCreateStudentDialogOpen(true);
   };
 
-  const handleCloseCreateStudentDialog = (wasStudentCreated = false) => {
-    setIsCreateStudentDialogOpen(false);
-    setSelectedRecordForCreate(null);
-    
-    // If a student was created, we may want to refresh data or show a success message
-    if (wasStudentCreated) {
-      // Use the refreshStudentSummaries function from context
-      refreshStudentSummaries();
-      toast.success("Student created successfully. You can now link it to this PASI record.");
-    }
-  };
+
 
   // Function to open cleanup confirmation dialog
   const handleOpenCleanupDialog = () => {
