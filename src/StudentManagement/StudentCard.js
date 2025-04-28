@@ -29,7 +29,7 @@ import StudentDetail from './StudentDetail';
 import { useMode, MODES } from '../context/ModeContext';
 import { format } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "../components/ui/tooltip";
-import { TutorialButton } from '../components/TutorialButton';
+
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import AsnIssuesDialog from './AsnIssuesDialog';
 import PendingFinalizationDialog from './Dialog/PendingFinalizationDialog';
@@ -809,10 +809,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
               <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-base font-medium truncate flex items-center gap-2">
                 {student.preferredFirstName || student.firstName} {student.lastName}
-                <TutorialButton 
-                  tutorialId="student-card" 
-                  tooltipText="Learn about student cards" 
-                />
+              
               </CardTitle>
                 <Button
                   variant="ghost"

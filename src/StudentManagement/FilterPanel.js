@@ -738,16 +738,7 @@ const FilterPanel = memo(function FilterPanel({
                 />
               )}
 
-              {/* Action Buttons */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onFullScreenToggle}
-                className="text-[#315369]"
-                title={isFullScreen ? "Exit Full Screen" : "Enter Full Screen"}
-              >
-                {isFullScreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-              </Button>
+          
               
             </div>
           )}

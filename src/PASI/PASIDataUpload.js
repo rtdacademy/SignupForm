@@ -18,7 +18,6 @@ import {
 import Papa from 'papaparse';
 import { toast, Toaster } from 'sonner';
 import { getDatabase, ref, query, orderByChild, equalTo, onValue, off, get, update, remove } from 'firebase/database';
-import { validatePasiRecordsLinkStatus } from '../utils/pasiValidation';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
@@ -38,13 +37,12 @@ import {
 
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Progress } from "../components/ui/progress";
-import CourseLinkingDialog from './CourseLinkingDialog';
+//import CourseLinkingDialog from './CourseLinkingDialog';
 import { processPasiLinkCreation, formatSchoolYearWithSlash, processPasiRecordDeletions, getCourseIdsForPasiCode } from '../utils/pasiLinkUtils';
-import CreateStudentDialog from './CreateStudentDialog';
+
 import MissingPasi from '../TeacherDashboard/MissingPasi';
 import MissingYourWay from '../TeacherDashboard/MissingYourWay';
 import { COURSE_OPTIONS, COURSE_CODE_TO_ID, ACTIVE_FUTURE_ARCHIVED_OPTIONS, COURSE_ID_TO_CODE } from '../config/DropdownOptions';
-import PermissionIndicator from '../context/PermissionIndicator';
 import { useAuth } from '../context/AuthContext';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { hasPasiRecordForCourse, isRecordActuallyMissing, getPasiCodesForCourseId, filterRelevantMissingPasiRecords, filterRelevantMissingPasiRecordsWithEmailCheck, hasValidAsnEmailAssociation } from '../utils/pasiRecordsUtils';
@@ -106,7 +104,7 @@ const PASIDataUpload = () => {
   const [pasiRecords, setPasiRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [previewData, setPreviewData] = useState([]);
+
   const [showPreview, setShowPreview] = useState(false);
   const [changePreview, setChangePreview] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1454,17 +1452,9 @@ Updates Required
           </DialogContent>
         </Dialog>
 
-        <CourseLinkingDialog
-          isOpen={isLinkingDialogOpen}
-          onClose={handleCloseLinkingDialog}
-          record={selectedRecord}
-        />
+      
 
-        <CreateStudentDialog
-          isOpen={isCreateStudentDialogOpen}
-          onClose={handleCloseCreateStudentDialog}
-          record={selectedRecordForCreate}
-        />
+     
       </div>
 
       {/* EmailEditDialog Component - implemented as a child component in the original code */}

@@ -182,7 +182,9 @@ const PasiActionButtons = ({ asn, referenceNumber }) => {
 
   const handleOpenYourWay = () => {
     if (!validAsn) return;
-    window.location.href = `/teacher-dashboard?asn=${asn}`;
+    // Changed from window.location.href to openManagedWindow with unique window name
+    const url = `/teacher-dashboard?asn=${asn}`;
+    openManagedWindow(url, 'yourWayWindow');
   };
 
   return (

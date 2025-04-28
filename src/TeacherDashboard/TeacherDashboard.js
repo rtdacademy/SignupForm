@@ -43,8 +43,7 @@ import IMathASGradeImporter from './IMathASGradeImporter';
 import LTIManagement from '../LTI/LTIManagement';
 import EnrollmentStatistics from '../Statistics/EnrollmentStatistics'; 
 import PASIDataUpload from '../PASI/PASIDataUpload';
-import PasiRecords from './pasiRecords';
-import PasiTabsContainer from './PasiTabsContainer';
+
 
 function TeacherDashboard() {
   const { user, isStaff, hasAdminAccess } = useAuth();
@@ -196,7 +195,6 @@ function TeacherDashboard() {
       { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
       { icon: Link, label: 'Links', key: 'external-links' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
-      { icon: BarChart2, label: 'Enrollment Stats', key: 'enrollment-stats' },
     ];
 
     // Only add admin items if user has admin access
