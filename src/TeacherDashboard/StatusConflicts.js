@@ -184,7 +184,7 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
                     </TableCell>
                     <TableCell 
                       className="p-1 cursor-pointer" 
-                      onClick={() => handleCellClick(`${record.courseCode} - ${record.courseDescription}`, "Course")}
+                      onClick={() => handleCellClick(record.courseCode, "Course")}
                     >
                       {record.courseCode} - {record.courseDescription || 'N/A'}
                     </TableCell>

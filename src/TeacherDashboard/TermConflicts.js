@@ -1,0 +1,249 @@
+// TermConflicts.js
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { Badge } from "../components/ui/badge";
+import { AlertTriangle, ArrowRight, Code } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { toast } from 'sonner';
+import PasiActionButtons from "../components/PasiActionButtons";
+import { Button } from "../components/ui/button";
+
+const TermConflicts = ({ recordsWithTermMismatch }) => {
+  const [sortState, setSortState] = useState({ column: 'studentName', direction: 'asc' });
+  const [showRawData, setShowRawData] = useState(false);
+
+  // Process records to ensure all properties exist
+  const processedRecords = useMemo(() => {
+    return recordsWithTermMismatch.map(record => ({
+      ...record,
+      asn: record.asn || '',
+      studentName: record.studentName || '',
+      courseCode: record.courseCode || '',
+      courseDescription: record.courseDescription || '',
+      // Use the displayStudentType and displayTerm that were set during filtering
+      StudentType_Value: record.displayStudentType || record.StudentType_Value || record.studentType || '',
+      pasiTerm: record.displayTerm || record.pasiTerm || record.term || '',
+      referenceNumber: record.referenceNumber || '',
+    }));
+  }, [recordsWithTermMismatch]);
+
+  // Handle column sorting
+  const handleSort = (column) => {
+    setSortState(prev => ({
+      column,
+      direction: prev.column === column && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  // Sortable table header component
+  const SortableHeader = ({ column, label }) => {
+    const isActive = sortState.column === column;
+    
+    return (
+      <TableHead 
+        className="cursor-pointer hover:bg-muted/50 transition-colors text-xs" 
+        onClick={() => handleSort(column)}
+      >
+        <div className="flex items-center">
+          {label}
+          <span className="ml-1 inline-flex">
+            {isActive && (
+              sortState.direction === 'asc' ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+                  <path d="m5 12 7-7 7 7"/>
+                  <path d="m5 19 7-7 7 7"/>
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+                  <path d="m19 5-7 7-7-7"/>
+                  <path d="m19 12-7 7-7-7"/>
+                </svg>
+              )
+            )}
+          </span>
+        </div>
+      </TableHead>
+    );
+  };
+
+  // Handle copy to clipboard
+  const handleCellClick = (content, label) => {
+    if (!content || content === 'N/A') return;
+    
+    navigator.clipboard.writeText(content);
+    
+    // Truncate long content for toast message
+    const displayText = content.length > 25 ? `${content.substring(0, 25)}...` : content;
+    toast.success(`Copied ${label ? label + ': ' : ''}${displayText}`);
+  };
+
+  // Copy record to clipboard as JSON
+  const copyRecordToClipboard = (record) => {
+    const recordStr = JSON.stringify(record, null, 2);
+    navigator.clipboard.writeText(recordStr);
+    toast.success("Record data copied to clipboard as JSON");
+  };
+
+  // Get term conflict explanation
+  const getTermConflictExplanation = (studentType, pasiTerm) => {
+    if (studentType === 'Summer Student' && pasiTerm !== 'Summer') {
+      return "Summer Student records must have 'Summer' term.";
+    } else if ((studentType === 'Non-Primary' || studentType === 'Home Education') && pasiTerm === 'Summer') {
+      return `${studentType} records cannot have 'Summer' term.`;
+    }
+    return "Term configuration is incorrect for this student type.";
+  };
+
+  // Sort records
+  const sortedRecords = useMemo(() => {
+    return [...processedRecords].sort((a, b) => {
+      let aValue = a[sortState.column] || '';
+      let bValue = b[sortState.column] || '';
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortState.direction === 'asc' 
+          ? aValue.localeCompare(bValue) 
+          : bValue.localeCompare(aValue);
+      }
+      
+      return sortState.direction === 'asc' 
+        ? (aValue > bValue ? 1 : -1) 
+        : (aValue < bValue ? 1 : -1);
+    });
+  }, [processedRecords, sortState]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            Term Conflicts 
+          </CardTitle>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowRawData(!showRawData)}
+            className="flex items-center gap-1"
+          >
+            <Code className="h-4 w-4" />
+            {showRawData ? "Hide Raw Data" : "Show Raw Data"}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Alert variant="warning" className="mb-4 bg-amber-50 border-amber-200">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-800">Term Configuration Issues</AlertTitle>
+          <AlertDescription className="text-amber-700">
+            <ul className="list-disc ml-4 mt-1">
+              <li>Summer Student records must have 'Summer' term.</li>
+              <li>Non-Primary and Home Education students cannot have 'Summer' term.</li>
+            </ul>
+          </AlertDescription>
+        </Alert>
+
+        {showRawData && sortedRecords.length > 0 && (
+          <div className="mb-4 p-4 border rounded bg-gray-50 overflow-auto max-h-40">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-sm font-medium">Sample Record Data Structure</h3>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => copyRecordToClipboard(sortedRecords[0])}
+                className="text-xs"
+              >
+                Copy JSON
+              </Button>
+            </div>
+            <pre className="text-xs overflow-auto whitespace-pre-wrap">
+              {JSON.stringify(sortedRecords[0], null, 2)}
+            </pre>
+          </div>
+        )}
+
+        {sortedRecords.length > 0 ? (
+          <Table className="text-xs w-full">
+            <TableHeader>
+              <TableRow>
+                <SortableHeader column="asn" label="ASN" />
+                <SortableHeader column="studentName" label="Student" />
+                <SortableHeader column="courseCode" label="Course" />
+                <SortableHeader column="StudentType_Value" label="Student Type" />
+                <TableHead className="text-center w-8">
+                  <ArrowRight className="h-4 w-4 mx-auto" />
+                </TableHead>
+                <SortableHeader column="pasiTerm" label="PASI Term" />
+                <TableHead className="text-xs px-1 py-1 w-28 max-w-28">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedRecords.map((record) => {
+                const explanation = getTermConflictExplanation(record.StudentType_Value, record.pasiTerm);
+                
+                return (
+                  <TableRow key={record.id} className="hover:bg-gray-100">
+                    <TableCell 
+                      className="p-1 cursor-pointer" 
+                      onClick={() => handleCellClick(record.asn, "ASN")}
+                    >
+                      {record.asn || 'N/A'}
+                    </TableCell>
+                    <TableCell 
+                      className="p-1 cursor-pointer font-medium" 
+                      onClick={() => handleCellClick(record.studentName, "Student Name")}
+                    >
+                      {record.studentName || 'N/A'}
+                    </TableCell>
+                    <TableCell 
+                      className="p-1 cursor-pointer" 
+                      onClick={() => handleCellClick(record.courseCode, "Course")}
+                    >
+                      {record.courseCode} - {record.courseDescription || 'N/A'}
+                    </TableCell>
+                    <TableCell 
+                      className="p-1 cursor-pointer" 
+                      onClick={() => handleCellClick(record.StudentType_Value, "Student Type")}
+                    >
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                        {record.StudentType_Value}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center w-8">
+                      <AlertTriangle className="h-4 w-4 text-amber-500 inline-block" />
+                    </TableCell>
+                    <TableCell 
+                      className="p-1 cursor-pointer" 
+                      onClick={() => handleCellClick(record.pasiTerm, "PASI Term")}
+                    >
+                      <Badge 
+                        variant="secondary" 
+                        className="bg-amber-100 text-amber-800 border border-amber-300"
+                      >
+                        {record.pasiTerm}
+                      </Badge>
+                      <div className="text-xs text-amber-700 mt-1">{explanation}</div>
+                    </TableCell>
+                    <TableCell className="p-1 w-28 max-w-28">
+                      <PasiActionButtons 
+                        asn={record.asn} 
+                        referenceNumber={record.referenceNumber} 
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            No term conflicts found.
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+export default TermConflicts;

@@ -50,6 +50,7 @@ import PasiRecords from '../TeacherDashboard/pasiRecords';
 import { processCsvFile, applyChanges } from '../utils/pasiCsvUtils';
 import PASIPreviewDialog from './PASIPreviewDialog'; 
 import StatusConflicts from '../TeacherDashboard/StatusConflicts';
+import TermConflicts from '../TeacherDashboard/TermConflicts';
 
 // Validation rules for status compatibility
 const ValidationRules = {
@@ -126,6 +127,9 @@ const PASIDataUpload = () => {
   const [statusMismatchDialogOpen, setStatusMismatchDialogOpen] = useState(false);
   const [selectedMismatch, setSelectedMismatch] = useState(null);
   
+  // Term mismatch state
+  const [recordsWithTermMismatch, setRecordsWithTermMismatch] = useState([]);
+  
   // New state for deletion operations
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
@@ -173,6 +177,31 @@ const PASIDataUpload = () => {
   // Update PASI records from context - we use pasiStudentSummariesCombined for better data
   useEffect(() => {
     if (pasiStudentSummariesCombined) {
+      // Debug log to check the exact structure of the first few records
+      console.log("pasiStudentSummariesCombined first 2 records:", 
+        pasiStudentSummariesCombined.slice(0, 2).map(r => ({
+          id: r.id,
+          studentName: r.studentName,
+          // Log all possible student type fields
+          studentType: r.studentType,
+          StudentType_Value: r.StudentType_Value,
+          StudentType: r.StudentType,
+          // Log all possible term fields  
+          term: r.term,
+          pasiTerm: r.pasiTerm,
+          Term: r.Term,
+          // Log nested fields if they exist
+          studentData: r.studentData ? { 
+            StudentType: r.studentData.StudentType ? r.studentData.StudentType.Value : null
+          } : null,
+          summaryData: r.summaryData ? {
+            Term: r.summaryData.Term ? r.summaryData.Term.Value : null
+          } : null,
+          // Log all top-level keys to see what's available
+          allKeys: Object.keys(r)
+        }))
+      );
+      
       setPasiRecords(pasiStudentSummariesCombined);
       setIsLoading(false);
       setIsLoadingCourseSummaries(false);
@@ -330,10 +359,92 @@ const filteredUnlinkedCount = useMemo(() => {
     return recordsWithMismatch;
   };
   
+  // Function to check for term conflicts based on student type and term
+  const checkTermConflicts = (pasiRecords) => {
+    console.log("Running checkTermConflicts with", pasiRecords.length, "records");
+    
+    const recordsWithMismatch = pasiRecords.filter(record => {
+      // Helper function to find student type from multiple possible locations
+      const findStudentType = (r) => {
+        // Try direct properties first
+        if (r.StudentType_Value) return r.StudentType_Value;
+        if (r.studentType) return r.studentType;
+        
+        // Check nested structures
+        if (r.studentData?.StudentType?.Value) return r.studentData.StudentType.Value;
+        if (r.summaryData?.StudentType?.Value) return r.summaryData.StudentType.Value;
+        
+        // Try other possible field names
+        return r.StudentType || null;
+      };
+      
+      // Helper function to find term from multiple possible locations
+      const findTerm = (r) => {
+        // Try direct properties first
+        if (r.pasiTerm) return r.pasiTerm;
+        if (r.term) return r.term;
+        
+        // Check nested structures
+        if (r.summaryData?.Term?.Value) return r.summaryData.Term.Value;
+        
+        // Try other possible field names
+        return r.Term || null;
+      };
+      
+      // Extract student type and term using our helper functions
+      const studentType = findStudentType(record);
+      const term = findTerm(record);
+      
+      // Skip if we couldn't find student type or term
+      if (!studentType || !term) {
+        console.log(`Skipping record for ${record.studentName || 'unknown'} - missing term (${term}) or student type (${studentType})`);
+        return false;
+      }
+      
+      // Skip if courseCode maps to courseId 1111 or 2000
+      if (record.courseCode) {
+        const courseId = COURSE_CODE_TO_ID[record.courseCode];
+        if (courseId === 1111 || courseId === 2000) {
+          return false;
+        }
+      }
+      
+      // For debugging
+      console.log(`Checking ${record.studentName}: Student Type = ${studentType}, Term = ${term}`);
+      
+      // Keep track of the values we found for display in the UI
+      record.displayStudentType = studentType;
+      record.displayTerm = term;
+      
+      // Check term conflicts:
+      // 1. If 'Summer Student' or 'Summer School', then term must be 'Summer'
+      if ((studentType === 'Summer Student' || studentType === 'Summer School') && term !== 'Summer') {
+        console.log(`Found mismatch: ${record.studentName} is ${studentType} but term is ${term}`);
+        return true;
+      }
+      
+      // 2. If 'Non-Primary' or 'Home Education', then term cannot be 'Summer'
+      if ((studentType === 'Non-Primary' || studentType === 'Home Education') && term === 'Summer') {
+        console.log(`Found mismatch: ${record.studentName} is ${studentType} but term is Summer`);
+        return true;
+      }
+      
+      return false;
+    });
+    
+    console.log("Found", recordsWithMismatch.length, "term mismatches");
+    if (recordsWithMismatch.length > 0) {
+      console.log("First term mismatch:", recordsWithMismatch[0]);
+    }
+    setRecordsWithTermMismatch(recordsWithMismatch);
+    return recordsWithMismatch;
+  };
+  
   // Update the useEffect to use the simplified check
   useEffect(() => {
     if (pasiStudentSummariesCombined && pasiStudentSummariesCombined.length > 0) {
       checkStatusMismatch(pasiStudentSummariesCombined);
+      checkTermConflicts(pasiStudentSummariesCombined);
     }
   }, [pasiStudentSummariesCombined]);
 
@@ -871,6 +982,17 @@ Updates Required
   )}
 </TabsTrigger>
 
+                  <TabsTrigger 
+  value="termConflicts"
+  className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+>
+  Term Change
+  {recordsWithTermMismatch.length > 0 && (
+    <Badge variant="destructive" className="ml-2 bg-purple-100 hover:bg-purple-100 text-purple-600">
+      {recordsWithTermMismatch.length}
+    </Badge>
+  )}
+</TabsTrigger>
                   
                   <TabsTrigger 
                     value="missingPasi"
@@ -924,6 +1046,13 @@ Updates Required
     recordsWithStatusMismatch={recordsWithStatusMismatch}
     onFixState={updateCourseState}
     onViewRecordDetails={handleViewRecordDetails}
+  />
+</TabsContent>
+
+                <TabsContent value="termConflicts">
+  {console.log("Rendering termConflicts tab with", recordsWithTermMismatch.length, "records")}
+  <TermConflicts 
+    recordsWithTermMismatch={recordsWithTermMismatch}
   />
 </TabsContent>
                 
