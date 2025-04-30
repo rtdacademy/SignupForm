@@ -14,7 +14,8 @@ import { Card, CardContent } from "../components/ui/card";
 import Courses from './Courses';
 import ImportantDates from './ImportantDates';
 import RegistrationSettings from './RegistrationSettings';
-import { BookOpen, Calendar, Settings} from 'lucide-react';
+import StudentDashboardNotifications from './StudentDashboardNotifications';
+import { BookOpen, Calendar, Settings, Megaphone } from 'lucide-react';
 
 
 function CoursesWithSheet() {
@@ -148,6 +149,13 @@ function CoursesWithSheet() {
       label: 'Registration Settings',
       description: 'Configure registration forms for different student types',
       color: 'bg-purple-500'
+    },
+    {
+      id: 'student-dashboard-notifications',
+      icon: <Megaphone className="h-5 w-5" />,
+      label: 'Student Dashboard Notifications',
+      description: 'Manage notifications for the student dashboard',
+      color: 'bg-yellow-500'
     }
   ];
 
@@ -180,6 +188,8 @@ function CoursesWithSheet() {
         );
       case 'registration-settings':
         return <RegistrationSettings />;
+      case 'student-dashboard-notifications':
+        return <StudentDashboardNotifications />;
       default:
         return null;
     }

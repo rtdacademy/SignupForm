@@ -122,6 +122,15 @@ const PasiAnalysisDashboard = ({ records, isOpen, onClose }) => {
           completedCount: 0,
           pendingCount: 0,
           recentlyRegistered: 0
+        },
+        // Add student type analytics
+        studentTypes: {
+          distribution: [],
+          statusByType: {},
+          gradesByType: {},
+          countsByType: {},
+          coursesByType: {},
+          creditsByType: {} // Add tracking for credits by student type
         }
       };
     }
@@ -134,6 +143,14 @@ const PasiAnalysisDashboard = ({ records, isOpen, onClose }) => {
     const registrationDateCounts = {};
     const gradeValues = [];
     const numericGrades = [];
+    
+    // Add student type tracking
+    const studentTypeCounts = {};
+    const studentTypeStatusCounts = {};
+    const studentTypeGrades = {};
+    const studentTypeCourses = {};
+    const studentTypeCredits = {}; // Add tracking for credits by student type
+    const studentTypeUniqueStudents = {}; // Track unique students by ASN for each student type
     
     let withMultipleRecordsCount = 0;
     let withoutMultipleRecordsCount = 0;
@@ -213,12 +230,71 @@ const PasiAnalysisDashboard = ({ records, isOpen, onClose }) => {
       } else {
         withoutMultipleRecordsCount++;
       }
+      
+      // Student Type analytics
+      const studentType = record.StudentType_Value || record.studentType_Value || record.studentType || 'Unknown';
+      if (studentType) {
+        // Count by student type
+        studentTypeCounts[studentType] = (studentTypeCounts[studentType] || 0) + 1;
+        
+        // Track status counts by student type
+        if (record.status) {
+          if (!studentTypeStatusCounts[studentType]) {
+            studentTypeStatusCounts[studentType] = {};
+          }
+          studentTypeStatusCounts[studentType][record.status] = 
+            (studentTypeStatusCounts[studentType][record.status] || 0) + 1;
+        }
+        
+        // Track total credits by student type
+        if (record.creditsAttempted && record.creditsAttempted !== '-' && record.creditsAttempted !== 'N/A') {
+          if (!studentTypeCredits[studentType]) {
+            studentTypeCredits[studentType] = {
+              totalCredits: 0,
+              recordsWithCredits: 0
+            };
+          }
+          
+          // Parse the credits - convert string to number
+          const creditsValue = parseFloat(record.creditsAttempted);
+          if (!isNaN(creditsValue)) {
+            studentTypeCredits[studentType].totalCredits += creditsValue;
+            studentTypeCredits[studentType].recordsWithCredits += 1;
+          }
+        }
+        
+        // Track unique students by ASN for each student type
+        if (record.asn) {
+          if (!studentTypeUniqueStudents[studentType]) {
+            studentTypeUniqueStudents[studentType] = new Set();
+          }
+          studentTypeUniqueStudents[studentType].add(record.asn);
+        }
+      }
+    });
+    
+    // Update the studentTypeCredits object with unique student count
+    Object.keys(studentTypeCredits).forEach(type => {
+      if (studentTypeUniqueStudents[type]) {
+        studentTypeCredits[type].uniqueStudentCount = studentTypeUniqueStudents[type].size;
+      } else {
+        studentTypeCredits[type].uniqueStudentCount = 0;
+      }
     });
     
     // Calculate average grade
     const averageGrade = numericGrades.length > 0 
       ? (numericGrades.reduce((sum, grade) => sum + grade, 0) / numericGrades.length).toFixed(1)
       : 0;
+    
+    // Calculate average grades by student type
+    Object.keys(studentTypeGrades).forEach(type => {
+      const numericGradesForType = studentTypeGrades[type].numericGrades;
+      if (numericGradesForType.length > 0) {
+        studentTypeGrades[type].averageGrade = 
+          (numericGradesForType.reduce((sum, grade) => sum + grade, 0) / numericGradesForType.length).toFixed(1);
+      }
+    });
     
     // Transform into arrays for charts
     
@@ -300,6 +376,14 @@ const PasiAnalysisDashboard = ({ records, isOpen, onClose }) => {
         count
       }));
     
+    // Student type distribution for charts
+    const studentTypeDistribution = Object.entries(studentTypeCounts)
+      .sort((a, b) => b[1] - a[1]) // Sort by count descending
+      .map(([type, count]) => ({
+        name: type,
+        value: count
+      }));
+    
     return {
       totalRecords: records.length,
       statusDistribution,
@@ -315,7 +399,7 @@ const PasiAnalysisDashboard = ({ records, isOpen, onClose }) => {
       },
       multipleRecords: {
         withMultiple: withMultipleRecordsCount,
-        withoutMultiple: withoutMultipleRecordsCount
+        withoutMultipleRecordsCount
       },
       workItemsDistribution,
       summaryStats: {
@@ -323,6 +407,14 @@ const PasiAnalysisDashboard = ({ records, isOpen, onClose }) => {
         completedCount,
         pendingCount,
         recentlyRegistered: recentlyRegisteredCount
+      },
+      studentTypes: {
+        distribution: studentTypeDistribution,
+        statusByType: studentTypeStatusCounts,
+        gradesByType: studentTypeGrades,
+        countsByType: studentTypeCounts,
+        coursesByType: studentTypeCourses,
+        creditsByType: studentTypeCredits
       }
     };
   }, [records]);
@@ -426,7 +518,7 @@ ${analytics.workItemsDistribution
   
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full md:max-w-[800px] sm:max-w-full overflow-y-auto" side="right">
+      <SheetContent className="w-full md:max-w-[90%] sm:max-w-full overflow-y-auto" side="right">
         <SheetHeader className="pb-4 border-b">
           <SheetTitle className="text-lg flex items-center">
             <BarChart4 className="mr-2 h-5 w-5" /> PASI Records Analysis Dashboard
@@ -525,6 +617,9 @@ ${analytics.workItemsDistribution
               </TabsTrigger>
               <TabsTrigger value="workitems" className="flex items-center">
                 <AlertTriangle className="h-4 w-4 mr-1" /> Work Items
+              </TabsTrigger>
+              <TabsTrigger value="studenttypes" className="flex items-center">
+                <Users className="h-4 w-4 mr-1" /> Student Types
               </TabsTrigger>
             </TabsList>
             
@@ -917,6 +1012,360 @@ ${analytics.workItemsDistribution
                     </li>
                   ))}
                 </ul>
+              </div>
+            </TabsContent>
+            
+            {/* Student Types Tab */}
+            <TabsContent value="studenttypes" className="mt-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Student Type Distribution</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="h-[250px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={analytics.studentTypes.distribution}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {analytics.studentTypes.distribution.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value) => [value, 'Records']} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-violet-50 border-violet-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-medium text-violet-800">Student Type Summary</h3>
+                    </div>
+                    <div className="space-y-3 max-h-[250px] overflow-auto pr-2">
+                      {analytics.studentTypes.distribution.map((type, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm border-b border-violet-100 pb-2">
+                          <span className="text-violet-700 font-medium">{type.name}</span>
+                          <div className="flex items-center">
+                            <span>{type.value} records</span>
+                            <Badge variant="outline" className="ml-2 bg-violet-100 text-violet-800 border-violet-300">
+                              {analytics.totalRecords ? ((type.value / analytics.totalRecords) * 100).toFixed(1) : 0}%
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Academic Performance by Student Type</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={Object.entries(analytics.studentTypes.gradesByType)
+                          .filter(([type, data]) => data.averageGrade > 0) // Only include types with grade data
+                          .map(([type, data]) => ({
+                            name: type,
+                            averageGrade: parseFloat(data.averageGrade),
+                            count: data.count
+                          }))}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={60} />
+                        <YAxis domain={[0, 100]} />
+                        <Tooltip 
+                          formatter={(value, name, props) => {
+                            if (name === 'averageGrade') return [value, 'Average Grade'];
+                            return [value, 'Records with Grades']; 
+                          }}
+                        />
+                        <Legend />
+                        <Bar dataKey="averageGrade" name="Average Grade" fill="#8b5cf6" />
+                        <Bar dataKey="count" name="Records with Grades" fill="#c4b5fd" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Course Preferences by Student Type */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Course Preferences by Student Type</CardTitle>
+                  <CardDescription>Top courses taken by each student type</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue={analytics.studentTypes.distribution[0]?.name || "all"} className="w-full">
+                    <TabsList className="w-full justify-start flex-wrap border-b pb-px mb-4">
+                      {analytics.studentTypes.distribution.map((type, index) => (
+                        <TabsTrigger key={index} value={type.name} className="text-xs">
+                          {type.name}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+
+                    {analytics.studentTypes.distribution.map((type, index) => {
+                      const courseData = analytics.studentTypes.coursesByType[type.name];
+                      if (!courseData) return null;
+
+                      // Format data for chart
+                      const formattedData = Object.entries(courseData)
+                        .sort(([, countA], [, countB]) => countB - countA)
+                        .slice(0, 7) // Top 7 courses
+                        .map(([course, count]) => ({
+                          name: course,
+                          count
+                        }));
+
+                      return (
+                        <TabsContent key={index} value={type.name} className="mt-0">
+                          <div className="h-[250px]">
+                            {formattedData.length > 0 ? (
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart
+                                  data={formattedData}
+                                  layout="vertical"
+                                  margin={{ top: 5, right: 30, left: 70, bottom: 5 }}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis type="number" />
+                                  <YAxis type="category" dataKey="name" width={65} />
+                                  <Tooltip formatter={(value) => [value, 'Records']} />
+                                  <Bar dataKey="count" fill={COLORS[index % COLORS.length]} />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            ) : (
+                              <div className="h-full flex items-center justify-center text-gray-500">
+                                No course data available for this student type
+                              </div>
+                            )}
+                          </div>
+                        </TabsContent>
+                      );
+                    })}
+                  </Tabs>
+                </CardContent>
+              </Card>
+              
+              {/* Status Analysis by Student Type */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Status Analysis by Student Type</CardTitle>
+                  <CardDescription>Completion and status metrics for each student type</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {analytics.studentTypes.distribution.map((type, index) => {
+                      const statusData = analytics.studentTypes.statusByType[type.name];
+                      if (!statusData) return null;
+
+                      // Format status data
+                      const statuses = Object.entries(statusData).map(([status, count]) => ({
+                        status,
+                        count,
+                        percentage: ((count / analytics.studentTypes.countsByType[type.name]) * 100).toFixed(1)
+                      }));
+
+                      // Calculate completion percentage
+                      const completedCount = statusData['Completed'] || 0;
+                      const totalCount = analytics.studentTypes.countsByType[type.name];
+                      const completionPercentage = ((completedCount / totalCount) * 100).toFixed(1);
+
+                      return (
+                        <div key={index} className="pb-4 border-b border-gray-200 last:border-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium text-sm">{type.name}</h4>
+                            <Badge 
+                              style={{ 
+                                backgroundColor: `${COLORS[index % COLORS.length]}20`,
+                                color: COLORS[index % COLORS.length],
+                                borderColor: `${COLORS[index % COLORS.length]}40`
+                              }}
+                            >
+                              {totalCount} records
+                            </Badge>
+                          </div>
+                          
+                          {/* Status breakdown */}
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {statuses.map((status, statusIndex) => (
+                              <Badge 
+                                key={statusIndex}
+                                variant="outline" 
+                                className="text-xs"
+                                style={{
+                                  backgroundColor: status.status === 'Completed' ? '#d1fae5' : 
+                                                  status.status === 'Active' ? '#e0f2fe' : '#f3f4f6',
+                                  color: status.status === 'Completed' ? '#065f46' :
+                                        status.status === 'Active' ? '#0369a1' : '#4b5563',
+                                  borderColor: status.status === 'Completed' ? '#a7f3d0' :
+                                              status.status === 'Active' ? '#bae6fd' : '#e5e7eb',
+                                }}
+                              >
+                                {status.status}: {status.count} ({status.percentage}%)
+                              </Badge>
+                            ))}
+                          </div>
+
+                          {/* Completion progress */}
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-gray-600">Completion Rate</span>
+                              <span className="font-medium">{completionPercentage}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="h-2 rounded-full" 
+                                style={{ 
+                                  width: `${completionPercentage}%`, 
+                                  backgroundColor: COLORS[index % COLORS.length] 
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Average Grade Analysis */}
+              <div className="bg-indigo-50 p-4 rounded-lg">
+                <h3 className="text-sm font-medium text-indigo-800 mb-2 flex items-center">
+                  <Award className="h-4 w-4 mr-2" /> Performance Insights by Student Type
+                </h3>
+                <div className="space-y-3">
+                  {Object.entries(analytics.studentTypes.gradesByType)
+                    .sort(([, a], [, b]) => parseFloat(b.averageGrade) - parseFloat(a.averageGrade))
+                    .map(([type, data], index) => {
+                      if (parseFloat(data.averageGrade) <= 0) return null;
+                      
+                      return (
+                        <div key={index} className="flex items-center justify-between text-sm">
+                          <span className="text-indigo-700">{type}</span>
+                          <div className="flex items-center">
+                            <span className="font-medium text-indigo-800">
+                              Avg: {data.averageGrade}
+                            </span>
+                            <Badge variant="outline" className="ml-2 bg-indigo-100 text-indigo-800 border-indigo-300">
+                              {data.count} records
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              {/* Credits Analysis by Student Type */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Credits Analysis by Student Type</CardTitle>
+                  <CardDescription>Total credits attempted by each student type</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={Object.entries(analytics.studentTypes.creditsByType)
+                          .filter(([type, data]) => data.totalCredits > 0) 
+                          .map(([type, data]) => ({
+                            name: type,
+                            totalCredits: data.totalCredits,
+                            recordsWithCredits: data.recordsWithCredits,
+                            avgCredits: parseFloat((data.totalCredits / data.recordsWithCredits).toFixed(1)),
+                            avgCreditsPerStudent: parseFloat((data.totalCredits / data.uniqueStudentCount).toFixed(1))
+                          }))}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 25 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={60} />
+                        <YAxis />
+                        <Tooltip 
+                          formatter={(value, name) => {
+                            if (name === 'totalCredits') return [value, 'Total Credits'];
+                            if (name === 'avgCredits') return [value, 'Avg Credits per Record'];
+                            if (name === 'avgCreditsPerStudent') return [value, 'Avg Credits per Student'];
+                            return [value, 'Records with Credits']; 
+                          }}
+                        />
+                        <Legend />
+                        <Bar dataKey="totalCredits" name="Total Credits" fill="#0ea5e9" />
+                        <Bar dataKey="avgCredits" name="Avg Credits per Record" fill="#6366f1" />
+                        <Bar dataKey="avgCreditsPerStudent" name="Avg Credits per Student" fill="#65a30d" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="text-sm font-medium text-blue-800 mb-2 flex items-center">
+                  <BookOpen className="h-4 w-4 mr-2" /> Credits Summary by Student Type
+                </h3>
+                <div className="space-y-3 mt-3">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-blue-700 border-b border-blue-200">
+                        <th className="text-left py-1">Student Type</th>
+                        <th className="text-right py-1">Total Credits</th>
+                        <th className="text-right py-1">Records</th>
+                        <th className="text-right py-1">Avg Credits</th>
+                        <th className="text-right py-1">Number of Students</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(analytics.studentTypes.creditsByType)
+                        .sort(([, a], [, b]) => b.totalCredits - a.totalCredits)
+                        .map(([type, data], index) => {
+                          if (data.totalCredits <= 0) return null;
+                          const avgCredits = data.uniqueStudentCount > 0 ? 
+                            (data.totalCredits / data.uniqueStudentCount).toFixed(1) : '0.0';
+                          
+                          return (
+                            <tr key={index} className="border-b border-blue-100 last:border-0">
+                              <td className="py-2 text-blue-800 font-medium">{type}</td>
+                              <td className="py-2 text-right text-blue-700 font-medium">{data.totalCredits}</td>
+                              <td className="py-2 text-right text-blue-600">{data.recordsWithCredits}</td>
+                              <td className="py-2 text-right text-blue-700">{avgCredits}</td>
+                              <td className="py-2 text-right text-blue-700">{data.uniqueStudentCount || 0}</td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-blue-100 font-medium">
+                          <td className="py-2 text-blue-900">Total</td>
+                          <td className="py-2 text-right text-blue-900">
+                            {Object.values(analytics.studentTypes.creditsByType).reduce((sum, data) => sum + data.totalCredits, 0)}
+                          </td>
+                          <td className="py-2 text-right text-blue-900">
+                            {Object.values(analytics.studentTypes.creditsByType).reduce((sum, data) => sum + data.recordsWithCredits, 0)}
+                          </td>
+                          <td className="py-2 text-right text-blue-900"></td>
+                          <td className="py-2 text-right text-blue-900">
+                            {Object.values(analytics.studentTypes.creditsByType).reduce((sum, data) => sum + (data.uniqueStudentCount || 0), 0)}
+                          </td>
+                        </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </TabsContent>
           </Tabs>

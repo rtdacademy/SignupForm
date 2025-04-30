@@ -399,6 +399,7 @@ export const COURSE_CODE_TO_ID = {
   "CSE1220": 1111, // Client-side Scripting 2
   "CSE2110": 1111, // Client-side Scripting 3
   "CSE1910": 1111, // CSE Project A
+  "CSE3120": 1111, 
 
   // the number 2000 is used to indicate that the course can be linked to any courseId
   "COM1255": 2000,   // E-Learning & Learning Management Systems

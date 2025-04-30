@@ -21,15 +21,25 @@ import {
   Loader2,
   Code,
   FileText,
-  Filter
+  Filter,
+  Mail,
+  Info
 } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../components/ui/pagination";
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious 
+} from "../components/ui/pagination";
 import { toast } from 'sonner';
 import PasiActionButtons from "../components/PasiActionButtons";
 import { COURSE_CODE_TO_ID } from '../config/DropdownOptions';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -50,8 +60,13 @@ const formatUserFriendlyDate = (dateValue) => {
 };
 
 const MissingYourWay = () => {
-  // Get unlinkedPasiRecords from context
-  const { unlinkedPasiRecords, isLoadingStudents } = useSchoolYear();
+  // Get required data from context
+  const { 
+    pasiStudentSummariesCombined, 
+    studentSummaries, 
+    asnsRecords, 
+    isLoadingStudents 
+  } = useSchoolYear();
   
   // State for selected record
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -66,11 +81,89 @@ const MissingYourWay = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortState, setSortState] = useState({ column: 'studentName', direction: 'asc' });
 
+  // Create a mapping of ASNs to their emailKeys from asnsRecords
+  const asnToEmailKeysMap = useMemo(() => {
+    const map = {};
+    
+    asnsRecords.forEach(record => {
+      if (record.id && record.emailKeys) {
+        map[record.id] = Object.keys(record.emailKeys);
+      }
+    });
+    
+    return map;
+  }, [asnsRecords]);
+
+  // Create a mapping of courseCode to courseId
+  const courseCodeToIdMap = useMemo(() => {
+    return COURSE_CODE_TO_ID || {};
+  }, []);
+
+  // Find student summary records with alternative emails for the same ASN
+  const findAlternativeEmailRecords = useMemo(() => {
+    const alternativeRecordsMap = {};
+    
+    pasiStudentSummariesCombined.forEach(record => {
+      if (!record.asn) return;
+      
+      const emailKeys = asnToEmailKeysMap[record.asn] || [];
+      if (emailKeys.length <= 1) return;
+      
+      // For the current record, find alternative emailKeys
+      const currentEmail = record.email || record.StudentEmail || '';
+      const alternativeEmails = emailKeys.filter(email => email !== currentEmail);
+      
+      if (alternativeEmails.length === 0) return;
+      
+      // Try to find existing summaries for these alternative emails
+      // with matching course data
+      const courseId = courseCodeToIdMap[record.courseCode] || '';
+      const alternativeSummaries = [];
+      
+      alternativeEmails.forEach(email => {
+        // Summary key format is {emailKey}_{courseId}
+        const potentialSummaryKey = `${email}_${courseId}`;
+        
+        // Look for matching summaries
+        const matchingSummaries = studentSummaries.filter(summary => 
+          summary.id === potentialSummaryKey ||
+          (summary.StudentEmail === email && summary.CourseID === courseId)
+        );
+        
+        if (matchingSummaries.length > 0) {
+          alternativeSummaries.push(...matchingSummaries.map(summary => ({
+            email: email,
+            summary: summary
+          })));
+        }
+      });
+      
+      if (alternativeSummaries.length > 0) {
+        alternativeRecordsMap[record.id || record.referenceNumber] = {
+          alternativeEmails,
+          alternativeSummaries
+        };
+      }
+    });
+    
+    return alternativeRecordsMap;
+  }, [pasiStudentSummariesCombined, asnToEmailKeysMap, studentSummaries, courseCodeToIdMap]);
+
   // Process the records with filtering
   const processedRecords = useMemo(() => {
-    let filteredRecords = [...unlinkedPasiRecords];
+    // First filter for records with null or "missing" StudentType_Value
+    let filteredRecords = pasiStudentSummariesCombined.filter(record => 
+      record.StudentType_Value === null || record.StudentType_Value === "missing"
+    );
 
-    // Apply filter if toggle is on
+    // Filter out records with courseId values of 1111 or 2000
+    filteredRecords = filteredRecords.filter(record => {
+      const courseId = COURSE_CODE_TO_ID[record.courseCode];
+      // Keep the record only if courseId is NOT 1111 or 2000
+      return courseId !== 1111 && courseId !== 2000;
+    });
+
+    // Apply additional filters if toggle is on
     if (filterCompletedCourses) {
       filteredRecords = filteredRecords.filter(record => {
         // Keep the record if it's not completed
@@ -87,20 +180,27 @@ const MissingYourWay = () => {
       });
     }
 
-    return filteredRecords.map(record => ({
-      ...record,
-      asn: record.asn || '',
-      studentName: record.studentName || '',
-      courseCode: record.courseCode || '',
-      status: record.status || '',
-      email: record.email || '',
-      pasiTerm: record.pasiTerm || record.term || '', 
-      referenceNumber: record.referenceNumber || '',
-      courseDescription: record.courseDescription || '',
-      exitDate: formatUserFriendlyDate(record.exitDate),
-      lastUpdated: formatUserFriendlyDate(record.lastUpdated),
-    }));
-  }, [unlinkedPasiRecords, filterCompletedCourses]);
+    return filteredRecords.map(record => {
+      const recordId = record.id || record.referenceNumber;
+      const hasAlternativeRecords = recordId in findAlternativeEmailRecords;
+      
+      return {
+        ...record,
+        asn: record.asn || '',
+        studentName: record.studentName || '',
+        courseCode: record.courseCode || '',
+        status: record.status || '',
+        email: record.email || '',
+        pasiTerm: record.pasiTerm || record.term || '', 
+        referenceNumber: record.referenceNumber || '',
+        courseDescription: record.courseDescription || '',
+        exitDate: formatUserFriendlyDate(record.exitDate),
+        lastUpdated: formatUserFriendlyDate(record.lastUpdated),
+        hasAlternativeRecords,
+        alternativeRecordsInfo: hasAlternativeRecords ? findAlternativeEmailRecords[recordId] : null
+      };
+    });
+  }, [pasiStudentSummariesCombined, filterCompletedCourses, findAlternativeEmailRecords]);
 
   // Handle record selection
   const handleRecordSelect = (record) => {
@@ -293,14 +393,50 @@ const MissingYourWay = () => {
     );
   };
 
+  // Render alternative email records info
+  const renderAlternativeEmailInfo = (record) => {
+    if (!record.hasAlternativeRecords) return null;
+    
+    const { alternativeEmails, alternativeSummaries } = record.alternativeRecordsInfo;
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 rounded-full bg-amber-100 text-amber-800 hover:bg-amber-200"
+            >
+              <Mail className="h-3 w-3" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <div className="text-xs p-1">
+              <p className="font-medium mb-1">Found {alternativeSummaries.length} record(s) with alternative email(s):</p>
+              <ul className="list-disc list-inside">
+                {alternativeSummaries.map((item, idx) => (
+                  <li key={idx}>
+                    <span className="font-semibold">{item.email}</span>
+                    {item.summary.StudentType_Value && (
+                      <span className="ml-1">
+                        (Student Type: <span className="font-medium">{item.summary.StudentType_Value}</span>)
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   return (
     <div className="container mx-auto p-4">
-    
-      
       {/* Main content */}
       <div className="mb-4 flex justify-between items-center">
-       
-        
         {/* Toggles */}
         <div className="flex gap-2">
           {/* Filter Toggle */}
@@ -327,7 +463,7 @@ const MissingYourWay = () => {
         </div>
       </div>
   
-      {/* Unlinked PASI Records Table */}
+      {/* Records Table */}
       <div className="bg-white rounded-lg shadow-md p-4 overflow-x-auto">
         {isLoadingStudents ? (
           <div className="flex items-center justify-center py-8">
@@ -357,15 +493,17 @@ const MissingYourWay = () => {
             )}
           
             <Table className="text-xs w-full">
-              <TableCaption className="text-xs">PASI Records Not Linked to Student Summaries</TableCaption>
+              <TableCaption className="text-xs">PASI Records With Missing Student Type</TableCaption>
               <TableHeader>
                 <TableRow>
                   <SortableHeader column="asn" label="ASN" />
                   <SortableHeader column="studentName" label="Student Name" />
+                  <TableHead className="px-2 py-1 text-xs">Alt Email</TableHead>
                   <SortableHeader column="courseCode" label="Course Code" />
                   <SortableHeader column="status" label="Status" />
                   <SortableHeader column="email" label="Email" />
                   <SortableHeader column="pasiTerm" label="Term" />
+                  <SortableHeader column="schoolYear" label="School Year" />
                   <TableHead className="px-2 py-1 text-xs">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -374,6 +512,9 @@ const MissingYourWay = () => {
                   <TableRow key={record.id || record.referenceNumber} className="cursor-pointer hover:bg-gray-50" onClick={() => handleRecordSelect(record)}>
                     <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.asn, "ASN"); }}>{record.asn || 'N/A'}</TableCell>
                     <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.studentName, "Student Name"); }}>{record.studentName || 'N/A'}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()} className="text-center">
+                      {renderAlternativeEmailInfo(record)}
+                    </TableCell>
                     <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.courseCode, "Course Code"); }}>{record.courseCode || 'N/A'}</TableCell>
                     <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.status, "Status"); }}>
                       <Badge 
@@ -391,6 +532,7 @@ const MissingYourWay = () => {
                     </TableCell>
                     <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.email, "Email"); }}>{record.email || 'N/A'}</TableCell>
                     <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.pasiTerm, "Term"); }}>{record.pasiTerm || 'N/A'}</TableCell>
+                    <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.schoolYear, "School Year"); }}>{record.schoolYear || 'N/A'}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <PasiActionButtons asn={record.asn} referenceNumber={record.referenceNumber} />
                     </TableCell>
@@ -401,7 +543,7 @@ const MissingYourWay = () => {
           </>
         ) : (
           <div className="text-center py-8 text-gray-500 text-sm">
-            No unlinked PASI records found for the current school year.
+            No records with missing student type found for the current school year.
           </div>
         )}
       </div>
@@ -415,10 +557,15 @@ const MissingYourWay = () => {
           <CardHeader className="py-3">
             <CardTitle className="text-base flex items-center gap-2">
               <FileText className="h-4 w-4" /> 
-              Unlinked PASI Record Details
+              Record Details
               <Badge variant="destructive" className="ml-2">
-                <AlertTriangle className="h-3 w-3 mr-1" /> Not Linked
+                <AlertTriangle className="h-3 w-3 mr-1" /> Missing Student Type
               </Badge>
+              {selectedRecord.hasAlternativeRecords && (
+                <Badge variant="warning" className="ml-1 bg-amber-100 text-amber-800 border-amber-200">
+                  <Mail className="h-3 w-3 mr-1" /> Alternative Email Exists
+                </Badge>
+              )}
             </CardTitle>
             <CardDescription className="text-xs">
               {selectedRecord.studentName} - {selectedRecord.courseCode} ({selectedRecord.courseDescription})
@@ -443,6 +590,9 @@ const MissingYourWay = () => {
                   
                   <dt className="font-medium text-gray-500">Last Updated:</dt>
                   <dd>{selectedRecord.lastUpdated || 'N/A'}</dd>
+                  
+                  <dt className="font-medium text-gray-500">StudentType:</dt>
+                  <dd>{selectedRecord.StudentType_Value || 'Missing'}</dd>
                 </dl>
               </div>
               
@@ -478,9 +628,47 @@ const MissingYourWay = () => {
                   
                   <dt className="font-medium text-gray-500">Exit Date:</dt>
                   <dd>{selectedRecord.exitDate || 'N/A'}</dd>
+                  
+                  <dt className="font-medium text-gray-500">Link Status:</dt>
+                  <dd>{selectedRecord.linkStatus || 'N/A'}</dd>
                 </dl>
               </div>
             </div>
+            
+            {/* Alternative Email Records Section */}
+            {selectedRecord.hasAlternativeRecords && (
+              <div className="mt-4 p-3 border rounded-md bg-amber-50 border-amber-200">
+                <h3 className="font-medium text-sm flex items-center mb-2">
+                  <Mail className="h-4 w-4 mr-1 text-amber-600" /> 
+                  Alternative Email Records Found
+                </h3>
+                <div className="space-y-2">
+                  {selectedRecord.alternativeRecordsInfo.alternativeSummaries.map((item, idx) => (
+                    <div key={idx} className="p-2 bg-white rounded border border-amber-200">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">{item.email}</span>
+                        <Badge className="text-xs">
+                          Student Type: {item.summary.StudentType_Value || 'N/A'}
+                        </Badge>
+                      </div>
+                      <div className="mt-1 text-gray-600">
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                          <div>
+                            <span className="font-medium">Course ID:</span> {item.summary.CourseID || 'N/A'}
+                          </div>
+                          <div>
+                            <span className="font-medium">Status:</span> {item.summary.Status_Value || 'N/A'}
+                          </div>
+                          <div className="col-span-2">
+                            <span className="font-medium">Summary Key:</span> {item.summary.id || 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             
             {/* Full Record Data Display */}
             <div className="mt-4">

@@ -151,21 +151,37 @@ const PASIDataUpload = () => {
   const [filteredMissingWithEmail, setFilteredMissingWithEmail] = useState([]);
   const [isFilteringMissingWithEmail, setIsFilteringMissingWithEmail] = useState(false);
 
+  // New state variables
+const [readyForPasiCount, setReadyForPasiCount] = useState(0);
+const [isFilteringReadyForPasi, setIsFilteringReadyForPasi] = useState(false);
+
+useEffect(() => {
+  const fetchReadyForPasiCount = async () => {
+    if (!unmatchedStudentSummaries) {
+      setReadyForPasiCount(0);
+      return;
+    }
+    
+    setIsFilteringReadyForPasi(true);
+    try {
+      // The second parameter (true) means filter by payment status
+      const readyRecords = await enhancedFilterRecords(unmatchedStudentSummaries, true);
+      setReadyForPasiCount(readyRecords.length);
+    } catch (e) {
+      console.error('Error filtering ready-for-PASI records:', e);
+      setReadyForPasiCount(0);
+    } finally {
+      setIsFilteringReadyForPasi(false);
+    }
+  };
   
+  fetchReadyForPasiCount();
+}, [unmatchedStudentSummaries]);
 
-  // Update local school year when context changes
-  useEffect(() => {
-    if (currentSchoolYear && !selectedSchoolYear) {
-      setSelectedSchoolYear(currentSchoolYear);
-    }
-  }, [currentSchoolYear, selectedSchoolYear]);
-
-  // Update context when local selection changes
-  useEffect(() => {
-    if (selectedSchoolYear && selectedSchoolYear !== currentSchoolYear) {
-      setCurrentSchoolYear(selectedSchoolYear);
-    }
-  }, [selectedSchoolYear, currentSchoolYear, setCurrentSchoolYear]);
+// Update local school year when context changes
+useEffect(() => {
+  setSelectedSchoolYear(currentSchoolYear);
+}, [currentSchoolYear]);
 
   // Update school year options from context
   useEffect(() => {
@@ -692,7 +708,7 @@ const filteredUnlinkedCount = useMemo(() => {
       let deletedCount = 0;
       
       // Process in batches to avoid Firebase limits
-      const BATCH_SIZE = 400; // Adjust this number based on Firebase limits
+      const BATCH_SIZE = 200; // Adjust this number based on Firebase limits
       const batches = [];
       
       // Split records into batches
@@ -999,13 +1015,17 @@ Updates Required
                     className="text-lg font-medium data-[state=active]:bg-blue-600 data-[state=active]:text-white"
                   >
                     Add to PASI
-                    {isFilteringMissingWithEmail
-                      ? <Loader2 className="h-4 w-4 animate-spin text-primary ml-2" />
-                      : filteredMissingWithEmail.length > 0 && (
-                          <Badge variant="destructive" className="ml-2 bg-red-100 hover:bg-red-100 text-red-600">
-                            {filteredMissingWithEmail.length}
-                          </Badge>
-                        )}
+  {isFilteringReadyForPasi ? (
+    <Loader2 className="h-4 w-4 animate-spin text-primary ml-2" />
+  ) : readyForPasiCount > 0 ? (
+    <Badge variant="destructive" className="ml-2 bg-red-100 hover:bg-red-100 text-red-600">
+      {readyForPasiCount}
+    </Badge>
+  ) : filteredMissingWithEmail.length > 0 ? (
+    <Badge variant="outline" className="ml-2 bg-gray-100 hover:bg-gray-100 text-gray-600">
+      {filteredMissingWithEmail.length}
+    </Badge>
+  ) : null}
                   </TabsTrigger>
 
                   <TabsTrigger 

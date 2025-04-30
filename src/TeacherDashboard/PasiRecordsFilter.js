@@ -335,6 +335,43 @@ const studentHasCourse = (asn, courseCode, allRecords) => {
       pasiTerms: []
     };
     
+    // Count blanks for each field to display in the UI
+    const blankCounts = {
+      status: 0,
+      term: 0,
+      courseCode: 0,
+      workItems: 0,
+      StudentType_Value: 0,
+      ActiveFutureArchived_Value: 0,
+      DiplomaMonthChoices_Value: 0,
+      Status_Value: 0,
+      payment_status: 0,
+      approved: 0,
+      deleted: 0,
+      dualEnrolment: 0,
+      schoolEnrolment: 0,
+      pasiTerm: 0
+    };
+    
+    // First pass: count blank values
+    pasiStudentSummariesCombined.forEach(record => {
+      // Check each field for blank/null values
+      Object.keys(blankCounts).forEach(key => {
+        if (!record[key] || record[key] === '-' || record[key] === 'N/A' || record[key] === '') {
+          blankCounts[key]++;
+        }
+      });
+    });
+    
+    // Helper function to add blank option to options array if there are blank values
+    const addBlankOption = (options, field) => {
+      if (blankCounts[field] > 0) {
+        return [`(Blank) (${blankCounts[field]})`, ...options];
+      }
+      return options;
+    };
+    
+    // Get non-blank values
     const statuses = [...new Set(pasiStudentSummariesCombined.map(record => record.status).filter(Boolean))];
     
     // Get terms from both main records and nested multipleRecords
@@ -371,23 +408,25 @@ const studentHasCourse = (asn, courseCode, allRecords) => {
     const pasiWorkItems = [...new Set(pasiStudentSummariesCombined.map(record => record.workItems).filter(Boolean))];
     const pasiTerms = [...new Set(pasiStudentSummariesCombined.map(record => record.pasiTerm).filter(Boolean))];
     
+    // Add blank options to each array
     return { 
-      statuses: statuses.sort(), 
-      terms: [...terms].sort(), 
-      courses: courses.sort(),
-      workItems: workItems.sort(),
-      studentTypes: studentTypes.sort(),
-      activeStatuses: activeStatuses.sort(),
-      diplomaMonths: diplomaMonths.sort(),
-      statusValues: statusValues.sort(),
-      paymentStatuses: paymentStatuses.sort(),
-      approved: approved.sort(),
-      deleted: deleted.sort(),
-      dualEnrolment: dualEnrolment.sort(),
-      schoolEnrolment: schoolEnrolment.sort(),
-      pasiStatuses: pasiStatuses.sort(),
-      pasiWorkItems: pasiWorkItems.sort(),
-      pasiTerms: pasiTerms.sort()
+      statuses: addBlankOption(statuses.sort(), 'status'), 
+      terms: addBlankOption([...terms].sort(), 'term'), 
+      courses: addBlankOption(courses.sort(), 'courseCode'),
+      workItems: addBlankOption(workItems.sort(), 'workItems'),
+      studentTypes: addBlankOption(studentTypes.sort(), 'StudentType_Value'),
+      activeStatuses: addBlankOption(activeStatuses.sort(), 'ActiveFutureArchived_Value'),
+      diplomaMonths: addBlankOption(diplomaMonths.sort(), 'DiplomaMonthChoices_Value'),
+      statusValues: addBlankOption(statusValues.sort(), 'Status_Value'),
+      paymentStatuses: addBlankOption(paymentStatuses.sort(), 'payment_status'),
+      approved: addBlankOption(approved.sort(), 'approved'),
+      deleted: addBlankOption(deleted.sort(), 'deleted'),
+      dualEnrolment: addBlankOption(dualEnrolment.sort(), 'dualEnrolment'),
+      schoolEnrolment: addBlankOption(schoolEnrolment.sort(), 'schoolEnrolment'),
+      pasiStatuses: addBlankOption(pasiStatuses.sort(), 'status'),
+      pasiWorkItems: addBlankOption(pasiWorkItems.sort(), 'workItems'),
+      pasiTerms: addBlankOption(pasiTerms.sort(), 'pasiTerm'),
+      blankCounts // Pass blank counts for potential UI display
     };
   }, [pasiStudentSummariesCombined]);
   
@@ -659,27 +698,35 @@ const studentHasCourse = (asn, courseCode, allRecords) => {
   }, []);
   
 
-
-
-  const applyFilters = () => {
+const applyFilters = () => {
     if (!pasiStudentSummariesCombined) {
       setFilteredRecords([]);
       onFilteredDataChange([]);
       return;
     }
 
-      // Pre-compute sets of students with specific courses for more efficient filtering
-  const com1255Students = new Set();
-  const inf2020Students = new Set();
-  
-  pasiStudentSummariesCombined.forEach(record => {
-    if (record.asn && record.courseCode === "COM1255") {
-      com1255Students.add(record.asn);
-    }
-    if (record.asn && record.courseCode === "INF2020") {
-      inf2020Students.add(record.asn);
-    }
-  });
+    // Pre-compute sets of students with specific courses for more efficient filtering
+    const com1255Students = new Set();
+    const inf2020Students = new Set();
+    
+    pasiStudentSummariesCombined.forEach(record => {
+      if (record.asn && record.courseCode === "COM1255") {
+        com1255Students.add(record.asn);
+      }
+      if (record.asn && record.courseCode === "INF2020") {
+        inf2020Students.add(record.asn);
+      }
+    });
+    
+    // Helper function to check if a field is blank/null
+    const isBlank = (value) => {
+      return value === undefined || value === null || value === '' || value === '-' || value === 'N/A';
+    };
+    
+    // Helper function to check if a filter value should match blanks
+    const includesBlankOption = (filterValues) => {
+      return filterValues.some(val => val && val.startsWith('(Blank)'));
+    };
     
     const filteredData = pasiStudentSummariesCombined.filter(record => {
       // Search term filter (search across multiple fields)
@@ -707,12 +754,23 @@ const studentHasCourse = (asn, courseCode, allRecords) => {
         if (!mainRecordMatch && !multipleRecordsMatch) return false;
       }
       
-  
-
-      
       // Course filter
-      if (courseFilter.length > 0 && record.courseCode && !courseFilter.includes(record.courseCode)) {
-        return false;
+      if (courseFilter.length > 0) {
+        const hasBlankOption = includesBlankOption(courseFilter);
+        if (isBlank(record.courseCode)) {
+          // If field is blank but we're not filtering for blanks
+          if (!hasBlankOption) return false;
+        } else {
+          // Field is not blank, check if it matches any non-blank filter values
+          const nonBlankFilterValues = courseFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.courseCode)) {
+            return false;
+          }
+          // If we're only filtering for blanks, this record should be excluded
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
       // Date range filter for registration date
@@ -798,9 +856,21 @@ const studentHasCourse = (asn, courseCode, allRecords) => {
       
       // Work Items filter
       if (workItemsFilter.length > 0) {
-        if (!record.workItems) return false;
-        if (!workItemsFilter.includes(record.workItems)) return false;
+        const hasBlankOption = includesBlankOption(workItemsFilter);
+        if (isBlank(record.workItems)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = workItemsFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.workItems)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
+      
+      // Course requirement filters
       if (hasCom1255Filter) {
         // First check if student has COM1255
         if (!record.asn || !com1255Students.has(record.asn)) 
@@ -841,67 +911,186 @@ const studentHasCourse = (asn, courseCode, allRecords) => {
           return false;
       }
       
-      
-      // YourWay Related filters
+      // YourWay Related filters with blank option handling
       if (studentTypeFilter.length > 0) {
-        if (!record.StudentType_Value) return false;
-        if (!studentTypeFilter.includes(record.StudentType_Value)) return false;
+        const hasBlankOption = includesBlankOption(studentTypeFilter);
+        if (isBlank(record.StudentType_Value)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = studentTypeFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.StudentType_Value)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
       if (activeStatusFilter.length > 0) {
-        if (!record.ActiveFutureArchived_Value) return false;
-        if (!activeStatusFilter.includes(record.ActiveFutureArchived_Value)) return false;
+        const hasBlankOption = includesBlankOption(activeStatusFilter);
+        if (isBlank(record.ActiveFutureArchived_Value)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = activeStatusFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.ActiveFutureArchived_Value)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
       if (diplomaMonthFilter.length > 0) {
-        if (!record.DiplomaMonthChoices_Value) return false;
-        if (!diplomaMonthFilter.includes(record.DiplomaMonthChoices_Value)) return false;
+        const hasBlankOption = includesBlankOption(diplomaMonthFilter);
+        if (isBlank(record.DiplomaMonthChoices_Value)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = diplomaMonthFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.DiplomaMonthChoices_Value)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
       if (statusValueFilter.length > 0) {
-        if (!record.Status_Value) return false;
-        if (!statusValueFilter.includes(record.Status_Value)) return false;
+        const hasBlankOption = includesBlankOption(statusValueFilter);
+        if (isBlank(record.Status_Value)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = statusValueFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.Status_Value)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
       if (paymentStatusFilter.length > 0) {
-        if (!record.payment_status) return false;
-        if (!paymentStatusFilter.includes(record.payment_status)) return false;
+        const hasBlankOption = includesBlankOption(paymentStatusFilter);
+        if (isBlank(record.payment_status)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = paymentStatusFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.payment_status)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
-      // PASI Related filters
+      // PASI Related filters with blank option handling
       if (approvedFilter.length > 0) {
-        if (!record.approved) return false;
-        if (!approvedFilter.includes(record.approved)) return false;
+        const hasBlankOption = includesBlankOption(approvedFilter);
+        if (isBlank(record.approved)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = approvedFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.approved)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
       if (deletedFilter.length > 0) {
-        if (!record.deleted) return false;
-        if (!deletedFilter.includes(record.deleted)) return false;
+        const hasBlankOption = includesBlankOption(deletedFilter);
+        if (isBlank(record.deleted)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = deletedFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.deleted)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
       if (dualEnrolmentFilter.length > 0) {
-        if (!record.dualEnrolment) return false;
-        if (!dualEnrolmentFilter.includes(record.dualEnrolment)) return false;
+        const hasBlankOption = includesBlankOption(dualEnrolmentFilter);
+        if (isBlank(record.dualEnrolment)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = dualEnrolmentFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.dualEnrolment)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
       if (schoolEnrolmentFilter.length > 0) {
-        if (!record.schoolEnrolment) return false;
-        if (!schoolEnrolmentFilter.includes(record.schoolEnrolment)) return false;
+        const hasBlankOption = includesBlankOption(schoolEnrolmentFilter);
+        if (isBlank(record.schoolEnrolment)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = schoolEnrolmentFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.schoolEnrolment)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
       if (pasiStatusFilter.length > 0) {
-        if (!record.status) return false;
-        if (!pasiStatusFilter.includes(record.status)) return false;
+        const hasBlankOption = includesBlankOption(pasiStatusFilter);
+        if (isBlank(record.status)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = pasiStatusFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.status)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
       if (pasiWorkItemsFilter.length > 0) {
-        if (!record.workItems) return false;
-        if (!pasiWorkItemsFilter.includes(record.workItems)) return false;
+        const hasBlankOption = includesBlankOption(pasiWorkItemsFilter);
+        if (isBlank(record.workItems)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = pasiWorkItemsFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.workItems)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
       if (pasiTermFilter.length > 0) {
-        if (!record.pasiTerm) return false;
-        if (!pasiTermFilter.includes(record.pasiTerm)) return false;
+        const hasBlankOption = includesBlankOption(pasiTermFilter);
+        if (isBlank(record.pasiTerm)) {
+          if (!hasBlankOption) return false;
+        } else {
+          const nonBlankFilterValues = pasiTermFilter.filter(val => !val.startsWith('(Blank)'));
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.pasiTerm)) {
+            return false;
+          }
+          if (nonBlankFilterValues.length === 0 && hasBlankOption) {
+            return false;
+          }
+        }
       }
       
       // All filters passed
@@ -984,7 +1173,7 @@ const studentHasCourse = (asn, courseCode, allRecords) => {
     // Return filtered data to parent
     onFilteredDataChange(filteredData, count);
   };
-  
+
   // Apply filters on mount or when filter settings change
   useEffect(() => {
     applyFilters();
