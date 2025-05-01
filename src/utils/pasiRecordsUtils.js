@@ -75,16 +75,46 @@ export const filterRelevantMissingPasiRecordsWithEmailCheck = async (records, fi
     });
   }
   
-  // Then check ASN-email association for each record
-  const recordsWithAssociationChecks = await Promise.all(
-    basicFilteredRecords.map(async (record) => {
-      const hasAssociation = await hasValidAsnEmailAssociation(record);
-      return { ...record, hasValidAssociation: hasAssociation };
-    })
-  );
+  // Batch process for ASN-email associations
+  const db = getDatabase();
+  const validRecords = [];
   
-  // Return only records with valid associations
-  return recordsWithAssociationChecks.filter(record => record.hasValidAssociation);
+  // Group records by ASN to minimize database calls
+  const recordsByAsn = {};
+  basicFilteredRecords.forEach(record => {
+    if (!record.asn) return;
+    if (!recordsByAsn[record.asn]) {
+      recordsByAsn[record.asn] = [];
+    }
+    recordsByAsn[record.asn].push(record);
+  });
+  
+  // Process each ASN group in parallel
+  await Promise.all(Object.entries(recordsByAsn).map(async ([asn, asnRecords]) => {
+    // Get all email keys for this ASN
+    const asnRef = ref(db, `ASNs/${asn}/emailKeys`);
+    try {
+      const snapshot = await get(asnRef);
+      if (!snapshot.exists()) return;
+      
+      const emailKeys = snapshot.val();
+      
+      // Check each record in this ASN group
+      asnRecords.forEach(record => {
+        const email = record.StudentEmail || record.email;
+        if (!email) return;
+        
+        const sanitizedEmail = sanitizeEmail(email);
+        if (emailKeys[sanitizedEmail] === true) {
+          validRecords.push({ ...record, hasValidAssociation: true });
+        }
+      });
+    } catch (error) {
+      console.error(`Error checking batch ASN-email associations for ASN ${asn}:`, error);
+    }
+  }));
+  
+  return validRecords;
 };
 
 // Keep existing functions

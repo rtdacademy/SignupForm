@@ -90,34 +90,11 @@ const enhancedFilterRecords = async (records, filterByPayment = false, includeCo
   if (!records) return [];
   
   try {
-    // First apply the existing email check filter with optional filters
-    const emailFilteredRecords = await filterRelevantMissingPasiRecordsWithEmailCheck(records, filterByPayment, includeCoding);
-    
-    // Now filter out records that have staffReview set to true
-    const db = getDatabase();
-    const filteredRecords = [];
-    
-    for (const record of emailFilteredRecords) {
-      if (!record.id) {
-        filteredRecords.push(record);
-        continue;
-      }
-      
-      // Check if staffReview is true for this record
-      const summaryRef = ref(db, `/studentCourseSummaries/${record.id}`);
-      const snapshot = await get(summaryRef);
-      const data = snapshot.val();
-      
-      if (!data || data.staffReview !== true) {
-        filteredRecords.push(record);
-      }
-    }
-    
-    return filteredRecords;
+    // Use the optimized batch filtering function
+    return await filterRelevantMissingPasiRecordsWithEmailCheck(records, filterByPayment, includeCoding);
   } catch (error) {
     console.error("Error in enhanced filter:", error);
-    // Fallback to original filter if our enhanced one fails
-    return filterRelevantMissingPasiRecordsWithEmailCheck(records, filterByPayment, includeCoding);
+    return [];
   }
 };
 
@@ -240,34 +217,96 @@ const MissingPasi = () => {
 
   // Note: Removed markForStaffReview and showRemoveDialog functions since we no longer have the remove button
 
-  // Load filtered records when component mounts, unmatchedStudentSummaries changes, or filter toggles change
+  // Cache of all filtered records (without payment or coding filters)
+  const [allFilteredRecords, setAllFilteredRecords] = useState([]);
+  
+  // Load all records once when component mounts or unmatchedStudentSummaries changes
   useEffect(() => {
-    const loadFilteredRecords = async () => {
+    const loadAllRecords = async () => {
       if (!unmatchedStudentSummaries) return;
       
       setIsFiltering(true);
       try {
-        // First, get unfiltered records (for all adult/international students) if we don't have them
-        if (unfilteredRecords.length === 0) {
-          const allRecords = await enhancedFilterRecords(unmatchedStudentSummaries, false, true);
-          setUnfilteredRecords(allRecords);
-        }
+        // Get all records once with minimum filtering
+        const allRecords = await enhancedFilterRecords(unmatchedStudentSummaries, false, true);
+        setAllFilteredRecords(allRecords);
+        setUnfilteredRecords(allRecords);
         
-        // Get records filtered by payment status if filterByPayment is true
-        const filtered = await enhancedFilterRecords(unmatchedStudentSummaries, filterByPayment, includeCoding);
-        setFilteredRecords(filtered);
+        // Apply client-side filters for initial display
+        const initialFiltered = allRecords.filter(record => {
+          // Handle payment filter
+          if (filterByPayment) {
+            const studentType = record.StudentType_Value || record.studentType_Value || '';
+            const paymentStatus = record.payment_status || '';
+            
+            if ((studentType === 'Adult Student' || studentType === 'International Student') && 
+                paymentStatus !== 'paid' && paymentStatus !== 'active') {
+              return false;
+            }
+          }
+          
+          // Handle coding courses filter
+          if (!includeCoding) {
+            const courseId = parseInt(record.courseId || record.CourseID || '0', 10);
+            if (courseId === 1111) {
+              return false;
+            }
+          }
+          
+          return true;
+        });
+        
+        setFilteredRecords(initialFiltered);
       } catch (error) {
-        console.error("Error filtering records:", error);
-        toast.error("Error filtering records");
-        // Fallback to basic filtered records
-        setFilteredRecords(unmatchedStudentSummaries);
+        console.error("Error loading records:", error);
+        toast.error("Error loading records");
+        setFilteredRecords([]);
       } finally {
         setIsFiltering(false);
       }
     };
     
-    loadFilteredRecords();
-  }, [unmatchedStudentSummaries, filterByPayment, includeCoding, unfilteredRecords.length]);
+    loadAllRecords();
+  }, [unmatchedStudentSummaries]);
+  
+  // Apply client-side filters when filter toggles change
+  useEffect(() => {
+    if (allFilteredRecords.length === 0) return;
+    
+    setIsFiltering(true);
+    try {
+      // Apply client-side filters based on toggles
+      const filtered = allFilteredRecords.filter(record => {
+        // Handle payment filter
+        if (filterByPayment) {
+          const studentType = record.StudentType_Value || record.studentType_Value || '';
+          const paymentStatus = record.payment_status || '';
+          
+          if ((studentType === 'Adult Student' || studentType === 'International Student') && 
+              paymentStatus !== 'paid' && paymentStatus !== 'active') {
+            return false;
+          }
+        }
+        
+        // Handle coding courses filter
+        if (!includeCoding) {
+          const courseId = parseInt(record.courseId || record.CourseID || '0', 10);
+          if (courseId === 1111) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+      
+      setFilteredRecords(filtered);
+    } catch (error) {
+      console.error("Error applying filters:", error);
+      toast.error("Error applying filters");
+    } finally {
+      setIsFiltering(false);
+    }
+  }, [allFilteredRecords, filterByPayment, includeCoding]);
 
   // Process the records with proper date formatting using the new utility function
   const processedRecords = useMemo(() => {
@@ -299,54 +338,69 @@ const MissingPasi = () => {
     });
   }, [filteredRecords]);
 
-  // Filter logic
+  // Filter logic - optimized to reduce re-renders
   const filterAndSortRecords = useMemo(() => {
-    let filtered = [...processedRecords];
+    // Create index maps for faster filtering
+    const courseFilterSet = new Set(courseFilter);
+    const studentTypeFilterSet = new Set(studentTypeFilter);
+    const stateFilterSet = new Set(stateFilter);
     
-    // Apply search filter
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(record => {
-        return (
+    // Get whether any filters are active
+    const hasSearchFilter = searchTerm.trim().length > 0;
+    const hasCourseFilter = courseFilterSet.size > 0;
+    const hasStudentTypeFilter = studentTypeFilterSet.size > 0;
+    const hasStateFilter = stateFilterSet.size > 0;
+    
+    // Calculate filter count once
+    const activeFilterCount = 
+      (hasSearchFilter ? 1 : 0) + 
+      (hasCourseFilter ? 1 : 0) + 
+      (hasStudentTypeFilter ? 1 : 0) + 
+      (hasStateFilter ? 1 : 0);
+    
+    // Update filter count in state
+    setFilterCount(activeFilterCount);
+    
+    // If no filters are active, return all records unmodified
+    if (activeFilterCount === 0) {
+      return processedRecords;
+    }
+    
+    // Prepare search term for case-insensitive search
+    const searchLower = hasSearchFilter ? searchTerm.toLowerCase() : '';
+    
+    // Apply all filters in a single pass
+    return processedRecords.filter(record => {
+      // Search filter - early return for performance
+      if (hasSearchFilter) {
+        const matchesSearch = 
           (record.asn && record.asn.toLowerCase().includes(searchLower)) ||
           (record.studentName && record.studentName.toLowerCase().includes(searchLower)) ||
           (record.studentEmail && record.studentEmail.toLowerCase().includes(searchLower)) ||
           (record.firstName && record.firstName.toLowerCase().includes(searchLower)) ||
-          (record.lastName && record.lastName.toLowerCase().includes(searchLower))
-        );
-      });
-    }
-    
-    // Apply course filter
-    if (courseFilter.length > 0) {
-      filtered = filtered.filter(record => 
-        courseFilter.includes(record.courseValue)
-      );
-    }
-    
-    // Apply student type filter
-    if (studentTypeFilter.length > 0) {
-      filtered = filtered.filter(record => 
-        studentTypeFilter.includes(record.studentType)
-      );
-    }
-    
-    // Apply state filter
-    if (stateFilter.length > 0) {
-      filtered = filtered.filter(record => 
-        stateFilter.includes(record.state)
-      );
-    }
-    
-    // Update filter count
-    let activeFilterCount = 0;
-    if (searchTerm.trim()) activeFilterCount++;
-    if (courseFilter.length > 0) activeFilterCount++;
-    if (studentTypeFilter.length > 0) activeFilterCount++;
-    if (stateFilter.length > 0) activeFilterCount++;
-    setFilterCount(activeFilterCount);
-    
-    return filtered;
+          (record.lastName && record.lastName.toLowerCase().includes(searchLower));
+        
+        if (!matchesSearch) return false;
+      }
+      
+      // Course filter - using Set for O(1) lookup
+      if (hasCourseFilter && !courseFilterSet.has(record.courseValue)) {
+        return false;
+      }
+      
+      // Student type filter - using Set for O(1) lookup
+      if (hasStudentTypeFilter && !studentTypeFilterSet.has(record.studentType)) {
+        return false;
+      }
+      
+      // State filter - using Set for O(1) lookup
+      if (hasStateFilter && !stateFilterSet.has(record.state)) {
+        return false;
+      }
+      
+      // Record passed all active filters
+      return true;
+    });
   }, [processedRecords, searchTerm, courseFilter, studentTypeFilter, stateFilter]);
 
   // Get unique options for filters
@@ -400,36 +454,58 @@ const MissingPasi = () => {
     toast.success("Record data copied to clipboard as JSON");
   };
 
-  // Get local sorted results from processed records
+  // Get local sorted results from processed records - optimized sorting
   const sortedRecords = useMemo(() => {
+    const { column, direction } = sortState;
+    const isAsc = direction === 'asc';
+    
+    // Check if column is a date column for special handling
+    const isDateColumn = column === 'exitDate' || column === 'startDateFormatted' || 
+                         column === 'regDateFormatted' || column === 'scheduleStart' || 
+                         column === 'scheduleEnd';
+    
+    // Create a collator for string comparison (more efficient than localeCompare for multiple comparisons)
+    const collator = new Intl.Collator('en', { sensitivity: 'base' });
+    
     return [...filterAndSortRecords].sort((a, b) => {
-      let aValue = a[sortState.column] || '';
-      let bValue = b[sortState.column] || '';
-
+      let aValue = a[column] || '';
+      let bValue = b[column] || '';
+      
+      // Use correct comparison based on value type
+      
       // For numeric fields
       if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortState.direction === 'asc' 
-          ? aValue - bValue 
-          : bValue - aValue;
+        return isAsc ? aValue - bValue : bValue - aValue;
+      }
+      
+      // For date fields (optimize by checking field name first)
+      if (isDateColumn && typeof aValue === 'string' && typeof bValue === 'string') {
+        // Catch invalid dates and treat them as empty values
+        let dateA, dateB;
+        try {
+          dateA = aValue && aValue !== 'N/A' ? new Date(aValue).getTime() : 0;
+        } catch {
+          dateA = 0;
+        }
+        try {
+          dateB = bValue && bValue !== 'N/A' ? new Date(bValue).getTime() : 0;
+        } catch {
+          dateB = 0;
+        }
+        return isAsc ? dateA - dateB : dateB - dateA;
       }
       
       // For string fields
       if (typeof aValue === 'string' && typeof bValue === 'string') {
-        // Special case for date sorting
-        if (sortState.column === 'exitDate' || sortState.column === 'startDateFormatted') {
-          const dateA = aValue ? new Date(aValue).getTime() : 0;
-          const dateB = bValue ? new Date(bValue).getTime() : 0;
-          return sortState.direction === 'asc' ? dateA - dateB : dateB - dateA;
-        }
-        return sortState.direction === 'asc' 
-          ? aValue.localeCompare(bValue) 
-          : bValue.localeCompare(aValue);
+        // Use the collator for faster string comparison
+        return isAsc ? collator.compare(aValue, bValue) : collator.compare(bValue, aValue);
       }
       
       // Fallback comparison
-      return sortState.direction === 'asc' 
-        ? (aValue > bValue ? 1 : -1) 
-        : (aValue < bValue ? 1 : -1);
+      if (aValue === bValue) return 0;
+      if (aValue === '' || aValue === null || aValue === undefined) return isAsc ? -1 : 1;
+      if (bValue === '' || bValue === null || bValue === undefined) return isAsc ? 1 : -1;
+      return isAsc ? (aValue > bValue ? 1 : -1) : (aValue < bValue ? 1 : -1);
     });
   }, [filterAndSortRecords, sortState]);
 
