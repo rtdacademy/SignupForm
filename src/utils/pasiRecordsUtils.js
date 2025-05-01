@@ -35,17 +35,45 @@ export const hasValidAsnEmailAssociation = async (record) => {
 /**
  * Filters student summaries to determine which ones are relevant for missing PASI records display
  * with additional check for valid ASN-email association and staff review status
+ * Also filters adult and international students by payment status if filterByPayment is true
+ * And filters out coding courses (CourseID 1111) if includeCoding is false
  * @param {Array} records - The student summaries/records to filter
+ * @param {boolean} filterByPayment - Whether to filter adult and international students by payment status
+ * @param {boolean} includeCoding - Whether to include coding courses (CourseID 1111)
  * @returns {Promise<Array>} - Promise that resolves to filtered array of records
  */
-export const filterRelevantMissingPasiRecordsWithEmailCheck = async (records) => {
+export const filterRelevantMissingPasiRecordsWithEmailCheck = async (records, filterByPayment = false, includeCoding = false) => {
   if (!records || !Array.isArray(records)) return [];
   
   // First apply basic filters
-  const basicFilteredRecords = records
+  let basicFilteredRecords = records
     .filter(record => (record.StudentEmail || record.email) !== '000kyle.e.brown13@gmail.com')
     .filter(record => record.Status_Value !== '✗ Removed (Not Funded)' && record.Status_Value !== 'Unenrolled')
     .filter(record => record.staffReview !== true); // Exclude records that have been reviewed by staff
+  
+  // Apply payment filter for adult and international students if requested
+  if (filterByPayment) {
+    basicFilteredRecords = basicFilteredRecords.filter(record => {
+      const studentType = record.StudentType_Value || record.studentType_Value || '';
+      const paymentStatus = record.payment_status || '';
+      
+      // If student is Adult or International, only include if payment status is 'paid' or 'active'
+      if (studentType === 'Adult Student' || studentType === 'International Student') {
+        return paymentStatus === 'paid' || paymentStatus === 'active';
+      }
+      
+      // Include all other student types
+      return true;
+    });
+  }
+  
+  // Filter out coding courses (CourseID 1111) if includeCoding is false
+  if (!includeCoding) {
+    basicFilteredRecords = basicFilteredRecords.filter(record => {
+      const courseId = parseInt(record.courseId || record.CourseID || '0', 10);
+      return courseId !== 1111;
+    });
+  }
   
   // Then check ASN-email association for each record
   const recordsWithAssociationChecks = await Promise.all(

@@ -84,12 +84,14 @@ const formatUserFriendlyDate = (dateValue, isFormatted = false) => {
 };
 
 // Enhanced function to filter records that have staffReview set to true
-const enhancedFilterRecords = async (records) => {
+// and optionally filter adult/international students by payment status
+// and optionally include coding courses (CourseID 1111)
+const enhancedFilterRecords = async (records, filterByPayment = false, includeCoding = false) => {
   if (!records) return [];
   
   try {
-    // First apply the existing email check filter
-    const emailFilteredRecords = await filterRelevantMissingPasiRecordsWithEmailCheck(records);
+    // First apply the existing email check filter with optional filters
+    const emailFilteredRecords = await filterRelevantMissingPasiRecordsWithEmailCheck(records, filterByPayment, includeCoding);
     
     // Now filter out records that have staffReview set to true
     const db = getDatabase();
@@ -115,7 +117,7 @@ const enhancedFilterRecords = async (records) => {
   } catch (error) {
     console.error("Error in enhanced filter:", error);
     // Fallback to original filter if our enhanced one fails
-    return filterRelevantMissingPasiRecordsWithEmailCheck(records);
+    return filterRelevantMissingPasiRecordsWithEmailCheck(records, filterByPayment, includeCoding);
   }
 };
 
@@ -167,10 +169,13 @@ const MissingPasi = () => {
   // State for filtered records
   const [filteredRecords, setFilteredRecords] = useState([]);
   const [isFiltering, setIsFiltering] = useState(false);
+  
+  // State for filter toggles - defaults
+  const [filterByPayment, setFilterByPayment] = useState(true);
+  const [includeCoding, setIncludeCoding] = useState(false);
+  const [unfilteredRecords, setUnfilteredRecords] = useState([]);
 
-  // State for dialog visibility
-  const [dialogVisible, setDialogVisible] = useState(false);
-  const [recordToRemove, setRecordToRemove] = useState(null);
+  // Removed dialog-related state variables since we no longer have the remove button
   
   // State for filters
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
@@ -210,47 +215,46 @@ const MissingPasi = () => {
         toast.error(`Failed to update ${field}`);
       });
   };
-
-  // Modified function to mark a record for staff review instead of removing it
-  const markForStaffReview = (record) => {
+  
+  // Function to update student summary record in Firebase
+  const updateMissingPasiStatus = (record, isChecked) => {
     if (!record.id) {
-      toast.error("Cannot mark for review: Missing record id");
+      toast.error("Cannot update: Missing record id");
       return;
     }
     const db = getDatabase();
     const summaryRef = ref(db, `/studentCourseSummaries/${record.id}`);
+    const updates = {
+      MissingPasiChecked: isChecked
+    };
     
-    // Set both staffReview and isRemoved
-    update(summaryRef, { 
-      staffReview: true,
-      isRemoved: true  // Keep the original functionality
-    })
+    update(summaryRef, updates)
       .then(() => {
-        toast.success("Record marked for staff review");
-        // Update local state to remove the record from the UI
-        setFilteredRecords((prev) => prev.filter((r) => r.id !== record.id));
+        toast.success(`Updated missing PASI status successfully`);
       })
       .catch((error) => {
-        console.error("Error marking record for review:", error);
-        toast.error("Failed to mark record for review");
+        console.error(`Error updating missing PASI status:`, error);
+        toast.error(`Failed to update missing PASI status`);
       });
   };
 
-  // Show confirmation dialog for record removal/review
-  const showRemoveDialog = (record) => {
-    setRecordToRemove(record);
-    setDialogVisible(true);
-  };
+  // Note: Removed markForStaffReview and showRemoveDialog functions since we no longer have the remove button
 
-  // Load filtered records when component mounts or unmatchedStudentSummaries changes
+  // Load filtered records when component mounts, unmatchedStudentSummaries changes, or filter toggles change
   useEffect(() => {
     const loadFilteredRecords = async () => {
       if (!unmatchedStudentSummaries) return;
       
       setIsFiltering(true);
       try {
-        // Use our enhanced filter that also checks staffReview status
-        const filtered = await enhancedFilterRecords(unmatchedStudentSummaries);
+        // First, get unfiltered records (for all adult/international students) if we don't have them
+        if (unfilteredRecords.length === 0) {
+          const allRecords = await enhancedFilterRecords(unmatchedStudentSummaries, false, true);
+          setUnfilteredRecords(allRecords);
+        }
+        
+        // Get records filtered by payment status if filterByPayment is true
+        const filtered = await enhancedFilterRecords(unmatchedStudentSummaries, filterByPayment, includeCoding);
         setFilteredRecords(filtered);
       } catch (error) {
         console.error("Error filtering records:", error);
@@ -263,7 +267,7 @@ const MissingPasi = () => {
     };
     
     loadFilteredRecords();
-  }, [unmatchedStudentSummaries]);
+  }, [unmatchedStudentSummaries, filterByPayment, includeCoding, unfilteredRecords.length]);
 
   // Process the records with proper date formatting using the new utility function
   const processedRecords = useMemo(() => {
@@ -290,6 +294,7 @@ const MissingPasi = () => {
         state: record.ActiveFutureArchived_Value || '',
         schoolYear: record.School_x0020_Year_Value || '',
         courseValue: record.Course_Value || '',
+        payment_status: record.payment_status || '',
       };
     });
   }, [filteredRecords]);
@@ -451,9 +456,25 @@ const MissingPasi = () => {
   const SortableHeader = ({ column, label }) => {
     const isActive = sortState.column === column;
     
+    // Set width classes based on column
+    let widthClass = "w-16";
+    if (column === "studentEmail") {
+      widthClass = "w-[30%] max-w-[200px]"; // Make email column narrower
+    } else if (column === "asn") {
+      widthClass = "w-16";
+    } else if (column === "studentName") {
+      widthClass = "w-24";
+    } else if (column === "regDateFormatted" || column === "scheduleStart" || column === "scheduleEnd") {
+      widthClass = "w-16";
+    } else if (column === "statusValue" || column === "payment_status" || column === "state") {
+      widthClass = "w-14";
+    } else if (column === "schoolYear") {
+      widthClass = "w-16";
+    }
+    
     return (
       <TableHead 
-        className="cursor-pointer hover:bg-muted/50 transition-colors text-xs px-2 py-1" 
+        className={`cursor-pointer hover:bg-muted/50 transition-colors text-xs px-1.5 py-1 ${widthClass}`}
         onClick={() => handleSort(column)}
       >
         <div className="flex items-center">
@@ -569,13 +590,51 @@ const MissingPasi = () => {
 
   return (
     <TooltipProvider>
-      <div className="container mx-auto p-4">
+      <div className="container mx-auto p-4 w-full overflow-hidden">
       
         
         {/* Main content */}
         <div className="mb-4 flex justify-between items-center">
           <div className="flex gap-2">
-           
+            {/* Payment filter toggle */}
+            <Button
+              variant={filterByPayment ? "default" : "outline"}
+              size="sm"
+              className="flex items-center"
+              onClick={() => setFilterByPayment(!filterByPayment)}
+            >
+              {filterByPayment ? (
+                <>
+                  <span className="h-4 w-4 mr-1">💰</span>
+                  Paid Only
+                </>
+              ) : (
+                <>
+                  <span className="h-4 w-4 mr-1">👥</span>
+                  All Records
+                </>
+              )}
+            </Button>
+            
+            {/* Coding courses toggle */}
+            <Button
+              variant={includeCoding ? "default" : "outline"}
+              size="sm"
+              className="flex items-center"
+              onClick={() => setIncludeCoding(!includeCoding)}
+            >
+              {includeCoding ? (
+                <>
+                  <span className="h-4 w-4 mr-1">💻</span>
+                  With Coding
+                </>
+              ) : (
+                <>
+                  <span className="h-4 w-4 mr-1">🔍</span>
+                  No Coding
+                </>
+              )}
+            </Button>
             
             {/* Filter button */}
             <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
@@ -759,7 +818,7 @@ const MissingPasi = () => {
         </div>
     
         {/* Missing PASI Records Table */}
-        <div className="bg-white rounded-lg shadow-md p-4 overflow-x-auto">
+        <div className="bg-white rounded-lg shadow-md p-4 overflow-x-auto w-full" style={{ maxWidth: 'calc(100vw - 2rem)', overflowX: 'auto' }}>
           {isLoadingStudents || isFiltering ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-blue-500 mr-2" />
@@ -787,10 +846,11 @@ const MissingPasi = () => {
                 </div>
               )}
             
-              <Table className="text-xs w-full">
+              <Table className="text-xs w-full min-w-[1200px]" style={{ tableLayout: 'fixed' }}>
                 <TableCaption className="text-xs">Students with Missing PASI Records</TableCaption>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="text-xs">
+                    <TableHead className="text-xs px-1 py-1 w-8 sticky left-0 bg-white z-10">✓</TableHead>
                     <SortableHeader column="asn" label="ASN" />
                     <SortableHeader column="studentName" label="Student Name" />
                     <SortableHeader column="studentType" label="Student Type" />
@@ -802,18 +862,7 @@ const MissingPasi = () => {
                     <SortableHeader column="state" label="State" />
                     <SortableHeader column="schoolYear" label="School Year" />
                     <SortableHeader column="courseValue" label="Course" />
-                    <TableHead className="px-1 py-1 text-xs w-6 max-w-6" >
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <XCircle className="h-3 w-3" />
-                          </TooltipTrigger>
-                          <TooltipContent side="top">
-                            <p>Remove from this list</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableHead>
+                    <SortableHeader column="payment_status" label="Payment" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -822,10 +871,32 @@ const MissingPasi = () => {
                     const { backgroundColor, textColor } = getColorForName(record.studentName);
                     
                     return (
-                      <TableRow key={record.id || record.asn}>
-                        <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.asn, "ASN"); }}>{record.asn || 'N/A'}</TableCell>
+                      <TableRow key={record.id || record.asn} className="text-xs">
+                        <TableCell className="p-1 w-8 sticky left-0 bg-white z-10">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div>
+                                <Checkbox
+                                  id={`checked-${record.id}`}
+                                  checked={Boolean(record.MissingPasiChecked)}
+                                  onCheckedChange={(checked) => {
+                                    if (record.id) {
+                                      updateMissingPasiStatus(record, Boolean(checked));
+                                    }
+                                  }}
+                                  aria-label="Mark as checked"
+                                  className="h-4 w-4"
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Mark this missing PASI record as checked</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell className="p-1" onClick={(e) => { e.stopPropagation(); handleCellClick(record.asn, "ASN"); }}>{record.asn || 'N/A'}</TableCell>
                         <TableCell 
-                          className="p-1 cursor-pointer truncate max-w-32 w-32" 
+                          className="p-1 cursor-pointer truncate w-24" 
                           onClick={(e) => {
                             e.stopPropagation();
                             handleCellClick(record.studentName, "Student Name");
@@ -885,7 +956,7 @@ const MissingPasi = () => {
                         >
                           {record.regDateFormatted && record.regDateFormatted !== 'N/A' ? (
                             <div 
-                              className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium truncate"
+                              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium truncate"
                               style={{
                                 backgroundColor: '#dbeafe', // blue-100
                                 color: '#1e40af' // blue-800
@@ -897,8 +968,15 @@ const MissingPasi = () => {
                             <span className="text-gray-400">N/A</span>
                           )}
                         </TableCell>
-                        <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.studentEmail, "Student Email"); }}>{record.studentEmail || 'N/A'}</TableCell>
                         <TableCell 
+                          className="p-1 w-[30%] max-w-[200px] truncate"
+                          onClick={(e) => { e.stopPropagation(); handleCellClick(record.studentEmail, "Student Email"); }}
+                          title={record.studentEmail || 'N/A'}
+                        >
+                          {record.studentEmail || 'N/A'}
+                        </TableCell>
+                        <TableCell 
+                          className="p-1"
                           onClick={(e) => { e.stopPropagation(); handleCellClick(record.statusValue, "Status"); }}
                         >
                           <Badge 
@@ -917,7 +995,7 @@ const MissingPasi = () => {
                           </Badge>
                         </TableCell>
                         <TableCell 
-                          className="p-1 cursor-pointer truncate max-w-20 w-20" 
+                          className="p-1 cursor-pointer truncate w-16" 
                           onClick={(e) => {
                             e.stopPropagation();
                             handleCellClick(record.scheduleStart, "Schedule Start");
@@ -925,7 +1003,7 @@ const MissingPasi = () => {
                         >
                           {record.scheduleStart && record.scheduleStart !== 'N/A' ? (
                             <div 
-                              className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium truncate"
+                              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium truncate"
                               style={{
                                 backgroundColor: '#dcfce7', // green-100
                                 color: '#166534' // green-800
@@ -938,7 +1016,7 @@ const MissingPasi = () => {
                           )}
                         </TableCell>
                         <TableCell 
-                          className="p-1 cursor-pointer truncate max-w-20 w-20" 
+                          className="p-1 cursor-pointer truncate w-16" 
                           onClick={(e) => {
                             e.stopPropagation();
                             handleCellClick(record.scheduleEnd, "Schedule End");
@@ -946,7 +1024,7 @@ const MissingPasi = () => {
                         >
                           {record.scheduleEnd && record.scheduleEnd !== 'N/A' ? (
                             <div 
-                              className="inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium truncate"
+                              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium truncate"
                               style={{
                                 backgroundColor: '#fee2e2', // red-100
                                 color: '#b91c1c' // red-800
@@ -959,6 +1037,7 @@ const MissingPasi = () => {
                           )}
                         </TableCell>
                         <TableCell 
+                          className="p-1"
                           onClick={(e) => { e.stopPropagation(); handleCellClick(record.state, "State"); }}
                         >
                           <Badge 
@@ -976,8 +1055,9 @@ const MissingPasi = () => {
                             {record.state || 'N/A'}
                           </Badge>
                         </TableCell>
-                        <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.schoolYear, "School Year"); }}>{record.schoolYear || 'N/A'}</TableCell>
+                        <TableCell className="p-1 text-xs truncate" onClick={(e) => { e.stopPropagation(); handleCellClick(record.schoolYear, "School Year"); }}>{record.schoolYear || 'N/A'}</TableCell>
                         <TableCell 
+                          className="p-1"
                           onClick={(e) => { e.stopPropagation(); handleCellClick(record.courseValue, "Course"); }}
                         >
                           <Badge 
@@ -987,20 +1067,28 @@ const MissingPasi = () => {
                             {record.courseValue || 'N/A'}
                           </Badge>
                         </TableCell>
-                        <TableCell className="p-0 w-6 max-w-6">
-                          <div onClick={(e) => e.stopPropagation()} className="flex justify-center">
-                            <Button 
-                              variant="destructive" 
-                              size="xs" 
-                              onClick={() => showRemoveDialog(record)}
-                              className="h-4 w-4"
-                              aria-label="Mark for Review"
+                        <TableCell className="p-1">
+                          {/* Only show payment status for Adult and International students */}
+                          {(record.studentType === 'Adult Student' || record.studentType === 'International Student') ? (
+                            <Badge 
+                              variant="outline"
+                              className={`text-xs py-0 px-1.5 ${
+                                record.payment_status === 'paid' 
+                                  ? 'bg-green-50 text-green-700 border-green-200' 
+                                  : record.payment_status === 'active'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : record.payment_status
+                                      ? 'bg-orange-50 text-orange-700 border-orange-200'
+                                      : 'bg-gray-50 text-gray-400 border-gray-200'
+                              }`}
                             >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </div>
+                              {record.payment_status || 'None'}
+                            </Badge>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="p-1">
                           <PasiActionButtons asn={record.asn} referenceNumber={record.referenceNumber} />
                         </TableCell>
                       </TableRow>
@@ -1149,30 +1237,7 @@ const MissingPasi = () => {
           </Card>
         )}
 
-        {/* Remove Record Confirmation Dialog */}
-        {dialogVisible && (
-          <Dialog open={dialogVisible} onOpenChange={setDialogVisible}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Remove from List</DialogTitle>
-                <DialogDescription>
-                  This will remove this student from the missing pasi list.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogVisible(false)}>
-                  Cancel
-                </Button>
-                <Button variant="destructive" onClick={() => {
-                  markForStaffReview(recordToRemove);
-                  setDialogVisible(false);
-                }}>
-                  Remove
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
+        {/* Removed the dialog for removing records since we no longer have the remove button */}
       </div>
     </TooltipProvider>
   );

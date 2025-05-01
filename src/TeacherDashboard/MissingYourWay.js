@@ -28,6 +28,7 @@ import {
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
+import { Checkbox } from "../components/ui/checkbox";
 import { 
   Pagination, 
   PaginationContent, 
@@ -37,6 +38,7 @@ import {
   PaginationPrevious 
 } from "../components/ui/pagination";
 import { toast } from 'sonner';
+import { getDatabase, ref, update } from 'firebase/database';
 import PasiActionButtons from "../components/PasiActionButtons";
 import { COURSE_CODE_TO_ID } from '../config/DropdownOptions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
@@ -77,9 +79,34 @@ const MissingYourWay = () => {
   // Toggle for filtering completed courses with specific courseIds
   const [filterCompletedCourses, setFilterCompletedCourses] = useState(true);
   
+  // Toggle for showing coding courses (CourseID: 1111)
+  const [includeCoding, setIncludeCoding] = useState(false);
+  
   // State for pagination and sorting
   const [currentPage, setCurrentPage] = useState(1);
   const [sortState, setSortState] = useState({ column: 'studentName', direction: 'asc' });
+  
+  // Function to update student summary record in Firebase
+  const updateMissingYourWayStatus = (recordId, isChecked) => {
+    if (!recordId) {
+      toast.error("Cannot update: Missing record id");
+      return;
+    }
+    const db = getDatabase();
+    const recordRef = ref(db, `/pasiRecords/${recordId}`);
+    const updates = {
+      MissingYourWayChecked: isChecked
+    };
+    
+    update(recordRef, updates)
+      .then(() => {
+        toast.success(`Updated missing YourWay status successfully`);
+      })
+      .catch((error) => {
+        console.error(`Error updating missing YourWay status:`, error);
+        toast.error(`Failed to update missing YourWay status`);
+      });
+  };
 
   // Create a mapping of ASNs to their emailKeys from asnsRecords
   const asnToEmailKeysMap = useMemo(() => {
@@ -156,12 +183,15 @@ const MissingYourWay = () => {
       record.StudentType_Value === null || record.StudentType_Value === "missing"
     );
 
-    // Filter out records with courseId values of 1111 or 2000
-    filteredRecords = filteredRecords.filter(record => {
-      const courseId = COURSE_CODE_TO_ID[record.courseCode];
-      // Keep the record only if courseId is NOT 1111 or 2000
-      return courseId !== 1111 && courseId !== 2000;
-    });
+    // Apply conditional filtering for coding courses (CourseID: 1111 or 2000)
+    if (!includeCoding) {
+      // Filter out records with courseId values of 1111 or 2000
+      filteredRecords = filteredRecords.filter(record => {
+        const courseId = COURSE_CODE_TO_ID[record.courseCode];
+        // Keep the record only if courseId is NOT 1111 or 2000
+        return courseId !== 1111 && courseId !== 2000;
+      });
+    }
 
     // Apply additional filters if toggle is on
     if (filterCompletedCourses) {
@@ -173,6 +203,11 @@ const MissingYourWay = () => {
 
         // If it's completed, check if the courseCode maps to courseId 1111 or 2000
         const courseId = COURSE_CODE_TO_ID[record.courseCode];
+        
+        // If we're including coding courses, no need to filter them out
+        if (includeCoding) {
+          return true;
+        }
         
         // Keep the record if courseId is NOT 1111 or 2000
         // (i.e., filter out completed courses with courseId 1111 or 2000)
@@ -200,7 +235,7 @@ const MissingYourWay = () => {
         alternativeRecordsInfo: hasAlternativeRecords ? findAlternativeEmailRecords[recordId] : null
       };
     });
-  }, [pasiStudentSummariesCombined, filterCompletedCourses, findAlternativeEmailRecords]);
+  }, [pasiStudentSummariesCombined, filterCompletedCourses, includeCoding, findAlternativeEmailRecords]);
 
   // Handle record selection
   const handleRecordSelect = (record) => {
@@ -450,6 +485,17 @@ const MissingYourWay = () => {
             {filterCompletedCourses ? "Filtering Completed Courses" : "Show All Courses"}
           </Button>
           
+          {/* Coding Courses Toggle */}
+          <Button 
+            variant={includeCoding ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setIncludeCoding(!includeCoding)}
+            className="flex items-center gap-1"
+          >
+            <Code className="h-4 w-4" />
+            {includeCoding ? "Showing Coding Courses" : "Hiding Coding Courses"}
+          </Button>
+          
           {/* Show Raw Data Toggle */}
           <Button 
             variant="outline" 
@@ -496,6 +542,7 @@ const MissingYourWay = () => {
               <TableCaption className="text-xs">PASI Records With Missing Student Type</TableCaption>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="text-xs px-2 py-1 w-8">Checked</TableHead>
                   <SortableHeader column="asn" label="ASN" />
                   <SortableHeader column="studentName" label="Student Name" />
                   <TableHead className="px-2 py-1 text-xs">Alt Email</TableHead>
@@ -510,6 +557,27 @@ const MissingYourWay = () => {
               <TableBody>
                 {paginatedRecords.map((record) => (
                   <TableRow key={record.id || record.referenceNumber} className="cursor-pointer hover:bg-gray-50" onClick={() => handleRecordSelect(record)}>
+                    <TableCell className="p-1 w-8" onClick={(e) => e.stopPropagation()}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            <Checkbox
+                              id={`checked-${record.id || record.referenceNumber}`}
+                              checked={Boolean(record.MissingYourWayChecked)}
+                              onCheckedChange={(checked) => {
+                                if (record.id || record.referenceNumber) {
+                                  updateMissingYourWayStatus(record.id || record.referenceNumber, Boolean(checked));
+                                }
+                              }}
+                              aria-label="Mark as checked"
+                            />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Mark this missing student type record as checked</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TableCell>
                     <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.asn, "ASN"); }}>{record.asn || 'N/A'}</TableCell>
                     <TableCell onClick={(e) => { e.stopPropagation(); handleCellClick(record.studentName, "Student Name"); }}>{record.studentName || 'N/A'}</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()} className="text-center">

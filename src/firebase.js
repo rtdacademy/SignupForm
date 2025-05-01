@@ -1,10 +1,10 @@
-import { initializeApp } from '@firebase/app';
+import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getAnalytics } from "firebase/analytics";
 import { getVertexAI } from "firebase/vertexai";
-import { getFirestore } from '@firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import { getStripePayments } from '@invertase/firestore-stripe-payments';
 import { getStorage } from 'firebase/storage';
 

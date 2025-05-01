@@ -164,6 +164,42 @@ useEffect(() => {
     
     setIsFilteringReadyForPasi(true);
     try {
+      // Import the enhanced filter function from MissingPasi component
+      const enhancedFilterRecords = async (records, filterByPayment = false) => {
+        if (!records) return [];
+        
+        try {
+          // First apply the existing email check filter with optional payment status filtering
+          const emailFilteredRecords = await filterRelevantMissingPasiRecordsWithEmailCheck(records, filterByPayment);
+          
+          // Now filter out records that have staffReview set to true
+          const db = getDatabase();
+          const filteredRecords = [];
+          
+          for (const record of emailFilteredRecords) {
+            if (!record.id) {
+              filteredRecords.push(record);
+              continue;
+            }
+            
+            // Check if staffReview is true for this record
+            const summaryRef = ref(db, `/studentCourseSummaries/${record.id}`);
+            const snapshot = await get(summaryRef);
+            const data = snapshot.val();
+            
+            if (!data || data.staffReview !== true) {
+              filteredRecords.push(record);
+            }
+          }
+          
+          return filteredRecords;
+        } catch (error) {
+          console.error("Error in enhanced filter:", error);
+          // Fallback to original filter if our enhanced one fails
+          return filterRelevantMissingPasiRecordsWithEmailCheck(records, filterByPayment);
+        }
+      };
+      
       // The second parameter (true) means filter by payment status
       const readyRecords = await enhancedFilterRecords(unmatchedStudentSummaries, true);
       setReadyForPasiCount(readyRecords.length);

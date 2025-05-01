@@ -13,15 +13,14 @@ import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { FaCreditCard } from 'react-icons/fa';
 import { Loader2 } from "lucide-react";
-import { getApp } from "@firebase/app";
 import { 
-  getFirestore,
   collection,
   onSnapshot,
-  addDoc
+  addDoc,
+  doc
 } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
 import { toast } from 'sonner';
+import { firestore } from '../firebase'; // Import the firestore instance from your firebase.js
 
 // Loading Overlay Component
 const LoadingOverlay = ({ isVisible }) => {
@@ -43,11 +42,6 @@ const LoadingOverlay = ({ isVisible }) => {
     </div>
   );
 };
-
-// Initialize Firebase services
-const app = getApp();
-const firestore = getFirestore(app);
-const auth = getAuth(app);
 
 // Calculate subscription end date (3 payments)
 // Calculate subscription end date for exactly 3 payments
@@ -155,12 +149,9 @@ const PaymentOptionsDialog = ({ isOpen, onOpenChange, course, user }) => {
         price: isSubscription ? paymentOptions.subscription.id : paymentOptions.onetime.id,
       };
 
-      const checkoutSessionsRef = collection(
-        firestore, 
-        'customers', 
-        user.uid, 
-        'checkout_sessions'
-      );
+      // Fixed: Properly access a subcollection in Firestore using the imported firestore instance
+      const customerDocRef = doc(firestore, 'customers', user.uid);
+      const checkoutSessionsRef = collection(customerDocRef, 'checkout_sessions');
 
       const docRef = await addDoc(checkoutSessionsRef, sessionData);
 

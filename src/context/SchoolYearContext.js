@@ -104,30 +104,69 @@ export const SchoolYearProvider = ({ children }) => {
       return;
     }
 
+    // Create references to both data nodes
     const pasiRef = ref(db, 'pasiRecords');
+    const companionRef = ref(db, 'pasiRecordsCompanion');
+    
+    // Query for PASI records with the specific school year
     const schoolYearQuery = query(
       pasiRef,
       orderByChild('schoolYear'),
       equalTo(formattedYear)
     );
+    
+    // Two separate listeners to handle both data sources
+    let pasiData = [];
+    let companionData = {};
+    let pasiLoaded = false;
+    let companionLoaded = false;
+    
+    // Function to merge and update state when both data sources have been loaded
+    const mergeAndUpdateRecords = () => {
+      if (!pasiLoaded || !companionLoaded) return;
+      
+      const mergedRecords = pasiData.map(record => {
+        const companion = companionData[record.id] || {};
+        return { ...record, ...companion };
+      });
+      
+      setPasiRecords(mergedRecords.sort((a, b) => {
+        // First try to sort by studentName if it exists
+        if (a.studentName && b.studentName) {
+          return a.studentName.localeCompare(b.studentName);
+        }
+        // Fallback to id if studentName doesn't exist
+        return a.id.localeCompare(b.id);
+      }));
+      
+      setIsLoadingPasi(false);
+    };
 
-    const unsubscribe = onValue(schoolYearQuery, snapshot => {
+    // Listen for PASI records changes
+    const unsubscribePasi = onValue(schoolYearQuery, (snapshot) => {
       try {
         if (!snapshot.exists()) {
+          pasiData = [];
+          pasiLoaded = true;
           setPasiRecords([]);
-        } else {
-          const records = [];
-          snapshot.forEach(child => {
-            const record = child.val();
-            records.push({ id: child.key, linked: Boolean(record.linked), ...record });
-          });
-          setPasiRecords(records.sort((a, b) => a.studentName.localeCompare(b.studentName)));
+          setIsLoadingPasi(false);
+          return;
         }
+        
+        const records = [];
+        snapshot.forEach(child => {
+          const record = child.val();
+          const recordId = child.key;
+          records.push({ id: recordId, linked: Boolean(record.linked), ...record });
+        });
+        
+        pasiData = records;
+        pasiLoaded = true;
+        mergeAndUpdateRecords();
       } catch (err) {
         console.error('Error processing PASI records:', err);
         setError(err.message);
         setPasiRecords([]);
-      } finally {
         setIsLoadingPasi(false);
       }
     }, error => {
@@ -137,7 +176,32 @@ export const SchoolYearProvider = ({ children }) => {
       setIsLoadingPasi(false);
     });
 
-    return () => off(schoolYearQuery);
+    // Listen for companion data changes
+    const unsubscribeCompanion = onValue(companionRef, (snapshot) => {
+      try {
+        const companions = {};
+        if (snapshot.exists()) {
+          snapshot.forEach(child => {
+            companions[child.key] = child.val();
+          });
+        }
+        
+        companionData = companions;
+        companionLoaded = true;
+        mergeAndUpdateRecords();
+      } catch (err) {
+        console.error('Error processing companion data:', err);
+        // Don't set error state here as PASI data is more important
+        companionLoaded = true;
+        mergeAndUpdateRecords();
+      }
+    });
+
+    // Cleanup function to remove both listeners
+    return () => {
+      unsubscribePasi();
+      unsubscribeCompanion();
+    };
   }, [isStaffUser, currentSchoolYear, refreshTrigger]);
 
   // New: Fetch ASNs node

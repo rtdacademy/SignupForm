@@ -3,15 +3,40 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
+import { Checkbox } from "../components/ui/checkbox";
 import { AlertTriangle, ArrowRight, Code } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { toast } from 'sonner';
+import { getDatabase, ref, update } from 'firebase/database';
 import PasiActionButtons from "../components/PasiActionButtons";
 import { Button } from "../components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 const TermConflicts = ({ recordsWithTermMismatch }) => {
   const [sortState, setSortState] = useState({ column: 'studentName', direction: 'asc' });
   const [showRawData, setShowRawData] = useState(false);
+  
+  // Function to update companion data in Firebase
+  const updateTermConflictsChecked = (recordId, isChecked) => {
+    if (!recordId) {
+      toast.error("Cannot update: Missing record id");
+      return;
+    }
+    const db = getDatabase();
+    const companionRef = ref(db, `/pasiRecordsCompanion/${recordId}`);
+    const updates = {
+      termConflictsChecked: isChecked
+    };
+    
+    update(companionRef, updates)
+      .then(() => {
+        toast.success(`Updated term conflicts status successfully`);
+      })
+      .catch((error) => {
+        console.error(`Error updating term conflicts status:`, error);
+        toast.error(`Failed to update term conflicts status`);
+      });
+  };
 
   // Process records to ensure all properties exist
   const processedRecords = useMemo(() => {
@@ -133,16 +158,7 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
         </div>
       </CardHeader>
       <CardContent>
-        <Alert variant="warning" className="mb-4 bg-amber-50 border-amber-200">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="text-amber-800">Term Configuration Issues</AlertTitle>
-          <AlertDescription className="text-amber-700">
-            <ul className="list-disc ml-4 mt-1">
-              <li>Summer Student records must have 'Summer' term.</li>
-              <li>Non-Primary and Home Education students cannot have 'Summer' term.</li>
-            </ul>
-          </AlertDescription>
-        </Alert>
+     
 
         {showRawData && sortedRecords.length > 0 && (
           <div className="mb-4 p-4 border rounded bg-gray-50 overflow-auto max-h-40">
@@ -167,6 +183,7 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
           <Table className="text-xs w-full">
             <TableHeader>
               <TableRow>
+                <TableHead className="text-xs px-2 py-1 w-8">Checked</TableHead>
                 <SortableHeader column="asn" label="ASN" />
                 <SortableHeader column="studentName" label="Student" />
                 <SortableHeader column="courseCode" label="Course" />
@@ -184,6 +201,29 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
                 
                 return (
                   <TableRow key={record.id} className="hover:bg-gray-100">
+                    <TableCell className="p-1 w-8">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div>
+                              <Checkbox
+                                id={`checked-${record.id}`}
+                                checked={Boolean(record.termConflictsChecked)}
+                                onCheckedChange={(checked) => {
+                                  if (record.id) {
+                                    updateTermConflictsChecked(record.id, Boolean(checked));
+                                  }
+                                }}
+                                aria-label="Mark as checked"
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Mark this term conflict as checked</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableCell>
                     <TableCell 
                       className="p-1 cursor-pointer" 
                       onClick={() => handleCellClick(record.asn, "ASN")}

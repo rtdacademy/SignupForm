@@ -3,16 +3,41 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
+import { Checkbox } from "../components/ui/checkbox";
 import { AlertTriangle, ArrowRight, Code } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { toast } from 'sonner';
+import { getDatabase, ref, update } from 'firebase/database';
 import PasiActionButtons from "../components/PasiActionButtons";
 import { STATUS_OPTIONS } from '../config/DropdownOptions';
 import { Button } from "../components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 const StatusConflicts = ({ recordsWithStatusMismatch }) => {
   const [sortState, setSortState] = useState({ column: 'studentName', direction: 'asc' });
   const [showRawData, setShowRawData] = useState(false);
+  
+  // Function to update companion data in Firebase
+  const updateStatusConflictsChecked = (recordId, isChecked) => {
+    if (!recordId) {
+      toast.error("Cannot update: Missing record id");
+      return;
+    }
+    const db = getDatabase();
+    const companionRef = ref(db, `/pasiRecordsCompanion/${recordId}`);
+    const updates = {
+      StatusConflictsChecked: isChecked
+    };
+    
+    update(companionRef, updates)
+      .then(() => {
+        toast.success(`Updated status conflicts check successfully`);
+      })
+      .catch((error) => {
+        console.error(`Error updating status conflicts check:`, error);
+        toast.error(`Failed to update status conflicts check`);
+      });
+  };
 
   // Process records to ensure all properties exist
   const processedRecords = useMemo(() => {
@@ -153,6 +178,7 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
           <Table className="text-xs w-full">
             <TableHeader>
               <TableRow>
+                <TableHead className="text-xs px-2 py-1 w-8">Checked</TableHead>
                 <SortableHeader column="asn" label="ASN" />
                 <SortableHeader column="studentName" label="Student" />
                 <SortableHeader column="courseCode" label="Course" />
@@ -170,6 +196,29 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
                 
                 return (
                   <TableRow key={record.id} className="hover:bg-gray-100">
+                    <TableCell className="p-1 w-8">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div>
+                              <Checkbox
+                                id={`checked-${record.id}`}
+                                checked={Boolean(record.StatusConflictsChecked)}
+                                onCheckedChange={(checked) => {
+                                  if (record.id) {
+                                    updateStatusConflictsChecked(record.id, Boolean(checked));
+                                  }
+                                }}
+                                aria-label="Mark as checked"
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Mark this status conflict as checked</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </TableCell>
                     <TableCell 
                       className="p-1 cursor-pointer" 
                       onClick={() => handleCellClick(record.asn, "ASN")}
