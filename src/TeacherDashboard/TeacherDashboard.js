@@ -182,6 +182,7 @@ function TeacherDashboard() {
     const baseItems = [
       { icon: Grid, label: 'React Dashboard', key: 'react-dashboard' },
       { icon: Shield, label: 'PASI Records', key: 'pasi-records' },
+      { icon: BookOpen, label: 'Course Management', key: 'courses' },
       { 
         icon: Bell, 
         label: 'Notifications', 
@@ -191,7 +192,6 @@ function TeacherDashboard() {
       },
       { icon: MessageSquare, label: 'Chats', key: 'chat' },
       { icon: FilePenLine, label: 'Email Templates', key: 'templates' },
-      { icon: BookOpen, label: 'Course Management', key: 'courses' },
       { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
       { icon: Link, label: 'Links', key: 'external-links' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },

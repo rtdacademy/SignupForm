@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getDatabase, ref, onValue } from 'firebase/database';
+import { getDatabase, ref, onValue, query, orderByChild, equalTo, startAt, endAt } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -11,6 +11,7 @@ import {
   SheetClose
 } from "../components/ui/sheet";
 import { Card, CardContent } from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
 import Courses from './Courses';
 import ImportantDates from './ImportantDates';
 import RegistrationSettings from './RegistrationSettings';
@@ -32,6 +33,8 @@ function CoursesWithSheet() {
   const [courseData, setCourseData] = useState({});
   const [courseWeights, setCourseWeights] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  // State for active notifications count
+  const [activeNotificationsCount, setActiveNotificationsCount] = useState(0);
 
   // Fetch courses and staff members
   useEffect(() => {
@@ -89,9 +92,25 @@ function CoursesWithSheet() {
       }
     });
 
+    // Fetch all active student dashboard notifications
+    const notificationsRef = ref(db, 'studentDashboardNotifications');
+    // Create a query that only fetches items where active is true
+    const activeNotificationsQuery = query(notificationsRef, orderByChild('active'), equalTo(true));
+    
+    const unsubscribeNotifications = onValue(activeNotificationsQuery, (snapshot) => {
+      if (snapshot.exists()) {
+        // Count all notifications with active=true
+        const count = Object.keys(snapshot.val()).length;
+        setActiveNotificationsCount(count);
+      } else {
+        setActiveNotificationsCount(0);
+      }
+    });
+
     return () => {
       unsubscribeCourses();
       unsubscribeStaff();
+      unsubscribeNotifications();
     };
   }, [user, isStaff, navigate, selectedCourseId, isEditing]);
 
@@ -214,9 +233,19 @@ function CoursesWithSheet() {
                 <div className={`${item.color} p-3 rounded-full mr-4`}>
                   {React.cloneElement(item.icon, { className: "h-6 w-6 text-white" })}
                 </div>
-                <div>
-                  <h3 className="text-lg font-medium">{item.label}</h3>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium">{item.label}</h3>
+                    {item.id === 'student-dashboard-notifications' && activeNotificationsCount > 0 && (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 ml-2" title="Number of active dashboard notifications">
+                        {activeNotificationsCount}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-500">{item.description}</p>
+                  {item.id === 'student-dashboard-notifications' && activeNotificationsCount > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">{activeNotificationsCount} active notification{activeNotificationsCount !== 1 ? 's' : ''}</p>
+                  )}
                 </div>
               </div>
             </CardContent>
