@@ -22,6 +22,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Switch } from '../components/ui/switch';
 import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
 import { 
   Alert, 
   AlertDescription,
@@ -55,6 +56,16 @@ import {
   TableHeader, 
   TableRow 
 } from '../components/ui/table';
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "../components/ui/sheet";
 import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
 import { 
@@ -74,7 +85,18 @@ import {
   FileText,
   RefreshCw,
   MessageSquare,
-  Users
+  Users,
+  ClipboardList,
+  HelpCircle,
+  BarChart,
+  Move,
+  PlusCircle,
+  X,
+  CircleCheck,
+  Circle,
+  Mail,
+  UsersRound,
+  MailPlus
 } from 'lucide-react';
 import { 
   STUDENT_TYPE_OPTIONS,
@@ -82,6 +104,8 @@ import {
   COURSE_OPTIONS,
   getSchoolYearOptions
 } from '../config/DropdownOptions';
+import { useSchoolYear } from '../context/SchoolYearContext';
+import StudentMessaging from '../StudentManagement/StudentMessaging';
 
 // Enhanced Quill editor modules and formats configuration
 const quillModules = {
@@ -105,7 +129,51 @@ const quillFormats = [
   'link'
 ];
 
+// Background colors for accordion styling
+const ACCORDION_COLORS = [
+  'bg-blue-50',
+  'bg-emerald-50', 
+  'bg-purple-50',
+  'bg-amber-50',
+  'bg-rose-50',
+  'bg-cyan-50',
+  'bg-lime-50'
+];
+
+// Save Confirmation Dialog Component
+const SaveConfirmationDialog = ({ open, onOpenChange, onEmailStudents, onJustSave, matchingStudentCount }) => {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Notification Saved Successfully</DialogTitle>
+          <DialogDescription>
+            Your notification has been saved. Would you like to email these {matchingStudentCount} matching students now?
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <p className="text-sm text-gray-500">
+            Opening the email editor will allow you to compose and send an email to all students who match this notification's criteria.
+          </p>
+        </div>
+        <DialogFooter className="flex sm:justify-between">
+          <Button variant="outline" onClick={onJustSave}>
+            Just Save
+          </Button>
+          <Button onClick={onEmailStudents} className="gap-2">
+            <MailPlus className="h-4 w-4" />
+            Open Email Editor
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 function StudentDashboardNotifications() {
+  // Context for student data
+  const { studentSummaries } = useSchoolYear();
+  
   // State for notifications list
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -119,8 +187,13 @@ function StudentDashboardNotifications() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isActive, setIsActive] = useState(true);
-  const [frequency, setFrequency] = useState('recurring');
+  const [type, setType] = useState('recurring'); // Changed from 'frequency' to 'type'
   const [conditionLogic, setConditionLogic] = useState('and');
+  
+  // State for survey questions
+  const [surveyQuestions, setSurveyQuestions] = useState([]);
+  // State for survey question type
+  const [questionType, setQuestionType] = useState("multiple-choice");
   
   // State for filtering conditions
   const [selectedStudentTypes, setSelectedStudentTypes] = useState([]);
@@ -138,6 +211,15 @@ function StudentDashboardNotifications() {
   
   // State for view mode
   const [activeTab, setActiveTab] = useState('all');
+  
+  // State for student messaging sheet
+  const [messagingSheetOpen, setMessagingSheetOpen] = useState(false);
+  const [filteredStudents, setFilteredStudents] = useState([]);
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  
+  // State for save confirmation dialog
+  const [saveConfirmationOpen, setSaveConfirmationOpen] = useState(false);
+  const [savedNotification, setSavedNotification] = useState(null);
   
   // School year options
   const schoolYearOptions = getSchoolYearOptions();
@@ -165,6 +247,100 @@ function StudentDashboardNotifications() {
       Quill.register('formats/list', ListClass, true);
     }
   }, []);
+  
+  // Filter students based on notification conditions
+  const filterStudentsByConditions = (notification) => {
+    if (!studentSummaries || !studentSummaries.length) {
+      return [];
+    }
+    
+    const conditions = notification.conditions || {};
+    const isAndLogic = conditions.logic !== 'or'; // Default to 'and' logic if not specified
+    
+    // Check if we have specific emails first - if so, this is our primary filter
+    if (conditions.emails && conditions.emails.length > 0) {
+      // Only return students with matching emails, regardless of other conditions
+      return studentSummaries.filter(student => 
+        student.StudentEmail && conditions.emails.includes(student.StudentEmail.toLowerCase())
+      );
+    }
+    
+    // If no emails specified, proceed with normal filtering
+    return studentSummaries.filter(student => {
+      // Array to track which conditions are met
+      const conditionResults = [];
+      
+      // Check student type condition
+      if (conditions.studentTypes && conditions.studentTypes.length > 0) {
+        const studentTypesMatch = conditions.studentTypes.includes(student.StudentType_Value);
+        conditionResults.push(studentTypesMatch);
+      }
+      
+      // Check diploma month condition
+      if (conditions.diplomaMonths && conditions.diplomaMonths.length > 0) {
+        const diplomaMonthsMatch = conditions.diplomaMonths.includes(student.DiplomaMonthChoices_Value);
+        conditionResults.push(diplomaMonthsMatch);
+      }
+      
+      // Check course condition
+      if (conditions.courses && conditions.courses.length > 0) {
+        const coursesMatch = conditions.courses.includes(student.CourseID);
+        conditionResults.push(coursesMatch);
+      }
+      
+      // Check school year condition
+      if (conditions.schoolYears && conditions.schoolYears.length > 0) {
+        const schoolYearsMatch = conditions.schoolYears.includes(student.School_x0020_Year_Value);
+        conditionResults.push(schoolYearsMatch);
+      }
+      
+      // Check schedule end date range condition
+      if (conditions.scheduleEndDateRange && 
+          conditions.scheduleEndDateRange.start && 
+          conditions.scheduleEndDateRange.end && 
+          student.ScheduleEndDate) {
+        
+        const scheduleEndDate = new Date(student.ScheduleEndDate);
+        const rangeStart = new Date(conditions.scheduleEndDateRange.start);
+        const rangeEnd = new Date(conditions.scheduleEndDateRange.end);
+        
+        const dateInRange = scheduleEndDate >= rangeStart && scheduleEndDate <= rangeEnd;
+        conditionResults.push(dateInRange);
+      }
+      
+      // Check age range condition
+      if (conditions.ageRange && 
+          typeof conditions.ageRange.min === 'number' && 
+          typeof conditions.ageRange.max === 'number' && 
+          typeof student.age === 'number') {
+        
+        const ageInRange = student.age >= conditions.ageRange.min && student.age <= conditions.ageRange.max;
+        conditionResults.push(ageInRange);
+      }
+      
+      // If no conditions were evaluated, return false
+      if (conditionResults.length === 0) {
+        return false;
+      }
+      
+      // Check all conditions based on logic
+      if (isAndLogic) {
+        // AND logic - all conditions must be true
+        return conditionResults.every(result => result === true);
+      } else {
+        // OR logic - at least one condition must be true
+        return conditionResults.some(result => result === true);
+      }
+    });
+  };
+  
+  // Handle opening the messaging sheet
+  const handleOpenMessagingSheet = (notification) => {
+    const students = filterStudentsByConditions(notification);
+    setFilteredStudents(students);
+    setSelectedNotification(notification);
+    setMessagingSheetOpen(true);
+  };
   
   // Fetch all notifications from Firebase
   const fetchNotifications = async () => {
@@ -201,7 +377,7 @@ function StudentDashboardNotifications() {
     setTitle('');
     setContent('');
     setIsActive(true);
-    setFrequency('recurring');
+    setType('recurring'); // Changed from 'frequency'
     setConditionLogic('and');
     setSelectedStudentTypes([]);
     setSelectedDiplomaMonths([]);
@@ -211,8 +387,107 @@ function StudentDashboardNotifications() {
     setAgeRange({ min: '', max: '' });
     setSelectedEmails([]);
     setEmailInput('');
+    setSurveyQuestions([]); // Reset survey questions
+    setQuestionType("multiple-choice"); // Reset question type
     setCurrentNotification(null);
     setEditMode(false);
+  };
+  
+  // Add a new survey question
+  const addSurveyQuestion = () => {
+    setSurveyQuestions([
+      ...surveyQuestions,
+      {
+        id: Date.now().toString(),
+        question: '',
+        questionType: questionType,
+        options: questionType === "text-input" 
+          ? []  // No options for text input type
+          : [
+              { id: Date.now().toString() + '-1', text: '' },
+              { id: Date.now().toString() + '-2', text: '' }
+            ]
+      }
+    ]);
+  };
+  
+  // Update survey question text
+  const updateSurveyQuestion = (questionId, newQuestion) => {
+    setSurveyQuestions(surveyQuestions.map(q => 
+      q.id === questionId 
+        ? { ...q, question: newQuestion } 
+        : q
+    ));
+  };
+  
+  // Remove a survey question
+  const removeSurveyQuestion = (questionId) => {
+    setSurveyQuestions(surveyQuestions.filter(q => q.id !== questionId));
+  };
+  
+  // Add a new option to a question
+  const addOptionToQuestion = (questionId) => {
+    setSurveyQuestions(surveyQuestions.map(q => 
+      q.id === questionId 
+        ? { 
+            ...q, 
+            options: [
+              ...q.options, 
+              { id: Date.now().toString(), text: '' }
+            ] 
+          } 
+        : q
+    ));
+  };
+  
+  // Update option text
+  const updateOption = (questionId, optionId, newText) => {
+    setSurveyQuestions(surveyQuestions.map(q => 
+      q.id === questionId 
+        ? { 
+            ...q, 
+            options: q.options.map(opt => 
+              opt.id === optionId 
+                ? { ...opt, text: newText } 
+                : opt
+            ) 
+          } 
+        : q
+    ));
+  };
+  
+  // Remove an option from a question
+  const removeOptionFromQuestion = (questionId, optionId) => {
+    setSurveyQuestions(surveyQuestions.map(q => 
+      q.id === questionId 
+        ? { 
+            ...q, 
+            options: q.options.filter(opt => opt.id !== optionId) 
+          } 
+        : q
+    ));
+  };
+  
+  // Move a question up or down in the list
+  const moveQuestion = (questionId, direction) => {
+    const currentIndex = surveyQuestions.findIndex(q => q.id === questionId);
+    
+    // If moving up and not already at the top
+    if (direction === 'up' && currentIndex > 0) {
+      const newQuestions = [...surveyQuestions];
+      const temp = newQuestions[currentIndex];
+      newQuestions[currentIndex] = newQuestions[currentIndex - 1];
+      newQuestions[currentIndex - 1] = temp;
+      setSurveyQuestions(newQuestions);
+    } 
+    // If moving down and not already at the bottom
+    else if (direction === 'down' && currentIndex < surveyQuestions.length - 1) {
+      const newQuestions = [...surveyQuestions];
+      const temp = newQuestions[currentIndex];
+      newQuestions[currentIndex] = newQuestions[currentIndex + 1];
+      newQuestions[currentIndex + 1] = temp;
+      setSurveyQuestions(newQuestions);
+    }
   };
   
   // Handle editing an existing notification
@@ -221,8 +496,21 @@ function StudentDashboardNotifications() {
     setTitle(notification.title);
     setContent(notification.content);
     setIsActive(notification.active);
-    setFrequency(notification.frequency || 'recurring');
+    
+    // Handle type (previously frequency)
+    setType(notification.type || notification.frequency || 'recurring');
+    
     setConditionLogic(notification.conditions?.logic || 'and');
+    
+    // Set survey questions if any
+    setSurveyQuestions(notification.surveyQuestions || []);
+    
+    // Set question type if available in the first question, or default to multiple-choice
+    if (notification.surveyQuestions && notification.surveyQuestions.length > 0) {
+      setQuestionType(notification.surveyQuestions[0].questionType || "multiple-choice");
+    } else {
+      setQuestionType("multiple-choice");
+    }
     
     // Set filtering conditions
     setSelectedStudentTypes(notification.conditions?.studentTypes || []);
@@ -276,6 +564,38 @@ function StudentDashboardNotifications() {
     if (!content.trim()) {
       toast.error('Please enter notification content');
       return false;
+    }
+    
+    // Validate survey questions if type is 'survey'
+    if (type === 'survey') {
+      if (surveyQuestions.length === 0) {
+        toast.error('Please add at least one survey question');
+        return false;
+      }
+      
+      // Check for empty questions or options
+      for (const q of surveyQuestions) {
+        if (!q.question.trim()) {
+          toast.error('Survey questions cannot be empty');
+          return false;
+        }
+        
+        // For multiple-choice questions, validate options
+        if (q.questionType === "multiple-choice" || !q.questionType) {
+          if (q.options.length < 2) {
+            toast.error('Multiple choice questions must have at least 2 options');
+            return false;
+          }
+          
+          for (const opt of q.options) {
+            if (!opt.text.trim()) {
+              toast.error('Survey options cannot be empty');
+              return false;
+            }
+          }
+        }
+        // Text input questions don't need option validation
+      }
     }
     
     // Check if at least one condition is set
@@ -351,14 +671,20 @@ function StudentDashboardNotifications() {
       // Build notification object
       const notificationData = {
         title: title.trim(),
-        content: sanitizedContent,
+        content: sanitizedContent, // Always save content for all notification types
         active: isActive,
-        frequency: frequency,
+        type: type, // Changed from 'frequency'
         conditions: {
           logic: conditionLogic
         },
         updatedAt: Date.now()
       };
+      
+      // Add survey questions and always set surveyCompleted to false
+      if (type === 'survey') {
+        notificationData.surveyQuestions = surveyQuestions;
+        notificationData.surveyCompleted = false;
+      }
       
       // Add filtering conditions (only include non-empty arrays/values)
       if (selectedStudentTypes.length > 0) {
@@ -395,11 +721,13 @@ function StudentDashboardNotifications() {
         };
       }
       
+      let savedNotificationObject;
+      
       if (editMode && currentNotification) {
         // Update existing notification
         const notificationRef = ref(db, `studentDashboardNotifications/${currentNotification.id}`);
         await update(notificationRef, notificationData);
-        toast.success('Notification updated successfully');
+        savedNotificationObject = { ...notificationData, id: currentNotification.id };
       } else {
         // Create new notification
         const notificationsRef = ref(db, 'studentDashboardNotifications');
@@ -409,17 +737,40 @@ function StudentDashboardNotifications() {
         notificationData.createdAt = Date.now();
         
         await set(newNotificationRef, notificationData);
-        toast.success('Notification created successfully');
+        savedNotificationObject = { ...notificationData, id: newNotificationRef.key };
       }
       
       // Refresh the notifications list
       await fetchNotifications();
-      resetForm();
+      
+      // Show save confirmation dialog with matching student count
+      const matchingStudents = filterStudentsByConditions(savedNotificationObject);
+      setSavedNotification(savedNotificationObject);
+      setSaveConfirmationOpen(true);
+      
+      // Don't reset form yet - wait for dialog result
     } catch (error) {
       console.error('Error saving notification:', error);
       toast.error('Failed to save notification');
-    } finally {
       setIsSaving(false);
+    }
+  };
+  
+  // Handle confirmation dialog actions
+  const handleJustSave = () => {
+    setSaveConfirmationOpen(false);
+    resetForm();
+    setIsSaving(false);
+    toast.success('Notification saved successfully');
+  };
+  
+  const handleEmailStudents = () => {
+    setSaveConfirmationOpen(false);
+    setIsSaving(false);
+    
+    if (savedNotification) {
+      handleOpenMessagingSheet(savedNotification);
+      resetForm();
     }
   };
   
@@ -608,6 +959,15 @@ function StudentDashboardNotifications() {
         </Badge>
       );
     }
+
+    // Add survey badge if type is survey
+    if (notification.type === 'survey') {
+      badges.push(
+        <Badge key="survey" variant="secondary" className="mr-1 mb-1 bg-purple-100 text-purple-800">
+          Survey ({notification.surveyQuestions?.length || 0} questions)
+        </Badge>
+      );
+    }
     
     return badges.length > 0 ? (
       <div className="flex flex-wrap mt-1">
@@ -632,6 +992,19 @@ function StudentDashboardNotifications() {
     
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
+  };
+
+  // Render survey content preview
+  const renderSurveyPreview = (notification) => {
+    const questions = notification.surveyQuestions || [];
+    if (questions.length === 0) return 'No survey questions';
+    
+    return `${questions.length} question${questions.length > 1 ? 's' : ''}: ${questions[0].question}${questions.length > 1 ? '...' : ''}`;
+  };
+
+  // Get count of matching students
+  const getMatchingStudentCount = (notification) => {
+    return filterStudentsByConditions(notification).length;
   };
   
   return (
@@ -719,40 +1092,58 @@ function StudentDashboardNotifications() {
                     </div>
                   </div>
                   
-                  {/* Frequency */}
+                  {/* Type (previously Frequency) */}
                   <div>
-                    <Label>Display Frequency</Label>
-                    <div className="grid grid-cols-2 gap-4 mt-1">
+                    <Label>Notification Type</Label>
+                    <div className="grid grid-cols-3 gap-4 mt-1">
+                      {/* One-time Option */}
                       <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
-                        onClick={() => setFrequency('once')}
+                        onClick={() => setType('once')}
                         style={{ 
-                          backgroundColor: frequency === 'once' ? '#f0f9ff' : 'transparent',
-                          borderColor: frequency === 'once' ? '#3b82f6' : '#e5e7eb'
+                          backgroundColor: type === 'once' ? '#f0f9ff' : 'transparent',
+                          borderColor: type === 'once' ? '#3b82f6' : '#e5e7eb'
                         }}
                       >
-                        <div className={`h-4 w-4 rounded-full ${frequency === 'once' ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                        <div className={`h-4 w-4 rounded-full ${type === 'once' ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
                         <div>
                           <p className="font-medium">One-time</p>
                           <p className="text-sm text-gray-500">Show once per student, then never again</p>
                         </div>
                       </div>
+                      
+                      {/* Recurring Option */}
                       <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
-                        onClick={() => setFrequency('recurring')}
+                        onClick={() => setType('recurring')}
                         style={{ 
-                          backgroundColor: frequency === 'recurring' ? '#f0f9ff' : 'transparent',
-                          borderColor: frequency === 'recurring' ? '#3b82f6' : '#e5e7eb'
+                          backgroundColor: type === 'recurring' ? '#f0f9ff' : 'transparent',
+                          borderColor: type === 'recurring' ? '#3b82f6' : '#e5e7eb'
                         }}
                       >
-                        <div className={`h-4 w-4 rounded-full ${frequency === 'recurring' ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                        <div className={`h-4 w-4 rounded-full ${type === 'recurring' ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
                         <div>
                           <p className="font-medium">Recurring</p>
                           <p className="text-sm text-gray-500">Show every time student logs in</p>
                         </div>
                       </div>
+                      
+                      {/* Survey Option */}
+                      <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
+                        onClick={() => setType('survey')}
+                        style={{ 
+                          backgroundColor: type === 'survey' ? '#f0f8ff' : 'transparent',
+                          borderColor: type === 'survey' ? '#8a2be2' : '#e5e7eb'
+                        }}
+                      >
+                        <div className={`h-4 w-4 rounded-full ${type === 'survey' ? 'bg-purple-500' : 'bg-gray-200'}`}></div>
+                        <div>
+                          <p className="font-medium">Survey</p>
+                          <p className="text-sm text-gray-500">Collect responses from students</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   
-                  {/* Rich Text Content */}
+                  {/* Rich Text Content (for all notification types) */}
                   <div className="space-y-2">
                     <Label htmlFor="notification-content">Notification Content</Label>
                     <div className="quill-container">
@@ -768,6 +1159,187 @@ function StudentDashboardNotifications() {
                       />
                     </div>
                   </div>
+                  
+                  {/* Survey Questions Editor (only shown for survey type) */}
+                  {type === 'survey' && (
+                    <div className="space-y-4 mt-4">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-lg font-medium flex items-center">
+                          <ClipboardList className="mr-2 h-5 w-5" />
+                          Survey Questions
+                        </Label>
+                        <div className="flex items-center space-x-2">
+                          <div className="border rounded-md overflow-hidden flex h-10">
+                            <div className="border-r bg-gray-50 flex items-center">
+                              <Label htmlFor="question-type" className="sr-only">Question Type</Label>
+                              <Select value={questionType} onValueChange={setQuestionType}>
+                                <SelectTrigger className="w-[180px] border-0 shadow-none focus:ring-0 h-10">
+                                  <SelectValue placeholder="Question Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
+                                  <SelectItem value="text-input">Text Input</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button 
+                              onClick={addSurveyQuestion} 
+                              className="rounded-none bg-purple-600 hover:bg-purple-700 h-10 flex-shrink-0"
+                            >
+                              <PlusCircle className="h-4 w-4 mr-1" />
+                              Add Question
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {surveyQuestions.length === 0 ? (
+                        <div className="text-center py-8 border rounded-md bg-gray-50">
+                          <HelpCircle className="h-10 w-10 mx-auto text-gray-400 mb-2" />
+                          <p className="text-gray-500">No questions added yet</p>
+                          <div className="mt-4 inline-flex border rounded-md overflow-hidden h-10">
+                            <div className="border-r bg-gray-50 flex items-center">
+                              <Select value={questionType} onValueChange={setQuestionType}>
+                                <SelectTrigger className="w-[180px] border-0 shadow-none focus:ring-0 h-10">
+                                  <SelectValue placeholder="Question Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
+                                  <SelectItem value="text-input">Text Input</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button 
+                              onClick={addSurveyQuestion} 
+                              className="rounded-none bg-purple-600 hover:bg-purple-700 h-10 flex-shrink-0"
+                            >
+                              <PlusCircle className="h-4 w-4 mr-1" />
+                              Add Your First Question
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          {surveyQuestions.map((question, qIndex) => (
+                            <div key={question.id} className="border rounded-lg overflow-hidden bg-white shadow-sm">
+                              {/* Question Header */}
+                              <div className="bg-purple-100 p-4 flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <span className="w-7 h-7 rounded-full bg-purple-600 text-white flex items-center justify-center mr-3">
+                                    {qIndex + 1}
+                                  </span>
+                                  <h3 className="font-medium">Question {qIndex + 1}</h3>
+                                </div>
+                                <div className="flex items-center space-x-1">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => moveQuestion(question.id, 'up')}
+                                    disabled={qIndex === 0}
+                                    className={qIndex === 0 ? 'opacity-50 cursor-not-allowed' : ''}
+                                  >
+                                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M18 15l-6-6-6 6" />
+                                    </svg>
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => moveQuestion(question.id, 'down')}
+                                    disabled={qIndex === surveyQuestions.length - 1}
+                                    className={qIndex === surveyQuestions.length - 1 ? 'opacity-50 cursor-not-allowed' : ''}
+                                  >
+                                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <path d="M6 9l6 6 6-6" />
+                                    </svg>
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => removeSurveyQuestion(question.id)}
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="h-5 w-5" />
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              {/* Question Content */}
+                              <div className="p-4">
+                                {/* Question Text */}
+                                <div className="mb-4">
+                                  <Label htmlFor={`question-${question.id}`} className="mb-1 block">
+                                    Question Text
+                                  </Label>
+                                  <Textarea
+                                    id={`question-${question.id}`}
+                                    value={question.question}
+                                    onChange={(e) => updateSurveyQuestion(question.id, e.target.value)}
+                                    placeholder="Enter your question"
+                                    className="w-full min-h-[80px]"
+                                  />
+                                </div>
+                                
+                                {/* Answer Options - only show for multiple choice questions */}
+                                {(!question.questionType || question.questionType === "multiple-choice") && (
+                                  <div className="mb-3">
+                                    <Label className="mb-2 block">
+                                      Answer Options
+                                    </Label>
+                                    
+                                    <div className="space-y-2 mb-4">
+                                      {question.options.map((option, index) => (
+                                        <div key={option.id} className="flex items-center space-x-2">
+                                          <Circle className="h-4 w-4 text-purple-500" />
+                                          <Input
+                                            value={option.text}
+                                            onChange={(e) => updateOption(question.id, option.id, e.target.value)}
+                                            placeholder={`Option ${index + 1}`}
+                                            className="flex-1"
+                                          />
+                                          <Button 
+                                            variant="ghost" 
+                                            size="icon"
+                                            onClick={() => removeOptionFromQuestion(question.id, option.id)}
+                                            disabled={question.options.length <= 2}
+                                            className={question.options.length <= 2 ? 'opacity-50 cursor-not-allowed' : 'text-red-500 hover:text-red-700'}
+                                          >
+                                            <X className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => addOptionToQuestion(question.id)}
+                                      className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                                    >
+                                      <Plus className="h-3 w-3 mr-1" />
+                                      Add Option
+                                    </Button>
+                                  </div>
+                                )}
+                                
+                                {/* Text Input Configuration - show for text input questions */}
+                                {question.questionType === "text-input" && (
+                                  <div className="mb-3">
+                                    <Alert className="bg-blue-50 border-blue-200">
+                                      <ClipboardList className="h-4 w-4 text-blue-500" />
+                                      <AlertDescription className="text-blue-700">
+                                        Students will be able to enter multi-line text responses to this question.
+                                      </AlertDescription>
+                                    </Alert>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 {/* Notification Conditions */}
@@ -798,10 +1370,10 @@ function StudentDashboardNotifications() {
                     </AlertDescription>
                   </Alert>
                   
-                  <Accordion type="multiple" defaultValue={['student-types', 'diploma-months', 'courses', 'school-years', 'date-range', 'age-range', 'specific-emails']}>
+                  <Accordion type="multiple">
                     {/* Student Types */}
-                    <AccordionItem value="student-types">
-                      <AccordionTrigger className="text-base font-medium">
+                    <AccordionItem value="student-types" className="mb-4 border border-blue-200 rounded-lg overflow-hidden">
+                      <AccordionTrigger className="text-base font-medium px-4 py-3 bg-blue-50 hover:bg-blue-100 transition-colors">
                         Student Types
                         {selectedStudentTypes.length > 0 && (
                           <Badge variant="secondary" className="ml-2">
@@ -809,7 +1381,7 @@ function StudentDashboardNotifications() {
                           </Badge>
                         )}
                       </AccordionTrigger>
-                      <AccordionContent>
+                      <AccordionContent className="p-4 bg-white">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
                           {STUDENT_TYPE_OPTIONS.map(option => {
                             const Icon = option.icon;
@@ -854,8 +1426,8 @@ function StudentDashboardNotifications() {
                     </AccordionItem>
                     
                     {/* Diploma Months */}
-                    <AccordionItem value="diploma-months">
-                      <AccordionTrigger className="text-base font-medium">
+                    <AccordionItem value="diploma-months" className="mb-4 border border-emerald-200 rounded-lg overflow-hidden">
+                      <AccordionTrigger className="text-base font-medium px-4 py-3 bg-emerald-50 hover:bg-emerald-100 transition-colors">
                         Diploma Months
                         {selectedDiplomaMonths.length > 0 && (
                           <Badge variant="secondary" className="ml-2">
@@ -863,7 +1435,7 @@ function StudentDashboardNotifications() {
                           </Badge>
                         )}
                       </AccordionTrigger>
-                      <AccordionContent>
+                      <AccordionContent className="p-4 bg-white">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
                           {DIPLOMA_MONTH_OPTIONS.map(option => {
                             const isSelected = selectedDiplomaMonths.includes(option.value);
@@ -872,13 +1444,13 @@ function StudentDashboardNotifications() {
                               <div 
                                 key={option.value}
                                 className={`border rounded-md p-3 cursor-pointer transition-colors flex items-center ${
-                                  isSelected ? 'bg-blue-50 border-blue-300' : 'hover:bg-gray-50'
+                                  isSelected ? 'bg-emerald-50 border-emerald-300' : 'hover:bg-gray-50'
                                 }`}
                                 onClick={() => handleMultiSelectChange('diplomaMonths', option.value)}
                               >
                                 <div 
                                   className={`w-5 h-5 rounded mr-3 flex items-center justify-center ${
-                                    isSelected ? 'bg-blue-500 text-white' : 'border border-gray-300'
+                                    isSelected ? 'bg-emerald-500 text-white' : 'border border-gray-300'
                                   }`}
                                 >
                                   {isSelected && <CheckCircle className="w-4 h-4" />}
@@ -910,8 +1482,8 @@ function StudentDashboardNotifications() {
                     </AccordionItem>
                     
                     {/* Courses */}
-                    <AccordionItem value="courses">
-                      <AccordionTrigger className="text-base font-medium">
+                    <AccordionItem value="courses" className="mb-4 border border-purple-200 rounded-lg overflow-hidden">
+                      <AccordionTrigger className="text-base font-medium px-4 py-3 bg-purple-50 hover:bg-purple-100 transition-colors">
                         Courses
                         {selectedCourses.length > 0 && (
                           <Badge variant="secondary" className="ml-2">
@@ -919,7 +1491,7 @@ function StudentDashboardNotifications() {
                           </Badge>
                         )}
                       </AccordionTrigger>
-                      <AccordionContent>
+                      <AccordionContent className="p-4 bg-white">
                         <div className="border rounded-md mb-3">
                           <Input
                             placeholder="Search courses..."
@@ -939,13 +1511,13 @@ function StudentDashboardNotifications() {
                               <div 
                                 key={option.courseId}
                                 className={`p-2 border-b cursor-pointer transition-colors flex items-center ${
-                                  isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                                  isSelected ? 'bg-purple-50' : 'hover:bg-gray-50'
                                 }`}
                                 onClick={() => handleMultiSelectChange('courses', option.courseId)}
                               >
                                 <div 
                                   className={`w-5 h-5 rounded mr-3 flex items-center justify-center ${
-                                    isSelected ? 'bg-blue-500 text-white' : 'border border-gray-300'
+                                    isSelected ? 'bg-purple-500 text-white' : 'border border-gray-300'
                                   }`}
                                 >
                                   {isSelected && <CheckCircle className="w-4 h-4" />}
@@ -978,8 +1550,8 @@ function StudentDashboardNotifications() {
                     </AccordionItem>
                     
                     {/* School Years */}
-                    <AccordionItem value="school-years">
-                      <AccordionTrigger className="text-base font-medium">
+                    <AccordionItem value="school-years" className="mb-4 border border-amber-200 rounded-lg overflow-hidden">
+                      <AccordionTrigger className="text-base font-medium px-4 py-3 bg-amber-50 hover:bg-amber-100 transition-colors">
                         School Years
                         {selectedSchoolYears.length > 0 && (
                           <Badge variant="secondary" className="ml-2">
@@ -987,7 +1559,7 @@ function StudentDashboardNotifications() {
                           </Badge>
                         )}
                       </AccordionTrigger>
-                      <AccordionContent>
+                      <AccordionContent className="p-4 bg-white">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
                           {schoolYearOptions.map(option => {
                             const isSelected = selectedSchoolYears.includes(option.value);
@@ -996,13 +1568,13 @@ function StudentDashboardNotifications() {
                               <div 
                                 key={option.value}
                                 className={`border rounded-md p-3 cursor-pointer transition-colors flex items-center ${
-                                  isSelected ? 'bg-blue-50 border-blue-300' : 'hover:bg-gray-50'
+                                  isSelected ? 'bg-amber-50 border-amber-300' : 'hover:bg-gray-50'
                                 }`}
                                 onClick={() => handleMultiSelectChange('schoolYears', option.value)}
                               >
                                 <div 
                                   className={`w-5 h-5 rounded mr-3 flex items-center justify-center ${
-                                    isSelected ? 'bg-blue-500 text-white' : 'border border-gray-300'
+                                    isSelected ? 'bg-amber-500 text-white' : 'border border-gray-300'
                                   }`}
                                 >
                                   {isSelected && <CheckCircle className="w-4 h-4" />}
@@ -1034,8 +1606,8 @@ function StudentDashboardNotifications() {
                     </AccordionItem>
                     
                     {/* Schedule End Date Range */}
-                    <AccordionItem value="date-range">
-                      <AccordionTrigger className="text-base font-medium">
+                    <AccordionItem value="date-range" className="mb-4 border border-rose-200 rounded-lg overflow-hidden">
+                      <AccordionTrigger className="text-base font-medium px-4 py-3 bg-rose-50 hover:bg-rose-100 transition-colors">
                         Schedule End Date Range
                         {scheduleEndDateRange.start && scheduleEndDateRange.end && (
                           <Badge variant="secondary" className="ml-2">
@@ -1043,7 +1615,7 @@ function StudentDashboardNotifications() {
                           </Badge>
                         )}
                       </AccordionTrigger>
-                      <AccordionContent>
+                      <AccordionContent className="p-4 bg-white">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                           <div className="space-y-2">
                             <Label htmlFor="date-range-start">Start Date</Label>
@@ -1104,8 +1676,8 @@ function StudentDashboardNotifications() {
                     </AccordionItem>
                     
                     {/* Age Range */}
-                    <AccordionItem value="age-range">
-                      <AccordionTrigger className="text-base font-medium">
+                    <AccordionItem value="age-range" className="mb-4 border border-cyan-200 rounded-lg overflow-hidden">
+                      <AccordionTrigger className="text-base font-medium px-4 py-3 bg-cyan-50 hover:bg-cyan-100 transition-colors">
                         Age Range
                         {ageRange.min && ageRange.max && (
                           <Badge variant="secondary" className="ml-2">
@@ -1113,7 +1685,7 @@ function StudentDashboardNotifications() {
                           </Badge>
                         )}
                       </AccordionTrigger>
-                      <AccordionContent>
+                      <AccordionContent className="p-4 bg-white">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                           <div className="space-y-2">
                             <Label htmlFor="age-min">Minimum Age</Label>
@@ -1172,8 +1744,8 @@ function StudentDashboardNotifications() {
                     </AccordionItem>
                     
                     {/* Specific Student Emails */}
-                    <AccordionItem value="specific-emails">
-                      <AccordionTrigger className="text-base font-medium">
+                    <AccordionItem value="specific-emails" className="mb-4 border border-lime-200 rounded-lg overflow-hidden">
+                      <AccordionTrigger className="text-base font-medium px-4 py-3 bg-lime-50 hover:bg-lime-100 transition-colors">
                         Specific Student Emails
                         {selectedEmails.length > 0 && (
                           <Badge variant="secondary" className="ml-2">
@@ -1181,7 +1753,7 @@ function StudentDashboardNotifications() {
                           </Badge>
                         )}
                       </AccordionTrigger>
-                      <AccordionContent>
+                      <AccordionContent className="p-4 bg-white">
                         <div className="space-y-4 pt-2">
                           <div className="flex items-center space-x-2">
                             <Input
@@ -1327,80 +1899,117 @@ function StudentDashboardNotifications() {
                           <TableHead>Content Preview</TableHead>
                           <TableHead>Conditions</TableHead>
                           <TableHead className="w-[100px]">Status</TableHead>
+                          <TableHead className="w-[100px]">Students</TableHead>
                           <TableHead className="w-[180px]">Last Updated</TableHead>
-                          <TableHead className="text-right w-[150px]">Actions</TableHead>
+                          <TableHead className="text-right w-[180px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {getFilteredNotifications().map(notification => (
-                          <TableRow key={notification.id}>
-                            <TableCell className="font-medium">
-                              <div className="flex items-center space-x-2">
-                                <FileText className="h-4 w-4 text-gray-400" />
-                                <span>{notification.title}</span>
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                {notification.frequency === 'once' ? 'One-time' : 'Recurring'}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm text-gray-700 max-w-xs truncate">
-                                {truncateContent(notification.content)}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {renderConditionBadges(notification)}
-                            </TableCell>
-                            <TableCell>
-                              <Badge 
-                                variant={notification.active ? "success" : "secondary"}
-                                className={notification.active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}
-                              >
-                                {notification.active ? 'Active' : 'Inactive'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">
-                                {formatDate(notification.updatedAt || notification.createdAt)}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end space-x-2">
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  onClick={() => toggleNotificationStatus(notification)}
-                                  title={notification.active ? 'Deactivate' : 'Activate'}
+                        {getFilteredNotifications().map(notification => {
+                          const matchingStudentCount = getMatchingStudentCount(notification);
+                          
+                          return (
+                            <TableRow key={notification.id}>
+                              <TableCell className="font-medium">
+                                <div className="flex items-center space-x-2">
+                                  <FileText className="h-4 w-4 text-gray-400" />
+                                  <span>{notification.title}</span>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1 flex items-center">
+                                  <Badge variant="outline" className={`
+                                    ${notification.type === 'survey' 
+                                      ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                      : notification.type === 'once' || notification.frequency === 'once'
+                                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                        : 'bg-green-50 text-green-700 border-green-200'
+                                    }
+                                  `}>
+                                    {notification.type === 'survey' 
+                                      ? 'Survey' 
+                                      : notification.type === 'once' || notification.frequency === 'once'
+                                        ? 'One-time'
+                                        : 'Recurring'
+                                    }
+                                  </Badge>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm text-gray-700 max-w-xs truncate">
+                                  {notification.type === 'survey' 
+                                    ? renderSurveyPreview(notification)
+                                    : truncateContent(notification.content)
+                                  }
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {renderConditionBadges(notification)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant={notification.active ? "success" : "secondary"}
+                                  className={notification.active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}
                                 >
-                                  {notification.active ? (
-                                    <EyeOff className="h-4 w-4" />
-                                  ) : (
-                                    <Eye className="h-4 w-4" />
-                                  )}
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  onClick={() => handleEditNotification(notification)}
-                                  title="Edit"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  onClick={() => {
-                                    setNotificationToDelete(notification);
-                                    setDeleteDialogOpen(true);
-                                  }}
-                                  title="Delete"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                                  {notification.active ? 'Active' : 'Inactive'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="bg-blue-50 border-blue-200">
+                                  {matchingStudentCount} {matchingStudentCount === 1 ? 'student' : 'students'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  {formatDate(notification.updatedAt || notification.createdAt)}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end space-x-2">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => toggleNotificationStatus(notification)}
+                                    title={notification.active ? 'Deactivate' : 'Activate'}
+                                  >
+                                    {notification.active ? (
+                                      <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                      <Eye className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => handleEditNotification(notification)}
+                                    title="Edit"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => handleOpenMessagingSheet(notification)}
+                                    title="Message Students"
+                                    disabled={matchingStudentCount === 0}
+                                    className={matchingStudentCount === 0 ? 'opacity-50' : ''}
+                                  >
+                                    <MailPlus className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => {
+                                      setNotificationToDelete(notification);
+                                      setDeleteDialogOpen(true);
+                                    }}
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -1426,7 +2035,10 @@ function StudentDashboardNotifications() {
               <div className="bg-gray-50 p-3 rounded-md">
                 <h4 className="font-medium">{notificationToDelete.title}</h4>
                 <p className="text-sm text-gray-500 mt-1">
-                  {truncateContent(notificationToDelete.content, 150)}
+                  {notificationToDelete.type === 'survey'
+                    ? `Survey with ${notificationToDelete.surveyQuestions?.length || 0} questions`
+                    : truncateContent(notificationToDelete.content, 150)
+                  }
                 </p>
               </div>
             </div>
@@ -1446,6 +2058,61 @@ function StudentDashboardNotifications() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Save Confirmation Dialog */}
+      <SaveConfirmationDialog
+        open={saveConfirmationOpen}
+        onOpenChange={setSaveConfirmationOpen}
+        onEmailStudents={handleEmailStudents}
+        onJustSave={handleJustSave}
+        matchingStudentCount={savedNotification ? getMatchingStudentCount(savedNotification) : 0}
+      />
+      
+      {/* Student Messaging Sheet */}
+      <Sheet open={messagingSheetOpen} onOpenChange={setMessagingSheetOpen}>
+      <SheetContent side="right" className="w-[80%] p-0">
+          <SheetHeader className="px-6 py-4 border-b">
+            <div className="flex items-center">
+              <UsersRound className="h-5 w-5 mr-2 text-blue-600" />
+              <SheetTitle>Student Messaging</SheetTitle>
+            </div>
+            <SheetDescription>
+              {selectedNotification && (
+                <div className="flex items-center mt-1">
+                  <span className="text-sm text-gray-500 mr-2">Notification:</span>
+                  <Badge variant="outline">{selectedNotification.title}</Badge>
+                  <span className="text-sm text-gray-500 mx-2">•</span>
+                  <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                    {filteredStudents.length} {filteredStudents.length === 1 ? 'student' : 'students'} selected
+                  </Badge>
+                </div>
+              )}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="h-[calc(100vh-10rem)] overflow-hidden">
+            {filteredStudents.length > 0 ? (
+              <StudentMessaging 
+                selectedStudents={filteredStudents} 
+                onClose={() => setMessagingSheetOpen(false)}
+                notificationTitle={selectedNotification?.title || ''}
+                notificationContent={selectedNotification?.content || ''}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full">
+                <UsersRound className="h-12 w-12 text-gray-300 mb-4" />
+                <p className="text-gray-500 text-center max-w-md">
+                  No students match the selected notification conditions. Try adjusting the conditions to include more students.
+                </p>
+              </div>
+            )}
+          </div>
+          <SheetFooter className="px-6 py-4 border-t">
+            <Button variant="outline" onClick={() => setMessagingSheetOpen(false)}>
+              Close
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
       
       {/* Add CSS for the ReactQuill editor to ensure proper styling */}
       <style jsx global>{`

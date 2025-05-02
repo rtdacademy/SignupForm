@@ -623,7 +623,7 @@ const StudentMessaging = ({
 
   return (
     <>
-      <Card className="h-full flex flex-col">
+      <Card className="w-[90vw] h-full flex flex-col mx-auto">
         <CardHeader className="border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
