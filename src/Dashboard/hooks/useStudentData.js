@@ -338,7 +338,7 @@ export const useStudentData = (userEmailKey) => {
         } else {
           isMatch = conditionResults.some(result => result.match);
         }
-        
+        /*
         // Log detailed match results or rejection reasons
         if (isMatch) {
           console.log(`Notification "${notification.title}" MATCHED for course ${course.id}:`, {
@@ -356,7 +356,7 @@ export const useStudentData = (userEmailKey) => {
             rejectionReasons: failedConditions
           });
         }
-        
+        */
         // If matched, add to course
         if (isMatch) {
           courseWithNotifications.notificationIds[notification.id] = {
@@ -364,6 +364,9 @@ export const useStudentData = (userEmailKey) => {
             title: notification.title,
             content: notification.content,
             frequency: notification.frequency,
+            type: notification.type, // Include type property
+            important: notification.important, // Include important flag
+            Important: notification.Important, // Also include capitalized version just in case
             shouldDisplay: true // Default to display
           };
         }

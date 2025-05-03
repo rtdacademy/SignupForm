@@ -17,6 +17,7 @@ import ModernCourseViewer from '../courses/CourseViewer/ModernCourseViewer';
 import { useModernCourse } from './hooks/useModernCourse';
 import { ImportantDatesCard } from './ImportantDatesCard';
 import Header from '../Layout/Header';
+import NotificationCenter from './NotificationCenter';
 
 // Constants for triangles
 const TRIANGLE_SIZE = 220;
@@ -91,9 +92,11 @@ const Dashboard = () => {
     courses, 
     profile, 
     importantDates,
+    allNotifications,
     loading: dataLoading, 
     error, 
-    studentExists 
+    studentExists,
+    markNotificationAsSeen 
   } = useStudentData(current_user_email_key);
   
   const [selectedCourse, setSelectedCourse] = useState(null);
@@ -414,123 +417,132 @@ const Dashboard = () => {
         </div>
 
         <div className="relative z-10 container mx-auto px-4 py-8 h-full flex flex-col overflow-auto">
-          {!isEmulating && (
-            <div className="grid grid-cols-1 gap-4 mb-6">
-              <FormDialog
-                trigger={triggerButton}
-                open={isFormDialogOpen}
-                importantDates={importantDates} 
-                onOpenChange={(open) => {
-                  setIsFormDialogOpen(open);
-                  if (open) {
-                    setShowWelcomeDialog(false);
-                  }
-                }}
-              />
-            </div>
-          )}
+  {!isEmulating && (
+    <div className="grid grid-cols-1 gap-4 mb-6">
+      <FormDialog
+        trigger={triggerButton}
+        open={isFormDialogOpen}
+        importantDates={importantDates} 
+        onOpenChange={(open) => {
+          setIsFormDialogOpen(open);
+          if (open) {
+            setShowWelcomeDialog(false);
+          }
+        }}
+      />
+    </div>
+  )}
 
-          <div className="mb-6">
-            <WelcomeMessage
-              hasStudentNode={!!profile}
-              hasCourses={courses.length > 0}
-            />
-          </div>
+  {/* Add the NotificationCenter here */}
+  {studentExists && (
+    <NotificationCenter
+      courses={courses}
+      profile={profile}
+      markNotificationAsSeen={markNotificationAsSeen}
+    />
+  )}
 
-          <div className="flex flex-col lg:flex-row gap-6 flex-1">
-            {/* Main content: Courses */}
-            <div className="lg:w-3/4 space-y-6 flex flex-col">
-              <Card className="flex-1 flex flex-col overflow-hidden border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
-                  <h3 className="text-lg font-semibold flex items-center">
-                    <NotebookPen className="h-5 w-5 mr-2 text-blue-600" />
-                    My Courses
-                  </h3>
-                </CardHeader>
-                <CardContent className="flex-1 overflow-y-auto space-y-6 p-6">
-                {courses.length > 0 ? (
-                  courses.map((course) => (
-                    <CourseCard
-                      user_email_key={current_user_email_key}
-                      key={course.CourseID || course.id}
-                      course={course}
-                      profile={profile}
-                      onViewDetails={() => setSelectedCourse(course)}
-                      onGoToCourse={() => {
-                        setSelectedCourse(course);
-                        setShowLMS(true);
-                      }}
-                      customActions={
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedCourse(course);
-                              setShowLMS(false);
-                            }}
-                            className="flex-1 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
-                            size="sm"
-                          >
-                            View Details
-                          </Button>
-                          <Button
-                            className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
-                            onClick={() => {
-                              setSelectedCourse(course);
-                              setShowLMS(true);
-                            }}
-                          >
-                            Go to Course
-                          </Button>
-                        </div>
-                      }
-                      showProgressBar={true}
-                      showGradeInfo={true}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    No courses enrolled yet
-                  </div>
-                )}
-                </CardContent>
-              </Card>
-            </div>
+  <div className="mb-6">
+    <WelcomeMessage
+      hasStudentNode={!!profile}
+      hasCourses={courses.length > 0}
+    />
+  </div>
 
-            {/* Right Column: Important Dates Only (Profile Card Removed) */}
-            <div className="lg:w-1/4 space-y-6">
-              {/* Important Dates Card */}
-              <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
-                  <h3 className="text-lg font-semibold flex items-center">
-                    <NotebookPen className="h-5 w-5 mr-2 text-blue-600" />
-                    Important Dates
-                  </h3>
-                </CardHeader>
-                <CardContent className="p-4">
-                <ImportantDatesCard importantDates={importantDates} />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Profile Component as a Sheet */}
-          {studentExists && (
-            <ProfileComponent
-              isOpen={isProfileOpen || forceProfileOpen}
-              onOpenChange={(open) => {
-                // Simply update both states when closing
-                if (!open) {
-                  setIsProfileOpen(false);
-                  setForceProfileOpen(false);
-                } else {
-                  setIsProfileOpen(true);
-                }
-              }}
+  <div className="flex flex-col lg:flex-row gap-6 flex-1">
+    {/* Main content: Courses */}
+    <div className="lg:w-3/4 space-y-6 flex flex-col">
+      <Card className="flex-1 flex flex-col overflow-hidden border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
+          <h3 className="text-lg font-semibold flex items-center">
+            <NotebookPen className="h-5 w-5 mr-2 text-blue-600" />
+            My Courses
+          </h3>
+        </CardHeader>
+        <CardContent className="flex-1 overflow-y-auto space-y-6 p-6">
+        {courses.length > 0 ? (
+          courses.map((course) => (
+            <CourseCard
+              user_email_key={current_user_email_key}
+              key={course.CourseID || course.id}
+              course={course}
               profile={profile}
+              onViewDetails={() => setSelectedCourse(course)}
+              onGoToCourse={() => {
+                setSelectedCourse(course);
+                setShowLMS(true);
+              }}
+              customActions={
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedCourse(course);
+                      setShowLMS(false);
+                    }}
+                    className="flex-1 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
+                    size="sm"
+                  >
+                    View Details
+                  </Button>
+                  <Button
+                    className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
+                    onClick={() => {
+                      setSelectedCourse(course);
+                      setShowLMS(true);
+                    }}
+                  >
+                    Go to Course
+                  </Button>
+                </div>
+              }
+              showProgressBar={true}
+              showGradeInfo={true}
             />
-          )}
-        </div>
+          ))
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            No courses enrolled yet
+          </div>
+        )}
+        </CardContent>
+      </Card>
+    </div>
+
+    {/* Right Column: Important Dates Only (Profile Card Removed) */}
+    <div className="lg:w-1/4 space-y-6">
+      {/* Important Dates Card */}
+      <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
+          <h3 className="text-lg font-semibold flex items-center">
+            <NotebookPen className="h-5 w-5 mr-2 text-blue-600" />
+            Important Dates
+          </h3>
+        </CardHeader>
+        <CardContent className="p-4">
+        <ImportantDatesCard importantDates={importantDates} />
+        </CardContent>
+      </Card>
+    </div>
+  </div>
+
+  {/* Profile Component as a Sheet */}
+  {studentExists && (
+    <ProfileComponent
+      isOpen={isProfileOpen || forceProfileOpen}
+      onOpenChange={(open) => {
+        // Simply update both states when closing
+        if (!open) {
+          setIsProfileOpen(false);
+          setForceProfileOpen(false);
+        } else {
+          setIsProfileOpen(true);
+        }
+      }}
+      profile={profile}
+    />
+  )}
+</div>
       </div>
     </div>
   );

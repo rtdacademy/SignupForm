@@ -187,6 +187,7 @@ function StudentDashboardNotifications() {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [isImportant, setIsImportant] = useState(false);
   const [type, setType] = useState('recurring'); // Changed from 'frequency' to 'type'
   const [conditionLogic, setConditionLogic] = useState('and');
   
@@ -377,6 +378,7 @@ function StudentDashboardNotifications() {
     setTitle('');
     setContent('');
     setIsActive(true);
+    setIsImportant(false);
     setType('recurring'); // Changed from 'frequency'
     setConditionLogic('and');
     setSelectedStudentTypes([]);
@@ -496,6 +498,7 @@ function StudentDashboardNotifications() {
     setTitle(notification.title);
     setContent(notification.content);
     setIsActive(notification.active);
+    setIsImportant(notification.important || false);
     
     // Handle type (previously frequency)
     setType(notification.type || notification.frequency || 'recurring');
@@ -673,6 +676,7 @@ function StudentDashboardNotifications() {
         title: title.trim(),
         content: sanitizedContent, // Always save content for all notification types
         active: isActive,
+        important: isImportant,
         type: type, // Changed from 'frequency'
         conditions: {
           logic: conditionLogic
@@ -798,10 +802,17 @@ function StudentDashboardNotifications() {
     try {
       const db = getDatabase();
       const notificationRef = ref(db, `studentDashboardNotifications/${notification.id}`);
-      await update(notificationRef, { 
+      
+      // Create a new complete notification object with updated active status
+      const updatedNotification = {
+        ...notification,
         active: !notification.active,
-        updatedAt: Date.now()
-      });
+        updatedAt: Date.now(),
+        id: undefined // Remove the id property as it's not part of the data structure
+      };
+      
+      // Set the complete object instead of just updating fields
+      await set(notificationRef, updatedNotification);
       
       toast.success(`Notification ${!notification.active ? 'activated' : 'deactivated'} successfully`);
       await fetchNotifications();
@@ -1088,6 +1099,21 @@ function StudentDashboardNotifications() {
                       </div>
                       <p className="text-sm text-gray-500">
                         {isActive ? 'This notification will be shown to students' : 'This notification is disabled'}
+                      </p>
+                      
+                      {/* Important Switch */}
+                      <div className="flex items-center space-x-2 mt-4">
+                        <Switch 
+                          id="notification-important"
+                          checked={isImportant}
+                          onCheckedChange={setIsImportant}
+                        />
+                        <Label htmlFor="notification-important">
+                          {isImportant ? 'Important' : 'Standard'}
+                        </Label>
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {isImportant ? 'Will appear as a popup when students log in' : 'Will appear in notification panel'}
                       </p>
                     </div>
                   </div>
@@ -1915,7 +1941,7 @@ function StudentDashboardNotifications() {
                                   <FileText className="h-4 w-4 text-gray-400" />
                                   <span>{notification.title}</span>
                                 </div>
-                                <div className="text-xs text-gray-500 mt-1 flex items-center">
+                                <div className="text-xs text-gray-500 mt-1 flex items-center space-x-2">
                                   <Badge variant="outline" className={`
                                     ${notification.type === 'survey' 
                                       ? 'bg-purple-50 text-purple-700 border-purple-200' 
@@ -1931,6 +1957,12 @@ function StudentDashboardNotifications() {
                                         : 'Recurring'
                                     }
                                   </Badge>
+                                  
+                                  {notification.important && (
+                                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                      Important
+                                    </Badge>
+                                  )}
                                 </div>
                               </TableCell>
                               <TableCell>
