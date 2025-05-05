@@ -623,7 +623,7 @@ const StudentMessaging = ({
 
   return (
     <>
-      <Card className="w-full h-full flex flex-col">
+      <Card className="w-full h-full flex flex-col overflow-hidden">
         <CardHeader className="border-b flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -702,7 +702,7 @@ const StudentMessaging = ({
           </div>
 
           {/* New Flex Container with Add Template, CC Options, and Do Not Reply */}
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap items-center gap-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -948,18 +948,23 @@ const StudentMessaging = ({
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="min-h-[200px] max-h-[300px] border rounded-md">
+            <div className="min-h-[200px] border rounded-md">
               <ReactQuill
                 theme="snow"
                 value={messageContent}
                 onChange={setMessageContent}
                 modules={modules}
                 formats={formats}
-                className="max-h-[250px] overflow-y-auto"
+                className="h-full w-full"
                 ref={(el) => {
                   if (el) {
                     setQuillRef(el);
                   }
+                }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "250px"
                 }}
               />
             </div>
@@ -1033,9 +1038,8 @@ const StudentMessaging = ({
                 students={selectedStudents}
                 placeholders={PLACEHOLDERS}
               />
-             
             </div>
-            <div className="flex-shrink-0">
+            <div>
               <Button
                 size="sm"
                 onClick={handleSend}
