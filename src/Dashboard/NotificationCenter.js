@@ -520,6 +520,8 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit }) =
 // Regular notification dialog now handles all notifications
 
 const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
+  // Track if user has manually toggled the accordion
+  const [userToggled, setUserToggled] = useState(false);
   // Start collapsed unless there are important notifications
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState(null);
@@ -628,14 +630,15 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       
       if (process.env.NODE_ENV === 'development') {
         console.log('Has important notifications:', hasImportantNotifications);
+        console.log('User has manually toggled:', userToggled);
       }
       
-      // Auto-expand the panel if there are important notifications
-      if (hasImportantNotifications) {
+      // Only auto-expand if user hasn't manually toggled the panel
+      if (hasImportantNotifications && !userToggled) {
         setIsExpanded(true);
       }
     }
-  }, [activeNotifications]);
+  }, [activeNotifications, userToggled]);
 
   // Mark notification as read and store in localStorage
   const markAsRead = (notificationId) => {
@@ -736,7 +739,10 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
     <Card className="mb-6 shadow-lg border-t-4 border-t-blue-500">
       <div 
         className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => {
+          setUserToggled(true); // Mark that user has manually toggled
+          setIsExpanded(!isExpanded);
+        }}
       >
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -752,7 +758,15 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
             </span>
           </h2>
         </div>
-        <Button variant="ghost" size="sm">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={(e) => {
+            e.stopPropagation(); // Stop propagation to prevent double toggle
+            setUserToggled(true); // Mark that user has manually toggled
+            setIsExpanded(!isExpanded);
+          }}
+        >
           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </Button>
       </div>
