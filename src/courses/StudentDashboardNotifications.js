@@ -1117,7 +1117,7 @@ function StudentDashboardNotifications() {
                         </Label>
                       </div>
                       <p className="text-sm text-gray-500">
-                        {isImportant ? 'Will appear as a popup when students log in' : 'Will appear in notification panel'}
+                        {isImportant ? 'Will force student to see notification each time' : 'Will appear as a standard notification'}
                       </p>
                     </div>
                   </div>
