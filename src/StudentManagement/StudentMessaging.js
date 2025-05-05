@@ -623,8 +623,8 @@ const StudentMessaging = ({
 
   return (
     <>
-      <Card className="w-[90vw] h-full flex flex-col mx-auto">
-        <CardHeader className="border-b">
+      <Card className="w-full h-full flex flex-col">
+        <CardHeader className="border-b flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CardTitle className="text-lg font-semibold">
@@ -948,14 +948,14 @@ const StudentMessaging = ({
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="min-h-[200px] border rounded-md">
+            <div className="min-h-[200px] max-h-[300px] border rounded-md">
               <ReactQuill
                 theme="snow"
                 value={messageContent}
                 onChange={setMessageContent}
                 modules={modules}
                 formats={formats}
-                className="h-[150px]"
+                className="max-h-[250px] overflow-y-auto"
                 ref={(el) => {
                   if (el) {
                     setQuillRef(el);
@@ -1013,8 +1013,8 @@ const StudentMessaging = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-between items-center pt-4">
-            <div className="flex gap-2">
+          <div className="flex flex-wrap justify-between items-center pt-4 gap-2">
+            <div className="flex flex-wrap gap-2">
               <TemplateManager 
                 initialTemplate={templateToSave} 
                 onMessageChange={() => setTemplateToSave(null)} 
@@ -1035,23 +1035,25 @@ const StudentMessaging = ({
               />
              
             </div>
-            <Button
-              size="sm"
-              onClick={handleSend}
-              disabled={isSending || !subject.trim() || !messageContent.trim()}
-            >
-              {isSending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Message
-                </>
-              )}
-            </Button>
+            <div className="flex-shrink-0">
+              <Button
+                size="sm"
+                onClick={handleSend}
+                disabled={isSending || !subject.trim() || !messageContent.trim()}
+              >
+                {isSending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Send Message
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

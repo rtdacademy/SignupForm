@@ -258,18 +258,21 @@ function StudentDashboardNotifications() {
     const conditions = notification.conditions || {};
     const isAndLogic = conditions.logic !== 'or'; // Default to 'and' logic if not specified
     
-    // Check if we have specific emails first - if so, this is our primary filter
-    if (conditions.emails && conditions.emails.length > 0) {
-      // Only return students with matching emails, regardless of other conditions
-      return studentSummaries.filter(student => 
-        student.StudentEmail && conditions.emails.includes(student.StudentEmail.toLowerCase())
-      );
-    }
-    
-    // If no emails specified, proceed with normal filtering
     return studentSummaries.filter(student => {
       // Array to track which conditions are met
       const conditionResults = [];
+      
+      // Check email condition - if specified, this is always an additional AND condition
+      if (conditions.emails && conditions.emails.length > 0) {
+        // For selected email AND course, check if student email matches any of the selected emails
+        const emailMatches = student.StudentEmail && 
+                             conditions.emails.includes(student.StudentEmail.toLowerCase());
+        
+        // If email doesn't match, return false immediately (AND condition)
+        if (!emailMatches) {
+          return false;
+        }
+      }
       
       // Check student type condition
       if (conditions.studentTypes && conditions.studentTypes.length > 0) {
@@ -319,9 +322,10 @@ function StudentDashboardNotifications() {
         conditionResults.push(ageInRange);
       }
       
-      // If no conditions were evaluated, return false
+      // If no other conditions were evaluated (besides email which was already checked)
+      // and we have an email condition, return true since email already matched
       if (conditionResults.length === 0) {
-        return false;
+        return conditions.emails && conditions.emails.length > 0;
       }
       
       // Check all conditions based on logic
@@ -1360,6 +1364,32 @@ function StudentDashboardNotifications() {
                                   </div>
                                 )}
                               </div>
+                              
+                              {/* Add Question Button after the last question */}
+                              {qIndex === surveyQuestions.length - 1 && (
+                                <div className="border-t px-4 py-3 bg-gray-50 flex justify-center">
+                                  <div className="inline-flex border rounded-md overflow-hidden h-10">
+                                    <div className="border-r bg-gray-50 flex items-center">
+                                      <Select value={questionType} onValueChange={setQuestionType}>
+                                        <SelectTrigger className="w-[180px] border-0 shadow-none focus:ring-0 h-10">
+                                          <SelectValue placeholder="Question Type" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
+                                          <SelectItem value="text-input">Text Input</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <Button 
+                                      onClick={addSurveyQuestion} 
+                                      className="rounded-none bg-purple-600 hover:bg-purple-700 h-10 flex-shrink-0"
+                                    >
+                                      <PlusCircle className="h-4 w-4 mr-1" />
+                                      Add Question
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -2102,15 +2132,15 @@ function StudentDashboardNotifications() {
       
       {/* Student Messaging Sheet */}
       <Sheet open={messagingSheetOpen} onOpenChange={setMessagingSheetOpen}>
-      <SheetContent side="right" className="w-[80%] p-0">
-          <SheetHeader className="px-6 py-4 border-b">
+      <SheetContent side="right" className="w-[90%] p-0 max-w-screen overflow-hidden flex flex-col">
+          <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
             <div className="flex items-center">
               <UsersRound className="h-5 w-5 mr-2 text-blue-600" />
               <SheetTitle>Student Messaging</SheetTitle>
             </div>
             <SheetDescription>
               {selectedNotification && (
-                <div className="flex items-center mt-1">
+                <div className="flex flex-wrap items-center mt-1">
                   <span className="text-sm text-gray-500 mr-2">Notification:</span>
                   <Badge variant="outline">{selectedNotification.title}</Badge>
                   <span className="text-sm text-gray-500 mx-2">•</span>
@@ -2121,7 +2151,7 @@ function StudentDashboardNotifications() {
               )}
             </SheetDescription>
           </SheetHeader>
-          <div className="h-[calc(100vh-10rem)] overflow-hidden">
+          <div className="flex-grow overflow-auto">
             {filteredStudents.length > 0 ? (
               <StudentMessaging 
                 selectedStudents={filteredStudents} 
@@ -2138,7 +2168,7 @@ function StudentDashboardNotifications() {
               </div>
             )}
           </div>
-          <SheetFooter className="px-6 py-4 border-t">
+          <SheetFooter className="px-6 py-4 border-t flex-shrink-0">
             <Button variant="outline" onClick={() => setMessagingSheetOpen(false)}>
               Close
             </Button>
