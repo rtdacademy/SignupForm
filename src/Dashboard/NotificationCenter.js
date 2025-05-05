@@ -213,10 +213,9 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
 const SurveyForm = ({ notification, onSubmit, onCancel }) => {
   const [answers, setAnswers] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedCourses, setSelectedCourses] = useState(() => 
-    // Initially select all courses
-    notification.courses?.map(course => course.id) || []
-  );
+  
+  // Since each survey is now specific to a single course, we just need that course's ID
+  const courseId = notification.courses[0]?.id;
   
   // Initialize with default questions if none provided in notification
   const [surveyQuestions, setSurveyQuestions] = useState(() => {
@@ -253,51 +252,26 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await onSubmit(answers, selectedCourses);
+      // Pass the course ID directly since we now only have one course per survey notification
+      await onSubmit(answers, [courseId]);
     } finally {
       setIsSubmitting(false);
     }
   };
-  
-  const handleCourseToggle = (courseId) => {
-    setSelectedCourses(prev => {
-      if (prev.includes(courseId)) {
-        return prev.filter(id => id !== courseId);
-      } else {
-        return [...prev, courseId];
-      }
-    });
-  };
+
+  // Display the relevant course information at the top of the form
+  const courseInfo = notification.courses[0] ? 
+    getCourseInfo(notification.courses[0].id) : null;
+  const CourseIcon = courseInfo?.icon || BookOpen;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Course selection section */}
-      {notification.courses && notification.courses.length > 1 && (
-        <div className="space-y-3">
-          <Label className="text-base font-medium">
-            Which courses should this response apply to?
-          </Label>
-          <div className="space-y-2 border p-3 rounded-md bg-gray-50">
-            {notification.courses?.map(course => {
-              const courseInfo = getCourseInfo(course.id);
-              const CourseIcon = courseInfo?.icon || BookOpen;
-              
-              return (
-                <div key={course.id} className="flex items-center space-x-2">
-                  <input 
-                    type="checkbox"
-                    id={`course-${course.id}`}
-                    checked={selectedCourses.includes(course.id)}
-                    onChange={() => handleCourseToggle(course.id)}
-                    className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                  />
-                  <Label htmlFor={`course-${course.id}`} className="font-normal flex items-center gap-2">
-                    <CourseIcon className="h-4 w-4" style={{ color: courseInfo?.color || '#374151' }} />
-                    {courseInfo?.label || course.title}
-                  </Label>
-                </div>
-              );
-            })}
+      {/* Course information section */}
+      {courseInfo && (
+        <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <CourseIcon className="h-5 w-5" style={{ color: courseInfo?.color || '#374151' }} />
+            <span>Completing survey for: {courseInfo?.label || notification.courses[0].title}</span>
           </div>
         </div>
       )}
@@ -352,7 +326,7 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
         </Button>
         <Button 
           type="submit" 
-          disabled={isSubmitting || selectedCourses.length === 0}
+          disabled={isSubmitting || !courseId}
           className="bg-purple-600 hover:bg-purple-700"
         >
           {isSubmitting ? 'Submitting...' : 'Submit Survey'}
@@ -396,7 +370,10 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit }) =
               <DialogTitle>
                 {isImportant ? "Important: " : ""}
                 {isSurveyCompleted ? "Completed Survey: " : ""}
-                {notification.title}
+                {notification.type === 'survey' ? 
+                  notification.title.split(' - ')[0] : // Remove course name for cleaner display
+                  notification.title
+                }
               </DialogTitle>
               {isImportant && (
                 <p className="text-xs text-red-600 mt-1">This is an important notification from your instructor</p>
@@ -531,9 +508,9 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
   });
   const { current_user_email_key } = useAuth();
 
-  // Collect and deduplicate notifications
+  // Process notifications - create separate notifications for surveys per course
   const allNotifications = React.useMemo(() => {
-    const notificationMap = new Map();
+    const result = [];
     
     // Debug each course's notifications
     if (process.env.NODE_ENV === 'development') {
@@ -561,38 +538,61 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
           }
           
           if (notification.shouldDisplay) {
-            if (!notificationMap.has(notification.id)) {
-              // First time seeing this notification, create it with courses array
-              notificationMap.set(notification.id, {
+            if (notification.type === 'survey') {
+              // For surveys, create a unique notification for each course
+              const courseTitle = course.courseDetails?.Title || course.title || `Course ${course.id}`;
+              result.push({
                 ...notification,
+                // Create a unique ID for this course-specific notification
+                uniqueId: `${notification.id}_${course.id}`,
+                // Original ID is still needed for backend operations
+                originalNotificationId: notification.id,
+                // Set course-specific title
+                title: `${notification.title} - ${courseTitle}`,
+                // Add single course to the courses array
                 courses: [{
                   id: course.id,
-                  title: course.courseDetails?.Title || course.title || `Course ${course.id}`
+                  title: courseTitle
                 }]
               });
             } else {
-              // We've seen this notification before, add this course to its courses array
-              const existingNotification = notificationMap.get(notification.id);
-              existingNotification.courses.push({
-                id: course.id,
-                title: course.courseDetails?.Title || course.title || `Course ${course.id}`
-              });
+              // For non-survey notifications, find if we already have this notification
+              const existingIndex = result.findIndex(n => n.id === notification.id);
+              if (existingIndex === -1) {
+                // First time seeing this notification, create it with courses array
+                result.push({
+                  ...notification,
+                  uniqueId: notification.id, // For consistency
+                  originalNotificationId: notification.id,
+                  courses: [{
+                    id: course.id,
+                    title: course.courseDetails?.Title || course.title || `Course ${course.id}`
+                  }]
+                });
+              } else {
+                // We've seen this notification before, add this course to its courses array
+                const existingNotification = result[existingIndex];
+                existingNotification.courses.push({
+                  id: course.id,
+                  title: course.courseDetails?.Title || course.title || `Course ${course.id}`
+                });
+              }
             }
           }
         });
       }
     });
     
-    const result = Array.from(notificationMap.values());
-    
     // Log all notifications after processing
     if (process.env.NODE_ENV === 'development') {
       console.log('Final processed notifications:', result.map(n => ({
         id: n.id,
+        uniqueId: n.uniqueId,
         title: n.title,
         type: n.type,
         important: n.important,
-        Important: n.Important
+        Important: n.Important,
+        courses: n.courses.map(c => c.id)
       })));
     }
     
@@ -601,7 +601,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
 
   // Filter out dismissed one-time notifications
   let activeNotifications = allNotifications.filter(notification => {
-    if (notification.type === 'once' && readNotifications[notification.id]?.dismissed) {
+    if (notification.type === 'once' && readNotifications[notification.uniqueId]?.dismissed) {
       return false;
     }
     return true;
@@ -641,11 +641,13 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
   }, [activeNotifications, userToggled]);
 
   // Mark notification as read and store in localStorage
-  const markAsRead = (notificationId) => {
+  const markAsRead = (notification) => {
+    const uniqueId = typeof notification === 'object' ? notification.uniqueId : notification;
+    
     setReadNotifications(prev => {
       const updated = {
         ...prev,
-        [notificationId]: { ...prev[notificationId], read: true }
+        [uniqueId]: { ...prev[uniqueId], read: true }
       };
       localStorage.setItem(`read_notifications_${profile?.StudentEmail}`, JSON.stringify(updated));
       return updated;
@@ -654,11 +656,13 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
 
   // Dismiss one-time notification
   const dismissNotification = (notification) => {
-    markNotificationAsSeen(notification.id);
+    // Use the original ID for backend notification dismissal
+    markNotificationAsSeen(notification.originalNotificationId || notification.id);
+    
     setReadNotifications(prev => {
       const updated = {
         ...prev,
-        [notification.id]: { ...prev[notification.id], dismissed: true }
+        [notification.uniqueId]: { ...prev[notification.uniqueId], dismissed: true }
       };
       localStorage.setItem(`read_notifications_${profile?.StudentEmail}`, JSON.stringify(updated));
       return updated;
@@ -672,50 +676,46 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
     const db = getDatabase();
     
     try {
-      // Only include selected courses
-      const selectedCourses = selectedNotification.courses.filter(course => 
-        selectedCourseIds.includes(course.id)
-      );
+      // Get the original notification ID for database storage
+      const notificationId = selectedNotification.originalNotificationId || selectedNotification.id;
       
-      // Store results in both old and new locations for backward compatibility
-      const surveyRef = ref(db, `surveyResponses/${current_user_email_key}/notifications/${selectedNotification.id}`);
+      // In our new model, each survey notification already has exactly one course
+      const selectedCourse = selectedNotification.courses[0];
       
-      // Create data object with student info and selected course IDs
+      // Create data object with student info and selected course ID
       const surveyData = {
-        notificationId: selectedNotification.id,
-        courses: selectedCourses,
+        notificationId: notificationId,
+        courses: [selectedCourse],
         answers,
         submittedAt: new Date().toISOString(),
         studentEmail: profile?.StudentEmail,
         studentName: `${profile?.firstName} ${profile?.lastName}`
       };
       
-      // Save to original location
+      // Store results in both old and new locations for backward compatibility
+      const surveyRef = ref(db, `surveyResponses/${current_user_email_key}/notifications/${notificationId}`);
       await set(surveyRef, surveyData);
       
       // Save to new studentDashboardNotificationsResults location
-      const resultsRef = ref(db, `studentDashboardNotificationsResults/${selectedNotification.id}/${current_user_email_key}`);
+      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${current_user_email_key}`);
       await set(resultsRef, {
         ...surveyData,
         // Include additional data for easier querying
-        courseIds: selectedCourseIds,
+        courseIds: [selectedCourse.id],
         email: profile?.StudentEmail
       });
       
-      // Also store the result in each selected course record for real-time updates
-      const updatePromises = selectedCourseIds.map(async (courseId) => {
-        const courseResultsRef = ref(db, `students/${current_user_email_key}/courses/${courseId}/studentDashboardNotificationsResults/${selectedNotification.id}`);
-        return set(courseResultsRef, {
-          completed: true,
-          completedAt: new Date().toISOString(),
-          answers // Store answers directly in the format provided
-        });
+      // Also store the result in the course record for real-time updates
+      const courseResultsRef = ref(db, `students/${current_user_email_key}/courses/${selectedCourse.id}/studentDashboardNotificationsResults/${notificationId}`);
+      await set(courseResultsRef, {
+        completed: true,
+        completedAt: new Date().toISOString(),
+        answers // Store answers directly in the format provided
       });
-      await Promise.all(updatePromises);
 
       // Close dialog and refresh notifications
       setSelectedNotification(null);
-      markAsRead(selectedNotification.id);
+      markAsRead(selectedNotification);
       
       // Show success message
       toast?.success?.('Survey submitted successfully') || alert('Survey submitted successfully');
@@ -747,7 +747,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         <div className="flex items-center gap-3">
           <div className="relative">
             <Bell className="h-6 w-6 text-blue-600" />
-            {activeNotifications.some(n => !readNotifications[n.id]?.read) && (
+            {activeNotifications.some(n => !readNotifications[n.uniqueId]?.read) && (
               <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full animate-pulse" />
             )}
           </div>
@@ -780,10 +780,10 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
                 notification={notification}
                 onClick={(notification) => {
                   setSelectedNotification(notification);
-                  markAsRead(notification.id);
+                  markAsRead(notification);
                 }}
                 onDismiss={dismissNotification}
-                isRead={readNotifications[notification.id]?.read}
+                isRead={readNotifications[notification.uniqueId]?.read}
               />
             ))}
           </div>
