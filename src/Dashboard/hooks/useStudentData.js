@@ -222,11 +222,19 @@ export const useStudentData = (userEmailKey) => {
       // Process each notification for this course
       allNotifications.forEach(notification => {
         // Skip if this is a one-time notification that has been seen
-        if (notification.frequency === 'once' && seenNotifications[notification.id]) {
-          console.log(`Notification "${notification.title}" SKIPPED for course ${course.id} - Already seen (one-time)`);
+        // For surveys, also check if it's been completed for this specific course
+        if ((notification.frequency === 'once' && seenNotifications[notification.id]) ||
+            (notification.type === 'once' && course.studentDashboardNotificationsResults?.[notification.id]?.completed) ||
+            (notification.type === 'survey' && course.studentDashboardNotificationsResults?.[notification.id]?.completed)) {
+          console.log(`Notification "${notification.title}" SKIPPED for course ${course.id} - Already seen/completed (one-time)`);
           return;
         }
-
+        
+        // Check if this survey has already been completed for this specific course
+        const notificationResults = course.studentDashboardNotificationsResults?.[notification.id];
+        const surveyCompleted = notification.type === 'survey' && 
+          notificationResults?.completed === true;
+            
         // Start with condition results array
         const conditionResults = [];
         const conditions = notification.conditions || {};
@@ -338,27 +346,28 @@ export const useStudentData = (userEmailKey) => {
         } else {
           isMatch = conditionResults.some(result => result.match);
         }
-        /*
-        // Log detailed match results or rejection reasons
-        if (isMatch) {
-          console.log(`Notification "${notification.title}" MATCHED for course ${course.id}:`, {
-            logic,
-            conditions: conditionResults.map(c => `${c.condition}: ${c.match ? 'YES' : 'NO'}`)
-          });
-        } else {
-          // Create detailed rejection message with specific reasons
-          const failedConditions = conditionResults
-            .filter(result => !result.match)
-            .map(result => `${result.condition}: Expected [${result.expected}], Got ${result.actual || 'undefined'}`);
+        
+        // Define a helper function to check if notification should display for this course
+        const shouldDisplayForCourse = () => {
+          // If it's a survey that's been completed for this course, don't show it again
+          if (notification.type === 'survey' && surveyCompleted) {
+            return false;
+          }
           
-          console.log(`Notification "${notification.title}" REJECTED for course ${course.id}:`, {
-            logic,
-            rejectionReasons: failedConditions
-          });
-        }
-        */
+          // If it's a one-time notification that's been seen for this course, don't show it again
+          if (notification.type === 'once' && 
+              course.studentDashboardNotificationsResults?.[notification.id]?.completed) {
+            return false; 
+          }
+          
+          // For all other cases, show the notification
+          return true;
+        };
+        
         // If matched, add to course
         if (isMatch) {
+          const shouldDisplay = shouldDisplayForCourse();
+          
           courseWithNotifications.notificationIds[notification.id] = {
             id: notification.id,
             title: notification.title,
@@ -367,7 +376,12 @@ export const useStudentData = (userEmailKey) => {
             type: notification.type, // Include type property
             important: notification.important, // Include important flag
             Important: notification.Important, // Also include capitalized version just in case
-            shouldDisplay: true // Default to display
+            surveyCompleted: surveyCompleted, // Include survey completion status
+            surveyAnswers: notificationResults?.answers, // Include survey answers if available
+            surveyCompletedAt: notificationResults?.completedAt, // Include completion timestamp
+            shouldDisplay: shouldDisplay,
+            surveyQuestions: notification.surveyQuestions || [],
+            notificationId: notification.id // Add explicit notificationId for easier reference
           };
         }
       });

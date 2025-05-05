@@ -101,12 +101,16 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
   // Check if notification is important
   const isImportant = isImportantNotification(notification);
   
+  // Check if this is a completed survey
+  const isSurveyCompleted = notification.type === 'survey' && notification.surveyCompleted;
+  
   return (
     <div
       className={cn(
         "relative p-3 rounded-lg transition-all duration-200 cursor-pointer h-full",
         "border hover:shadow-md",
         isRead ? "bg-white border-gray-200" : isImportant ? "bg-red-50 border-red-300" : `${style.bgColor} ${style.borderColor}`,
+        isSurveyCompleted && "bg-gray-50 border-gray-200", // Subdued style for completed surveys
         isHovered && "scale-[1.02]",
         isImportant ? "hover:bg-red-100" : style.hoverBgColor
       )}
@@ -114,8 +118,8 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onClick(notification)}
     >
-      {/* Only show dismiss button for one-time notifications */}
-      {notification.type === 'once' && (
+      {/* Only show dismiss button for one-time notifications that aren't surveys */}
+      {notification.type === 'once' && notification.type !== 'survey' && (
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -129,12 +133,18 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
       
       <div className="flex flex-col h-full">
         <div className="flex items-start gap-2 mb-2">
-          <div className={cn("p-1.5 rounded-lg flex-shrink-0", style.iconBgColor)}>
-            <NotificationIcon type={notification.type} size="h-4 w-4" />
+          <div className={cn("p-1.5 rounded-lg flex-shrink-0", 
+            isSurveyCompleted ? "bg-green-100" : style.iconBgColor)}>
+            {isSurveyCompleted ? (
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+            ) : (
+              <NotificationIcon type={notification.type} size="h-4 w-4" />
+            )}
           </div>
           <div className="flex flex-col">
             <h4 className={cn(
               "font-semibold text-sm line-clamp-1 pr-6",
+              isSurveyCompleted ? "text-gray-700" : 
               isRead ? "text-gray-700" : style.textColor
             )}>
               {notification.title}
@@ -159,6 +169,14 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
           <div className="text-xs text-purple-600 font-medium flex items-center gap-1 mb-2">
             <FileQuestion className="h-3 w-3" />
             Survey pending
+          </div>
+        )}
+        
+        {notification.type === 'survey' && notification.surveyCompleted && (
+          <div className="text-xs text-green-600 font-medium flex items-center gap-1 mb-2">
+            <CheckCircle2 className="h-3 w-3" />
+            Survey completed {notification.surveyCompletedAt ? 
+              `on ${new Date(notification.surveyCompletedAt).toLocaleDateString()}` : ''}
           </div>
         )}
         
@@ -195,6 +213,10 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
 const SurveyForm = ({ notification, onSubmit, onCancel }) => {
   const [answers, setAnswers] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedCourses, setSelectedCourses] = useState(() => 
+    // Initially select all courses
+    notification.courses?.map(course => course.id) || []
+  );
   
   // Initialize with default questions if none provided in notification
   const [surveyQuestions, setSurveyQuestions] = useState(() => {
@@ -231,14 +253,55 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await onSubmit(answers);
+      await onSubmit(answers, selectedCourses);
     } finally {
       setIsSubmitting(false);
     }
   };
+  
+  const handleCourseToggle = (courseId) => {
+    setSelectedCourses(prev => {
+      if (prev.includes(courseId)) {
+        return prev.filter(id => id !== courseId);
+      } else {
+        return [...prev, courseId];
+      }
+    });
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Course selection section */}
+      {notification.courses && notification.courses.length > 1 && (
+        <div className="space-y-3">
+          <Label className="text-base font-medium">
+            Which courses should this response apply to?
+          </Label>
+          <div className="space-y-2 border p-3 rounded-md bg-gray-50">
+            {notification.courses?.map(course => {
+              const courseInfo = getCourseInfo(course.id);
+              const CourseIcon = courseInfo?.icon || BookOpen;
+              
+              return (
+                <div key={course.id} className="flex items-center space-x-2">
+                  <input 
+                    type="checkbox"
+                    id={`course-${course.id}`}
+                    checked={selectedCourses.includes(course.id)}
+                    onChange={() => handleCourseToggle(course.id)}
+                    className="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <Label htmlFor={`course-${course.id}`} className="font-normal flex items-center gap-2">
+                    <CourseIcon className="h-4 w-4" style={{ color: courseInfo?.color || '#374151' }} />
+                    {courseInfo?.label || course.title}
+                  </Label>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      
       {surveyQuestions.map((question, index) => (
         <div key={question.id} className="space-y-3">
           <Label className="text-base font-medium">
@@ -289,7 +352,7 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
         </Button>
         <Button 
           type="submit" 
-          disabled={isSubmitting}
+          disabled={isSubmitting || selectedCourses.length === 0}
           className="bg-purple-600 hover:bg-purple-700"
         >
           {isSubmitting ? 'Submitting...' : 'Submit Survey'}
@@ -307,25 +370,42 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit }) =
   
   // Check if notification is important
   const isImportant = isImportantNotification(notification);
+  
+  // Check if this is a completed survey
+  const isSurveyCompleted = notification.type === 'survey' && notification.surveyCompleted;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={cn("max-w-2xl max-h-[90vh] overflow-y-auto", isImportant && "border-2 border-red-400")}>
+      <DialogContent className={cn("max-w-2xl max-h-[90vh] overflow-y-auto", 
+        isImportant && "border-2 border-red-400",
+        isSurveyCompleted && "border-2 border-green-200")}>
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className={cn("p-2 rounded-lg", isImportant ? "bg-red-100" : style.iconBgColor)}>
+            <div className={cn("p-2 rounded-lg", 
+              isImportant ? "bg-red-100" : 
+              isSurveyCompleted ? "bg-green-100" : style.iconBgColor)}>
               {isImportant ? (
                 <AlertCircle className="h-5 w-5 text-red-600" />
+              ) : isSurveyCompleted ? (
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
               ) : (
                 <NotificationIcon type={notification.type} />
               )}
             </div>
             <div>
               <DialogTitle>
-                {isImportant ? "Important: " : ""}{notification.title}
+                {isImportant ? "Important: " : ""}
+                {isSurveyCompleted ? "Completed Survey: " : ""}
+                {notification.title}
               </DialogTitle>
               {isImportant && (
                 <p className="text-xs text-red-600 mt-1">This is an important notification from your instructor</p>
+              )}
+              {isSurveyCompleted && (
+                <p className="text-xs text-green-600 mt-1">
+                  Completed on {notification.surveyCompletedAt ? 
+                    new Date(notification.surveyCompletedAt).toLocaleString() : 'an earlier date'}
+                </p>
               )}
             </div>
           </div>
@@ -369,6 +449,51 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit }) =
                   onSubmit={onSurveySubmit}
                   onCancel={onClose}
                 />
+              </div>
+            </div>
+          ) : notification.type === 'survey' && notification.surveyCompleted ? (
+            <div className="space-y-6">
+              <div 
+                className="prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: notification.content }}
+              />
+              
+              {/* Display completed survey responses */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold mb-4">Your Survey Responses</h3>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+                  {(notification.surveyAnswers || 
+                   (notification.courses?.[0]?.studentDashboardNotificationsResults && 
+                    notification.notificationId && 
+                    notification.courses[0].studentDashboardNotificationsResults[notification.notificationId]?.answers)) ? (
+                    // Use direct answers or try to get them from the first course's results
+                    Object.entries(
+                      notification.surveyAnswers || 
+                      notification.courses[0].studentDashboardNotificationsResults[notification.notificationId]?.answers
+                    ).map(([questionId, answer]) => {
+                      // Find the corresponding question
+                      const question = notification.surveyQuestions?.find(q => q.id === questionId);
+                      if (!question) return null;
+                      
+                      return (
+                        <div key={questionId} className="border-b pb-3 last:border-b-0 last:pb-0">
+                          <p className="font-medium text-sm mb-1">{question.question}</p>
+                          {question.questionType === 'multiple-choice' ? (
+                            <div className="text-sm bg-white p-2 rounded border">
+                              {question.options?.find(opt => opt.id === answer)?.text || answer}
+                            </div>
+                          ) : (
+                            <div className="text-sm bg-white p-2 rounded border whitespace-pre-wrap">
+                              {answer}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-gray-500 text-sm">Response details not available</p>
+                  )}
+                </div>
               </div>
             </div>
           ) : (
@@ -538,19 +663,24 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
   };
 
   // Handle survey submission
-  const handleSurveySubmit = async (answers) => {
-    if (!selectedNotification || !current_user_email_key) return;
+  const handleSurveySubmit = async (answers, selectedCourseIds) => {
+    if (!selectedNotification || !current_user_email_key || !selectedCourseIds || selectedCourseIds.length === 0) return;
 
     const db = getDatabase();
     
     try {
+      // Only include selected courses
+      const selectedCourses = selectedNotification.courses.filter(course => 
+        selectedCourseIds.includes(course.id)
+      );
+      
       // Store results in both old and new locations for backward compatibility
       const surveyRef = ref(db, `surveyResponses/${current_user_email_key}/notifications/${selectedNotification.id}`);
       
-      // Create data object with student info and course IDs
+      // Create data object with student info and selected course IDs
       const surveyData = {
         notificationId: selectedNotification.id,
-        courses: selectedNotification.courses,
+        courses: selectedCourses,
         answers,
         submittedAt: new Date().toISOString(),
         studentEmail: profile?.StudentEmail,
@@ -565,13 +695,20 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       await set(resultsRef, {
         ...surveyData,
         // Include additional data for easier querying
-        courseIds: selectedNotification.courses?.map(course => course.id) || [],
+        courseIds: selectedCourseIds,
         email: profile?.StudentEmail
       });
-
-      // Mark survey as completed in the notification
-      const notificationRef = ref(db, `studentDashboardNotifications/${selectedNotification.id}/surveyCompleted`);
-      await set(notificationRef, true);
+      
+      // Also store the result in each selected course record for real-time updates
+      const updatePromises = selectedCourseIds.map(async (courseId) => {
+        const courseResultsRef = ref(db, `students/${current_user_email_key}/courses/${courseId}/studentDashboardNotificationsResults/${selectedNotification.id}`);
+        return set(courseResultsRef, {
+          completed: true,
+          completedAt: new Date().toISOString(),
+          answers // Store answers directly in the format provided
+        });
+      });
+      await Promise.all(updatePromises);
 
       // Close dialog and refresh notifications
       setSelectedNotification(null);
