@@ -35,7 +35,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogPortal,
+  DialogOverlay,
 } from '../components/ui/dialog';
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { 
   Accordion,
   AccordionContent,
@@ -142,30 +145,46 @@ const ACCORDION_COLORS = [
 
 // Save Confirmation Dialog Component
 const SaveConfirmationDialog = ({ open, onOpenChange, onEmailStudents, onJustSave, matchingStudentCount }) => {
+  // Use a custom onOpenChange handler that prevents closing by clicking outside or pressing escape
+  const handleOpenChange = (isOpen) => {
+    // Only allow the dialog to close through the button actions
+    if (isOpen === false) {
+      return; // Prevent closing
+    }
+    onOpenChange(isOpen);
+  };
+  
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Notification Saved Successfully</DialogTitle>
-          <DialogDescription>
-            Your notification has been saved. Would you like to email these {matchingStudentCount} matching students now?
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4">
-          <p className="text-sm text-gray-500">
-            Opening the email editor will allow you to compose and send an email to all students who match this notification's criteria.
-          </p>
-        </div>
-        <DialogFooter className="flex sm:justify-between">
-          <Button variant="outline" onClick={onJustSave}>
-            Just Save
-          </Button>
-          <Button onClick={onEmailStudents} className="gap-2">
-            <MailPlus className="h-4 w-4" />
-            Open Email Editor
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogPortal>
+        <DialogOverlay />
+        <DialogPrimitive.Content
+          className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg"
+          onPointerDownOutside={(e) => e.preventDefault()} 
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Notification Saved Successfully</DialogTitle>
+            <DialogDescription>
+              Your notification has been saved. Would you like to email these {matchingStudentCount} matching students now?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-500">
+              Opening the email editor will allow you to compose and send an email to all students who match this notification's criteria.
+            </p>
+          </div>
+          <DialogFooter className="flex sm:justify-between">
+            <Button variant="outline" onClick={onJustSave}>
+              Just Save
+            </Button>
+            <Button onClick={onEmailStudents} className="gap-2">
+              <MailPlus className="h-4 w-4" />
+              Open Email Editor
+            </Button>
+          </DialogFooter>
+        </DialogPrimitive.Content>
+      </DialogPortal>
     </Dialog>
   );
 };
@@ -357,13 +376,36 @@ function StudentDashboardNotifications() {
       
       if (snapshot.exists()) {
         const notificationsData = snapshot.val();
-        const notificationsArray = Object.keys(notificationsData).map(key => ({
+        let notificationsArray = Object.keys(notificationsData).map(key => ({
           id: key,
           ...notificationsData[key]
         }));
         
         // Sort by createdAt (newest first)
         notificationsArray.sort((a, b) => b.createdAt - a.createdAt);
+        
+        // For active notifications, calculate and store the current matching student count
+        notificationsArray = await Promise.all(notificationsArray.map(async notification => {
+          if (notification.active) {
+            // Calculate the current count for active notifications
+            const matchCount = filterStudentsByConditions(notification).length;
+            
+            // Store the count in the database for future reference
+            const notificationRef = ref(db, `studentDashboardNotifications/${notification.id}/lastMatchCount`);
+            try {
+              await set(notificationRef, matchCount);
+            } catch (error) {
+              console.error('Error updating notification count:', error);
+            }
+            
+            // Update the notification object with the current count
+            return {
+              ...notification,
+              lastMatchCount: matchCount
+            };
+          }
+          return notification;
+        }));
         
         setNotifications(notificationsArray);
       } else {
@@ -807,18 +849,28 @@ function StudentDashboardNotifications() {
       const db = getDatabase();
       const notificationRef = ref(db, `studentDashboardNotifications/${notification.id}`);
       
+      const newActiveStatus = !notification.active;
+      
       // Create a new complete notification object with updated active status
       const updatedNotification = {
         ...notification,
-        active: !notification.active,
+        active: newActiveStatus,
         updatedAt: Date.now(),
         id: undefined // Remove the id property as it's not part of the data structure
       };
       
+      // If activating a notification, calculate and store current student count
+      if (newActiveStatus) {
+        const matchCount = filterStudentsByConditions(notification).length;
+        updatedNotification.lastMatchCount = matchCount;
+      }
+      
       // Set the complete object instead of just updating fields
       await set(notificationRef, updatedNotification);
       
-      toast.success(`Notification ${!notification.active ? 'activated' : 'deactivated'} successfully`);
+      toast.success(`Notification ${newActiveStatus ? 'activated' : 'deactivated'} successfully`);
+      
+      // Refresh to ensure UI is updated correctly
       await fetchNotifications();
     } catch (error) {
       console.error('Error updating notification status:', error);
@@ -1019,7 +1071,13 @@ function StudentDashboardNotifications() {
 
   // Get count of matching students
   const getMatchingStudentCount = (notification) => {
-    return filterStudentsByConditions(notification).length;
+    // Only calculate real-time counts for active notifications
+    if (notification.active) {
+      return filterStudentsByConditions(notification).length;
+    } else {
+      // For inactive notifications, use cached count or display a placeholder
+      return notification.lastMatchCount || "—";
+    }
   };
   
   return (
@@ -1915,9 +1973,19 @@ function StudentDashboardNotifications() {
                     size="sm"
                     onClick={fetchNotifications}
                     className="ml-2"
+                    disabled={isLoading}
                   >
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                    Refresh
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        Refreshing Counts...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Refresh Student Counts
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardHeader>
@@ -2015,9 +2083,24 @@ function StudentDashboardNotifications() {
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                <Badge variant="outline" className="bg-blue-50 border-blue-200">
-                                  {matchingStudentCount} {matchingStudentCount === 1 ? 'student' : 'students'}
-                                </Badge>
+                                {isLoading && notification.active ? (
+                                  <div className="flex items-center">
+                                    <Badge variant="outline" className="bg-blue-50 border-blue-200 flex items-center gap-1">
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                      Refreshing...
+                                    </Badge>
+                                  </div>
+                                ) : (
+                                  <Badge variant="outline" className={`${notification.active 
+                                    ? "bg-blue-50 border-blue-200" 
+                                    : "bg-gray-50 border-gray-200 text-gray-500"}`}
+                                  >
+                                    {typeof matchingStudentCount === 'number' 
+                                      ? `${matchingStudentCount} ${matchingStudentCount === 1 ? 'student' : 'students'}`
+                                      : `${matchingStudentCount}`
+                                    }
+                                  </Badge>
+                                )}
                               </TableCell>
                               <TableCell>
                                 <div className="text-sm">
