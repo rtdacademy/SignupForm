@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getDatabase, ref, onValue, get, query, orderByChild, equalTo, set } from 'firebase/database';
 import { useAuth } from '../../context/AuthContext';
+import { 
+  calculateAge as calculateAgeUtil,
+  processNotificationsForCourses as processNotificationsUtil
+} from '../../utils/notificationFilterUtils';
 
 export const useStudentData = (userEmailKey) => {
   const { isEmulating } = useAuth();
@@ -133,21 +137,8 @@ export const useStudentData = (userEmailKey) => {
     }
   };
 
-  // Function to calculate age from birthdate
-  const calculateAge = (birthdate) => {
-    if (!birthdate) return null;
-    
-    const birthDate = new Date(birthdate);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    
-    return age;
-  };
+  // Function to calculate age from birthdate - using utility function
+  const calculateAge = calculateAgeUtil;
 
   // Store seen notifications in local storage to handle one-time notifications
   const getSeenNotifications = (userEmail) => {
@@ -218,210 +209,21 @@ export const useStudentData = (userEmailKey) => {
     });
   };
 
-  // Process notifications for each course
+  // Process notifications for each course - using the utility function
   const processNotificationsForCourses = (courses, profile, allNotifications) => {
-    if (!courses || !profile || !allNotifications || !Array.isArray(courses) || courses.length === 0) {
-      return courses;
-    }
-
     // Log the student data we have for matching
     console.log('Processing notifications for student:', {
-      email: profile.StudentEmail,
-      age: calculateAge(profile.birthday),
-      birthday: profile.birthday,
-      notificationCount: allNotifications.length
+      email: profile?.StudentEmail,
+      age: calculateAge(profile?.birthday),
+      birthday: profile?.birthday,
+      notificationCount: allNotifications?.length || 0
     });
     
-    if (allNotifications.length === 0) {
-      console.log('No notifications to process');
-      return courses;
-    }
-
     // Get previously seen notifications
-    const seenNotifications = getSeenNotifications(profile.StudentEmail);
-
-    // Process each course
-    return courses.map(course => {
-      // Create new object to avoid modifying the original
-      const courseWithNotifications = { ...course };
-      courseWithNotifications.notificationIds = {};
-
-      // Get student email
-      const studentEmail = profile.StudentEmail || '';
-      
-      // Calculate student age
-      const studentAge = calculateAge(profile.birthday);
-      
-      // Process each notification for this course
-      allNotifications.forEach(notification => {
-        // Skip if this is a one-time notification that has been seen
-        // For surveys, also check if it's been completed for this specific course
-        if ((notification.frequency === 'once' && seenNotifications[notification.id]) ||
-            (notification.type === 'once' && course.studentDashboardNotificationsResults?.[notification.id]?.completed) ||
-            (notification.type === 'survey' && course.studentDashboardNotificationsResults?.[notification.id]?.completed)) {
-          console.log(`Notification "${notification.title}" SKIPPED for course ${course.id} - Already seen/completed (one-time)`);
-          return;
-        }
-        
-        // Check if this survey has already been completed for this specific course
-        const notificationResults = course.studentDashboardNotificationsResults?.[notification.id];
-        const surveyCompleted = notification.type === 'survey' && 
-          notificationResults?.completed === true;
-            
-        // Start with condition results array
-        const conditionResults = [];
-        const conditions = notification.conditions || {};
-        
-        // Check student type
-        if (conditions.studentTypes && conditions.studentTypes.length > 0) {
-          const studentType = course.StudentType?.Value;
-          const studentTypeMatch = studentType && conditions.studentTypes.includes(studentType);
-          conditionResults.push({ 
-            condition: 'studentTypes', 
-            match: studentTypeMatch,
-            expected: conditions.studentTypes,
-            actual: studentType
-          });
-        }
-        
-        // Check diploma month
-        if (conditions.diplomaMonths && conditions.diplomaMonths.length > 0) {
-          const diplomaMonth = course.DiplomaMonthChoices?.Value;
-          const diplomaMonthMatch = diplomaMonth && conditions.diplomaMonths.includes(diplomaMonth);
-          conditionResults.push({ 
-            condition: 'diplomaMonths', 
-            match: diplomaMonthMatch,
-            expected: conditions.diplomaMonths,
-            actual: diplomaMonth
-          });
-        }
-        
-        // Check courses
-        if (conditions.courses && conditions.courses.length > 0) {
-          const courseId = parseInt(course.id);
-          const courseMatch = !isNaN(courseId) && conditions.courses.includes(courseId);
-          conditionResults.push({ 
-            condition: 'courses', 
-            match: courseMatch,
-            expected: conditions.courses,
-            actual: courseId
-          });
-        }
-        
-        // Check school years
-        if (conditions.schoolYears && conditions.schoolYears.length > 0) {
-          const schoolYear = course.School_x0020_Year?.Value;
-          const schoolYearMatch = schoolYear && conditions.schoolYears.includes(schoolYear);
-          conditionResults.push({ 
-            condition: 'schoolYears', 
-            match: schoolYearMatch,
-            expected: conditions.schoolYears,
-            actual: schoolYear
-          });
-        }
-        
-        // Check schedule end date range
-        if (conditions.scheduleEndDateRange && conditions.scheduleEndDateRange.start && conditions.scheduleEndDateRange.end) {
-          let scheduleEndDate = course.ScheduleEndDate;
-          
-          // Extract date portion if it's in ISO format
-          if (scheduleEndDate && scheduleEndDate.includes('T')) {
-            scheduleEndDate = scheduleEndDate.split('T')[0];
-          }
-          
-          const { start, end } = conditions.scheduleEndDateRange;
-          const dateMatch = scheduleEndDate && scheduleEndDate >= start && scheduleEndDate <= end;
-          conditionResults.push({ 
-            condition: 'scheduleEndDateRange', 
-            match: dateMatch,
-            expected: `${start} to ${end}`,
-            actual: scheduleEndDate
-          });
-        }
-        
-        // Check age range - uses profile data
-        if (conditions.ageRange && studentAge !== null) {
-          const { min, max } = conditions.ageRange;
-          const ageMatch = studentAge >= min && studentAge <= max;
-          conditionResults.push({ 
-            condition: 'ageRange', 
-            match: ageMatch,
-            expected: `${min} to ${max}`,
-            actual: studentAge
-          });
-        }
-        
-        // Check specific emails - uses profile data
-        if (conditions.emails && conditions.emails.length > 0 && studentEmail) {
-          const emailMatch = conditions.emails.some(email => 
-            email.toLowerCase() === studentEmail.toLowerCase()
-          );
-          conditionResults.push({ 
-            condition: 'emails', 
-            match: emailMatch,
-            expected: conditions.emails,
-            actual: studentEmail
-          });
-        }
-        
-        // If no conditions were checked, don't match
-        if (conditionResults.length === 0) {
-          console.log(`Notification "${notification.title}" REJECTED for course ${course.id} - No matching conditions defined`);
-          return;
-        }
-        
-        // Apply logic - AND requires all conditions to match, OR requires any condition to match
-        const logic = conditions.logic || 'and';
-        let isMatch = false;
-        
-        if (logic === 'and') {
-          isMatch = conditionResults.every(result => result.match);
-        } else {
-          isMatch = conditionResults.some(result => result.match);
-        }
-        
-        // Define a helper function to check if notification should display for this course
-        const shouldDisplayForCourse = () => {
-          // If it's a survey that's been completed for this course, don't show it again
-          if (notification.type === 'survey' && surveyCompleted) {
-            return false;
-          }
-          
-          // If it's a one-time notification that's been seen, completed, or acknowledged, don't show it again
-          if (notification.type === 'once' && 
-              (course.studentDashboardNotificationsResults?.[notification.id]?.completed ||
-               course.studentDashboardNotificationsResults?.[notification.id]?.acknowledged)) {
-            return false; 
-          }
-          
-          // For all other cases, show the notification
-          return true;
-        };
-        
-        // If matched, add to course
-        if (isMatch) {
-          const shouldDisplay = shouldDisplayForCourse();
-          
-          courseWithNotifications.notificationIds[notification.id] = {
-            id: notification.id,
-            title: notification.title,
-            content: notification.content,
-            frequency: notification.frequency,
-            type: notification.type, // Include type property
-            important: notification.important, // Include important flag
-            Important: notification.Important, // Also include capitalized version just in case
-            surveyCompleted: surveyCompleted, // Include survey completion status
-            surveyAnswers: notificationResults?.answers, // Include survey answers if available
-            surveyCompletedAt: notificationResults?.completedAt, // Include completion timestamp
-            shouldDisplay: shouldDisplay,
-            surveyQuestions: notification.surveyQuestions || [],
-            notificationId: notification.id // Add explicit notificationId for easier reference
-          };
-        }
-      });
-      
-      return courseWithNotifications;
-    });
+    const seenNotifications = profile?.StudentEmail ? getSeenNotifications(profile.StudentEmail) : {};
+    
+    // Use the utility function to process notifications
+    return processNotificationsUtil(courses, profile, allNotifications, seenNotifications);
   };
 
   const processCourses = async (studentCourses) => {

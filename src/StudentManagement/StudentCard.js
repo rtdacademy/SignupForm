@@ -451,9 +451,33 @@ const handleStatusChange = useCallback(async (newStatus) => {
     const studentKey = student.id.slice(0, lastUnderscoreIndex);
     const courseId = student.id.slice(lastUnderscoreIndex + 1);
     const categoryRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}/${categoryId}`);
+    const summaryKey = `${studentKey}_${courseId}`;
+    const summaryRef = ref(db, `studentCourseSummaries/${summaryKey}`);
 
     try {
+      // Check if the category already exists
+      const snapshot = await get(categoryRef);
+      const currentValue = snapshot.exists() ? snapshot.val() : null;
+      
+      // Set the category to true in the student record
       await set(categoryRef, true);
+      
+      // If the category was already true, also update the summary directly
+      // This handles the case where the cloud function might not detect a change
+      if (currentValue === true) {
+        // Get the current categories from the summary
+        const summarySnapshot = await get(summaryRef.child('categories'));
+        const summaryCategories = summarySnapshot.exists() ? summarySnapshot.val() : {};
+        
+        // Update the summary categories
+        if (!summaryCategories[teacherEmailKey]) {
+          summaryCategories[teacherEmailKey] = {};
+        }
+        summaryCategories[teacherEmailKey][categoryId] = true;
+        
+        // Set the updated categories in the summary
+        await set(summaryRef.child('categories'), summaryCategories);
+      }
       
       // If this is part of a multi-select, update other selected students
       if (isPartOfMultiSelect) {

@@ -151,8 +151,18 @@ const NonActiveStudentsDialog = ({ open, onOpenChange, nonActiveStudents, onCont
 const StudentMessaging = ({ 
   selectedStudents, 
   onClose,
-  onNotification = () => {} 
+  onNotification = () => {},
+  notificationTitle = '',
+  notificationContent = '' 
 }) => {
+  // Log props for debugging
+  console.log('StudentMessaging props:', { 
+    notificationTitle, 
+    notificationContent: notificationContent ? notificationContent.substring(0, 50) + '...' : '',
+    studentsCount: selectedStudents.length 
+  });
+  
+  // State will be initialized by useEffect if props are provided
   const [subject, setSubject] = useState('');
   const [messageContent, setMessageContent] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -193,6 +203,51 @@ const StudentMessaging = ({
     'list', 'bullet', 'indent',
     'link'
   ];
+
+  // Handle props for initialization and set initial content
+  useEffect(() => {
+    // Set the subject from notification title
+    if (notificationTitle) {
+      console.log('Setting subject from notification title:', notificationTitle);
+      setSubject(notificationTitle);
+    }
+  }, [notificationTitle]);
+  
+  // Handle initialization of Quill content after ref is available
+  useEffect(() => {
+    console.log('Quill content effect running, have ref:', !!quillRef, 'have content:', !!notificationContent);
+    
+    // Only proceed if we have both the editor ref and notification content
+    if (quillRef && notificationContent) {
+      try {
+        const editor = quillRef.getEditor();
+        console.log('Got Quill editor, setting content');
+        
+        // Create the dashboard notice HTML
+        const dashboardNotice = `<p>A notification has been sent to your YourWay dashboard. You can view this notification when you log into your dashboard.</p>
+<p>&nbsp;</p>
+<h3>Notification Content:</h3>
+<p>&nbsp;</p>
+${notificationContent}`;
+        
+        // First clear any existing content
+        editor.setText('');
+        
+        // Use two different methods to ensure the content is set correctly
+        
+        // Method 1: Using clipboard paste API for direct HTML insertion
+        editor.clipboard.dangerouslyPasteHTML(0, dashboardNotice);
+        
+        // Method 2: Update the state to ensure React knows about the change
+        setTimeout(() => {
+          setMessageContent(editor.root.innerHTML);
+          console.log('Content set successfully: length =', editor.root.innerHTML.length);
+        }, 0);
+      } catch (error) {
+        console.error('Error setting Quill content:', error);
+      }
+    }
+  }, [quillRef, notificationContent]);
 
   // Load teacher messages and names
   useEffect(() => {
@@ -261,8 +316,8 @@ const StudentMessaging = ({
   
     const editor = quillRef.getEditor();
   
-    // If there's a subject and the current subject is empty, use the template subject
-    if (template.subject && !subject) {
+    // Always update the subject when a template is selected if it has a subject
+    if (template.subject) {
       setSubject(template.subject);
     }
   

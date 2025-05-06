@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
+import { isImportantNotification } from '../utils/notificationFilterUtils';
 import { 
   Bell, 
   ChevronDown, 
@@ -86,13 +87,7 @@ const getCourseInfo = (courseId) => {
   return COURSE_OPTIONS.find(option => option.courseId === numericId);
 };
 
-// Helper function to check if a notification is important
-const isImportantNotification = (notification) => {
-  return (notification.important === true) || 
-         (notification.Important === true) ||
-         (typeof notification.important === 'string' && notification.important.toLowerCase() === 'true') ||
-         (typeof notification.Important === 'string' && notification.Important.toLowerCase() === 'true');
-};
+// Using imported isImportantNotification function from notificationFilterUtils
 
 const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -758,6 +753,71 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         hasSeen: true,
         hasSeenTimeStamp: new Date().toISOString()
       });
+
+      // Process categories from answers
+      // For each multiple-choice answer, check if the selected option has a category assigned
+      if (selectedNotification.surveyQuestions && selectedNotification.surveyQuestions.length > 0) {
+        const categoryUpdates = [];
+        
+        // Loop through each answer to check for categories
+        for (const [questionId, answerId] of Object.entries(answers)) {
+          // Find the corresponding question
+          const question = selectedNotification.surveyQuestions.find(q => q.id === questionId);
+          
+          // Skip if question not found or not a multiple-choice question
+          if (!question || question.questionType !== 'multiple-choice') continue;
+          
+          // Find the selected option
+          const selectedOption = question.options.find(opt => opt.id === answerId);
+          
+          // Check if the option has a category
+          if (selectedOption && selectedOption.category && selectedOption.category !== 'none') {
+            // Get the category details
+            const categoryId = selectedOption.category;
+            
+            // Extract teacher email key from the option's category path - this is more complex
+            // We need to find which teacher owns this category by examining the 
+            // notification's conditions which has the teacher email key in the format:
+            // { "kyle@rtdacademy,com": ["1746563182275"] }
+            let teacherEmailKey = null;
+            
+            // Check each condition for categories
+            if (selectedNotification.conditions && selectedNotification.conditions.categories) {
+              for (const teacherCat of selectedNotification.conditions.categories) {
+                // Get the teacher email
+                const key = Object.keys(teacherCat)[0];
+                // Get the categories for this teacher
+                const categories = teacherCat[key] || [];
+                
+                // If this teacher has the category, use this teacher
+                if (categories.includes(categoryId)) {
+                  teacherEmailKey = key;
+                  break;
+                }
+              }
+            }
+            
+            // If we couldn't find the teacher, try to use the first teacher or the default
+            if (!teacherEmailKey && selectedNotification.conditions && selectedNotification.conditions.categories && 
+                selectedNotification.conditions.categories.length > 0) {
+              teacherEmailKey = Object.keys(selectedNotification.conditions.categories[0])[0];
+            }
+            
+            // If we have a teacher and category, add to updates
+            if (teacherEmailKey) {
+              const categoryPath = `students/${current_user_email_key}/courses/${selectedCourse.id}/categories/${teacherEmailKey}/${categoryId}`;
+              categoryUpdates.push({ path: categoryPath, value: true });
+            }
+          }
+        }
+        
+        // Apply all category updates if we have any
+        for (const update of categoryUpdates) {
+          const categoryRef = ref(db, update.path);
+          await set(categoryRef, update.value);
+          console.log(`Added category to student: ${update.path}`);
+        }
+      }
 
       // Close dialog and refresh notifications
       setSelectedNotification(null);

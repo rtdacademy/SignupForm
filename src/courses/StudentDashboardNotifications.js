@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getDatabase, ref, get, set, push, remove, update } from 'firebase/database';
 import { toast } from 'sonner';
+import { filterStudentsByNotificationConditions } from '../utils/notificationFilterUtils';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { 
@@ -31,7 +32,8 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  DropdownMenuPortal
+  DropdownMenuPortal,
+  DropdownMenuSeparator
 } from "../components/ui/dropdown-menu";
 import { 
   Alert, 
@@ -304,6 +306,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   const [surveyQuestions, setSurveyQuestions] = useState([]);
   // State for survey question type
   const [questionType, setQuestionType] = useState("multiple-choice");
+  // State for categories list
+  const [availableCategories, setAvailableCategories] = useState([]);
   
   // State for filtering conditions
   const [selectedStudentTypes, setSelectedStudentTypes] = useState([]);
@@ -312,6 +316,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   const [selectedSchoolYears, setSelectedSchoolYears] = useState([]);
   const [scheduleEndDateRange, setScheduleEndDateRange] = useState({ start: '', end: '' });
   const [ageRange, setAgeRange] = useState({ min: '', max: '' });
+  // Keep the selectedEmails state but don't expose UI for it (needed to prevent reference errors)
   const [selectedEmails, setSelectedEmails] = useState([]);
   const [emailInput, setEmailInput] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -346,7 +351,46 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   // Fetch notifications on component mount
   useEffect(() => {
     fetchNotifications();
+    fetchAllCategories();
   }, []);
+  
+  // Fetch all categories from Firebase
+  const fetchAllCategories = async () => {
+    try {
+      const db = getDatabase();
+      const categoriesRef = ref(db, 'teacherCategories');
+      const snapshot = await get(categoriesRef);
+      
+      if (snapshot.exists()) {
+        const categoriesData = snapshot.val();
+        const formattedCategories = [];
+        
+        // Process categories from all teachers
+        Object.entries(categoriesData).forEach(([teacherKey, teacherCategories]) => {
+          Object.entries(teacherCategories).forEach(([categoryId, category]) => {
+            // Only include non-archived categories
+            if (!category.archived) {
+              formattedCategories.push({
+                id: categoryId,
+                teacherKey,
+                name: category.name,
+                color: category.color || '#CBD5E1',
+                icon: category.icon || 'circle',
+                type: category.type
+              });
+            }
+          });
+        });
+        
+        // Sort by name
+        formattedCategories.sort((a, b) => a.name.localeCompare(b.name));
+        setAvailableCategories(formattedCategories);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      toast.error('Failed to load categories');
+    }
+  };
   
   // Custom quill initialization
   useEffect(() => {
@@ -368,157 +412,28 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   }, []);
   
   // Filter students based on conditions (can use either a notification object or current form state)
+  // Using the utility function from notificationFilterUtils.js
   const filterStudentsByConditions = (conditionsSource, useCurrentFormState = false) => {
     if (!studentSummaries || !studentSummaries.length) {
       return [];
     }
     
-    // Determine which conditions to use - either from the notification object or current form state
-    let conditions;
-    let isAndLogic;
+    // Create a form state object for the utility function if needed
+    const formState = useCurrentFormState ? {
+      selectedStudentTypes,
+      selectedDiplomaMonths,
+      selectedCourses,
+      selectedSchoolYears,
+      selectedEmails, // Keep for backend compatibility
+      selectedCategories,
+      selectedActiveFutureArchivedValues,
+      ageRange,
+      scheduleEndDateRange,
+      conditionLogic
+    } : null;
     
-    if (useCurrentFormState) {
-      // Use current form state instead of a notification object
-      conditions = {
-        studentTypes: selectedStudentTypes.length > 0 ? selectedStudentTypes : undefined,
-        diplomaMonths: selectedDiplomaMonths.length > 0 ? selectedDiplomaMonths : undefined,
-        courses: selectedCourses.length > 0 ? selectedCourses : undefined,
-        schoolYears: selectedSchoolYears.length > 0 ? selectedSchoolYears : undefined,
-        emails: selectedEmails.length > 0 ? selectedEmails : undefined,
-        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
-        activeFutureArchivedValues: selectedActiveFutureArchivedValues.length > 0 ? selectedActiveFutureArchivedValues : ["Active"],
-        ageRange: ageRange.min && ageRange.max ? {
-          min: parseInt(ageRange.min),
-          max: parseInt(ageRange.max)
-        } : undefined,
-        scheduleEndDateRange: scheduleEndDateRange.start && scheduleEndDateRange.end ? {
-          start: scheduleEndDateRange.start,
-          end: scheduleEndDateRange.end
-        } : undefined,
-        logic: conditionLogic
-      };
-      isAndLogic = conditionLogic !== 'or';
-    } else {
-      // Use the provided notification object
-      conditions = conditionsSource.conditions || {};
-      // Set default ActiveFutureArchived values to "Active" if not specified
-      if (!conditions.activeFutureArchivedValues) {
-        conditions.activeFutureArchivedValues = ["Active"];
-      }
-      isAndLogic = conditions.logic !== 'or'; // Default to 'and' logic if not specified
-    }
-    
-    return studentSummaries.filter(student => {
-      // Array to track which conditions are met
-      const conditionResults = [];
-      
-      // Check email condition - if specified, this is always an additional AND condition
-      if (conditions.emails && conditions.emails.length > 0) {
-        // For selected email AND course, check if student email matches any of the selected emails
-        const emailMatches = student.StudentEmail && 
-                             conditions.emails.includes(student.StudentEmail.toLowerCase());
-        
-        // If email doesn't match, return false immediately (AND condition)
-        if (!emailMatches) {
-          return false;
-        }
-      }
-      
-      // Check student type condition
-      if (conditions.studentTypes && conditions.studentTypes.length > 0) {
-        const studentTypesMatch = conditions.studentTypes.includes(student.StudentType_Value);
-        conditionResults.push(studentTypesMatch);
-      }
-      
-      // Check diploma month condition
-      if (conditions.diplomaMonths && conditions.diplomaMonths.length > 0) {
-        const diplomaMonthsMatch = conditions.diplomaMonths.includes(student.DiplomaMonthChoices_Value);
-        conditionResults.push(diplomaMonthsMatch);
-      }
-      
-      // Check course condition
-      if (conditions.courses && conditions.courses.length > 0) {
-        const coursesMatch = conditions.courses.includes(student.CourseID);
-        conditionResults.push(coursesMatch);
-      }
-      
-      // Check school year condition
-      if (conditions.schoolYears && conditions.schoolYears.length > 0) {
-        const schoolYearsMatch = conditions.schoolYears.includes(student.School_x0020_Year_Value);
-        conditionResults.push(schoolYearsMatch);
-      }
-      
-      // Check schedule end date range condition
-      if (conditions.scheduleEndDateRange && 
-          conditions.scheduleEndDateRange.start && 
-          conditions.scheduleEndDateRange.end && 
-          student.ScheduleEndDate) {
-        
-        const scheduleEndDate = new Date(student.ScheduleEndDate);
-        const rangeStart = new Date(conditions.scheduleEndDateRange.start);
-        const rangeEnd = new Date(conditions.scheduleEndDateRange.end);
-        
-        const dateInRange = scheduleEndDate >= rangeStart && scheduleEndDate <= rangeEnd;
-        conditionResults.push(dateInRange);
-      }
-      
-      // Check age range condition
-      if (conditions.ageRange && 
-          typeof conditions.ageRange.min === 'number' && 
-          typeof conditions.ageRange.max === 'number' && 
-          typeof student.age === 'number') {
-        
-        const ageInRange = student.age >= conditions.ageRange.min && student.age <= conditions.ageRange.max;
-        conditionResults.push(ageInRange);
-      }
-      
-      // Check category condition
-      if (conditions.categories && conditions.categories.length > 0) {
-        const categoryMatches = conditions.categories.some(teacherCat => {
-          const teacherEmailKey = Object.keys(teacherCat)[0];
-          const categoryIds = teacherCat[teacherEmailKey] || [];
-          
-          // Skip if no categories for this teacher
-          if (!categoryIds.length) return false;
-          
-          // If we have teacher categories for this student
-          if (student.categories && student.categories[teacherEmailKey]) {
-            // Check if any of the required categories match
-            return categoryIds.some(categoryId => 
-              student.categories[teacherEmailKey] && 
-              student.categories[teacherEmailKey][categoryId] === true
-            );
-          }
-          
-          return false;
-        });
-        
-        conditionResults.push(categoryMatches);
-      }
-      
-      // Check ActiveFutureArchived condition
-      if (conditions.activeFutureArchivedValues && conditions.activeFutureArchivedValues.length > 0) {
-        const activeFutureArchivedMatches = conditions.activeFutureArchivedValues.includes(
-          student.ActiveFutureArchived_Value
-        );
-        conditionResults.push(activeFutureArchivedMatches);
-      }
-      
-      // If no other conditions were evaluated (besides email which was already checked)
-      // and we have an email condition, return true since email already matched
-      if (conditionResults.length === 0) {
-        return conditions.emails && conditions.emails.length > 0;
-      }
-      
-      // Check all conditions based on logic
-      if (isAndLogic) {
-        // AND logic - all conditions must be true
-        return conditionResults.every(result => result === true);
-      } else {
-        // OR logic - at least one condition must be true
-        return conditionResults.some(result => result === true);
-      }
-    });
+    // Use the utility function
+    return filterStudentsByNotificationConditions(conditionsSource, studentSummaries, useCurrentFormState, formState);
   };
   
   // Function to update the matched student count
@@ -630,8 +545,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     setSelectedSchoolYears([]);
     setScheduleEndDateRange({ start: '', end: '' });
     setAgeRange({ min: '', max: '' });
-    setSelectedEmails([]);
-    setEmailInput('');
+    // Email filtering removed
     setSelectedCategories([]); // Reset selected categories
     setSelectedActiveFutureArchivedValues(['Active']); // Reset to default 'Active'
     setSurveyQuestions([]); // Reset survey questions
@@ -651,8 +565,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
         options: questionType === "text-input" 
           ? []  // No options for text input type
           : [
-              { id: Date.now().toString() + '-1', text: '' },
-              { id: Date.now().toString() + '-2', text: '' }
+              { id: Date.now().toString() + '-1', text: '', category: 'none' },
+              { id: Date.now().toString() + '-2', text: '', category: 'none' }
             ]
       }
     ]);
@@ -680,7 +594,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
             ...q, 
             options: [
               ...q.options, 
-              { id: Date.now().toString(), text: '' }
+              { id: Date.now().toString(), text: '', category: 'none' }
             ] 
           } 
         : q
@@ -696,6 +610,22 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
             options: q.options.map(opt => 
               opt.id === optionId 
                 ? { ...opt, text: newText } 
+                : opt
+            ) 
+          } 
+        : q
+    ));
+  };
+  
+  // Update option category
+  const updateOptionCategory = (questionId, optionId, newCategory) => {
+    setSurveyQuestions(surveyQuestions.map(q => 
+      q.id === questionId 
+        ? { 
+            ...q, 
+            options: q.options.map(opt => 
+              opt.id === optionId 
+                ? { ...opt, category: newCategory } 
                 : opt
             ) 
           } 
@@ -765,7 +695,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     setSelectedDiplomaMonths(notification.conditions?.diplomaMonths || []);
     setSelectedCourses(notification.conditions?.courses || []);
     setSelectedSchoolYears(notification.conditions?.schoolYears || []);
-    setSelectedEmails(notification.conditions?.emails || []);
+    // Email filtering removed
     setSelectedCategories(notification.conditions?.categories || []);
     setSelectedActiveFutureArchivedValues(notification.conditions?.activeFutureArchivedValues || ['Active']);
     
@@ -955,6 +885,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
         notificationData.conditions.schoolYears = selectedSchoolYears;
       }
       
+      // Include empty emails array for backward compatibility
       if (selectedEmails.length > 0) {
         notificationData.conditions.emails = selectedEmails;
       }
@@ -1154,8 +1085,9 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     });
   };
   
-  // Handle email input and validation
+  // Email filtering UI removed, but keep functions for backend compatibility
   const handleAddEmail = () => {
+    // Disabled in UI but keep functionality for future reference
     if (!emailInput.trim()) return;
     
     // Simple email validation
@@ -1292,13 +1224,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       );
     }
     
-    if (conditions.emails && conditions.emails.length > 0) {
-      badges.push(
-        <Badge key="emails" variant="outline" className="mr-1 mb-1">
-          {conditions.emails.length} {conditions.emails.length === 1 ? 'Email' : 'Emails'}
-        </Badge>
-      );
-    }
+    // Email filtering removed
     
     if (conditions.categories && conditions.categories.length > 0) {
       const categoryCount = conditions.categories.reduce((count, teacherCat) => {
@@ -1331,8 +1257,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
 
     if (conditions.activeFutureArchivedValues && conditions.activeFutureArchivedValues.length > 0) {
       badges.push(
-        <Badge key="active-future-archived" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
-          Status: {conditions.activeFutureArchivedValues.join(', ')}
+        <Badge key="active-future-archived" variant="outline" className="mr-1 mb-1">
+          State: {conditions.activeFutureArchivedValues.join(', ')}
         </Badge>
       );
     }
@@ -1695,6 +1621,185 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                             placeholder={`Option ${index + 1}`}
                                             className="flex-1"
                                           />
+                                          
+                                          {/* Category dropdown - only show for survey type */}
+                                          {type === 'survey' && (
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button variant="outline" className="w-[180px]">
+                                                  <div className="flex items-center justify-between w-full">
+                                                    <div className="flex items-center space-x-2">
+                                                      {option.category && option.category !== 'none' && availableCategories.some(cat => cat.id === option.category) ? (
+                                                        <>
+                                                          <div 
+                                                            className="w-3 h-3 rounded-full"
+                                                            style={{ 
+                                                              backgroundColor: availableCategories.find(cat => cat.id === option.category)?.color || '#CBD5E1' 
+                                                            }}
+                                                          />
+                                                          <span className="truncate">
+                                                            {availableCategories.find(cat => cat.id === option.category)?.name || 'Category'}
+                                                          </span>
+                                                        </>
+                                                      ) : (
+                                                        <span className="text-muted-foreground">Select category</span>
+                                                      )}
+                                                    </div>
+                                                    <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+                                                  </div>
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align="end" className="w-[220px]">
+                                                <DropdownMenuItem 
+                                                  onClick={() => updateOptionCategory(question.id, option.id, 'none')}
+                                                  className="cursor-pointer"
+                                                >
+                                                  No category
+                                                </DropdownMenuItem>
+                                                
+                                                <DropdownMenuSeparator />
+                                                
+                                                {/* By Type option */}
+                                                <DropdownMenuSub>
+                                                  <DropdownMenuSubTrigger>
+                                                    <Grid2X2 className="h-4 w-4 mr-2" />
+                                                    By Type
+                                                  </DropdownMenuSubTrigger>
+                                                  <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+                                                    {categoryTypes.map((type) => {
+                                                      const categoryData = groupCategoriesByType 
+                                                                          ? groupCategoriesByType()[type.id] || [] 
+                                                                          : [];
+                                                      
+                                                      if (categoryData.length === 0) return null;
+                                                      
+                                                      return (
+                                                        <DropdownMenuSub key={type.id}>
+                                                          <DropdownMenuSubTrigger className="w-full">
+                                                            <div className="flex items-center">
+                                                              {React.createElement(
+                                                                iconMap[type.icon] || Circle,
+                                                                { 
+                                                                  className: "h-4 w-4 mr-2 flex-shrink-0",
+                                                                  style: { color: type.color }
+                                                                }
+                                                              )}
+                                                              <span className="truncate">{type.name}</span>
+                                                            </div>
+                                                          </DropdownMenuSubTrigger>
+                                                          <DropdownMenuSubContent>
+                                                            {categoryData.map((category) => {
+                                                              const isSelected = option.category === category.id;
+                                                              
+                                                              return (
+                                                                <DropdownMenuItem
+                                                                  key={`${category.teacherEmailKey}-${category.id}`}
+                                                                  onSelect={() => updateOptionCategory(question.id, option.id, category.id)}
+                                                                  className="flex items-center"
+                                                                  style={{
+                                                                    backgroundColor: isSelected ? `${category.color}20` : 'transparent',
+                                                                  }}
+                                                                >
+                                                                  {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                                                                    style: { color: category.color }, 
+                                                                    size: 16, 
+                                                                    className: 'mr-2' 
+                                                                  })}
+                                                                  <span className="truncate">{category.name}</span>
+                                                                  <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                                                                    ({teacherNames[category.teacherEmailKey] || category.teacherEmailKey})
+                                                                  </span>
+                                                                </DropdownMenuItem>
+                                                              );
+                                                            })}
+                                                          </DropdownMenuSubContent>
+                                                        </DropdownMenuSub>
+                                                      );
+                                                    })}
+                                                    
+                                                    {/* Uncategorized section */}
+                                                    <DropdownMenuSub>
+                                                      <DropdownMenuSubTrigger>
+                                                        <Circle className="h-4 w-4 mr-2" />
+                                                        Uncategorized
+                                                      </DropdownMenuSubTrigger>
+                                                      <DropdownMenuSubContent>
+                                                        {groupCategoriesByType && groupCategoriesByType()['uncategorized']?.map((category) => {
+                                                          const isSelected = option.category === category.id;
+                                                          
+                                                          return (
+                                                            <DropdownMenuItem
+                                                              key={`${category.teacherEmailKey}-${category.id}`}
+                                                              onSelect={() => updateOptionCategory(question.id, option.id, category.id)}
+                                                              className="flex items-center"
+                                                              style={{
+                                                                backgroundColor: isSelected ? `${category.color}20` : 'transparent',
+                                                              }}
+                                                            >
+                                                              {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                                                                style: { color: category.color }, 
+                                                                size: 16, 
+                                                                className: 'mr-2' 
+                                                              })}
+                                                              <span className="truncate">{category.name}</span>
+                                                              <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                                                                ({teacherNames[category.teacherEmailKey] || category.teacherEmailKey})
+                                                              </span>
+                                                            </DropdownMenuItem>
+                                                          );
+                                                        })}
+                                                      </DropdownMenuSubContent>
+                                                    </DropdownMenuSub>
+                                                  </DropdownMenuSubContent>
+                                                </DropdownMenuSub>
+                                                
+                                                {/* By Staff option */}
+                                                <DropdownMenuSub>
+                                                  <DropdownMenuSubTrigger>
+                                                    <Users className="h-4 w-4 mr-2" />
+                                                    By Staff
+                                                  </DropdownMenuSubTrigger>
+                                                  <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+                                                    {Object.entries(teacherCategories).map(([teacherEmailKey, categories]) => (
+                                                      <DropdownMenuSub key={teacherEmailKey}>
+                                                        <DropdownMenuSubTrigger className="w-full">
+                                                          <div className="truncate">
+                                                            {teacherNames[teacherEmailKey] || teacherEmailKey}
+                                                          </div>
+                                                        </DropdownMenuSubTrigger>
+                                                        <DropdownMenuSubContent>
+                                                          {categories
+                                                            .filter(category => !category.archived)
+                                                            .map(category => {
+                                                              const isSelected = option.category === category.id;
+                                                              
+                                                              return (
+                                                                <DropdownMenuItem
+                                                                  key={category.id}
+                                                                  onSelect={() => updateOptionCategory(question.id, option.id, category.id)}
+                                                                  className="flex items-center"
+                                                                  style={{
+                                                                    backgroundColor: isSelected ? `${category.color}20` : 'transparent',
+                                                                  }}
+                                                                >
+                                                                  {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                                                                    style: { color: category.color }, 
+                                                                    size: 16, 
+                                                                    className: 'mr-2' 
+                                                                  })}
+                                                                  <span>{category.name}</span>
+                                                                </DropdownMenuItem>
+                                                              );
+                                                            })}
+                                                        </DropdownMenuSubContent>
+                                                      </DropdownMenuSub>
+                                                    ))}
+                                                  </DropdownMenuSubContent>
+                                                </DropdownMenuSub>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          )}
+                                          
                                           <Button 
                                             variant="ghost" 
                                             size="icon"
@@ -1890,7 +1995,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                       className="w-3 h-3 rounded-full" 
                                       style={{ backgroundColor: option.color }}
                                     ></div>
-                                    <span>{option.label}</span>
+                                    <span>{option.value}</span>
                                   </div>
                                 </div>
                               );
@@ -2345,76 +2450,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                       </AccordionContent>
                     </AccordionItem>
                     
-                    {/* Specific Student Emails */}
-                    <AccordionItem value="specific-emails" className="mb-4 border border-lime-200 rounded-lg overflow-hidden">
-                      <AccordionTrigger className="text-base font-medium px-4 py-3 bg-lime-50 hover:bg-lime-100 transition-colors">
-                        Specific Student Emails
-                        {selectedEmails.length > 0 && (
-                          <Badge variant="secondary" className="ml-2">
-                            {selectedEmails.length} {selectedEmails.length === 1 ? 'email' : 'emails'}
-                          </Badge>
-                        )}
-                      </AccordionTrigger>
-                      <AccordionContent className="p-4 bg-white">
-                        <div className="space-y-4 pt-2">
-                          <div className="flex items-center space-x-2">
-                            <Input
-                              placeholder="Enter student email"
-                              value={emailInput}
-                              onChange={(e) => setEmailInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  handleAddEmail();
-                                }
-                              }}
-                            />
-                            <Button onClick={handleAddEmail}>Add</Button>
-                          </div>
-                          
-                          <div className="mt-3">
-                            <Alert variant="info" className="bg-blue-50">
-                              <AlertDescription className="text-sm text-blue-700">
-                                This notification will only be shown to students with these specific email addresses.
-                                Use this for targeting specific students or for testing with your own email.
-                              </AlertDescription>
-                            </Alert>
-                          </div>
-                          
-                          {selectedEmails.length > 0 && (
-                            <div className="mt-4 space-y-2 border rounded-md p-4">
-                              <div className="flex justify-between items-center">
-                                <h4 className="text-sm font-medium">Selected Emails ({selectedEmails.length})</h4>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={() => setSelectedEmails([])}
-                                >
-                                  Clear All
-                                </Button>
-                              </div>
-                              <div className="max-h-40 overflow-y-auto mt-2">
-                                {selectedEmails.map(email => (
-                                  <div 
-                                    key={email} 
-                                    className="flex justify-between items-center py-2 px-3 hover:bg-gray-50 border-b last:border-b-0"
-                                  >
-                                    <span className="text-sm">{email}</span>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      onClick={() => handleRemoveEmail(email)}
-                                    >
-                                      <Trash2 className="h-4 w-4 text-red-500" />
-                                    </Button>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
+                    {/* Email filtering removed */}
                   </Accordion>
                 </div>
               </CardContent>
