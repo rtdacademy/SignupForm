@@ -21,7 +21,7 @@ import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { cn } from '../lib/utils';
-import { getDatabase, ref, set } from 'firebase/database';
+import { getDatabase, ref, set, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
 
@@ -118,7 +118,7 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onClick(notification)}
     >
-      {/* Only show dismiss button for one-time notifications that aren't surveys */}
+      {/* Only show dismiss button for 'once' notifications that aren't surveys */}
       {notification.type === 'once' && notification.type !== 'survey' && (
         <button
           onClick={(e) => {
@@ -337,7 +337,7 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
 };
 
 // Dialog for all notifications
-const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit }) => {
+const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onDismiss }) => {
   if (!notification) return null;
 
   const style = getNotificationStyle(notification.type);
@@ -481,10 +481,17 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit }) =
           )}
         </div>
         
-        {/* Only show Acknowledge button for important notifications that are not surveys */}
-        {isImportant && notification.type !== 'survey' && (
+        {/* Only show Acknowledge button for important OR once notifications that are not surveys */}
+        {(isImportant || notification.type === 'once') && notification.type !== 'survey' && notification.type !== 'recurring' && (
           <DialogFooter className="mt-6">
-            <Button onClick={onClose} className="bg-red-600 hover:bg-red-700 text-white">
+            <Button 
+              onClick={() => {
+                // Call onDismiss function that was passed as prop to properly mark as dismissed
+                onDismiss(notification);
+                onClose();
+              }} 
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
               Acknowledge
             </Button>
           </DialogFooter>
@@ -643,6 +650,8 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
   // Mark notification as read and store in localStorage
   const markAsRead = (notification) => {
     const uniqueId = typeof notification === 'object' ? notification.uniqueId : notification;
+    const notificationId = typeof notification === 'object' ? 
+      (notification.originalNotificationId || notification.id) : notification;
     
     setReadNotifications(prev => {
       const updated = {
@@ -652,6 +661,37 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       localStorage.setItem(`read_notifications_${profile?.StudentEmail}`, JSON.stringify(updated));
       return updated;
     });
+    
+    // Also update hasSeen status in Firebase
+    if (profile?.StudentEmail && notificationId) {
+      const db = getDatabase();
+      const sanitizedEmail = current_user_email_key.replace(/\./g, '_');
+      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedEmail}`);
+      
+      // First try to get existing data so we don't overwrite survey results
+      get(resultsRef).then(snapshot => {
+        const existingData = snapshot.exists() ? snapshot.val() : {};
+        
+        // Update with hasSeen and hasSeenTimeStamp
+        set(resultsRef, {
+          ...existingData,
+          hasSeen: true,
+          hasSeenTimeStamp: new Date().toISOString(),
+          userEmail: profile?.StudentEmail
+        });
+      }).catch(error => {
+        console.error('Error updating notification seen status in Firebase:', error);
+        
+        // Fallback: create a new entry if get() fails
+        set(resultsRef, {
+          hasSeen: true,
+          hasSeenTimeStamp: new Date().toISOString(),
+          userEmail: profile?.StudentEmail
+        }).catch(error => {
+          console.error('Error updating notification seen status in Firebase (fallback):', error);
+        });
+      });
+    }
   };
 
   // Dismiss one-time notification
@@ -689,7 +729,9 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         answers,
         submittedAt: new Date().toISOString(),
         studentEmail: profile?.StudentEmail,
-        studentName: `${profile?.firstName} ${profile?.lastName}`
+        studentName: `${profile?.firstName} ${profile?.lastName}`,
+        hasSeen: true,
+        hasSeenTimeStamp: new Date().toISOString()
       };
       
       // Store results in both old and new locations for backward compatibility
@@ -702,7 +744,9 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         ...surveyData,
         // Include additional data for easier querying
         courseIds: [selectedCourse.id],
-        email: profile?.StudentEmail
+        email: profile?.StudentEmail,
+        completed: true,
+        completedAt: new Date().toISOString()
       });
       
       // Also store the result in the course record for real-time updates
@@ -710,7 +754,9 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       await set(courseResultsRef, {
         completed: true,
         completedAt: new Date().toISOString(),
-        answers // Store answers directly in the format provided
+        answers, // Store answers directly in the format provided
+        hasSeen: true,
+        hasSeenTimeStamp: new Date().toISOString()
       });
 
       // Close dialog and refresh notifications
@@ -796,6 +842,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         isOpen={!!selectedNotification}
         onClose={() => setSelectedNotification(null)}
         onSurveySubmit={handleSurveySubmit}
+        onDismiss={dismissNotification}
       />
     </Card>
   );

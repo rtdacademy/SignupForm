@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getDatabase, ref, onValue, get, query, orderByChild, equalTo } from 'firebase/database';
+import { getDatabase, ref, onValue, get, query, orderByChild, equalTo, set } from 'firebase/database';
 import { useAuth } from '../../context/AuthContext';
 
 export const useStudentData = (userEmailKey) => {
@@ -175,7 +175,7 @@ export const useStudentData = (userEmailKey) => {
     const storageKey = `seen_notifications_${userEmail.replace(/\./g, '_')}`;
     let seenNotifications = getSeenNotifications(userEmail);
     
-    // Mark as seen
+    // Mark as seen locally
     seenNotifications[notificationId] = Date.now();
     
     try {
@@ -183,6 +183,39 @@ export const useStudentData = (userEmailKey) => {
     } catch (e) {
       console.error('Error writing to localStorage:', e);
     }
+    
+    // Update the Firebase database to track this notification as seen and acknowledged
+    const db = getDatabase();
+    const sanitizedEmail = userEmail.replace(/\./g, '_');
+    const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedEmail}`);
+    
+    // First try to get existing data so we don't overwrite survey results
+    get(resultsRef).then(snapshot => {
+      const existingData = snapshot.exists() ? snapshot.val() : {};
+      
+      // Update with hasSeen, hasSeenTimeStamp, and acknowledged
+      set(resultsRef, {
+        ...existingData,
+        hasSeen: true,
+        hasSeenTimeStamp: new Date().toISOString(),
+        acknowledged: true,
+        acknowledgedAt: new Date().toISOString(),
+        userEmail: userEmail
+      });
+    }).catch(error => {
+      console.error('Error updating notification seen status in Firebase:', error);
+      
+      // Fallback: create a new entry if get() fails
+      set(resultsRef, {
+        hasSeen: true,
+        hasSeenTimeStamp: new Date().toISOString(),
+        acknowledged: true,
+        acknowledgedAt: new Date().toISOString(),
+        userEmail: userEmail
+      }).catch(error => {
+        console.error('Error updating notification seen status in Firebase (fallback):', error);
+      });
+    });
   };
 
   // Process notifications for each course
@@ -354,9 +387,10 @@ export const useStudentData = (userEmailKey) => {
             return false;
           }
           
-          // If it's a one-time notification that's been seen for this course, don't show it again
+          // If it's a one-time notification that's been seen, completed, or acknowledged, don't show it again
           if (notification.type === 'once' && 
-              course.studentDashboardNotificationsResults?.[notification.id]?.completed) {
+              (course.studentDashboardNotificationsResults?.[notification.id]?.completed ||
+               course.studentDashboardNotificationsResults?.[notification.id]?.acknowledged)) {
             return false; 
           }
           
@@ -836,8 +870,8 @@ export const useStudentData = (userEmailKey) => {
         const updatedCourse = { ...course };
         updatedCourse.notificationIds = { ...course.notificationIds };
         
-        // Mark this notification as seen if it's one-time
-        if (updatedCourse.notificationIds[notificationId].frequency === 'once') {
+        // Mark this notification as seen if it's one-time (for all courses)
+        if (updatedCourse.notificationIds[notificationId].type === 'once') {
           updatedCourse.notificationIds[notificationId] = {
             ...updatedCourse.notificationIds[notificationId],
             shouldDisplay: false

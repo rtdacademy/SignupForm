@@ -35,6 +35,73 @@ function CoursesWithSheet() {
   const [isEditing, setIsEditing] = useState(false);
   // State for active notifications count
   const [activeNotificationsCount, setActiveNotificationsCount] = useState(0);
+  // State for categories
+  const [teacherCategories, setTeacherCategories] = useState({});
+  const [categoryTypes, setCategoryTypes] = useState([]);
+  const [teacherNames, setTeacherNames] = useState({});
+
+  // Fetch teacher categories and category types
+  useEffect(() => {
+    if (!user || !isStaff(user)) return;
+    
+    const db = getDatabase();
+    const categoriesRef = ref(db, `teacherCategories`);
+
+    const handleValueChange = async (snapshot) => {
+      if (snapshot.exists()) {
+        const categoriesData = snapshot.val();
+        // Process categoriesData to include teacherEmailKey
+        const allCategories = {};
+        Object.entries(categoriesData).forEach(([teacherEmailKey, categories]) => {
+          const categoryList = Object.entries(categories)
+            .filter(([_, category]) => !category.archived)
+            .map(([id, category]) => ({ id, ...category }));
+          allCategories[teacherEmailKey] = categoryList;
+        });
+        setTeacherCategories(allCategories);
+      } else {
+        setTeacherCategories({});
+      }
+    };
+
+    const unsubscribeCategoriesRef = onValue(categoriesRef, handleValueChange);
+    
+    // Fetch teacher names
+    const staffRef = ref(db, 'staff');
+    const unsubscribeStaffRef = onValue(staffRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const staffData = snapshot.val();
+        const names = {};
+        Object.entries(staffData).forEach(([emailKey, data]) => {
+          names[emailKey] = data.displayName || data.email || emailKey;
+        });
+        setTeacherNames(names);
+      }
+    });
+
+    // Fetch category types
+    const typesRef = ref(db, 'categoryTypes');
+    const handleTypes = (snapshot) => {
+      if (snapshot.exists()) {
+        const typesData = snapshot.val();
+        const typesArray = Object.entries(typesData).map(([id, type]) => ({
+          id,
+          ...type
+        }));
+        setCategoryTypes(typesArray);
+      } else {
+        setCategoryTypes([]);
+      }
+    };
+
+    const unsubscribeTypesRef = onValue(typesRef, handleTypes);
+
+    return () => {
+      unsubscribeCategoriesRef();
+      unsubscribeStaffRef();
+      unsubscribeTypesRef();
+    };
+  }, [user, isStaff]);
 
   // Fetch courses and staff members
   useEffect(() => {
@@ -208,7 +275,11 @@ function CoursesWithSheet() {
       case 'registration-settings':
         return <RegistrationSettings />;
       case 'student-dashboard-notifications':
-        return <StudentDashboardNotifications />;
+        return <StudentDashboardNotifications 
+          teacherCategories={teacherCategories} 
+          categoryTypes={categoryTypes} 
+          teacherNames={teacherNames} 
+        />;
       default:
         return null;
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getDatabase, ref, get, set, push, remove, update } from 'firebase/database';
 import { toast } from 'sonner';
 import ReactQuill from 'react-quill';
@@ -23,6 +23,16 @@ import { Input } from '../components/ui/input';
 import { Switch } from '../components/ui/switch';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal
+} from "../components/ui/dropdown-menu";
 import { 
   Alert, 
   AlertDescription,
@@ -76,7 +86,6 @@ import {
   Plus, 
   Trash2, 
   Save, 
-  AlertTriangle,
   Calendar,
   CalendarClock,
   BellRing,
@@ -91,24 +100,39 @@ import {
   Users,
   ClipboardList,
   HelpCircle,
-  BarChart,
-  Move,
   PlusCircle,
   X,
-  CircleCheck,
   Circle,
-  Mail,
   UsersRound,
-  MailPlus
+  MailPlus,
+  ChevronDown,
+  Grid2X2,
+  Square,
+  Triangle,
+  GraduationCap,
+  Trophy,
+  Target,
+  Brain,
+  Lightbulb,
+  Clock,
+  TrendingUp,
+  AlertCircle,
+  Presentation,
+  Bookmark,
+  Star,
+  BarChart,
+  Search
 } from 'lucide-react';
 import { 
   STUDENT_TYPE_OPTIONS,
   DIPLOMA_MONTH_OPTIONS,
   COURSE_OPTIONS,
+  ACTIVE_FUTURE_ARCHIVED_OPTIONS,
   getSchoolYearOptions
 } from '../config/DropdownOptions';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import StudentMessaging from '../StudentManagement/StudentMessaging';
+import StudentSelectionDialog from './StudentSelectionDialog';
 
 // Enhanced Quill editor modules and formats configuration
 const quillModules = {
@@ -142,6 +166,33 @@ const ACCORDION_COLORS = [
   'bg-cyan-50',
   'bg-lime-50'
 ];
+
+// Map of category icons to Lucide components
+const iconMap = {
+  'circle': Circle,
+  'square': Square,
+  'triangle': Triangle,
+  'book-open': FileText,
+  'graduation-cap': GraduationCap,
+  'trophy': Trophy,
+  'target': Target,
+  'clipboard-check': ClipboardList,
+  'brain': Brain,
+  'lightbulb': Lightbulb,
+  'clock': Clock,
+  'calendar': Calendar,
+  'bar-chart': BarChart,
+  'trending-up': TrendingUp,
+  'alert-circle': AlertCircle,
+  'help-circle': HelpCircle,
+  'message-circle': MessageSquare,
+  'users': UsersRound,
+  'presentation': Presentation,
+  'file-text': FileText,
+  'bookmark': Bookmark,
+  'star': Star,
+  'grid-2x2': Grid2X2,
+};
 
 // Save Confirmation Dialog Component
 const SaveConfirmationDialog = ({ open, onOpenChange, onEmailStudents, onJustSave, matchingStudentCount }) => {
@@ -189,7 +240,7 @@ const SaveConfirmationDialog = ({ open, onOpenChange, onEmailStudents, onJustSav
   );
 };
 
-function StudentDashboardNotifications() {
+function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes = [], teacherNames = {} }) {
   // Context for student data
   const { studentSummaries } = useSchoolYear();
   
@@ -210,6 +261,45 @@ function StudentDashboardNotifications() {
   const [type, setType] = useState('recurring'); // Changed from 'frequency' to 'type'
   const [conditionLogic, setConditionLogic] = useState('and');
   
+  // State for active/future/archived filters
+  const [selectedActiveFutureArchivedValues, setSelectedActiveFutureArchivedValues] = useState(['Active']);
+  
+  // Function to group categories by type for the dropdown
+  const groupCategoriesByType = useMemo(() => {
+    return () => {
+      const grouped = {};
+      
+      // Initialize groups for each type
+      categoryTypes.forEach(type => {
+        grouped[type.id] = [];
+      });
+      
+      // Add uncategorized group
+      grouped['uncategorized'] = [];
+      
+      // Group categories
+      Object.entries(teacherCategories).forEach(([teacherEmailKey, categories]) => {
+        categories
+          .filter(category => !category.archived)
+          .forEach(category => {
+            const categoryWithTeacher = {
+              ...category,
+              teacherEmailKey,
+              teacherName: teacherNames[teacherEmailKey] || teacherEmailKey
+            };
+            
+            if (category.type && grouped[category.type]) {
+              grouped[category.type].push(categoryWithTeacher);
+            } else {
+              grouped['uncategorized'].push(categoryWithTeacher);
+            }
+          });
+      });
+      
+      return grouped;
+    };
+  }, [categoryTypes, teacherCategories, teacherNames]);
+  
   // State for survey questions
   const [surveyQuestions, setSurveyQuestions] = useState([]);
   // State for survey question type
@@ -224,6 +314,7 @@ function StudentDashboardNotifications() {
   const [ageRange, setAgeRange] = useState({ min: '', max: '' });
   const [selectedEmails, setSelectedEmails] = useState([]);
   const [emailInput, setEmailInput] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState([]);
   
   // State for delete confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -240,6 +331,14 @@ function StudentDashboardNotifications() {
   // State for save confirmation dialog
   const [saveConfirmationOpen, setSaveConfirmationOpen] = useState(false);
   const [savedNotification, setSavedNotification] = useState(null);
+  
+  // State for student selection dialog
+  const [studentSelectionDialogOpen, setStudentSelectionDialogOpen] = useState(false);
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [matchingStudentCount, setMatchingStudentCount] = useState(0);
+  
+  // Track when conditions change to recalculate matched students
+  const [conditionsChanged, setConditionsChanged] = useState(false);
   
   // School year options
   const schoolYearOptions = getSchoolYearOptions();
@@ -268,14 +367,46 @@ function StudentDashboardNotifications() {
     }
   }, []);
   
-  // Filter students based on notification conditions
-  const filterStudentsByConditions = (notification) => {
+  // Filter students based on conditions (can use either a notification object or current form state)
+  const filterStudentsByConditions = (conditionsSource, useCurrentFormState = false) => {
     if (!studentSummaries || !studentSummaries.length) {
       return [];
     }
     
-    const conditions = notification.conditions || {};
-    const isAndLogic = conditions.logic !== 'or'; // Default to 'and' logic if not specified
+    // Determine which conditions to use - either from the notification object or current form state
+    let conditions;
+    let isAndLogic;
+    
+    if (useCurrentFormState) {
+      // Use current form state instead of a notification object
+      conditions = {
+        studentTypes: selectedStudentTypes.length > 0 ? selectedStudentTypes : undefined,
+        diplomaMonths: selectedDiplomaMonths.length > 0 ? selectedDiplomaMonths : undefined,
+        courses: selectedCourses.length > 0 ? selectedCourses : undefined,
+        schoolYears: selectedSchoolYears.length > 0 ? selectedSchoolYears : undefined,
+        emails: selectedEmails.length > 0 ? selectedEmails : undefined,
+        categories: selectedCategories.length > 0 ? selectedCategories : undefined,
+        activeFutureArchivedValues: selectedActiveFutureArchivedValues.length > 0 ? selectedActiveFutureArchivedValues : ["Active"],
+        ageRange: ageRange.min && ageRange.max ? {
+          min: parseInt(ageRange.min),
+          max: parseInt(ageRange.max)
+        } : undefined,
+        scheduleEndDateRange: scheduleEndDateRange.start && scheduleEndDateRange.end ? {
+          start: scheduleEndDateRange.start,
+          end: scheduleEndDateRange.end
+        } : undefined,
+        logic: conditionLogic
+      };
+      isAndLogic = conditionLogic !== 'or';
+    } else {
+      // Use the provided notification object
+      conditions = conditionsSource.conditions || {};
+      // Set default ActiveFutureArchived values to "Active" if not specified
+      if (!conditions.activeFutureArchivedValues) {
+        conditions.activeFutureArchivedValues = ["Active"];
+      }
+      isAndLogic = conditions.logic !== 'or'; // Default to 'and' logic if not specified
+    }
     
     return studentSummaries.filter(student => {
       // Array to track which conditions are met
@@ -341,6 +472,38 @@ function StudentDashboardNotifications() {
         conditionResults.push(ageInRange);
       }
       
+      // Check category condition
+      if (conditions.categories && conditions.categories.length > 0) {
+        const categoryMatches = conditions.categories.some(teacherCat => {
+          const teacherEmailKey = Object.keys(teacherCat)[0];
+          const categoryIds = teacherCat[teacherEmailKey] || [];
+          
+          // Skip if no categories for this teacher
+          if (!categoryIds.length) return false;
+          
+          // If we have teacher categories for this student
+          if (student.categories && student.categories[teacherEmailKey]) {
+            // Check if any of the required categories match
+            return categoryIds.some(categoryId => 
+              student.categories[teacherEmailKey] && 
+              student.categories[teacherEmailKey][categoryId] === true
+            );
+          }
+          
+          return false;
+        });
+        
+        conditionResults.push(categoryMatches);
+      }
+      
+      // Check ActiveFutureArchived condition
+      if (conditions.activeFutureArchivedValues && conditions.activeFutureArchivedValues.length > 0) {
+        const activeFutureArchivedMatches = conditions.activeFutureArchivedValues.includes(
+          student.ActiveFutureArchived_Value
+        );
+        conditionResults.push(activeFutureArchivedMatches);
+      }
+      
       // If no other conditions were evaluated (besides email which was already checked)
       // and we have an email condition, return true since email already matched
       if (conditionResults.length === 0) {
@@ -357,6 +520,40 @@ function StudentDashboardNotifications() {
       }
     });
   };
+  
+  // Function to update the matched student count
+  const updateMatchedStudentCount = () => {
+    const matchedStudents = filterStudentsByConditions(null, true);
+    setSelectedStudents(matchedStudents);
+    setMatchingStudentCount(matchedStudents.length);
+    return matchedStudents.length;
+  };
+  
+  // Show the student selection dialog
+  const handleOpenStudentSelectionDialog = () => {
+    updateMatchedStudentCount();
+    setStudentSelectionDialogOpen(true);
+  };
+  
+  // Keep track of student count when conditions change
+  useEffect(() => {
+    if (editMode) {
+      updateMatchedStudentCount();
+    }
+  }, [
+    selectedStudentTypes, 
+    selectedDiplomaMonths, 
+    selectedCourses,
+    selectedSchoolYears,
+    scheduleEndDateRange,
+    ageRange.min,
+    ageRange.max,
+    selectedEmails,
+    selectedCategories,
+    selectedActiveFutureArchivedValues,
+    conditionLogic,
+    editMode
+  ]);
   
   // Handle opening the messaging sheet
   const handleOpenMessagingSheet = (notification) => {
@@ -435,6 +632,8 @@ function StudentDashboardNotifications() {
     setAgeRange({ min: '', max: '' });
     setSelectedEmails([]);
     setEmailInput('');
+    setSelectedCategories([]); // Reset selected categories
+    setSelectedActiveFutureArchivedValues(['Active']); // Reset to default 'Active'
     setSurveyQuestions([]); // Reset survey questions
     setQuestionType("multiple-choice"); // Reset question type
     setCurrentNotification(null);
@@ -567,6 +766,8 @@ function StudentDashboardNotifications() {
     setSelectedCourses(notification.conditions?.courses || []);
     setSelectedSchoolYears(notification.conditions?.schoolYears || []);
     setSelectedEmails(notification.conditions?.emails || []);
+    setSelectedCategories(notification.conditions?.categories || []);
+    setSelectedActiveFutureArchivedValues(notification.conditions?.activeFutureArchivedValues || ['Active']);
     
     if (notification.conditions?.scheduleEndDateRange) {
       setScheduleEndDateRange({
@@ -655,9 +856,10 @@ function StudentDashboardNotifications() {
     const hasScheduleEndDateRange = scheduleEndDateRange.start && scheduleEndDateRange.end;
     const hasAgeRange = ageRange.min && ageRange.max;
     const hasEmails = selectedEmails.length > 0;
+    const hasCategories = selectedCategories.length > 0;
     
     if (!hasStudentTypes && !hasDiplomaMonths && !hasCourses && !hasSchoolYears && 
-        !hasScheduleEndDateRange && !hasAgeRange && !hasEmails) {
+        !hasScheduleEndDateRange && !hasAgeRange && !hasEmails && !hasCategories) {
       toast.error('Please set at least one condition for the notification');
       return false;
     }
@@ -757,6 +959,10 @@ function StudentDashboardNotifications() {
         notificationData.conditions.emails = selectedEmails;
       }
       
+      if (selectedCategories.length > 0) {
+        notificationData.conditions.categories = selectedCategories;
+      }
+      
       if (scheduleEndDateRange.start && scheduleEndDateRange.end) {
         notificationData.conditions.scheduleEndDateRange = {
           start: scheduleEndDateRange.start,
@@ -769,6 +975,10 @@ function StudentDashboardNotifications() {
           min: parseInt(ageRange.min),
           max: parseInt(ageRange.max)
         };
+      }
+      
+      if (selectedActiveFutureArchivedValues.length > 0) {
+        notificationData.conditions.activeFutureArchivedValues = selectedActiveFutureArchivedValues;
       }
       
       let savedNotificationObject;
@@ -880,6 +1090,8 @@ function StudentDashboardNotifications() {
   
   // Handle multi-select changes
   const handleMultiSelectChange = (field, value) => {
+    setConditionsChanged(true);
+    
     switch (field) {
       case 'studentTypes':
         if (selectedStudentTypes.includes(value)) {
@@ -907,7 +1119,7 @@ function StudentDashboardNotifications() {
         
       case 'schoolYears':
         if (selectedSchoolYears.includes(value)) {
-          setSelectedSchoolYears(selectedSchoolYears.filter(year => year !== value));
+          setSelectedSchoolYears(selectedSchoolYears.filter(year => year !== year));
         } else {
           setSelectedSchoolYears([...selectedSchoolYears, value]);
         }
@@ -958,12 +1170,89 @@ function StudentDashboardNotifications() {
       return;
     }
     
+    setConditionsChanged(true);
     setSelectedEmails([...selectedEmails, emailInput.trim().toLowerCase()]);
     setEmailInput('');
   };
   
   const handleRemoveEmail = (email) => {
+    setConditionsChanged(true);
     setSelectedEmails(selectedEmails.filter(e => e !== email));
+  };
+
+  // Handle category selection for notifications
+  const handleCategoryChange = (categoryId, teacherEmailKey) => {
+    setConditionsChanged(true);
+    
+    setSelectedCategories(prevCategories => {
+      // Find the teacher entry
+      const existingTeacherIndex = prevCategories.findIndex(
+        teacherCat => Object.keys(teacherCat)[0] === teacherEmailKey
+      );
+      
+      if (existingTeacherIndex > -1) {
+        // Teacher exists, check if the category is already selected
+        const existingCategories = prevCategories[existingTeacherIndex][teacherEmailKey];
+        
+        if (existingCategories.includes(categoryId)) {
+          // Category is already selected, remove it
+          const updatedCategories = [...prevCategories];
+          updatedCategories[existingTeacherIndex] = {
+            [teacherEmailKey]: existingCategories.filter(id => id !== categoryId)
+          };
+          
+          // If there are no more categories for this teacher, remove the entry
+          if (updatedCategories[existingTeacherIndex][teacherEmailKey].length === 0) {
+            updatedCategories.splice(existingTeacherIndex, 1);
+          }
+          
+          return updatedCategories;
+        } else {
+          // Category not selected yet, add it
+          const updatedCategories = [...prevCategories];
+          updatedCategories[existingTeacherIndex] = {
+            [teacherEmailKey]: [...existingCategories, categoryId]
+          };
+          return updatedCategories;
+        }
+      } else {
+        // Teacher doesn't exist yet, add a new entry
+        return [...prevCategories, { [teacherEmailKey]: [categoryId] }];
+      }
+    });
+  };
+  
+  // Handle removing a category
+  const handleRemoveCategory = (categoryId, teacherEmailKey) => {
+    setConditionsChanged(true);
+    
+    setSelectedCategories(prevCategories => {
+      // Find the teacher entry
+      const existingTeacherIndex = prevCategories.findIndex(
+        teacherCat => Object.keys(teacherCat)[0] === teacherEmailKey
+      );
+      
+      if (existingTeacherIndex > -1) {
+        // Make a copy of the categories array
+        const updatedCategories = [...prevCategories];
+        const existingCategories = prevCategories[existingTeacherIndex][teacherEmailKey];
+        
+        // Remove the category
+        updatedCategories[existingTeacherIndex] = {
+          [teacherEmailKey]: existingCategories.filter(id => id !== categoryId)
+        };
+        
+        // If there are no more categories for this teacher, remove the entry
+        if (updatedCategories[existingTeacherIndex][teacherEmailKey].length === 0) {
+          updatedCategories.splice(existingTeacherIndex, 1);
+        }
+        
+        return updatedCategories;
+      }
+      
+      // If not found, return unchanged
+      return prevCategories;
+    });
   };
 
   // Render badges for notification conditions
@@ -1011,6 +1300,19 @@ function StudentDashboardNotifications() {
       );
     }
     
+    if (conditions.categories && conditions.categories.length > 0) {
+      const categoryCount = conditions.categories.reduce((count, teacherCat) => {
+        const categories = Object.values(teacherCat)[0];
+        return count + (categories ? categories.length : 0);
+      }, 0);
+      
+      badges.push(
+        <Badge key="categories" variant="outline" className="mr-1 mb-1 bg-purple-50 text-purple-700 border-purple-200">
+          {categoryCount} {categoryCount === 1 ? 'Category' : 'Categories'}
+        </Badge>
+      );
+    }
+    
     if (conditions.scheduleEndDateRange) {
       badges.push(
         <Badge key="dateRange" variant="outline" className="mr-1 mb-1">
@@ -1021,8 +1323,16 @@ function StudentDashboardNotifications() {
     
     if (conditions.ageRange) {
       badges.push(
-        <Badge key="ageRange" variant="outline" className="mr-1 mb-1">
-          Age {conditions.ageRange.min}-{conditions.ageRange.max}
+        <Badge key="age-range" variant="secondary" className="mr-1 mb-1">
+          Age: {conditions.ageRange.min}-{conditions.ageRange.max}
+        </Badge>
+      );
+    }
+
+    if (conditions.activeFutureArchivedValues && conditions.activeFutureArchivedValues.length > 0) {
+      badges.push(
+        <Badge key="active-future-archived" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
+          Status: {conditions.activeFutureArchivedValues.join(', ')}
         </Badge>
       );
     }
@@ -1460,31 +1770,388 @@ function StudentDashboardNotifications() {
                 <div className="space-y-4 mt-12">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-medium">Notification Target Conditions</h3>
-                    <Select 
-                      value={conditionLogic} 
-                      onValueChange={setConditionLogic}
-                    >
-                      <SelectTrigger className="w-48">
-                        <SelectValue placeholder="Select logic" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="and">ALL conditions (AND)</SelectItem>
-                        <SelectItem value="or">ANY condition (OR)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col">
+                        <div className="text-sm font-medium mb-1 text-gray-600">Condition Logic:</div>
+                        <Select 
+                          value={conditionLogic} 
+                          onValueChange={setConditionLogic}
+                        >
+                          <SelectTrigger className="w-80 border-2 font-medium" style={{ 
+                            borderColor: conditionLogic === 'and' ? '#2563eb' : '#f59e0b',
+                            background: conditionLogic === 'and' ? '#eff6ff' : '#fffbeb',
+                            color: conditionLogic === 'and' ? '#1e40af' : '#b45309'
+                          }}>
+                            <SelectValue placeholder="Select logic" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="and" className="font-medium text-blue-700 bg-blue-50">ALL conditions must match (AND)</SelectItem>
+                            <SelectItem value="or" className="font-medium text-amber-700 bg-amber-50">ANY condition can match (OR)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </div>
                   
-                  <Alert>
-                    <Filter className="h-4 w-4" />
-                    <AlertTitle>Targeting Logic:</AlertTitle>
-                    <AlertDescription>
-                      {conditionLogic === 'and' 
-                        ? 'Students must match ALL selected conditions to see this notification' 
-                        : 'Students will see this notification if they match ANY of the selected conditions'}
-                    </AlertDescription>
+                  <Alert className={conditionLogic === 'and' ? 'bg-blue-50 border-blue-200' : 'bg-amber-50 border-amber-200'}>
+                    <div className="flex flex-col space-y-2 w-full">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <Filter className={`h-4 w-4 ${conditionLogic === 'and' ? 'text-blue-500' : 'text-amber-500'}`} />
+                          <AlertTitle className="ml-2">Targeting Logic: <span className={`font-bold ${conditionLogic === 'and' ? 'text-blue-700' : 'text-amber-700'}`}>
+                            {conditionLogic === 'and' ? 'ALL CONDITIONS (AND)' : 'ANY CONDITION (OR)'}
+                          </span></AlertTitle>
+                        </div>
+                        {editMode && matchingStudentCount > 0 && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className={`flex items-center gap-1 hover:bg-opacity-90 ${
+                              conditionLogic === 'and' 
+                                ? 'bg-blue-100 border-blue-300 text-blue-800 hover:bg-blue-200' 
+                                : 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200'
+                            }`}
+                            onClick={handleOpenStudentSelectionDialog}
+                          >
+                            <UsersRound className="h-3.5 w-3.5" />
+                            <span>{matchingStudentCount} student{matchingStudentCount !== 1 ? 's' : ''}</span>
+                            <Search className="h-3.5 w-3.5 ml-1" />
+                          </Button>
+                        )}
+                      </div>
+                      <AlertDescription className={conditionLogic === 'and' ? 'text-blue-700' : 'text-amber-700'}>
+                        {conditionLogic === 'and' 
+                          ? 'Students must match ALL selected conditions below to see this notification' 
+                          : 'Students will see this notification if they match ANY of the selected conditions below'}
+                      </AlertDescription>
+                    </div>
                   </Alert>
                   
                   <Accordion type="multiple">
+                    {/* Student State - Featured at the very top */}
+                    <AccordionItem value="active-future-archived" className="mb-6 border-2 border-teal-300 rounded-lg overflow-hidden shadow-md">
+                      <AccordionTrigger className="text-base font-medium px-4 py-4 bg-teal-100 hover:bg-teal-200 transition-colors">
+                        <div className="flex items-center">
+                          <div className="bg-teal-200 p-1.5 rounded-md mr-2">
+                            <Circle className="h-5 w-5 text-teal-700" />
+                          </div>
+                          <span className="text-teal-900">State</span>
+                        </div>
+                        {selectedActiveFutureArchivedValues.length > 0 && (
+                          <Badge variant="secondary" className="ml-2 bg-teal-200 text-teal-800">
+                            {selectedActiveFutureArchivedValues.length} selected
+                          </Badge>
+                        )}
+                      </AccordionTrigger>
+                      <AccordionContent className="p-4 bg-white">
+                        <div className="space-y-4">
+                          <Alert variant="info" className="bg-teal-50 border-teal-200">
+                            <AlertDescription className="text-sm text-teal-700">
+                              Select state options to target specific student statuses. Students will be included if they match any of the selected states.
+                            </AlertDescription>
+                          </Alert>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3 pt-2">
+                            {ACTIVE_FUTURE_ARCHIVED_OPTIONS.map(option => {
+                              const isSelected = selectedActiveFutureArchivedValues.includes(option.value);
+                              
+                              return (
+                                <div 
+                                  key={option.value}
+                                  className={`border rounded-md p-3 cursor-pointer transition-colors flex items-center ${
+                                    isSelected ? 'bg-teal-50 border-teal-300' : 'hover:bg-gray-50'
+                                  }`}
+                                  onClick={() => {
+                                    setConditionsChanged(true);
+                                    
+                                    if (isSelected) {
+                                      // Remove if already selected
+                                      setSelectedActiveFutureArchivedValues(
+                                        selectedActiveFutureArchivedValues.filter(val => val !== option.value)
+                                      );
+                                    } else {
+                                      // Add if not selected
+                                      setSelectedActiveFutureArchivedValues([
+                                        ...selectedActiveFutureArchivedValues,
+                                        option.value
+                                      ]);
+                                    }
+                                  }}
+                                >
+                                  <div 
+                                    className={`w-5 h-5 rounded mr-3 flex items-center justify-center ${
+                                      isSelected ? 'bg-teal-500 text-white' : 'border border-gray-300'
+                                    }`}
+                                  >
+                                    {isSelected && <CheckCircle className="w-4 h-4" />}
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <div 
+                                      className="w-3 h-3 rounded-full" 
+                                      style={{ backgroundColor: option.color }}
+                                    ></div>
+                                    <span>{option.label}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          
+                          {selectedActiveFutureArchivedValues.length > 0 && (
+                            <div className="mt-3 flex">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setConditionsChanged(true);
+                                  setSelectedActiveFutureArchivedValues(['Active']);
+                                }}
+                              >
+                                Reset to Default (Active)
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                    
+                    {/* Student Categories */}
+                    <AccordionItem value="student-categories" className="mb-6 border-2 border-indigo-300 rounded-lg overflow-hidden shadow-md">
+                      <AccordionTrigger className="text-base font-medium px-4 py-4 bg-indigo-100 hover:bg-indigo-200 transition-colors">
+                        <div className="flex items-center">
+                          <div className="bg-indigo-200 p-1.5 rounded-md mr-2">
+                            <Grid2X2 className="h-5 w-5 text-indigo-700" />
+                          </div>
+                          <span className="text-indigo-900">Student Categories</span>
+                        </div>
+                        {selectedCategories.length > 0 && (
+                          <Badge variant="secondary" className="ml-2 bg-indigo-200 text-indigo-800">
+                            {selectedCategories.reduce((count, cat) => {
+                              const categoryIds = Object.values(cat)[0];
+                              return count + (categoryIds ? categoryIds.length : 0);
+                            }, 0)} selected
+                          </Badge>
+                        )}
+                      </AccordionTrigger>
+                      <AccordionContent className="p-4 bg-white">
+                        <div className="space-y-4">
+                          <Alert variant="info" className="bg-indigo-50 border-indigo-200">
+                            <AlertDescription className="text-sm text-indigo-700">
+                              Select categories to target specific groups of students. Students with any of the selected categories will receive this notification.
+                            </AlertDescription>
+                          </Alert>
+                          
+                          <div className="flex flex-wrap gap-2">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-9 border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+                                  <div className="flex items-center">
+                                    <Filter className="h-4 w-4 mr-1" />
+                                    Select Categories
+                                    <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
+                                  </div>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent className="w-56">
+                                {/* By Staff option */}
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger>
+                                    <Users className="h-4 w-4 mr-2" />
+                                    By Staff
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+                                    {Object.entries(teacherCategories).map(([teacherEmailKey, categories]) => (
+                                      <DropdownMenuSub key={teacherEmailKey}>
+                                        <DropdownMenuSubTrigger className="w-full">
+                                          <div className="truncate">
+                                            {teacherNames[teacherEmailKey] || teacherEmailKey}
+                                          </div>
+                                        </DropdownMenuSubTrigger>
+                                        <DropdownMenuSubContent>
+                                          {categories
+                                            .filter(category => !category.archived)
+                                            .map(category => {
+                                              const isSelected = selectedCategories.some(cat => 
+                                                cat[teacherEmailKey] && 
+                                                cat[teacherEmailKey].includes(category.id)
+                                              );
+                                              
+                                              return (
+                                                <DropdownMenuItem
+                                                  key={category.id}
+                                                  onSelect={() => handleCategoryChange(category.id, teacherEmailKey)}
+                                                  className="flex items-center"
+                                                  style={{
+                                                    backgroundColor: isSelected ? `${category.color}20` : 'transparent',
+                                                  }}
+                                                >
+                                                  {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                                                    style: { color: category.color }, 
+                                                    size: 16, 
+                                                    className: 'mr-2' 
+                                                  })}
+                                                  <span>{category.name}</span>
+                                                </DropdownMenuItem>
+                                              );
+                                            })}
+                                        </DropdownMenuSubContent>
+                                      </DropdownMenuSub>
+                                    ))}
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+
+                                {/* By Type option */}
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger>
+                                    <Grid2X2 className="h-4 w-4 mr-2" />
+                                    By Type
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+                                    {categoryTypes.map((type) => {
+                                      const categoryData = groupCategoriesByType 
+                                                          ? groupCategoriesByType()[type.id] || [] 
+                                                          : [];
+                                      
+                                      if (categoryData.length === 0) return null;
+                                      
+                                      return (
+                                        <DropdownMenuSub key={type.id}>
+                                          <DropdownMenuSubTrigger className="w-full">
+                                            <div className="flex items-center">
+                                              {React.createElement(
+                                                iconMap[type.icon] || Circle,
+                                                { 
+                                                  className: "h-4 w-4 mr-2 flex-shrink-0",
+                                                  style: { color: type.color }
+                                                }
+                                              )}
+                                              <span className="truncate">{type.name}</span>
+                                            </div>
+                                          </DropdownMenuSubTrigger>
+                                          <DropdownMenuSubContent>
+                                            {categoryData.map((category) => {
+                                              const isSelected = selectedCategories.some(cat => 
+                                                cat[category.teacherEmailKey] && 
+                                                cat[category.teacherEmailKey].includes(category.id)
+                                              );
+                                              
+                                              return (
+                                                <DropdownMenuItem
+                                                  key={`${category.teacherEmailKey}-${category.id}`}
+                                                  onSelect={() => handleCategoryChange(category.id, category.teacherEmailKey)}
+                                                  className="flex items-center"
+                                                  style={{
+                                                    backgroundColor: isSelected ? `${category.color}20` : 'transparent',
+                                                  }}
+                                                >
+                                                  {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                                                    style: { color: category.color }, 
+                                                    size: 16, 
+                                                    className: 'mr-2' 
+                                                  })}
+                                                  <span className="truncate">{category.name}</span>
+                                                  <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                                                    ({teacherNames[category.teacherEmailKey] || category.teacherEmailKey})
+                                                  </span>
+                                                </DropdownMenuItem>
+                                              );
+                                            })}
+                                          </DropdownMenuSubContent>
+                                        </DropdownMenuSub>
+                                      );
+                                    })}
+                                    
+                                    {/* Uncategorized section */}
+                                    <DropdownMenuSub>
+                                      <DropdownMenuSubTrigger>
+                                        <Circle className="h-4 w-4 mr-2" />
+                                        Uncategorized
+                                      </DropdownMenuSubTrigger>
+                                      <DropdownMenuSubContent>
+                                        {groupCategoriesByType && groupCategoriesByType()['uncategorized']?.map((category) => {
+                                          const isSelected = selectedCategories.some(cat => 
+                                            cat[category.teacherEmailKey] && 
+                                            cat[category.teacherEmailKey].includes(category.id)
+                                          );
+                                          
+                                          return (
+                                            <DropdownMenuItem
+                                              key={`${category.teacherEmailKey}-${category.id}`}
+                                              onSelect={() => handleCategoryChange(category.id, category.teacherEmailKey)}
+                                              className="flex items-center"
+                                              style={{
+                                                backgroundColor: isSelected ? `${category.color}20` : 'transparent',
+                                              }}
+                                            >
+                                              {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                                                style: { color: category.color }, 
+                                                size: 16, 
+                                                className: 'mr-2' 
+                                              })}
+                                              <span className="truncate">{category.name}</span>
+                                              <span className="ml-2 text-xs text-gray-500 flex-shrink-0">
+                                                ({teacherNames[category.teacherEmailKey] || category.teacherEmailKey})
+                                              </span>
+                                            </DropdownMenuItem>
+                                          );
+                                        })}
+                                      </DropdownMenuSubContent>
+                                    </DropdownMenuSub>
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          
+                          {selectedCategories.length > 0 && (
+                            <div className="mt-4 border rounded-md p-4 bg-indigo-50 border-indigo-200">
+                              <div className="flex justify-between items-center">
+                                <h4 className="text-sm font-medium text-indigo-900">Selected Categories</h4>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => setSelectedCategories([])}
+                                  className="border-indigo-300 text-indigo-700 hover:bg-indigo-100"
+                                >
+                                  Clear All
+                                </Button>
+                              </div>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                {selectedCategories.flatMap(teacherCat => {
+                                  const teacherEmailKey = Object.keys(teacherCat)[0];
+                                  const categoryIds = teacherCat[teacherEmailKey] || [];
+                                  
+                                  return categoryIds.map(categoryId => {
+                                    // Find the category details
+                                    const category = teacherCategories[teacherEmailKey]?.find(c => c.id === categoryId);
+                                    if (!category) return null;
+                                    
+                                    return (
+                                      <div
+                                        key={`${teacherEmailKey}-${categoryId}`}
+                                        className="flex items-center rounded-full px-3 py-1.5 text-sm shadow-sm"
+                                        style={{ color: category.color, backgroundColor: `${category.color}20` }}
+                                      >
+                                        {iconMap[category.icon] && React.createElement(iconMap[category.icon], { 
+                                          size: 14,
+                                          className: 'mr-1.5',
+                                        })}
+                                        <span className="mr-1.5">{category.name}</span>
+                                        <X 
+                                          className="h-3.5 w-3.5 cursor-pointer opacity-70 hover:opacity-100" 
+                                          onClick={() => handleCategoryChange(categoryId, teacherEmailKey)}
+                                        />
+                                      </div>
+                                    );
+                                  });
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                    
                     {/* Student Types */}
                     <AccordionItem value="student-types" className="mb-4 border border-blue-200 rounded-lg overflow-hidden">
                       <AccordionTrigger className="text-base font-medium px-4 py-3 bg-blue-50 hover:bg-blue-100 transition-colors">
@@ -1539,186 +2206,7 @@ function StudentDashboardNotifications() {
                       </AccordionContent>
                     </AccordionItem>
                     
-                    {/* Diploma Months */}
-                    <AccordionItem value="diploma-months" className="mb-4 border border-emerald-200 rounded-lg overflow-hidden">
-                      <AccordionTrigger className="text-base font-medium px-4 py-3 bg-emerald-50 hover:bg-emerald-100 transition-colors">
-                        Diploma Months
-                        {selectedDiplomaMonths.length > 0 && (
-                          <Badge variant="secondary" className="ml-2">
-                            {selectedDiplomaMonths.length} selected
-                          </Badge>
-                        )}
-                      </AccordionTrigger>
-                      <AccordionContent className="p-4 bg-white">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-                          {DIPLOMA_MONTH_OPTIONS.map(option => {
-                            const isSelected = selectedDiplomaMonths.includes(option.value);
-                            
-                            return (
-                              <div 
-                                key={option.value}
-                                className={`border rounded-md p-3 cursor-pointer transition-colors flex items-center ${
-                                  isSelected ? 'bg-emerald-50 border-emerald-300' : 'hover:bg-gray-50'
-                                }`}
-                                onClick={() => handleMultiSelectChange('diplomaMonths', option.value)}
-                              >
-                                <div 
-                                  className={`w-5 h-5 rounded mr-3 flex items-center justify-center ${
-                                    isSelected ? 'bg-emerald-500 text-white' : 'border border-gray-300'
-                                  }`}
-                                >
-                                  {isSelected && <CheckCircle className="w-4 h-4" />}
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div 
-                                    className="w-3 h-3 rounded-full" 
-                                    style={{ backgroundColor: option.color }}
-                                  ></div>
-                                  <span>{option.label}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        
-                        {selectedDiplomaMonths.length > 0 && (
-                          <div className="mt-3 flex">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setSelectedDiplomaMonths([])}
-                            >
-                              Clear Selection
-                            </Button>
-                          </div>
-                        )}
-                      </AccordionContent>
-                    </AccordionItem>
-                    
-                    {/* Courses */}
-                    <AccordionItem value="courses" className="mb-4 border border-purple-200 rounded-lg overflow-hidden">
-                      <AccordionTrigger className="text-base font-medium px-4 py-3 bg-purple-50 hover:bg-purple-100 transition-colors">
-                        Courses
-                        {selectedCourses.length > 0 && (
-                          <Badge variant="secondary" className="ml-2">
-                            {selectedCourses.length} selected
-                          </Badge>
-                        )}
-                      </AccordionTrigger>
-                      <AccordionContent className="p-4 bg-white">
-                        <div className="border rounded-md mb-3">
-                          <Input
-                            placeholder="Search courses..."
-                            className="border-0 focus:ring-0"
-                            onChange={(e) => {
-                              // Filter courses could be added here if needed
-                            }}
-                          />
-                        </div>
-                        
-                        <div className="max-h-72 overflow-y-auto border rounded-md">
-                          {COURSE_OPTIONS.map(option => {
-                            const Icon = option.icon;
-                            const isSelected = selectedCourses.includes(option.courseId);
-                            
-                            return (
-                              <div 
-                                key={option.courseId}
-                                className={`p-2 border-b cursor-pointer transition-colors flex items-center ${
-                                  isSelected ? 'bg-purple-50' : 'hover:bg-gray-50'
-                                }`}
-                                onClick={() => handleMultiSelectChange('courses', option.courseId)}
-                              >
-                                <div 
-                                  className={`w-5 h-5 rounded mr-3 flex items-center justify-center ${
-                                    isSelected ? 'bg-purple-500 text-white' : 'border border-gray-300'
-                                  }`}
-                                >
-                                  {isSelected && <CheckCircle className="w-4 h-4" />}
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  {Icon && <Icon style={{ color: option.color }} className="w-4 h-4" />}
-                                  <span>{option.label}</span>
-                                  <span className="text-xs text-gray-500">({option.courseId})</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        
-                        {selectedCourses.length > 0 && (
-                          <div className="mt-3 flex justify-between items-center">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setSelectedCourses([])}
-                            >
-                              Clear Selection
-                            </Button>
-                            <span className="text-sm text-gray-500">
-                              {selectedCourses.length} courses selected
-                            </span>
-                          </div>
-                        )}
-                      </AccordionContent>
-                    </AccordionItem>
-                    
-                    {/* School Years */}
-                    <AccordionItem value="school-years" className="mb-4 border border-amber-200 rounded-lg overflow-hidden">
-                      <AccordionTrigger className="text-base font-medium px-4 py-3 bg-amber-50 hover:bg-amber-100 transition-colors">
-                        School Years
-                        {selectedSchoolYears.length > 0 && (
-                          <Badge variant="secondary" className="ml-2">
-                            {selectedSchoolYears.length} selected
-                          </Badge>
-                        )}
-                      </AccordionTrigger>
-                      <AccordionContent className="p-4 bg-white">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-                          {schoolYearOptions.map(option => {
-                            const isSelected = selectedSchoolYears.includes(option.value);
-                            
-                            return (
-                              <div 
-                                key={option.value}
-                                className={`border rounded-md p-3 cursor-pointer transition-colors flex items-center ${
-                                  isSelected ? 'bg-amber-50 border-amber-300' : 'hover:bg-gray-50'
-                                }`}
-                                onClick={() => handleMultiSelectChange('schoolYears', option.value)}
-                              >
-                                <div 
-                                  className={`w-5 h-5 rounded mr-3 flex items-center justify-center ${
-                                    isSelected ? 'bg-amber-500 text-white' : 'border border-gray-300'
-                                  }`}
-                                >
-                                  {isSelected && <CheckCircle className="w-4 h-4" />}
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div 
-                                    className="w-3 h-3 rounded-full" 
-                                    style={{ backgroundColor: option.color }}
-                                  ></div>
-                                  <span>{option.value} {option.isDefault ? '(Current)' : ''}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        
-                        {selectedSchoolYears.length > 0 && (
-                          <div className="mt-3 flex">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setSelectedSchoolYears([])}
-                            >
-                              Clear Selection
-                            </Button>
-                          </div>
-                        )}
-                      </AccordionContent>
-                    </AccordionItem>
-                    
+                    {/* Student State section moved to the top */}
                     {/* Schedule End Date Range */}
                     <AccordionItem value="date-range" className="mb-4 border border-rose-200 rounded-lg overflow-hidden">
                       <AccordionTrigger className="text-base font-medium px-4 py-3 bg-rose-50 hover:bg-rose-100 transition-colors">
@@ -2258,6 +2746,15 @@ function StudentDashboardNotifications() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+      
+      {/* Student Selection Dialog */}
+      <StudentSelectionDialog
+        open={studentSelectionDialogOpen}
+        onOpenChange={setStudentSelectionDialogOpen}
+        students={selectedStudents}
+        title="Selected Students" 
+        description="These students match your notification criteria"
+      />
       
       {/* Add CSS for the ReactQuill editor to ensure proper styling */}
       <style jsx global>{`
