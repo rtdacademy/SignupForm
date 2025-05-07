@@ -700,13 +700,15 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       setQuestionType("multiple-choice");
     }
     
-    // Set repeat interval for weekly surveys
-    if (notification.type === 'weekly-survey' && notification.repeatInterval) {
+    // Handle repeat interval for any notification type
+    if (notification.repeatInterval) {
+      // This is a repeating notification - load the interval values
       setRepeatIntervalValue(notification.repeatInterval.value || '1');
       setRepeatIntervalUnit(notification.repeatInterval.unit || 'week');
     } else {
-      setRepeatIntervalValue('1');
-      setRepeatIntervalUnit('week');
+      // This is a one-time notification - clear the interval values
+      setRepeatIntervalValue('');
+      setRepeatIntervalUnit('');
     }
     
     // Set filtering conditions
@@ -765,8 +767,11 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       return false;
     }
     
-    // Validate survey questions if type is 'survey' or 'weekly-survey'
-    if (type === 'survey' || type === 'weekly-survey') {
+    // Check for survey type (either direct 'survey' type or legacy 'weekly-survey' type)
+    const isSurveyType = type === 'survey' || type === 'weekly-survey';
+    
+    // Validate survey questions if this is a survey type
+    if (isSurveyType) {
       if (surveyQuestions.length === 0) {
         toast.error('Please add at least one survey question');
         return false;
@@ -797,16 +802,11 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       }
     }
     
-    // Validate repeat interval for weekly surveys
-    if (type === 'weekly-survey') {
+    // Validate repeat interval if specified for any notification type
+    if (repeatIntervalValue && repeatIntervalUnit) {
       const intervalValue = parseInt(repeatIntervalValue);
       if (isNaN(intervalValue) || intervalValue < 1) {
         toast.error('Please enter a valid repeat interval value (minimum 1)');
-        return false;
-      }
-      
-      if (!repeatIntervalUnit) {
-        toast.error('Please select a repeat interval unit');
         return false;
       }
     }
@@ -882,27 +882,40 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       const db = getDatabase();
       const sanitizedContent = sanitizeHtml(content);
       
+      // Handle transition between legacy and new notification types
+      let finalType = type;
+      
+      // Convert old type to new consolidated type if needed
+      if (type === 'once' || type === 'recurring') {
+        finalType = 'notification';
+      }
+      
+      // If weekly-survey is selected, convert to survey with repeat interval
+      if (type === 'weekly-survey') {
+        finalType = 'survey';
+      }
+      
       // Build notification object
       const notificationData = {
         title: title.trim(),
         content: sanitizedContent, // Always save content for all notification types
         active: isActive,
         important: isImportant,
-        type: type, // Changed from 'frequency'
+        type: finalType, // Use the consolidated type
         conditions: {
           logic: conditionLogic
         },
         updatedAt: Date.now()
       };
       
-      // Add survey questions and always set surveyCompleted to false
-      if (type === 'survey' || type === 'weekly-survey') {
+      // Add survey questions for survey types
+      if (finalType === 'survey') {
         notificationData.surveyQuestions = surveyQuestions;
         notificationData.surveyCompleted = false;
       }
       
-      // Add repeat interval data for weekly surveys
-      if (type === 'weekly-survey') {
+      // Add repeat interval if specified for any notification type
+      if (repeatIntervalValue && repeatIntervalUnit) {
         notificationData.repeatInterval = {
           value: parseInt(repeatIntervalValue),
           unit: repeatIntervalUnit
@@ -1304,23 +1317,55 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       );
     }
 
-    // Add survey badge if type is survey
-    if (notification.type === 'survey') {
-      badges.push(
-        <Badge key="survey" variant="secondary" className="mr-1 mb-1 bg-purple-100 text-purple-800">
-          Survey ({notification.surveyQuestions?.length || 0} questions)
-        </Badge>
-      );
-    }
+    // Add survey badge
+    if (notification.type === 'survey' || notification.type === 'weekly-survey') {
+      if (notification.repeatInterval || notification.type === 'weekly-survey') {
+        // This is a repeating survey
+        const interval = notification.repeatInterval || 
+                        (notification.type === 'weekly-survey' ? { value: 1, unit: 'week' } : null);
+        if (interval) {
+          badges.push(
+            <Badge key="repeating-survey" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
+              Repeating Survey (every {interval.value} {interval.unit}{interval.value !== 1 ? 's' : ''})
+            </Badge>
+          );
+        }
+      } else {
+        // This is a one-time survey
+        badges.push(
+          <Badge key="survey" variant="secondary" className="mr-1 mb-1 bg-purple-100 text-purple-800">
+            One-time Survey ({notification.surveyQuestions?.length || 0} questions)
+          </Badge>
+        );
+      }
+    } 
     
-    // Add weekly survey badge with repeat interval
-    if (notification.type === 'weekly-survey') {
-      const interval = notification.repeatInterval || { value: 1, unit: 'week' };
-      badges.push(
-        <Badge key="weekly-survey" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
-          Weekly Survey (every {interval.value} {interval.unit}{interval.value !== 1 ? 's' : ''})
-        </Badge>
-      );
+    // Add notification type badge for regular notifications
+    if (notification.type === 'notification' || notification.type === 'once' || notification.type === 'recurring') {
+      if (notification.repeatInterval || notification.type === 'recurring') {
+        // This is a repeating notification
+        const interval = notification.repeatInterval || null;
+        if (interval) {
+          badges.push(
+            <Badge key="repeating-notification" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
+              Repeating Notification (every {interval.value} {interval.unit}{interval.value !== 1 ? 's' : ''})
+            </Badge>
+          );
+        } else {
+          badges.push(
+            <Badge key="recurring" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
+              Recurring Notification
+            </Badge>
+          );
+        }
+      } else {
+        // This is a one-time notification
+        badges.push(
+          <Badge key="once" variant="secondary" className="mr-1 mb-1 bg-blue-100 text-blue-800">
+            One-time Notification
+          </Badge>
+        );
+      }
     }
     
     return badges.length > 0 ? (
@@ -1467,37 +1512,22 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                     </div>
                   </div>
                   
-                  {/* Type (previously Frequency) */}
+                  {/* Consolidated Notification Types */}
                   <div>
                     <Label>Notification Type</Label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-1">
-                      {/* One-time Option */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-1">
+                      {/* Notification Option */}
                       <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
-                        onClick={() => setType('once')}
+                        onClick={() => setType('notification')}
                         style={{ 
-                          backgroundColor: type === 'once' ? '#f0f9ff' : 'transparent',
-                          borderColor: type === 'once' ? '#3b82f6' : '#e5e7eb'
+                          backgroundColor: type === 'notification' || type === 'once' || type === 'recurring' ? '#f0f9ff' : 'transparent',
+                          borderColor: type === 'notification' || type === 'once' || type === 'recurring' ? '#3b82f6' : '#e5e7eb'
                         }}
                       >
-                        <div className={`h-4 w-4 rounded-full ${type === 'once' ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                        <div className={`h-4 w-4 rounded-full ${type === 'notification' || type === 'once' || type === 'recurring' ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
                         <div>
-                          <p className="font-medium">One-time</p>
-                          <p className="text-sm text-gray-500">Show once per student</p>
-                        </div>
-                      </div>
-                      
-                      {/* Recurring Option */}
-                      <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
-                        onClick={() => setType('recurring')}
-                        style={{ 
-                          backgroundColor: type === 'recurring' ? '#f0f9ff' : 'transparent',
-                          borderColor: type === 'recurring' ? '#3b82f6' : '#e5e7eb'
-                        }}
-                      >
-                        <div className={`h-4 w-4 rounded-full ${type === 'recurring' ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
-                        <div>
-                          <p className="font-medium">Recurring</p>
-                          <p className="text-sm text-gray-500">Show every time</p>
+                          <p className="font-medium">Regular Notification</p>
+                          <p className="text-sm text-gray-500">Informational message for students</p>
                         </div>
                       </div>
                       
@@ -1505,44 +1535,86 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                       <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
                         onClick={() => setType('survey')}
                         style={{ 
-                          backgroundColor: type === 'survey' ? '#f0f8ff' : 'transparent',
-                          borderColor: type === 'survey' ? '#8a2be2' : '#e5e7eb'
+                          backgroundColor: type === 'survey' || type === 'weekly-survey' ? '#f0f8ff' : 'transparent',
+                          borderColor: type === 'survey' || type === 'weekly-survey' ? '#8a2be2' : '#e5e7eb'
                         }}
                       >
-                        <div className={`h-4 w-4 rounded-full ${type === 'survey' ? 'bg-purple-500' : 'bg-gray-200'}`}></div>
+                        <div className={`h-4 w-4 rounded-full ${type === 'survey' || type === 'weekly-survey' ? 'bg-purple-500' : 'bg-gray-200'}`}></div>
                         <div>
                           <p className="font-medium">Survey</p>
-                          <p className="text-sm text-gray-500">One-time response</p>
-                        </div>
-                      </div>
-                      
-                      {/* Weekly Survey Option */}
-                      <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
-                        onClick={() => setType('weekly-survey')}
-                        style={{ 
-                          backgroundColor: type === 'weekly-survey' ? '#f0fff4' : 'transparent',
-                          borderColor: type === 'weekly-survey' ? '#22c55e' : '#e5e7eb'
-                        }}
-                      >
-                        <div className={`h-4 w-4 rounded-full ${type === 'weekly-survey' ? 'bg-green-500' : 'bg-gray-200'}`}></div>
-                        <div>
-                          <p className="font-medium">Weekly Survey</p>
-                          <p className="text-sm text-gray-500">Repeating survey</p>
+                          <p className="text-sm text-gray-500">Collect student feedback</p>
                         </div>
                       </div>
                     </div>
                     
-                    {/* Repeat interval settings for weekly survey */}
-                    {type === 'weekly-survey' && (
-                      <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-md">
-                        <div className="flex items-center">
-                          <CalendarClock className="h-5 w-5 text-green-700 mr-2" />
-                          <h3 className="font-medium text-green-900">Repeat Interval</h3>
+                    {/* Repeat interval settings for all notification types */}
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                      <div className="flex items-center">
+                        <CalendarClock className="h-5 w-5 text-blue-700 mr-2" />
+                        <h3 className="font-medium text-blue-900">Display Frequency</h3>
+                      </div>
+                      <p className="text-sm text-blue-700 mt-1 mb-3">
+                        {type === 'survey' 
+                          ? "Set whether this is a one-time survey or repeating survey."
+                          : "Set whether this is a one-time notification or repeating notification."
+                        }
+                      </p>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        {/* One-time Option */}
+                        <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
+                          onClick={() => {
+                            // Clear repeat interval to make this a one-time notification
+                            setRepeatIntervalValue("");
+                            setRepeatIntervalUnit("");
+                          }}
+                          style={{ 
+                            backgroundColor: !repeatIntervalValue || !repeatIntervalUnit ? '#f0f9ff' : 'transparent',
+                            borderColor: !repeatIntervalValue || !repeatIntervalUnit ? '#3b82f6' : '#e5e7eb'
+                          }}
+                        >
+                          <div className={`h-4 w-4 rounded-full ${!repeatIntervalValue || !repeatIntervalUnit ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                          <div>
+                            <p className="font-medium">One-time</p>
+                            <p className="text-sm text-gray-500">
+                              {type === 'survey' 
+                                ? "Show survey once per student"
+                                : "Show notification once per student"
+                              }
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-sm text-green-700 mt-1 mb-3">
-                          Set how often students can retake this survey.
-                        </p>
-                        <div className="flex items-center space-x-2">
+                        
+                        {/* Recurring Option */}
+                        <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
+                          onClick={() => {
+                            // Set default repeat interval if currently empty
+                            if (!repeatIntervalValue || !repeatIntervalUnit) {
+                              setRepeatIntervalValue('1');
+                              setRepeatIntervalUnit('week');
+                            }
+                          }}
+                          style={{ 
+                            backgroundColor: repeatIntervalValue && repeatIntervalUnit ? '#f0f9ff' : 'transparent',
+                            borderColor: repeatIntervalValue && repeatIntervalUnit ? '#3b82f6' : '#e5e7eb'
+                          }}
+                        >
+                          <div className={`h-4 w-4 rounded-full ${repeatIntervalValue && repeatIntervalUnit ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                          <div>
+                            <p className="font-medium">Repeating</p>
+                            <p className="text-sm text-gray-500">
+                              {type === 'survey' 
+                                ? "Allow retaking the survey periodically"
+                                : "Show notification with a repeat interval"
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Show interval settings only if repeating is selected */}
+                      {repeatIntervalValue && repeatIntervalUnit && (
+                        <div className="flex items-center space-x-2 border-t pt-4">
                           <Label htmlFor="repeat-interval-text" className="shrink-0">Repeat every</Label>
                           <Input 
                             id="repeat-interval-value"
@@ -1564,8 +1636,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                             </SelectContent>
                           </Select>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                   
                   {/* Rich Text Content (for all notification types) */}
@@ -2666,20 +2738,26 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                 </div>
                                 <div className="text-xs text-gray-500 mt-1 flex items-center space-x-2">
                                   <Badge variant="outline" className={`
-                                    ${notification.type === 'survey' 
+                                    ${notification.type === 'survey' && !notification.repeatInterval
                                       ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                      : notification.type === 'survey' && notification.repeatInterval
+                                        ? 'bg-green-50 text-green-700 border-green-200'
                                       : notification.type === 'weekly-survey'
                                         ? 'bg-green-50 text-green-700 border-green-200'
-                                      : notification.type === 'once' || notification.frequency === 'once'
+                                      : notification.type === 'once' || 
+                                        (notification.type === 'notification' && !notification.repeatInterval)
                                         ? 'bg-blue-50 text-blue-700 border-blue-200'
                                         : 'bg-green-50 text-green-700 border-green-200'
                                     }
                                   `}>
-                                    {notification.type === 'survey' 
-                                      ? 'Survey' 
+                                    {notification.type === 'survey' && !notification.repeatInterval
+                                      ? 'One-time Survey' 
+                                      : notification.type === 'survey' && notification.repeatInterval
+                                        ? 'Repeating Survey'
                                       : notification.type === 'weekly-survey'
                                         ? 'Weekly Survey'
-                                      : notification.type === 'once' || notification.frequency === 'once'
+                                      : notification.type === 'once' || 
+                                        (notification.type === 'notification' && !notification.repeatInterval)
                                         ? 'One-time'
                                         : 'Recurring'
                                     }

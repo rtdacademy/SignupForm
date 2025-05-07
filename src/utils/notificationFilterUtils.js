@@ -340,17 +340,29 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
     console.log('EVALUATING NOTIFICATION MATCH:', {
       notificationId: notification.id,
       notificationTitle: notification.title,
+      notificationType: notification.type,
+      hasRepeatInterval: !!notification.repeatInterval,
       courseId: course.id,
       hasConditions: !!notification.conditions,
       conditionCount: notification.conditions ? Object.keys(notification.conditions).length : 0
     });
   }
 
+  // Determine notification characteristics
+  const isSurveyType = notification.type === 'survey' || 
+                       notification.type === 'weekly-survey' || 
+                       (notification.type === 'notification' && notification.surveyQuestions);
+  
+  const isOneTimeType = notification.type === 'once' || 
+                        (notification.type === 'notification' && !notification.repeatInterval) ||
+                        (notification.type === 'survey' && !notification.repeatInterval && notification.type !== 'weekly-survey');
+  
+  const hasRepeatInterval = !!notification.repeatInterval || notification.type === 'weekly-survey';
+  
   // Skip if this is a one-time notification that has been seen
-  // For surveys, also check if it's been completed for this specific course
-  if ((notification.frequency === 'once' && seenNotifications[notification.id]) ||
-      (notification.type === 'once' && course.studentDashboardNotificationsResults?.[notification.id]?.completed) ||
-      (notification.type === 'survey' && course.studentDashboardNotificationsResults?.[notification.id]?.completed)) {
+  if ((isOneTimeType && seenNotifications[notification.id]) ||
+      (isOneTimeType && course.studentDashboardNotificationsResults?.[notification.id]?.completed) ||
+      (notification.type === 'survey' && !hasRepeatInterval && course.studentDashboardNotificationsResults?.[notification.id]?.completed)) {
     return {
       isMatch: false,
       shouldDisplay: false,
@@ -359,24 +371,31 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
     };
   }
   
-  // For weekly survey, check if enough time has passed since the last submission
-  if (notification.type === 'weekly-survey') {
+  // For repeating notifications/surveys, check if enough time has passed since the last interaction
+  if (hasRepeatInterval) {
     const notificationResults = course.studentDashboardNotificationsResults?.[notification.id];
-    const lastSubmitted = notificationResults?.lastSubmitted;
+    const lastInteracted = notificationResults?.lastSubmitted || notificationResults?.lastSeen;
     
-    if (lastSubmitted) {
-      const lastSubmittedDate = new Date(lastSubmitted);
+    if (lastInteracted) {
+      const lastInteractedDate = new Date(lastInteracted);
       const currentDate = new Date();
-      const intervalMs = getIntervalInMilliseconds(notification.repeatInterval);
       
-      // If not enough time has passed, don't show the survey
-      if (currentDate - lastSubmittedDate < intervalMs) {
+      // For legacy weekly-survey type
+      let repeatInterval = notification.repeatInterval;
+      if (notification.type === 'weekly-survey' && !repeatInterval) {
+        repeatInterval = { value: 1, unit: 'week' };
+      }
+      
+      const intervalMs = getIntervalInMilliseconds(repeatInterval);
+      
+      // If not enough time has passed, don't show the notification
+      if (currentDate - lastInteractedDate < intervalMs) {
         return {
           isMatch: false,
           shouldDisplay: false,
           conditionResults: [],
-          reason: 'Weekly survey was recently completed',
-          nextAvailableDate: new Date(lastSubmittedDate.getTime() + intervalMs).toISOString()
+          reason: 'Repeating notification was recently seen/completed',
+          nextAvailableDate: new Date(lastInteractedDate.getTime() + intervalMs).toISOString()
         };
       }
     }
@@ -384,8 +403,7 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
   
   // Check if this survey has already been completed for this specific course
   const notificationResults = course.studentDashboardNotificationsResults?.[notification.id];
-  const surveyCompleted = (notification.type === 'survey' || notification.type === 'weekly-survey') && 
-                          notificationResults?.completed === true;
+  const surveyCompleted = isSurveyType && notificationResults?.completed === true;
   
   // Format conditions for evaluation
   const conditions = notification.conditions || {};
@@ -447,21 +465,21 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
   let shouldDisplay = true;
   let displayReason = 'Conditions matched';
   
-  // If it's a survey that's been completed for this course, don't show it again
-  if (notification.type === 'survey' && surveyCompleted) {
+  // If it's a survey that's been completed for this course, and is not repeating, don't show it again
+  if (isSurveyType && !hasRepeatInterval && surveyCompleted) {
     shouldDisplay = false;
     displayReason = 'Survey already completed';
   }
   
   // If it's a one-time notification that's been completed or acknowledged, don't show it again
-  if (notification.type === 'once' && 
+  if (isOneTimeType && 
       (course.studentDashboardNotificationsResults?.[notification.id]?.completed ||
        course.studentDashboardNotificationsResults?.[notification.id]?.acknowledged)) {
     shouldDisplay = false;
     displayReason = 'One-time notification already acknowledged';
   }
   
-  // For weekly surveys, include next available date
+  // Prepare the result object
   const result = {
     isMatch,
     shouldDisplay,
@@ -472,10 +490,12 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
     surveyCompletedAt: notificationResults?.completedAt
   };
   
-  // Add next available date for weekly surveys
-  if (notification.type === 'weekly-survey' && notificationResults?.lastSubmitted) {
+  // Add next available date for repeating notifications
+  if (hasRepeatInterval && notificationResults?.lastSubmitted) {
     const lastSubmittedDate = new Date(notificationResults.lastSubmitted);
-    const intervalMs = getIntervalInMilliseconds(notification.repeatInterval);
+    const repeatInterval = notification.repeatInterval || 
+                          (notification.type === 'weekly-survey' ? { value: 1, unit: 'week' } : null);
+    const intervalMs = getIntervalInMilliseconds(repeatInterval);
     result.nextAvailableDate = new Date(lastSubmittedDate.getTime() + intervalMs).toISOString();
   }
   

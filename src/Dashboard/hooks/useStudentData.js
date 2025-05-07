@@ -196,8 +196,13 @@ export const useStudentData = (userEmailKey) => {
         userEmail: userEmail
       };
       
-      // For weekly surveys, handle differently to track submission history
-      if (notification && notification.type === 'weekly-survey') {
+      // For repeating notifications, handle differently to track interaction history
+      const hasRepeatInterval = !!notification?.repeatInterval || notification?.type === 'weekly-survey';
+      const isSurveyType = notification?.type === 'survey' || 
+                          notification?.type === 'weekly-survey' || 
+                          (notification?.type === 'notification' && notification?.surveyQuestions);
+      
+      if (notification && hasRepeatInterval) {
         // Store with timestamp to keep historical record
         if (!updateData.submissions) {
           updateData.submissions = {};
@@ -231,8 +236,10 @@ export const useStudentData = (userEmailKey) => {
         userEmail: userEmail
       };
       
-      // For weekly surveys, initialize submission history
-      if (notification && notification.type === 'weekly-survey') {
+      // For repeating notifications, initialize interaction history
+      const hasRepeatInterval = !!notification?.repeatInterval || notification?.type === 'weekly-survey';
+      
+      if (notification && hasRepeatInterval) {
         updateData.submissions = {
           [currentTimestamp]: {
             seen: true,
@@ -793,10 +800,17 @@ export const useStudentData = (userEmailKey) => {
         const updatedCourse = { ...course };
         updatedCourse.notificationIds = { ...course.notificationIds };
         
+        const notification = updatedCourse.notificationIds[notificationId];
+        
+        // Determine if this is a one-time notification type
+        const isOneTimeType = notification.type === 'once' || 
+                            (notification.type === 'notification' && !notification.repeatInterval) ||
+                            (notification.type === 'survey' && !notification.repeatInterval && notification.type !== 'weekly-survey');
+        
         // Mark this notification as seen if it's one-time (for all courses)
-        if (updatedCourse.notificationIds[notificationId].type === 'once') {
+        if (isOneTimeType) {
           updatedCourse.notificationIds[notificationId] = {
-            ...updatedCourse.notificationIds[notificationId],
+            ...notification,
             shouldDisplay: false
           };
         }

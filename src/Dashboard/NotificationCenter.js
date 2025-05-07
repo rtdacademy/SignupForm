@@ -26,69 +26,102 @@ import { getDatabase, ref, set, get, update } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
 
-const NotificationIcon = ({ type, size = "h-5 w-5" }) => {
-  switch (type) {
-    case 'survey':
-      return <ClipboardList className={`${size} text-purple-600`} />;
-    case 'weekly-survey':
-      return <Calendar className={`${size} text-green-600`} />;
-    case 'recurring':
-      return <RefreshCw className={`${size} text-blue-600`} />;
-    case 'once':
-      return <BellDot className={`${size} text-amber-600`} />;
-    default:
-      return <Bell className={`${size} text-gray-600`} />;
+const NotificationIcon = ({ type, size = "h-5 w-5", repeatInterval = null }) => {
+  // New consolidated notification system:
+  // 1. 'notification' - Regular notification (can be one-time or recurring based on interval)
+  // 2. 'survey' - Survey notification (can be one-time or recurring based on interval)
+  
+  // Handle legacy types for backward compatibility
+  if (type === 'once' || type === 'recurring') {
+    return type === 'once' 
+      ? <BellDot className={`${size} text-amber-600`} />
+      : <RefreshCw className={`${size} text-blue-600`} />;
   }
+  
+  if (type === 'weekly-survey') {
+    return <Calendar className={`${size} text-green-600`} />;
+  }
+  
+  // New consolidated types
+  if (type === 'notification') {
+    return repeatInterval 
+      ? <RefreshCw className={`${size} text-blue-600`} /> 
+      : <BellDot className={`${size} text-amber-600`} />;
+  }
+  
+  if (type === 'survey') {
+    return repeatInterval 
+      ? <Calendar className={`${size} text-green-600`} /> 
+      : <ClipboardList className={`${size} text-purple-600`} />;
+  }
+  
+  // Default fallback
+  return <Bell className={`${size} text-gray-600`} />;
 };
 
-const getNotificationStyle = (type) => {
-  switch (type) {
-    case 'survey':
-      return {
-        borderColor: 'border-purple-200',
-        bgColor: 'bg-purple-50',
-        hoverBgColor: 'hover:bg-purple-100',
-        textColor: 'text-purple-900',
-        badgeColor: 'bg-purple-100 text-purple-700',
-        iconBgColor: 'bg-purple-100'
-      };
-    case 'weekly-survey':
-      return {
-        borderColor: 'border-green-200',
-        bgColor: 'bg-green-50',
-        hoverBgColor: 'hover:bg-green-100',
-        textColor: 'text-green-900',
-        badgeColor: 'bg-green-100 text-green-700',
-        iconBgColor: 'bg-green-100'
-      };
-    case 'recurring':
-      return {
-        borderColor: 'border-blue-200',
-        bgColor: 'bg-blue-50',
-        hoverBgColor: 'hover:bg-blue-100',
-        textColor: 'text-blue-900',
-        badgeColor: 'bg-blue-100 text-blue-700',
-        iconBgColor: 'bg-blue-100'
-      };
-    case 'once':
-      return {
-        borderColor: 'border-amber-200',
-        bgColor: 'bg-amber-50',
-        hoverBgColor: 'hover:bg-amber-100',
-        textColor: 'text-amber-900',
-        badgeColor: 'bg-amber-100 text-amber-700',
-        iconBgColor: 'bg-amber-100'
-      };
-    default:
-      return {
-        borderColor: 'border-gray-200',
-        bgColor: 'bg-gray-50',
-        hoverBgColor: 'hover:bg-gray-100',
-        textColor: 'text-gray-900',
-        badgeColor: 'bg-gray-100 text-gray-700',
-        iconBgColor: 'bg-gray-100'
-      };
+const getNotificationStyle = (type, repeatInterval = null) => {
+  // Define style themes
+  const onceStyle = {
+    borderColor: 'border-amber-200',
+    bgColor: 'bg-amber-50',
+    hoverBgColor: 'hover:bg-amber-100',
+    textColor: 'text-amber-900',
+    badgeColor: 'bg-amber-100 text-amber-700',
+    iconBgColor: 'bg-amber-100'
+  };
+  
+  const recurringStyle = {
+    borderColor: 'border-blue-200',
+    bgColor: 'bg-blue-50',
+    hoverBgColor: 'hover:bg-blue-100',
+    textColor: 'text-blue-900',
+    badgeColor: 'bg-blue-100 text-blue-700',
+    iconBgColor: 'bg-blue-100'
+  };
+  
+  const surveyStyle = {
+    borderColor: 'border-purple-200',
+    bgColor: 'bg-purple-50',
+    hoverBgColor: 'hover:bg-purple-100',
+    textColor: 'text-purple-900',
+    badgeColor: 'bg-purple-100 text-purple-700',
+    iconBgColor: 'bg-purple-100'
+  };
+  
+  const weeklySurveyStyle = {
+    borderColor: 'border-green-200',
+    bgColor: 'bg-green-50',
+    hoverBgColor: 'hover:bg-green-100',
+    textColor: 'text-green-900',
+    badgeColor: 'bg-green-100 text-green-700',
+    iconBgColor: 'bg-green-100'
+  };
+  
+  const defaultStyle = {
+    borderColor: 'border-gray-200',
+    bgColor: 'bg-gray-50',
+    hoverBgColor: 'hover:bg-gray-100',
+    textColor: 'text-gray-900',
+    badgeColor: 'bg-gray-100 text-gray-700',
+    iconBgColor: 'bg-gray-100'
+  };
+
+  // Legacy types for backward compatibility
+  if (type === 'once') return onceStyle;
+  if (type === 'recurring') return recurringStyle;
+  if (type === 'survey' && !repeatInterval) return surveyStyle;
+  if (type === 'weekly-survey' || (type === 'survey' && repeatInterval)) return weeklySurveyStyle;
+  
+  // New consolidated types
+  if (type === 'notification') {
+    return repeatInterval ? recurringStyle : onceStyle;
   }
+  
+  if (type === 'survey') {
+    return repeatInterval ? weeklySurveyStyle : surveyStyle;
+  }
+  
+  return defaultStyle;
 };
 
 // Helper function to get course info from COURSE_OPTIONS
@@ -102,13 +135,58 @@ const getCourseInfo = (courseId) => {
 
 const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const style = getNotificationStyle(notification.type);
+  
+  // Extract repeatInterval information
+  const hasRepeatInterval = !!notification.repeatInterval || 
+                           notification.type === 'weekly-survey' || 
+                           notification.type === 'recurring';
+  
+  // For legacy weekly-survey type, use a default interval if not specified
+  const repeatInterval = notification.repeatInterval || 
+                        (notification.type === 'weekly-survey' ? { value: 1, unit: 'week' } : null);
+  
+  // Determine if this is a survey type (either new or legacy format)
+  const isSurveyType = notification.type === 'survey' || 
+                       notification.type === 'weekly-survey' ||
+                       (notification.type === 'notification' && notification.surveyQuestions);
+  
+  // Get style with interval info
+  const style = getNotificationStyle(notification.type, repeatInterval);
   
   // Check if notification is important
   const isImportant = isImportantNotification(notification);
   
-  // Check if this is a completed survey (regular or weekly)
-  const isSurveyCompleted = (notification.type === 'survey' || notification.type === 'weekly-survey') && notification.surveyCompleted;
+  // Check if this is a completed survey
+  const isSurveyCompleted = isSurveyType && notification.surveyCompleted;
+  
+  // Generate a description of the notification type for display
+  const getTypeDescription = () => {
+    // For legacy types
+    if (notification.type === 'weekly-survey') {
+      const interval = notification.repeatInterval || { value: 1, unit: 'week' };
+      return `Repeating survey (every ${interval.value} ${interval.unit}${interval.value !== 1 ? 's' : ''})`;
+    }
+    if (notification.type === 'survey') {
+      return notification.repeatInterval ? 
+        `Repeating survey (every ${notification.repeatInterval.value} ${notification.repeatInterval.unit}${notification.repeatInterval.value !== 1 ? 's' : ''})` : 
+        'One-time survey';
+    }
+    if (notification.type === 'recurring') return 'Recurring notification';
+    if (notification.type === 'once') return 'One-time notification';
+    
+    // For new consolidated types
+    if (notification.type === 'notification') {
+      return notification.repeatInterval ? 
+        `Repeating notification (every ${notification.repeatInterval.value} ${notification.repeatInterval.unit}${notification.repeatInterval.value !== 1 ? 's' : ''})` : 
+        'One-time notification';
+    }
+    
+    return 'Notification';
+  };
+  
+  // Check if this is a dismissible notification
+  const isDismissible = notification.type === 'once' || 
+                      (notification.type === 'notification' && !hasRepeatInterval);
   
   return (
     <div
@@ -124,10 +202,8 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onClick(notification)}
     >
-      {/* Only show dismiss button for 'once' notifications that aren't surveys */}
-      {notification.type === 'once' && 
-       notification.type !== 'survey' && 
-       notification.type !== 'weekly-survey' && (
+      {/* Only show dismiss button for one-time notifications that aren't surveys */}
+      {isDismissible && !isSurveyType && (
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -146,7 +222,7 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
             {isSurveyCompleted ? (
               <CheckCircle2 className="h-4 w-4 text-green-600" />
             ) : (
-              <NotificationIcon type={notification.type} size="h-4 w-4" />
+              <NotificationIcon type={notification.type} size="h-4 w-4" repeatInterval={repeatInterval} />
             )}
           </div>
           <div className="flex flex-col">
@@ -157,10 +233,7 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
             )}>
               {notification.title}
             </h4>
-            {(notification.important === true || 
-              notification.Important === true || 
-              (typeof notification.important === 'string' && notification.important.toLowerCase() === 'true') || 
-              (typeof notification.Important === 'string' && notification.Important.toLowerCase() === 'true')) && (
+            {isImportant && (
               <span className="text-xs text-red-600 font-medium">Important</span>
             )}
           </div>
@@ -173,17 +246,23 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
           }}
         />
         
-        {(notification.type === 'survey' || notification.type === 'weekly-survey') && !notification.surveyCompleted && (
+        {/* Show notification type information */}
+        <div className="text-xs text-gray-500 mb-2">
+          {getTypeDescription()}
+        </div>
+        
+        {/* Survey status indicators */}
+        {isSurveyType && !isSurveyCompleted && (
           <div className="text-xs text-purple-600 font-medium flex items-center gap-1 mb-2">
             <FileQuestion className="h-3 w-3" />
-            {notification.type === 'weekly-survey' ? 'Weekly survey' : 'Survey'} pending
+            Survey pending
           </div>
         )}
         
-        {(notification.type === 'survey' || notification.type === 'weekly-survey') && notification.surveyCompleted && (
+        {isSurveyType && isSurveyCompleted && (
           <div className="text-xs text-green-600 font-medium flex items-center gap-1 mb-2">
             <CheckCircle2 className="h-3 w-3" />
-            {notification.type === 'weekly-survey' ? 'Weekly survey' : 'Survey'} completed {notification.surveyCompletedAt ? 
+            Survey completed {notification.surveyCompletedAt ? 
               `on ${new Date(notification.surveyCompletedAt).toLocaleDateString()}` : ''}
           </div>
         )}
@@ -347,14 +426,28 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
 // Dialog for all notifications
 const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onDismiss }) => {
   if (!notification) return null;
+  
+  // Extract repeatInterval information
+  const hasRepeatInterval = !!notification.repeatInterval || 
+                           notification.type === 'weekly-survey' || 
+                           notification.type === 'recurring';
+  
+  // For legacy weekly-survey type, use a default interval if not specified
+  const repeatInterval = notification.repeatInterval || 
+                        (notification.type === 'weekly-survey' ? { value: 1, unit: 'week' } : null);
+  
+  // Determine if this is a survey type (either new or legacy format)
+  const isSurveyType = notification.type === 'survey' || 
+                       notification.type === 'weekly-survey' ||
+                       (notification.type === 'notification' && notification.surveyQuestions);
 
-  const style = getNotificationStyle(notification.type);
+  const style = getNotificationStyle(notification.type, repeatInterval);
   
   // Check if notification is important
   const isImportant = isImportantNotification(notification);
   
-  // Check if this is a completed survey (regular or weekly)
-  const isSurveyCompleted = (notification.type === 'survey' || notification.type === 'weekly-survey') && notification.surveyCompleted;
+  // Check if this is a completed survey
+  const isSurveyCompleted = isSurveyType && notification.surveyCompleted;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -513,11 +606,9 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
           )}
         </div>
         
-        {/* Only show Acknowledge button for important OR once notifications that are not surveys */}
-        {(isImportant || notification.type === 'once') && 
-          notification.type !== 'survey' && 
-          notification.type !== 'weekly-survey' && 
-          notification.type !== 'recurring' && (
+        {/* Show Acknowledge button for all notification types except surveys */}
+        {/* For surveys we use the survey form's submit button instead */}
+        {(!isSurveyType || isSurveyCompleted) && (
           <DialogFooter className="mt-6">
             <Button 
               onClick={() => {
@@ -525,7 +616,7 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
                 onDismiss(notification);
                 onClose();
               }} 
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className={isImportant ? "bg-red-600 hover:bg-red-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"}
             >
               Acknowledge
             </Button>
