@@ -265,11 +265,45 @@ export const useStudentData = (userEmailKey) => {
       notificationCount: allNotifications?.length || 0
     });
     
+    // Debug all notifications before processing
+    if (process.env.NODE_ENV === 'development' && allNotifications?.length > 0) {
+      console.log('Raw notification objects before processing:', allNotifications.map(n => ({
+        id: n.id,
+        title: n.title,
+        type: n.type,
+        hasRepeatInterval: !!n.repeatInterval,
+        repeatInterval: n.repeatInterval,
+        hasRepeatIntervalProperty: n.hasOwnProperty('repeatInterval'),
+        repeatIntervalObject: JSON.stringify(n.repeatInterval)
+      })));
+    }
+    
     // Get previously seen notifications
     const seenNotifications = profile?.StudentEmail ? getSeenNotifications(profile.StudentEmail) : {};
     
     // Use the utility function to process notifications
-    return processNotificationsUtil(courses, profile, allNotifications, seenNotifications);
+    const processedCourses = processNotificationsUtil(courses, profile, allNotifications, seenNotifications);
+    
+    // Debug processed notifications in each course
+    if (process.env.NODE_ENV === 'development') {
+      processedCourses.forEach(course => {
+        if (course.notificationIds && Object.keys(course.notificationIds).length > 0) {
+          console.log(`Processed notifications for course ${course.id}:`, 
+            Object.values(course.notificationIds).map(n => ({
+              id: n.id,
+              title: n.title,
+              type: n.type,
+              hasRepeatInterval: !!n.repeatInterval,
+              repeatInterval: n.repeatInterval,
+              hasRepeatIntervalProperty: n.hasOwnProperty('repeatInterval'),
+              shouldDisplay: n.shouldDisplay
+            }))
+          );
+        }
+      });
+    }
+    
+    return processedCourses;
   };
 
   const processCourses = async (studentCourses) => {
@@ -802,10 +836,21 @@ export const useStudentData = (userEmailKey) => {
         
         const notification = updatedCourse.notificationIds[notificationId];
         
-        // Determine if this is a one-time notification type
+        // Determine if this is a one-time notification type - use strict boolean check with !!
         const isOneTimeType = notification.type === 'once' || 
                             (notification.type === 'notification' && !notification.repeatInterval) ||
                             (notification.type === 'survey' && !notification.repeatInterval && notification.type !== 'weekly-survey');
+                            
+        // For debugging in development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Marking notification as seen:', {
+            id: notification.id,
+            type: notification.type,
+            hasRepeatInterval: !!notification.repeatInterval,
+            repeatInterval: notification.repeatInterval,
+            isOneTimeType
+          });
+        }
         
         // Mark this notification as seen if it's one-time (for all courses)
         if (isOneTimeType) {

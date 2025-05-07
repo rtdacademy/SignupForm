@@ -540,7 +540,8 @@ export const processNotificationsForCourses = (courses, profile, allNotification
       
       // If matched and should display, add to course
       if (result.isMatch && result.shouldDisplay) {
-        courseWithNotifications.notificationIds[notification.id] = {
+        // Create the base notification object
+        const processedNotification = {
           id: notification.id,
           title: notification.title,
           content: notification.content,
@@ -555,6 +556,25 @@ export const processNotificationsForCourses = (courses, profile, allNotification
           surveyQuestions: notification.surveyQuestions || [],
           notificationId: notification.id // Add explicit notificationId for easier reference
         };
+        
+        // IMPORTANT: Explicitly preserve the repeatInterval property if it exists
+        // This ensures we maintain the information about whether this is a repeating notification
+        if (notification.hasOwnProperty('repeatInterval')) {
+          processedNotification.repeatInterval = notification.repeatInterval;
+          
+          // Add debugging in development
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Preserved repeatInterval for notification ${notification.id}:`, {
+              type: notification.type,
+              repeatInterval: notification.repeatInterval,
+              isObject: typeof notification.repeatInterval === 'object',
+              hasUnit: notification.repeatInterval?.unit,
+              hasValue: notification.repeatInterval?.value
+            });
+          }
+        }
+        
+        courseWithNotifications.notificationIds[notification.id] = processedNotification;
       }
     });
     
@@ -568,7 +588,15 @@ export const processNotificationsForCourses = (courses, profile, allNotification
           notifications: Object.values(courseWithNotifications.notificationIds).map(n => ({
             id: n.id,
             title: n.title,
-            type: n.type
+            type: n.type,
+            hasRepeatInterval: !!n.repeatInterval,
+            repeatInterval: n.repeatInterval,
+            hasRepeatIntervalProperty: n.hasOwnProperty('repeatInterval'),
+            typeDescription: n.type === 'survey' ? 
+              (n.repeatInterval ? 'Repeating Survey' : 'One-time Survey') : 
+              n.type === 'notification' ? 
+                (n.repeatInterval ? 'Repeating Notification' : 'One-time Notification') : 
+                n.type
           }))
         });
       }

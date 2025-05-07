@@ -2737,10 +2737,11 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                   <span>{notification.title}</span>
                                 </div>
                                 <div className="text-xs text-gray-500 mt-1 flex items-center space-x-2">
+                                  {/* Use strict boolean check with !! for repeatInterval */}
                                   <Badge variant="outline" className={`
                                     ${notification.type === 'survey' && !notification.repeatInterval
                                       ? 'bg-purple-50 text-purple-700 border-purple-200' 
-                                      : notification.type === 'survey' && notification.repeatInterval
+                                      : notification.type === 'survey' && !!notification.repeatInterval
                                         ? 'bg-green-50 text-green-700 border-green-200'
                                       : notification.type === 'weekly-survey'
                                         ? 'bg-green-50 text-green-700 border-green-200'
@@ -2752,7 +2753,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                   `}>
                                     {notification.type === 'survey' && !notification.repeatInterval
                                       ? 'One-time Survey' 
-                                      : notification.type === 'survey' && notification.repeatInterval
+                                      : notification.type === 'survey' && !!notification.repeatInterval
                                         ? 'Repeating Survey'
                                       : notification.type === 'weekly-survey'
                                         ? 'Weekly Survey'

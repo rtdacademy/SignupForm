@@ -136,7 +136,8 @@ const getCourseInfo = (courseId) => {
 const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
   const [isHovered, setIsHovered] = useState(false);
   
-  // Extract repeatInterval information
+  // Extract repeatInterval information - make sure we're properly detecting it
+  // Use strict boolean check (double bang) to ensure proper true/false conversion 
   const hasRepeatInterval = !!notification.repeatInterval || 
                            notification.type === 'weekly-survey' || 
                            notification.type === 'recurring';
@@ -146,9 +147,63 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
                         (notification.type === 'weekly-survey' ? { value: 1, unit: 'week' } : null);
   
   // Determine if this is a survey type (either new or legacy format)
+  // Important: only consider it a survey if it's explicitly a survey type, not a regular notification
   const isSurveyType = notification.type === 'survey' || 
-                       notification.type === 'weekly-survey' ||
-                       (notification.type === 'notification' && notification.surveyQuestions);
+                       notification.type === 'weekly-survey';
+                       
+  // Define the getTypeDescription function before using it in debug logging
+  // Generate a description of the notification type for display
+  const getTypeDescription = () => {
+    // Get the repeatInterval from notification if available (strict boolean check)
+    const hasRepeatInterval = !!notification.repeatInterval;
+    
+    // For legacy types
+    if (notification.type === 'weekly-survey') {
+      const interval = notification.repeatInterval || { value: 1, unit: 'week' };
+      return `Repeating survey (every ${interval.value} ${interval.unit}${interval.value !== 1 ? 's' : ''})`;
+    }
+    if (notification.type === 'survey') {
+      return hasRepeatInterval ? 
+        `Repeating survey (every ${notification.repeatInterval.value} ${notification.repeatInterval.unit}${notification.repeatInterval.value !== 1 ? 's' : ''})` : 
+        'One-time survey';
+    }
+    if (notification.type === 'recurring') return 'Recurring notification';
+    if (notification.type === 'once') return 'One-time notification';
+    
+    // For new consolidated types
+    if (notification.type === 'notification') {
+      return hasRepeatInterval ? 
+        `Repeating notification (every ${notification.repeatInterval.value} ${notification.repeatInterval.unit}${notification.repeatInterval.value !== 1 ? 's' : ''})` : 
+        'One-time notification';
+    }
+    
+    return 'Notification';
+  };
+
+  // For debugging in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Notification Preview Props:', {
+      id: notification.id,
+      title: notification.title,
+      type: notification.type,
+      hasRepeatInterval,
+      repeatInterval,
+      isSurveyType,
+      typeDescription: getTypeDescription(),
+      repeatIntervalValue: notification.repeatInterval ? notification.repeatInterval.value : 'not set',
+      repeatIntervalUnit: notification.repeatInterval ? notification.repeatInterval.unit : 'not set',
+      // Show exactly what the notification object contains for detailed debugging
+      fullNotification: JSON.parse(JSON.stringify(notification))
+    });
+
+    // Specifically check for repeatInterval property
+    console.log('RepeatInterval debugging:', {
+      hasOwnProperty: notification.hasOwnProperty('repeatInterval'),
+      directValue: notification.repeatInterval,
+      typeofValue: typeof notification.repeatInterval,
+      stringifiedValue: JSON.stringify(notification.repeatInterval)
+    });
+  }
   
   // Get style with interval info
   const style = getNotificationStyle(notification.type, repeatInterval);
@@ -158,31 +213,6 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
   
   // Check if this is a completed survey
   const isSurveyCompleted = isSurveyType && notification.surveyCompleted;
-  
-  // Generate a description of the notification type for display
-  const getTypeDescription = () => {
-    // For legacy types
-    if (notification.type === 'weekly-survey') {
-      const interval = notification.repeatInterval || { value: 1, unit: 'week' };
-      return `Repeating survey (every ${interval.value} ${interval.unit}${interval.value !== 1 ? 's' : ''})`;
-    }
-    if (notification.type === 'survey') {
-      return notification.repeatInterval ? 
-        `Repeating survey (every ${notification.repeatInterval.value} ${notification.repeatInterval.unit}${notification.repeatInterval.value !== 1 ? 's' : ''})` : 
-        'One-time survey';
-    }
-    if (notification.type === 'recurring') return 'Recurring notification';
-    if (notification.type === 'once') return 'One-time notification';
-    
-    // For new consolidated types
-    if (notification.type === 'notification') {
-      return notification.repeatInterval ? 
-        `Repeating notification (every ${notification.repeatInterval.value} ${notification.repeatInterval.unit}${notification.repeatInterval.value !== 1 ? 's' : ''})` : 
-        'One-time notification';
-    }
-    
-    return 'Notification';
-  };
   
   // Check if this is a dismissible notification
   const isDismissible = notification.type === 'once' || 
@@ -264,6 +294,15 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
             <CheckCircle2 className="h-3 w-3" />
             Survey completed {notification.surveyCompletedAt ? 
               `on ${new Date(notification.surveyCompletedAt).toLocaleDateString()}` : ''}
+          </div>
+        )}
+        
+        {/* Acknowledgment indicator for regular notifications */}
+        {!isSurveyType && notification.hasAcknowledged && (
+          <div className="text-xs text-blue-600 font-medium flex items-center gap-1 mb-2">
+            <CheckCircle2 className="h-3 w-3" />
+            Acknowledged {notification.acknowledgedAt ? 
+              `on ${new Date(notification.acknowledgedAt).toLocaleDateString()}` : ''}
           </div>
         )}
         
@@ -427,7 +466,25 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
 const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onDismiss }) => {
   if (!notification) return null;
   
+  // Debug notification in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('NotificationDialog Props:', {
+      id: notification.id,
+      title: notification.title,
+      type: notification.type,
+      repeatInterval: notification.repeatInterval, 
+      hasRepeatIntervalDirectly: !!notification.repeatInterval,
+      // Show exactly what the notification object contains for detailed debugging
+      fullNotification: JSON.parse(JSON.stringify(notification)),
+      hasOwnProperty: notification.hasOwnProperty('repeatInterval'),
+      directValue: notification.repeatInterval,
+      typeofValue: typeof notification.repeatInterval,
+      stringifiedValue: JSON.stringify(notification.repeatInterval)
+    });
+  }
+  
   // Extract repeatInterval information
+  // Use strict boolean check (double bang) to ensure proper true/false conversion
   const hasRepeatInterval = !!notification.repeatInterval || 
                            notification.type === 'weekly-survey' || 
                            notification.type === 'recurring';
@@ -437,9 +494,9 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
                         (notification.type === 'weekly-survey' ? { value: 1, unit: 'week' } : null);
   
   // Determine if this is a survey type (either new or legacy format)
+  // Important: only consider it a survey if it's explicitly a survey type, not a regular notification
   const isSurveyType = notification.type === 'survey' || 
-                       notification.type === 'weekly-survey' ||
-                       (notification.type === 'notification' && notification.surveyQuestions);
+                       notification.type === 'weekly-survey';
 
   const style = getNotificationStyle(notification.type, repeatInterval);
   
@@ -599,10 +656,49 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
               </div>
             </div>
           ) : (
-            <div 
-              className="prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: notification.content }}
-            />
+            <div className="space-y-6">
+              <div 
+                className="prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: notification.content }}
+              />
+              
+              {/* For acknowledged regular notifications, show acknowledgment status */}
+              {notification.type === 'notification' && notification.hasAcknowledged && (
+                <div className="mt-4 pt-4 border-t">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-blue-800 font-medium">Notification Acknowledged</p>
+                        <p className="text-xs text-blue-700">
+                          {notification.acknowledgedAt ? 
+                            `Acknowledged on ${new Date(notification.acknowledgedAt).toLocaleString()}` : 
+                            'This notification has been acknowledged'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* For recurring notifications, show repeat frequency */}
+              {!!notification.repeatInterval && notification.type === 'notification' && (
+                <div className="mt-4 pt-4 border-t">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <RefreshCw className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-blue-800 font-medium">Recurring Notification</p>
+                        <p className="text-xs text-blue-700">
+                          This notification repeats every {notification.repeatInterval.value} {notification.repeatInterval.unit}
+                          {notification.repeatInterval.value !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
         
@@ -655,12 +751,31 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         notificationCount: course.notificationIds ? Object.keys(course.notificationIds).length : 0,
         notifications: course.notificationIds || {}
       })));
+      
+      // Debug the structure of notifications from all courses
+      if (courses) {
+        courses.forEach(course => {
+          if (course.notificationIds) {
+            Object.values(course.notificationIds).forEach(notification => {
+              console.log('Raw notification object:', {
+                id: notification.id,
+                title: notification.title,
+                type: notification.type,
+                hasRepeatInterval: !!notification.repeatInterval,
+                repeatInterval: notification.repeatInterval,
+                directRepeatIntervalCheck: notification.repeatInterval ? true : false,
+                objectKeys: Object.keys(notification)
+              });
+            });
+          }
+        });
+      }
     }
     
     courses?.forEach(course => {
       if (course.notificationIds) {
         Object.values(course.notificationIds).forEach(notification => {
-          // Debug each notification to see if important flag exists
+          // Debug each notification to see if important flag exists and repeatInterval property
           if (process.env.NODE_ENV === 'development') {
             console.log('Processing notification:', {
               id: notification.id,
@@ -668,7 +783,12 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
               type: notification.type,
               important: notification.important,
               Important: notification.Important,
-              shouldDisplay: notification.shouldDisplay
+              shouldDisplay: notification.shouldDisplay,
+              // Add detailed debugging for repeatInterval
+              hasRepeatInterval: !!notification.repeatInterval,
+              repeatInterval: notification.repeatInterval,
+              hasOwnRepeatIntervalProperty: notification.hasOwnProperty('repeatInterval'),
+              objectKeys: Object.keys(notification)
             });
           }
           
@@ -676,34 +796,101 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
             if (notification.type === 'survey') {
               // For surveys, create a unique notification for each course
               const courseTitle = course.courseDetails?.Title || course.title || `Course ${course.id}`;
-              result.push({
-                ...notification,
+              
+              // Create base notification object
+              const newNotification = {
+                // Make explicit property copies instead of using spread to ensure all properties are correctly preserved
+                id: notification.id,
+                title: `${notification.title} - ${courseTitle}`,
+                content: notification.content,
+                type: notification.type,
+                active: notification.active,
+                important: notification.important,
+                Important: notification.Important,
+                shouldDisplay: notification.shouldDisplay,
+                surveyQuestions: notification.surveyQuestions,
+                surveyCompleted: notification.surveyCompleted,
+                
                 // Create a unique ID for this course-specific notification
                 uniqueId: `${notification.id}_${course.id}`,
                 // Original ID is still needed for backend operations
                 originalNotificationId: notification.id,
-                // Set course-specific title
-                title: `${notification.title} - ${courseTitle}`,
+                
                 // Add single course to the courses array
                 courses: [{
                   id: course.id,
                   title: courseTitle
                 }]
-              });
+              };
+              
+              // IMPORTANT: Explicitly copy the repeatInterval property if it exists
+              // Preserve important properties
+              if (notification.hasOwnProperty('repeatInterval')) {
+                newNotification.repeatInterval = notification.repeatInterval;
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`Preserved repeatInterval for survey ${notification.id}:`, notification.repeatInterval);
+                }
+              }
+              
+              // Preserve acknowledgment status if available
+              if (notification.hasOwnProperty('hasAcknowledged')) {
+                newNotification.hasAcknowledged = notification.hasAcknowledged;
+              }
+              
+              if (notification.hasOwnProperty('acknowledgedAt')) {
+                newNotification.acknowledgedAt = notification.acknowledgedAt;
+              }
+              
+              result.push(newNotification);
             } else {
               // For non-survey notifications, find if we already have this notification
               const existingIndex = result.findIndex(n => n.id === notification.id);
               if (existingIndex === -1) {
                 // First time seeing this notification, create it with courses array
-                result.push({
-                  ...notification,
-                  uniqueId: notification.id, // For consistency
+                // Create base notification object with explicit property copies
+                const newNotification = {
+                  // Make explicit property copies instead of using spread to ensure all properties are correctly preserved
+                  id: notification.id,
+                  title: notification.title,
+                  content: notification.content,
+                  type: notification.type,
+                  active: notification.active,
+                  important: notification.important,
+                  Important: notification.Important,
+                  shouldDisplay: notification.shouldDisplay,
+                  surveyQuestions: notification.surveyQuestions,
+                  surveyCompleted: notification.surveyCompleted,
+                  
+                  // Add consistency properties
+                  uniqueId: notification.id,
                   originalNotificationId: notification.id,
+                  
+                  // Add course info
                   courses: [{
                     id: course.id,
                     title: course.courseDetails?.Title || course.title || `Course ${course.id}`
                   }]
-                });
+                };
+                
+                // IMPORTANT: Explicitly copy the repeatInterval property if it exists
+                // Preserve important properties
+                if (notification.hasOwnProperty('repeatInterval')) {
+                  newNotification.repeatInterval = notification.repeatInterval;
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`Preserved repeatInterval for notification ${notification.id}:`, notification.repeatInterval);
+                  }
+                }
+                
+                // Preserve acknowledgment status if available
+                if (notification.hasOwnProperty('hasAcknowledged')) {
+                  newNotification.hasAcknowledged = notification.hasAcknowledged;
+                }
+                
+                if (notification.hasOwnProperty('acknowledgedAt')) {
+                  newNotification.acknowledgedAt = notification.acknowledgedAt;
+                }
+                
+                result.push(newNotification);
               } else {
                 // We've seen this notification before, add this course to its courses array
                 const existingNotification = result[existingIndex];
@@ -727,7 +914,16 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         type: n.type,
         important: n.important,
         Important: n.Important,
-        courses: n.courses.map(c => c.id)
+        courses: n.courses.map(c => c.id),
+        // Add detailed debugging for repeatInterval
+        hasRepeatInterval: !!n.repeatInterval,
+        repeatInterval: n.repeatInterval,
+        hasOwnRepeatIntervalProperty: n.hasOwnProperty('repeatInterval'),
+        typeDescription: n.type === 'survey' ? 
+          (n.repeatInterval ? 'Repeating Survey' : 'One-time Survey') : 
+          n.type === 'notification' ? 
+            (n.repeatInterval ? 'Repeating Notification' : 'One-time Notification') : 
+            n.type
       })));
     }
     
@@ -821,26 +1017,86 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       const sanitizedEmail = current_user_email_key.replace(/\./g, '_');
       const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedEmail}`);
       
+      // Get current timestamp
+      const currentTimestamp = Date.now();
+      const currentDate = new Date().toISOString();
+      
+      // If this is a notification object, get its properties
+      let hasRepeatInterval = false;
+      let isSurveyType = false;
+      
+      if (typeof notification === 'object') {
+        // Extract repeatInterval information
+        hasRepeatInterval = !!notification.repeatInterval || 
+                           notification.type === 'weekly-survey' || 
+                           notification.type === 'recurring';
+        
+        // Determine if this is a survey type - only true for explicit survey types
+        isSurveyType = notification.type === 'survey' || 
+                       notification.type === 'weekly-survey';
+      }
+      
       // First try to get existing data so we don't overwrite survey results
       get(resultsRef).then(snapshot => {
         const existingData = snapshot.exists() ? snapshot.val() : {};
         
-        // Update with hasSeen and hasSeenTimeStamp
-        set(resultsRef, {
+        // Base update data for any notification type
+        let updateData = {
           ...existingData,
           hasSeen: true,
-          hasSeenTimeStamp: new Date().toISOString(),
+          hasSeenTimeStamp: currentDate,
           userEmail: profile?.StudentEmail
+        };
+        
+        // For repeating notifications, handle differently to track interaction history
+        if (hasRepeatInterval) {
+          // Store with timestamp to keep historical record
+          if (!updateData.submissions) {
+            updateData.submissions = {};
+          }
+          
+          // Record this view
+          updateData.submissions[currentTimestamp] = {
+            seen: true,
+            seenAt: currentDate
+          };
+          
+          // Update the lastSeen timestamp
+          updateData.lastSeen = currentDate;
+        }
+        
+        // Update the record
+        set(resultsRef, updateData).then(() => {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Notification marked as seen:', {
+              notificationId,
+              hasRepeatInterval,
+              isSurveyType
+            });
+          }
         });
       }).catch(error => {
         console.error('Error updating notification seen status in Firebase:', error);
         
         // Fallback: create a new entry if get() fails
-        set(resultsRef, {
+        let updateData = {
           hasSeen: true,
-          hasSeenTimeStamp: new Date().toISOString(),
+          hasSeenTimeStamp: currentDate,
           userEmail: profile?.StudentEmail
-        }).catch(error => {
+        };
+        
+        // For repeating notifications, initialize interaction history
+        if (hasRepeatInterval) {
+          updateData.submissions = {
+            [currentTimestamp]: {
+              seen: true,
+              seenAt: currentDate
+            }
+          };
+          updateData.lastSeen = currentDate;
+        }
+        
+        set(resultsRef, updateData).catch(error => {
           console.error('Error updating notification seen status in Firebase (fallback):', error);
         });
       });
@@ -876,11 +1132,12 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
     }
   };
 
-  // Dismiss one-time notification
+  // Dismiss/acknowledge notification (for both one-time and repeating notifications)
   const dismissNotification = (notification) => {
     // Use the original ID for backend notification dismissal
     markNotificationAsSeen(notification.originalNotificationId || notification.id);
     
+    // Update local storage to mark as dismissed
     setReadNotifications(prev => {
       const updated = {
         ...prev,
@@ -889,6 +1146,105 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       localStorage.setItem(`read_notifications_${profile?.StudentEmail}`, JSON.stringify(updated));
       return updated;
     });
+    
+    // For all notification types, update the database with acknowledgment status
+    if (profile?.StudentEmail) {
+      const db = getDatabase();
+      const notificationId = notification.originalNotificationId || notification.id;
+      const sanitizedEmail = current_user_email_key.replace(/\./g, '_');
+      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedEmail}`);
+      
+      // Get current timestamp
+      const currentTimestamp = Date.now();
+      const currentDate = new Date().toISOString();
+      
+      // Extract repeatInterval information
+      const hasRepeatInterval = !!notification.repeatInterval || 
+                               notification.type === 'weekly-survey' || 
+                               notification.type === 'recurring';
+      
+      // Determine if this is a survey type - only true for explicit survey types
+      const isSurveyType = notification.type === 'survey' || 
+                          notification.type === 'weekly-survey';
+      
+      // First try to get existing data so we don't overwrite survey results
+      get(resultsRef).then(snapshot => {
+        const existingData = snapshot.exists() ? snapshot.val() : {};
+        
+        // Base update data for any notification type
+        let updateData = {
+          ...existingData,
+          hasSeen: true,
+          hasSeenTimeStamp: currentDate,
+          hasAcknowledged: true,
+          acknowledgedAt: currentDate,
+          userEmail: profile?.StudentEmail
+        };
+        
+        // For repeating notifications, handle differently to track interaction history
+        if (hasRepeatInterval) {
+          // Store with timestamp to keep historical record
+          if (!updateData.submissions) {
+            updateData.submissions = {};
+          }
+          
+          // Record this acknowledgment
+          updateData.submissions[currentTimestamp] = {
+            seen: true,
+            seenAt: currentDate,
+            hasAcknowledged: true,
+            acknowledgedAt: currentDate
+          };
+          
+          // Update the lastSeen and lastAcknowledged timestamps
+          updateData.lastSeen = currentDate;
+          updateData.lastAcknowledged = currentDate;
+        }
+        
+        // Update the record
+        set(resultsRef, updateData).then(() => {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Notification acknowledged successfully:', {
+              notificationId,
+              hasRepeatInterval,
+              isSurveyType,
+              updateData
+            });
+          }
+        }).catch(error => {
+          console.error('Error acknowledging notification:', error);
+        });
+      }).catch(error => {
+        console.error('Error getting existing notification data:', error);
+        
+        // Fallback: create a new entry if get() fails
+        let updateData = {
+          hasSeen: true,
+          hasSeenTimeStamp: currentDate,
+          hasAcknowledged: true,
+          acknowledgedAt: currentDate,
+          userEmail: profile?.StudentEmail
+        };
+        
+        // For repeating notifications, initialize interaction history
+        if (hasRepeatInterval) {
+          updateData.submissions = {
+            [currentTimestamp]: {
+              seen: true,
+              seenAt: currentDate,
+              hasAcknowledged: true,
+              acknowledgedAt: currentDate
+            }
+          };
+          updateData.lastSeen = currentDate;
+          updateData.lastAcknowledged = currentDate;
+        }
+        
+        set(resultsRef, updateData).catch(error => {
+          console.error('Error acknowledging notification (fallback):', error);
+        });
+      });
+    }
   };
 
   // Handle survey submission
