@@ -30,6 +30,8 @@ const NotificationIcon = ({ type, size = "h-5 w-5" }) => {
   switch (type) {
     case 'survey':
       return <ClipboardList className={`${size} text-purple-600`} />;
+    case 'weekly-survey':
+      return <Calendar className={`${size} text-green-600`} />;
     case 'recurring':
       return <RefreshCw className={`${size} text-blue-600`} />;
     case 'once':
@@ -49,6 +51,15 @@ const getNotificationStyle = (type) => {
         textColor: 'text-purple-900',
         badgeColor: 'bg-purple-100 text-purple-700',
         iconBgColor: 'bg-purple-100'
+      };
+    case 'weekly-survey':
+      return {
+        borderColor: 'border-green-200',
+        bgColor: 'bg-green-50',
+        hoverBgColor: 'hover:bg-green-100',
+        textColor: 'text-green-900',
+        badgeColor: 'bg-green-100 text-green-700',
+        iconBgColor: 'bg-green-100'
       };
     case 'recurring':
       return {
@@ -96,8 +107,8 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
   // Check if notification is important
   const isImportant = isImportantNotification(notification);
   
-  // Check if this is a completed survey
-  const isSurveyCompleted = notification.type === 'survey' && notification.surveyCompleted;
+  // Check if this is a completed survey (regular or weekly)
+  const isSurveyCompleted = (notification.type === 'survey' || notification.type === 'weekly-survey') && notification.surveyCompleted;
   
   return (
     <div
@@ -114,7 +125,9 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
       onClick={() => onClick(notification)}
     >
       {/* Only show dismiss button for 'once' notifications that aren't surveys */}
-      {notification.type === 'once' && notification.type !== 'survey' && (
+      {notification.type === 'once' && 
+       notification.type !== 'survey' && 
+       notification.type !== 'weekly-survey' && (
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -160,17 +173,17 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
           }}
         />
         
-        {notification.type === 'survey' && !notification.surveyCompleted && (
+        {(notification.type === 'survey' || notification.type === 'weekly-survey') && !notification.surveyCompleted && (
           <div className="text-xs text-purple-600 font-medium flex items-center gap-1 mb-2">
             <FileQuestion className="h-3 w-3" />
-            Survey pending
+            {notification.type === 'weekly-survey' ? 'Weekly survey' : 'Survey'} pending
           </div>
         )}
         
-        {notification.type === 'survey' && notification.surveyCompleted && (
+        {(notification.type === 'survey' || notification.type === 'weekly-survey') && notification.surveyCompleted && (
           <div className="text-xs text-green-600 font-medium flex items-center gap-1 mb-2">
             <CheckCircle2 className="h-3 w-3" />
-            Survey completed {notification.surveyCompletedAt ? 
+            {notification.type === 'weekly-survey' ? 'Weekly survey' : 'Survey'} completed {notification.surveyCompletedAt ? 
               `on ${new Date(notification.surveyCompletedAt).toLocaleDateString()}` : ''}
           </div>
         )}
@@ -340,8 +353,8 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
   // Check if notification is important
   const isImportant = isImportantNotification(notification);
   
-  // Check if this is a completed survey
-  const isSurveyCompleted = notification.type === 'survey' && notification.surveyCompleted;
+  // Check if this is a completed survey (regular or weekly)
+  const isSurveyCompleted = (notification.type === 'survey' || notification.type === 'weekly-survey') && notification.surveyCompleted;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -364,8 +377,10 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
             <div>
               <DialogTitle>
                 {isImportant ? "Important: " : ""}
-                {isSurveyCompleted ? "Completed Survey: " : ""}
-                {notification.type === 'survey' ? 
+                {isSurveyCompleted ? 
+                  notification.type === 'weekly-survey' ? "Completed Weekly Survey: " : "Completed Survey: " 
+                  : ""}
+                {notification.type === 'survey' || notification.type === 'weekly-survey' ? 
                   notification.title.split(' - ')[0] : // Remove course name for cleaner display
                   notification.title
                 }
@@ -408,14 +423,25 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
             </div>
           )}
           
-          {notification.type === 'survey' && !notification.surveyCompleted ? (
+          {(notification.type === 'survey' || notification.type === 'weekly-survey') && !notification.surveyCompleted ? (
             <div className="space-y-6">
               <div 
                 className="prose prose-sm max-w-none"
                 dangerouslySetInnerHTML={{ __html: notification.content }}
               />
               <div className="border-t pt-6">
-                <h3 className="text-lg font-semibold mb-4">Complete Survey</h3>
+                <h3 className="text-lg font-semibold mb-4">Complete {notification.type === 'weekly-survey' ? 'Weekly Survey' : 'Survey'}</h3>
+                {notification.type === 'weekly-survey' && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-start gap-2">
+                      <Calendar className="h-5 w-5 text-green-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-green-800 font-medium">This is a weekly survey</p>
+                        <p className="text-xs text-green-700">You will be asked to complete this survey regularly. Your feedback is valuable!</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <SurveyForm
                   notification={notification}
                   onSubmit={onSurveySubmit}
@@ -423,7 +449,7 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
                 />
               </div>
             </div>
-          ) : notification.type === 'survey' && notification.surveyCompleted ? (
+          ) : (notification.type === 'survey' || notification.type === 'weekly-survey') && notification.surveyCompleted ? (
             <div className="space-y-6">
               <div 
                 className="prose prose-sm max-w-none"
@@ -432,7 +458,18 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
               
               {/* Display completed survey responses */}
               <div className="border-t pt-6">
-                <h3 className="text-lg font-semibold mb-4">Your Survey Responses</h3>
+                <h3 className="text-lg font-semibold mb-4">Your {notification.type === 'weekly-survey' ? 'Weekly Survey' : 'Survey'} Responses</h3>
+                {notification.type === 'weekly-survey' && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-start gap-2">
+                      <Calendar className="h-5 w-5 text-green-600 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-green-800 font-medium">Weekly survey completed</p>
+                        <p className="text-xs text-green-700">You'll be asked to complete this survey again in the future.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="bg-gray-50 rounded-lg p-4 space-y-4">
                   {(notification.surveyAnswers || 
                    (notification.courses?.[0]?.studentDashboardNotificationsResults && 
@@ -477,7 +514,10 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
         </div>
         
         {/* Only show Acknowledge button for important OR once notifications that are not surveys */}
-        {(isImportant || notification.type === 'once') && notification.type !== 'survey' && notification.type !== 'recurring' && (
+        {(isImportant || notification.type === 'once') && 
+          notification.type !== 'survey' && 
+          notification.type !== 'weekly-survey' && 
+          notification.type !== 'recurring' && (
           <DialogFooter className="mt-6">
             <Button 
               onClick={() => {
@@ -503,6 +543,8 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
   const [userToggled, setUserToggled] = useState(false);
   // Start collapsed unless there are important notifications
   const [isExpanded, setIsExpanded] = useState(false);
+  // State to control compact view
+  const [isCompactView, setIsCompactView] = useState(true);
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [readNotifications, setReadNotifications] = useState(() => {
     const stored = localStorage.getItem(`read_notifications_${profile?.StudentEmail}`);
@@ -609,6 +651,17 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
     return true;
   });
   
+  // Determine if there are any unread or important notifications that need attention
+  const hasUnreadNotifications = activeNotifications.some(n => !readNotifications[n.uniqueId]?.read);
+  
+  // Check for important notifications
+  const hasImportantNotifications = activeNotifications.some(n => isImportantNotification(n));
+  
+  // Check for incomplete surveys
+  const hasIncompleteRequiredNotifications = activeNotifications.some(n => 
+    ((n.type === 'survey' || n.type === 'weekly-survey') && !n.surveyCompleted)
+  );
+  
   // FOR TESTING: Force one notification to be important if we have any
   if (process.env.NODE_ENV === 'development' && activeNotifications.length > 0 && !activeNotifications.some(n => n.important === true)) {
     console.log('TESTING: Forcibly setting first notification as important');
@@ -624,23 +677,37 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
     });
   }
   
-  // Check for important notifications and auto-expand the panel if found
+  // Check for notifications status and update view accordingly
   useEffect(() => {
-    if (activeNotifications.length > 0) {
-      // Check if any notification is important
-      const hasImportantNotifications = activeNotifications.some(notif => isImportantNotification(notif));
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Has important notifications:', hasImportantNotifications);
-        console.log('User has manually toggled:', userToggled);
-      }
-      
-      // Only auto-expand if user hasn't manually toggled the panel
-      if (hasImportantNotifications && !userToggled) {
-        setIsExpanded(true);
-      }
+    // Only show compact view when there's nothing requiring attention
+    const needsAttention = hasUnreadNotifications || hasImportantNotifications || hasIncompleteRequiredNotifications;
+    
+    // Set compact view state
+    setIsCompactView(!needsAttention && !isExpanded);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Notification status:', {
+        hasUnreadNotifications,
+        hasImportantNotifications,
+        hasIncompleteRequiredNotifications,
+        userToggled,
+        isExpanded,
+        isCompactView: !needsAttention && !isExpanded
+      });
     }
-  }, [activeNotifications, userToggled]);
+    
+    // Only auto-expand if user hasn't manually toggled the panel
+    if ((hasImportantNotifications || hasIncompleteRequiredNotifications) && !userToggled) {
+      setIsExpanded(true);
+    }
+  }, [
+    activeNotifications, 
+    userToggled, 
+    hasUnreadNotifications, 
+    hasImportantNotifications, 
+    hasIncompleteRequiredNotifications, 
+    isExpanded
+  ]);
 
   // Mark notification as read and store in localStorage
   const markAsRead = (notification) => {
@@ -686,6 +753,35 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
           console.error('Error updating notification seen status in Firebase (fallback):', error);
         });
       });
+    }
+    
+    // Check if all notifications will be read after this one
+    const allRead = activeNotifications.every(n => 
+      n.uniqueId === uniqueId || readNotifications[n.uniqueId]?.read
+    );
+    
+    // Check if all surveys will be completed
+    const allSurveysCompleted = activeNotifications.every(n =>
+      (n.type !== 'survey' && n.type !== 'weekly-survey') || 
+      n.surveyCompleted ||
+      n.uniqueId === uniqueId // Current notification being opened counts as addressed
+    );
+    
+    // Check if all important notifications will be addressed
+    const allImportantAddressed = activeNotifications.every(n =>
+      !isImportantNotification(n) || 
+      readNotifications[n.uniqueId]?.read ||
+      n.uniqueId === uniqueId // Current notification being opened counts as addressed
+    );
+    
+    // If everything is addressed, automatically switch to compact mode after a delay
+    if (allRead && allSurveysCompleted && allImportantAddressed) {
+      // Give user time to view the notification before switching to compact mode
+      setTimeout(() => {
+        if (!isExpanded) {
+          setIsCompactView(true);
+        }
+      }, 1000);
     }
   };
 
@@ -834,6 +930,30 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       
       // Show success message
       toast?.success?.('Survey submitted successfully') || alert('Survey submitted successfully');
+      
+      // Check if all notifications are now addressed after this survey submission
+      const allSurveysCompleted = activeNotifications.every(n =>
+        (n.type !== 'survey' && n.type !== 'weekly-survey') || 
+        n.surveyCompleted ||
+        (n.uniqueId === selectedNotification.uniqueId) // Count current notification as completed
+      );
+      
+      const allNotificationsRead = activeNotifications.every(n => 
+        readNotifications[n.uniqueId]?.read || (n.uniqueId === selectedNotification.uniqueId)
+      );
+      
+      const allImportantAddressed = activeNotifications.every(n =>
+        !isImportantNotification(n) || 
+        readNotifications[n.uniqueId]?.read ||
+        (n.uniqueId === selectedNotification.uniqueId)
+      );
+      
+      // If there are no more items requiring attention, switch to compact view
+      if (allSurveysCompleted && allNotificationsRead && allImportantAddressed) {
+        setTimeout(() => {
+          setIsCompactView(true);
+        }, 1500); // Slightly longer delay to ensure notification state has updated
+      }
     } catch (error) {
       console.error('Error submitting survey:', error);
       toast?.error?.('Failed to submit survey. Please try again.') || alert('Failed to submit survey. Please try again.');
@@ -850,6 +970,32 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
   
   if (activeNotifications.length === 0) return null;
 
+  // Compact view for when all notifications are read and acknowledged
+  if (isCompactView) {
+    return (
+      <div className="flex justify-end mb-4">
+        <Button 
+          variant="outline" 
+          className="flex items-center gap-2 bg-white shadow-sm hover:bg-gray-50"
+          onClick={() => {
+            setUserToggled(true);
+            setIsExpanded(true);
+            setIsCompactView(false);
+          }}
+        >
+          <div className="relative">
+            <Bell className="h-5 w-5 text-gray-600" />
+            {activeNotifications.length > 0 && (
+              <span className="absolute -top-1 -right-1 h-3 w-3 bg-gray-400 rounded-full" />
+            )}
+          </div>
+          <span className="text-sm font-medium">Notifications ({activeNotifications.length})</span>
+        </Button>
+      </div>
+    );
+  }
+
+  // Full expanded view
   return (
     <Card className="mb-6 shadow-lg border-t-4 border-t-blue-500">
       <div 
@@ -862,7 +1008,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         <div className="flex items-center gap-3">
           <div className="relative">
             <Bell className="h-6 w-6 text-blue-600" />
-            {activeNotifications.some(n => !readNotifications[n.uniqueId]?.read) && (
+            {(hasUnreadNotifications || hasImportantNotifications || hasIncompleteRequiredNotifications) && (
               <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full animate-pulse" />
             )}
           </div>
@@ -873,17 +1019,31 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
             </span>
           </h2>
         </div>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={(e) => {
-            e.stopPropagation(); // Stop propagation to prevent double toggle
-            setUserToggled(true); // Mark that user has manually toggled
-            setIsExpanded(!isExpanded);
-          }}
-        >
-          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </Button>
+        <div className="flex items-center gap-2">
+          {!isExpanded && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsCompactView(true);
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={(e) => {
+              e.stopPropagation(); // Stop propagation to prevent double toggle
+              setUserToggled(true); // Mark that user has manually toggled
+              setIsExpanded(!isExpanded);
+            }}
+          >
+            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
       
       {isExpanded && (

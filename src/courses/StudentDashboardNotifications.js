@@ -1585,8 +1585,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                     </div>
                   </div>
                   
-                  {/* Survey Questions Editor (only shown for survey type) */}
-                  {type === 'survey' && (
+                  {/* Survey Questions Editor (shown for both survey and weekly-survey types) */}
+                  {(type === 'survey' || type === 'weekly-survey') && (
                     <div className="space-y-4 mt-4">
                       <div className="flex items-center justify-between">
                         <Label className="text-lg font-medium flex items-center">
@@ -1723,8 +1723,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                             className="flex-1"
                                           />
                                           
-                                          {/* Category dropdown - only show for survey type */}
-                                          {type === 'survey' && (
+                                          {/* Category dropdown - only show for survey and weekly-survey types */}
+                                          {(type === 'survey' || type === 'weekly-survey') && (
                                             <DropdownMenu>
                                               <DropdownMenuTrigger asChild>
                                                 <Button variant="outline" className="w-[180px]">
@@ -2668,6 +2668,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                   <Badge variant="outline" className={`
                                     ${notification.type === 'survey' 
                                       ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                                      : notification.type === 'weekly-survey'
+                                        ? 'bg-green-50 text-green-700 border-green-200'
                                       : notification.type === 'once' || notification.frequency === 'once'
                                         ? 'bg-blue-50 text-blue-700 border-blue-200'
                                         : 'bg-green-50 text-green-700 border-green-200'
@@ -2675,6 +2677,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                   `}>
                                     {notification.type === 'survey' 
                                       ? 'Survey' 
+                                      : notification.type === 'weekly-survey'
+                                        ? 'Weekly Survey'
                                       : notification.type === 'once' || notification.frequency === 'once'
                                         ? 'One-time'
                                         : 'Recurring'
@@ -2690,7 +2694,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                               </TableCell>
                               <TableCell>
                                 <div className="text-sm text-gray-700 max-w-xs truncate">
-                                  {notification.type === 'survey' 
+                                  {notification.type === 'survey' || notification.type === 'weekly-survey'
                                     ? renderSurveyPreview(notification)
                                     : truncateContent(notification.content)
                                   }
@@ -2805,8 +2809,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
               <div className="bg-gray-50 p-3 rounded-md">
                 <h4 className="font-medium">{notificationToDelete.title}</h4>
                 <p className="text-sm text-gray-500 mt-1">
-                  {notificationToDelete.type === 'survey'
-                    ? `Survey with ${notificationToDelete.surveyQuestions?.length || 0} questions`
+                  {notificationToDelete.type === 'survey' || notificationToDelete.type === 'weekly-survey'
+                    ? `${notificationToDelete.type === 'weekly-survey' ? 'Weekly ' : ''}Survey with ${notificationToDelete.surveyQuestions?.length || 0} questions`
                     : truncateContent(notificationToDelete.content, 150)
                   }
                 </p>
