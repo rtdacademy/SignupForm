@@ -196,13 +196,25 @@ export const useStudentData = (userEmailKey) => {
         userEmail: userEmail
       };
       
-      // For repeating notifications, handle differently to track interaction history
-      const hasRepeatInterval = !!notification?.repeatInterval || notification?.type === 'weekly-survey';
+      // Check for displayConfig first, then fall back to legacy configuration
+      const displayFrequency = notification?.displayConfig?.frequency || 
+        (notification?.type === 'weekly-survey' ? 'weekly' : 
+         (notification?.renewalConfig?.method === 'day' ? 'weekly' : 
+          notification?.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+          
+      // Determine if this is a survey type
       const isSurveyType = notification?.type === 'survey' || 
                           notification?.type === 'weekly-survey' || 
                           (notification?.type === 'notification' && notification?.surveyQuestions);
       
-      if (notification && hasRepeatInterval) {
+      // For backwards compatibility
+      const hasRepeatInterval = displayFrequency === 'weekly' || 
+                              displayFrequency === 'custom' ||
+                              !!notification?.repeatInterval || 
+                              notification?.type === 'weekly-survey';
+      
+      // For any non-one-time notification, track history
+      if (notification && (displayFrequency === 'weekly' || displayFrequency === 'custom' || hasRepeatInterval)) {
         // Store with timestamp to keep historical record
         if (!updateData.submissions) {
           updateData.submissions = {};
@@ -236,10 +248,20 @@ export const useStudentData = (userEmailKey) => {
         userEmail: userEmail
       };
       
-      // For repeating notifications, initialize interaction history
-      const hasRepeatInterval = !!notification?.repeatInterval || notification?.type === 'weekly-survey';
+      // Check for displayConfig first, then fall back to legacy configuration
+      const displayFrequency = notification?.displayConfig?.frequency || 
+        (notification?.type === 'weekly-survey' ? 'weekly' : 
+         (notification?.renewalConfig?.method === 'day' ? 'weekly' : 
+          notification?.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
       
-      if (notification && hasRepeatInterval) {
+      // For backwards compatibility
+      const hasRepeatInterval = displayFrequency === 'weekly' || 
+                               displayFrequency === 'custom' ||
+                               !!notification?.repeatInterval || 
+                               notification?.type === 'weekly-survey';
+      
+      // For repeating notifications, initialize interaction history
+      if (notification && (displayFrequency === 'weekly' || displayFrequency === 'custom' || hasRepeatInterval)) {
         updateData.submissions = {
           [currentTimestamp]: {
             seen: true,
@@ -773,8 +795,14 @@ export const useStudentData = (userEmailKey) => {
         studentName: `${studentData.profile.firstName || ''} ${studentData.profile.lastName || ''}`.trim()
       };
       
-      // For weekly surveys, store in the submissions history
-      if (notification.type === 'weekly-survey') {
+      // Check for displayConfig first, then fall back to legacy configuration
+      const displayFrequency = notification?.displayConfig?.frequency || 
+        (notification?.type === 'weekly-survey' ? 'weekly' : 
+         (notification?.renewalConfig?.method === 'day' ? 'weekly' : 
+          notification?.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+          
+      // For repeating surveys (weekly or custom), store in the submissions history
+      if (displayFrequency === 'weekly' || displayFrequency === 'custom' || notification.type === 'weekly-survey') {
         if (!updateData.submissions) {
           updateData.submissions = {};
         }
@@ -793,7 +821,7 @@ export const useStudentData = (userEmailKey) => {
         // Update the lastSubmitted timestamp
         updateData.lastSubmitted = currentDate;
         
-        // For weekly surveys, completed is temporary (until next cycle)
+        // For repeating surveys, completed is temporary (until next cycle)
         updateData.completed = true;
       }
       
@@ -836,8 +864,15 @@ export const useStudentData = (userEmailKey) => {
         
         const notification = updatedCourse.notificationIds[notificationId];
         
-        // Determine if this is a one-time notification type - use strict boolean check with !!
-        const isOneTimeType = notification.type === 'once' || 
+        // Check for displayConfig first, then fall back to legacy configuration
+        const displayFrequency = notification.displayConfig?.frequency || 
+          (notification.type === 'weekly-survey' ? 'weekly' : 
+          (notification.renewalConfig?.method === 'day' ? 'weekly' : 
+            notification.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+            
+        // Determine if this is a one-time notification type
+        const isOneTimeType = displayFrequency === 'one-time' ||
+                            notification.type === 'once' || 
                             (notification.type === 'notification' && !notification.repeatInterval) ||
                             (notification.type === 'survey' && !notification.repeatInterval && notification.type !== 'weekly-survey');
                             
@@ -846,6 +881,7 @@ export const useStudentData = (userEmailKey) => {
           console.log('Marking notification as seen:', {
             id: notification.id,
             type: notification.type,
+            displayFrequency,
             hasRepeatInterval: !!notification.repeatInterval,
             repeatInterval: notification.repeatInterval,
             isOneTimeType
@@ -853,7 +889,7 @@ export const useStudentData = (userEmailKey) => {
         }
         
         // Mark this notification as seen if it's one-time (for all courses)
-        if (isOneTimeType) {
+        if (isOneTimeType || displayFrequency === 'one-time') {
           updatedCourse.notificationIds[notificationId] = {
             ...notification,
             shouldDisplay: false

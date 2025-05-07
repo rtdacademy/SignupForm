@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { filterStudentsByNotificationConditions } from '../utils/notificationFilterUtils';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 import { 
   Card, 
   CardContent, 
@@ -83,6 +85,12 @@ import {
 } from "../components/ui/sheet";
 import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from '../components/ui/tooltip';
 import { 
   Loader2, 
   Plus, 
@@ -167,6 +175,17 @@ const ACCORDION_COLORS = [
   'bg-rose-50',
   'bg-cyan-50',
   'bg-lime-50'
+];
+
+// Days of week for renewal selection
+const DAYS_OF_WEEK = [
+  { value: 'sunday', label: 'Sunday' },
+  { value: 'monday', label: 'Monday' },
+  { value: 'tuesday', label: 'Tuesday' },
+  { value: 'wednesday', label: 'Wednesday' },
+  { value: 'thursday', label: 'Thursday' },
+  { value: 'friday', label: 'Friday' },
+  { value: 'saturday', label: 'Saturday' }
 ];
 
 // Map of category icons to Lucide components
@@ -263,9 +282,10 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   const [type, setType] = useState('recurring'); // Changed from 'frequency' to 'type'
   const [conditionLogic, setConditionLogic] = useState('and');
   
-  // State for repeat interval (for weekly surveys)
-  const [repeatIntervalValue, setRepeatIntervalValue] = useState('1');
-  const [repeatIntervalUnit, setRepeatIntervalUnit] = useState('week');
+  // State for display frequency configuration
+  const [displayFrequency, setDisplayFrequency] = useState('one-time'); // 'one-time', 'weekly', or 'custom'
+  const [weeklyDayOfWeek, setWeeklyDayOfWeek] = useState('monday');
+  const [customDates, setCustomDates] = useState([]);
   
   // State for active/future/archived filters
   const [selectedActiveFutureArchivedValues, setSelectedActiveFutureArchivedValues] = useState(['Active']);
@@ -554,8 +574,9 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     setSelectedActiveFutureArchivedValues(['Active']); // Reset to default 'Active'
     setSurveyQuestions([]); // Reset survey questions
     setQuestionType("multiple-choice"); // Reset question type
-    setRepeatIntervalValue('1'); // Reset to default 1
-    setRepeatIntervalUnit('week'); // Reset to default week
+    setDisplayFrequency('one-time'); // Reset to default one-time notification
+    setWeeklyDayOfWeek('monday'); // Reset to default Monday
+    setCustomDates([]); // Reset custom dates
     setCurrentNotification(null);
     setEditMode(false);
   };
@@ -700,15 +721,36 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       setQuestionType("multiple-choice");
     }
     
-    // Handle repeat interval for any notification type
-    if (notification.repeatInterval) {
-      // This is a repeating notification - load the interval values
-      setRepeatIntervalValue(notification.repeatInterval.value || '1');
-      setRepeatIntervalUnit(notification.repeatInterval.unit || 'week');
+    // Load display frequency configuration if available
+    if (notification.displayConfig) {
+      // Set display frequency
+      setDisplayFrequency(notification.displayConfig.frequency || 'one-time');
+      
+      // Set day of week if available for weekly frequency
+      if (notification.displayConfig.frequency === 'weekly') {
+        setWeeklyDayOfWeek(notification.displayConfig.dayOfWeek || 'monday');
+      }
+      
+      // Set custom dates if available for custom frequency
+      if (notification.displayConfig.frequency === 'custom') {
+        setCustomDates(notification.displayConfig.dates || []);
+      }
+    } else if (notification.renewalConfig) {
+      // Handle legacy renewalConfig for backward compatibility
+      if (notification.renewalConfig.method === 'none') {
+        setDisplayFrequency('one-time');
+      } else if (notification.renewalConfig.method === 'day') {
+        setDisplayFrequency('weekly');
+        setWeeklyDayOfWeek(notification.renewalConfig.dayOfWeek || 'monday');
+      } else if (notification.renewalConfig.method === 'custom') {
+        setDisplayFrequency('custom');
+        setCustomDates(notification.renewalConfig.dates || []);
+      }
     } else {
-      // This is a one-time notification - clear the interval values
-      setRepeatIntervalValue('');
-      setRepeatIntervalUnit('');
+      // Default display frequency configuration
+      setDisplayFrequency('one-time');
+      setWeeklyDayOfWeek('monday');
+      setCustomDates([]);
     }
     
     // Set filtering conditions
@@ -802,13 +844,15 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       }
     }
     
-    // Validate repeat interval if specified for any notification type
-    if (repeatIntervalValue && repeatIntervalUnit) {
-      const intervalValue = parseInt(repeatIntervalValue);
-      if (isNaN(intervalValue) || intervalValue < 1) {
-        toast.error('Please enter a valid repeat interval value (minimum 1)');
-        return false;
-      }
+    // Validate display frequency configuration
+    if (displayFrequency === 'weekly' && !weeklyDayOfWeek) {
+      toast.error('Please select a day of the week for weekly frequency');
+      return false;
+    }
+    
+    if (displayFrequency === 'custom' && customDates.length === 0) {
+      toast.error('Please select at least one custom date');
+      return false;
     }
     
     // Check if at least one condition is set
@@ -914,11 +958,33 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
         notificationData.surveyCompleted = false;
       }
       
-      // Add repeat interval if specified for any notification type
-      if (repeatIntervalValue && repeatIntervalUnit) {
-        notificationData.repeatInterval = {
-          value: parseInt(repeatIntervalValue),
-          unit: repeatIntervalUnit
+      // Add display frequency configuration
+      notificationData.displayConfig = {
+        frequency: displayFrequency
+      };
+      
+      // Add day of week for weekly frequency
+      if (displayFrequency === 'weekly') {
+        notificationData.displayConfig.dayOfWeek = weeklyDayOfWeek;
+      }
+      
+      // Add dates for custom frequency
+      if (displayFrequency === 'custom' && customDates.length > 0) {
+        notificationData.displayConfig.dates = customDates.sort((a, b) => a - b);
+      }
+      
+      // For backward compatibility, also set the renewalConfig
+      if (displayFrequency === 'one-time') {
+        notificationData.renewalConfig = null;
+      } else if (displayFrequency === 'weekly') {
+        notificationData.renewalConfig = {
+          method: 'day',
+          dayOfWeek: weeklyDayOfWeek
+        };
+      } else if (displayFrequency === 'custom') {
+        notificationData.renewalConfig = {
+          method: 'custom',
+          dates: customDates.sort((a, b) => a - b)
         };
       }
       
@@ -1317,56 +1383,132 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       );
     }
 
-    // Add survey badge
-    if (notification.type === 'survey' || notification.type === 'weekly-survey') {
-      if (notification.repeatInterval || notification.type === 'weekly-survey') {
-        // This is a repeating survey
-        const interval = notification.repeatInterval || 
-                        (notification.type === 'weekly-survey' ? { value: 1, unit: 'week' } : null);
-        if (interval) {
-          badges.push(
-            <Badge key="repeating-survey" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
-              Repeating Survey (every {interval.value} {interval.unit}{interval.value !== 1 ? 's' : ''})
+    // Determine display frequency badge
+    const getDisplayFrequencyBadge = () => {
+      // Check for the new displayConfig first
+      if (notification.displayConfig) {
+        const frequency = notification.displayConfig.frequency;
+        
+        if (frequency === 'one-time') {
+          // One-time notification/survey
+          return (
+            <Badge key="one-time" variant="secondary" className="mr-1 mb-1 bg-blue-100 text-blue-800">
+              One-time {notification.type === 'survey' ? `Survey (${notification.surveyQuestions?.length || 0} questions)` : 'Notification'}
             </Badge>
           );
+        } else if (frequency === 'weekly') {
+          // Weekly notification/survey
+          const dayOfWeek = notification.displayConfig.dayOfWeek;
+          const capitalizedDay = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
+          const badgeText = `Weekly ${notification.type === 'survey' ? 'Survey' : 'Notification'} on ${capitalizedDay}s`;
+          
+          return (
+            <Badge key="weekly" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
+              {badgeText}
+            </Badge>
+          );
+        } else if (frequency === 'custom') {
+          // Custom dates notification/survey
+          const badgeText = `${notification.type === 'survey' ? 'Survey' : 'Notification'} on custom dates`;
+          const badge = (
+            <Badge key="custom" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
+              {badgeText}
+            </Badge>
+          );
+          
+          // Add tooltip for custom dates if available
+          if (notification.displayConfig.dates && notification.displayConfig.dates.length > 0) {
+            const dateStrings = notification.displayConfig.dates
+              .sort((a, b) => a - b)
+              .map(timestamp => new Date(timestamp).toLocaleDateString('en-US', {
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric'
+              }))
+              .join(', ');
+              
+            return (
+              <TooltipProvider key="custom-dates-tooltip">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    {badge}
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Renews on: {dateStrings}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          }
+          
+          return badge;
         }
-      } else {
-        // This is a one-time survey
-        badges.push(
-          <Badge key="survey" variant="secondary" className="mr-1 mb-1 bg-purple-100 text-purple-800">
-            One-time Survey ({notification.surveyQuestions?.length || 0} questions)
-          </Badge>
-        );
       }
-    } 
+      
+      // For backward compatibility, fallback to renewalConfig
+      if (notification.renewalConfig) {
+        const method = notification.renewalConfig.method;
+        
+        if (method === 'day') {
+          // Weekly notification/survey
+          const dayOfWeek = notification.renewalConfig.dayOfWeek;
+          const capitalizedDay = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
+          const badgeText = `Weekly ${notification.type === 'survey' || notification.type === 'weekly-survey' ? 'Survey' : 'Notification'} on ${capitalizedDay}s`;
+          
+          return (
+            <Badge key="weekly-legacy" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
+              {badgeText}
+            </Badge>
+          );
+        } else if (method === 'custom') {
+          // Custom dates notification/survey
+          const badgeText = `${notification.type === 'survey' || notification.type === 'weekly-survey' ? 'Survey' : 'Notification'} on custom dates`;
+          const badge = (
+            <Badge key="custom-legacy" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
+              {badgeText}
+            </Badge>
+          );
+          
+          // Add tooltip for custom dates if available
+          if (notification.renewalConfig.dates && notification.renewalConfig.dates.length > 0) {
+            const dateStrings = notification.renewalConfig.dates
+              .sort((a, b) => a - b)
+              .map(timestamp => new Date(timestamp).toLocaleDateString('en-US', {
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric'
+              }))
+              .join(', ');
+              
+            return (
+              <TooltipProvider key="custom-dates-legacy-tooltip">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    {badge}
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Renews on: {dateStrings}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          }
+          
+          return badge;
+        }
+      }
+      
+      // Default to one-time notification/survey
+      return (
+        <Badge key="one-time-default" variant="secondary" className="mr-1 mb-1 bg-blue-100 text-blue-800">
+          One-time {notification.type === 'survey' || notification.type === 'weekly-survey' ? 
+            `Survey (${notification.surveyQuestions?.length || 0} questions)` : 'Notification'}
+        </Badge>
+      );
+    };
     
-    // Add notification type badge for regular notifications
-    if (notification.type === 'notification' || notification.type === 'once' || notification.type === 'recurring') {
-      if (notification.repeatInterval || notification.type === 'recurring') {
-        // This is a repeating notification
-        const interval = notification.repeatInterval || null;
-        if (interval) {
-          badges.push(
-            <Badge key="repeating-notification" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
-              Repeating Notification (every {interval.value} {interval.unit}{interval.value !== 1 ? 's' : ''})
-            </Badge>
-          );
-        } else {
-          badges.push(
-            <Badge key="recurring" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
-              Recurring Notification
-            </Badge>
-          );
-        }
-      } else {
-        // This is a one-time notification
-        badges.push(
-          <Badge key="once" variant="secondary" className="mr-1 mb-1 bg-blue-100 text-blue-800">
-            One-time Notification
-          </Badge>
-        );
-      }
-    }
+    // Add the display frequency badge
+    badges.push(getDisplayFrequencyBadge());
     
     return badges.length > 0 ? (
       <div className="flex flex-wrap mt-1">
@@ -1560,83 +1702,187 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                         }
                       </p>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        {/* One-time Option */}
-                        <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
-                          onClick={() => {
-                            // Clear repeat interval to make this a one-time notification
-                            setRepeatIntervalValue("");
-                            setRepeatIntervalUnit("");
-                          }}
-                          style={{ 
-                            backgroundColor: !repeatIntervalValue || !repeatIntervalUnit ? '#f0f9ff' : 'transparent',
-                            borderColor: !repeatIntervalValue || !repeatIntervalUnit ? '#3b82f6' : '#e5e7eb'
-                          }}
-                        >
-                          <div className={`h-4 w-4 rounded-full ${!repeatIntervalValue || !repeatIntervalUnit ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
-                          <div>
-                            <p className="font-medium">One-time</p>
-                            <p className="text-sm text-gray-500">
-                              {type === 'survey' 
-                                ? "Show survey once per student"
-                                : "Show notification once per student"
-                              }
-                            </p>
+                      {/* Display Frequency options */}
+                      <div className="border rounded-md p-4 bg-blue-50 mt-4">
+                        <Label className="font-medium mb-2 block">Display Frequency</Label>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                          {/* One-time Option */}
+                          <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
+                            onClick={() => setDisplayFrequency('one-time')}
+                            style={{ 
+                              backgroundColor: displayFrequency === 'one-time' ? '#f0f9ff' : 'transparent',
+                              borderColor: displayFrequency === 'one-time' ? '#3b82f6' : '#e5e7eb'
+                            }}
+                          >
+                            <div className={`h-4 w-4 rounded-full ${displayFrequency === 'one-time' ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                            <div>
+                              <p className="font-medium">One-time</p>
+                              <p className="text-sm text-gray-500">
+                                {type === 'survey' 
+                                  ? "Show survey once per student"
+                                  : "Show notification once per student"
+                                }
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Weekly Option */}
+                          <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
+                            onClick={() => setDisplayFrequency('weekly')}
+                            style={{ 
+                              backgroundColor: displayFrequency === 'weekly' ? '#f0f9ff' : 'transparent',
+                              borderColor: displayFrequency === 'weekly' ? '#3b82f6' : '#e5e7eb'
+                            }}
+                          >
+                            <div className={`h-4 w-4 rounded-full ${displayFrequency === 'weekly' ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                            <div>
+                              <p className="font-medium">Weekly</p>
+                              <p className="text-sm text-gray-500">
+                                {type === 'survey' 
+                                  ? "Renews weekly on chosen day"
+                                  : "Renews weekly on chosen day"
+                                }
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Custom Option */}
+                          <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
+                            onClick={() => setDisplayFrequency('custom')}
+                            style={{ 
+                              backgroundColor: displayFrequency === 'custom' ? '#f0f9ff' : 'transparent',
+                              borderColor: displayFrequency === 'custom' ? '#3b82f6' : '#e5e7eb'
+                            }}
+                          >
+                            <div className={`h-4 w-4 rounded-full ${displayFrequency === 'custom' ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
+                            <div>
+                              <p className="font-medium">Custom Dates</p>
+                              <p className="text-sm text-gray-500">
+                                {type === 'survey' 
+                                  ? "Renews on specific dates"
+                                  : "Renews on specific dates"
+                                }
+                              </p>
+                            </div>
                           </div>
                         </div>
                         
-                        {/* Recurring Option */}
-                        <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
-                          onClick={() => {
-                            // Set default repeat interval if currently empty
-                            if (!repeatIntervalValue || !repeatIntervalUnit) {
-                              setRepeatIntervalValue('1');
-                              setRepeatIntervalUnit('week');
-                            }
-                          }}
-                          style={{ 
-                            backgroundColor: repeatIntervalValue && repeatIntervalUnit ? '#f0f9ff' : 'transparent',
-                            borderColor: repeatIntervalValue && repeatIntervalUnit ? '#3b82f6' : '#e5e7eb'
-                          }}
-                        >
-                          <div className={`h-4 w-4 rounded-full ${repeatIntervalValue && repeatIntervalUnit ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
-                          <div>
-                            <p className="font-medium">Repeating</p>
-                            <p className="text-sm text-gray-500">
-                              {type === 'survey' 
-                                ? "Allow retaking the survey periodically"
-                                : "Show notification with a repeat interval"
-                              }
-                            </p>
-                          </div>
+                        {/* Display frequency specific options */}
+                        <div className="border-t pt-4">
+                          {/* Weekly frequency options */}
+                          {displayFrequency === 'weekly' && (
+                            <div className="space-y-4 mt-2">
+                              <div className="space-y-2">
+                                <Label htmlFor="weekly-day">Day of Week</Label>
+                                <Select value={weeklyDayOfWeek} onValueChange={setWeeklyDayOfWeek}>
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select day of week" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {DAYS_OF_WEEK.map(day => (
+                                      <SelectItem key={day.value} value={day.value}>
+                                        {day.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-xs text-blue-600">
+                                  If a student acknowledges/completes the {type === 'survey' ? 'survey' : 'notification'}, 
+                                  it will reset on the following {weeklyDayOfWeek.charAt(0).toUpperCase() + weeklyDayOfWeek.slice(1)}.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Custom dates options */}
+                          {displayFrequency === 'custom' && (
+                            <div className="space-y-4 mt-2">
+                              <div className="space-y-2">
+                                <Label htmlFor="custom-dates">Custom Renewal Dates</Label>
+                                <div className="flex items-center">
+                                  <DatePicker
+                                    selected={null}
+                                    onChange={(date) => {
+                                      if (date && !customDates.some(d => new Date(d).toDateString() === date.toDateString())) {
+                                        setCustomDates([...customDates, date.getTime()]);
+                                      }
+                                    }}
+                                    placeholderText="Select a date"
+                                    dateFormat="MMM d, yyyy"
+                                    minDate={new Date()}
+                                    className="w-full p-2 border rounded-md"
+                                  />
+                                </div>
+                                
+                                {customDates.length > 0 && (
+                                  <div className="mt-4 p-4 border rounded-md bg-blue-50">
+                                    <div className="flex justify-between items-center mb-2">
+                                      <Label className="font-medium">Selected Dates:</Label>
+                                      <Button 
+                                        type="button" 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => setCustomDates([])}
+                                      >
+                                        Clear All
+                                      </Button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                      {customDates
+                                        .sort((a, b) => a - b)
+                                        .map((timestamp, index) => (
+                                          <Badge 
+                                            key={index} 
+                                            variant="secondary" 
+                                            className="flex items-center gap-1"
+                                          >
+                                            {new Date(timestamp).toLocaleDateString('en-US', {
+                                              month: 'short',
+                                              day: 'numeric',
+                                              year: 'numeric'
+                                            })}
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-4 w-4 p-0"
+                                              onClick={() => {
+                                                setCustomDates(
+                                                  customDates.filter((_, i) => i !== index)
+                                                );
+                                              }}
+                                            >
+                                              <X className="h-3 w-3" />
+                                            </Button>
+                                          </Badge>
+                                        ))}
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {customDates.length === 0 && (
+                                  <p className="text-xs text-amber-600 mt-2">
+                                    Please select at least one custom date.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* One-time description */}
+                          {displayFrequency === 'one-time' && (
+                            <div className="mt-2">
+                              <Alert variant="info" className="bg-blue-50 border-blue-200">
+                                <AlertDescription className="text-sm text-blue-700">
+                                  This {type === 'survey' ? 'survey' : 'notification'} will be displayed once to each student.
+                                  After they acknowledge or complete it, it will never appear again.
+                                </AlertDescription>
+                              </Alert>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      
-                      {/* Show interval settings only if repeating is selected */}
-                      {repeatIntervalValue && repeatIntervalUnit && (
-                        <div className="flex items-center space-x-2 border-t pt-4">
-                          <Label htmlFor="repeat-interval-text" className="shrink-0">Repeat every</Label>
-                          <Input 
-                            id="repeat-interval-value"
-                            type="number"
-                            min="1"
-                            max="52"
-                            value={repeatIntervalValue}
-                            onChange={(e) => setRepeatIntervalValue(e.target.value)}
-                            className="w-16"
-                          />
-                          <Select value={repeatIntervalUnit} onValueChange={setRepeatIntervalUnit}>
-                            <SelectTrigger className="w-[120px]">
-                              <SelectValue placeholder="Select unit" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="day">Day(s)</SelectItem>
-                              <SelectItem value="week">Week(s)</SelectItem>
-                              <SelectItem value="month">Month(s)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
                     </div>
                   </div>
                   
@@ -2751,16 +2997,22 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                         : 'bg-green-50 text-green-700 border-green-200'
                                     }
                                   `}>
-                                    {notification.type === 'survey' && !notification.repeatInterval
-                                      ? 'One-time Survey' 
-                                      : notification.type === 'survey' && !!notification.repeatInterval
-                                        ? 'Repeating Survey'
-                                      : notification.type === 'weekly-survey'
-                                        ? 'Weekly Survey'
-                                      : notification.type === 'once' || 
-                                        (notification.type === 'notification' && !notification.repeatInterval)
-                                        ? 'One-time'
-                                        : 'Recurring'
+                                    {notification.displayConfig 
+                                      ? notification.displayConfig.frequency === 'one-time'
+                                        ? 'One-time ' + (notification.type === 'survey' ? 'Survey' : 'Notification')
+                                        : notification.displayConfig.frequency === 'weekly'
+                                          ? 'Weekly ' + (notification.type === 'survey' ? 'Survey' : 'Notification')
+                                          : 'Custom ' + (notification.type === 'survey' ? 'Survey' : 'Notification')
+                                      : notification.type === 'survey' && !notification.repeatInterval
+                                        ? 'One-time Survey' 
+                                        : notification.type === 'survey' && !!notification.repeatInterval
+                                          ? 'Repeating Survey'
+                                        : notification.type === 'weekly-survey'
+                                          ? 'Weekly Survey'
+                                        : notification.type === 'once' || 
+                                          (notification.type === 'notification' && !notification.repeatInterval)
+                                          ? 'One-time Notification'
+                                          : 'Recurring Notification'
                                     }
                                   </Badge>
                                   

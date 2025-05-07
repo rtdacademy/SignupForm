@@ -59,9 +59,9 @@ const NotificationIcon = ({ type, size = "h-5 w-5", repeatInterval = null }) => 
   return <Bell className={`${size} text-gray-600`} />;
 };
 
-const getNotificationStyle = (type, repeatInterval = null) => {
+const getNotificationStyle = (type, repeatInterval = null, notification = null) => {
   // Define style themes
-  const onceStyle = {
+  const oneTimeStyle = {
     borderColor: 'border-amber-200',
     bgColor: 'bg-amber-50',
     hoverBgColor: 'hover:bg-amber-100',
@@ -70,13 +70,22 @@ const getNotificationStyle = (type, repeatInterval = null) => {
     iconBgColor: 'bg-amber-100'
   };
   
-  const recurringStyle = {
+  const weeklyStyle = {
     borderColor: 'border-blue-200',
     bgColor: 'bg-blue-50',
     hoverBgColor: 'hover:bg-blue-100',
     textColor: 'text-blue-900',
     badgeColor: 'bg-blue-100 text-blue-700',
     iconBgColor: 'bg-blue-100'
+  };
+  
+  const customStyle = {
+    borderColor: 'border-indigo-200',
+    bgColor: 'bg-indigo-50',
+    hoverBgColor: 'hover:bg-indigo-100',
+    textColor: 'text-indigo-900',
+    badgeColor: 'bg-indigo-100 text-indigo-700',
+    iconBgColor: 'bg-indigo-100'
   };
   
   const surveyStyle = {
@@ -97,6 +106,15 @@ const getNotificationStyle = (type, repeatInterval = null) => {
     iconBgColor: 'bg-green-100'
   };
   
+  const customSurveyStyle = {
+    borderColor: 'border-teal-200',
+    bgColor: 'bg-teal-50',
+    hoverBgColor: 'hover:bg-teal-100',
+    textColor: 'text-teal-900',
+    badgeColor: 'bg-teal-100 text-teal-700',
+    iconBgColor: 'bg-teal-100'
+  };
+  
   const defaultStyle = {
     borderColor: 'border-gray-200',
     bgColor: 'bg-gray-50',
@@ -106,15 +124,31 @@ const getNotificationStyle = (type, repeatInterval = null) => {
     iconBgColor: 'bg-gray-100'
   };
 
+  // Check for displayConfig first if notification is provided
+  if (notification) {
+    const displayFrequency = notification.displayConfig?.frequency || 
+      (notification.type === 'weekly-survey' ? 'weekly' : 
+      (notification.renewalConfig?.method === 'day' ? 'weekly' : 
+        notification.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+    
+    if (displayFrequency === 'one-time') {
+      return notification.type === 'survey' ? surveyStyle : oneTimeStyle;
+    } else if (displayFrequency === 'weekly') {
+      return notification.type === 'survey' ? weeklySurveyStyle : weeklyStyle;
+    } else if (displayFrequency === 'custom') {
+      return notification.type === 'survey' ? customSurveyStyle : customStyle;
+    }
+  }
+
   // Legacy types for backward compatibility
-  if (type === 'once') return onceStyle;
-  if (type === 'recurring') return recurringStyle;
+  if (type === 'once') return oneTimeStyle;
+  if (type === 'recurring') return weeklyStyle;
   if (type === 'survey' && !repeatInterval) return surveyStyle;
   if (type === 'weekly-survey' || (type === 'survey' && repeatInterval)) return weeklySurveyStyle;
   
   // New consolidated types
   if (type === 'notification') {
-    return repeatInterval ? recurringStyle : onceStyle;
+    return repeatInterval ? weeklyStyle : oneTimeStyle;
   }
   
   if (type === 'survey') {
@@ -154,23 +188,63 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
   // Define the getTypeDescription function before using it in debug logging
   // Generate a description of the notification type for display
   const getTypeDescription = () => {
-    // Get the repeatInterval from notification if available (strict boolean check)
+    // Check for displayConfig first, then fall back to legacy configuration
+    const displayFrequency = notification.displayConfig?.frequency || 
+      (notification.type === 'weekly-survey' ? 'weekly' : 
+       (notification.renewalConfig?.method === 'day' ? 'weekly' : 
+        notification.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+    
+    // Handle each display frequency type
+    if (displayFrequency === 'one-time') {
+      return notification.type === 'survey' ? 'One-time survey' : 'One-time notification';
+    } 
+    
+    if (displayFrequency === 'weekly') {
+      const dayOfWeek = notification.displayConfig?.dayOfWeek || 
+                      notification.renewalConfig?.dayOfWeek || 'monday';
+      const dayCapitalized = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
+      return notification.type === 'survey' ? 
+        `Weekly survey (resets on ${dayCapitalized})` : 
+        `Weekly notification (resets on ${dayCapitalized})`;
+    }
+    
+    if (displayFrequency === 'custom') {
+      // Count how many custom dates and show the next one
+      const customDates = notification.displayConfig?.dates || notification.renewalConfig?.dates || [];
+      const now = Date.now();
+      const futureDates = customDates.filter(date => new Date(date).getTime() > now);
+      const dateCount = customDates.length;
+      
+      if (futureDates.length > 0) {
+        const nextDate = new Date(Math.min(...futureDates));
+        const formattedDate = nextDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        return notification.type === 'survey' ? 
+          `Custom survey (${dateCount} dates, next: ${formattedDate})` : 
+          `Custom notification (${dateCount} dates, next: ${formattedDate})`;
+      } else {
+        return notification.type === 'survey' ? 
+          `Custom survey (${dateCount} dates)` : 
+          `Custom notification (${dateCount} dates)`;
+      }
+    }
+    
+    // Legacy format fallbacks
     const hasRepeatInterval = !!notification.repeatInterval;
     
-    // For legacy types
     if (notification.type === 'weekly-survey') {
       const interval = notification.repeatInterval || { value: 1, unit: 'week' };
       return `Repeating survey (every ${interval.value} ${interval.unit}${interval.value !== 1 ? 's' : ''})`;
     }
+    
     if (notification.type === 'survey') {
       return hasRepeatInterval ? 
         `Repeating survey (every ${notification.repeatInterval.value} ${notification.repeatInterval.unit}${notification.repeatInterval.value !== 1 ? 's' : ''})` : 
         'One-time survey';
     }
+    
     if (notification.type === 'recurring') return 'Recurring notification';
     if (notification.type === 'once') return 'One-time notification';
     
-    // For new consolidated types
     if (notification.type === 'notification') {
       return hasRepeatInterval ? 
         `Repeating notification (every ${notification.repeatInterval.value} ${notification.repeatInterval.unit}${notification.repeatInterval.value !== 1 ? 's' : ''})` : 
@@ -205,8 +279,8 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
     });
   }
   
-  // Get style with interval info
-  const style = getNotificationStyle(notification.type, repeatInterval);
+  // Get style with interval info and full notification
+  const style = getNotificationStyle(notification.type, repeatInterval, notification);
   
   // Check if notification is important
   const isImportant = isImportantNotification(notification);
@@ -498,7 +572,7 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
   const isSurveyType = notification.type === 'survey' || 
                        notification.type === 'weekly-survey';
 
-  const style = getNotificationStyle(notification.type, repeatInterval);
+  const style = getNotificationStyle(notification.type, repeatInterval, notification);
   
   // Check if notification is important
   const isImportant = isImportantNotification(notification);
@@ -1272,19 +1346,85 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         hasSeenTimeStamp: new Date().toISOString()
       };
       
-      // Store results in both old and new locations for backward compatibility
-      const surveyRef = ref(db, `surveyResponses/${current_user_email_key}/notifications/${notificationId}`);
-      await set(surveyRef, surveyData);
+      // Generate a timestamp for this submission
+      const timestamp = Date.now();
       
-      // Save to new studentDashboardNotificationsResults location
-      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${current_user_email_key}`);
-      await set(resultsRef, {
+      // Store results in a flat structure using composite keys for better query performance
+      // Format: notificationId_timestamp to ensure uniqueness and support multiple submissions
+      const compositeKey = `${notificationId}_${timestamp}`;
+      const newSurveyRef = ref(db, `surveyResponses/${compositeKey}`);
+      
+      await set(newSurveyRef, {
+        answers,
+        courseId: selectedCourse.id,
+        courseName: selectedCourse.title,
+        hasSeen: true,
+        hasSeenTimeStamp: new Date().toISOString(),
+        notificationId,
+        studentEmail: profile?.StudentEmail,
+        studentName: `${profile?.firstName} ${profile?.lastName}`,
+        submittedAt: new Date().toISOString(),
+        timestamp,
+        userEmailKey: current_user_email_key
+      });
+      
+      // Legacy location for backward compatibility 
+      const legacySurveyRef = ref(db, `surveyResponses/${current_user_email_key}/notifications/${notificationId}`);
+      await set(legacySurveyRef, surveyData);
+      
+      // Create a composite key for studentDashboardNotificationsResults too
+      const resultCompositeKey = `${notificationId}_${current_user_email_key}_${timestamp}`;
+      const flatResultsRef = ref(db, `studentDashboardNotificationsResults/${resultCompositeKey}`);
+      
+      // Store in flat structure for better filtering
+      await set(flatResultsRef, {
+        answers,
+        courseId: selectedCourse.id,
+        courseName: selectedCourse.title,
+        completed: true,
+        completedAt: new Date().toISOString(),
+        email: profile?.StudentEmail,
+        hasSeen: true,
+        hasSeenTimeStamp: new Date().toISOString(),
+        latestSubmission: true, // Flag to identify most recent submission
+        notificationId,
+        studentEmail: profile?.StudentEmail,
+        studentName: `${profile?.firstName} ${profile?.lastName}`,
+        submittedAt: new Date().toISOString(),
+        timestamp,
+        userEmailKey: current_user_email_key,
+        displayFrequency: selectedNotification.displayConfig?.frequency || 'one-time'
+      });
+      
+      // Also maintain backward compatibility structure
+      const legacyResultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${current_user_email_key}`);
+      
+      // First fetch existing data to preserve submission history
+      const legacySnapshot = await get(legacyResultsRef);
+      const existingData = legacySnapshot.exists() ? legacySnapshot.val() : {};
+      
+      // Prepare the update
+      await set(legacyResultsRef, {
+        ...existingData,
         ...surveyData,
-        // Include additional data for easier querying
         courseIds: [selectedCourse.id],
         email: profile?.StudentEmail,
         completed: true,
-        completedAt: new Date().toISOString()
+        completedAt: new Date().toISOString(),
+        // Store a reference to the flat structure entry
+        latestSubmissionKey: resultCompositeKey,
+        // Ensure we have a submissions object with the timestamp entry
+        submissions: {
+          ...(existingData.submissions || {}),
+          [timestamp]: {
+            answers,
+            submittedAt: new Date().toISOString(),
+            courseIds: [selectedCourse.id],
+            courses: [selectedCourse]
+          }
+        },
+        // Update lastSubmitted timestamp
+        lastSubmitted: new Date().toISOString()
       });
       
       // Also store the result in the course record for real-time updates
@@ -1294,7 +1434,9 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         completedAt: new Date().toISOString(),
         answers, // Store answers directly in the format provided
         hasSeen: true,
-        hasSeenTimeStamp: new Date().toISOString()
+        hasSeenTimeStamp: new Date().toISOString(),
+        // Reference to the flat structure key
+        latestSubmissionKey: resultCompositeKey
       });
 
       // Process categories from answers

@@ -353,16 +353,28 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
                        notification.type === 'weekly-survey' || 
                        (notification.type === 'notification' && notification.surveyQuestions);
   
-  const isOneTimeType = notification.type === 'once' || 
+  // Check for displayConfig first, then fall back to legacy configuration
+  const displayFrequency = notification.displayConfig?.frequency || 
+    (notification.type === 'weekly-survey' ? 'weekly' : 
+     (notification.renewalConfig?.method === 'day' ? 'weekly' : 
+      notification.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+  
+  // Backwards compatibility checks for one-time notifications
+  const isOneTimeType = displayFrequency === 'one-time' || 
+                        notification.type === 'once' || 
                         (notification.type === 'notification' && !notification.repeatInterval) ||
                         (notification.type === 'survey' && !notification.repeatInterval && notification.type !== 'weekly-survey');
   
-  const hasRepeatInterval = !!notification.repeatInterval || notification.type === 'weekly-survey';
+  // Backwards compatibility checks for repeating notifications
+  const hasRepeatInterval = displayFrequency === 'weekly' || 
+                           displayFrequency === 'custom' ||
+                           !!notification.repeatInterval || 
+                           notification.type === 'weekly-survey';
   
   // Skip if this is a one-time notification that has been seen
   if ((isOneTimeType && seenNotifications[notification.id]) ||
       (isOneTimeType && course.studentDashboardNotificationsResults?.[notification.id]?.completed) ||
-      (notification.type === 'survey' && !hasRepeatInterval && course.studentDashboardNotificationsResults?.[notification.id]?.completed)) {
+      (notification.type === 'survey' && displayFrequency === 'one-time' && course.studentDashboardNotificationsResults?.[notification.id]?.completed)) {
     return {
       isMatch: false,
       shouldDisplay: false,
@@ -380,23 +392,92 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
       const lastInteractedDate = new Date(lastInteracted);
       const currentDate = new Date();
       
-      // For legacy weekly-survey type
-      let repeatInterval = notification.repeatInterval;
-      if (notification.type === 'weekly-survey' && !repeatInterval) {
-        repeatInterval = { value: 1, unit: 'week' };
-      }
-      
-      const intervalMs = getIntervalInMilliseconds(repeatInterval);
-      
-      // If not enough time has passed, don't show the notification
-      if (currentDate - lastInteractedDate < intervalMs) {
-        return {
-          isMatch: false,
-          shouldDisplay: false,
-          conditionResults: [],
-          reason: 'Repeating notification was recently seen/completed',
-          nextAvailableDate: new Date(lastInteractedDate.getTime() + intervalMs).toISOString()
+      if (displayFrequency === 'weekly') {
+        // Get day of week from displayConfig or renewalConfig or default to Monday
+        const dayOfWeek = notification.displayConfig?.dayOfWeek || 
+                         notification.renewalConfig?.dayOfWeek || 'monday';
+        
+        // Convert day string to day number (0 = Sunday, 1 = Monday, etc.)
+        const dayMap = {
+          'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
+          'thursday': 4, 'friday': 5, 'saturday': 6
         };
+        const targetDayNum = dayMap[dayOfWeek.toLowerCase()] || 1; // Default to Monday
+        
+        // Calculate days since last interaction
+        const daysSinceInteraction = Math.floor((currentDate - lastInteractedDate) / (24 * 60 * 60 * 1000));
+        const currentDayNum = currentDate.getDay();
+        
+        // Check if we've passed the target day since last interaction
+        let shouldDisplay = false;
+        
+        if (currentDayNum === targetDayNum) {
+          // If today is the target day, only show if it's been at least a week
+          shouldDisplay = daysSinceInteraction >= 7;
+        } else if (currentDayNum > targetDayNum) {
+          // If we're past the target day this week, show if the target day has passed since last interaction
+          const daysSinceTargetDay = currentDayNum - targetDayNum;
+          shouldDisplay = daysSinceInteraction >= daysSinceTargetDay;
+        } else {
+          // If target day is later this week, check if it's been a week plus days since last target day
+          const daysUntilNextTargetDay = targetDayNum - currentDayNum;
+          const daysSinceLastTargetDay = 7 - daysUntilNextTargetDay;
+          shouldDisplay = daysSinceInteraction >= daysSinceLastTargetDay;
+        }
+        
+        if (!shouldDisplay) {
+          return {
+            isMatch: false,
+            shouldDisplay: false,
+            conditionResults: [],
+            reason: 'Weekly notification not yet due for display',
+            nextAvailableDate: null
+          };
+        }
+      } else if (displayFrequency === 'custom') {
+        // Get custom dates from displayConfig or renewalConfig
+        const customDates = notification.displayConfig?.dates || notification.renewalConfig?.dates || [];
+        
+        // Check if any custom date is in the future and past the last interaction
+        const now = currentDate.getTime();
+        const hasUpcomingDate = customDates.some(dateMs => {
+          const dateTime = new Date(dateMs).getTime();
+          return dateTime > lastInteractedDate.getTime() && dateTime <= now;
+        });
+        
+        if (!hasUpcomingDate) {
+          // Find the next upcoming date for debug info
+          const nextDate = customDates
+            .filter(dateMs => new Date(dateMs).getTime() > now)
+            .sort((a, b) => a - b)[0];
+          
+          return {
+            isMatch: false,
+            shouldDisplay: false,
+            conditionResults: [],
+            reason: 'Custom date notification not yet due for display',
+            nextAvailableDate: nextDate ? new Date(nextDate).toISOString() : null
+          };
+        }
+      } else {
+        // For legacy repeating notifications, use the old interval logic
+        let repeatInterval = notification.repeatInterval;
+        if (notification.type === 'weekly-survey' && !repeatInterval) {
+          repeatInterval = { value: 1, unit: 'week' };
+        }
+        
+        const intervalMs = getIntervalInMilliseconds(repeatInterval);
+        
+        // If not enough time has passed, don't show the notification
+        if (currentDate - lastInteractedDate < intervalMs) {
+          return {
+            isMatch: false,
+            shouldDisplay: false,
+            conditionResults: [],
+            reason: 'Repeating notification was recently seen/completed',
+            nextAvailableDate: new Date(lastInteractedDate.getTime() + intervalMs).toISOString()
+          };
+        }
       }
     }
   }
