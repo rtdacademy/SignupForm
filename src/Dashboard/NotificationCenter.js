@@ -22,7 +22,7 @@ import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { cn } from '../lib/utils';
-import { getDatabase, ref, set, get } from 'firebase/database';
+import { getDatabase, ref, set, get, update } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
 
@@ -803,19 +803,28 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
               teacherEmailKey = Object.keys(selectedNotification.conditions.categories[0])[0];
             }
             
-            // If we have a teacher and category, add to updates
-            if (teacherEmailKey) {
-              const categoryPath = `students/${current_user_email_key}/courses/${selectedCourse.id}/categories/${teacherEmailKey}/${categoryId}`;
+            // Now check if there's a staffKey directly on the selectedOption
+            let staffKey = selectedOption.staffKey || teacherEmailKey;
+            
+            // If we have a staff key and category, add to updates
+            if (staffKey && staffKey !== 'none') {
+              const categoryPath = `students/${current_user_email_key}/courses/${selectedCourse.id}/categories/${staffKey}/${categoryId}`;
               categoryUpdates.push({ path: categoryPath, value: true });
             }
           }
         }
         
         // Apply all category updates if we have any
-        for (const update of categoryUpdates) {
-          const categoryRef = ref(db, update.path);
-          await set(categoryRef, update.value);
-          console.log(`Added category to student: ${update.path}`);
+        if (categoryUpdates.length > 0) {
+          // Convert the updates array to an object for update() function
+          const updateObj = {};
+          for (const updateItem of categoryUpdates) {
+            updateObj[updateItem.path] = updateItem.value;
+          }
+          
+          // Use update instead of set to avoid overwriting other categories
+          await update(ref(db), updateObj);
+          console.log(`Added ${categoryUpdates.length} categories to student using update()`);
         }
       }
 

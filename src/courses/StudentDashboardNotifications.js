@@ -565,8 +565,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
         options: questionType === "text-input" 
           ? []  // No options for text input type
           : [
-              { id: Date.now().toString() + '-1', text: '', category: 'none' },
-              { id: Date.now().toString() + '-2', text: '', category: 'none' }
+              { id: Date.now().toString() + '-1', text: '', category: 'none', staffKey: 'none' },
+              { id: Date.now().toString() + '-2', text: '', category: 'none', staffKey: 'none' }
             ]
       }
     ]);
@@ -594,7 +594,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
             ...q, 
             options: [
               ...q.options, 
-              { id: Date.now().toString(), text: '', category: 'none' }
+              { id: Date.now().toString(), text: '', category: 'none', staffKey: 'none' }
             ] 
           } 
         : q
@@ -618,14 +618,18 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   };
   
   // Update option category
-  const updateOptionCategory = (questionId, optionId, newCategory) => {
+  const updateOptionCategory = (questionId, optionId, newCategory, staffKey) => {
     setSurveyQuestions(surveyQuestions.map(q => 
       q.id === questionId 
         ? { 
             ...q, 
             options: q.options.map(opt => 
               opt.id === optionId 
-                ? { ...opt, category: newCategory } 
+                ? { 
+                    ...opt, 
+                    category: newCategory,
+                    staffKey: staffKey || 'none' // Store the staff key along with the category
+                  } 
                 : opt
             ) 
           } 
@@ -1651,7 +1655,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                               </DropdownMenuTrigger>
                                               <DropdownMenuContent align="end" className="w-[220px]">
                                                 <DropdownMenuItem 
-                                                  onClick={() => updateOptionCategory(question.id, option.id, 'none')}
+                                                  onClick={() => updateOptionCategory(question.id, option.id, 'none', 'none')}
                                                   className="cursor-pointer"
                                                 >
                                                   No category
@@ -1694,7 +1698,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                                               return (
                                                                 <DropdownMenuItem
                                                                   key={`${category.teacherEmailKey}-${category.id}`}
-                                                                  onSelect={() => updateOptionCategory(question.id, option.id, category.id)}
+                                                                  onSelect={() => updateOptionCategory(question.id, option.id, category.id, category.teacherEmailKey)}
                                                                   className="flex items-center"
                                                                   style={{
                                                                     backgroundColor: isSelected ? `${category.color}20` : 'transparent',
@@ -1730,7 +1734,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                                           return (
                                                             <DropdownMenuItem
                                                               key={`${category.teacherEmailKey}-${category.id}`}
-                                                              onSelect={() => updateOptionCategory(question.id, option.id, category.id)}
+                                                              onSelect={() => updateOptionCategory(question.id, option.id, category.id, category.teacherEmailKey)}
                                                               className="flex items-center"
                                                               style={{
                                                                 backgroundColor: isSelected ? `${category.color}20` : 'transparent',
@@ -1776,7 +1780,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                                               return (
                                                                 <DropdownMenuItem
                                                                   key={category.id}
-                                                                  onSelect={() => updateOptionCategory(question.id, option.id, category.id)}
+                                                                  onSelect={() => updateOptionCategory(question.id, option.id, category.id, teacherEmailKey)}
                                                                   className="flex items-center"
                                                                   style={{
                                                                     backgroundColor: isSelected ? `${category.color}20` : 'transparent',
