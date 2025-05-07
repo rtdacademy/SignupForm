@@ -160,7 +160,7 @@ export const useStudentData = (userEmailKey) => {
   };
 
   // Mark a notification as seen
-  const markNotificationSeen = (notificationId, userEmail) => {
+  const markNotificationSeen = (notificationId, userEmail, notification) => {
     if (!userEmail || !notificationId) return;
     
     const storageKey = `seen_notifications_${userEmail.replace(/\./g, '_')}`;
@@ -183,27 +183,66 @@ export const useStudentData = (userEmailKey) => {
     // First try to get existing data so we don't overwrite survey results
     get(resultsRef).then(snapshot => {
       const existingData = snapshot.exists() ? snapshot.val() : {};
+      const currentTimestamp = Date.now();
+      const currentDate = new Date().toISOString();
       
-      // Update with hasSeen, hasSeenTimeStamp, and acknowledged
-      set(resultsRef, {
+      // Base update data for any notification type
+      let updateData = {
         ...existingData,
         hasSeen: true,
-        hasSeenTimeStamp: new Date().toISOString(),
+        hasSeenTimeStamp: currentDate,
         acknowledged: true,
-        acknowledgedAt: new Date().toISOString(),
+        acknowledgedAt: currentDate,
         userEmail: userEmail
-      });
+      };
+      
+      // For weekly surveys, handle differently to track submission history
+      if (notification && notification.type === 'weekly-survey') {
+        // Store with timestamp to keep historical record
+        if (!updateData.submissions) {
+          updateData.submissions = {};
+        }
+        
+        // Only record timestamp but don't add answers yet - those are added when survey is submitted
+        updateData.submissions[currentTimestamp] = {
+          seen: true,
+          seenAt: currentDate
+        };
+        
+        // Update the lastSeen timestamp
+        updateData.lastSeen = currentDate;
+      }
+      
+      // Update the record
+      set(resultsRef, updateData);
     }).catch(error => {
       console.error('Error updating notification seen status in Firebase:', error);
       
       // Fallback: create a new entry if get() fails
-      set(resultsRef, {
+      const currentTimestamp = Date.now();
+      const currentDate = new Date().toISOString();
+      
+      // Base update data for new entry
+      let updateData = {
         hasSeen: true,
-        hasSeenTimeStamp: new Date().toISOString(),
+        hasSeenTimeStamp: currentDate,
         acknowledged: true,
-        acknowledgedAt: new Date().toISOString(),
+        acknowledgedAt: currentDate,
         userEmail: userEmail
-      }).catch(error => {
+      };
+      
+      // For weekly surveys, initialize submission history
+      if (notification && notification.type === 'weekly-survey') {
+        updateData.submissions = {
+          [currentTimestamp]: {
+            seen: true,
+            seenAt: currentDate
+          }
+        };
+        updateData.lastSeen = currentDate;
+      }
+      
+      set(resultsRef, updateData).catch(error => {
         console.error('Error updating notification seen status in Firebase (fallback):', error);
       });
     });
@@ -655,11 +694,93 @@ export const useStudentData = (userEmailKey) => {
     coursesWithNotifications: studentData.courses?.filter(c => c.notificationIds && Object.keys(c.notificationIds).length > 0).length || 0
   });
 
+  // Function to handle survey submission
+  const submitSurveyResponse = (notificationId, courseId, answers) => {
+    if (!studentData.profile || !studentData.profile.StudentEmail) return;
+    
+    const userEmail = studentData.profile.StudentEmail;
+    const sanitizedEmail = userEmail.replace(/\./g, '_');
+    const db = getDatabase();
+    const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedEmail}`);
+    
+    // Get notification details to determine if it's a weekly survey
+    const notification = studentData.courses
+      .find(course => course.id === courseId)?.notificationIds?.[notificationId];
+      
+    if (!notification) return;
+    
+    // Get current data first
+    get(resultsRef).then(snapshot => {
+      const existingData = snapshot.exists() ? snapshot.val() : {};
+      const currentTimestamp = Date.now();
+      const currentDate = new Date().toISOString();
+      const courseDetails = studentData.courses.find(c => c.id === courseId);
+      
+      let updateData = {
+        ...existingData,
+        completed: true,
+        completedAt: currentDate,
+        answers: answers,
+        courseIds: [courseId],
+        courses: [{
+          id: courseId,
+          title: courseDetails?.courseDetails?.Title || `Course ${courseId}`
+        }],
+        email: userEmail,
+        notificationId: notificationId,
+        studentEmail: userEmail,
+        studentName: `${studentData.profile.firstName || ''} ${studentData.profile.lastName || ''}`.trim()
+      };
+      
+      // For weekly surveys, store in the submissions history
+      if (notification.type === 'weekly-survey') {
+        if (!updateData.submissions) {
+          updateData.submissions = {};
+        }
+        
+        // Add the submission with answers
+        updateData.submissions[currentTimestamp] = {
+          answers: answers,
+          submittedAt: currentDate,
+          courseIds: [courseId],
+          courses: [{
+            id: courseId,
+            title: courseDetails?.courseDetails?.Title || `Course ${courseId}`
+          }]
+        };
+        
+        // Update the lastSubmitted timestamp
+        updateData.lastSubmitted = currentDate;
+        
+        // For weekly surveys, completed is temporary (until next cycle)
+        updateData.completed = true;
+      }
+      
+      // Update the record
+      set(resultsRef, updateData).then(() => {
+        console.log('Survey response submitted successfully!');
+      }).catch(error => {
+        console.error('Error submitting survey response:', error);
+      });
+    }).catch(error => {
+      console.error('Error getting existing data:', error);
+    });
+  };
+
   // Add a utility function to mark a notification as seen
   const markNotificationAsSeen = (notificationId) => {
     if (!studentData.profile || !studentData.profile.StudentEmail) return;
     
-    markNotificationSeen(notificationId, studentData.profile.StudentEmail);
+    // Get notification details
+    let notification = null;
+    for (const course of studentData.courses) {
+      if (course.notificationIds && course.notificationIds[notificationId]) {
+        notification = course.notificationIds[notificationId];
+        break;
+      }
+    }
+    
+    markNotificationSeen(notificationId, studentData.profile.StudentEmail, notification);
     
     // Update the courses to reflect that this notification has been seen
     setStudentData(prev => {
@@ -690,9 +811,10 @@ export const useStudentData = (userEmailKey) => {
     });
   };
 
-  // Return the data along with the utility function
+  // Return the data along with the utility functions
   return {
     ...studentData,
-    markNotificationAsSeen
+    markNotificationAsSeen,
+    submitSurveyResponse
   };
 };

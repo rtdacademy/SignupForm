@@ -303,6 +303,30 @@ export const formatConditions = (conditions) => {
 };
 
 /**
+ * Helper function to get interval in milliseconds
+ * @param {Object} interval - The interval object with unit and value
+ * @returns {number} - Interval in milliseconds
+ */
+export const getIntervalInMilliseconds = (interval) => {
+  if (!interval || !interval.unit || !interval.value) {
+    return 604800000; // Default to 7 days (1 week) if invalid
+  }
+  
+  const valueNum = Number(interval.value) || 1;
+  
+  switch (interval.unit) {
+    case 'day':
+      return valueNum * 24 * 60 * 60 * 1000;
+    case 'week':
+      return valueNum * 7 * 24 * 60 * 60 * 1000;
+    case 'month':
+      return valueNum * 30 * 24 * 60 * 60 * 1000; // approximation
+    default:
+      return 7 * 24 * 60 * 60 * 1000; // default to 1 week
+  }
+};
+
+/**
  * Determine if a notification should be displayed for a specific course/student
  * @param {Object} notification - The notification to evaluate
  * @param {Object} course - The course object with student data
@@ -335,9 +359,32 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
     };
   }
   
+  // For weekly survey, check if enough time has passed since the last submission
+  if (notification.type === 'weekly-survey') {
+    const notificationResults = course.studentDashboardNotificationsResults?.[notification.id];
+    const lastSubmitted = notificationResults?.lastSubmitted;
+    
+    if (lastSubmitted) {
+      const lastSubmittedDate = new Date(lastSubmitted);
+      const currentDate = new Date();
+      const intervalMs = getIntervalInMilliseconds(notification.repeatInterval);
+      
+      // If not enough time has passed, don't show the survey
+      if (currentDate - lastSubmittedDate < intervalMs) {
+        return {
+          isMatch: false,
+          shouldDisplay: false,
+          conditionResults: [],
+          reason: 'Weekly survey was recently completed',
+          nextAvailableDate: new Date(lastSubmittedDate.getTime() + intervalMs).toISOString()
+        };
+      }
+    }
+  }
+  
   // Check if this survey has already been completed for this specific course
   const notificationResults = course.studentDashboardNotificationsResults?.[notification.id];
-  const surveyCompleted = notification.type === 'survey' && 
+  const surveyCompleted = (notification.type === 'survey' || notification.type === 'weekly-survey') && 
                           notificationResults?.completed === true;
   
   // Format conditions for evaluation
@@ -414,7 +461,8 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
     displayReason = 'One-time notification already acknowledged';
   }
   
-  return {
+  // For weekly surveys, include next available date
+  const result = {
     isMatch,
     shouldDisplay,
     conditionResults,
@@ -423,6 +471,15 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
     surveyAnswers: notificationResults?.answers,
     surveyCompletedAt: notificationResults?.completedAt
   };
+  
+  // Add next available date for weekly surveys
+  if (notification.type === 'weekly-survey' && notificationResults?.lastSubmitted) {
+    const lastSubmittedDate = new Date(notificationResults.lastSubmitted);
+    const intervalMs = getIntervalInMilliseconds(notification.repeatInterval);
+    result.nextAvailableDate = new Date(lastSubmittedDate.getTime() + intervalMs).toISOString();
+  }
+  
+  return result;
 };
 
 /**

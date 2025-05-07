@@ -263,6 +263,10 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   const [type, setType] = useState('recurring'); // Changed from 'frequency' to 'type'
   const [conditionLogic, setConditionLogic] = useState('and');
   
+  // State for repeat interval (for weekly surveys)
+  const [repeatIntervalValue, setRepeatIntervalValue] = useState('1');
+  const [repeatIntervalUnit, setRepeatIntervalUnit] = useState('week');
+  
   // State for active/future/archived filters
   const [selectedActiveFutureArchivedValues, setSelectedActiveFutureArchivedValues] = useState(['Active']);
   
@@ -550,6 +554,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     setSelectedActiveFutureArchivedValues(['Active']); // Reset to default 'Active'
     setSurveyQuestions([]); // Reset survey questions
     setQuestionType("multiple-choice"); // Reset question type
+    setRepeatIntervalValue('1'); // Reset to default 1
+    setRepeatIntervalUnit('week'); // Reset to default week
     setCurrentNotification(null);
     setEditMode(false);
   };
@@ -694,6 +700,15 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       setQuestionType("multiple-choice");
     }
     
+    // Set repeat interval for weekly surveys
+    if (notification.type === 'weekly-survey' && notification.repeatInterval) {
+      setRepeatIntervalValue(notification.repeatInterval.value || '1');
+      setRepeatIntervalUnit(notification.repeatInterval.unit || 'week');
+    } else {
+      setRepeatIntervalValue('1');
+      setRepeatIntervalUnit('week');
+    }
+    
     // Set filtering conditions
     setSelectedStudentTypes(notification.conditions?.studentTypes || []);
     setSelectedDiplomaMonths(notification.conditions?.diplomaMonths || []);
@@ -750,8 +765,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       return false;
     }
     
-    // Validate survey questions if type is 'survey'
-    if (type === 'survey') {
+    // Validate survey questions if type is 'survey' or 'weekly-survey'
+    if (type === 'survey' || type === 'weekly-survey') {
       if (surveyQuestions.length === 0) {
         toast.error('Please add at least one survey question');
         return false;
@@ -779,6 +794,20 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
           }
         }
         // Text input questions don't need option validation
+      }
+    }
+    
+    // Validate repeat interval for weekly surveys
+    if (type === 'weekly-survey') {
+      const intervalValue = parseInt(repeatIntervalValue);
+      if (isNaN(intervalValue) || intervalValue < 1) {
+        toast.error('Please enter a valid repeat interval value (minimum 1)');
+        return false;
+      }
+      
+      if (!repeatIntervalUnit) {
+        toast.error('Please select a repeat interval unit');
+        return false;
       }
     }
     
@@ -867,9 +896,17 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       };
       
       // Add survey questions and always set surveyCompleted to false
-      if (type === 'survey') {
+      if (type === 'survey' || type === 'weekly-survey') {
         notificationData.surveyQuestions = surveyQuestions;
         notificationData.surveyCompleted = false;
+      }
+      
+      // Add repeat interval data for weekly surveys
+      if (type === 'weekly-survey') {
+        notificationData.repeatInterval = {
+          value: parseInt(repeatIntervalValue),
+          unit: repeatIntervalUnit
+        };
       }
       
       // Add filtering conditions (only include non-empty arrays/values)
@@ -1276,6 +1313,16 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       );
     }
     
+    // Add weekly survey badge with repeat interval
+    if (notification.type === 'weekly-survey') {
+      const interval = notification.repeatInterval || { value: 1, unit: 'week' };
+      badges.push(
+        <Badge key="weekly-survey" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
+          Weekly Survey (every {interval.value} {interval.unit}{interval.value !== 1 ? 's' : ''})
+        </Badge>
+      );
+    }
+    
     return badges.length > 0 ? (
       <div className="flex flex-wrap mt-1">
         <Badge variant="secondary" className="mr-1 mb-1">
@@ -1423,7 +1470,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                   {/* Type (previously Frequency) */}
                   <div>
                     <Label>Notification Type</Label>
-                    <div className="grid grid-cols-3 gap-4 mt-1">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-1">
                       {/* One-time Option */}
                       <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
                         onClick={() => setType('once')}
@@ -1435,7 +1482,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                         <div className={`h-4 w-4 rounded-full ${type === 'once' ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
                         <div>
                           <p className="font-medium">One-time</p>
-                          <p className="text-sm text-gray-500">Show once per student, then never again</p>
+                          <p className="text-sm text-gray-500">Show once per student</p>
                         </div>
                       </div>
                       
@@ -1450,7 +1497,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                         <div className={`h-4 w-4 rounded-full ${type === 'recurring' ? 'bg-blue-500' : 'bg-gray-200'}`}></div>
                         <div>
                           <p className="font-medium">Recurring</p>
-                          <p className="text-sm text-gray-500">Show every time student logs in</p>
+                          <p className="text-sm text-gray-500">Show every time</p>
                         </div>
                       </div>
                       
@@ -1465,10 +1512,60 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                         <div className={`h-4 w-4 rounded-full ${type === 'survey' ? 'bg-purple-500' : 'bg-gray-200'}`}></div>
                         <div>
                           <p className="font-medium">Survey</p>
-                          <p className="text-sm text-gray-500">Collect responses from students</p>
+                          <p className="text-sm text-gray-500">One-time response</p>
+                        </div>
+                      </div>
+                      
+                      {/* Weekly Survey Option */}
+                      <div className="flex items-center space-x-2 border rounded-md p-3 cursor-pointer"
+                        onClick={() => setType('weekly-survey')}
+                        style={{ 
+                          backgroundColor: type === 'weekly-survey' ? '#f0fff4' : 'transparent',
+                          borderColor: type === 'weekly-survey' ? '#22c55e' : '#e5e7eb'
+                        }}
+                      >
+                        <div className={`h-4 w-4 rounded-full ${type === 'weekly-survey' ? 'bg-green-500' : 'bg-gray-200'}`}></div>
+                        <div>
+                          <p className="font-medium">Weekly Survey</p>
+                          <p className="text-sm text-gray-500">Repeating survey</p>
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Repeat interval settings for weekly survey */}
+                    {type === 'weekly-survey' && (
+                      <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                        <div className="flex items-center">
+                          <CalendarClock className="h-5 w-5 text-green-700 mr-2" />
+                          <h3 className="font-medium text-green-900">Repeat Interval</h3>
+                        </div>
+                        <p className="text-sm text-green-700 mt-1 mb-3">
+                          Set how often students can retake this survey.
+                        </p>
+                        <div className="flex items-center space-x-2">
+                          <Label htmlFor="repeat-interval-text" className="shrink-0">Repeat every</Label>
+                          <Input 
+                            id="repeat-interval-value"
+                            type="number"
+                            min="1"
+                            max="52"
+                            value={repeatIntervalValue}
+                            onChange={(e) => setRepeatIntervalValue(e.target.value)}
+                            className="w-16"
+                          />
+                          <Select value={repeatIntervalUnit} onValueChange={setRepeatIntervalUnit}>
+                            <SelectTrigger className="w-[120px]">
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="day">Day(s)</SelectItem>
+                              <SelectItem value="week">Week(s)</SelectItem>
+                              <SelectItem value="month">Month(s)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Rich Text Content (for all notification types) */}
