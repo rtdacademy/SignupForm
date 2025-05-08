@@ -28,6 +28,7 @@ const normalizedScheduleFunctions = require('./normalizedSchedule');
 //const tempFunctions = require('./TempFunction');
 
 const archiveStudentDataFunctions = require('./archiveStudentData');
+const googleAIFunctions = require('./googleai');
 
 setGlobalOptions({
   region: 'us-central1',
@@ -115,3 +116,8 @@ exports.batchUpdateNormalizedSchedulesV2 = normalizedScheduleFunctions.batchUpda
 
 exports.archiveStudentDataV2 = archiveStudentDataFunctions.archiveStudentDataV2;
 exports.restoreStudentDataV2 = archiveStudentDataFunctions.restoreStudentDataV2;
+
+// Export Google AI functions
+exports.generateContent = googleAIFunctions.generateContent;
+exports.startChatSession = googleAIFunctions.startChatSession;
+exports.sendChatMessage = googleAIFunctions.sendChatMessage;

@@ -34,7 +34,8 @@ import EdBotzDashboard from './edbotz/Dashboard';
 import EdBotzLogin from './edbotz/Login';
 import EdBotzLayout from './edbotz/EdBotzLayout';
 import StudentPortal from './edbotz/StudentPortal'
-import CourseManagement from './edbotz/CourseManagement';  
+import CourseManagement from './edbotz/CourseManagement';
+import GoogleAIChatPage from './edbotz/GoogleAIChat/GoogleAIChatPage';
 
 import './styles/styles.css';
 import 'katex/dist/katex.min.css';
@@ -214,6 +215,9 @@ function EdBotzApp() {
     <CourseManagement />
   </EdBotzProtectedRoute>
 } />
+
+         {/* Google AI Chat route - publically accessible */}
+         <Route path="/google-ai-chat" element={<GoogleAIChatPage />} />
 
          {/* Student Portal Route - Note this is public but access controlled via Firebase */}
          <Route path="/student-portal/:userId/:accessKey" element={<StudentPortal />} />
