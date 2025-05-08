@@ -1,0 +1,269 @@
+{
+    "rules": {
+      ".read": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)",
+      ".write": "auth != null",
+      
+      "pricing": {
+        ".read": true,
+        ".write": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)"
+      },
+        
+      "adminEmails": {
+        ".read": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)"
+      },
+        
+         "sendGridTracking": {
+        ".indexOn": ["senderKey", "senderEmail"]
+      },
+      
+      "users": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      },
+        
+              "registrationSettings": {
+        ".read": true,
+        ".write": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)"
+      },
+        
+          "ImportantDates": {
+        ".read": true,
+        ".write": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)"
+      },
+        
+      "courses": {
+        ".read": true,
+        ".write": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)"
+      },
+    
+      "payments": {
+        "$userEmail": {
+          ".read": "auth != null && (auth.token.email.replace('.', ',') === $userEmail || auth.token.email.matches(/.*@rtdacademy\\.com$/))",
+          ".write": false,
+          "courses": {
+            "$courseId": {
+              ".indexOn": ["status", "type", "last_updated"]
+            }
+          }
+        }
+      },
+      
+      "students": {
+        ".read": "auth != null",
+        "$sanitizedEmail": {
+          ".read": "auth != null",
+          "courses": {
+            ".read": "auth != null",
+            ".write": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)"
+          },
+          "profile": {
+            ".read": "auth != null",
+            ".write": "auth != null && (auth.token.email.replace('.', ',') === $sanitizedEmail || auth.token.email.matches(/.*@rtdacademy\\.com$/))"
+          },
+          "notifications": {
+            ".read": "auth != null && ($sanitizedEmail.replace(',', '.') === auth.token.email || auth.token.email.matches(/.*@rtdacademy\\.com$/))",
+            ".write": "auth != null && ($sanitizedEmail.replace(',', '.') === auth.token.email || auth.token.email.matches(/.*@rtdacademy\\.com$/))"
+          },
+          "chats": {
+            ".read": "auth != null"
+          }
+        }
+      },
+      
+      "staff": {
+        ".read": "auth != null",
+        ".indexOn": ["displayName", "email"],
+        "$key": {
+          ".write": "auth != null && 
+                  auth.token.email.replace('.', ',') === $key &&
+                  auth.token.email.matches(/.*@rtdacademy\\.com$/)",
+          ".validate": "$key.matches(/.*@rtdacademy,com$/)"
+        }
+      },
+      
+      "studentCourseSummaries": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)",
+        ".indexOn": [
+          "lastName",
+          "firstName",
+          "StudentEmail",
+          "Course_Value",
+          "ActiveFutureArchived_Value",
+          "Status_Value",
+          "School_x0020_Year_Value",
+          "StudentType_Value",
+          "DiplomaMonthChoices_Value",
+          "LMSStudentID",
+          "asn",
+          "CourseID"
+        ],
+        "$student": {
+          "categories": {
+            "$teacherEmail": {
+              ".indexOn": [".value"]
+            }
+          }
+        }
+      },
+        
+        
+       "pasiRecords": {
+    ".read": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)",
+    ".write": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)",
+    ".indexOn": ["linked", "schoolYear"] 
+  },
+    
+  "studentDashboardNotifications": {
+    ".read": true,
+    ".write": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)",
+    ".indexOn": ["active"]
+  },
+  
+  "surveyResponses": {
+    ".read": "auth != null",
+    "$notificationId": {
+      ".read": "auth != null",
+      ".indexOn": ["timestamp"],
+      "$timestamp": {
+        ".read": "auth != null",
+        ".indexOn": ["timestamp"],
+        "$userEmailKey": {
+          ".read": "auth != null && (auth.token.email.replace('.', ',') === $userEmailKey || auth.token.email.matches(/.*@rtdacademy\\.com$/))",
+          ".write": "auth != null && (auth.token.email.replace('.', ',') === $userEmailKey || auth.token.email.matches(/.*@rtdacademy\\.com$/))",
+          ".indexOn": ["timestamp", "courseId", "submittedAt"]
+        }
+      }
+    }
+  },
+  
+  "studentDashboardNotificationsResults": {
+    ".read": "auth != null",
+    "$notificationId": {
+      ".read": "auth != null",
+      ".indexOn": ["timestamp"],
+      "$timestamp": {
+        ".read": "auth != null",
+        ".indexOn": ["timestamp"],
+        "$userEmailKey": {
+          ".read": "auth != null && (auth.token.email.replace('.', ',') === $userEmailKey || auth.token.email.matches(/.*@rtdacademy\\.com$/))",
+          ".write": "auth != null && (auth.token.email.replace('.', ',') === $userEmailKey || auth.token.email.matches(/.*@rtdacademy\\.com$/))",
+          ".indexOn": ["timestamp", "courseId", "submittedAt", "latestSubmission"]
+        }
+      }
+    }
+  },
+      
+      "allPayments": {
+        ".read": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)",
+        ".write": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)",
+        ".indexOn": ["StudentEmail", "type", "timestamp", "orphaned"]
+      },
+      
+      "chats": {
+        ".indexOn": ["participants"],
+        "$chatId": {
+          ".read": "auth != null && root.child('chats').child($chatId).child('participants').val().contains(auth.token.email.replace('.', ','))",
+          ".write": "auth != null && (root.child('chats').child($chatId).child('participants').val().contains(auth.token.email.replace('.', ',')) || !data.exists())"
+        }
+      },
+      
+      "userChats": {
+        ".read": "auth != null",
+        ".write": false,
+        "$userEmail": {
+          ".indexOn": [".value", "timestamp", "lastMessageTimestamp", "active"]
+        }
+      },
+      
+      "Admin": {
+        "Finance": {
+          ".read": "auth != null && auth.token.email.matches(/.*@rtdacademy\\.com$/)",
+          ".write": true
+        }
+      },
+      
+      "invoices": {
+        ".read": true,
+        ".write": true
+      },
+      
+      "lti": {
+        "deep_links": {
+          ".read": "auth != null",
+          ".indexOn": ["assessment_id", "course_id"]
+        }
+      },
+      
+      "imathas_grades": {
+        ".read": "auth != null",
+        ".indexOn": ["assessmentId", "userId"]
+      },
+      
+      "edbotz": {
+        "files": {
+          ".read": "auth !== null",
+          "$fileId": {
+            ".write": "auth !== null && auth.token.email.matches(/.*@rtdacademy\\.com$/)"
+          }
+        },
+        "images": {
+          ".read": "auth !== null",
+          "$imageId": {
+            ".write": "auth !== null && auth.token.email.matches(/.*@rtdacademy\\.com$/)"
+          }
+        },
+        
+        "studentAccess": {
+          "$userId": {
+            "$accessKey": {
+              ".read": true,
+              ".write": "auth !== null && auth.uid === $userId"
+            }
+          }
+        },
+        
+        "courses": {
+          "$uid": {
+            ".read": true,
+            ".write": "$uid === auth.uid",
+            "$courseId": {
+              ".indexOn": ["updatedAt", "createdAt"],
+              "units": {
+                ".indexOn": ["sequence"],
+                "$unitIndex": {
+                  "lessons": {
+                    ".indexOn": ["sequence"]
+                  },
+                  "assistants": {
+                    ".indexOn": [".value"]
+                  }
+                }
+              },
+              "assistants": {
+                ".indexOn": [".value"]
+              }
+            }
+          }
+        },
+        
+        "assistants": {
+          "$uid": {
+            ".read": true,
+            "resetToggle": {
+              ".write": "root.child('edbotz/studentAccess').child(auth.uid).exists()"
+            },
+            ".write": "$uid === auth.uid",
+            ".indexOn": ["createdAt", "updatedAt"],
+            "$assistantId": {
+              "usage": {
+                ".indexOn": ["entityId", "type", "courseId"]
+              }
+            }
+          }
+        }
+      }
+    }
+  }

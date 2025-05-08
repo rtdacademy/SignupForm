@@ -41,6 +41,7 @@ const BLOCKED_EMAILS = [
 // Session timeout constants
 const SESSION_TIMEOUT = 60 * 60 * 1000; // 60 minutes by default
 const STAFF_SESSION_TIMEOUT = 60 * 60 * 1000; // 60 minutes for staff
+const INACTIVITY_TIMEOUT = 60 * 60 * 1000; // 60 minutes of inactivity will force logout
 // Firebase ID tokens last 1 hour by default; this aligns with our timeout values
 
 // For tracking app version to handle cache issues
@@ -230,6 +231,7 @@ export function AuthProvider({ children }) {
     }
   }, [user, tokenExpirationTime, checkTokenExpiration]);
 
+
   // Session timeout handling - updated to use token expiration
   const resetInactivityTimeout = useCallback(() => {
     if (!user) return;
@@ -239,12 +241,40 @@ export function AuthProvider({ children }) {
       clearTimeout(inactivityTimeoutRef.current);
     }
 
-    // Update activity tracking
-    userActivityTracking.current.lastActivity = Date.now();
+    const now = Date.now();
+    
+    // Update activity tracking in memory
+    userActivityTracking.current.lastActivity = now;
     userActivityTracking.current.isActive = true;
+    
+    // Also store in localStorage for persistence across sleep/hibernation
+    localStorage.setItem('rtd_last_activity_timestamp', now.toString());
     
     // Refresh token if it's close to expiration
     refreshSession();
+    
+    // Use a local function to handle the logout to avoid reference issues
+    const handleInactivityTimeout = () => {
+      // Double-check if user is still inactive by comparing with localStorage timestamp
+      const storedTimestamp = parseInt(localStorage.getItem('rtd_last_activity_timestamp') || '0', 10);
+      const currentTime = Date.now();
+      const inactivityDuration = currentTime - storedTimestamp;
+      
+      if (inactivityDuration >= INACTIVITY_TIMEOUT) {
+        console.log("Inactivity timeout reached - logging user out");
+        // Clear localStorage items
+        localStorage.removeItem('rtd_last_activity_timestamp');
+        localStorage.removeItem('rtd_scheduled_logout_time');
+        
+        // Sign out of Firebase (using promise instead of await)
+        firebaseSignOut(auth).catch(error => {
+          console.error("Error during inactivity logout:", error);
+        });
+      }
+    };
+    
+    // Set up an inactivity timeout that will log the user out
+    inactivityTimeoutRef.current = setTimeout(handleInactivityTimeout, INACTIVITY_TIMEOUT + 1000); // Add 1 second buffer
   }, [user, refreshSession]);
 
   // Track user activity
@@ -271,6 +301,39 @@ export function AuthProvider({ children }) {
     activityEvents.forEach(event => {
       document.addEventListener(event, trackActivity, { passive: true });
     });
+    
+    // Handle browser visibility changes for sleep/wake detection
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // When tab becomes visible again, check if we should be logged out
+        const storedTimestamp = parseInt(localStorage.getItem('rtd_last_activity_timestamp') || '0', 10);
+        const currentTime = Date.now();
+        const inactivityDuration = currentTime - storedTimestamp;
+        
+        console.log(`Visibility changed, inactivity duration: ${Math.round(inactivityDuration/1000)}s`);
+        
+        if (inactivityDuration >= INACTIVITY_TIMEOUT) {
+          // Perform logout directly without async function
+          // Clear localStorage items
+          localStorage.removeItem('rtd_last_activity_timestamp');
+          localStorage.removeItem('rtd_scheduled_logout_time');
+          
+          // Reset timeouts
+          if (inactivityTimeoutRef.current) clearTimeout(inactivityTimeoutRef.current);
+          if (tokenRefreshTimeoutRef.current) clearTimeout(tokenRefreshTimeoutRef.current);
+          
+          // Sign out of Firebase using promises
+          firebaseSignOut(auth).catch(error => {
+            console.error("Error during inactivity logout:", error);
+          });
+        } else {
+          // Not timed out, but refresh the token status
+          checkTokenExpiration();
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Set up interval to periodically check token expiration
     const tokenCheckInterval = setInterval(() => {
@@ -288,6 +351,8 @@ export function AuthProvider({ children }) {
       }
       
       clearInterval(tokenCheckInterval);
+      
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       
       activityEvents.forEach(event => {
         document.removeEventListener(event, trackActivity);
@@ -725,13 +790,22 @@ export function AuthProvider({ children }) {
   const getRemainingSessionTime = useCallback(() => {
     if (!user) return 0;
     
+    // Get stored last activity from localStorage (more resilient to sleep/hibernation)
+    const storedLastActivity = parseInt(localStorage.getItem('rtd_last_activity_timestamp') || 
+                                       String(userActivityTracking.current.lastActivity), 10);
+    const currentTime = Date.now();
+    
     if (tokenExpirationTime) {
-      // Return time until token expiration
-      return Math.max(0, tokenExpirationTime - Date.now());
+      // Calculate both token expiration and inactivity timeouts
+      const timeUntilTokenExpires = Math.max(0, tokenExpirationTime - currentTime);
+      const timeUntilInactivityTimeout = Math.max(0, INACTIVITY_TIMEOUT - (currentTime - storedLastActivity));
+      
+      // Return the smaller of the two (whichever will happen first)
+      return Math.min(timeUntilTokenExpires, timeUntilInactivityTimeout);
     } else {
       // Fall back to the session timeout if token expiration is not available
       const timeoutDuration = isStaffUser ? STAFF_SESSION_TIMEOUT : SESSION_TIMEOUT;
-      const elapsedTime = Date.now() - userActivityTracking.current.lastActivity;
+      const elapsedTime = currentTime - storedLastActivity;
       return Math.max(0, timeoutDuration - elapsedTime);
     }
   }, [user, tokenExpirationTime, isStaffUser]);

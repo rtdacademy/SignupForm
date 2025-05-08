@@ -123,11 +123,30 @@ export const useStudentData = (userEmailKey) => {
       if (snapshot.exists()) {
         const notificationsData = snapshot.val();
         console.log(`Fetched ${Object.keys(notificationsData).length} active notifications`);
-        // Convert to array with IDs
-        return Object.entries(notificationsData).map(([id, data]) => ({
-          id,
-          ...data
-        }));
+        
+        // Convert to array with IDs, explicitly handling important config properties
+        const notifications = Object.entries(notificationsData).map(([id, data]) => {
+          // Debug the fetched notification data
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Notification ${id} raw data:`, {
+              id,
+              title: data.title,
+              type: data.type,
+              hasDisplayConfig: !!data.displayConfig,
+              displayConfigFrequency: data.displayConfig?.frequency,
+              hasRenewalConfig: !!data.renewalConfig,
+              renewalConfigMethod: data.renewalConfig?.method
+            });
+          }
+          
+          // Directly return the data with ID added
+          return {
+            id,
+            ...data
+          };
+        });
+        
+        return notifications;
       }
       console.log('No active notifications found');
       return [];
@@ -196,22 +215,43 @@ export const useStudentData = (userEmailKey) => {
         userEmail: userEmail
       };
       
-      // Check for displayConfig first, then fall back to legacy configuration
-      const displayFrequency = notification?.displayConfig?.frequency || 
+      // Get display frequency from notification properties, with strong prioritization
+      // 1. Use displayConfig.frequency if available (new format)
+      // 2. Use explicit type-based identification (weekly-survey)
+      // 3. Use renewalConfig if available (transitional format)
+      // 4. Check for repeatInterval (legacy format)
+      // 5. Fall back to one-time as default
+      const displayFrequency = 
+        // New primary structure
+        notification?.displayConfig?.frequency || 
+        // Type-based detection
         (notification?.type === 'weekly-survey' ? 'weekly' : 
-         (notification?.renewalConfig?.method === 'day' ? 'weekly' : 
-          notification?.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+        // Legacy renewalConfig structure
+        (notification?.renewalConfig?.method === 'day' ? 'weekly' : 
+         notification?.renewalConfig?.method === 'custom' ? 'custom' : 
+        // Legacy repeatInterval structure
+        (notification?.repeatInterval ? 
+          (notification?.repeatInterval.unit === 'day' ? 'weekly' : 
+           notification?.repeatInterval.unit === 'week' ? 'weekly' : 
+           notification?.repeatInterval.unit === 'month' ? 'monthly' : 'custom') :
+        // Default fallback
+        'one-time')));
           
       // Determine if this is a survey type
       const isSurveyType = notification?.type === 'survey' || 
                           notification?.type === 'weekly-survey' || 
                           (notification?.type === 'notification' && notification?.surveyQuestions);
       
-      // For backwards compatibility
+      // Determine if this is a repeating notification
+      // A notification repeats if it has any frequency other than one-time,
+      // or has any repeating configuration in any format
       const hasRepeatInterval = displayFrequency === 'weekly' || 
+                              displayFrequency === 'monthly' ||
                               displayFrequency === 'custom' ||
                               !!notification?.repeatInterval || 
-                              notification?.type === 'weekly-survey';
+                              !!notification?.renewalConfig ||
+                              notification?.type === 'weekly-survey' ||
+                              notification?.type === 'recurring';
       
       // For any non-one-time notification, track history
       if (notification && (displayFrequency === 'weekly' || displayFrequency === 'custom' || hasRepeatInterval)) {
@@ -248,17 +288,38 @@ export const useStudentData = (userEmailKey) => {
         userEmail: userEmail
       };
       
-      // Check for displayConfig first, then fall back to legacy configuration
-      const displayFrequency = notification?.displayConfig?.frequency || 
+      // Get display frequency from notification properties, with strong prioritization
+      // 1. Use displayConfig.frequency if available (new format)
+      // 2. Use explicit type-based identification (weekly-survey)
+      // 3. Use renewalConfig if available (transitional format)
+      // 4. Check for repeatInterval (legacy format)
+      // 5. Fall back to one-time as default
+      const displayFrequency = 
+        // New primary structure
+        notification?.displayConfig?.frequency || 
+        // Type-based detection
         (notification?.type === 'weekly-survey' ? 'weekly' : 
-         (notification?.renewalConfig?.method === 'day' ? 'weekly' : 
-          notification?.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+        // Legacy renewalConfig structure
+        (notification?.renewalConfig?.method === 'day' ? 'weekly' : 
+         notification?.renewalConfig?.method === 'custom' ? 'custom' : 
+        // Legacy repeatInterval structure
+        (notification?.repeatInterval ? 
+          (notification?.repeatInterval.unit === 'day' ? 'weekly' : 
+           notification?.repeatInterval.unit === 'week' ? 'weekly' : 
+           notification?.repeatInterval.unit === 'month' ? 'monthly' : 'custom') :
+        // Default fallback
+        'one-time')));
       
-      // For backwards compatibility
+      // Determine if this is a repeating notification
+      // A notification repeats if it has any frequency other than one-time,
+      // or has any repeating configuration in any format
       const hasRepeatInterval = displayFrequency === 'weekly' || 
+                               displayFrequency === 'monthly' ||
                                displayFrequency === 'custom' ||
                                !!notification?.repeatInterval || 
-                               notification?.type === 'weekly-survey';
+                               !!notification?.renewalConfig ||
+                               notification?.type === 'weekly-survey' ||
+                               notification?.type === 'recurring';
       
       // For repeating notifications, initialize interaction history
       if (notification && (displayFrequency === 'weekly' || displayFrequency === 'custom' || hasRepeatInterval)) {
@@ -293,10 +354,21 @@ export const useStudentData = (userEmailKey) => {
         id: n.id,
         title: n.title,
         type: n.type,
+        hasDisplayConfig: !!n.displayConfig,
+        displayConfig: n.displayConfig ? {
+          frequency: n.displayConfig.frequency,
+          dayOfWeek: n.displayConfig.dayOfWeek,
+          hasDates: !!n.displayConfig.dates
+        } : null,
+        hasRenewalConfig: !!n.renewalConfig,
+        renewalConfig: n.renewalConfig ? {
+          method: n.renewalConfig.method,
+          dayOfWeek: n.renewalConfig.dayOfWeek,
+          hasDates: !!n.renewalConfig.dates
+        } : null,
         hasRepeatInterval: !!n.repeatInterval,
         repeatInterval: n.repeatInterval,
-        hasRepeatIntervalProperty: n.hasOwnProperty('repeatInterval'),
-        repeatIntervalObject: JSON.stringify(n.repeatInterval)
+        hasRepeatIntervalProperty: n.hasOwnProperty('repeatInterval')
       })));
     }
     
@@ -315,6 +387,18 @@ export const useStudentData = (userEmailKey) => {
               id: n.id,
               title: n.title,
               type: n.type,
+              hasDisplayConfig: !!n.displayConfig,
+              displayConfig: n.displayConfig ? {
+                frequency: n.displayConfig.frequency,
+                dayOfWeek: n.displayConfig.dayOfWeek,
+                hasDates: !!n.displayConfig.dates
+              } : null,
+              hasRenewalConfig: !!n.renewalConfig,
+              renewalConfig: n.renewalConfig ? {
+                method: n.renewalConfig.method,
+                dayOfWeek: n.renewalConfig.dayOfWeek,
+                hasDates: !!n.renewalConfig.dates
+              } : null,
               hasRepeatInterval: !!n.repeatInterval,
               repeatInterval: n.repeatInterval,
               hasRepeatIntervalProperty: n.hasOwnProperty('repeatInterval'),
@@ -795,11 +879,27 @@ export const useStudentData = (userEmailKey) => {
         studentName: `${studentData.profile.firstName || ''} ${studentData.profile.lastName || ''}`.trim()
       };
       
-      // Check for displayConfig first, then fall back to legacy configuration
-      const displayFrequency = notification?.displayConfig?.frequency || 
+      // Get display frequency from notification properties, with strong prioritization
+      // 1. Use displayConfig.frequency if available (new format)
+      // 2. Use explicit type-based identification (weekly-survey)
+      // 3. Use renewalConfig if available (transitional format)
+      // 4. Check for repeatInterval (legacy format)
+      // 5. Fall back to one-time as default
+      const displayFrequency = 
+        // New primary structure
+        notification?.displayConfig?.frequency || 
+        // Type-based detection
         (notification?.type === 'weekly-survey' ? 'weekly' : 
-         (notification?.renewalConfig?.method === 'day' ? 'weekly' : 
-          notification?.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+        // Legacy renewalConfig structure
+        (notification?.renewalConfig?.method === 'day' ? 'weekly' : 
+         notification?.renewalConfig?.method === 'custom' ? 'custom' : 
+        // Legacy repeatInterval structure
+        (notification?.repeatInterval ? 
+          (notification?.repeatInterval.unit === 'day' ? 'weekly' : 
+           notification?.repeatInterval.unit === 'week' ? 'weekly' : 
+           notification?.repeatInterval.unit === 'month' ? 'monthly' : 'custom') :
+        // Default fallback
+        'one-time')));
           
       // For repeating surveys (weekly or custom), store in the submissions history
       if (displayFrequency === 'weekly' || displayFrequency === 'custom' || notification.type === 'weekly-survey') {

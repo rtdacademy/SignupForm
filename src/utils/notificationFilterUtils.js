@@ -353,23 +353,52 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
                        notification.type === 'weekly-survey' || 
                        (notification.type === 'notification' && notification.surveyQuestions);
   
-  // Check for displayConfig first, then fall back to legacy configuration
-  const displayFrequency = notification.displayConfig?.frequency || 
+  // Get display frequency from notification properties, with strong prioritization
+  // 1. Use displayConfig.frequency if available (new format)
+  // 2. Use explicit type-based identification (weekly-survey)
+  // 3. Use renewalConfig if available (transitional format)
+  // 4. Check for repeatInterval (legacy format)
+  // 5. Fall back to one-time as default
+  const displayFrequency = 
+    // New primary structure
+    notification.displayConfig?.frequency || 
+    // Type-based detection
     (notification.type === 'weekly-survey' ? 'weekly' : 
-     (notification.renewalConfig?.method === 'day' ? 'weekly' : 
-      notification.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+    // Legacy renewalConfig structure
+    (notification.renewalConfig?.method === 'day' ? 'weekly' : 
+     notification.renewalConfig?.method === 'custom' ? 'custom' : 
+    // Legacy repeatInterval structure
+    (notification.repeatInterval ? 
+      (notification.repeatInterval.unit === 'day' ? 'weekly' : 
+       notification.repeatInterval.unit === 'week' ? 'weekly' : 
+       notification.repeatInterval.unit === 'month' ? 'monthly' : 'custom') :
+    // Default fallback
+    'one-time')));
   
-  // Backwards compatibility checks for one-time notifications
+  // Determine if this is a one-time notification type
+  // Prioritize displayConfig.frequency, then check other properties for backwards compatibility
   const isOneTimeType = displayFrequency === 'one-time' || 
                         notification.type === 'once' || 
-                        (notification.type === 'notification' && !notification.repeatInterval) ||
-                        (notification.type === 'survey' && !notification.repeatInterval && notification.type !== 'weekly-survey');
+                        (notification.type === 'notification' && 
+                         !notification.repeatInterval && 
+                         !notification.renewalConfig && 
+                         (!notification.displayConfig || notification.displayConfig.frequency === 'one-time')) ||
+                        (notification.type === 'survey' && 
+                         !notification.repeatInterval && 
+                         !notification.renewalConfig && 
+                         (!notification.displayConfig || notification.displayConfig.frequency === 'one-time') && 
+                         notification.type !== 'weekly-survey');
   
-  // Backwards compatibility checks for repeating notifications
+  // Determine if this is a repeating notification
+  // A notification repeats if it has any frequency other than one-time,
+  // or has any repeating configuration in any format
   const hasRepeatInterval = displayFrequency === 'weekly' || 
+                           displayFrequency === 'monthly' ||
                            displayFrequency === 'custom' ||
                            !!notification.repeatInterval || 
-                           notification.type === 'weekly-survey';
+                           !!notification.renewalConfig ||
+                           notification.type === 'weekly-survey' ||
+                           notification.type === 'recurring';
   
   // Skip if this is a one-time notification that has been seen
   if ((isOneTimeType && seenNotifications[notification.id]) ||
@@ -546,8 +575,8 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
   let shouldDisplay = true;
   let displayReason = 'Conditions matched';
   
-  // If it's a survey that's been completed for this course, and is not repeating, don't show it again
-  if (isSurveyType && !hasRepeatInterval && surveyCompleted) {
+  // For surveys, don't show them if they've been completed regardless of repeat interval
+  if (isSurveyType && surveyCompleted) {
     shouldDisplay = false;
     displayReason = 'Survey already completed';
   }
@@ -635,7 +664,11 @@ export const processNotificationsForCourses = (courses, profile, allNotification
           surveyCompletedAt: result.surveyCompletedAt,
           shouldDisplay: true,
           surveyQuestions: notification.surveyQuestions || [],
-          notificationId: notification.id // Add explicit notificationId for easier reference
+          notificationId: notification.id, // Add explicit notificationId for easier reference
+          
+          // IMPORTANT: Preserve the configuration properties
+          displayConfig: notification.displayConfig,
+          renewalConfig: notification.renewalConfig
         };
         
         // IMPORTANT: Explicitly preserve the repeatInterval property if it exists

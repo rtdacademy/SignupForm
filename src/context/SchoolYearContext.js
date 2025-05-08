@@ -37,8 +37,8 @@ export const SchoolYearProvider = ({ children }) => {
   const [pasiRecords, setPasiRecords] = useState([]);
   const [asnsRecords, setAsnsRecords] = useState([]);
 
-  // Loading and error states
-  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
+  // Loading and error states - initialize to false to avoid showing loading when not authenticated
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [isLoadingPasi, setIsLoadingPasi] = useState(false);
   const [isLoadingAsns, setIsLoadingAsns] = useState(false);
   const [error, setError] = useState(null);
@@ -50,8 +50,15 @@ export const SchoolYearProvider = ({ children }) => {
     }
   }, [currentSchoolYear]);
 
-  // Fetch student summaries
+  // Fetch student summaries - only when user is authenticated and staff
   useEffect(() => {
+    // Skip if not a staff user to prevent permission errors
+    if (!isStaffUser) {
+      setIsLoadingStudents(false);
+      setStudentSummaries([]);
+      return;
+    }
+    
     console.log('Setting up Firebase listeners for school year:', currentSchoolYear);
     setIsLoadingStudents(true);
     const db = getDatabase();
@@ -76,7 +83,7 @@ export const SchoolYearProvider = ({ children }) => {
     });
 
     return () => unsubscribe();
-  }, [currentSchoolYear, refreshTrigger]);
+  }, [isStaffUser, currentSchoolYear, refreshTrigger]);
 
   // Fetch PASI records for staff
   useEffect(() => {
@@ -204,9 +211,16 @@ export const SchoolYearProvider = ({ children }) => {
     };
   }, [isStaffUser, currentSchoolYear, refreshTrigger]);
 
-  // New: Fetch ASNs node
+  // Fetch ASNs node - only for staff users
   useEffect(() => {
-    console.log('Fetching ASNs records');
+    // Skip if not a staff user to avoid permission errors
+    if (!isStaffUser) {
+      setIsLoadingAsns(false);
+      setAsnsRecords([]);
+      return;
+    }
+    
+    console.log('Fetching ASNs records for staff user');
     setIsLoadingAsns(true);
     const db = getDatabase();
     const asnsRef = ref(db, 'ASNs');
@@ -223,7 +237,7 @@ export const SchoolYearProvider = ({ children }) => {
       setIsLoadingAsns(false);
     });
     return () => unsubscribe();
-  }, [refreshTrigger]);
+  }, [isStaffUser, refreshTrigger]);
 
   // Combine PASI & summaries
   const pasiStudentSummariesCombined = useMemo(() => {
@@ -262,7 +276,9 @@ export const SchoolYearProvider = ({ children }) => {
   }, [studentSummaries, pasiRecords, isStaffUser]);
 
   const duplicateAsnStudents = useMemo(() => {
-    if (studentSummaries.length === 0) return [];
+    // Skip for non-staff users since they won't have access to student summaries
+    if (!isStaffUser || studentSummaries.length === 0) return [];
+    
     const asnMap = new Map();
     studentSummaries.forEach(student => {
       if (!student.asn || !student.StudentEmail) return;
@@ -278,7 +294,7 @@ export const SchoolYearProvider = ({ children }) => {
       }
     });
     return duplicates;
-  }, [studentSummaries]);
+  }, [isStaffUser, studentSummaries]);
 
   const refreshStudentSummaries = useCallback(() => {
     console.log('Refreshing student summaries and PASI records');

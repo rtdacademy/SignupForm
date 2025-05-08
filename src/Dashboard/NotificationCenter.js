@@ -171,10 +171,16 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
   const [isHovered, setIsHovered] = useState(false);
   
   // Extract repeatInterval information - make sure we're properly detecting it
-  // Use strict boolean check (double bang) to ensure proper true/false conversion 
+  // Determine if this notification repeats using comprehensive checks across all formats
+  // Use strict boolean check (double bang) to ensure proper true/false conversion
   const hasRepeatInterval = !!notification.repeatInterval || 
+                           !!notification.renewalConfig ||
                            notification.type === 'weekly-survey' || 
-                           notification.type === 'recurring';
+                           notification.type === 'recurring' ||
+                           (notification.displayConfig && 
+                            (notification.displayConfig.frequency === 'weekly' || 
+                             notification.displayConfig.frequency === 'monthly' || 
+                             notification.displayConfig.frequency === 'custom'));
   
   // For legacy weekly-survey type, use a default interval if not specified
   const repeatInterval = notification.repeatInterval || 
@@ -188,11 +194,45 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
   // Define the getTypeDescription function before using it in debug logging
   // Generate a description of the notification type for display
   const getTypeDescription = () => {
-    // Check for displayConfig first, then fall back to legacy configuration
-    const displayFrequency = notification.displayConfig?.frequency || 
+    // Debugging in development mode
+    if (process.env.NODE_ENV === 'development') {
+      console.log('getTypeDescription for:', {
+        id: notification.id,
+        title: notification.title,
+        type: notification.type,
+        hasDisplayConfig: !!notification.displayConfig,
+        displayFrequency: notification.displayConfig?.frequency,
+        displayDayOfWeek: notification.displayConfig?.dayOfWeek,
+        displayDates: notification.displayConfig?.dates,
+        hasRenewalConfig: !!notification.renewalConfig,
+        renewalMethod: notification.renewalConfig?.method,
+        renewalDayOfWeek: notification.renewalConfig?.dayOfWeek,
+        renewalDates: notification.renewalConfig?.dates,
+        hasRepeatInterval: !!notification.repeatInterval
+      });
+    }
+
+    // Get display frequency from notification properties, with strong prioritization
+    // 1. Use displayConfig.frequency if available (new format)
+    // 2. Use explicit type-based identification (weekly-survey)
+    // 3. Use renewalConfig if available (transitional format)
+    // 4. Check for repeatInterval (legacy format)
+    // 5. Fall back to one-time as default
+    const displayFrequency = 
+      // New primary structure
+      notification.displayConfig?.frequency || 
+      // Type-based detection
       (notification.type === 'weekly-survey' ? 'weekly' : 
-       (notification.renewalConfig?.method === 'day' ? 'weekly' : 
-        notification.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+      // Legacy renewalConfig structure
+      (notification.renewalConfig?.method === 'day' ? 'weekly' : 
+       notification.renewalConfig?.method === 'custom' ? 'custom' : 
+      // Legacy repeatInterval structure
+      (notification.repeatInterval ? 
+        (notification.repeatInterval.unit === 'day' ? 'weekly' : 
+         notification.repeatInterval.unit === 'week' ? 'weekly' : 
+         notification.repeatInterval.unit === 'month' ? 'monthly' : 'custom') :
+      // Default fallback
+      'one-time')));
     
     // Handle each display frequency type
     if (displayFrequency === 'one-time') {
@@ -228,27 +268,56 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
       }
     }
     
-    // Legacy format fallbacks
-    const hasRepeatInterval = !!notification.repeatInterval;
+    // Simple labels based on the primary type and frequency
+    // For clarity and consistency, use simpler labels based directly on the notification type
     
     if (notification.type === 'weekly-survey') {
-      const interval = notification.repeatInterval || { value: 1, unit: 'week' };
-      return `Repeating survey (every ${interval.value} ${interval.unit}${interval.value !== 1 ? 's' : ''})`;
+      return 'Weekly Survey';
     }
     
     if (notification.type === 'survey') {
-      return hasRepeatInterval ? 
-        `Repeating survey (every ${notification.repeatInterval.value} ${notification.repeatInterval.unit}${notification.repeatInterval.value !== 1 ? 's' : ''})` : 
-        'One-time survey';
+      // First check displayConfig (newer format)
+      if (notification.displayConfig?.frequency === 'weekly') {
+        return 'Weekly Survey';
+      } else if (notification.displayConfig?.frequency === 'monthly') {
+        return 'Monthly Survey';
+      } else if (notification.displayConfig?.frequency === 'custom') {
+        return 'Custom Survey';
+      } 
+      // Then check renewalConfig (transitional format)
+      else if (notification.renewalConfig?.method === 'day') {
+        return 'Weekly Survey';
+      } else if (notification.renewalConfig?.method === 'custom') {
+        return 'Custom Survey';
+      } 
+      // Default to one-time if no repeating configuration found
+      else {
+        return 'One-time Survey';
+      }
     }
     
-    if (notification.type === 'recurring') return 'Recurring notification';
-    if (notification.type === 'once') return 'One-time notification';
+    if (notification.type === 'recurring') return 'Recurring Notification';
+    if (notification.type === 'once') return 'One-time Notification';
     
     if (notification.type === 'notification') {
-      return hasRepeatInterval ? 
-        `Repeating notification (every ${notification.repeatInterval.value} ${notification.repeatInterval.unit}${notification.repeatInterval.value !== 1 ? 's' : ''})` : 
-        'One-time notification';
+      // First check displayConfig (newer format)
+      if (notification.displayConfig?.frequency === 'weekly') {
+        return 'Weekly Notification';
+      } else if (notification.displayConfig?.frequency === 'monthly') {
+        return 'Monthly Notification';
+      } else if (notification.displayConfig?.frequency === 'custom') {
+        return 'Custom Notification';
+      } 
+      // Then check renewalConfig (transitional format)
+      else if (notification.renewalConfig?.method === 'day') {
+        return 'Weekly Notification';
+      } else if (notification.renewalConfig?.method === 'custom') {
+        return 'Custom Notification';
+      } 
+      // Default to one-time if no repeating configuration found
+      else {
+        return 'One-time Notification';
+      }
     }
     
     return 'Notification';
@@ -288,9 +357,11 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
   // Check if this is a completed survey
   const isSurveyCompleted = isSurveyType && notification.surveyCompleted;
   
-  // Check if this is a dismissible notification
+  // Comprehensive check if this is a dismissible notification
+  // Notifications should be dismissible if they're one-time notifications (not repeating)
   const isDismissible = notification.type === 'once' || 
-                      (notification.type === 'notification' && !hasRepeatInterval);
+                      (notification.type === 'notification' && !hasRepeatInterval) ||
+                      (notification.displayConfig && notification.displayConfig.frequency === 'one-time');
   
   return (
     <div
@@ -558,10 +629,16 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
   }
   
   // Extract repeatInterval information
+  // Determine if this notification repeats using comprehensive checks across all formats
   // Use strict boolean check (double bang) to ensure proper true/false conversion
   const hasRepeatInterval = !!notification.repeatInterval || 
+                           !!notification.renewalConfig ||
                            notification.type === 'weekly-survey' || 
-                           notification.type === 'recurring';
+                           notification.type === 'recurring' ||
+                           (notification.displayConfig && 
+                            (notification.displayConfig.frequency === 'weekly' || 
+                             notification.displayConfig.frequency === 'monthly' || 
+                             notification.displayConfig.frequency === 'custom'));
   
   // For legacy weekly-survey type, use a default interval if not specified
   const repeatInterval = notification.repeatInterval || 
@@ -776,9 +853,9 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
           )}
         </div>
         
-        {/* Show Acknowledge button for all notification types except surveys */}
+        {/* Only show Acknowledge button for non-survey notifications */}
         {/* For surveys we use the survey form's submit button instead */}
-        {(!isSurveyType || isSurveyCompleted) && (
+        {!isSurveyType && (
           <DialogFooter className="mt-6">
             <Button 
               onClick={() => {
@@ -871,6 +948,19 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
               // For surveys, create a unique notification for each course
               const courseTitle = course.courseDetails?.Title || course.title || `Course ${course.id}`;
               
+              // Debug the notification object properties BEFORE copying
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`Survey notification (PRE-COPY) ${notification.id}:`, {
+                  hasDisplayConfig: !!notification.displayConfig,
+                  displayConfig: notification.displayConfig,
+                  displayConfigFrequency: notification.displayConfig?.frequency,
+                  hasRenewalConfig: !!notification.renewalConfig,
+                  renewalConfig: notification.renewalConfig,
+                  renewalConfigMethod: notification.renewalConfig?.method,
+                  keys: Object.keys(notification)
+                });
+              }
+              
               // Create base notification object
               const newNotification = {
                 // Make explicit property copies instead of using spread to ensure all properties are correctly preserved
@@ -885,6 +975,10 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
                 surveyQuestions: notification.surveyQuestions,
                 surveyCompleted: notification.surveyCompleted,
                 
+                // CRITICAL: Copy display configuration properties
+                displayConfig: notification.displayConfig,
+                renewalConfig: notification.renewalConfig,
+                
                 // Create a unique ID for this course-specific notification
                 uniqueId: `${notification.id}_${course.id}`,
                 // Original ID is still needed for backend operations
@@ -896,6 +990,19 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
                   title: courseTitle
                 }]
               };
+              
+              // Debug the new notification object to confirm properties were copied
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`Survey notification (AFTER-COPY) ${newNotification.id}:`, {
+                  hasDisplayConfig: !!newNotification.displayConfig,
+                  displayConfig: newNotification.displayConfig,
+                  displayConfigFrequency: newNotification.displayConfig?.frequency,
+                  hasRenewalConfig: !!newNotification.renewalConfig,
+                  renewalConfig: newNotification.renewalConfig,
+                  renewalConfigMethod: newNotification.renewalConfig?.method,
+                  keys: Object.keys(newNotification)
+                });
+              }
               
               // IMPORTANT: Explicitly copy the repeatInterval property if it exists
               // Preserve important properties
@@ -921,6 +1028,19 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
               const existingIndex = result.findIndex(n => n.id === notification.id);
               if (existingIndex === -1) {
                 // First time seeing this notification, create it with courses array
+                // Debug the notification object properties BEFORE copying
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`Regular notification (PRE-COPY) ${notification.id}:`, {
+                    hasDisplayConfig: !!notification.displayConfig,
+                    displayConfig: notification.displayConfig,
+                    displayConfigFrequency: notification.displayConfig?.frequency,
+                    hasRenewalConfig: !!notification.renewalConfig,
+                    renewalConfig: notification.renewalConfig,
+                    renewalConfigMethod: notification.renewalConfig?.method,
+                    keys: Object.keys(notification)
+                  });
+                }
+                
                 // Create base notification object with explicit property copies
                 const newNotification = {
                   // Make explicit property copies instead of using spread to ensure all properties are correctly preserved
@@ -935,6 +1055,10 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
                   surveyQuestions: notification.surveyQuestions,
                   surveyCompleted: notification.surveyCompleted,
                   
+                  // CRITICAL: Copy display configuration properties
+                  displayConfig: notification.displayConfig,
+                  renewalConfig: notification.renewalConfig,
+                  
                   // Add consistency properties
                   uniqueId: notification.id,
                   originalNotificationId: notification.id,
@@ -945,6 +1069,19 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
                     title: course.courseDetails?.Title || course.title || `Course ${course.id}`
                   }]
                 };
+                
+                // Debug the new notification object to confirm properties were copied
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`Regular notification (AFTER-COPY) ${newNotification.id}:`, {
+                    hasDisplayConfig: !!newNotification.displayConfig,
+                    displayConfig: newNotification.displayConfig,
+                    displayConfigFrequency: newNotification.displayConfig?.frequency,
+                    hasRenewalConfig: !!newNotification.renewalConfig,
+                    renewalConfig: newNotification.renewalConfig,
+                    renewalConfigMethod: newNotification.renewalConfig?.method,
+                    keys: Object.keys(newNotification)
+                  });
+                }
                 
                 // IMPORTANT: Explicitly copy the repeatInterval property if it exists
                 // Preserve important properties
@@ -1004,11 +1141,18 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
     return result;
   }, [courses]);
 
-  // Filter out dismissed one-time notifications
+  // Filter out dismissed one-time notifications and completed surveys
   let activeNotifications = allNotifications.filter(notification => {
+    // Filter out one-time notifications that have been dismissed
     if (notification.type === 'once' && readNotifications[notification.uniqueId]?.dismissed) {
       return false;
     }
+    
+    // Filter out any survey that has been completed
+    if ((notification.type === 'survey' || notification.type === 'weekly-survey') && notification.surveyCompleted) {
+      return false;
+    }
+    
     return true;
   });
   
@@ -1031,7 +1175,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         return {
           ...notification,
           important: true,
-          title: notification.title + ' (IMPORTANT TEST)'
+          title: notification.title 
         };
       }
       return notification;
@@ -1343,16 +1487,18 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         studentEmail: profile?.StudentEmail,
         studentName: `${profile?.firstName} ${profile?.lastName}`,
         hasSeen: true,
-        hasSeenTimeStamp: new Date().toISOString()
+        hasSeenTimeStamp: new Date().toISOString(),
+        // Add acknowledgment fields automatically when completing the survey
+        hasAcknowledged: true,
+        acknowledgedAt: new Date().toISOString()
       };
       
       // Generate a timestamp for this submission
       const timestamp = Date.now();
       
-      // Store results in a flat structure using composite keys for better query performance
-      // Format: notificationId_timestamp to ensure uniqueness and support multiple submissions
-      const compositeKey = `${notificationId}_${timestamp}`;
-      const newSurveyRef = ref(db, `surveyResponses/${compositeKey}`);
+      // Store results in a hierarchical structure that maintains security permissions
+      // Format: /surveyResponses/{notificationId}/{timestamp}/{userEmailKey}/
+      const newSurveyRef = ref(db, `surveyResponses/${notificationId}/${timestamp}/${current_user_email_key}`);
       
       await set(newSurveyRef, {
         answers,
@@ -1360,24 +1506,25 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         courseName: selectedCourse.title,
         hasSeen: true,
         hasSeenTimeStamp: new Date().toISOString(),
+        hasAcknowledged: true,
+        acknowledgedAt: new Date().toISOString(),
         notificationId,
         studentEmail: profile?.StudentEmail,
         studentName: `${profile?.firstName} ${profile?.lastName}`,
         submittedAt: new Date().toISOString(),
-        timestamp,
-        userEmailKey: current_user_email_key
+        timestamp
       });
       
       // Legacy location for backward compatibility 
       const legacySurveyRef = ref(db, `surveyResponses/${current_user_email_key}/notifications/${notificationId}`);
       await set(legacySurveyRef, surveyData);
       
-      // Create a composite key for studentDashboardNotificationsResults too
-      const resultCompositeKey = `${notificationId}_${current_user_email_key}_${timestamp}`;
-      const flatResultsRef = ref(db, `studentDashboardNotificationsResults/${resultCompositeKey}`);
+      // Create a hierarchical structure for studentDashboardNotificationsResults
+      // Format: /studentDashboardNotificationsResults/{notificationId}/{timestamp}/{userEmailKey}/
+      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${timestamp}/${current_user_email_key}`);
       
-      // Store in flat structure for better filtering
-      await set(flatResultsRef, {
+      // Store in hierarchical structure for better filtering while maintaining security
+      await set(resultsRef, {
         answers,
         courseId: selectedCourse.id,
         courseName: selectedCourse.title,
@@ -1386,13 +1533,14 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         email: profile?.StudentEmail,
         hasSeen: true,
         hasSeenTimeStamp: new Date().toISOString(),
+        hasAcknowledged: true,
+        acknowledgedAt: new Date().toISOString(),
         latestSubmission: true, // Flag to identify most recent submission
         notificationId,
         studentEmail: profile?.StudentEmail,
         studentName: `${profile?.firstName} ${profile?.lastName}`,
         submittedAt: new Date().toISOString(),
         timestamp,
-        userEmailKey: current_user_email_key,
         displayFrequency: selectedNotification.displayConfig?.frequency || 'one-time'
       });
       
@@ -1411,8 +1559,10 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         email: profile?.StudentEmail,
         completed: true,
         completedAt: new Date().toISOString(),
-        // Store a reference to the flat structure entry
-        latestSubmissionKey: resultCompositeKey,
+        hasAcknowledged: true,
+        acknowledgedAt: new Date().toISOString(),
+        // Store a reference to the hierarchical structure entry 
+        latestSubmissionPath: `${notificationId}/${timestamp}/${current_user_email_key}`,
         // Ensure we have a submissions object with the timestamp entry
         submissions: {
           ...(existingData.submissions || {}),
@@ -1420,11 +1570,14 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
             answers,
             submittedAt: new Date().toISOString(),
             courseIds: [selectedCourse.id],
-            courses: [selectedCourse]
+            courses: [selectedCourse],
+            hasAcknowledged: true,
+            acknowledgedAt: new Date().toISOString()
           }
         },
-        // Update lastSubmitted timestamp
-        lastSubmitted: new Date().toISOString()
+        // Update lastSubmitted and lastAcknowledged timestamps
+        lastSubmitted: new Date().toISOString(),
+        lastAcknowledged: new Date().toISOString()
       });
       
       // Also store the result in the course record for real-time updates
@@ -1435,8 +1588,10 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         answers, // Store answers directly in the format provided
         hasSeen: true,
         hasSeenTimeStamp: new Date().toISOString(),
-        // Reference to the flat structure key
-        latestSubmissionKey: resultCompositeKey
+        hasAcknowledged: true,
+        acknowledgedAt: new Date().toISOString(),
+        // Reference to the hierarchical structure path
+        latestSubmissionPath: `${notificationId}/${timestamp}/${current_user_email_key}`
       });
 
       // Process categories from answers
@@ -1516,6 +1671,9 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       // Close dialog and refresh notifications
       setSelectedNotification(null);
       markAsRead(selectedNotification);
+      
+      // Also mark as dismissed/acknowledged since we've added the acknowledgment fields
+      dismissNotification(selectedNotification);
       
       // Show success message
       toast?.success?.('Survey submitted successfully') || alert('Survey submitted successfully');
