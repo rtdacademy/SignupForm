@@ -3,7 +3,10 @@ import { getDatabase, ref, onValue, get, query, orderByChild, equalTo, set } fro
 import { useAuth } from '../../context/AuthContext';
 import { 
   calculateAge as calculateAgeUtil,
-  processNotificationsForCourses as processNotificationsUtil
+  processNotificationsForCourses as processNotificationsUtil,
+  getCurrentDate,
+  setMockDate,
+  resetNotificationAcknowledgment
 } from '../../utils/notificationFilterUtils';
 
 export const useStudentData = (userEmailKey) => {
@@ -214,6 +217,20 @@ export const useStudentData = (userEmailKey) => {
         acknowledgedAt: currentDate,
         userEmail: userEmail
       };
+      
+      // Add window function for testing
+      if (!window.resetNotificationStatus) {
+        window.resetNotificationStatus = async (notificationId, email) => {
+          return await resetNotificationAcknowledgment(notificationId, email);
+        };
+      }
+      
+      // Add window function for date mocking
+      if (!window.mockDate) {
+        window.mockDate = (dateString) => {
+          return setMockDate(dateString ? new Date(dateString) : null);
+        };
+      }
       
       // Get display frequency from notification properties, with strong prioritization
       // 1. Use displayConfig.frequency if available (new format)
@@ -923,6 +940,35 @@ export const useStudentData = (userEmailKey) => {
         
         // For repeating surveys, completed is temporary (until next cycle)
         updateData.completed = true;
+        
+        // Calculate and store the next renewal date based on the frequency
+        if (displayFrequency === 'weekly') {
+          const dayOfWeek = notification.displayConfig?.dayOfWeek || 
+                        notification.renewalConfig?.dayOfWeek || 'monday';
+          
+          const dayMap = {
+            'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
+            'thursday': 4, 'friday': 5, 'saturday': 6
+          };
+          const targetDayNum = dayMap[dayOfWeek.toLowerCase()] || 1; // Default to Monday
+          
+          // Start with today's date for calculation
+          let nextRenewalDate = new Date();
+          
+          // Add days until we reach the target day of the week
+          while (nextRenewalDate.getDay() !== targetDayNum) {
+            nextRenewalDate.setDate(nextRenewalDate.getDate() + 1);
+          }
+          
+          // If today is the target day, add 7 days for next week
+          if (nextRenewalDate.getDay() === new Date().getDay()) {
+            nextRenewalDate.setDate(nextRenewalDate.getDate() + 7);
+          }
+          
+          // Store the next renewal date
+          updateData.nextRenewalDate = nextRenewalDate.toISOString();
+          console.log(`Set next renewal date to ${updateData.nextRenewalDate} for ${dayOfWeek}`);
+        }
       }
       
       // Update the record

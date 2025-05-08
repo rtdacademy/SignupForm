@@ -4,6 +4,167 @@
  * Used by both StudentDashboardNotifications.js and useStudentData.js
  */
 
+// Global date override for testing
+let _mockDate = null;
+
+// Export for testing purposes
+export const setMockDate = (date) => {
+  if (date === null) {
+    _mockDate = null;
+    console.log("Date mocking disabled. Using real date.");
+    return new Date();
+  }
+  
+  const newDate = date instanceof Date ? date : new Date(date);
+  _mockDate = newDate;
+  console.log(`Date mocked to: ${newDate.toLocaleString()}`);
+  return newDate;
+};
+
+// Function to get current date (real or mocked)
+export const getCurrentDate = () => {
+  return _mockDate || new Date();
+};
+
+// Helper to clear notification status for testing
+export const resetNotificationAcknowledgment = async (notificationId, userEmail) => {
+  try {
+    // Import Firebase functions dynamically to avoid circular dependencies
+    const { getDatabase, ref, get, set } = await import('firebase/database');
+    
+    const db = getDatabase();
+    
+    // Different email formats used in Firebase paths
+    const underscoredEmail = userEmail.replace(/\./g, '_');  // kyle_e_brown13@gmail_com
+    const commaEmail = userEmail.replace(/\./g, ',');        // kyle,e,brown13@gmail,com
+    const zeroPrefix = `000${userEmail}`.replace(/\./g, ','); // 000kyle,e,brown13@gmail,com (another format found)
+    
+    console.log('Email formats for testing:', { 
+      original: userEmail, 
+      underscored: underscoredEmail, 
+      comma: commaEmail,
+      zeroPrefixed: zeroPrefix
+    });
+    
+    let success = false;
+    
+    // 1. Reset in studentDashboardNotificationsResults/{notificationId}/{userEmailKey} (underscored format)
+    try {
+      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${underscoredEmail}`);
+      
+      // Get existing data first
+      const snapshot = await get(resultsRef);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        // Keep submissions history but reset acknowledge status
+        await set(resultsRef, {
+          ...data,
+          acknowledged: false,
+          completed: false,
+          // Keep submissions history
+        });
+        console.log(`Reset acknowledgment status for notification ${notificationId} in main results (underscored format)`);
+        success = true;
+      }
+    } catch (error) {
+      console.error(`Error updating underscored path: ${error.message}`);
+    }
+    
+    // 2. Also check for the specific timestamp-based entries
+    try {
+      // Get all potential timestamp entries for this notification
+      const timestampsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}`);
+      const timestampsSnapshot = await get(timestampsRef);
+      
+      if (timestampsSnapshot.exists()) {
+        const entries = timestampsSnapshot.val();
+        
+        // Process numeric timestamps (these are the hierarchical entries)
+        for (const [key, value] of Object.entries(entries)) {
+          // Check if the key is numeric (a timestamp) and if it contains our email
+          if (!isNaN(Number(key)) && value && value[underscoredEmail]) {
+            const timestampRef = ref(db, 
+              `studentDashboardNotificationsResults/${notificationId}/${key}/${underscoredEmail}`);
+              
+            try {
+              const data = (await get(timestampRef)).val();
+              if (data) {
+                await set(timestampRef, {
+                  ...data,
+                  completed: false,
+                  acknowledged: false,
+                  hasAcknowledged: false
+                });
+                console.log(`Reset timestamp entry: ${key}`);
+                success = true;
+              }
+            } catch (error) {
+              console.error(`Error updating timestamp entry ${key}: ${error.message}`);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error processing timestamps: ${error.message}`);
+    }
+    
+    // 3. Try different formats for student course data
+    // Attempt all email format variants to find the right path for this student
+    const emailFormats = [commaEmail, zeroPrefix];
+    
+    for (const emailFormat of emailFormats) {
+      try {
+        console.log(`Trying student path format: students/${emailFormat}/courses`);
+        const coursesRef = ref(db, `students/${emailFormat}/courses`);
+        const coursesSnapshot = await get(coursesRef);
+        
+        if (coursesSnapshot.exists()) {
+          console.log(`Found student courses at path: students/${emailFormat}/courses`);
+          const courses = coursesSnapshot.val();
+          
+          // For each course, check and reset notification results
+          for (const courseId in courses) {
+            if (courseId === 'sections' || courseId === 'normalizedSchedule') continue;
+            
+            const courseNotificationPath = `students/${emailFormat}/courses/${courseId}/studentDashboardNotificationsResults/${notificationId}`;
+            console.log(`Checking course notification at: ${courseNotificationPath}`);
+            
+            try {
+              const courseNotificationRef = ref(db, courseNotificationPath);
+              const courseNotificationSnapshot = await get(courseNotificationRef);
+              
+              if (courseNotificationSnapshot.exists()) {
+                const courseData = courseNotificationSnapshot.val();
+                
+                // Reset completion and acknowledgment status while keeping other data
+                await set(courseNotificationRef, {
+                  ...courseData,
+                  acknowledged: false,
+                  hasAcknowledged: false,
+                  completed: false
+                });
+                
+                console.log(`Reset notification ${notificationId} for course ${courseId}`);
+                success = true;
+              }
+            } catch (error) {
+              console.error(`Error resetting course notification: ${error.message}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error with email format ${emailFormat}: ${error.message}`);
+        // Continue with next format
+      }
+    }
+    
+    return success;
+  } catch (error) {
+    console.error('Error resetting notification:', error);
+    return false;
+  }
+};
+
 /**
  * Calculate age from birthdate
  * @param {string} birthdate - Birthdate in any format accepted by Date constructor
@@ -13,7 +174,7 @@ export const calculateAge = (birthdate) => {
   if (!birthdate) return null;
   
   const birthDate = new Date(birthdate);
-  const today = new Date();
+  const today = getCurrentDate(); // Use our mocked date if set
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
   
@@ -415,11 +576,75 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
   // For repeating notifications/surveys, check if enough time has passed since the last interaction
   if (hasRepeatInterval) {
     const notificationResults = course.studentDashboardNotificationsResults?.[notification.id];
-    const lastInteracted = notificationResults?.lastSubmitted || notificationResults?.lastSeen;
+    
+    // Find the most recent interaction from multiple possible sources
+    // We need to check both lastSubmitted and lastSeen across different data structures
+    let lastInteracted = null;
+    
+    // Check primaryNotificationResult first (direct result)
+    if (notificationResults?.lastSubmitted) {
+      lastInteracted = notificationResults.lastSubmitted;
+    } else if (notificationResults?.lastSeen) {
+      lastInteracted = notificationResults.lastSeen;
+    }
+    
+    // Check submissions history (might have more recent timestamps)
+    if (notificationResults?.submissions && Object.keys(notificationResults.submissions).length > 0) {
+      const submissionTimestamps = Object.keys(notificationResults.submissions)
+        .map(timestamp => {
+          const submission = notificationResults.submissions[timestamp];
+          return submission.submittedAt || submission.seenAt;
+        })
+        .filter(Boolean);
+      
+      if (submissionTimestamps.length > 0) {
+        // Get the most recent timestamp
+        const mostRecentSubmission = new Date(Math.max(...submissionTimestamps.map(date => new Date(date).getTime())));
+        
+        // If we found a submission date and it's more recent than what we had, use it
+        if (!lastInteracted || new Date(mostRecentSubmission) > new Date(lastInteracted)) {
+          lastInteracted = mostRecentSubmission.toISOString();
+        }
+      }
+    }
+    
+    // Debug interaction dates in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Notification ${notification.id} last interaction date:`, {
+        lastInteracted,
+        hasResults: !!notificationResults,
+        lastSubmitted: notificationResults?.lastSubmitted,
+        lastSeen: notificationResults?.lastSeen,
+        submissionCount: notificationResults?.submissions ? Object.keys(notificationResults.submissions).length : 0
+      });
+    }
     
     if (lastInteracted) {
       const lastInteractedDate = new Date(lastInteracted);
-      const currentDate = new Date();
+      const currentDate = getCurrentDate(); // Use our mocked date if set
+      
+      // Check if we have a stored nextRenewalDate that we can use
+      let nextRenewalDateField = notificationResults?.nextRenewalDate;
+      if (nextRenewalDateField) {
+        const storedNextRenewalDate = new Date(nextRenewalDateField);
+        
+        // Log the stored renewal date for debugging
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Found stored next renewal date for ${notification.id}:`, {
+            nextRenewalDate: storedNextRenewalDate.toISOString(),
+            currentDate: currentDate.toISOString(),
+            shouldRenew: currentDate >= storedNextRenewalDate
+          });
+        }
+        
+        // If we have a renewal date and the current date has reached it, immediately show
+        if (currentDate >= storedNextRenewalDate) {
+          // The renewal date has passed, allow the notification to show
+          console.log(`Renewal date ${storedNextRenewalDate.toISOString()} has passed, showing notification`);
+          // Skip the day-of-week calculation and immediately determine this is a match
+          return null; // Return null to continue with the rest of the match evaluation
+        }
+      }
       
       if (displayFrequency === 'weekly') {
         // Get day of week from displayConfig or renewalConfig or default to Monday
@@ -437,22 +662,37 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
         const daysSinceInteraction = Math.floor((currentDate - lastInteractedDate) / (24 * 60 * 60 * 1000));
         const currentDayNum = currentDate.getDay();
         
-        // Check if we've passed the target day since last interaction
-        let shouldDisplay = false;
+        // Find the next renewal date based on the last interaction
+        let nextRenewalDate = new Date(lastInteractedDate);
         
-        if (currentDayNum === targetDayNum) {
-          // If today is the target day, only show if it's been at least a week
-          shouldDisplay = daysSinceInteraction >= 7;
-        } else if (currentDayNum > targetDayNum) {
-          // If we're past the target day this week, show if the target day has passed since last interaction
-          const daysSinceTargetDay = currentDayNum - targetDayNum;
-          shouldDisplay = daysSinceInteraction >= daysSinceTargetDay;
-        } else {
-          // If target day is later this week, check if it's been a week plus days since last target day
-          const daysUntilNextTargetDay = targetDayNum - currentDayNum;
-          const daysSinceLastTargetDay = 7 - daysUntilNextTargetDay;
-          shouldDisplay = daysSinceInteraction >= daysSinceLastTargetDay;
+        // Add days until we reach the target day of the week
+        while (nextRenewalDate.getDay() !== targetDayNum) {
+          nextRenewalDate.setDate(nextRenewalDate.getDate() + 1);
         }
+        
+        // If the next renewal date is the same as the last interaction date 
+        // (i.e., the last interaction was on the target day),
+        // add 7 days to get to the next occurrence of that day
+        if (nextRenewalDate.getTime() === lastInteractedDate.getTime()) {
+          nextRenewalDate.setDate(nextRenewalDate.getDate() + 7);
+        }
+        
+        // Debug info for understanding the renewal logic
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Weekly renewal calculation for ${notification.id}:`, {
+            lastInteractedDate: lastInteractedDate.toISOString(),
+            currentDate: currentDate.toISOString(),
+            targetDayOfWeek: dayOfWeek,
+            targetDayNum,
+            currentDayNum,
+            nextRenewalDate: nextRenewalDate.toISOString(),
+            daysSinceInteraction,
+            shouldRenew: currentDate >= nextRenewalDate
+          });
+        }
+        
+        // The notification should display if the current date is on or after the next renewal date
+        const shouldDisplay = currentDate >= nextRenewalDate;
         
         if (!shouldDisplay) {
           return {
@@ -460,7 +700,7 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
             shouldDisplay: false,
             conditionResults: [],
             reason: 'Weekly notification not yet due for display',
-            nextAvailableDate: null
+            nextAvailableDate: nextRenewalDate.toISOString()
           };
         }
       } else if (displayFrequency === 'custom') {
@@ -575,14 +815,32 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
   let shouldDisplay = true;
   let displayReason = 'Conditions matched';
   
-  // For surveys, don't show them if they've been completed regardless of repeat interval
-  if (isSurveyType && surveyCompleted) {
-    shouldDisplay = false;
-    displayReason = 'Survey already completed';
+  // Handle completed surveys differently based on frequency
+  if (isSurveyType) {
+    if (isOneTimeType && surveyCompleted) {
+      // One-time surveys don't show again once completed
+      shouldDisplay = false;
+      displayReason = 'One-time survey already completed';
+    } else if (hasRepeatInterval && surveyCompleted) {
+      // For repeating surveys, we need to check if enough time has passed to show it again
+      // This check happens in the hasRepeatInterval section above, so if we get here with
+      // shouldDisplay still true, it means we should show it despite being completed before
+      
+      // Add debug info
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Survey ${notification.id} renewal evaluation:`, {
+          type: notification.type,
+          completed: surveyCompleted,
+          hasRepeatInterval,
+          displayFrequency,
+          shouldDisplay
+        });
+      }
+    }
   }
   
-  // If it's a one-time notification that's been completed or acknowledged, don't show it again
-  if (isOneTimeType && 
+  // If it's a one-time notification (not survey) that's been completed or acknowledged, don't show it again
+  if (isOneTimeType && !isSurveyType && 
       (course.studentDashboardNotificationsResults?.[notification.id]?.completed ||
        course.studentDashboardNotificationsResults?.[notification.id]?.acknowledged)) {
     shouldDisplay = false;

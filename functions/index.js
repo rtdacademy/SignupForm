@@ -117,7 +117,8 @@ exports.batchUpdateNormalizedSchedulesV2 = normalizedScheduleFunctions.batchUpda
 exports.archiveStudentDataV2 = archiveStudentDataFunctions.archiveStudentDataV2;
 exports.restoreStudentDataV2 = archiveStudentDataFunctions.restoreStudentDataV2;
 
-// Export Google AI functions
-exports.generateContent = googleAIFunctions.generateContent;
-exports.startChatSession = googleAIFunctions.startChatSession;
-exports.sendChatMessage = googleAIFunctions.sendChatMessage;
+// Export Google AI functions (V2 format)
+const googleAIv2 = require('./googleai');
+exports.generateContent = googleAIv2.generateContent;
+exports.startChatSession = googleAIv2.startChatSession;
+exports.sendChatMessage = googleAIv2.sendChatMessage;

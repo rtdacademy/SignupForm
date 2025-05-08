@@ -17,6 +17,11 @@ export const AI_MODEL_MAPPING = {
     name: 'gemini-1.5-flash',
     label: 'Gemini 1.5 Flash',
     description: 'A reliable backup model that maintains service continuity during high demand or system constraints. While slightly older than our 2.0 versions, it delivers consistent performance for most tasks. Automatically engages when needed to prevent service interruptions, ensuring your application remains responsive even under heavy load. No action required from users as this switches seamlessly in the background.',
+  },
+  livechat: {
+    name: 'gemini-1.5-flash',
+    label: 'Gemini 1.5 Flash for Chat',
+    description: 'Optimized for real-time interactive chat applications. This model delivers fast, responsive outputs for dynamic conversations while maintaining high quality responses. Perfect for chat interfaces requiring quick turnaround times and natural conversational flow.',
   }
 };
 

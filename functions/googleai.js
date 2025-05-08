@@ -1,123 +1,109 @@
-const functions = require('firebase-functions');
-const { GoogleGenerativeAI } = require('@google/genai');
+// Import 2nd gen Firebase Functions
+const { onCall } = require('firebase-functions/v2/https');
+const admin = require('firebase-admin');
+const { GoogleGenAI } = require('@google/genai');
+
+// Initialize Firebase Admin SDK if not already initialized
+if (admin.apps.length === 0) {
+  admin.initializeApp();
+}
 
 // Environment variables should be set in Firebase Cloud Functions
-// See: https://firebase.google.com/docs/functions/config-env
+// Try to get the API key from different sources
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// Safe JSON stringifying to handle circular references
+const safeStringify = (obj) => {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+      seen.add(value);
+    }
+    return value;
+  });
+};
 
 /**
  * Cloud function to proxy requests to Google AI's Gemini model
  * This keeps the API key secure on the server side
  */
-exports.generateContent = functions.https.onCall(async (data, context) => {
-  // Verify Firebase Auth (optional but recommended)
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      'unauthenticated',
-      'Authentication required to access this service.'
-    );
-  }
+const generateContent = onCall({
+  concurrency: 10,
+  memory: '1GiB',
+  timeoutSeconds: 60,
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+}, async (request) => {
+  // Data is in request.data for V2 functions
+  const data = request.data;
 
   try {
-    const { prompt, model = 'gemini-2.0-flash-001', options = {} } = data;
+    // Log the incoming data for debugging (safely)
+    console.log("Received data:", safeStringify(data));
+    
+    const { 
+      prompt, 
+      model = 'gemini-1.5-flash',
+      options = {} 
+    } = data;
 
     if (!prompt) {
-      throw new functions.https.HttpsError(
-        'invalid-argument', 
-        'Prompt is required'
-      );
+      throw new Error('Prompt is required');
     }
 
-    // Initialize the Google AI client
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const geminiModel = genAI.models.getGenerativeModel({ model });
+    console.log(`Processing prompt: "${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}"`);
 
+    // Initialize the Google AI client - updated to use the correct constructor
+    const genAI = new GoogleGenAI({apiKey: GEMINI_API_KEY});
+    
     // Generate content
-    const result = await geminiModel.generateContent(prompt);
-    const response = result.response;
+    const response = await genAI.models.generateContent({
+      model: model,
+      contents: prompt
+    });
     
     return {
-      text: response.text(),
-      // Can include other metadata as needed
+      text: response.text,
     };
   } catch (error) {
     console.error('Error generating content:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'An error occurred while generating content.',
-      error.message
-    );
+    throw new Error(`An error occurred while generating content: ${error.message}`);
   }
 });
 
 /**
  * Create a chat session with history
  */
-exports.startChatSession = functions.https.onCall(async (data, context) => {
-  // Verify Firebase Auth (optional but recommended)
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      'unauthenticated',
-      'Authentication required to access this service.'
-    );
-  }
+const startChatSession = onCall({
+  concurrency: 10,
+  memory: '1GiB',
+  timeoutSeconds: 60,
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+}, async (request) => {
+  const data = request.data;
 
   try {
+    console.log("Starting chat session with data:", safeStringify(data));
+    
     const { 
       history = [], 
-      model = 'gemini-2.0-flash-001',
+      model = 'gemini-1.5-flash',
       systemInstruction = null
     } = data;
 
-    // Initialize the Google AI client
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    
-    // Set up the model configuration
-    const modelConfig = {
-      model,
-      generationConfig: {
-        temperature: 0.9,
-        topP: 0.95,
-        topK: 64,
-        maxOutputTokens: 8192,
-      },
-      safetySettings: [
-        {
-          category: 'HARM_CATEGORY_HATE_SPEECH',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-        },
-        {
-          category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-        },
-        {
-          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-        },
-        {
-          category: 'HARM_CATEGORY_HARASSMENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-        }
-      ]
-    };
-
-    // Add system instructions if provided
-    if (systemInstruction) {
-      modelConfig.systemInstruction = {
-        parts: [{ text: systemInstruction }]
-      };
-    }
-
-    const geminiModel = genAI.models.getGenerativeModel(modelConfig);
-    
-    // Initialize chat
-    const chat = geminiModel.startChat({
+    // Initialize the Google AI client - updated to use the correct constructor
+    const genAI = new GoogleGenAI({apiKey: GEMINI_API_KEY});
+    const chat = genAI.chats.create({
+      model: model,
       history: history.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'model',
         parts: [{ text: msg.text }]
       })),
+      systemInstruction: systemInstruction ? { text: systemInstruction } : undefined
     });
-
+    
     // Generate a session ID
     const sessionId = Date.now().toString();
     
@@ -128,103 +114,86 @@ exports.startChatSession = functions.https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error('Error starting chat session:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'An error occurred while starting the chat session.',
-      error.message
-    );
+    throw new Error(`An error occurred while starting the chat session: ${error.message}`);
   }
 });
 
 /**
  * Send a message to an existing chat session
  */
-exports.sendChatMessage = functions.https.onCall(async (data, context) => {
-  // Verify Firebase Auth (optional but recommended)
-  if (!context.auth) {
-    throw new functions.https.HttpsError(
-      'unauthenticated',
-      'Authentication required to access this service.'
-    );
-  }
+const sendChatMessage = onCall({
+  concurrency: 10,
+  memory: '1GiB',
+  timeoutSeconds: 60,
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+}, async (request) => {
+  const data = request.data;
 
   try {
+    // Log the incoming data but safely handle circular references
+    console.log("Received chat message data:", safeStringify(data));
+    
     const { 
       message, 
       history = [],
-      model = 'gemini-2.0-flash-001',
-      systemInstruction = null
+      model = 'gemini-1.5-flash',
+      systemInstruction = null,
+      streaming = false
     } = data;
 
     if (!message) {
-      throw new functions.https.HttpsError(
-        'invalid-argument', 
-        'Message is required'
-      );
+      console.error("Message is missing or empty in the request data");
+      throw new Error('Message is required');
     }
-
-    // Initialize the Google AI client
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     
-    // Set up the model configuration
-    const modelConfig = {
-      model,
-      generationConfig: {
-        temperature: 0.9,
-        topP: 0.95,
-        topK: 64,
-        maxOutputTokens: 8192,
-      },
-      safetySettings: [
-        {
-          category: 'HARM_CATEGORY_HATE_SPEECH',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-        },
-        {
-          category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-        },
-        {
-          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-        },
-        {
-          category: 'HARM_CATEGORY_HARASSMENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
-        }
-      ]
-    };
+    console.log(`Processing message: "${message.substring(0, 50)}${message.length > 50 ? '...' : ''}"`);
 
-    // Add system instructions if provided
-    if (systemInstruction) {
-      modelConfig.systemInstruction = {
-        parts: [{ text: systemInstruction }]
-      };
-    }
-
-    const geminiModel = genAI.models.getGenerativeModel(modelConfig);
+    // Initialize the Google AI client - updated to use the correct constructor
+    const genAI = new GoogleGenAI({apiKey: GEMINI_API_KEY});
     
-    // Initialize chat with history
-    const chat = geminiModel.startChat({
+    // Create a chat session
+    const chat = genAI.chats.create({
+      model: model,
       history: history.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'model',
         parts: [{ text: msg.text }]
       })),
+      systemInstruction: systemInstruction ? { text: systemInstruction } : undefined
     });
 
-    // Send the message
-    const result = await chat.sendMessage(message);
-    const response = await result.response;
-    
-    return {
-      text: response.text()
-    };
+    // Send the message - with streaming or without based on the request
+    if (streaming) {
+      // NOTE: Firebase Functions v2 doesn't support true streaming responses.
+      // This is a workaround to simulate streaming by collecting all chunks.
+      const streamingResponse = await chat.sendMessageStream({message: message});
+      
+      // Collect all chunks
+      let completeResponse = '';
+      for await (const chunk of streamingResponse) {
+        completeResponse += chunk.text || '';
+      }
+      
+      return {
+        text: completeResponse,
+        streaming: true
+      };
+    } else {
+      // Regular non-streaming response
+      const response = await chat.sendMessage({message: message});
+      
+      return {
+        text: response.text,
+        streaming: false
+      };
+    }
   } catch (error) {
     console.error('Error sending chat message:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'An error occurred while sending the message.',
-      error.message
-    );
+    throw new Error(`An error occurred while sending the message: ${error.message}`);
   }
 });
+
+module.exports = {
+  generateContent,
+  startChatSession,
+  sendChatMessage
+};

@@ -13,9 +13,10 @@ import {
 import { cn } from "../../lib/utils";
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getApp } from 'firebase/app';
+import { AI_MODEL_MAPPING } from '../utils/settings';
 
 // Sample message component
-const MessageBubble = ({ message, userName = 'You', assistantName = 'Google AI Assistant' }) => {
+const MessageBubble = ({ message, isStreaming = false, userName = 'You', assistantName = 'Google AI Assistant' }) => {
   const isUser = message.sender === 'user';
   
   return (
@@ -34,21 +35,30 @@ const MessageBubble = ({ message, userName = 'You', assistantName = 'Google AI A
         "flex flex-col max-w-[80%]",
         isUser ? "items-end" : "items-start"
       )}>
-        <div className="text-sm font-medium text-gray-500 mb-1">
+        <div className="text-sm font-medium text-gray-500 mb-1 flex items-center gap-2">
           {isUser ? userName : assistantName}
+          {isStreaming && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+              Streaming
+            </span>
+          )}
         </div>
         
         <div className={cn(
           "rounded-2xl px-4 py-2",
           isUser 
             ? "bg-blue-500 text-white rounded-br-none" 
-            : "bg-gray-100 text-gray-800 rounded-bl-none"
+            : "bg-gray-100 text-gray-800 rounded-bl-none",
+          isStreaming && "border border-indigo-200"
         )}>
           <div className={cn(
             "prose prose-sm max-w-none",
             isUser && "[&_*]:text-white"
           )}>
             {message.text}
+            {isStreaming && (
+              <span className="inline-block w-1.5 h-4 ml-0.5 bg-indigo-500 animate-pulse rounded"></span>
+            )}
           </div>
         </div>
         
@@ -71,7 +81,7 @@ const GoogleAIChatApp = ({ firebaseApp = getApp() }) => {
   const scrollAreaRef = useRef(null);
   
   // Initialize Firebase Functions
-  const functions = getFunctions(firebaseApp);
+  const functions = getFunctions(firebaseApp, 'us-central1');
   const sendChatMessage = httpsCallable(functions, 'sendChatMessage');
   
   // Scroll to bottom of chat
@@ -126,42 +136,96 @@ const GoogleAIChatApp = ({ firebaseApp = getApp() }) => {
       text: '',
       timestamp: Date.now() + 1,
     }]);
+
+    // Set streaming state
+    setIsStreaming(true);
     
     try {
       // Call the Cloud Function with message and history
       const history = messages.slice(-10); // Keep last 10 messages for context
       
-      const result = await sendChatMessage({
+      // Log what we're sending to help debug
+      console.log("Sending to AI:", {
         message: messageToSend,
         history: history,
-        model: 'gemini-2.0-flash-001', // Or any other model you want to use
-        systemInstruction: "You are a helpful AI assistant that provides clear, accurate information."
+        model: AI_MODEL_MAPPING.livechat.name,
+        streaming: true // Enable streaming mode
+      });
+      
+      // Format the data that we send to match what the Cloud Function expects
+      const result = await sendChatMessage({
+        message: messageToSend, // The actual text message to send
+        history: history.map(msg => ({
+          // Convert our internal message format to what the function expects
+          sender: msg.sender, // 'user' or 'ai'
+          text: msg.text
+        })),
+        model: AI_MODEL_MAPPING.livechat.name, // Using the live chat model from settings
+        systemInstruction: "You are a helpful AI assistant that provides clear, accurate information.",
+        streaming: true // Enable streaming mode
       });
       
       // Update the AI message with the response
       const aiResponse = result.data.text;
       
-      setMessages(prev =>
-        prev.map(msg =>
-          msg.id === aiMessageId ? { ...msg, text: aiResponse } : msg
-        )
-      );
+      // Note: In Firebase Functions v2, we can't do true streaming to the client
+      // This simulates streaming by displaying the full response
+      // For a real streaming experience, SSE or WebSockets would be needed
+      
+      // If you want to simulate the streaming effect in the UI:
+      if (result.data.streaming) {
+        // Simulate progressive typing effect
+        let displayedText = '';
+        const fullText = aiResponse;
+        const words = fullText.split(' ');
+        
+        for (let i = 0; i < words.length; i++) {
+          displayedText += words[i] + ' ';
+          
+          // Update message with current text
+          setMessages(prev =>
+            prev.map(msg =>
+              msg.id === aiMessageId ? { ...msg, text: displayedText } : msg
+            )
+          );
+          
+          // Small delay to simulate typing
+          // This creates a visual effect of streaming
+          if (i < words.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+        }
+      } else {
+        // Regular non-streaming update
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === aiMessageId ? { ...msg, text: aiResponse } : msg
+          )
+        );
+      }
       
     } catch (err) {
       console.error('Error sending message:', err);
-      setError(err.message || 'Failed to send message. Please try again.');
+      const errorDetails = err.message || 'Failed to send message. Please try again.';
+      setError(errorDetails);
       
-      // Update the AI message with an error
+      // Show detailed error information in the UI for debugging
+      const errorMessage = err.code === 'functions/invalid-argument' 
+        ? `API Error: ${errorDetails}` 
+        : `I'm sorry, I encountered an error: ${errorDetails}`;
+        
+      // Update the AI message with the error
       setMessages(prev =>
         prev.map(msg =>
           msg.id === aiMessageId ? { 
             ...msg, 
-            text: "I'm sorry, I encountered an error processing your request. Please try again." 
+            text: errorMessage
           } : msg
         )
       );
     } finally {
       setIsLoading(false);
+      setIsStreaming(false);
       scrollToBottom();
     }
   };
@@ -227,6 +291,7 @@ const GoogleAIChatApp = ({ firebaseApp = getApp() }) => {
                   <MessageBubble
                     key={message.id}
                     message={message}
+                    isStreaming={isStreaming && message === messages[messages.length - 1] && message.sender === 'ai'}
                   />
                 ))
               )}
@@ -258,7 +323,7 @@ const GoogleAIChatApp = ({ firebaseApp = getApp() }) => {
               {isLoading ? (
                 <>
                   <Loader className="w-4 h-4 mr-2 animate-spin" />
-                  {isStreaming ? 'Processing...' : 'Loading...'}
+                  {isStreaming ? 'Streaming response...' : 'Loading...'}
                 </>
               ) : (
                 <>

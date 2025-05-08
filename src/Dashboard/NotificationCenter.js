@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
-import { isImportantNotification } from '../utils/notificationFilterUtils';
+import { isImportantNotification, getCurrentDate, setMockDate, resetNotificationAcknowledgment } from '../utils/notificationFilterUtils';
 import { 
   Bell, 
   ChevronDown, 
@@ -853,9 +853,9 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
           )}
         </div>
         
-        {/* Only show Acknowledge button for non-survey notifications */}
-        {/* For surveys we use the survey form's submit button instead */}
-        {!isSurveyType && (
+        {/* We never show the Acknowledge button for surveys */}
+        {/* For regular notifications, show an acknowledgment button */}
+        {notification.type === 'notification' && (
           <DialogFooter className="mt-6">
             <Button 
               onClick={() => {
@@ -1141,16 +1141,41 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
     return result;
   }, [courses]);
 
-  // Filter out dismissed one-time notifications and completed surveys
+  // Build a helper to check if a notification should be renewed
+  const shouldRenewNotification = (notification) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Checking renewal for notification ${notification.id}:`, {
+        title: notification.title,
+        type: notification.type,
+        displayConfig: notification.displayConfig,
+        renewalConfig: notification.renewalConfig
+      });
+    }
+    
+    // Get display frequency from notification properties
+    const displayFrequency = 
+      notification.displayConfig?.frequency || 
+      (notification.type === 'weekly-survey' ? 'weekly' : 
+      (notification.renewalConfig?.method === 'day' ? 'weekly' : 
+       notification.renewalConfig?.method === 'custom' ? 'custom' : 'one-time'));
+    
+    // One-time notifications never renew
+    if (displayFrequency === 'one-time') return false;
+    
+    // Weekly/recurring notifications should renew
+    return true;
+  };
+
+  // Filter out dismissed one-time notifications and completed surveys that don't renew
   let activeNotifications = allNotifications.filter(notification => {
     // Filter out one-time notifications that have been dismissed
     if (notification.type === 'once' && readNotifications[notification.uniqueId]?.dismissed) {
       return false;
     }
     
-    // Filter out any survey that has been completed
+    // For completed surveys, check if they should be renewed
     if ((notification.type === 'survey' || notification.type === 'weekly-survey') && notification.surveyCompleted) {
-      return false;
+      return shouldRenewNotification(notification);
     }
     
     return true;
@@ -1182,6 +1207,56 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
     });
   }
   
+  // Add global test functions if not already added
+  useEffect(() => {
+    // Expose testing functions to window object
+    if (!window.testNotifications) {
+      window.testNotifications = {
+        mockDate: (dateString) => {
+          const newDate = dateString ? new Date(dateString) : null;
+          const result = setMockDate(newDate);
+          
+          // After changing the date, force a refresh of the system
+          setTimeout(() => {
+            console.log("Date change triggered automatic refresh");
+            if (window.testNotifications.refreshNotifications) {
+              window.testNotifications.refreshNotifications();
+            }
+          }, 100);
+          
+          return result;
+        },
+        resetNotification: async (notificationId, email) => {
+          if (!email && profile?.StudentEmail) {
+            email = profile.StudentEmail;
+          }
+          if (!notificationId || !email) {
+            console.error('Need both notificationId and email to reset notification');
+            return false;
+          }
+          
+          console.log(`Resetting notification ${notificationId} for email ${email}`);
+          
+          try {
+            const result = await resetNotificationAcknowledgment(notificationId, email);
+            console.log('Reset result:', result);
+            return result;
+          } catch (error) {
+            console.error('Error in resetNotification:', error);
+            return false;
+          }
+        },
+        refreshNotifications: () => {
+          // Force re-render by updating state
+          setIsCompactView(prevState => !prevState);
+          setTimeout(() => setIsCompactView(prevState => !prevState), 100);
+          console.log('Notifications refreshed');
+        }
+      };
+      console.log('Notification testing functions added. Use window.testNotifications.mockDate() and window.testNotifications.resetNotification()');
+    }
+  }, [profile]);
+
   // Check for notifications status and update view accordingly
   useEffect(() => {
     // Only show compact view when there's nothing requiring attention
