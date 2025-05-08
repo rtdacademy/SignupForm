@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
-} from '../components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle
+} from '../components/ui/sheet';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import {
@@ -42,6 +42,39 @@ import {
 } from 'lucide-react';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
+
+// Add custom styles to ensure tooltips and popovers stay inside the container
+const customQuillStyles = `
+  /* Position tooltips relative to the editor container */
+  .quill-container {
+    position: relative;
+  }
+  
+  /* Fix tooltip positioning */
+  .quill-container .ql-tooltip {
+    z-index: 9999;
+    position: absolute;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%);
+    max-width: 90%;
+  }
+  
+  /* Ensure tooltip is visible */
+  .quill-container .ql-tooltip.ql-editing {
+    position: fixed;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    background: white;
+    border: 1px solid #ccc;
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    padding: 10px;
+    width: 300px;
+    max-width: 90vw;
+  }
+`;
 import { useAuth } from '../context/AuthContext';
 import { TutorialButton } from '../components/TutorialButton';
 
@@ -195,6 +228,19 @@ function TemplateManager({ onMessageChange = () => {}, initialTemplate = null, d
   useEffect(() => {
     setIsOpen(defaultOpen);
   }, [defaultOpen]);
+  
+  // Add custom style to fix Quill tooltip positioning
+  useEffect(() => {
+    // Create style element
+    const styleEl = document.createElement('style');
+    styleEl.innerHTML = customQuillStyles;
+    document.head.appendChild(styleEl);
+    
+    // Clean up on unmount
+    return () => {
+      document.head.removeChild(styleEl);
+    };
+  }, []);
 
 
   useEffect(() => {
@@ -689,7 +735,7 @@ const renderTemplateList = (archived, templatesList = null) => {
 };
   // Function to render the template type select
   const renderTemplateTypeSelect = () => (
-    <div className="mb-4">
+    <div className="w-full">
       <Select
         value={selectedType}
         onValueChange={setSelectedType}
@@ -733,7 +779,7 @@ const renderTemplateList = (archived, templatesList = null) => {
   // Function to render the add type dialog
   const renderAddTypeDialog = () => (
     <AlertDialog open={isAddingType} onOpenChange={setIsAddingType}>
-      <AlertDialogContent className="sm:max-w-[425px]">
+      <AlertDialogContent className="max-w-[90vw] sm:max-w-[425px]">
         <AlertDialogHeader>
           <AlertDialogTitle>Add New Template Type</AlertDialogTitle>
           <AlertDialogDescription>
@@ -825,24 +871,24 @@ const renderTemplateList = (archived, templatesList = null) => {
 
 const renderTemplatesTab = () => (
   <div className="space-y-4">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center space-x-2">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+      <div className="flex items-center space-x-2 w-full sm:w-auto">
         <Button
           variant="outline"
           size="sm"
           onClick={() => setOrganizationMethod('type')}
-          className={organizationMethod === 'type' ? 'bg-primary text-white' : ''}
+          className={`${organizationMethod === 'type' ? 'bg-primary text-white' : ''} text-xs sm:text-sm`}
         >
-          <Grid2X2Icon className="h-4 w-4 mr-2" />
+          <Grid2X2Icon className="h-4 w-4 mr-1 sm:mr-2" />
           By Type
         </Button>
         <Button
           variant="outline"
           size="sm"
           onClick={() => setOrganizationMethod('name')}
-          className={organizationMethod === 'name' ? 'bg-primary text-white' : ''}
+          className={`${organizationMethod === 'name' ? 'bg-primary text-white' : ''} text-xs sm:text-sm`}
         >
-          <ListFilterIcon className="h-4 w-4 mr-2" />
+          <ListFilterIcon className="h-4 w-4 mr-1 sm:mr-2" />
           By Name
         </Button>
       </div>
@@ -850,13 +896,14 @@ const renderTemplatesTab = () => (
         variant="outline"
         size="sm"
         onClick={() => setIsAddingType(true)}
+        className="text-xs sm:text-sm"
       >
-        <PlusCircle className="h-4 w-4 mr-2" />
+        <PlusCircle className="h-4 w-4 mr-1 sm:mr-2" />
         Add Type
       </Button>
     </div>
   
-    <ScrollArea className="h-[450px]">
+    <ScrollArea className="max-h-[60vh]">
       {organizationMethod === 'type' ? (
         <div className="space-y-4 pr-4">
           {templateTypes.map((type) => {
@@ -959,19 +1006,19 @@ const renderTemplatesTab = () => (
         <FilePenLine className="mr-2 h-4 w-4" /> Templates
       </Button>
 
-      <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) { setIsEditing(false); setCurrentTemplateId(null); } }}>
-        <DialogContent className="max-w-2xl w-full">
-        <DialogHeader>
+      <Sheet open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) { setIsEditing(false); setCurrentTemplateId(null); } }}>
+        <SheetContent side="right" className="overflow-y-auto w-full max-w-[90vw] sm:max-w-[600px] md:max-w-[800px]">
+        <SheetHeader className="mb-6">
   <div className="flex items-center justify-between">
     <div className="flex items-center gap-2">
-      <DialogTitle>Message Templates</DialogTitle>
+      <SheetTitle>Message Templates</SheetTitle>
       <TutorialButton tutorialId="template-manager" tooltipText="Learn about templates" />
     </div>
   </div>
-  <DialogDescription>
+  <SheetDescription>
     Create and manage your message templates for quick access while messaging students.
-  </DialogDescription>
-</DialogHeader>
+  </SheetDescription>
+</SheetHeader>
 
           {notification.message && (
             <div
@@ -987,34 +1034,37 @@ const renderTemplatesTab = () => (
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="create">{isEditing ? 'Edit Template' : 'Create New'}</TabsTrigger>
-              <TabsTrigger value="templates">Templates</TabsTrigger>
-              <TabsTrigger value="archived">Archived</TabsTrigger>
+              <TabsTrigger value="create" className="text-xs sm:text-sm">{isEditing ? 'Edit Template' : 'Create New'}</TabsTrigger>
+              <TabsTrigger value="templates" className="text-xs sm:text-sm">Templates</TabsTrigger>
+              <TabsTrigger value="archived" className="text-xs sm:text-sm">Archived</TabsTrigger>
             </TabsList>
 
             <TabsContent value="create" className="w-full">
               <div className="space-y-4">
-                <Input
-                  placeholder="Template Name"
-                  value={newTemplate.name}
-                  onChange={(e) =>
-                    setNewTemplate({ ...newTemplate, name: e.target.value })
-                  }
-                />
-                <Input
-                  placeholder="Subject (optional)"
-                  value={newTemplate.subject}
-                  onChange={(e) =>
-                    setNewTemplate({ ...newTemplate, subject: e.target.value })
-                  }
-                />
-                {renderTemplateTypeSelect()}
-                <Select
-                  value={newTemplate.color}
-                  onValueChange={(value) =>
-                    setNewTemplate({ ...newTemplate, color: value })
-                  }
-                >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    placeholder="Template Name"
+                    value={newTemplate.name}
+                    onChange={(e) =>
+                      setNewTemplate({ ...newTemplate, name: e.target.value })
+                    }
+                  />
+                  <Input
+                    placeholder="Subject (optional)"
+                    value={newTemplate.subject}
+                    onChange={(e) =>
+                      setNewTemplate({ ...newTemplate, subject: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {renderTemplateTypeSelect()}
+                  <Select
+                    value={newTemplate.color}
+                    onValueChange={(value) =>
+                      setNewTemplate({ ...newTemplate, color: value })
+                    }
+                  >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a color" />
                   </SelectTrigger>
@@ -1032,14 +1082,15 @@ const renderTemplatesTab = () => (
                     ))}
                   </SelectContent>
                 </Select>
+                </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <label className="text-sm font-medium">Message</label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8">
-                          <PlusCircle className="h-4 w-4 mr-2" />
+                        <Button variant="outline" size="sm" className="h-8 text-xs sm:text-sm">
+                          <PlusCircle className="h-4 w-4 mr-1 sm:mr-2" />
                           Insert Field
                         </Button>
                       </PopoverTrigger>
@@ -1062,8 +1113,8 @@ const renderTemplatesTab = () => (
                       </PopoverContent>
                     </Popover>
                   </div>
-                  <div className="relative">
-  <div className="h-[300px] overflow-hidden">
+                  <div className="relative quill-container">
+  <div className="h-[40vh] min-h-[250px] max-h-[400px] overflow-hidden">
     <div className="h-full">
       <ReactQuill
         theme="snow"
@@ -1077,7 +1128,8 @@ const renderTemplatesTab = () => (
         modules={modules}
         formats={formats}
         ref={quillRef}
-        className="h-[calc(300px-42px)]" // 42px accounts for the toolbar height
+        bounds="body" // Use the full document body
+        className="h-[calc(100%-42px)]" // 42px accounts for the toolbar height
       />
     </div>
   </div>
@@ -1087,9 +1139,9 @@ const renderTemplatesTab = () => (
                 <Button
                   onClick={handleAddTemplate}
                   disabled={!newTemplate.name || !newTemplate.content || !newTemplate.color || !selectedType}
-                  className="w-full"
+                  className="w-full mt-4"
                 >
-                  <Save className="mr-2 h-4 w-4" /> {isEditing ? 'Update Template' : 'Save Template'}
+                  <Save className="mr-1 sm:mr-2 h-4 w-4" /> {isEditing ? 'Update Template' : 'Save Template'}
                 </Button>
               </div>
             </TabsContent>
@@ -1134,8 +1186,8 @@ const renderTemplatesTab = () => (
               </AlertDialogContent>
             </AlertDialog>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

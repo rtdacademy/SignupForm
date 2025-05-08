@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -378,7 +378,7 @@ const CategoryManager = ({ onCategoryChange }) => {
     const filteredCategories = categories.filter((cat) => cat.archived === archived);
 
     return (
-      <ScrollArea className="h-[300px] pr-4">
+      <ScrollArea className="max-h-[60vh] pr-4">
         <div className="space-y-4">
           {/* Categories with types */}
           {categoryTypes.map((type) => {
@@ -468,7 +468,7 @@ const CategoryManager = ({ onCategoryChange }) => {
                 value={category.type || 'none'}
                 onValueChange={(value) => handleUpdateCategoryType(category.id, value === 'none' ? '' : value)}
               >
-                <SelectTrigger className="h-7 w-[180px]">
+                <SelectTrigger className="h-7 w-full sm:w-[180px]">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -595,7 +595,7 @@ const CategoryManager = ({ onCategoryChange }) => {
 
   const renderAllCategoriesList = () => {
     return (
-      <ScrollArea className="h-[400px] pr-4">
+      <ScrollArea className="max-h-[60vh] pr-4">
         <div className="space-y-2">
           {allCategories.map((category) => (
             <div key={`${category.teacherKey}-${category.id}`} className="flex items-center justify-between py-2">
@@ -618,7 +618,7 @@ const CategoryManager = ({ onCategoryChange }) => {
                     handleUpdateCategoryType(category.id, value === 'none' ? '' : value, category.teacherKey)
                   }
                 >
-                  <SelectTrigger className="h-7 w-[180px]">
+                  <SelectTrigger className="h-7 w-full sm:w-[180px]">
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -750,7 +750,7 @@ const CategoryManager = ({ onCategoryChange }) => {
     }, {});
 
     return (
-      <ScrollArea className="h-[400px] pr-4">
+      <ScrollArea className="max-h-[60vh] pr-4">
         <div className="space-y-4">
           {categoryTypes.map((type) => {
             const typeCategories = grouped[type.id];
@@ -811,7 +811,7 @@ const CategoryManager = ({ onCategoryChange }) => {
                   handleUpdateCategoryType(category.id, value === 'none' ? '' : value, category.teacherKey)
                 }
               >
-                <SelectTrigger className="h-7 w-[180px]">
+                <SelectTrigger className="h-7 w-full sm:w-[180px]">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -954,7 +954,7 @@ const CategoryManager = ({ onCategoryChange }) => {
   const renderNewCategoryContent = () => (
     <div className="space-y-4">
       {renderStaffSelector()}
-      <div className="grid grid-cols-2 gap-4 py-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
         <Input
           value={newCategory.name}
           onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
@@ -1039,7 +1039,7 @@ const CategoryManager = ({ onCategoryChange }) => {
 
   const renderAddTypeDialog = () => (
     <AlertDialog open={isAddingType} onOpenChange={setIsAddingType}>
-      <AlertDialogContent className="sm:max-w-[600px]">
+      <AlertDialogContent className="max-w-[90vw] sm:max-w-[600px]">
         <AlertDialogHeader>
           <AlertDialogTitle>Category Types Manager</AlertDialogTitle>
           <AlertDialogDescription>
@@ -1115,7 +1115,7 @@ const CategoryManager = ({ onCategoryChange }) => {
             <div className="text-sm text-gray-500 mb-4">
               Note: Category types can only be deleted if they are not being used by any categories.
             </div>
-            <ScrollArea className="h-[400px] pr-4">
+            <ScrollArea className="max-h-[60vh] pr-4">
               <div className="space-y-2">
                 {categoryTypes.map((type) => {
                   const isInUse = [...categories, ...allCategories].some((cat) => cat.type === type.id);
@@ -1210,22 +1210,22 @@ const CategoryManager = ({ onCategoryChange }) => {
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetTrigger asChild>
           <Button variant="outline" size="sm" className="ml-2">
             <ChartNoAxesGantt className="mr-2 h-4 w-4" /> Categories
           </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[725px]">
-          <DialogHeader>
+        </SheetTrigger>
+        <SheetContent side="right" className="overflow-y-auto w-full max-w-[90vw] sm:max-w-[600px] md:max-w-[725px]">
+          <SheetHeader className="mb-6">
             <div className="flex items-center gap-2">
-              <DialogTitle>Manage Categories</DialogTitle>
+              <SheetTitle>Manage Categories</SheetTitle>
               <PermissionIndicator type="STAFF" />
             </div>
-            <DialogDescription>
+            <SheetDescription>
               Create and manage your custom categories for tracking student progress.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
 
           {/* Staff selector */}
           {hasSuperAdminAccess() && (
@@ -1320,8 +1320,8 @@ const CategoryManager = ({ onCategoryChange }) => {
               </div>
             </TabsContent>
           </Tabs>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {renderAddTypeDialog()}
     </>
