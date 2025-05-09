@@ -436,35 +436,113 @@ export const useStudentData = (userEmailKey) => {
     return processedCourses;
   };
 
-  const processCourses = async (studentCourses) => {
-    if (!studentCourses) return [];
+  // Function to fetch required courses that all students need to complete
+  const fetchRequiredCourses = async (userEmail) => {
+    try {
+      const db = getDatabase();
+      const coursesRef = ref(db, 'courses');
+      const snapshot = await get(coursesRef);
 
-    const courseEntries = Object.entries(studentCourses)
-      .filter(([key]) => key !== 'sections' && key !== 'normalizedSchedule');
+      if (!snapshot.exists()) return [];
 
-    const coursesWithDetails = await Promise.all(
-      courseEntries.map(async ([id, studentCourse]) => {
-        const [courseDetails, paymentInfo] = await Promise.all([
-          fetchCourseDetails(id),
-          fetchPaymentDetails(id)
-        ]);
-        
-        return {
-          id,
-          ...studentCourse,
-          courseDetails: courseDetails,
-          payment: paymentInfo || {
-            status: 'unpaid',
-            details: null,
-            hasValidPayment: false
+      const coursesData = snapshot.val();
+      const requiredCourses = [];
+
+      // Loop through all courses to find ones with Active:"Required"
+      for (const [id, course] of Object.entries(coursesData)) {
+        if (course.Active === "Required") {
+          // Check if this course should be included for this user
+          const includeForUser =
+            // Include if allowedEmails doesn't exist (available to everyone)
+            !course.allowedEmails ||
+            // Include if allowedEmails is empty (available to everyone)
+            (Array.isArray(course.allowedEmails) && course.allowedEmails.length === 0) ||
+            // Include if user's email is in the allowedEmails list
+            (Array.isArray(course.allowedEmails) && course.allowedEmails.includes(userEmail));
+
+          if (includeForUser) {
+            // Format the required course to match the structure of student courses
+            requiredCourses.push({
+              id,
+              CourseID: id,
+              Course: { Value: course.Title },
+              ActiveFutureArchived: { Value: "Active" },
+              Created: course.Created || new Date().toISOString(),
+              // Add other required fields to match the student course structure
+              courseDetails: course,
+              payment: {
+                status: 'paid', // Always mark required courses as paid
+                details: null,
+                hasValidPayment: true
+              },
+              isRequiredCourse: true, // Flag to indicate this is a required course
+              firebaseCourse: course.firebaseCourse || true
+            });
           }
-        };
-      })
-    );
+        }
+      }
 
-    return coursesWithDetails
-      .filter(course => course)
-      .sort((a, b) => new Date(b.Created) - new Date(a.Created));
+      return requiredCourses;
+
+    } catch (error) {
+      console.error('Error fetching required courses:', error);
+      return [];
+    }
+  };
+
+  const processCourses = async (studentCourses) => {
+    // Initialize an array to hold all courses (student-enrolled and required)
+    let allCourses = [];
+
+    // Process student-enrolled courses if they exist
+    if (studentCourses) {
+      const courseEntries = Object.entries(studentCourses)
+        .filter(([key]) => key !== 'sections' && key !== 'normalizedSchedule');
+
+      const coursesWithDetails = await Promise.all(
+        courseEntries.map(async ([id, studentCourse]) => {
+          const [courseDetails, paymentInfo] = await Promise.all([
+            fetchCourseDetails(id),
+            fetchPaymentDetails(id)
+          ]);
+
+          return {
+            id,
+            ...studentCourse,
+            courseDetails: courseDetails,
+            payment: paymentInfo || {
+              status: 'unpaid',
+              details: null,
+              hasValidPayment: false
+            }
+          };
+        })
+      );
+
+      // Filter out any undefined courses and add to allCourses
+      allCourses = coursesWithDetails.filter(course => course);
+    }
+
+    // Get the student's email if profile is available
+    const userEmail = studentData.profile?.StudentEmail;
+
+    // Fetch and add required courses if we have the user's email
+    if (userEmail) {
+      const requiredCourses = await fetchRequiredCourses(userEmail);
+
+      // Add required courses to allCourses, avoiding duplicates
+      for (const requiredCourse of requiredCourses) {
+        // Check if this required course is already in the student's courses
+        const isDuplicate = allCourses.some(course => course.id === requiredCourse.id);
+
+        if (!isDuplicate) {
+          allCourses.push(requiredCourse);
+        }
+      }
+    }
+
+    // Sort all courses by creation date
+    return allCourses.sort((a, b) => new Date(b.Created) - new Date(a.Created));
   };
 
   const fetchImportantDates = async () => {

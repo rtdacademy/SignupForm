@@ -46,7 +46,12 @@ import ProofOfEnrollmentDialog from './ProofOfEnrollmentDialog';
 // Keep the enforcement date constant
 const PAYMENT_ENFORCEMENT_DATE = new Date('2024-11-22');
 
-const getStatusColor = (status) => {
+const getStatusColor = (status, isRequired = false) => {
+  // Special styling for required courses
+  if (isRequired) {
+    return 'bg-purple-100 text-purple-800 border border-purple-300';
+  }
+
   switch (status) {
     case 'Active':
       return 'bg-customGreen-medium text-customGreen-light border-customGreen-dark';
@@ -59,7 +64,12 @@ const getStatusColor = (status) => {
   }
 };
 
-const getBorderColor = (status) => {
+const getBorderColor = (status, isRequired = false) => {
+  // Special border color for required courses
+  if (isRequired) {
+    return '#9333ea'; // Purple color for required courses
+  }
+
   switch (status) {
     case 'Active':
       return '#20B2AA';
@@ -188,11 +198,20 @@ const CourseCard = ({
   
   // Simplify handleGoToCourse to just check schedule and status
   const handleGoToCourse = () => {
+    // For required courses, we always allow access
+    if (course.isRequiredCourse) {
+      if (onGoToCourse) {
+        onGoToCourse(course);
+      }
+      return;
+    }
+
+    // For regular courses, check for schedule
     if (!hasSchedule) {
       toast.error("Please create a schedule before accessing the course");
       return;
     }
-    
+
     const createdDate = new Date(course.Created);
     // For courses before cutoff date, only check if course is Active
     if (createdDate < PAYMENT_ENFORCEMENT_DATE) {
@@ -205,13 +224,13 @@ const CourseCard = ({
       }
       return;
     }
-  
+
     // For newer courses, check both active status and payment
     if (status !== 'Active' || computedPaymentStatus === 'unpaid') {
       toast.error("You cannot access the course until it has been activated and payment completed");
       return;
     }
-    
+
     if (onGoToCourse) {
       onGoToCourse(course);
     }
@@ -424,7 +443,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
           course={course}
         />
 
-        <Card className="overflow-hidden border-l-4" style={{ borderLeftColor: getBorderColor(status) }}>
+        <Card className="overflow-hidden border-l-4" style={{ borderLeftColor: getBorderColor(status, course.isRequiredCourse) }}>
           <CardHeader className="bg-gradient-to-br from-slate-50 to-white p-4">
             <div className="flex justify-between items-center">
               <div className="flex-1">
@@ -432,6 +451,11 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
                   <ChevronRight className="h-5 w-5 text-gray-800" />
                   <h4 className="text-lg font-semibold">{courseName}</h4>
                   <span className="text-sm text-gray-500">#{courseId}</span>
+                  {course.isRequiredCourse && (
+                    <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
+                      Required Course
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2 items-center">
@@ -451,8 +475,8 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
                 >
                   <FaFileAlt className="mr-2 h-4 w-4" /> Enrollment
                 </Button>
-                <Badge variant="outline" className={getStatusColor(status)}>
-                  {status}
+                <Badge variant="outline" className={getStatusColor(status, course.isRequiredCourse)}>
+                  {course.isRequiredCourse ? "Required" : status}
                 </Badge>
                 {status === 'Registration' && !course.payment?.hasValidPayment && (
                   <TooltipProvider>
@@ -471,6 +495,20 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
           </CardHeader>
           
           <CardContent className="p-4">
+            {/* Required course message */}
+            {course.isRequiredCourse && (
+              <Alert className="mb-4 bg-purple-50 border-purple-200">
+                <AlertCircle className="h-4 w-4 text-purple-500" />
+                <AlertDescription className="text-purple-700">
+                  <p className="font-medium mb-1">Required Course</p>
+                  <div className="prose prose-sm max-w-none">
+                    <p className="text-purple-700 mt-0 mb-0">
+                      This is a required course that all students must complete. It has been automatically added to your dashboard.
+                    </p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
             {renderRegistrationMessage()}
             {renderTrialMessage()}
             
@@ -553,19 +591,28 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
               <div className="grid grid-cols-3 gap-2">
                 {renderScheduleButtons()}
 
-                <Button 
+                <Button
                   onClick={handleGoToCourse}
                   className={`
                     w-full shadow-lg transition-all duration-200 inline-flex items-center justify-center gap-2
-                    ${(!hasSchedule || status !== 'Active' || computedPaymentStatus === 'unpaid') 
-                      ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60' 
-                      : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                    ${course.isRequiredCourse
+                      ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                      : (!hasSchedule || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                        ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                        : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
                     }
                   `}
-                  disabled={!hasSchedule || status !== 'Active' || computedPaymentStatus === 'unpaid'}
+                  disabled={!course.isRequiredCourse && (!hasSchedule || status !== 'Active' || computedPaymentStatus === 'unpaid')}
                 >
                   <FaExternalLinkAlt className="h-4 w-4" />
-                  <span>{(!hasSchedule || status !== 'Active' || computedPaymentStatus === 'unpaid') ? 'Course Unavailable' : 'Go to Course'}</span>
+                  <span>
+                    {course.isRequiredCourse
+                      ? 'Go to Required Course'
+                      : (!hasSchedule || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                        ? 'Course Unavailable'
+                        : 'Go to Course'
+                    }
+                  </span>
                 </Button>
 
                 {renderPaymentButton()}

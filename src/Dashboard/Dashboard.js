@@ -47,7 +47,7 @@ const StaticTriangle = ({ color }) => {
 };
 
 // Custom Welcome Message Component
-const WelcomeMessage = ({ hasStudentNode, hasCourses }) => {
+const WelcomeMessage = ({ hasStudentNode, hasCourses, hasRequiredCoursesOnly }) => {
   if (!hasStudentNode) {
     return (
       <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
@@ -60,7 +60,7 @@ const WelcomeMessage = ({ hasStudentNode, hasCourses }) => {
       </div>
     );
   }
-  
+
   if (!hasCourses) {
     return (
       <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-lg p-4">
@@ -69,6 +69,19 @@ const WelcomeMessage = ({ hasStudentNode, hasCourses }) => {
         </div>
         <p className="mt-2 text-sm">
           You're all set up! Click the 'Register for a New Course' button above to enroll in your first course.
+        </p>
+      </div>
+    );
+  }
+
+  if (hasRequiredCoursesOnly) {
+    return (
+      <div className="bg-purple-50 border border-purple-200 text-purple-800 rounded-lg p-4">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold">Ready to Start Your Required Courses</h3>
+        </div>
+        <p className="mt-2 text-sm">
+          You have been automatically enrolled in required courses. You can also register for additional courses by clicking the 'Register for a New Course' button above.
         </p>
       </div>
     );
@@ -444,12 +457,22 @@ const Dashboard = () => {
     />
   )}
 
-  <div className="mb-6">
-    <WelcomeMessage
-      hasStudentNode={!!profile}
-      hasCourses={courses.length > 0}
-    />
-  </div>
+  {/* Check if all available courses are required courses */}
+  {(() => {
+    const hasOnlyRequiredCourses =
+      courses.length > 0 &&
+      courses.every(course => course.isRequiredCourse);
+
+    return (
+      <div className="mb-6">
+        <WelcomeMessage
+          hasStudentNode={!!profile}
+          hasCourses={courses.length > 0}
+          hasRequiredCoursesOnly={hasOnlyRequiredCourses}
+        />
+      </div>
+    );
+  })()}
 
   <div className="flex flex-col lg:flex-row gap-6 flex-1">
     {/* Main content: Courses */}

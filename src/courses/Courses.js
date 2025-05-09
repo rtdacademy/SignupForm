@@ -10,20 +10,21 @@ import {
   FaClock,
   FaRegLightbulb,
   FaLink,
-  FaFire
+  FaFire,
+  FaEnvelope
 } from 'react-icons/fa';
 import { BookOpen } from 'lucide-react';
 import Modal from 'react-modal';
 // Keep react-select for multi-select fields.
 import ReactSelect from 'react-select';
 import { Switch } from '../components/ui/switch';
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetHeader, 
-  SheetTitle, 
-  SheetDescription, 
-  SheetTrigger 
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetTrigger
 } from '../components/ui/sheet';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Button } from '../components/ui/button';
@@ -32,6 +33,7 @@ import CourseUnitsEditor from './CourseUnitsEditor';
 import AddCourseDialog from './AddCourseDialog';
 import DeleteCourseDialog from './DeleteCourseDialog';
 import CourseWeightingDialog from './CourseWeightingDialog';
+import ImprovedEmailManager from './ImprovedEmailManager';
 
 // Import UI kit Select components for single–value selects
 import {
@@ -399,6 +401,15 @@ function Courses({
       });
   };
 
+  // Handler for allowedEmails updates
+  const handleAllowedEmailsUpdate = (updatedEmails) => {
+    const updatedData = {
+      ...courseData,
+      allowedEmails: updatedEmails
+    };
+    onCourseUpdate(updatedData);
+  };
+
   const handleNumberInputChange = (e) => {
     const { name, value } = e.target;
     // Convert value to integer
@@ -685,6 +696,12 @@ function Courses({
                               title="LTI Links Complete"
                             />
                           )}
+                          {course.allowedEmails && course.allowedEmails.length > 0 && (
+                            <FaEnvelope
+                              className={`${selectedCourseId === courseId ? 'text-white' : 'text-purple-500'}`}
+                              title={`Email Restricted (${course.allowedEmails.length} email${course.allowedEmails.length === 1 ? '' : 's'})`}
+                            />
+                          )}
                           <span>{course.Title || `Course ID: ${courseId}`}</span>
                         </div>
                         <button
@@ -737,6 +754,12 @@ function Courses({
                     <span className="text-sm font-medium">LTI Links Complete</span>
                   </div>
                 )}
+                {courseData?.allowedEmails && courseData.allowedEmails.length > 0 && (
+                  <div className="flex items-center gap-1 text-purple-500" title="Email Restricted">
+                    <FaEnvelope />
+                    <span className="text-sm font-medium">Email Restricted</span>
+                  </div>
+                )}
               </div>
               <div className="flex items-center space-x-2">
   {!isEditing && (
@@ -744,8 +767,8 @@ function Courses({
       <button
         onClick={handleEditClick}
         className={`flex items-center px-3 py-1 ${
-          hasSuperAdminAccess() 
-            ? 'bg-blue-600 hover:bg-blue-700' 
+          hasSuperAdminAccess()
+            ? 'bg-blue-600 hover:bg-blue-700'
             : 'bg-gray-400 cursor-not-allowed'
         } text-white rounded transition duration-200 text-sm`}
         disabled={!hasSuperAdminAccess()}
@@ -755,7 +778,7 @@ function Courses({
           <PermissionIndicator type="SUPER_ADMIN" className="ml-1" />
         )}
       </button>
-      
+
       {/* Add this new button for modern courses */}
       {courseData?.modernCourse && (
   <Button
@@ -854,6 +877,24 @@ function Courses({
                     disabled={!isEditing}
                     className={inputClass}
                   />
+                </div>
+
+                {/* Email Restrictions */}
+                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Restrictions
+                  </label>
+                  <ImprovedEmailManager
+                    courseId={selectedCourseId}
+                    allowedEmails={courseData.allowedEmails || []}
+                    isEditing={isEditing}
+                    onUpdate={handleAllowedEmailsUpdate}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {courseData.allowedEmails && courseData.allowedEmails.length > 0
+                      ? `Restricted to ${courseData.allowedEmails.length} email${courseData.allowedEmails.length === 1 ? '' : 's'}`
+                      : 'Available to all students'}
+                  </p>
                 </div>
 
                 {/* LMS Course ID  */}
