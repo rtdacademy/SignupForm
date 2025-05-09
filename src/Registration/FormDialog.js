@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Loader2, AlertTriangle, X } from "lucide-react";
+import { Loader2, AlertTriangle, X, InfoIcon } from "lucide-react";
 import StudentTypeSelector from './StudentTypeSelector';
 import NonPrimaryStudentForm from './NonPrimaryStudentForm';
 import AdultStudentForm from './AdultStudentForm';
@@ -22,12 +22,12 @@ import {
   SheetClose
 } from "../components/ui/sheet";
 import { getStudentTypeInfo } from '../config/DropdownOptions';
-import { 
-  GraduationCap, 
-  Home, 
-  Sun, 
-  User, 
-  Globe 
+import {
+  GraduationCap,
+  Home,
+  Sun,
+  User,
+  Globe
 } from 'lucide-react';
 
 const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
@@ -37,7 +37,11 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  
+
+  // Required courses state
+  const [requiredCourses, setRequiredCourses] = useState([]);
+  const [loadingRequiredCourses, setLoadingRequiredCourses] = useState(false);
+
   // Form state
   const [currentStep, setCurrentStep] = useState('type-selection');
   const [selectedStudentType, setSelectedStudentType] = useState('');
@@ -53,45 +57,103 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
     formatDate 
   } = useRegistrationWindows(importantDates);
 
+  // Function to fetch required courses
+  const fetchRequiredCourses = async () => {
+    if (!user?.email) return [];
+
+    try {
+      setLoadingRequiredCourses(true);
+      const db = getDatabase();
+      const coursesRef = ref(db, 'courses');
+      const snapshot = await get(coursesRef);
+
+      if (!snapshot.exists()) return [];
+
+      const coursesData = snapshot.val();
+      const required = [];
+
+      // Loop through all courses to find ones with Active:"Required"
+      for (const [id, course] of Object.entries(coursesData)) {
+        if (course.Active === "Required") {
+          // Check if this course should be included for this user
+          const includeForUser =
+            // Include if allowedEmails doesn't exist (available to everyone)
+            !course.allowedEmails ||
+            // Include if allowedEmails is empty (available to everyone)
+            (Array.isArray(course.allowedEmails) && course.allowedEmails.length === 0) ||
+            // Include if user's email is in the allowedEmails list
+            (Array.isArray(course.allowedEmails) && course.allowedEmails.includes(user.email));
+
+          if (includeForUser) {
+            required.push({
+              id,
+              courseId: id,
+              title: course.Title,
+              courseType: course.CourseType,
+              credits: course.courseCredits,
+              grade: course.grade,
+              hasAllowedEmails: !!course.allowedEmails
+            });
+          }
+        }
+      }
+
+      setRequiredCourses(required);
+      return required;
+    } catch (error) {
+      console.error('Error fetching required courses:', error);
+      return [];
+    } finally {
+      setLoadingRequiredCourses(false);
+    }
+  };
+
+  // Effect to fetch required courses when dialog opens
+  useEffect(() => {
+    if (open && user?.email) {
+      fetchRequiredCourses();
+    }
+  }, [open, user?.email]);
+
   // Check for existing registration on mount
   useEffect(() => {
     const checkExistingRegistration = async () => {
       if (!open || !uid) return;
-      
+
       try {
         setLoading(true);
         const db = getDatabase();
         const pendingRegRef = ref(db, `users/${uid}/pendingRegistration`);
         const snapshot = await get(pendingRegRef);
-  
+
         if (snapshot.exists()) {
           const data = snapshot.val();
-          
+
           // Skip if already submitted
           if (data.currentStep === 'submitted') {
             setLoading(false);
             return;
           }
-          
+
           // Validate student type against active registration windows
           const studentType = data.studentType;
-          
+
           // Check if there are active windows for this student type
           const activeWindows = getActiveRegistrationWindows(studentType);
           const registrationPeriod = getEffectiveRegistrationPeriod(activeWindows);
-          
+
           let isValid = true;
           let periodMessage = null;
-          
+
           // Skip validation for Adult and International Students
           if (studentType !== 'Adult Student' && studentType !== 'International Student') {
             isValid = registrationPeriod.hasActiveWindow;
-            
+
             if (!isValid) {
               periodMessage = `There are currently no active registration windows for ${studentType} students.`;
             }
           }
-          
+
           if (!isValid) {
             // Invalid registration for current period - clear it and show message
             await remove(pendingRegRef);
@@ -116,7 +178,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
         setLoading(false);
       }
     };
-  
+
     checkExistingRegistration();
   }, [open, uid, getActiveRegistrationWindows, getEffectiveRegistrationPeriod]);
 
@@ -230,35 +292,35 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
     try {
       setSubmitting(true);
       setError(null);
-  
+
       const db = getDatabase();
       const pendingRegRef = ref(db, `users/${uid}/pendingRegistration`);
       const snapshot = await get(pendingRegRef);
-  
+
       if (snapshot.exists()) {
         const registrationData = snapshot.val();
         const studentEmailKey = user_email_key;
-  
+
         // Validate courseId
         const courseId = registrationData.formData.courseId;
         if (!courseId) {
           throw new Error('Course ID is required');
         }
-  
+
         // Ensure courseId is a valid number
         const numericCourseId = Number(courseId);
         if (isNaN(numericCourseId)) {
           throw new Error('Invalid Course ID format');
         }
-  
+
         // Check if course already exists
         const existingCourseRef = ref(db, `students/${studentEmailKey}/courses/${numericCourseId}`);
         const existingCourseSnapshot = await get(existingCourseRef);
-        
+
         if (existingCourseSnapshot.exists()) {
           throw new Error('You are already registered for this course');
         }
-  
+
         // Build the 'profile' data
         const profileData = {
           "LastSync": new Date().toISOString(),
@@ -291,7 +353,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
             }
           })
         };
-  
+
         // Build the 'courses' data
         const courseData = {
           "inOldSharePoint": false,
@@ -333,7 +395,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
           ...(registrationData.formData.diplomaMonth && {
             "DiplomaMonthChoices": {
               "Id": 1,
-              "Value": registrationData.formData.diplomaMonth.alreadyWrote 
+              "Value": registrationData.formData.diplomaMonth.alreadyWrote
                 ? "Already Wrote"
                 : registrationData.formData.diplomaMonth.month || ""
             }
@@ -350,6 +412,10 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
                 registrationData.formData.additionalInformation
                   ? '\n\nAdditional Information:\n' + registrationData.formData.additionalInformation
                   : ''
+              }${
+                requiredCourses.length > 0
+                  ? '\n\nAuto-enrolled in required courses.'
+                  : ''
               }`,
               "id": `note-${Date.now()}`,
               "noteType": "📝",
@@ -357,28 +423,91 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
             }
           ]
         };
-        // Write data using separate set operations
-        const studentProfileRef = ref(db, `students/${studentEmailKey}/profile`);
-        const studentCourseRef = ref(db, `students/${studentEmailKey}/courses/${numericCourseId}`);
-  
-        // Use Promise.all to perform both writes atomically
-        await Promise.all([
-          set(studentProfileRef, profileData),
-          set(studentCourseRef, courseData)
-        ]);
+
+        // Prepare all database operations we need to perform
+        const writeOperations = [
+          set(ref(db, `students/${studentEmailKey}/profile`), profileData),
+          set(ref(db, `students/${studentEmailKey}/courses/${numericCourseId}`), courseData)
+        ];
+
+        // Generate required course data for each required course
+        for (const requiredCourse of requiredCourses) {
+          // First check if the student is already registered for this course
+          const existingRequiredCourseRef = ref(db, `students/${studentEmailKey}/courses/${requiredCourse.courseId}`);
+          const existingRequiredCourseSnapshot = await get(existingRequiredCourseRef);
+
+          // Skip if student is already registered for this required course
+          if (!existingRequiredCourseSnapshot.exists()) {
+            // Create a course entry for this required course
+            const requiredCourseData = {
+              "inOldSharePoint": false,
+              "ActiveFutureArchived": {
+                "Id": 1,
+                "Value": "Active" // Required courses start as Active
+              },
+              "Course": {
+                "Id": Number(requiredCourse.courseId),
+                "Value": requiredCourse.title || ''
+              },
+              "CourseID": Number(requiredCourse.courseId),
+              "Created": new Date().toISOString(),
+              "ScheduleStartDate": registrationData.formData.startDate || '',
+              "ScheduleEndDate": registrationData.formData.endDate || '',
+              "StudentType": {
+                "Id": 1,
+                "Value": registrationData.formData.studentType || ''
+              },
+              "Status": {
+                "Id": 1,
+                "Value": "Auto-Enrolled" // Special status for auto-enrolled courses
+              },
+              "Over18_x003f_": {
+                "Id": registrationData.studentType === 'Adult Student' ? 1 : (registrationData.formData.age >= 18 ? 1 : 2),
+                "Value": registrationData.formData.age >= 18 ? "Yes" : "No"
+              },
+              "PASI": {
+                "Id": 1,
+                "Value": "No"
+              },
+              "School_x0020_Year": {
+                "Id": 1,
+                "Value": registrationData.formData.enrollmentYear || ''
+              },
+              "Term": registrationData.formData.term || 'Full Year',
+              "isRequiredCourse": true, // Flag to identify it as a required course
+              "jsonStudentNotes": [
+                {
+                  "author": "System",
+                  "content": `Student was automatically enrolled in this required course when registering for ${registrationData.formData.courseName}.`,
+                  "id": `note-${Date.now()}-${requiredCourse.courseId}`,
+                  "noteType": "🔄",
+                  "timestamp": new Date().toISOString()
+                }
+              ]
+            };
+
+            // Add this write operation to our batch
+            writeOperations.push(
+              set(ref(db, `students/${studentEmailKey}/courses/${requiredCourse.courseId}`), requiredCourseData)
+            );
+          }
+        }
+
+        // Execute all database operations in parallel
+        await Promise.all(writeOperations);
 
         trackConversion();
-  
+
         // Remove the pendingRegistration node
         await remove(pendingRegRef);
-  
+
         // Reset all form state
         setCurrentStep('type-selection');
         setSelectedStudentType('');
         setIsFormValid(false);
         setFormData(null);
         setExistingRegistration(null);
-  
+
         // Close the dialog
         onOpenChange(false);
       } else {
@@ -405,11 +534,13 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
   const renderContent = () => {
     if (currentStep === 'review') {
       return (
-        <StudentRegistrationReview 
+        <StudentRegistrationReview
           onBack={handleBack}
           formData={formData}
           studentType={selectedStudentType}
           importantDates={importantDates}
+          requiredCourses={requiredCourses}
+          loadingRequiredCourses={loadingRequiredCourses}
         />
       );
     }

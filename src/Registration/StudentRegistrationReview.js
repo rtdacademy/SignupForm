@@ -1,9 +1,10 @@
 import React from 'react';
 import { Card, CardContent } from "../components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, InfoIcon } from "lucide-react";
 import { getDatabase, ref, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState } from 'react';
+import { Alert, AlertDescription } from "../components/ui/alert";
 
 // Utility function to determine if school selection should be shown
 const shouldShowSchoolSelection = (studentType) => {
@@ -31,7 +32,7 @@ const ReviewSection = ({ title, items }) => (
   </div>
 );
 
-const StudentRegistrationReview = ({ onBack }) => {
+const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequiredCourses = false }) => {
   const { user } = useAuth();
   const uid = user?.uid;
   const [registrationData, setRegistrationData] = useState(null);
@@ -153,6 +154,44 @@ const StudentRegistrationReview = ({ onBack }) => {
       ]
     : [];
 
+  // Render required courses section if there are any
+  const renderRequiredCourses = () => {
+    if (loadingRequiredCourses) {
+      return (
+        <div className="flex items-center space-x-2 text-sm text-blue-600">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Loading required courses...</span>
+        </div>
+      );
+    }
+
+    if (requiredCourses.length === 0) {
+      return null;
+    }
+
+    return (
+      <Alert className="bg-blue-50 border-blue-200 mb-4">
+        <InfoIcon className="h-4 w-4 text-blue-500" />
+        <AlertDescription className="text-blue-700">
+          <p className="font-medium mb-2">Required Courses</p>
+          <p className="text-sm mb-2">
+            You will also be automatically enrolled in the following required course(s):
+          </p>
+          <ul className="list-disc pl-5 text-sm space-y-1">
+            {requiredCourses.map(course => (
+              <li key={course.id}>
+                {course.title}
+                {course.hasAllowedEmails && (
+                  <span className="ml-1 text-xs text-blue-600">(Selected for your account)</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </AlertDescription>
+      </Alert>
+    );
+  };
+
   return (
     <div className="space-y-8">
       <Card>
@@ -178,6 +217,8 @@ const StudentRegistrationReview = ({ onBack }) => {
           )}
 
           <ReviewSection title="Course Information" items={courseInfo} />
+
+          {renderRequiredCourses()}
 
           {formData.additionalInformation && (
             <div className="space-y-3">

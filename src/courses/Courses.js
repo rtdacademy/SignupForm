@@ -29,6 +29,7 @@ import {
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
 import CourseUnitsEditor from './CourseUnitsEditor';
 import AddCourseDialog from './AddCourseDialog';
 import DeleteCourseDialog from './DeleteCourseDialog';
@@ -1211,6 +1212,25 @@ function Courses({
                     className={inputClass}
                     placeholder="Enter grade"
                   />
+                </div>
+
+                {/* Course Description */}
+                <div className="w-full px-2 mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Course Description
+                  </label>
+                  <Textarea
+                    name="description"
+                    value={courseData.description || ''}
+                    onChange={handleInputChange}
+                    disabled={!isEditing}
+                    className={inputClass}
+                    placeholder="Enter course description"
+                    rows={4}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Provide a detailed description of the course that will be visible to students.
+                  </p>
                 </div>
 
                 {/* Allow Student-to-Student Chats */}

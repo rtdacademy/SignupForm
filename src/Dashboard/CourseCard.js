@@ -13,7 +13,7 @@ import {
   FaEnvelope,
   FaFileAlt
 } from 'react-icons/fa';
-import { ChevronRight, AlertCircle, BarChart } from 'lucide-react';
+import { ChevronRight, AlertCircle, BarChart, Info } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -325,15 +325,20 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
 
   // Updated renderScheduleButtons function
   const renderScheduleButtons = () => {
+    // Don't render schedule buttons if courseDetails.units doesn't exist
+    if (!course.courseDetails?.units) {
+      return null;
+    }
+
     return (
       <>
-        <CreateScheduleButton 
-          onClick={checkRemainingSchedules} 
+        <CreateScheduleButton
+          onClick={checkRemainingSchedules}
           hasSchedule={hasSchedule}
-          remainingSchedules={course?.ScheduleJSON?.remainingSchedules ?? 2} 
+          remainingSchedules={course?.ScheduleJSON?.remainingSchedules ?? 2}
         />
 
-        <SchedulePurchaseDialog 
+        <SchedulePurchaseDialog
           isOpen={showScheduleConfirmDialog}
           onOpenChange={setShowScheduleConfirmDialog}
           onProceedToCreation={() => {
@@ -342,9 +347,9 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
           }}
           hasSchedule={hasSchedule}
         />
-  
-        <Sheet 
-          open={showCreateScheduleDialog} 
+
+        <Sheet
+          open={showCreateScheduleDialog}
           onOpenChange={setShowCreateScheduleDialog}
           side="right"
         >
@@ -352,7 +357,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
             <SheetHeader>
               <SheetTitle>Create Your Course Schedule</SheetTitle>
             </SheetHeader>
-            <YourWayScheduleCreator 
+            <YourWayScheduleCreator
               course={course}
               onScheduleSaved={() => {
                 setRemainingSchedules(prev => Math.max(0, prev - 1));
@@ -361,11 +366,11 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
             />
           </SheetContent>
         </Sheet>
-  
+
         {hasSchedule && (
           <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
             <DialogTrigger asChild>
-              <Button 
+              <Button
                 className="w-full bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white shadow-sm transition-all duration-200 flex items-center justify-center"
               >
                 <BarChart className="mr-2 h-4 w-4" />
@@ -376,8 +381,8 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
               <DialogHeader>
                 <DialogTitle>Course Progress</DialogTitle>
               </DialogHeader>
-              <YourWayProgress 
-                course={course} 
+              <YourWayProgress
+                course={course}
                 schedule={course.ScheduleJSON}
               />
             </DialogContent>
@@ -434,10 +439,24 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
     );
   };
 
+  // Function to log course details to console with emoji
+  const logCourseDetails = () => {
+    console.log(`🎓 Course Details for "${courseName}" (ID: ${courseId}):`, {
+      ...course,
+      isRequired: course.isRequiredCourse,
+      status,
+      hasSchedule,
+      paymentStatus: computedPaymentStatus
+    });
+  };
+
   return (
     <>
-      <div className={`transform transition-all duration-300 hover:scale-[1.003] ${className}`}>
-        <CourseDetailsDialog 
+      <div
+        className={`transform transition-all duration-300 hover:scale-[1.003] ${className} cursor-pointer`}
+        onClick={logCourseDetails}
+      >
+        <CourseDetailsDialog
           isOpen={showDetailsDialog}
           onOpenChange={setShowDetailsDialog}
           course={course}
@@ -451,11 +470,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
                   <ChevronRight className="h-5 w-5 text-gray-800" />
                   <h4 className="text-lg font-semibold">{courseName}</h4>
                   <span className="text-sm text-gray-500">#{courseId}</span>
-                  {course.isRequiredCourse && (
-                    <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
-                      Required Course
-                    </span>
-                  )}
+                
                 </div>
               </div>
               <div className="flex gap-2 items-center">
@@ -509,6 +524,22 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
                 </AlertDescription>
               </Alert>
             )}
+
+            {/* Course description if it exists */}
+            {course.courseDetails?.description && (
+              <Alert className="mb-4 bg-blue-50 border-blue-200">
+                <Info className="h-4 w-4 text-blue-500" />
+                <AlertDescription className="text-blue-700">
+                  <p className="font-medium mb-1">Course Description</p>
+                  <div className="prose prose-sm max-w-none">
+                    <p className="text-blue-700 mt-0 mb-0">
+                      {course.courseDetails.description}
+                    </p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {renderRegistrationMessage()}
             {renderTrialMessage()}
             
@@ -588,7 +619,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
             )}
 
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-2">
+              <div className={`grid ${course.courseDetails?.units ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
                 {renderScheduleButtons()}
 
                 <Button
