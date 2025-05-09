@@ -89,20 +89,21 @@ export const useStudentData = (userEmailKey) => {
       const courseRef = ref(db, `courses/${courseId}`);
       const snapshot = await get(courseRef);
       const courseData = snapshot.exists() ? snapshot.val() : null;
-      
+
       if (courseData) {
-        const { Teachers, SupportStaff, ...courseDataWithoutStaff } = courseData;
-        
-        const teachers = await fetchStaffMembers(Teachers || []);
-        const supportStaff = await fetchStaffMembers(SupportStaff || []);
-        
+        // Instead of destructuring and removing Teachers/SupportStaff,
+        // keep the full course object and just enhance it with resolved staff members
+        const teachers = await fetchStaffMembers(courseData.Teachers || []);
+        const supportStaff = await fetchStaffMembers(courseData.SupportStaff || []);
+
+        // Return the complete course object with resolved staff members
         return {
-          ...courseDataWithoutStaff,
-          teachers,
-          supportStaff
+          ...courseData,  // Include all original course data
+          teachers,       // Add resolved teacher objects
+          supportStaff    // Add resolved support staff objects
         };
       }
-      
+
       return null;
     } catch (error) {
       console.error(`Error fetching course ${courseId}:`, error);
@@ -468,7 +469,7 @@ export const useStudentData = (userEmailKey) => {
               Course: { Value: course.Title },
               ActiveFutureArchived: { Value: "Active" },
               Created: course.Created || new Date().toISOString(),
-              // Add other required fields to match the student course structure
+              // Include the full course object here without modifications
               courseDetails: course,
               payment: {
                 status: 'paid', // Always mark required courses as paid
@@ -501,15 +502,17 @@ export const useStudentData = (userEmailKey) => {
 
       const coursesWithDetails = await Promise.all(
         courseEntries.map(async ([id, studentCourse]) => {
+          // Fetch the complete course details and payment info
           const [courseDetails, paymentInfo] = await Promise.all([
-            fetchCourseDetails(id),
+            fetchCourseDetails(id),  // This now returns the complete course object
             fetchPaymentDetails(id)
           ]);
 
+          // Return the enhanced student course object with complete course details
           return {
             id,
             ...studentCourse,
-            courseDetails: courseDetails,
+            courseDetails: courseDetails,  // This will include all course properties from Firebase
             payment: paymentInfo || {
               status: 'unpaid',
               details: null,
