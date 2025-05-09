@@ -31,26 +31,31 @@ export const resetNotificationAcknowledgment = async (notificationId, userEmail)
   try {
     // Import Firebase functions dynamically to avoid circular dependencies
     const { getDatabase, ref, get, set } = await import('firebase/database');
+    const { sanitizeEmail } = await import('./sanitizeEmail');
     
     const db = getDatabase();
     
-    // Different email formats used in Firebase paths
+    // Get the properly sanitized email using the canonical sanitizeEmail function
+    const sanitizedEmail = sanitizeEmail(userEmail);
+    
+    // For backward compatibility, also try the underscore format
     const underscoredEmail = userEmail.replace(/\./g, '_');  // kyle_e_brown13@gmail_com
-    const commaEmail = userEmail.replace(/\./g, ',');        // kyle,e,brown13@gmail,com
-    const zeroPrefix = `000${userEmail}`.replace(/\./g, ','); // 000kyle,e,brown13@gmail,com (another format found)
+    
+    // Add the 000 prefix for the standardized format
+    const zeroPrefixedEmail = `000${sanitizedEmail}`; // 000kyle,e,brown13@gmail,com
     
     console.log('Email formats for testing:', { 
       original: userEmail, 
-      underscored: underscoredEmail, 
-      comma: commaEmail,
-      zeroPrefixed: zeroPrefix
+      sanitized: sanitizedEmail,
+      underscored: underscoredEmail,
+      zeroPrefixed: zeroPrefixedEmail
     });
     
     let success = false;
     
-    // 1. Reset in studentDashboardNotificationsResults/{notificationId}/{userEmailKey} (underscored format)
+    // 1. Try the proper format first in studentDashboardNotificationsResults/{notificationId}/{userEmailKey}
     try {
-      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${underscoredEmail}`);
+      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedEmail}`);
       
       // Get existing data first
       const snapshot = await get(resultsRef);
@@ -63,11 +68,27 @@ export const resetNotificationAcknowledgment = async (notificationId, userEmail)
           completed: false,
           // Keep submissions history
         });
-        console.log(`Reset acknowledgment status for notification ${notificationId} in main results (underscored format)`);
+        console.log(`Reset acknowledgment status for notification ${notificationId} in main results (sanitized format)`);
         success = true;
+      } else {
+        // Try legacy underscore format as fallback
+        const legacyRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${underscoredEmail}`);
+        const legacySnapshot = await get(legacyRef);
+        if (legacySnapshot.exists()) {
+          const data = legacySnapshot.val();
+          // Keep submissions history but reset acknowledge status
+          await set(legacyRef, {
+            ...data,
+            acknowledged: false,
+            completed: false,
+            // Keep submissions history
+          });
+          console.log(`Reset acknowledgment status for notification ${notificationId} in main results (legacy format)`);
+          success = true;
+        }
       }
     } catch (error) {
-      console.error(`Error updating underscored path: ${error.message}`);
+      console.error(`Error updating primary path: ${error.message}`);
     }
     
     // 2. Also check for the specific timestamp-based entries
@@ -82,24 +103,50 @@ export const resetNotificationAcknowledgment = async (notificationId, userEmail)
         // Process numeric timestamps (these are the hierarchical entries)
         for (const [key, value] of Object.entries(entries)) {
           // Check if the key is numeric (a timestamp) and if it contains our email
-          if (!isNaN(Number(key)) && value && value[underscoredEmail]) {
-            const timestampRef = ref(db, 
-              `studentDashboardNotificationsResults/${notificationId}/${key}/${underscoredEmail}`);
-              
-            try {
-              const data = (await get(timestampRef)).val();
-              if (data) {
-                await set(timestampRef, {
-                  ...data,
-                  completed: false,
-                  acknowledged: false,
-                  hasAcknowledged: false
-                });
-                console.log(`Reset timestamp entry: ${key}`);
-                success = true;
+          // Try both formats for backward compatibility
+          if (!isNaN(Number(key))) {
+            // Try sanitized format first (preferred format)
+            if (value && value[sanitizedEmail]) {
+              const timestampRef = ref(db, 
+                `studentDashboardNotificationsResults/${notificationId}/${key}/${sanitizedEmail}`);
+                
+              try {
+                const data = (await get(timestampRef)).val();
+                if (data) {
+                  await set(timestampRef, {
+                    ...data,
+                    completed: false,
+                    acknowledged: false,
+                    hasAcknowledged: false
+                  });
+                  console.log(`Reset timestamp entry: ${key} (sanitized format)`);
+                  success = true;
+                }
+              } catch (error) {
+                console.error(`Error updating timestamp entry ${key} (sanitized format): ${error.message}`);
               }
-            } catch (error) {
-              console.error(`Error updating timestamp entry ${key}: ${error.message}`);
+            }
+            
+            // Also try legacy underscore format as fallback
+            else if (value && value[underscoredEmail]) {
+              const timestampRef = ref(db, 
+                `studentDashboardNotificationsResults/${notificationId}/${key}/${underscoredEmail}`);
+                
+              try {
+                const data = (await get(timestampRef)).val();
+                if (data) {
+                  await set(timestampRef, {
+                    ...data,
+                    completed: false,
+                    acknowledged: false,
+                    hasAcknowledged: false
+                  });
+                  console.log(`Reset timestamp entry: ${key} (legacy underscore format)`);
+                  success = true;
+                }
+              } catch (error) {
+                console.error(`Error updating timestamp entry ${key} (legacy underscore format): ${error.message}`);
+              }
             }
           }
         }
@@ -110,7 +157,8 @@ export const resetNotificationAcknowledgment = async (notificationId, userEmail)
     
     // 3. Try different formats for student course data
     // Attempt all email format variants to find the right path for this student
-    const emailFormats = [commaEmail, zeroPrefix];
+    // IMPORTANT: Prioritize the standard sanitized format with 000 prefix (which is our standard format)
+    const emailFormats = [zeroPrefixedEmail, sanitizedEmail];
     
     for (const emailFormat of emailFormats) {
       try {
@@ -920,6 +968,9 @@ export const processNotificationsForCourses = (courses, profile, allNotification
           surveyCompleted: result.surveyCompleted,
           surveyAnswers: result.surveyAnswers,
           surveyCompletedAt: result.surveyCompletedAt,
+          // Include acknowledged status from results
+          hasAcknowledged: course.studentDashboardNotificationsResults?.[notification.id]?.hasAcknowledged || false,
+          acknowledgedAt: course.studentDashboardNotificationsResults?.[notification.id]?.acknowledgedAt,
           shouldDisplay: true,
           surveyQuestions: notification.surveyQuestions || [],
           notificationId: notification.id, // Add explicit notificationId for easier reference

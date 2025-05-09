@@ -96,7 +96,8 @@ const Dashboard = () => {
     loading: dataLoading, 
     error, 
     studentExists,
-    markNotificationAsSeen 
+    markNotificationAsSeen,
+    forceRefresh
   } = useStudentData(current_user_email_key);
   
   const [selectedCourse, setSelectedCourse] = useState(null);
@@ -439,6 +440,7 @@ const Dashboard = () => {
       courses={courses}
       profile={profile}
       markNotificationAsSeen={markNotificationAsSeen}
+      forceRefresh={forceRefresh}
     />
   )}
 

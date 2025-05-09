@@ -182,9 +182,14 @@ export const useStudentData = (userEmailKey) => {
   };
 
   // Mark a notification as seen
-  const markNotificationSeen = (notificationId, userEmail, notification) => {
+  const markNotificationSeen = async (notificationId, userEmail, notification) => {
     if (!userEmail || !notificationId) return;
     
+    // Import sanitizeEmail to ensure consistent email format
+    const { sanitizeEmail } = await import('../../utils/sanitizeEmail');
+    
+    // Use the sanitizeEmail function to get the proper format for storage keys
+    // For localStorage we still use underscores since periods are not recommended in keys
     const storageKey = `seen_notifications_${userEmail.replace(/\./g, '_')}`;
     let seenNotifications = getSeenNotifications(userEmail);
     
@@ -199,8 +204,10 @@ export const useStudentData = (userEmailKey) => {
     
     // Update the Firebase database to track this notification as seen and acknowledged
     const db = getDatabase();
-    const sanitizedEmail = userEmail.replace(/\./g, '_');
-    const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedEmail}`);
+    
+    // For Firebase paths, use the proper sanitizeEmail function which replaces dots with commas
+    const sanitizedUserEmail = sanitizeEmail(userEmail);
+    const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedUserEmail}`);
     
     // First try to get existing data so we don't overwrite survey results
     get(resultsRef).then(snapshot => {
@@ -859,13 +866,17 @@ export const useStudentData = (userEmailKey) => {
   });
 
   // Function to handle survey submission
-  const submitSurveyResponse = (notificationId, courseId, answers) => {
+  const submitSurveyResponse = async (notificationId, courseId, answers) => {
     if (!studentData.profile || !studentData.profile.StudentEmail) return;
     
+    // Import sanitizeEmail to ensure consistent email format
+    const { sanitizeEmail } = await import('../../utils/sanitizeEmail');
+    
     const userEmail = studentData.profile.StudentEmail;
-    const sanitizedEmail = userEmail.replace(/\./g, '_');
+    // Use the proper sanitized email format for database paths
+    const sanitizedUserEmail = sanitizeEmail(userEmail);
     const db = getDatabase();
-    const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedEmail}`);
+    const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedUserEmail}`);
     
     // Get notification details to determine if it's a weekly survey
     const notification = studentData.courses
@@ -983,7 +994,7 @@ export const useStudentData = (userEmailKey) => {
   };
 
   // Add a utility function to mark a notification as seen
-  const markNotificationAsSeen = (notificationId) => {
+  const markNotificationAsSeen = async (notificationId) => {
     if (!studentData.profile || !studentData.profile.StudentEmail) return;
     
     // Get notification details
@@ -995,7 +1006,7 @@ export const useStudentData = (userEmailKey) => {
       }
     }
     
-    markNotificationSeen(notificationId, studentData.profile.StudentEmail, notification);
+    await markNotificationSeen(notificationId, studentData.profile.StudentEmail, notification);
     
     // Update the courses to reflect that this notification has been seen
     setStudentData(prev => {
@@ -1052,10 +1063,73 @@ export const useStudentData = (userEmailKey) => {
     });
   };
 
+  // Add a function to force refresh data
+  const forceRefresh = async () => {
+    console.log("Force refresh requested!");
+    
+    try {
+      // Re-fetch notifications
+      const notifications = await fetchNotifications();
+      
+      // Re-process notifications for courses if we have data
+      let updatedCourses = studentData.courses;
+      if (studentData.profile && studentData.courses && studentData.courses.length > 0) {
+        updatedCourses = processNotificationsForCourses(
+          studentData.courses,
+          studentData.profile,
+          notifications
+        );
+      }
+      
+      // Update state with new data
+      setStudentData(prev => ({
+        ...prev,
+        allNotifications: notifications,
+        courses: updatedCourses
+      }));
+      
+      console.log("Force refresh completed with", notifications.length, "notifications");
+      return true;
+    } catch (error) {
+      console.error("Error during force refresh:", error);
+      return false;
+    }
+  };
+  
+  // Listen for refresh events
+  useEffect(() => {
+    const handleRefreshEvent = () => {
+      console.log("Notification refresh event received");
+      forceRefresh();
+    };
+    
+    // Add event listener
+    window.addEventListener('notification-refresh-needed', handleRefreshEvent);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('notification-refresh-needed', handleRefreshEvent);
+    };
+  }, []);
+  
+  // Add the global refresh function for testing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.refreshStudentData = forceRefresh;
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete window.refreshStudentData;
+      }
+    };
+  }, []);
+
   // Return the data along with the utility functions
   return {
     ...studentData,
     markNotificationAsSeen,
-    submitSurveyResponse
+    submitSurveyResponse,
+    forceRefresh
   };
 };

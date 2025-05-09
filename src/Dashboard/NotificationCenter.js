@@ -853,9 +853,8 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
           )}
         </div>
         
-        {/* We never show the Acknowledge button for surveys */}
-        {/* For regular notifications, show an acknowledgment button */}
-        {notification.type === 'notification' && (
+        {/* We never show the Acknowledge button for surveys or already acknowledged notifications */}
+        {notification.type === 'notification' && !notification.hasAcknowledged && (
           <DialogFooter className="mt-6">
             <Button 
               onClick={() => {
@@ -876,7 +875,7 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
 
 // Regular notification dialog now handles all notifications
 
-const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
+const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRefresh }) => {
   // Track if user has manually toggled the accordion
   const [userToggled, setUserToggled] = useState(false);
   // Start collapsed unless there are important notifications
@@ -1219,7 +1218,18 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
           // After changing the date, force a refresh of the system
           setTimeout(() => {
             console.log("Date change triggered automatic refresh");
+            
+            // Use window.refreshStudentData first if available (direct database refresh)
+            if (window.refreshStudentData) {
+              console.log("Calling window.refreshStudentData...");
+              window.refreshStudentData().then(() => {
+                console.log("Database refresh completed");
+              });
+            }
+            
+            // Also call our local refresh
             if (window.testNotifications.refreshNotifications) {
+              console.log("Calling window.testNotifications.refreshNotifications...");
               window.testNotifications.refreshNotifications();
             }
           }, 100);
@@ -1247,10 +1257,14 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
           }
         },
         refreshNotifications: () => {
-          // Force re-render by updating state
+          // Create a browser event to signal a data refresh
+          const refreshEvent = new CustomEvent('notification-refresh-needed');
+          window.dispatchEvent(refreshEvent);
+          
+          // Also force a UI re-render by toggling state
           setIsCompactView(prevState => !prevState);
           setTimeout(() => setIsCompactView(prevState => !prevState), 100);
-          console.log('Notifications refreshed');
+          console.log('Notifications refresh requested - dispatched refresh event');
         }
       };
       console.log('Notification testing functions added. Use window.testNotifications.mockDate() and window.testNotifications.resetNotification()');
@@ -1290,10 +1304,13 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
   ]);
 
   // Mark notification as read and store in localStorage
-  const markAsRead = (notification) => {
+  const markAsRead = async (notification) => {
     const uniqueId = typeof notification === 'object' ? notification.uniqueId : notification;
     const notificationId = typeof notification === 'object' ? 
       (notification.originalNotificationId || notification.id) : notification;
+    
+    // Import sanitizeEmail to ensure consistent email format
+    const { sanitizeEmail } = await import('../utils/sanitizeEmail');
     
     setReadNotifications(prev => {
       const updated = {
@@ -1307,8 +1324,9 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
     // Also update hasSeen status in Firebase
     if (profile?.StudentEmail && notificationId) {
       const db = getDatabase();
-      const sanitizedEmail = current_user_email_key.replace(/\./g, '_');
-      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedEmail}`);
+      // Use the proper sanitized email format with comma
+      const sanitizedUserEmail = sanitizeEmail(current_user_email_key);
+      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedUserEmail}`);
       
       // Get current timestamp
       const currentTimestamp = Date.now();
@@ -1319,10 +1337,15 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       let isSurveyType = false;
       
       if (typeof notification === 'object') {
-        // Extract repeatInterval information
+        // Extract repeatInterval information - check all possible ways to identify a repeating notification
         hasRepeatInterval = !!notification.repeatInterval || 
                            notification.type === 'weekly-survey' || 
-                           notification.type === 'recurring';
+                           notification.type === 'recurring' ||
+                           notification.displayConfig?.frequency === 'weekly' ||
+                           notification.displayConfig?.frequency === 'monthly' ||
+                           notification.displayConfig?.frequency === 'custom' ||
+                           notification.renewalConfig?.method === 'day' ||
+                           notification.renewalConfig?.method === 'custom';
         
         // Determine if this is a survey type - only true for explicit survey types
         isSurveyType = notification.type === 'survey' || 
@@ -1356,6 +1379,41 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
           
           // Update the lastSeen timestamp
           updateData.lastSeen = currentDate;
+          
+          // Also calculate next renewal date for weekly notifications (important for weekly renewal)
+          if (typeof notification === 'object' && 
+              (notification.displayConfig?.frequency === 'weekly' || 
+               notification.renewalConfig?.method === 'day' || 
+               notification.type === 'weekly-survey')) {
+               
+            // Get the target day of week (default to Monday if not specified)
+            const dayOfWeek = notification.displayConfig?.dayOfWeek || 
+                            notification.renewalConfig?.dayOfWeek || 'monday';
+              
+            // Convert day name to day number (0-6, where 0 is Sunday)
+            const dayMap = {
+              'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
+              'thursday': 4, 'friday': 5, 'saturday': 6
+            };
+            const targetDayNum = dayMap[dayOfWeek.toLowerCase()] || 1;
+              
+            // Start with today's date
+            let nextRenewalDate = new Date();
+              
+            // Add days until we reach the target day of the week
+            while (nextRenewalDate.getDay() !== targetDayNum) {
+              nextRenewalDate.setDate(nextRenewalDate.getDate() + 1);
+            }
+              
+            // If today is already the target day, add 7 days to get to next week
+            if (nextRenewalDate.getDay() === new Date().getDay()) {
+              nextRenewalDate.setDate(nextRenewalDate.getDate() + 7);
+            }
+              
+            // Store the next renewal date
+            updateData.nextRenewalDate = nextRenewalDate.toISOString();
+            console.log(`Set next renewal date to ${updateData.nextRenewalDate} for ${dayOfWeek} in markAsRead`);
+          }
         }
         
         // Update the record
@@ -1387,6 +1445,41 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
             }
           };
           updateData.lastSeen = currentDate;
+          
+          // Also calculate next renewal date for weekly notifications (important for weekly renewal)
+          if (typeof notification === 'object' && 
+              (notification.displayConfig?.frequency === 'weekly' || 
+               notification.renewalConfig?.method === 'day' || 
+               notification.type === 'weekly-survey')) {
+               
+            // Get the target day of week (default to Monday if not specified)
+            const dayOfWeek = notification.displayConfig?.dayOfWeek || 
+                            notification.renewalConfig?.dayOfWeek || 'monday';
+              
+            // Convert day name to day number (0-6, where 0 is Sunday)
+            const dayMap = {
+              'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
+              'thursday': 4, 'friday': 5, 'saturday': 6
+            };
+            const targetDayNum = dayMap[dayOfWeek.toLowerCase()] || 1;
+              
+            // Start with today's date
+            let nextRenewalDate = new Date();
+              
+            // Add days until we reach the target day of the week
+            while (nextRenewalDate.getDay() !== targetDayNum) {
+              nextRenewalDate.setDate(nextRenewalDate.getDate() + 1);
+            }
+              
+            // If today is already the target day, add 7 days to get to next week
+            if (nextRenewalDate.getDay() === new Date().getDay()) {
+              nextRenewalDate.setDate(nextRenewalDate.getDate() + 7);
+            }
+              
+            // Store the next renewal date
+            updateData.nextRenewalDate = nextRenewalDate.toISOString();
+            console.log(`Set next renewal date to ${updateData.nextRenewalDate} for ${dayOfWeek} in markAsRead fallback`);
+          }
         }
         
         set(resultsRef, updateData).catch(error => {
@@ -1426,9 +1519,12 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
   };
 
   // Dismiss/acknowledge notification (for both one-time and repeating notifications)
-  const dismissNotification = (notification) => {
+  const dismissNotification = async (notification) => {
     // Use the original ID for backend notification dismissal
-    markNotificationAsSeen(notification.originalNotificationId || notification.id);
+    await markNotificationAsSeen(notification.originalNotificationId || notification.id);
+    
+    // Import sanitizeEmail to ensure consistent email format
+    const { sanitizeEmail } = await import('../utils/sanitizeEmail');
     
     // Update local storage to mark as dismissed
     setReadNotifications(prev => {
@@ -1444,17 +1540,23 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
     if (profile?.StudentEmail) {
       const db = getDatabase();
       const notificationId = notification.originalNotificationId || notification.id;
-      const sanitizedEmail = current_user_email_key.replace(/\./g, '_');
-      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedEmail}`);
+      // Use the proper sanitized email format with comma
+      const sanitizedUserEmail = sanitizeEmail(current_user_email_key);
+      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedUserEmail}`);
       
       // Get current timestamp
       const currentTimestamp = Date.now();
       const currentDate = new Date().toISOString();
       
-      // Extract repeatInterval information
+      // Extract repeatInterval information - check all possible ways to identify a repeating notification
       const hasRepeatInterval = !!notification.repeatInterval || 
                                notification.type === 'weekly-survey' || 
-                               notification.type === 'recurring';
+                               notification.type === 'recurring' ||
+                               notification.displayConfig?.frequency === 'weekly' ||
+                               notification.displayConfig?.frequency === 'monthly' ||
+                               notification.displayConfig?.frequency === 'custom' ||
+                               notification.renewalConfig?.method === 'day' ||
+                               notification.renewalConfig?.method === 'custom';
       
       // Determine if this is a survey type - only true for explicit survey types
       const isSurveyType = notification.type === 'survey' || 
@@ -1492,6 +1594,41 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
           // Update the lastSeen and lastAcknowledged timestamps
           updateData.lastSeen = currentDate;
           updateData.lastAcknowledged = currentDate;
+          
+          // Calculate and store the next renewal date for weekly notifications
+          // This is CRITICAL for proper renewal
+          if (notification.displayConfig?.frequency === 'weekly' || 
+              notification.renewalConfig?.method === 'day' || 
+              (notification.type === 'weekly-survey')) {
+              
+            // Get the target day of week (default to Monday if not specified)
+            const dayOfWeek = notification.displayConfig?.dayOfWeek || 
+                            notification.renewalConfig?.dayOfWeek || 'monday';
+              
+            // Convert day name to day number (0-6, where 0 is Sunday)
+            const dayMap = {
+              'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
+              'thursday': 4, 'friday': 5, 'saturday': 6
+            };
+            const targetDayNum = dayMap[dayOfWeek.toLowerCase()] || 1;
+              
+            // Start with today's date
+            let nextRenewalDate = new Date();
+              
+            // Add days until we reach the target day of the week
+            while (nextRenewalDate.getDay() !== targetDayNum) {
+              nextRenewalDate.setDate(nextRenewalDate.getDate() + 1);
+            }
+              
+            // If today is already the target day, add 7 days to get to next week
+            if (nextRenewalDate.getDay() === new Date().getDay()) {
+              nextRenewalDate.setDate(nextRenewalDate.getDate() + 7);
+            }
+              
+            // Store the next renewal date
+            updateData.nextRenewalDate = nextRenewalDate.toISOString();
+            console.log(`Set next renewal date to ${updateData.nextRenewalDate} for ${dayOfWeek}`);
+          }
         }
         
         // Update the record
@@ -1531,6 +1668,41 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
           };
           updateData.lastSeen = currentDate;
           updateData.lastAcknowledged = currentDate;
+          
+          // Calculate and store the next renewal date for weekly notifications
+          // This is CRITICAL for proper renewal
+          if (notification.displayConfig?.frequency === 'weekly' || 
+              notification.renewalConfig?.method === 'day' || 
+              (notification.type === 'weekly-survey')) {
+              
+            // Get the target day of week (default to Monday if not specified)
+            const dayOfWeek = notification.displayConfig?.dayOfWeek || 
+                            notification.renewalConfig?.dayOfWeek || 'monday';
+              
+            // Convert day name to day number (0-6, where 0 is Sunday)
+            const dayMap = {
+              'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
+              'thursday': 4, 'friday': 5, 'saturday': 6
+            };
+            const targetDayNum = dayMap[dayOfWeek.toLowerCase()] || 1;
+              
+            // Start with today's date
+            let nextRenewalDate = new Date();
+              
+            // Add days until we reach the target day of the week
+            while (nextRenewalDate.getDay() !== targetDayNum) {
+              nextRenewalDate.setDate(nextRenewalDate.getDate() + 1);
+            }
+              
+            // If today is already the target day, add 7 days to get to next week
+            if (nextRenewalDate.getDay() === new Date().getDay()) {
+              nextRenewalDate.setDate(nextRenewalDate.getDate() + 7);
+            }
+              
+            // Store the next renewal date
+            updateData.nextRenewalDate = nextRenewalDate.toISOString();
+            console.log(`Set next renewal date to ${updateData.nextRenewalDate} for ${dayOfWeek} (fallback path)`);
+          }
         }
         
         set(resultsRef, updateData).catch(error => {
@@ -1544,6 +1716,9 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
   const handleSurveySubmit = async (answers, selectedCourseIds) => {
     if (!selectedNotification || !current_user_email_key || !selectedCourseIds || selectedCourseIds.length === 0) return;
 
+    // Import sanitizeEmail to ensure consistent email format
+    const { sanitizeEmail } = await import('../utils/sanitizeEmail');
+    
     const db = getDatabase();
     
     try {
@@ -1573,7 +1748,8 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       
       // Store results in a hierarchical structure that maintains security permissions
       // Format: /surveyResponses/{notificationId}/{timestamp}/{userEmailKey}/
-      const newSurveyRef = ref(db, `surveyResponses/${notificationId}/${timestamp}/${current_user_email_key}`);
+      const sanitizedUserEmail = sanitizeEmail(current_user_email_key); 
+      const newSurveyRef = ref(db, `surveyResponses/${notificationId}/${timestamp}/${sanitizedUserEmail}`);
       
       await set(newSurveyRef, {
         answers,
@@ -1591,12 +1767,12 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       });
       
       // Legacy location for backward compatibility 
-      const legacySurveyRef = ref(db, `surveyResponses/${current_user_email_key}/notifications/${notificationId}`);
+      const legacySurveyRef = ref(db, `surveyResponses/${sanitizedUserEmail}/notifications/${notificationId}`);
       await set(legacySurveyRef, surveyData);
       
       // Create a hierarchical structure for studentDashboardNotificationsResults
       // Format: /studentDashboardNotificationsResults/{notificationId}/{timestamp}/{userEmailKey}/
-      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${timestamp}/${current_user_email_key}`);
+      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${timestamp}/${sanitizedUserEmail}`);
       
       // Store in hierarchical structure for better filtering while maintaining security
       await set(resultsRef, {
@@ -1620,7 +1796,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       });
       
       // Also maintain backward compatibility structure
-      const legacyResultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${current_user_email_key}`);
+      const legacyResultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedUserEmail}`);
       
       // First fetch existing data to preserve submission history
       const legacySnapshot = await get(legacyResultsRef);
@@ -1637,7 +1813,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         hasAcknowledged: true,
         acknowledgedAt: new Date().toISOString(),
         // Store a reference to the hierarchical structure entry 
-        latestSubmissionPath: `${notificationId}/${timestamp}/${current_user_email_key}`,
+        latestSubmissionPath: `${notificationId}/${timestamp}/${sanitizedUserEmail}`,
         // Ensure we have a submissions object with the timestamp entry
         submissions: {
           ...(existingData.submissions || {}),
@@ -1656,7 +1832,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
       });
       
       // Also store the result in the course record for real-time updates
-      const courseResultsRef = ref(db, `students/${current_user_email_key}/courses/${selectedCourse.id}/studentDashboardNotificationsResults/${notificationId}`);
+      const courseResultsRef = ref(db, `students/${sanitizedUserEmail}/courses/${selectedCourse.id}/studentDashboardNotificationsResults/${notificationId}`);
       await set(courseResultsRef, {
         completed: true,
         completedAt: new Date().toISOString(),
@@ -1666,7 +1842,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
         hasAcknowledged: true,
         acknowledgedAt: new Date().toISOString(),
         // Reference to the hierarchical structure path
-        latestSubmissionPath: `${notificationId}/${timestamp}/${current_user_email_key}`
+        latestSubmissionPath: `${notificationId}/${timestamp}/${sanitizedUserEmail}`
       });
 
       // Process categories from answers
@@ -1723,7 +1899,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen }) => {
             
             // If we have a staff key and category, add to updates
             if (staffKey && staffKey !== 'none') {
-              const categoryPath = `students/${current_user_email_key}/courses/${selectedCourse.id}/categories/${staffKey}/${categoryId}`;
+              const categoryPath = `students/${sanitizedUserEmail}/courses/${selectedCourse.id}/categories/${staffKey}/${categoryId}`;
               categoryUpdates.push({ path: categoryPath, value: true });
             }
           }
