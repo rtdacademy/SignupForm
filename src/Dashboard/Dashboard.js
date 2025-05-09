@@ -9,6 +9,7 @@ import MigrationWelcomeDialog from '../migration/MigrationWelcomeSheet';
 import ProfileComponent from './ProfileComponent';
 import CourseCard from './CourseCard';
 import LMSWrapper from './LMSWrapper';
+import CourseRouter from '../FirebaseCourses/CourseRouter';
 import { useAuth } from '../context/AuthContext';
 import { useStudentData } from './hooks/useStudentData';
 import { useNavigate } from 'react-router-dom';
@@ -356,11 +357,15 @@ const Dashboard = () => {
               <div className="text-gray-600">Loading course...</div>
             </div>
           ) : isModernCourse ? (
-            <ModernCourseViewer 
+            <ModernCourseViewer
               courseId={selectedCourse.CourseID}
               studentCourseData={selectedCourse}
-              profile={profile}  
+              profile={profile}
               previewMode={false}
+            />
+          ) : selectedCourse.courseDetails?.firebaseCourse ? (
+            <CourseRouter
+              course={selectedCourse}
             />
           ) : (
             <LMSWrapper

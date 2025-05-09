@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  FaUser, 
-  FaExternalLinkAlt, 
-  FaCalendarAlt, 
-  FaInfoCircle, 
-  FaGraduationCap, 
-  FaCalendarPlus, 
+import {
+  FaUser,
+  FaExternalLinkAlt,
+  FaCalendarAlt,
+  FaInfoCircle,
+  FaGraduationCap,
+  FaCalendarPlus,
   FaSearch,
   FaCreditCard,
   FaCheckCircle,
@@ -35,13 +35,15 @@ import CourseDetailsDialog from './CourseDetailsDialog';
 import YourWayScheduleCreator from '../Schedule/YourWayScheduleCreator';
 import YourWayProgress from '../Schedule/YourWayProgress';
 import PaymentOptionsDialog from './PaymentOptionsDialog';
-import PaymentDetailsDialog from './PaymentDetailsDialog'; 
+import PaymentDetailsDialog from './PaymentDetailsDialog';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import SchedulePurchaseDialog from './SchedulePurchaseDialog';
-import CreateScheduleButton from './CreateScheduleButton'; 
+import CreateScheduleButton from './CreateScheduleButton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '../components/ui/sheet';
 import ProofOfEnrollmentDialog from './ProofOfEnrollmentDialog';
+// Firebase Course Router import
+import CourseRouter from '../FirebaseCourses/CourseRouter';
 
 // Keep the enforcement date constant
 const PAYMENT_ENFORCEMENT_DATE = new Date('2024-11-22');
@@ -206,6 +208,19 @@ const CourseCard = ({
       return;
     }
 
+    // Handle Firebase Courses and regular courses differently
+    if (course.courseDetails?.firebaseCourse) {
+      // For Firebase courses, check payment status but don't require schedule
+      if (status !== 'Active' || computedPaymentStatus === 'unpaid') {
+        toast.error("You cannot access the course until it has been activated and payment completed");
+        return;
+      }
+      if (onGoToCourse) {
+        onGoToCourse(course);
+      }
+      return;
+    }
+
     // For regular courses, check for schedule
     if (!hasSchedule) {
       toast.error("Please create a schedule before accessing the course");
@@ -330,6 +345,32 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
       return null;
     }
 
+    // Don't render schedule buttons for Firebase courses
+    if (course.courseDetails?.firebaseCourse) {
+      return (
+        <Dialog open={showProgressDialog} onOpenChange={setShowProgressDialog}>
+          <DialogTrigger asChild>
+            <Button
+              className="w-full bg-gradient-to-r from-blue-600/80 to-purple-600/80 hover:from-blue-700/90 hover:to-purple-700/90 text-white shadow-sm transition-all duration-200 flex items-center justify-center"
+            >
+              <BarChart className="mr-2 h-4 w-4" />
+              Course Progress
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-7xl max-h-[90vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>Course Progress</DialogTitle>
+            </DialogHeader>
+            <div className="p-6">
+              <h3 className="text-lg font-medium mb-4">Course progress for Firebase courses</h3>
+              <p className="text-gray-600">Progress tracking for this course is handled within the course itself.</p>
+            </div>
+          </DialogContent>
+        </Dialog>
+      );
+    }
+
+    // Standard schedule buttons for regular courses
     return (
       <>
         <CreateScheduleButton

@@ -937,14 +937,6 @@ export const useStudentData = (userEmailKey) => {
     console.log('==========================================================');
   }
   
-  // Standard summary log
-  console.log('useStudentData returning:', {
-    hasImportantDates: !!studentData.importantDates,
-    loading: studentData.loading,
-    hasError: !!studentData.error,
-    totalNotificationCount: studentData.allNotifications?.length || 0,
-    coursesWithNotifications: studentData.courses?.filter(c => c.notificationIds && Object.keys(c.notificationIds).length > 0).length || 0
-  });
 
   // Function to handle survey submission
   const submitSurveyResponse = async (notificationId, courseId, answers) => {
