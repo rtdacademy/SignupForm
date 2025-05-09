@@ -8,6 +8,11 @@ import { database } from '../firebase';
 import PermissionIndicator from '../context/PermissionIndicator';
 import { useAuth } from '../context/AuthContext';
 
+// Helper function to generate unique IDs
+const generateUniqueId = (type) => {
+  return `${type}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+};
+
 const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
   const { hasSuperAdminAccess } = useAuth();
   const [showMultiplierInfo, setShowMultiplierInfo] = useState(false);
@@ -19,6 +24,42 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
 
   const safeUnits = Array.isArray(units) ? units : [];
 
+  // Ensure all units and items have unique IDs
+  useEffect(() => {
+    if (safeUnits.length > 0 && isEditing) {
+      let hasUpdates = false;
+      const updatedUnits = safeUnits.map(unit => {
+        // Ensure unit has a unitId
+        const updatedUnit = { ...unit };
+        if (!updatedUnit.unitId) {
+          updatedUnit.unitId = generateUniqueId('unit');
+          hasUpdates = true;
+        }
+
+        // Ensure all items have itemIds
+        if (Array.isArray(updatedUnit.items) && updatedUnit.items.length > 0) {
+          updatedUnit.items = updatedUnit.items.map(item => {
+            if (!item.itemId) {
+              hasUpdates = true;
+              return {
+                ...item,
+                itemId: generateUniqueId(item.type || 'item')
+              };
+            }
+            return item;
+          });
+        }
+
+        return updatedUnit;
+      });
+
+      if (hasUpdates) {
+        console.log('Added missing unique IDs to units and items');
+        onUnitsChange(updatedUnits);
+      }
+    }
+  }, [safeUnits, isEditing, onUnitsChange]);
+
   // Check for enrolled students
   useEffect(() => {
     const checkEnrolledStudents = async () => {
@@ -29,7 +70,7 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
           orderByChild('CourseID'),
           equalTo(courseId)
         );
-        
+
         const snapshot = await get(courseQuery);
         setHasEnrolledStudents(snapshot.exists());
       } catch (error) {
@@ -55,13 +96,22 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
 
   const handleItemChange = useCallback((unitIndex, itemIndex, field, value) => {
     const newUnits = [...safeUnits];
+    const currentItem = newUnits[unitIndex].items[itemIndex];
+
+    // Generate a new itemId if the type field is being changed
+    const updates = { [field]: value };
+
+    if (field === 'type' && value !== currentItem.type) {
+      updates.itemId = generateUniqueId(value);
+    }
+
     newUnits[unitIndex] = {
       ...newUnits[unitIndex],
       items: [
         ...newUnits[unitIndex].items.slice(0, itemIndex),
         {
-          ...newUnits[unitIndex].items[itemIndex],
-          [field]: value,
+          ...currentItem,
+          ...updates
         },
         ...newUnits[unitIndex].items.slice(itemIndex + 1),
       ],
@@ -91,13 +141,15 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
     }
 
     const newUnits = [...safeUnits];
+    const itemType = 'lesson';
     const newItem = {
       title: 'New Assessment',
-      type: 'lesson',
+      type: itemType,
       multiplier: 1,
       hasMarking: false,
       gradebookIndex: newUnits[unitIndex].items ? newUnits[unitIndex].items.length : 0,
       sequence: (newUnits[unitIndex].items?.length || 0) + 1,
+      itemId: generateUniqueId(itemType)
     };
 
     if (insertIndex === null) {
@@ -140,7 +192,7 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
       alert("Super Admin access required to add units");
       return;
     }
-    
+
     if (hasEnrolledStudents) {
       alert("Cannot add units while students are enrolled in the course.");
       return;
@@ -151,6 +203,7 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
       name: 'New Unit',
       sequence: newUnits.length + 1,
       section: '',
+      unitId: generateUniqueId('unit'),
       items: []
     };
     newUnits.push(newUnit);
