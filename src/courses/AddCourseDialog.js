@@ -25,10 +25,10 @@ const AddCourseDialog = () => {
   const [open, setOpen] = useState(false);
   const [courseTitle, setCourseTitle] = useState('');
   const [courseType, setCourseType] = useState('');
-  const [isModern, setIsModern] = useState(false);
-  const [courseId, setCourseId] = useState('');
+  const [courseVersion, setCourseVersion] = useState('original');
   const [error, setError] = useState('');
   const [existingCourseIds, setExistingCourseIds] = useState(new Set());
+  const [nextAvailableId, setNextAvailableId] = useState('');
 
   // Fetch existing course IDs when dialog opens
   useEffect(() => {
@@ -41,14 +41,14 @@ const AddCourseDialog = () => {
           const courses = snapshot.val();
           const ids = new Set(
             Object.keys(courses)
-              .filter(id => id !== 'Sections')
+              .filter(id => id !== 'sections')
               .map(id => parseInt(id))
           );
           setExistingCourseIds(ids);
-          
-          // Suggest next available course ID (for both modern and original, start from 1)
-          const suggestedId = findNextAvailableId(ids, 1);
-          setCourseId(suggestedId.toString());
+
+          // Calculate next available ID
+          const nextId = findNextAvailableId(ids, 1);
+          setNextAvailableId(nextId.toString());
         }
       };
       fetchCourseIds();
@@ -64,19 +64,16 @@ const AddCourseDialog = () => {
     return id;
   };
 
-  const validateCourseId = (id) => {
-    const numId = parseInt(id);
-    if (isNaN(numId)) return 'Course ID must be a number';
-    if (numId < 1) return 'Course ID must be positive';
-    // For modern courses, there is no restriction on the number.
-    // For original (traditional) courses, enforce the existing rule: must be less than 100.
-    if (!isModern && numId >= 100) return 'Traditional course IDs must be less than 100';
-    if (existingCourseIds.has(numId)) return 'This course ID already exists';
+  const validateForm = () => {
+    // Only validate the required fields since courseId is now automatic
+    if (!courseTitle.trim()) return 'Course title is required';
+    if (!courseType) return 'Course type is required';
+    if (!courseVersion) return 'Course version is required';
     return '';
   };
 
   const handleCreateCourse = async () => {
-    const validationError = validateCourseId(courseId);
+    const validationError = validateForm();
     if (validationError) {
       setError(validationError);
       return;
@@ -84,46 +81,34 @@ const AddCourseDialog = () => {
 
     try {
       const db = getDatabase();
-      const courseRef = ref(db, `courses/${courseId}`);
-      
+      const courseRef = ref(db, `courses/${nextAvailableId}`);
+
       // Basic course structure
       const courseData = {
         Title: courseTitle,
         CourseType: courseType,
-        modernCourse: isModern,
+        modernCourse: courseVersion === 'modern',
+        firebaseCourse: courseVersion === 'firebase',
         Active: 'Current',
-        LMSCourseID: courseId,
+        LMSCourseID: nextAvailableId,
         units: [],
         Created: new Date().toISOString(),
         Modified: new Date().toISOString()
       };
 
-      // Set the course data with specific course ID
+      // Set the course data with next available course ID
       await set(courseRef, courseData);
-      
+
       // Reset form and close dialog
       setCourseTitle('');
       setCourseType('');
-      setIsModern(false);
-      setCourseId('');
+      setCourseVersion('original');
       setError('');
       setOpen(false);
     } catch (error) {
       console.error('Error creating course:', error);
       setError('An error occurred while creating the course.');
     }
-  };
-
-  // Handle course version change
-  const handleVersionChange = (value) => {
-    const newIsModern = value === "modern";
-    setIsModern(newIsModern);
-    
-    // Suggest new course ID based on version.
-    // For modern courses, there is no restriction so we start at 1.
-    // For traditional courses, the same suggestion is used, but the validation will enforce the limit.
-    const suggestedId = findNextAvailableId(existingCourseIds, 1);
-    setCourseId(suggestedId.toString());
   };
 
   return (
@@ -137,7 +122,7 @@ const AddCourseDialog = () => {
         <DialogHeader>
           <DialogTitle>Create New Course</DialogTitle>
           <DialogDescription>
-            Enter the details for your new course. Modern courses include updated content and features.
+            Enter the details for your new course. The course ID will be automatically assigned.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -145,15 +130,9 @@ const AddCourseDialog = () => {
             <Label htmlFor="courseId" className="text-right">
               Course ID
             </Label>
-            <Input
-              id="courseId"
-              value={courseId}
-              onChange={(e) => {
-                setCourseId(e.target.value);
-                setError(validateCourseId(e.target.value));
-              }}
-              className="col-span-3"
-            />
+            <div className="col-span-3 text-sm text-gray-500 border border-gray-200 bg-gray-100 rounded p-2">
+              Will be assigned automatically: {nextAvailableId || 'Loading...'}
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="title" className="text-right">
@@ -190,8 +169,8 @@ const AddCourseDialog = () => {
               Version
             </Label>
             <Select
-              value={isModern ? "modern" : "original"}
-              onValueChange={handleVersionChange}
+              value={courseVersion}
+              onValueChange={setCourseVersion}
             >
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Select version" />
@@ -199,6 +178,7 @@ const AddCourseDialog = () => {
               <SelectContent>
                 <SelectItem value="original">Original</SelectItem>
                 <SelectItem value="modern">Modern</SelectItem>
+                <SelectItem value="firebase">Firebase</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -209,10 +189,10 @@ const AddCourseDialog = () => {
           )}
         </div>
         <DialogFooter>
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             onClick={handleCreateCourse}
-            disabled={!!error || !courseId || !courseTitle || !courseType}
+            disabled={!courseTitle || !courseType}
           >
             Create Course
           </Button>

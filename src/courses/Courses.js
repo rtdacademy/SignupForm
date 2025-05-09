@@ -2,14 +2,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { getDatabase, ref, update, remove } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { 
-  FaEdit, 
-  FaExclamationTriangle, 
-  FaPlus, 
-  FaTrash, 
-  FaClock, 
+import {
+  FaEdit,
+  FaExclamationTriangle,
+  FaPlus,
+  FaTrash,
+  FaClock,
   FaRegLightbulb,
-  FaLink
+  FaLink,
+  FaFire
 } from 'react-icons/fa';
 import { BookOpen } from 'lucide-react';
 import Modal from 'react-modal';
@@ -355,6 +356,7 @@ function Courses({
 
   const activeOptions = [
     { value: 'Current', label: 'Current' },
+    { value: 'Required', label: 'Required' },
     { value: 'Old', label: 'Old' },
     { value: 'Not Used', label: 'Not Used' },
     { value: 'Custom', label: 'Custom' },
@@ -661,19 +663,25 @@ function Courses({
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <div 
-                          className="flex items-center gap-2 flex-1" 
+                        <div
+                          className="flex items-center gap-2 flex-1"
                           onClick={() => handleCourseSelect(courseId)}
                         >
                           {course.modernCourse && (
-                            <FaRegLightbulb 
-                              className={`${selectedCourseId === courseId ? 'text-white' : 'text-yellow-500'}`} 
+                            <FaRegLightbulb
+                              className={`${selectedCourseId === courseId ? 'text-white' : 'text-yellow-500'}`}
                               title="Modern Course"
                             />
                           )}
+                          {course.firebaseCourse && (
+                            <FaFire
+                              className={`${selectedCourseId === courseId ? 'text-white' : 'text-orange-500'}`}
+                              title="Firebase Course"
+                            />
+                          )}
                           {course.ltiLinksComplete && (
-                            <FaLink 
-                              className={`${selectedCourseId === courseId ? 'text-white' : 'text-green-500'}`} 
+                            <FaLink
+                              className={`${selectedCourseId === courseId ? 'text-white' : 'text-green-500'}`}
                               title="LTI Links Complete"
                             />
                           )}
@@ -715,6 +723,12 @@ function Courses({
                   <div className="flex items-center gap-1 text-yellow-500" title="Modern Course">
                     <FaRegLightbulb />
                     <span className="text-sm font-medium">Modern Course</span>
+                  </div>
+                )}
+                {courseData?.firebaseCourse && (
+                  <div className="flex items-center gap-1 text-orange-500" title="Firebase Course">
+                    <FaFire />
+                    <span className="text-sm font-medium">Firebase Course</span>
                   </div>
                 )}
                 {courseData?.ltiLinksComplete && (
@@ -863,13 +877,23 @@ function Courses({
                   </label>
                   <Select
                     name="CourseVersion"
-                    value={courseData.modernCourse ? "modern" : "original"}
+                    value={
+                      courseData.firebaseCourse ? "firebase" :
+                      courseData.modernCourse ? "modern" : "original"
+                    }
                     onValueChange={(value) => {
-                      const updatedData = { ...courseData, modernCourse: value === "modern" };
+                      const updatedData = {
+                        ...courseData,
+                        modernCourse: value === "modern",
+                        firebaseCourse: value === "firebase"
+                      };
                       onCourseUpdate(updatedData);
                       const db = getDatabase();
                       const courseRef = ref(db, `courses/${selectedCourseId}`);
-                      update(courseRef, { modernCourse: value === "modern" })
+                      update(courseRef, {
+                        modernCourse: value === "modern",
+                        firebaseCourse: value === "firebase"
+                      })
                         .then(() => console.log('Updated Course Version'))
                         .catch((error) => alert('Error updating course version'));
                     }}
@@ -881,6 +905,7 @@ function Courses({
                     <SelectContent>
                       <SelectItem value="original">Original</SelectItem>
                       <SelectItem value="modern">Modern</SelectItem>
+                      <SelectItem value="firebase">Firebase</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
