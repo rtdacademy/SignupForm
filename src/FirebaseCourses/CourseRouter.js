@@ -1,5 +1,5 @@
-import React, { lazy, Suspense } from 'react';
-import FirebaseCourseWrapper from './FirebaseCourseWrapper';
+import React, { lazy, Suspense, useState, useCallback } from 'react';
+import FirebaseCourseWrapper from './FirebaseCourseWrapperImproved';
 
 // Import course components
 // Using dynamic imports for better code splitting
@@ -34,15 +34,27 @@ const LoadingCourse = () => (
 // based on the CourseID or falls back to a template implementation
 const CourseRouter = ({ course }) => {
   const courseId = course.CourseID;
+  const [currentItemId, setCurrentItemId] = useState(null);
+
+  // Handle item selection from navigation
+  const handleItemSelect = useCallback((itemId) => {
+    console.log('CourseRouter: Selected item:', itemId);
+    setCurrentItemId(itemId);
+  }, []);
 
   // This will dynamically render course components based on CourseID
   const renderCourseContent = () => {
     // Map courseId to the appropriate component
     switch(courseId) {
       case 1: // COM1255
+      case '1':
         return (
           <Suspense fallback={<LoadingCourse />}>
-            <COM1255Course course={course} />
+            <COM1255Course
+              course={course}
+              activeItemId={currentItemId}
+              onItemSelect={handleItemSelect}
+            />
           </Suspense>
         );
       default:
@@ -51,7 +63,11 @@ const CourseRouter = ({ course }) => {
   };
 
   return (
-    <FirebaseCourseWrapper course={course}>
+    <FirebaseCourseWrapper
+      course={course}
+      activeItemId={currentItemId}
+      onItemSelect={handleItemSelect}
+    >
       {renderCourseContent()}
     </FirebaseCourseWrapper>
   );
