@@ -80,13 +80,39 @@ function MainApp() {
   element={user ? <ModernCourseViewer /> : <Navigate to="/login" />} 
 />
 
-<Route 
-  path="/course-editor/:courseId?" 
+<Route
+  path="/course-editor/:courseId?"
   element={
-    user && isStaff(user) ? 
-    <CourseEditor /> : 
+    user && isStaff(user) ?
+    <CourseEditor /> :
     <Navigate to="/staff-login" />
-  } 
+  }
+/>
+
+<Route
+  path="/firebase-course/:courseId?"
+  element={
+    user && isStaff(user) ?
+    <Layout>
+      <React.Suspense fallback={<div>Loading...</div>}>
+        {React.createElement(React.lazy(() => import('./FirebaseCourses/FirebaseCourseAdmin')))}
+      </React.Suspense>
+    </Layout> :
+    <Navigate to="/staff-login" />
+  }
+/>
+
+<Route
+  path="/firebase-course-view/:courseId?"
+  element={
+    user && isStaff(user) ?
+    <Layout>
+      <React.Suspense fallback={<div>Loading...</div>}>
+        {React.createElement(React.lazy(() => import('./FirebaseCourses/StaffCourseWrapper')))}
+      </React.Suspense>
+    </Layout> :
+    <Navigate to="/staff-login" />
+  }
 />
 
 <Route 

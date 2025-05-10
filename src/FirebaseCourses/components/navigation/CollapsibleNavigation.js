@@ -125,30 +125,30 @@ const CollapsibleNavigation = ({
     return (
       <div
         key={`${unitIndex}-${itemIndex}-${item.itemId}`}
-        className={`p-1.5 mb-1 rounded-md text-xs cursor-pointer transition-all duration-200
-          ${isActive ? 'bg-blue-50 border-l-2 border-blue-500 pl-1' : 
-           isNextItem ? 'bg-purple-50 border-l-2 border-purple-400 pl-1' :
-           isCompleted ? 'bg-green-50 border-l-2 border-green-400 pl-1' :
+        className={`p-2 mb-1.5 rounded-md text-sm cursor-pointer transition-all duration-200
+          ${isActive ? 'bg-blue-50 border-l-2 border-blue-500 pl-1.5' :
+           isNextItem ? 'bg-purple-50 border-l-2 border-purple-400 pl-1.5' :
+           isCompleted ? 'bg-green-50 border-l-2 border-green-400 pl-1.5' :
            'hover:bg-gray-50'}`}
         onClick={() => onItemSelect(item.itemId)}
       >
         <div className="flex justify-between items-start">
-          <div className="flex items-start gap-1.5">
+          <div className="flex items-start gap-2">
             <div className="mt-0.5 flex-shrink-0">
               {isCompleted ? (
-                <CheckCircle className="text-green-500 h-3 w-3" />
+                <CheckCircle className="text-green-500 h-4 w-4" />
               ) : isNextItem ? (
-                <PlayCircle className="text-purple-500 h-3 w-3" />
+                <PlayCircle className="text-purple-500 h-4 w-4" />
               ) : (
-                typeIcons[item.type] || <Info className="h-3 w-3" />
+                typeIcons[item.type] || <Info className="h-4 w-4" />
               )}
             </div>
             <span className="font-medium line-clamp-2">
               {item.title}
             </span>
           </div>
-          <Badge 
-            className={`${typeColors[item.type] || 'bg-gray-100 text-gray-800'} text-[10px] py-0 px-1.5 min-h-0 h-4`}
+          <Badge
+            className={`${typeColors[item.type] || 'bg-gray-100 text-gray-800'} text-xs py-0.5 px-2 min-h-0 h-5 ml-2`}
           >
             {item.type}
           </Badge>
@@ -159,50 +159,52 @@ const CollapsibleNavigation = ({
   
   if (!expanded) {
     return (
-      <div className="w-12 h-full bg-white border-r border-gray-200 flex flex-col items-center py-4">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onToggleExpand} 
+      <div className="w-full h-full bg-white border-r border-gray-200 flex flex-col items-center py-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onToggleExpand}
           className="mb-4"
         >
           <MenuIcon className="h-5 w-5" />
         </Button>
-        
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onToggleExpand} 
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onToggleExpand}
           className="mt-2"
         >
           <ChevronRight className="h-5 w-5" />
         </Button>
-        
+
         <div className="mt-6 flex flex-col items-center gap-4">
-          {unitsList.map((unit, index) => (
-            <Tooltip key={index}>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className={`w-8 h-8 rounded-full ${index === currentUnitIndex ? 'bg-blue-100' : ''}`}
-                  onClick={() => onItemSelect(unit.items?.[0]?.itemId)}
-                >
-                  {unit.sequence || index + 1}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                {unit.name || `Unit ${unit.sequence || index + 1}`}
-              </TooltipContent>
-            </Tooltip>
-          ))}
+          <TooltipProvider>
+            {unitsList.map((unit, index) => (
+              <Tooltip key={index}>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`w-8 h-8 rounded-full ${index === currentUnitIndex ? 'bg-blue-100' : ''}`}
+                    onClick={() => onItemSelect(unit.items?.[0]?.itemId)}
+                  >
+                    {unit.sequence || index + 1}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  {unit.name || `Unit ${unit.sequence || index + 1}`}
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </TooltipProvider>
         </div>
       </div>
     );
   }
   
   return (
-    <div className="h-full flex flex-col border-r border-gray-200 bg-white shadow-sm">
+    <div className="w-full h-full flex flex-col border-r border-gray-200 bg-white shadow-sm">
       <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-blue-50 to-indigo-50">
         <h2 className="font-semibold text-base text-blue-800 flex items-center gap-1 truncate">
           <BookOpen className="h-4 w-4 flex-shrink-0" />
@@ -218,7 +220,7 @@ const CollapsibleNavigation = ({
         </Button>
       </div>
       
-      <div className="p-2 bg-white flex items-center justify-between text-xs">
+      <div className="p-3 bg-white flex items-center justify-between text-sm">
         <div className="font-medium text-gray-700">Course Progress</div>
         <div className="text-blue-600 font-medium">{overallProgress}%</div>
       </div>
@@ -231,7 +233,7 @@ const CollapsibleNavigation = ({
         </div>
       </div>
       
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div className="p-2">
           {Object.entries(sectionedUnits)
             .sort(([a, b]) => {
@@ -254,7 +256,7 @@ const CollapsibleNavigation = ({
                 <Accordion
                   type="multiple"
                   defaultValue={[`unit-${currentUnitIndex}`]}
-                  className="space-y-1"
+                  className="space-y-2"
                 >
                   {sectionUnits.map((unit) => {
                     // Calculate unit progress
@@ -279,21 +281,21 @@ const CollapsibleNavigation = ({
                         <AccordionTrigger className="hover:no-underline py-2 px-3">
                           <div className="flex items-center gap-2 w-full">
                             <div
-                              className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs
+                              className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs
                                 ${isCurrentUnit ? 'bg-purple-600 text-white' : 'bg-blue-500 text-white'}`}
                             >
                               {unit.sequence || unit.index + 1}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center justify-between">
                                 <span
-                                  className={`text-xs font-medium truncate ${
+                                  className={`text-sm font-medium ${
                                     isCurrentUnit ? 'text-purple-800' : 'text-blue-800'
                                   }`}
                                 >
                                   {unit.name || `Unit ${unit.sequence || unit.index + 1}`}
                                 </span>
-                                <span className="text-[10px] text-gray-500 whitespace-nowrap ml-1">
+                                <span className="text-xs text-gray-500 whitespace-nowrap ml-1">
                                   {unitPercentage}%
                                 </span>
                               </div>
@@ -320,7 +322,7 @@ const CollapsibleNavigation = ({
               </div>
             ))}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 };

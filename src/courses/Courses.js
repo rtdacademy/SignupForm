@@ -785,9 +785,18 @@ function Courses({
   <Button
     onClick={() => window.open(`/course-editor/${selectedCourseId}`, '_blank')}
     variant="default"
-    className="flex items-center bg-green-600 hover:bg-green-700 text-white"
+    className="flex items-center bg-green-600 hover:bg-green-700 text-white mr-2"
   >
     <BookOpen className="mr-2 h-4 w-4" /> Edit Course Content
+  </Button>
+)}
+{courseData?.firebaseCourse && (
+  <Button
+    onClick={() => window.open(`/firebase-course-view/${selectedCourseId}`, '_blank')}
+    variant="default"
+    className="flex items-center bg-orange-600 hover:bg-orange-700 text-white"
+  >
+    <FaFire className="mr-2 h-4 w-4" /> View Firebase Course
   </Button>
 )}
     </>

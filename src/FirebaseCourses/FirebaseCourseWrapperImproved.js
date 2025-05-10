@@ -12,7 +12,9 @@ const FirebaseCourseWrapper = ({
   course,
   children,
   activeItemId: externalActiveItemId,
-  onItemSelect: externalItemSelect
+  onItemSelect: externalItemSelect,
+  isStaffView = false,
+  devMode = false
 }) => {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('content');
@@ -110,24 +112,26 @@ const FirebaseCourseWrapper = ({
 
   return (
     <div className="flex h-full">
-      {/* Collapsible Navigation */}
-      <CollapsibleNavigation
-        courseTitle={courseTitle}
-        unitsList={unitsList}
-        progress={progress}
-        activeItemId={activeItemId}
-        expanded={navExpanded}
-        onToggleExpand={() => setNavExpanded(!navExpanded)}
-        onItemSelect={(itemId) => {
-          handleItemSelect(itemId);
-          setActiveTab('content');
-        }}
-        currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
-      />
+      {/* Collapsible Navigation - fixed width */}
+      <div className={`${navExpanded ? 'w-80' : 'w-12'} flex-shrink-0 h-full`}>
+        <CollapsibleNavigation
+          courseTitle={courseTitle}
+          unitsList={unitsList}
+          progress={progress}
+          activeItemId={activeItemId}
+          expanded={navExpanded}
+          onToggleExpand={() => setNavExpanded(!navExpanded)}
+          onItemSelect={(itemId) => {
+            handleItemSelect(itemId);
+            setActiveTab('content');
+          }}
+          currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
+        />
+      </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto">
-        <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="flex-1 flex flex-col h-full">
+        <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
           <div className="px-4 py-2 flex items-center gap-4">
             {!navExpanded && (
               <Button 
@@ -178,10 +182,22 @@ const FirebaseCourseWrapper = ({
           </div>
         </div>
         
-        <main className="p-6">
+        <main className="p-6 overflow-auto flex-1">
           {activeTab === 'content' && (
             <div className="bg-white rounded-lg shadow">
-              {children}
+              {isStaffView && devMode && (
+                <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-sm">
+                  <span className="font-medium text-yellow-800">Developer Mode:</span>
+                  <span className="ml-2 text-yellow-700">
+                    You can directly interact with the database in this view for testing questions.
+                  </span>
+                </div>
+              )}
+              {React.Children.map(children, child =>
+                React.isValidElement(child)
+                  ? React.cloneElement(child, { isStaffView, devMode })
+                  : child
+              )}
             </div>
           )}
           

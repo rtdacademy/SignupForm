@@ -163,6 +163,16 @@ export const courseStructure = [
         "title": "Midterm Examination",
         "type": "exam",
         "content": "midterm_exam"
+      },
+      {
+        "gradebookIndex": 12,
+        "hasMarking": false,
+        "itemId": "question_dev_sandbox",
+        "multiplier": 1,
+        "sequence": 4,
+        "title": "Question Development Tools",
+        "type": "info",
+        "content": "question_sandbox"
       }
     ]
   },

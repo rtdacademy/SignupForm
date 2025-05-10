@@ -32,7 +32,7 @@ const LoadingCourse = () => (
 
 // This will be our main router component that loads specific course implementations
 // based on the CourseID or falls back to a template implementation
-const CourseRouter = ({ course }) => {
+const CourseRouter = ({ course, isStaffView = false, devMode = false }) => {
   const courseId = course.CourseID;
   const [currentItemId, setCurrentItemId] = useState(null);
 
@@ -54,6 +54,8 @@ const CourseRouter = ({ course }) => {
               course={course}
               activeItemId={currentItemId}
               onItemSelect={handleItemSelect}
+              isStaffView={isStaffView}
+              devMode={devMode}
             />
           </Suspense>
         );

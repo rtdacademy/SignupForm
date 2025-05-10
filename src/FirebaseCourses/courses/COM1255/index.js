@@ -15,7 +15,13 @@ const typeColors = {
 /**
  * The main COM1255 Course component
  */
-const COM1255Course = ({ course, activeItemId: externalActiveItemId, onItemSelect }) => {
+const COM1255Course = ({
+  course,
+  activeItemId: externalActiveItemId,
+  onItemSelect,
+  isStaffView = false,
+  devMode = false
+}) => {
   // Maintain internal state that can sync with external props
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
   const courseId = course.CourseID;
@@ -66,18 +72,37 @@ const COM1255Course = ({ course, activeItemId: externalActiveItemId, onItemSelec
     }
 
     // Get the content component based on the content ID in the active item
-    const ContentComponent = contentRegistry[activeItem.content];
+    // If devMode is enabled, always try to load the staff version
+    const contentId = activeItem.content;
+    const staffContentId = `${contentId}_Staff`;
+
+    // Always use staff version when devMode is on
+    const ContentComponent = devMode && contentRegistry[staffContentId]
+      ? contentRegistry[staffContentId]
+      : contentRegistry[contentId];
+
+    console.log('Loading content:', {
+      contentId,
+      staffContentId,
+      usingStaffVersion: devMode && contentRegistry[staffContentId],
+      devMode
+    });
 
     if (ContentComponent) {
       return (
         <div className="p-2">
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-xl font-bold text-gray-800">{activeItem.title}</h1>
+            <h1 className="text-xl font-bold text-gray-800">
+              {activeItem.title}
+              {devMode && contentRegistry[staffContentId] && (
+                <span className="ml-2 text-sm bg-red-600 text-white px-2 py-0.5 rounded-full">STAFF VIEW</span>
+              )}
+            </h1>
             <Badge className={`${typeColors[activeItem.type] || 'bg-gray-100'} px-2 py-1`}>
               {activeItem.type.charAt(0).toUpperCase() + activeItem.type.slice(1)}
             </Badge>
           </div>
-          <ContentComponent />
+          <ContentComponent isStaffView={isStaffView} devMode={devMode} courseId={courseId} />
         </div>
       );
     }
