@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ProgressProvider } from '../../context/CourseProgressContext';
-import LessonContent, { TextSection, MediaSection, LessonSummary } from '../../components/content/LessonContent';
-import MultipleChoiceQuestion from '../../components/assessments/MultipleChoiceQuestion';
 import { Badge } from '../../../components/ui/badge';
 import courseData from './courseStructure';
+import contentRegistry from './content';
 
 // Type-specific styling
 const typeColors = {
@@ -11,138 +10,6 @@ const typeColors = {
   assignment: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   exam: 'bg-purple-100 text-purple-800 border-purple-200',
   info: 'bg-amber-100 text-amber-800 border-amber-200',
-};
-
-/**
- * Components for specific content items
- * In a real implementation, these would likely be imported from separate files
- */
-const IntroToELearning = () => (
-  <LessonContent
-    lessonId="lesson_intro_elearning"
-    title="What is E-Learning?"
-    metadata={{ estimated_time: '30 minutes' }}
-  >
-    <TextSection title="What is E-Learning?">
-      <p className="mb-4">
-        E-Learning refers to the process of learning that takes place through digital technologies
-        and the internet. It encompasses a wide range of learning activities, from
-        accessing educational content online to participating in virtual classrooms
-        and collaborative learning environments.
-      </p>
-      <p className="mb-4">
-        E-Learning has transformed education by providing flexibility, accessibility,
-        and personalization that traditional classroom learning often cannot match.
-      </p>
-    </TextSection>
-
-    <MediaSection
-      type="image"
-      src="https://placehold.co/800x450?text=E-Learning+Illustration"
-      alt="Illustration of E-Learning concepts"
-      caption="E-Learning connects students to educational resources across distances"
-    />
-
-    <TextSection title="Benefits of E-Learning">
-      <ul className="list-disc pl-5 space-y-2 mb-4">
-        <li><strong>Flexibility:</strong> Learn at your own pace and on your own schedule</li>
-        <li><strong>Accessibility:</strong> Access course materials from anywhere with an internet connection</li>
-        <li><strong>Personalization:</strong> Customize your learning path based on your needs and preferences</li>
-        <li><strong>Resource Variety:</strong> Engage with diverse multimedia content and interactive activities</li>
-        <li><strong>Immediate Feedback:</strong> Receive instant assessment results and progress tracking</li>
-      </ul>
-    </TextSection>
-
-    <div className="my-8">
-      <h3 className="text-xl font-medium mb-4">Check Your Understanding</h3>
-      <MultipleChoiceQuestion
-        questionId="q1"
-        questionText="Which of the following is NOT typically considered a benefit of E-Learning?"
-        options={[
-          { id: "a", text: "Learning at your own pace" },
-          { id: "b", text: "Access to educational resources from anywhere" },
-          { id: "c", text: "Reduced need for self-discipline" },
-          { id: "d", text: "Immediate feedback on assessments" }
-        ]}
-        correctOptionId="c"
-        explanation="E-Learning actually requires more self-discipline than traditional classroom learning since students must manage their own time and learning schedule without direct supervision."
-      />
-    </div>
-
-    <LessonSummary
-      points={[
-        "E-Learning uses digital technologies to deliver educational content and experiences",
-        "Key benefits include flexibility, accessibility, and personalization",
-        "E-Learning continues to evolve with advancements in technology",
-        "Success in E-Learning requires good time management and self-discipline"
-      ]}
-    />
-  </LessonContent>
-);
-
-const BenefitsChallenges = () => (
-  <LessonContent
-    lessonId="lesson_benefits"
-    title="Benefits and Challenges of E-Learning"
-    metadata={{ estimated_time: '35 minutes' }}
-  >
-    <TextSection title="Key Benefits of E-Learning">
-      <p className="mb-4">
-        E-Learning offers numerous advantages for both students and educational institutions.
-        Let's explore some of the most significant benefits in greater detail.
-      </p>
-
-      <h3 className="font-medium text-lg mb-2">Cost Effectiveness</h3>
-      <p className="mb-4">
-        E-Learning typically reduces costs associated with travel, physical materials, and facilities.
-        Students save on commuting expenses, while institutions can serve more students with fewer
-        physical resources.
-      </p>
-
-      <h3 className="font-medium text-lg mb-2">Global Reach</h3>
-      <p className="mb-4">
-        Online learning transcends geographical boundaries, allowing students from around the world
-        to access quality education regardless of their location.
-      </p>
-    </TextSection>
-
-    <TextSection title="Challenges of E-Learning">
-      <p className="mb-4">
-        Despite its many benefits, e-learning comes with its own set of challenges that
-        both students and educators need to address.
-      </p>
-
-      <h3 className="font-medium text-lg mb-2">Technical Requirements</h3>
-      <p className="mb-4">
-        E-learning requires reliable internet access and appropriate devices, which may not
-        be universally available. Technical issues can disrupt the learning experience.
-      </p>
-
-      <h3 className="font-medium text-lg mb-2">Self-Discipline and Motivation</h3>
-      <p className="mb-4">
-        Without the structure of a traditional classroom, students must develop stronger
-        self-discipline and motivation to stay on track with their learning.
-      </p>
-    </TextSection>
-
-    <LessonSummary
-      points={[
-        "E-Learning offers cost-effectiveness and global reach",
-        "Students must navigate technical requirements and develop self-discipline",
-        "Balancing the benefits and challenges is key to e-learning success",
-        "Understanding these factors helps in designing effective online courses"
-      ]}
-    />
-  </LessonContent>
-);
-
-/**
- * Content registry - maps content IDs to their respective components
- */
-const contentRegistry = {
-  "intro_elearning": IntroToELearning,
-  "benefits_challenges": BenefitsChallenges,
-  // Additional content components would be added here
 };
 
 /**
