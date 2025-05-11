@@ -30,8 +30,8 @@ export const firestore = getFirestore(app);
 export const vertexAI = getVertexAI(app);
 export const storage = getStorage(app);
 
-// Connect to Firebase emulators in development environment
-if (process.env.NODE_ENV === 'development') {
+// Connect to Firebase emulators if the USE_EMULATORS env variable is set
+if (process.env.REACT_APP_USE_EMULATORS === 'true') {
   // Connect to Functions emulator
   connectFunctionsEmulator(functions, 'localhost', 5001);
   console.log('Connected to Firebase Functions emulator');
@@ -41,6 +41,8 @@ if (process.env.NODE_ENV === 'development') {
     connectDatabaseEmulator(database, 'localhost', 9000);
     console.log('Connected to Firebase Realtime Database emulator');
   });
+} else {
+  console.log('Using production Firebase services');
 }
 
 // Initialize Stripe Payments
