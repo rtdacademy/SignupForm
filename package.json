@@ -125,19 +125,25 @@
     "typescript": "^4.9.5"
   },
   "scripts": {
-    "cleanup": "kill-port 3000 9099 5001 8080 9000 5000 9199 4400 4401 4000 4001 4500 4501 9299 9300 9499 9500",
-    "start:main": "npm run cleanup && concurrently \"node scripts/build.js --start\" \"firebase emulators:start --only functions\"",
-    "start:second": "npm run cleanup && concurrently \"node scripts/build.js --second-site --start\" \"firebase emulators:start --only functions\"",
+    "cleanup:hosting": "kill-port 3000",
+    "cleanup:functions": "kill-port 5001 9099 8080 9000",
+    "cleanup:all": "kill-port 3000 9099 5001 8080 9000 5000 9199 4400 4401 4000 4001 4500 4501 9299 9300 9499 9500",
+    "start:main": "npm run cleanup:hosting && node scripts/build.js --start",
+    "start:second": "npm run cleanup:hosting && node scripts/build.js --second-site --start",
     "start:app": "node scripts/build.js --start",
     "start:second-app": "node scripts/build.js --second-site --start",
-    "start:emulator": "npm run cleanup && firebase emulators:start --only functions",
+    "start:functions": "npm run cleanup:functions && firebase emulators:start --only functions",
+    "start:database": "npm run cleanup:functions && firebase emulators:start --only database",
+    "start:backend": "npm run cleanup:functions && firebase emulators:start --only functions,database",
     "build:main": "node scripts/build.js",
     "build:second": "node scripts/build.js --second-site",
     "deploy:main": "npm run build:main && firebase deploy --only hosting:main",
     "deploy:second": "npm run build:second && firebase deploy --only hosting:second-site",
     "clean": "node scripts/build.js --clean-only",
     "prebuild": "node scripts/build.js --clean-only",
-    "emulator": "npm run cleanup && firebase emulators:start --only functions"
+    "emulator": "npm run cleanup:functions && firebase emulators:start --only functions",
+    "export:database": "firebase database:get / > database-export.json",
+    "import:database": "firebase database:set / database-export.json"
   },
   "browserslist": [
     ">0.2%",
