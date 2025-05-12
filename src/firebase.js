@@ -38,7 +38,7 @@ if (process.env.REACT_APP_USE_EMULATORS === 'true') {
 
   // Connect to Realtime Database emulator
   import('firebase/database').then(({ connectDatabaseEmulator }) => {
-    connectDatabaseEmulator(database, 'localhost', 9000);
+    connectDatabaseEmulator(database, 'localhost', 8765);
     console.log('Connected to Firebase Realtime Database emulator');
   });
 } else {

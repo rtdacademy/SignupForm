@@ -22,7 +22,7 @@ Run your app against local Firebase emulators:
 
 ```bash
 # Start the Firebase emulators in one terminal
-npm run start:backend
+firebase emulators:start
 
 # In another terminal, start your app with emulator connections
 npm run start:main:emulators
@@ -33,36 +33,8 @@ npm run start:second:emulators
 
 ## Switching Between Modes
 
-You can switch between using emulators and production by:
+You can switch between using emulators and production by using the appropriate npm script:
+- With `:emulators` suffix to use emulators
+- Without suffix to use production
 
-1. Editing the `.env.development` file and changing:
-   ```
-   REACT_APP_USE_EMULATORS=true  # Use emulators
-   REACT_APP_USE_EMULATORS=false # Use production
-   ```
-
-2. Using the appropriate npm script:
-   - With `:emulators` suffix to use emulators
-   - Without suffix to use production
-
-## Importing Data to Emulators
-
-To import real data to your emulator:
-
-```bash
-# Fetch from production and set to emulator
-firebase database:get /path/to/data --project=rtd-academy | firebase database:set /path/to/data --database-url=http://localhost:9000?ns=rtd-academy
-```
-
-Or create a JSON file and import it:
-
-```bash
-# Import from a JSON file
-curl -X PUT -d @your-data.json http://localhost:9000/path/to/data.json?ns=rtd-academy
-```
-
-## Emulator UI
-
-- Main Emulator UI: http://127.0.0.1:4000/
-- Database Emulator: http://127.0.0.1:9000/?ns=rtd-academy
-- Functions Emulator: http://127.0.0.1:5001/
+The scripts automatically set `REACT_APP_USE_EMULATORS=true` for emulator mode.
