@@ -208,6 +208,8 @@ export const useStudentData = (userEmailKey) => {
     
     // For Firebase paths, use the proper sanitizeEmail function which replaces dots with commas
     const sanitizedUserEmail = sanitizeEmail(userEmail);
+    
+    // Primary path for the notification results in the shared results collection
     const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedUserEmail}`);
     
     // First try to get existing data so we don't overwrite survey results
@@ -295,8 +297,44 @@ export const useStudentData = (userEmailKey) => {
         updateData.lastSeen = currentDate;
       }
       
-      // Update the record
+      // Update the record in the main notifications results collection
       set(resultsRef, updateData);
+      
+      // Also store the acknowledgment in each course's notifications results
+      // This is critical for letting students know which notifications they've seen
+      if (studentData.courses) {
+        for (const course of studentData.courses) {
+          if (course.id) {
+            // Path to the course-specific notification results
+            const courseNotificationRef = ref(db, 
+              `students/${sanitizedUserEmail}/courses/${course.id}/studentDashboardNotificationsResults/${notificationId}`);
+            
+            // Get any existing course-specific notification data
+            get(courseNotificationRef).then(courseSnapshot => {
+              const existingCourseData = courseSnapshot.exists() ? courseSnapshot.val() : {};
+              
+              // Create update data that preserves existing data but updates seen status
+              const courseUpdateData = {
+                ...existingCourseData,
+                hasSeen: true,
+                hasSeenTimeStamp: currentDate,
+                hasAcknowledged: updateData.hasAcknowledged || false,
+                acknowledgedAt: updateData.acknowledgedAt
+              };
+              
+              // Store submission data if this is a repeating notification
+              if (updateData.submissions && Object.keys(updateData.submissions).length > 0) {
+                courseUpdateData.submissions = updateData.submissions;
+              }
+              
+              // Update the course-specific record
+              set(courseNotificationRef, courseUpdateData);
+            }).catch(error => {
+              console.error(`Error updating course notification status for course ${course.id}:`, error);
+            });
+          }
+        }
+      }
     }).catch(error => {
       console.error('Error updating notification seen status in Firebase:', error);
       
@@ -366,10 +404,9 @@ export const useStudentData = (userEmailKey) => {
   // Process notifications for each course - using the utility function
   const processNotificationsForCourses = (courses, profile, allNotifications) => {
     // Log the student data we have for matching
-    console.log('Processing notifications for student:', {
+    console.log('🔔 NOTIFICATION PROCESSING:', {
       email: profile?.StudentEmail,
       age: calculateAge(profile?.birthday),
-      birthday: profile?.birthday,
       notificationCount: allNotifications?.length || 0
     });
     
@@ -904,37 +941,39 @@ export const useStudentData = (userEmailKey) => {
     };
   }, [userEmailKey, isEmulating]);
 
-  // Add a detailed console log to see complete student data for debugging
+  // Add a consolidated console log to see all notification-related data
   if (!studentData.loading && studentData.profile) {
-    console.log('====== COMPLETE STUDENT DATA FOR NOTIFICATION FILTERING ======');
-    console.log('STUDENT EMAIL KEY:', userEmailKey);
-    
-    // Log the entire raw studentData object for complete reference
-    console.log('COMPLETE RAW STUDENT DATA:', JSON.parse(JSON.stringify(studentData)));
-    
-    // Log detailed profile information
-    console.log('PROFILE DATA:', {
-      ...studentData.profile,
-      // Extract specific fields for easy reference
-      email: studentData.profile.StudentEmail,
-      firstName: studentData.profile.firstName,
-      lastName: studentData.profile.lastName,
-      fullName: `${studentData.profile.firstName || ''} ${studentData.profile.lastName || ''}`,
-      age: calculateAge(studentData.profile.birthday)
+    console.log('🔔🔔🔔 NOTIFICATION SYSTEM SUMMARY 🔔🔔🔔', {
+      student: {
+        email: studentData.profile.StudentEmail,
+        fullName: `${studentData.profile.firstName || ''} ${studentData.profile.lastName || ''}`,
+        age: calculateAge(studentData.profile.birthday)
+      },
+      notifications: {
+        totalActive: studentData.allNotifications?.length || 0,
+        coursesWithNotifications: studentData.courses?.filter(c => 
+          c.notificationIds && Object.keys(c.notificationIds).length > 0
+        ).length || 0,
+        visibleNotifications: studentData.courses?.reduce((count, course) => {
+          if (!course.notificationIds) return count;
+          return count + Object.values(course.notificationIds)
+            .filter(n => n.shouldDisplay).length;
+        }, 0) || 0,
+        courseBreakdown: studentData.courses?.map(course => ({
+          id: course.id,
+          title: course.courseDetails?.Title,
+          totalNotifications: course.notificationIds ? Object.keys(course.notificationIds).length : 0,
+          visibleNotifications: course.notificationIds ? 
+            Object.values(course.notificationIds).filter(n => n.shouldDisplay).length : 0,
+          hasAcknowledgedNotifications: course.studentDashboardNotificationsResults ? 
+            Object.keys(course.studentDashboardNotificationsResults).length : 0
+        })).filter(c => c.totalNotifications > 0)
+      },
+      storagePaths: {
+        mainResults: 'studentDashboardNotificationsResults/{notificationId}/{userEmail}',
+        courseSpecific: 'students/{userEmail}/courses/{courseId}/studentDashboardNotificationsResults/{notificationId}'
+      }
     });
-    
-    // Log courses with notifications
-    console.log('COURSES WITH NOTIFICATIONS:', studentData.courses?.map(course => ({
-      id: course.id,
-      title: course.courseDetails?.Title,
-      studentType: course.StudentType?.Value,
-      scheduleEndDate: course.ScheduleEndDate,
-      schoolYear: course.School_x0020_Year?.Value,
-      notificationCount: course.notificationIds ? Object.keys(course.notificationIds).length : 0,
-      notifications: course.notificationIds || {}
-    })));
-    
-    console.log('==========================================================');
   }
   
 

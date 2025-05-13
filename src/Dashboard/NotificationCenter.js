@@ -854,7 +854,14 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
         </div>
         
         {/* We never show the Acknowledge button for surveys or already acknowledged notifications */}
-        {notification.type === 'notification' && !notification.hasAcknowledged && (
+        {notification.type === 'notification' && 
+          // Check global acknowledgment status
+          !notification.hasAcknowledged && 
+          // Check if this notification has been acknowledged in any associated course
+          !(notification.courses && notification.courses.some(course => 
+            course.studentDashboardNotificationsResults && 
+            course.studentDashboardNotificationsResults[notification.originalNotificationId || notification.id]?.hasAcknowledged
+          )) && (
           <DialogFooter className="mt-6">
             <Button 
               onClick={() => {
@@ -895,12 +902,17 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     
     // Debug each course's notifications
     if (process.env.NODE_ENV === 'development') {
-      console.log('Courses with notifications:', courses?.map(course => ({
-        id: course.id,
-        hasNotifications: !!course.notificationIds,
-        notificationCount: course.notificationIds ? Object.keys(course.notificationIds).length : 0,
-        notifications: course.notificationIds || {}
-      })));
+      console.log('🔔 NOTIFICATION CENTER SETUP:', {
+        courses: courses?.map(course => ({
+          id: course.id,
+          hasNotifications: !!course.notificationIds,
+          visibleCount: course.notificationIds ? 
+            Object.values(course.notificationIds).filter(n => n.shouldDisplay).length : 0,
+          hasResults: !!course.studentDashboardNotificationsResults,
+          acknowledgedCount: course.studentDashboardNotificationsResults ? 
+            Object.keys(course.studentDashboardNotificationsResults).length : 0
+        }))
+      });
       
       // Debug the structure of notifications from all courses
       if (courses) {
@@ -983,10 +995,11 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
                 // Original ID is still needed for backend operations
                 originalNotificationId: notification.id,
                 
-                // Add single course to the courses array
+                // Add single course to the courses array with notification results
                 courses: [{
                   id: course.id,
-                  title: courseTitle
+                  title: courseTitle,
+                  studentDashboardNotificationsResults: course.studentDashboardNotificationsResults
                 }]
               };
               
@@ -1062,10 +1075,11 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
                   uniqueId: notification.id,
                   originalNotificationId: notification.id,
                   
-                  // Add course info
+                  // Add course info with notification results
                   courses: [{
                     id: course.id,
-                    title: course.courseDetails?.Title || course.title || `Course ${course.id}`
+                    title: course.courseDetails?.Title || course.title || `Course ${course.id}`,
+                    studentDashboardNotificationsResults: course.studentDashboardNotificationsResults
                   }]
                 };
                 
@@ -1106,7 +1120,8 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
                 const existingNotification = result[existingIndex];
                 existingNotification.courses.push({
                   id: course.id,
-                  title: course.courseDetails?.Title || course.title || `Course ${course.id}`
+                  title: course.courseDetails?.Title || course.title || `Course ${course.id}`,
+                  studentDashboardNotificationsResults: course.studentDashboardNotificationsResults
                 });
               }
             }
@@ -1117,7 +1132,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     
     // Log all notifications after processing
     if (process.env.NODE_ENV === 'development') {
-      console.log('Final processed notifications:', result.map(n => ({
+      console.log('🔔 FINAL NOTIFICATIONS TO DISPLAY:', result.map(n => ({
         id: n.id,
         uniqueId: n.uniqueId,
         title: n.title,
@@ -1280,13 +1295,19 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     setIsCompactView(!needsAttention && !isExpanded);
     
     if (process.env.NODE_ENV === 'development') {
-      console.log('Notification status:', {
-        hasUnreadNotifications,
-        hasImportantNotifications,
-        hasIncompleteRequiredNotifications,
-        userToggled,
-        isExpanded,
-        isCompactView: !needsAttention && !isExpanded
+      console.log('🔔 NOTIFICATION DISPLAY STATUS 🔔', {
+        attention: {
+          hasUnread: hasUnreadNotifications,
+          hasImportant: hasImportantNotifications,
+          hasIncompleteSurveys: hasIncompleteRequiredNotifications,
+          needsAttention: needsAttention
+        },
+        display: {
+          userToggled,
+          isExpanded,
+          isCompactView: !needsAttention && !isExpanded,
+          visible: activeNotifications.length
+        }
       });
     }
     
@@ -1627,18 +1648,71 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
               
             // Store the next renewal date
             updateData.nextRenewalDate = nextRenewalDate.toISOString();
-            console.log(`Set next renewal date to ${updateData.nextRenewalDate} for ${dayOfWeek}`);
+            console.log(`📅 RENEWAL DATE: ${updateData.nextRenewalDate} (${dayOfWeek})`);
           }
         }
         
-        // Update the record
+        // Update the record in central notification results
         set(resultsRef, updateData).then(() => {
           if (process.env.NODE_ENV === 'development') {
-            console.log('Notification acknowledged successfully:', {
+            console.log('🔔 NOTIFICATION ACKNOWLEDGED ✅', {
               notificationId,
+              type: notification.type,
               hasRepeatInterval,
               isSurveyType,
-              updateData
+              nextRenewalDate: updateData.nextRenewalDate,
+              storedInBothPlaces: true
+            });
+          }
+          
+          // Also store acknowledgment in each course-specific path
+          if (notification.courses && Array.isArray(notification.courses)) {
+            // Process each course to update its notification results
+            notification.courses.forEach(course => {
+              if (course.id) {
+                // Create path to course-specific notification results
+                const courseNotificationRef = ref(db, 
+                  `students/${sanitizedUserEmail}/courses/${course.id}/studentDashboardNotificationsResults/${notificationId}`);
+                
+                // Get any existing course notification data
+                get(courseNotificationRef).then(courseSnapshot => {
+                  const courseData = courseSnapshot.exists() ? courseSnapshot.val() : {};
+                  
+                  // Create update data for the course-specific path
+                  const courseUpdateData = {
+                    ...courseData,
+                    hasSeen: true,
+                    hasSeenTimeStamp: currentDate,
+                    hasAcknowledged: true,
+                    acknowledgedAt: currentDate
+                  };
+                  
+                  // Copy important fields from the main notification results
+                  if (updateData.submissions) {
+                    courseUpdateData.submissions = updateData.submissions;
+                  }
+                  if (updateData.nextRenewalDate) {
+                    courseUpdateData.nextRenewalDate = updateData.nextRenewalDate;
+                  }
+                  if (updateData.lastSeen) {
+                    courseUpdateData.lastSeen = updateData.lastSeen;
+                  }
+                  if (updateData.lastAcknowledged) {
+                    courseUpdateData.lastAcknowledged = updateData.lastAcknowledged;
+                  }
+                  
+                  // Update the course-specific notification record
+                  set(courseNotificationRef, courseUpdateData).then(() => {
+                    if (process.env.NODE_ENV === 'development') {
+                      console.log(`🔔 Course ${course.id}: Updated notification status for ${notificationId} ✅`);
+                    }
+                  }).catch(error => {
+                    console.error(`Error updating course ${course.id} notification:`, error);
+                  });
+                }).catch(error => {
+                  console.error(`Error getting course ${course.id} notification data:`, error);
+                });
+              }
             });
           }
         }).catch(error => {
@@ -1705,7 +1779,46 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
           }
         }
         
-        set(resultsRef, updateData).catch(error => {
+        set(resultsRef, updateData).then(() => {
+          // Also store acknowledgment in each course-specific path (fallback path)
+          if (notification.courses && Array.isArray(notification.courses)) {
+            // Process each course to update its notification results
+            notification.courses.forEach(course => {
+              if (course.id) {
+                // Create path to course-specific notification results
+                const courseNotificationRef = ref(db, 
+                  `students/${sanitizedUserEmail}/courses/${course.id}/studentDashboardNotificationsResults/${notificationId}`);
+                
+                // Create update data for the course-specific path
+                const courseUpdateData = {
+                  hasSeen: true,
+                  hasSeenTimeStamp: currentDate,
+                  hasAcknowledged: true,
+                  acknowledgedAt: currentDate
+                };
+                
+                // Copy important fields from the main notification results
+                if (updateData.submissions) {
+                  courseUpdateData.submissions = updateData.submissions;
+                }
+                if (updateData.nextRenewalDate) {
+                  courseUpdateData.nextRenewalDate = updateData.nextRenewalDate;
+                }
+                if (updateData.lastSeen) {
+                  courseUpdateData.lastSeen = updateData.lastSeen;
+                }
+                if (updateData.lastAcknowledged) {
+                  courseUpdateData.lastAcknowledged = updateData.lastAcknowledged;
+                }
+                
+                // Update the course-specific notification record
+                set(courseNotificationRef, courseUpdateData).catch(error => {
+                  console.error(`Error updating course ${course.id} notification (fallback):`, error);
+                });
+              }
+            });
+          }
+        }).catch(error => {
           console.error('Error acknowledging notification (fallback):', error);
         });
       });
