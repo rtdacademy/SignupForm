@@ -61,42 +61,64 @@ const CollapsibleNavigation = ({
   expanded = true,
   onToggleExpand,
   currentUnitIndex = 0,
+  course,
 }) => {
   const [expandedUnit, setExpandedUnit] = useState(currentUnitIndex);
-  
+
+  // Display debugging information about the course structure
+  useEffect(() => {
+    if (course) {
+      console.log("CollapsibleNavigation: Course structure paths:", {
+        providedUnitsList: unitsList,
+        detailsStructure: course.courseDetails?.courseStructure?.structure,
+        directStructure: course.courseStructure?.structure,
+        units: course.units
+      });
+    }
+  }, [course, unitsList]);
+
   // Process units by section
   const sectionedUnits = useMemo(() => {
     // Initialize with empty sections to maintain order
     const sections = {"": [], "1": [], "2": [], "3": []};
-    
-    unitsList.forEach((unit, index) => {
+
+    // Try to use course.courseDetails.courseStructure.structure if available and unitsList is empty
+    const effectiveUnitsList = unitsList.length > 0 ? unitsList :
+      (course?.courseDetails?.courseStructure?.structure || []);
+
+    effectiveUnitsList.forEach((unit, index) => {
       const section = getUnitSection(unit);
       if (!sections[section]) {
         sections[section] = [];
       }
       sections[section].push({...unit, index});
     });
-    
+
     // Remove empty sections
     Object.keys(sections).forEach(key => {
       if (sections[key].length === 0) {
         delete sections[key];
       }
     });
-    
+
     return sections;
-  }, [unitsList]);
+  }, [unitsList, course]);
   
   // Flatten all course items for progress calculations
   const allCourseItems = useMemo(() => {
     const items = [];
-    unitsList.forEach(unit => {
+
+    // Try to use course.courseDetails.courseStructure.structure if available and unitsList is empty
+    const effectiveUnitsList = unitsList.length > 0 ? unitsList :
+      (course?.courseDetails?.courseStructure?.structure || []);
+
+    effectiveUnitsList.forEach(unit => {
       if (unit.items && Array.isArray(unit.items)) {
         items.push(...unit.items);
       }
     });
     return items;
-  }, [unitsList]);
+  }, [unitsList, course]);
   
   // Calculate overall progress percentage
   const overallProgress = useMemo(() => {

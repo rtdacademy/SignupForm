@@ -4,7 +4,6 @@
 
 // Lessons
 import IntroToELearning from './lessons/IntroToELearning';
-import IntroToELearningStaff from './lessons/IntroToELearning_Staff';
 import BenefitsChallenges from './lessons/BenefitsChallenges';
 
 // Assignments
@@ -12,8 +11,7 @@ import ReflectionAssignment from './assignments/ReflectionAssignment';
 // import TechComparison from './assignments/TechComparison';
 
 // Exams
-import MidtermExam from './exams/MidtermExam';
-import QuestionDevelopmentSandbox from './exams/QuestionDevelopmentSandbox';
+
 // import FinalExam from './exams/FinalExam';
 
 /**
@@ -22,7 +20,6 @@ import QuestionDevelopmentSandbox from './exams/QuestionDevelopmentSandbox';
 const contentRegistry = {
   // Lessons
   "intro_elearning": IntroToELearning,
-  "intro_elearning_Staff": IntroToELearningStaff,
   "benefits_challenges": BenefitsChallenges,
 
   // Assignments
@@ -30,8 +27,7 @@ const contentRegistry = {
   // "tech_comparison": TechComparison,
 
   // Exams
-  "midterm_exam": MidtermExam,
-  "question_sandbox": QuestionDevelopmentSandbox,
+
   // "final_exam": FinalExam,
 };
 

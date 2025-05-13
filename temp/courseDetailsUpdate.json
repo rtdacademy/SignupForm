@@ -1,0 +1,55 @@
+{
+  "courseDetails": {
+    "courseStructure": {
+      "structure": [
+        {
+          "items": [
+            {
+              "assessments": [
+                {
+                  "functionName": "courses-COM1255-lessons-IntroToELearning-q1",
+                  "id": "q1_elearning_benefits",
+                  "maxAttempts": 3,
+                  "points": 5,
+                  "type": "multiple_choice",
+                  "weight": 1
+                },
+                {
+                  "functionName": "courses-COM1255-lessons-IntroToELearning-dynamic",
+                  "id": "intro_dynamic_question",
+                  "maxAttempts": 5,
+                  "parameters": {
+                    "difficulty": "beginner",
+                    "questionType": "addition"
+                  },
+                  "points": 10,
+                  "type": "dynamic",
+                  "weight": 1
+                }
+              ],
+              "content": "intro_elearning",
+              "itemId": "lesson_intro_elearning",
+              "title": "What is E-Learning?",
+              "type": "lesson"
+            },
+            {
+              "content": "benefits_challenges",
+              "itemId": "lesson_benefits",
+              "title": "Benefits and Challenges of E-Learning",
+              "type": "lesson"
+            },
+            {
+              "content": "reflection_assignment",
+              "itemId": "assignment_elearning_reflection",
+              "title": "E-Learning Reflection Assignment",
+              "type": "assignment"
+            }
+          ],
+          "name": "Introduction to E-Learning",
+          "section": "1",
+          "unitId": "unit_introduction"
+        }
+      ]
+    }
+  }
+}

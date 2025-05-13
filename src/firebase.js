@@ -30,19 +30,31 @@ export const firestore = getFirestore(app);
 export const vertexAI = getVertexAI(app);
 export const storage = getStorage(app);
 
-// Connect to Firebase emulators if the USE_EMULATORS env variable is set
-if (process.env.REACT_APP_USE_EMULATORS === 'true') {
+// Connect to Firebase emulators based on environment variables
+if (process.env.REACT_APP_USE_FUNCTIONS_EMULATOR === 'true') {
   // Connect to Functions emulator
   connectFunctionsEmulator(functions, 'localhost', 5001);
   console.log('Connected to Firebase Functions emulator');
+}
 
+if (process.env.REACT_APP_USE_DATABASE_EMULATOR === 'true') {
   // Connect to Realtime Database emulator
   import('firebase/database').then(({ connectDatabaseEmulator }) => {
     connectDatabaseEmulator(database, 'localhost', 8765);
     console.log('Connected to Firebase Realtime Database emulator');
   });
+}
+
+// Log which services are being used
+if (process.env.REACT_APP_USE_FUNCTIONS_EMULATOR !== 'true' && process.env.REACT_APP_USE_DATABASE_EMULATOR !== 'true') {
+  console.log('Using all production Firebase services');
 } else {
-  console.log('Using production Firebase services');
+  if (process.env.REACT_APP_USE_FUNCTIONS_EMULATOR !== 'true') {
+    console.log('Using production Firebase Functions');
+  }
+  if (process.env.REACT_APP_USE_DATABASE_EMULATOR !== 'true') {
+    console.log('Using production Firebase Realtime Database');
+  }
 }
 
 // Initialize Stripe Payments

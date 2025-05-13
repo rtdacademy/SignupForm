@@ -2,7 +2,7 @@
 
 ## Development Options
 
-You now have two development modes:
+You now have three development modes:
 
 ### 1. Development with Production Services
 
@@ -16,25 +16,48 @@ npm run start:main
 npm run start:second
 ```
 
-### 2. Development with Local Emulators
+### 2. Development with All Local Emulators
 
-Run your app against local Firebase emulators:
+Run your app against all local Firebase emulators (both Functions and Realtime Database):
 
 ```bash
 # Start the Firebase emulators in one terminal
-firebase emulators:start
+npm run start:emulators
 
-# In another terminal, start your app with emulator connections
-npm run start:main:emulators
+# In another terminal, start your app with all emulator connections
+npm run start:main:all-emulators
 
 # Or for second site
-npm run start:second:emulators
+npm run start:second:all-emulators
+```
+
+### 3. Development with Live Database + Functions Emulator
+
+Use the live Realtime Database for real data while running Functions locally for faster development:
+
+```bash
+# Start only the Functions emulator in one terminal
+npm run start:emulators:functions-only
+
+# In another terminal, start your app with only Functions emulator
+npm run start:main:functions-emulator
+
+# Or for second site
+npm run start:second:functions-emulator
 ```
 
 ## Switching Between Modes
 
-You can switch between using emulators and production by using the appropriate npm script:
-- With `:emulators` suffix to use emulators
-- Without suffix to use production
+You can switch between using different emulator configurations:
+- No suffix: Use all production services
+- `:all-emulators` suffix: Use both Functions and Database emulators
+- `:functions-emulator` suffix: Use Functions emulator but live production Database
 
-The scripts automatically set `REACT_APP_USE_EMULATORS=true` for emulator mode.
+## Environment Variables
+
+The app uses these environment variables to determine which services to connect to:
+
+- `REACT_APP_USE_FUNCTIONS_EMULATOR=true`: Connect to local Functions emulator
+- `REACT_APP_USE_DATABASE_EMULATOR=true`: Connect to local Database emulator
+
+These are automatically set by the npm scripts.

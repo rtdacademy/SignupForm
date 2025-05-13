@@ -1,0 +1,72 @@
+{
+  "courseStructure": {
+    "courseId": "COM1255",
+    "title": "COM1255 - E-Learning",
+    "description": "This course introduces students to the principles, technologies, and best practices of e-learning. Students will explore different e-learning platforms, instructional design concepts, and assessment strategies while developing their own online learning materials.",
+    "structure": [
+      {
+        "name": "Introduction to E-Learning",
+        "section": "1",
+        "unitId": "unit_introduction",
+        "items": [
+          {
+            "itemId": "lesson_intro_elearning",
+            "title": "What is E-Learning?",
+            "type": "lesson",
+            "content": "intro_elearning",
+            "assessments": [
+              {
+                "id": "q1_elearning_benefits",
+                "type": "multiple_choice",
+                "functionName": "courses-COM1255-lessons-IntroToELearning-q1",
+                "weight": 1,
+                "maxAttempts": 3,
+                "points": 5
+              },
+              {
+                "id": "intro_dynamic_question",
+                "type": "dynamic",
+                "functionName": "courses-COM1255-lessons-IntroToELearning-dynamic",
+                "weight": 1,
+                "maxAttempts": 5,
+                "points": 10,
+                "parameters": {
+                  "difficulty": "beginner",
+                  "questionType": "addition"
+                }
+              }
+            ]
+          },
+          {
+            "itemId": "lesson_benefits",
+            "title": "Benefits and Challenges of E-Learning",
+            "type": "lesson",
+            "content": "benefits_challenges"
+          },
+          {
+            "itemId": "assignment_elearning_reflection",
+            "title": "E-Learning Reflection Assignment",
+            "type": "assignment",
+            "content": "reflection_assignment"
+          }
+        ]
+      }
+    ],
+    "credits": 1,
+    "grade": "10",
+    "assessment": {
+      "passingThreshold": 0.7,
+      "maxAttemptsDefault": 3,
+      "assessmentTypes": {
+        "multiple_choice": {
+          "functionPath": "courses-COM1255-assessments-multipleChoice",
+          "pointsDefault": 5
+        },
+        "dynamic": {
+          "functionPath": "courses-COM1255-assessments-dynamic",
+          "pointsDefault": 10
+        }
+      }
+    }
+  }
+}

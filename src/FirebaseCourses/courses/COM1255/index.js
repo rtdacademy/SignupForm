@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ProgressProvider } from '../../context/CourseProgressContext';
 import { Badge } from '../../../components/ui/badge';
-import courseData from './courseStructure';
 import contentRegistry from './content';
 
 // Type-specific styling
@@ -26,8 +25,40 @@ const COM1255Course = ({
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
   const courseId = course.CourseID;
 
-  // Get structure from the static file instead of from the course object
-  const { structure } = courseData;
+  // Debug all possible structure paths for the course
+  useEffect(() => {
+    console.log("COM1255: Course object:", JSON.stringify(course, null, 2));
+    console.log("COM1255: Structure paths:", {
+      detailsStructurePath: course.courseDetails?.courseStructure?.structure,
+      directPath: course.courseStructure?.structure,
+      unitsPath: course.units
+    });
+  }, [course]);
+
+  // Try to find the course structure from different possible paths, prioritizing courseDetails.courseStructure.structure
+  const getStructure = () => {
+    if (course.courseDetails?.courseStructure?.structure) {
+      console.log("COM1255: Using structure from course.courseDetails.courseStructure.structure");
+      return course.courseDetails.courseStructure.structure;
+    } else if (course.courseStructure?.structure) {
+      console.log("COM1255: Using structure from course.courseStructure.structure");
+      return course.courseStructure.structure;
+    } else if (course.units) {
+      console.log("COM1255: Using structure generated from course.units");
+      // Convert units to structure format
+      return [{
+        name: "Course Content",
+        section: "1",
+        unitId: "main_unit",
+        items: course.units.flatMap(unit => unit.items || [])
+      }];
+    } else {
+      console.warn("COM1255: No course structure found in any location, using empty structure");
+      return [];
+    }
+  };
+
+  const structure = getStructure();
 
   // Use the activeItemId from props if provided, otherwise use internal state
   const activeItemId = externalActiveItemId !== undefined ? externalActiveItemId : internalActiveItemId;
@@ -102,7 +133,12 @@ const COM1255Course = ({
               {activeItem.type.charAt(0).toUpperCase() + activeItem.type.slice(1)}
             </Badge>
           </div>
-          <ContentComponent isStaffView={isStaffView} devMode={devMode} courseId={courseId} />
+          <ContentComponent
+            course={course}
+            courseId={courseId}
+            isStaffView={isStaffView}
+            devMode={devMode}
+          />
         </div>
       );
     }
@@ -121,7 +157,9 @@ const COM1255Course = ({
   // Debug log to track state changes
   useEffect(() => {
     console.log('COM1255Course: Active item ID:', activeItemId);
-  }, [activeItemId]);
+    console.log('COM1255Course: Received course object:', course);
+    console.log('COM1255Course: Course ID:', courseId);
+  }, [activeItemId, course, courseId]);
 
   return (
     <ProgressProvider courseId={courseId}>

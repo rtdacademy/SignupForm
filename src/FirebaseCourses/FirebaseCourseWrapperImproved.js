@@ -22,6 +22,10 @@ const FirebaseCourseWrapper = ({
   const [progress, setProgress] = useState({});
   const [navExpanded, setNavExpanded] = useState(true);
 
+  // Debug logging
+  console.log("🔄 FirebaseCourseWrapper rendering with course:", course);
+  console.log("👤 Current User in wrapper:", currentUser);
+
   // Sync with external state if provided
   useEffect(() => {
     if (externalActiveItemId && externalActiveItemId !== activeItemId) {
@@ -38,30 +42,53 @@ const FirebaseCourseWrapper = ({
     }
   }, [externalItemSelect]);
   
-  // Get course data either from the course object or try to import from a static file
+  // Get course data from the course object, either from database or fallback
   const getCourseData = () => {
-    try {
-      // Try to dynamically import the course structure based on the CourseID
-      const courseId = course.CourseID;
-      // For demo purposes, we're only handling COM1255, but this could be extended
-      if (courseId === 1 || courseId === '1') {
-        // We've already imported it in COM1255Course, but in a real app you might
-        // want to dynamically import here if the course hasn't been loaded yet
-        const { default: courseData, courseWeights } = require('./courses/COM1255/courseStructure');
-        return {
-          ...courseData,
-          courseWeights
-        };
-      }
-    } catch (error) {
-      console.warn("Could not load static course data:", error);
+    console.log("Course data in wrapper:", course);
+    console.log("Course structure path check:", {
+      detailsStructurePath: course.courseDetails?.courseStructure?.structure,
+      directPath: course.courseStructure,
+      units: course.units
+    });
+
+    // First priority: check courseDetails.courseStructure.structure
+    if (course.courseDetails?.courseStructure?.structure) {
+      console.log("Using courseDetails.courseStructure.structure from database");
+      return {
+        title: course.courseDetails.courseStructure.title || course.Title || '',
+        structure: course.courseDetails.courseStructure.structure,
+        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
+      };
+    }
+    // Second priority: check direct courseStructure path
+    else if (course.courseStructure) {
+      console.log("Using courseStructure from database");
+      return {
+        title: course.courseStructure.title || '',
+        structure: course.courseStructure.structure || [],
+        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
+      };
+    }
+    // Third priority: units array
+    else if (course.units) {
+      console.log("Using units array directly");
+      return {
+        title: course.Title || '',
+        structure: [{
+          name: "Course Content",
+          section: "1",
+          unitId: "main_unit",
+          items: course.units.flatMap(unit => unit.items || [])
+        }],
+        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
+      };
     }
 
-    // Fall back to course data from the passed object
+    // Fallback: use other course data
     return {
       title: course.Course?.Value || course.courseDetails?.Title || '',
       structure: course.courseDetails?.units || [],
-      courseWeights: { lesson: 0.2, assignment: 0.4, exam: 0.4 } // Default weights
+      courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
     };
   };
 
@@ -126,6 +153,7 @@ const FirebaseCourseWrapper = ({
             setActiveTab('content');
           }}
           currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
+          course={course}
         />
       </div>
 
@@ -195,7 +223,12 @@ const FirebaseCourseWrapper = ({
               )}
               {React.Children.map(children, child =>
                 React.isValidElement(child)
-                  ? React.cloneElement(child, { isStaffView, devMode })
+                  ? React.cloneElement(child, {
+                      course,
+                      courseId: course?.CourseID || '1',
+                      isStaffView,
+                      devMode
+                    })
                   : child
               )}
             </div>

@@ -1,41 +1,93 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../../../../context/AuthContext';
+import { getFunctions } from 'firebase/functions';
+import { getDatabase } from 'firebase/database';
 import LessonContent, { TextSection, MediaSection, LessonSummary } from '../../../../components/content/LessonContent';
-import MultipleChoiceQuestion from '../../../../components/assessments/MultipleChoiceQuestion';
-import DynamicQuestionExample from '../../../../components/assessments/DynamicQuestionExample';
+import { MultipleChoiceQuestion, DynamicQuestion } from '../../../../components/assessments';
 
 /**
  * Student view of the "What is E-Learning?" lesson
- * This is the standard lesson view without any administrative controls
+ * Uses cloud functions for assessment questions
  */
-const IntroToELearning = ({ courseId = '1' }) => {
-  // Define questions here directly in the component - this is what we want to edit
-  // Questions can be maintained by editing this file directly
-  const questions = [
-    {
-      id: "q1",
-      text: "Which of the following is NOT typically considered a benefit of E-Learning?",
-      options: [
-        { id: "a", text: "Learning at your own pace" },
-        { id: "b", text: "Access to educational resources from anywhere" },
-        { id: "c", text: "Reduced need for self-discipline" },
-        { id: "d", text: "Immediate feedback on assessments" }
-      ],
-      correctOptionId: "c",
-      explanation: "E-Learning actually requires more self-discipline than traditional classroom learning since students must manage their own time and learning schedule without direct supervision."
-    },
-    {
-      id: "q2", 
-      text: "E-Learning has transformed education by providing:",
-      options: [
-        { id: "a", text: "Only video-based content" },
-        { id: "b", text: "Flexibility, accessibility, and personalization" },
-        { id: "c", text: "Lower quality educational materials" },
-        { id: "d", text: "Less effective assessment methods" }
-      ],
-      correctOptionId: "b",
-      explanation: "E-Learning provides flexibility in when and where learning occurs, accessibility to a wide range of resources, and personalization of the learning experience."
+const IntroToELearning = ({ course, courseId = '1' }) => {
+  const { currentUser } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Assessment IDs for the lesson
+  const multipleChoiceId = 'q1_elearning_benefits';
+  const dynamicQuestionId = 'intro_dynamic_question';
+
+  // Get courseId from the course object - check different possible formats
+  // This handles different ways the courseId might be structured in the course object
+  const effectiveCourseId = String(course?.CourseID || course?.courseId || course?.id || courseId || 'COM1255');
+  
+  // Firebase references
+  const functions = getFunctions();
+  const db = getDatabase();
+  
+  console.log("🏫 Using courseId:", effectiveCourseId);
+
+  // Log course and currentUser to help with debugging
+  useEffect(() => {
+    console.log("🔍 COURSE OBJECT:", course);
+    console.log("🔑 CURRENT USER:", currentUser);
+    console.log("📊 COURSE ID:", effectiveCourseId);
+
+    // Check if functions are available
+    if (functions) {
+      console.log("✅ Firebase Functions available");
+    } else {
+      console.error("❌ Firebase Functions not available");
     }
-  ];
+
+    // Check if database is available
+    if (db) {
+      console.log("✅ Firebase Database available");
+    } else {
+      console.error("❌ Firebase Database not available");
+    }
+  }, [course, currentUser, effectiveCourseId]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      console.error("❌ No authenticated user found");
+      setError("You must be logged in to view this lesson");
+      setLoading(false);
+      return;
+    }
+
+    if (!course) {
+      console.error("❌ No course data provided");
+      setError("Course data is missing");
+      setLoading(false);
+      return;
+    }
+
+    if (!currentUser.email) {
+      console.error("❌ User has no email");
+      setError("User email is required");
+      setLoading(false);
+      return;
+    }
+
+    // The MultipleChoiceQuestion component handles its own database interactions
+    setLoading(false);
+    console.log("✅ IntroToELearning component initialized successfully");
+  }, [currentUser, course]);
+  
+  // Debug props check in render function
+  console.log("🏃‍♂️ Rendering IntroToELearning component with:", {
+    course,
+    courseId: effectiveCourseId,
+    currentUser,
+    assessmentIds: {
+      multipleChoiceId,
+      dynamicQuestionId
+    },
+    loading,
+    error
+  });
 
   return (
     <LessonContent
@@ -76,25 +128,37 @@ const IntroToELearning = ({ courseId = '1' }) => {
       <div className="my-8">
         <h3 className="text-xl font-medium mb-4">Check Your Understanding</h3>
 
-        {/* Render static questions from the questions array */}
-        {questions.map((question, index) => (
-          <div key={question.id} className="mb-10">
-            <MultipleChoiceQuestion
-              questionId={question.id}
-              questionText={question.text}
-              options={question.options}
-              correctOptionId={question.correctOptionId}
-              explanation={question.explanation}
-            />
+        {error && (
+          <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
           </div>
-        ))}
+        )}
 
-        {/* Dynamic Question Example */}
+        {/* Multiple Choice Question - Using reusable component with course object */}
         <div className="mb-10">
-          <h3 className="text-lg font-medium mb-4">Dynamic Math Problem</h3>
-          <DynamicQuestionExample
-            courseId={courseId}
-            assessmentId="intro_dynamic_question"
+          <MultipleChoiceQuestion
+            courseId={effectiveCourseId}
+            assessmentId={multipleChoiceId}
+            cloudFunctionName="COM1255_IntroToELearningQ1"
+            course={course}
+            theme="blue"
+            title="Multiple Choice Question"
+            onCorrectAnswer={() => console.log("Student answered multiple choice question correctly!")}
+            onAttempt={(isCorrect) => console.log(`Student made an attempt, correct: ${isCorrect}`)}
+          />
+        </div>
+
+        {/* Dynamic Math Question - Using the DynamicQuestion component with course object */}
+        <div className="mb-10">
+          <DynamicQuestion
+            courseId={effectiveCourseId}
+            assessmentId={dynamicQuestionId}
+            cloudFunctionName="COM1255_IntroToELearningDynamic"
+            course={course}
+            theme="green"
+            title="Dynamic Math Question"
+            onCorrectAnswer={() => console.log("Student answered math question correctly!")}
+            showRegenerate={true} // Allow regeneration of math questions for more practice
           />
         </div>
       </div>
