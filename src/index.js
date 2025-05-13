@@ -8,6 +8,8 @@ import { UserPreferencesProvider } from './context/UserPreferencesContext';
 import { TutorialProvider } from './context/TutorialContext';
 import { CourseProvider } from './context/CourseContext'; 
 import { SchoolYearProvider } from './context/SchoolYearContext'; 
+import { AudioProvider } from './context/AudioContext';
+import GlobalTextSelectionProvider from './context/GlobalTextSelectionProvider';
 import App from "./App";
 import { Toaster } from 'sonner'; 
 import './index.css';
@@ -22,11 +24,15 @@ root.render(
         <UserPreferencesProvider>
           <LayoutProvider>
             <ModeProvider>
-            <TutorialProvider> 
-            <CourseProvider> 
-            <SchoolYearProvider>
-                  <App isSecondSite={isSecondSite} />
-                  <Toaster position="top-right" />  
+              <TutorialProvider> 
+                <CourseProvider> 
+                  <SchoolYearProvider>
+                    <AudioProvider>
+                      <GlobalTextSelectionProvider>
+                        <App isSecondSite={isSecondSite} />
+                        <Toaster position="top-right" />
+                      </GlobalTextSelectionProvider>
+                    </AudioProvider>
                   </SchoolYearProvider>
                 </CourseProvider> 
               </TutorialProvider> 

@@ -97,18 +97,38 @@ const AIMultipleChoiceQuestion = ({
           if (data) {
             console.log("AI question data received:", data);
             
+            // Check if maxAttempts has been reached
+            const attemptsExhausted = data.attempts >= (data.maxAttempts || maxAttempts);
+            const maxAttemptsReached = data.status === 'maxAttemptsReached' || attemptsExhausted;
+            
+            // Enhance the data with our UI flags
+            const enhancedData = {
+              ...data,
+              maxAttemptsReached,
+              attemptsExhausted
+            };
+            
             // If we're expecting a new question during regeneration
             if (expectingNewQuestion) {
-              // Check if this is truly a new question (by timestamp)
+              // Check if this is truly a new question (by timestamp AND question text)
               const newTimestamp = data.timestamp || 0;
               const oldTimestamp = lastQuestionTimestamp || 0;
+              const newQuestionText = data.questionText || '';
+              const oldQuestionText = question?.questionText || '';
               
-              console.log(`Comparing timestamps - New: ${newTimestamp}, Old: ${oldTimestamp}`);
+              // Log what we're comparing
+              console.log(`Timestamp comparison - New: ${newTimestamp}, Old: ${oldTimestamp}`);
+              console.log(`Text comparison - New question starts with: "${newQuestionText.substring(0, 20)}...", Old question starts with: "${oldQuestionText.substring(0, 20)}..."`);
               
-              if (newTimestamp > oldTimestamp) {
-                // This is a new question, update the UI
-                console.log("New question detected with newer timestamp");
-                setQuestion(data);
+              // Only consider it a new question if BOTH the timestamp is newer AND the question text has changed
+              // This prevents intermediate database updates from being treated as new questions
+              const isNewTimestamp = newTimestamp > oldTimestamp;
+              const isNewQuestionText = newQuestionText !== oldQuestionText && newQuestionText.length > 0;
+              
+              if (isNewTimestamp && isNewQuestionText) {
+                // This is truly a new question, update the UI
+                console.log("✅ New question detected with new timestamp and different text");
+                setQuestion(enhancedData);
                 setLastQuestionTimestamp(newTimestamp);
                 setExpectingNewQuestion(false);
                 setRegenerating(false);
@@ -123,12 +143,18 @@ const AIMultipleChoiceQuestion = ({
                   setSelectedAnswer('');
                 }
               } else {
-                // This is still the old question data, don't update UI
-                console.log("Received same question or older question, ignoring update");
+                // Not a completely new question - might be a partial update
+                // So we don't update the UI, but we do take note of new timestamp if it exists
+                if (isNewTimestamp) {
+                  console.log("⚠️ New timestamp but same question text. Likely an intermediate update, not treating as new question.");
+                  setLastQuestionTimestamp(newTimestamp); // Still update timestamp for future comparisons
+                } else {
+                  console.log("⚠️ Received same question or older question, ignoring update");
+                }
               }
             } else {
               // Normal case, update question data
-              setQuestion(data);
+              setQuestion(enhancedData);
               setLastQuestionTimestamp(data.timestamp || 0);
               
               // If there's a last submission, set the result and preselect the answer
@@ -137,6 +163,15 @@ const AIMultipleChoiceQuestion = ({
                 // Preselect the last submitted answer
                 setSelectedAnswer(data.lastSubmission.answer || '');
                 console.log(`Preselecting last submitted answer: ${data.lastSubmission.answer}`);
+              }
+              
+              // If max attempts reached, show appropriate message
+              if (maxAttemptsReached) {
+                console.log("Maximum attempts reached for this assessment:", data.attempts);
+                // Only set the error if there's not already a result showing (to avoid confusion)
+                if (!data.lastSubmission) {
+                  setError("You've reached the maximum number of attempts for this question.");
+                }
               }
             }
           } else {
@@ -238,7 +273,25 @@ const AIMultipleChoiceQuestion = ({
       }
     } catch (err) {
       console.error("Error generating AI question:", err);
-      setError("Failed to generate question: " + (err.message || err));
+      
+      // Check if this is a max attempts error from the server
+      if (err.message && err.message.includes("Maximum attempts")) {
+        // This is a max attempts error - update the question state to reflect this
+        if (question) {
+          // Update the local question state to mark it as max attempts reached
+          setQuestion({
+            ...question,
+            maxAttemptsReached: true,
+            status: 'maxAttemptsReached',
+            attemptsExhausted: true
+          });
+        }
+        setError("You've reached the maximum number of attempts for this question.");
+      } else {
+        // Generic error
+        setError("Failed to generate question: " + (err.message || err));
+      }
+      
       setLoading(false);
       
       // Reset all state flags on error
@@ -287,7 +340,24 @@ const AIMultipleChoiceQuestion = ({
       // The database listener will pick up the result
     } catch (err) {
       console.error("Error submitting answer:", err);
-      setError("Failed to submit your answer. Please try again: " + (err.message || err));
+      
+      // Check if this is a max attempts error from the server
+      if (err.message && err.message.includes("Maximum attempts")) {
+        // This is a max attempts error - update the question state to reflect this
+        if (question) {
+          // Update the local question state to mark it as max attempts reached
+          setQuestion({
+            ...question,
+            maxAttemptsReached: true,
+            status: 'maxAttemptsReached',
+            attemptsExhausted: true
+          });
+        }
+        setError("You've reached the maximum number of attempts for this question.");
+      } else {
+        // Generic error
+        setError("Failed to submit your answer. Please try again: " + (err.message || err));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -318,35 +388,17 @@ const AIMultipleChoiceQuestion = ({
       setExpectingNewQuestion(true);
     }, 0);
 
-    // Force a database delete to get a fresh AI-generated question
-    const assessmentRef = ref(db, `students/${sanitizeEmail(currentUser.email)}/courses/${courseId}/Assessments/${assessmentId}`);
-
-    // Also remove the secure assessment data on server
-    const secureRef = ref(db, `courses/${courseId}/secureAssessments/${assessmentId}`);
-
+    // We no longer delete the assessment reference - this would reset attempts
+    // Instead, we just call the cloud function directly, which will handle incrementing the attempts
     try {
-      // First remove both assessment references
-      Promise.all([
-        remove(assessmentRef),
-        remove(secureRef)
-      ]).then(() => {
-        console.log("Removed existing assessment for regeneration");
-        // Generate a new question from scratch with some delay to ensure
-        // database operations complete first
-        setTimeout(() => {
-          generateQuestion();
-        }, 500);
-      });
+      console.log("Requesting question regeneration while preserving attempt count");
+      generateQuestion();
     } catch (error) {
       console.error("Error during regeneration:", error);
-      // Still try to generate a new question but make sure to reset expectation if it fails
-      setTimeout(() => {
-        generateQuestion().catch(() => {
-          setExpectingNewQuestion(false);
-          setRegenerating(false);
-          isGeneratingRef.current = false;
-        });
-      }, 500);
+      setExpectingNewQuestion(false);
+      setRegenerating(false);
+      isGeneratingRef.current = false;
+      setError("Failed to regenerate question: " + (error.message || error));
     }
   };
 
@@ -387,13 +439,30 @@ const AIMultipleChoiceQuestion = ({
       borderColor: themeColors.border
     }}>
       {/* Header */}
-      <div className="px-4 py-3 border-b flex items-center justify-between"
+      <div className="px-4 py-3 border-b"
            style={{ backgroundColor: themeColors.bgDark, borderColor: themeColors.border }}>
-        <h3 className="text-lg font-medium" style={{ color: themeColors.textDark }}>{title}</h3>
-        {question?.generatedBy === 'ai' && (
-          <span className="text-xs py-1 px-2 rounded bg-purple-100 text-purple-800 font-medium">
-            AI-powered
-          </span>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-medium" style={{ color: themeColors.textDark }}>{title}</h3>
+          {question?.generatedBy === 'ai' && (
+            <span className="text-xs py-1 px-2 rounded bg-purple-100 text-purple-800 font-medium">
+              AI-powered
+            </span>
+          )}
+        </div>
+        
+        {/* Display attempts counter when question is loaded */}
+        {question && (
+          <div className="flex items-center text-xs text-gray-600 mt-1">
+            <span className="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              Attempts: <span className="font-medium ml-1">{question.attempts || 0}</span> 
+              {question.maxAttempts && question.maxAttempts < 9999 && 
+                <span> / {question.maxAttempts}</span>}
+            </span>
+          </div>
         )}
       </div>
 
@@ -533,17 +602,22 @@ const AIMultipleChoiceQuestion = ({
                   {/* Additional guidance based on result */}
                   {!result.isCorrect && question.attempts < (question.maxAttempts || maxAttempts) && (
                     <div className="text-sm mb-2 border-t border-b py-2 mt-2">
-                      {/* Only show attempts remaining if it's 5 or fewer */}
-                      {((question.maxAttempts || maxAttempts) - question.attempts) <= 5 && 
-                        <p className="font-medium">You have {(question.maxAttempts || maxAttempts) - question.attempts} attempts remaining.</p>
-                      }
+                      <p className="font-medium">
+                        {(question.maxAttempts || maxAttempts) >= 9999 ? 
+                          `Attempt ${question.attempts}` : 
+                          `Attempt ${question.attempts} of ${question.maxAttempts || maxAttempts}`}
+                        {((question.maxAttempts || maxAttempts) - question.attempts) > 0 && (question.maxAttempts || maxAttempts) < 9999 && 
+                          ` (${(question.maxAttempts || maxAttempts) - question.attempts} remaining)`
+                        }
+                      </p>
                       <p>Review your answer and try again.</p>
                     </div>
                   )}
 
                   {/* For generating a new AI question */}
                   <div className="mt-4">
-                    {result && (
+                    {result && !question.maxAttemptsReached && !question.attemptsExhausted && 
+                     question.attempts < (question.maxAttempts || maxAttempts) && (
                       <Button
                         onClick={handleRegenerate}
                         style={{
@@ -557,6 +631,20 @@ const AIMultipleChoiceQuestion = ({
                         </svg>
                         Generate New AI Question
                       </Button>
+                    )}
+                    
+                    {/* Display message when max attempts reached */}
+                    {(question.maxAttemptsReached || question.attemptsExhausted || 
+                      question.attempts >= (question.maxAttempts || maxAttempts)) && (
+                      <div className="text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-md text-sm">
+                        <p className="font-medium mb-1">Maximum attempts reached</p>
+                        <p>
+                          {(question.maxAttempts || maxAttempts) >= 9999 ?
+                            `You have made ${question.attempts} attempts for this question and cannot make more.` :
+                            `You have used all ${question.attempts} of your ${question.maxAttempts || maxAttempts} available attempts for this question.`
+                          }
+                        </p>
+                      </div>
                     )}
                   </div>
                 </motion.div>

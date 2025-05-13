@@ -572,77 +572,76 @@ exports.handleAIQuestion = onCall({
   // Handle question generation operation
   if (params.operation === 'generate') {
     try {
-      // Check if this is a regeneration (existing assessment) or a new one
+      // STEP 1: Check if this is a regeneration or a new assessment
       const existingAssessmentSnapshot = await assessmentRef.once('value');
       const existingAssessment = existingAssessmentSnapshot.val();
+      const isRegeneration = !!existingAssessment;
       
-      // If it exists, verify the student hasn't exceeded the attempt limit
+      // Initialize the attempts counter
+      let currentAttempts = 0;
       if (existingAssessment) {
-        console.log(`Verification: Existing assessment found with ${existingAssessment.attempts || 0} attempts made.`);
-        
-        // Get the max attempts from the course data if available
-        // Look up course-specific settings for this assessment
-        const courseRef = admin.database()
-          .ref(`courses/${params.courseId}/assessments/${params.assessmentId}`);
-        const courseAssessmentSnapshot = await courseRef.once('value');
-        const courseAssessmentData = courseAssessmentSnapshot.val();
-        
-        // Extract max attempts from course settings if available, otherwise use existing value
-        const maxAttempts = (courseAssessmentData && courseAssessmentData.maxAttempts) ? 
-          courseAssessmentData.maxAttempts : (existingAssessment.maxAttempts || 3);
-        
-        console.log(`Verification: Max attempts allowed: ${maxAttempts}`);
-        
-        // Check if student still has attempts available
-        if (existingAssessment.attempts >= maxAttempts) {
-          console.log(`Security check: Student has exceeded max attempts (${existingAssessment.attempts}/${maxAttempts})`);
-          throw new Error(`Maximum attempts (${maxAttempts}) reached for this assessment. No more regenerations allowed.`);
-        }
-        
-        console.log(`Verification passed: Student has ${existingAssessment.attempts} attempts out of ${maxAttempts} maximum.`);
+        currentAttempts = existingAssessment.attempts || 0;
       }
       
-      // Generate an AI-powered question (with fallback to predefined if needed)
-      console.log(`Generating AI question on topic: ${params.topic}, difficulty: ${params.difficulty}`);
-      const question = await generateAIQuestion(params.topic, params.difficulty);
-
-      // Randomize the order of options to display (but keep track of the original IDs)
-      const randomizedOptions = shuffleArray([...question.options]);
+      console.log(`This is a ${isRegeneration ? 'regeneration' : 'new question'} request. Current attempts: ${currentAttempts}`);
       
-      // Get max attempts either from course settings or use default
-      // Look up course-specific settings for this assessment
+      // STEP 2: Look up course settings to get max attempts
+      // Use a single reference for course settings that we'll reuse
       const courseRef = admin.database()
         .ref(`courses/${params.courseId}/assessments/${params.assessmentId}`);
       const courseAssessmentSnapshot = await courseRef.once('value');
       const courseAssessmentData = courseAssessmentSnapshot.val();
       
-      // Use course-specific max attempts if available, otherwise use default (3)
-      const maxAttempts = (courseAssessmentData && courseAssessmentData.maxAttempts) ? 
-        courseAssessmentData.maxAttempts : 3;
-        
-      console.log(`Using maxAttempts=${maxAttempts} for this assessment`);
+      // Determine max attempts from course settings or use default
+      let maxAttempts = 9999; // Default to very high number (practically infinite)
       
-      // Preserve existing attempt count if regenerating
-      const currentAttempts = existingAssessment ? existingAssessment.attempts || 0 : 0;
-
-      // Store public question data in the database (student-accessible)
-      // Only include the question text and the options (not which one is correct)
-      await assessmentRef.set({
+      if (courseAssessmentData && courseAssessmentData.maxAttempts) {
+        // Use course settings value if available
+        maxAttempts = courseAssessmentData.maxAttempts;
+      } else if (existingAssessment && existingAssessment.maxAttempts) {
+        // Fall back to existing assessment value if available
+        maxAttempts = existingAssessment.maxAttempts;
+      }
+      
+      console.log(`Max attempts allowed: ${maxAttempts}`);
+      
+      // STEP 3: Verify the student hasn't exceeded the max attempts
+      if (isRegeneration && currentAttempts >= maxAttempts) {
+        console.log(`Security check: Student has exceeded max attempts (${currentAttempts}/${maxAttempts})`);
+        throw new Error(`Maximum attempts (${maxAttempts}) reached for this assessment. No more regenerations allowed.`);
+      }
+      
+      // STEP 4: Generate the AI question
+      console.log(`Generating AI question on topic: ${params.topic}, difficulty: ${params.difficulty}`);
+      const question = await generateAIQuestion(params.topic, params.difficulty);
+      
+      // STEP 5: Prepare the question data
+      const randomizedOptions = shuffleArray([...question.options]);
+      
+      // We no longer increment attempts during question generation
+      // Attempts will only be incremented during answer evaluation
+      
+      // Create the final question data object to save
+      const questionData = {
         timestamp: getServerTimestamp(),
         questionText: question.questionText,
-        // Only include id and text for the student - no feedback or correctness info
         options: randomizedOptions.map(opt => ({ id: opt.id, text: opt.text })),
         topic: params.topic,
         difficulty: params.difficulty,
         generatedBy: question.generatedBy || 'ai',
-        attempts: currentAttempts, // Preserve attempt count on regeneration
+        // Preserve the current attempts count without incrementing it
+        // Attempts only get incremented when submitting an answer
+        attempts: currentAttempts,
         status: 'active',
-        maxAttempts: maxAttempts, // Use proper course-defined max attempts
+        maxAttempts: maxAttempts,
         pointsValue: 2,
         settings: {
           showFeedback: true
         }
-      });
+      };
+      
+      // Store public question data in the database (student-accessible)
+      await assessmentRef.set(questionData);
 
       // Store the secure data in a completely separate database node (server-side only)
       // This node should not be loaded in any client-side code
@@ -695,8 +694,8 @@ exports.handleAIQuestion = onCall({
       // Security check: Always use the smaller value between saved assessment maxAttempts and 
       // course settings maxAttempts to prevent manipulation
       const secureMaxAttempts = Math.min(
-        assessmentData.maxAttempts || 3,
-        maxAttemptsFromSettings || 3
+        assessmentData.maxAttempts || 9999,
+        maxAttemptsFromSettings || 9999
       );
       
       console.log(`Secure max attempts check: Assessment has ${assessmentData.attempts} attempts. ` + 
@@ -807,8 +806,13 @@ exports.handleAIQuestion = onCall({
       // Evaluate the answer
       const result = evaluateAIQuestionAnswer(completeQuestion, params.answer);
 
-      // Increment the attempts counter
-      const updatedAttempts = (assessmentData.attempts || 0) + 1;
+      // IMPORTANT: This is where we increment the attempts counter, NOT during question generation
+      // This ensures we only count actual answer submissions as attempts, not questions viewed
+      
+      // Increment the attempts counter 
+      let updatedAttempts = (assessmentData.attempts || 0) + 1;
+      console.log(`Incrementing attempts from ${assessmentData.attempts || 0} to ${updatedAttempts} on answer submission`);
+      
       // Use secure maxAttempts value from earlier validation
       const attemptsRemaining = secureMaxAttempts - updatedAttempts;
 

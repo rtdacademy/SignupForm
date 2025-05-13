@@ -4,6 +4,7 @@ import { getFunctions } from 'firebase/functions';
 import { getDatabase } from 'firebase/database';
 import LessonContent, { TextSection, MediaSection, LessonSummary } from '../../../../components/content/LessonContent';
 import { MultipleChoiceQuestion, AIMultipleChoiceQuestion } from '../../../../components/assessments';
+import { SimpleReadAloudText as ReadAloudText } from '../../../../components/TextToSpeech';
 
 /**
  * Lesson about the Benefits and Challenges of E-Learning
@@ -87,18 +88,29 @@ const BenefitsChallenges = ({ course, courseId = '1' }) => {
           Let's explore some of the most significant benefits in greater detail.
         </p>
 
-        <h3 className="font-medium text-lg mb-2">Cost Effectiveness</h3>
-        <p className="mb-4">
-          E-Learning typically reduces costs associated with travel, physical materials, and facilities.
-          Students save on commuting expenses, while institutions can serve more students with fewer
-          physical resources.
-        </p>
+        <ReadAloudText 
+          buttonText="Listen to Cost Effectiveness" 
+          className="bg-purple-50 p-4 rounded-lg border border-purple-100 my-4"
+        >
+          <h3 className="font-medium text-lg mb-2">Cost Effectiveness</h3>
+          <p className="mb-4">
+            E-Learning typically reduces costs associated with travel, physical materials, and facilities.
+            Students save on commuting expenses, while institutions can serve more students with fewer
+            physical resources.
+          </p>
+        </ReadAloudText>
 
-        <h3 className="font-medium text-lg mb-2">Global Reach</h3>
-        <p className="mb-4">
-          Online learning transcends geographical boundaries, allowing students from around the world
-          to access quality education regardless of their location.
-        </p>
+        <ReadAloudText
+          buttonText="Listen to Global Reach"
+          buttonVariant="solid"
+          className="bg-blue-50 p-4 rounded-lg border border-blue-100 my-4"
+        >
+          <h3 className="font-medium text-lg mb-2">Global Reach</h3>
+          <p className="mb-4">
+            Online learning transcends geographical boundaries, allowing students from around the world
+            to access quality education regardless of their location.
+          </p>
+        </ReadAloudText>
       </TextSection>
 
       <TextSection title="Challenges of E-Learning">
@@ -107,17 +119,24 @@ const BenefitsChallenges = ({ course, courseId = '1' }) => {
           both students and educators need to address.
         </p>
 
-        <h3 className="font-medium text-lg mb-2">Technical Requirements</h3>
-        <p className="mb-4">
-          E-learning requires reliable internet access and appropriate devices, which may not
-          be universally available. Technical issues can disrupt the learning experience.
-        </p>
+        <ReadAloudText 
+          buttonText="Listen to Challenges" 
+          buttonVariant="outline"
+          iconPosition="right"
+          className="bg-amber-50 p-4 rounded-lg border border-amber-100 my-4"
+        >
+          <h3 className="font-medium text-lg mb-2">Technical Requirements</h3>
+          <p className="mb-4">
+            E-learning requires reliable internet access and appropriate devices, which may not
+            be universally available. Technical issues can disrupt the learning experience.
+          </p>
 
-        <h3 className="font-medium text-lg mb-2">Self-Discipline and Motivation</h3>
-        <p className="mb-4">
-          Without the structure of a traditional classroom, students must develop stronger
-          self-discipline and motivation to stay on track with their learning.
-        </p>
+          <h3 className="font-medium text-lg mb-2">Self-Discipline and Motivation</h3>
+          <p className="mb-4">
+            Without the structure of a traditional classroom, students must develop stronger
+            self-discipline and motivation to stay on track with their learning.
+          </p>
+        </ReadAloudText>
       </TextSection>
 
       <div className="my-8">
@@ -146,14 +165,20 @@ const BenefitsChallenges = ({ course, courseId = '1' }) => {
         </div>
       </div>
 
-      <LessonSummary
-        points={[
-          "E-Learning offers cost-effectiveness and global reach",
-          "Students must navigate technical requirements and develop self-discipline",
-          "Balancing the benefits and challenges is key to e-learning success",
-          "Understanding these factors helps in designing effective online courses"
-        ]}
-      />
+      <ReadAloudText
+        buttonText="Listen to Lesson Summary"
+        buttonVariant="minimal"
+        className="mt-8"
+      >
+        <LessonSummary
+          points={[
+            "E-Learning offers cost-effectiveness and global reach",
+            "Students must navigate technical requirements and develop self-discipline",
+            "Balancing the benefits and challenges is key to e-learning success",
+            "Understanding these factors helps in designing effective online courses"
+          ]}
+        />
+      </ReadAloudText>
     </LessonContent>
   );
 };
