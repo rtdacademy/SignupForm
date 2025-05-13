@@ -162,6 +162,47 @@ const formats = [
 
 
 
+// Helper function to extract HTML content from template
+const extractTemplateContent = (template) => {
+  if (!template || !template.content) return '';
+  
+  // Extract HTML content without creating a Quill instance
+  try {
+    // If content is in Delta format (has ops array)
+    if (template.content.ops) {
+      // Create a container that's not attached to the DOM
+      const container = document.createElement('div');
+      
+      // Process ops and build HTML directly
+      template.content.ops.forEach(op => {
+        if (typeof op.insert === 'string') {
+          const span = document.createElement('span');
+          
+          // Apply basic formatting if available
+          if (op.attributes) {
+            if (op.attributes.bold) span.style.fontWeight = 'bold';
+            if (op.attributes.italic) span.style.fontStyle = 'italic';
+            if (op.attributes.underline) span.style.textDecoration = 'underline';
+          }
+          
+          span.textContent = op.insert;
+          container.appendChild(span);
+        }
+      });
+      
+      return container.innerHTML;
+    }
+    
+    // Fallback for other formats
+    return typeof template.content === 'string' 
+      ? template.content 
+      : '';
+  } catch (e) {
+    console.error('Error extracting HTML from template:', e);
+    return '';
+  }
+};
+
 function TemplateManager({ onMessageChange = () => {}, initialTemplate = null, defaultOpen = false }) {
   
   const [templates, setTemplates] = useState([]);
@@ -516,48 +557,11 @@ const truncateText = (text, maxLength) => {
   return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
 };
 
+
 const renderTemplateList = (archived, templatesList = null) => {
   const list = templatesList !== null ? templatesList : templates.filter((template) => template.archived === archived);
 
-  const getTemplateContent = (template) => {
-    if (!template.content) return '';
-    
-    // Extract HTML content without creating a Quill instance
-    try {
-      // If content is in Delta format (has ops array)
-      if (template.content.ops) {
-        // Create a container that's not attached to the DOM
-        const container = document.createElement('div');
-        
-        // Process ops and build HTML directly
-        template.content.ops.forEach(op => {
-          if (typeof op.insert === 'string') {
-            const span = document.createElement('span');
-            
-            // Apply basic formatting if available
-            if (op.attributes) {
-              if (op.attributes.bold) span.style.fontWeight = 'bold';
-              if (op.attributes.italic) span.style.fontStyle = 'italic';
-              if (op.attributes.underline) span.style.textDecoration = 'underline';
-            }
-            
-            span.textContent = op.insert;
-            container.appendChild(span);
-          }
-        });
-        
-        return container.innerHTML;
-      }
-      
-      // Fallback for other formats
-      return typeof template.content === 'string' 
-        ? template.content 
-        : '';
-    } catch (e) {
-      console.error('Error extracting HTML from template:', e);
-      return '';
-    }
-  };
+  const getTemplateContent = extractTemplateContent;
 
   const truncateText = (text, maxLength) => {
     if (!text) return '';
@@ -614,7 +618,7 @@ const renderTemplateList = (archived, templatesList = null) => {
         <p className="font-medium mb-1">Message:</p>
         <div 
           className="ql-editor whitespace-pre-wrap"
-          dangerouslySetInnerHTML={{ __html: getTemplateContent(template) }}
+          dangerouslySetInnerHTML={{ __html: extractTemplateContent(template) }}
         />
       </div>
     </TooltipContent>
@@ -723,7 +727,7 @@ const renderTemplateList = (archived, templatesList = null) => {
               <TooltipContent>
                 <div 
                   className="max-w-[400px] ql-editor"
-                  dangerouslySetInnerHTML={{ __html: getTemplateContent(template) }}
+                  dangerouslySetInnerHTML={{ __html: extractTemplateContent(template) }}
                 />
               </TooltipContent>
             </Tooltip>
@@ -903,7 +907,7 @@ const renderTemplatesTab = () => (
       </Button>
     </div>
   
-    <ScrollArea className="max-h-[60vh]">
+    <ScrollArea className="h-[calc(70vh-20px)] min-h-[300px]">
       {organizationMethod === 'type' ? (
         <div className="space-y-4 pr-4">
           {templateTypes.map((type) => {
@@ -991,7 +995,7 @@ const renderTemplatesTab = () => (
           })()}
         </div>
       ) : (
-        <div className="pr-4">
+        <div className="pr-4 pb-4">
           {renderTemplateList(false)}
         </div>
       )}
@@ -1151,7 +1155,11 @@ const renderTemplatesTab = () => (
             </TabsContent>
 
             <TabsContent value="archived" className="w-full">
-              {renderTemplateList(true)}
+              <ScrollArea className="h-[calc(70vh-120px)] min-h-[300px]">
+                <div className="pr-4 pb-4">
+                  {renderTemplateList(true)}
+                </div>
+              </ScrollArea>
             </TabsContent>
           </Tabs>
 
@@ -1173,7 +1181,7 @@ const renderTemplatesTab = () => (
                     <div
                       className="ql-editor"
                       dangerouslySetInnerHTML={{
-                        __html: getTemplateContent(previewTemplate)
+                        __html: extractTemplateContent(previewTemplate)
                       }}
                     />
                   );
