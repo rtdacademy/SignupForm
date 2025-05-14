@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   Calendar,
   BookOpen,
-  AlertCircle
+  AlertCircle,
+  History
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
@@ -25,6 +26,7 @@ import { cn } from '../lib/utils';
 import { getDatabase, ref, set, get, update } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 
 const NotificationIcon = ({ type, size = "h-5 w-5", repeatInterval = null }) => {
   // New consolidated notification system:
@@ -368,7 +370,9 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
       className={cn(
         "relative p-3 rounded-lg transition-all duration-200 cursor-pointer h-full",
         "border hover:shadow-md",
-        isRead ? "bg-white border-gray-200" : isImportant ? "bg-red-50 border-red-300" : `${style.bgColor} ${style.borderColor}`,
+        isRead ? "bg-white border-gray-200" : 
+          isImportant ? "bg-red-50 border-red-300 border-2 shadow-sm" : 
+          `${style.bgColor} ${style.borderColor}`,
         isSurveyCompleted && "bg-gray-50 border-gray-200", // Subdued style for completed surveys
         isHovered && "scale-[1.02]",
         isImportant ? "hover:bg-red-100" : style.hoverBgColor
@@ -401,16 +405,21 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
             )}
           </div>
           <div className="flex flex-col">
-            <h4 className={cn(
-              "font-semibold text-sm line-clamp-1 pr-6",
-              isSurveyCompleted ? "text-gray-700" : 
-              isRead ? "text-gray-700" : style.textColor
-            )}>
-              {notification.title}
-            </h4>
-            {isImportant && (
-              <span className="text-xs text-red-600 font-medium">Important</span>
-            )}
+            <div className="flex items-center gap-1">
+              <h4 className={cn(
+                "font-semibold text-sm line-clamp-1 pr-6",
+                isSurveyCompleted ? "text-gray-700" : 
+                isRead ? "text-gray-700" : style.textColor
+              )}>
+                {notification.title}
+              </h4>
+              {isImportant && (
+                <span className="text-xs bg-red-100 text-red-700 font-medium px-1 py-0.5 rounded-full flex items-center">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Important
+                </span>
+              )}
+            </div>
           </div>
         </div>
         
@@ -896,6 +905,9 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
   });
   const { current_user_email_key } = useAuth();
 
+  // State to track which tab is selected
+  const [activeTab, setActiveTab] = useState("all");
+
   // Process notifications - create separate notifications for surveys per course
   const allNotifications = React.useMemo(() => {
     const result = [];
@@ -1311,9 +1323,16 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
       });
     }
     
-    // Only auto-expand if user hasn't manually toggled the panel
-    if ((hasImportantNotifications || hasIncompleteRequiredNotifications) && !userToggled) {
+    // Always auto-expand if there are unacknowledged notifications, unless user manually collapsed it
+    if (hasUnreadNotifications && !userToggled) {
       setIsExpanded(true);
+      
+      // If we have important notifications or incomplete surveys, highlight the appropriate tab
+      if (hasImportantNotifications) {
+        setActiveTab("important");
+      } else if (hasIncompleteRequiredNotifications) {
+        setActiveTab("surveys");
+      }
     }
   }, [
     activeNotifications, 
@@ -1540,6 +1559,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
   };
 
   // Dismiss/acknowledge notification (for both one-time and repeating notifications)
+  // This function has been simplified to apply acknowledgment to all courses at once
   const dismissNotification = async (notification) => {
     // Use the original ID for backend notification dismissal
     await markNotificationAsSeen(notification.originalNotificationId || notification.id);
@@ -2079,7 +2099,8 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     });
   }
   
-  if (activeNotifications.length === 0) return null;
+  // Always show the notification center, even when there are no active notifications
+  // This allows students to see their notification history
 
   // Compact view for when all notifications are read and acknowledged
   if (isCompactView) {
@@ -2159,20 +2180,102 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
       
       {isExpanded && (
         <CardContent className="p-4 pt-0">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {activeNotifications.map((notification, index) => (
-              <NotificationPreview
-                key={`${notification.id}-${index}`}
-                notification={notification}
-                onClick={(notification) => {
-                  setSelectedNotification(notification);
-                  markAsRead(notification);
-                }}
-                onDismiss={dismissNotification}
-                isRead={readNotifications[notification.uniqueId]?.read}
-              />
-            ))}
-          </div>
+          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="all" className="flex items-center gap-2">
+                <Bell className="h-4 w-4" />
+                <span>All ({activeNotifications.length})</span>
+              </TabsTrigger>
+              <TabsTrigger value="important" className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                <span>Important ({activeNotifications.filter(n => isImportantNotification(n)).length})</span>
+              </TabsTrigger>
+              <TabsTrigger value="surveys" className="flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" />
+                <span>Surveys ({activeNotifications.filter(n => n.type === 'survey' || n.type === 'weekly-survey').length})</span>
+              </TabsTrigger>
+              <TabsTrigger value="acknowledged" className="flex items-center gap-2">
+                <History className="h-4 w-4" />
+                <span>History</span>
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="all" className="mt-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {activeNotifications.map((notification, index) => (
+                  <NotificationPreview
+                    key={`${notification.id}-${index}`}
+                    notification={notification}
+                    onClick={(notification) => {
+                      setSelectedNotification(notification);
+                      markAsRead(notification);
+                    }}
+                    onDismiss={dismissNotification}
+                    isRead={readNotifications[notification.uniqueId]?.read}
+                  />
+                ))}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="important" className="mt-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {activeNotifications
+                  .filter(n => isImportantNotification(n))
+                  .map((notification, index) => (
+                    <NotificationPreview
+                      key={`important-${notification.id}-${index}`}
+                      notification={notification}
+                      onClick={(notification) => {
+                        setSelectedNotification(notification);
+                        markAsRead(notification);
+                      }}
+                      onDismiss={dismissNotification}
+                      isRead={readNotifications[notification.uniqueId]?.read}
+                    />
+                  ))}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="surveys" className="mt-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {activeNotifications
+                  .filter(n => n.type === 'survey' || n.type === 'weekly-survey')
+                  .map((notification, index) => (
+                    <NotificationPreview
+                      key={`survey-${notification.id}-${index}`}
+                      notification={notification}
+                      onClick={(notification) => {
+                        setSelectedNotification(notification);
+                        markAsRead(notification);
+                      }}
+                      onDismiss={dismissNotification}
+                      isRead={readNotifications[notification.uniqueId]?.read}
+                    />
+                  ))}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="acknowledged" className="mt-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {allNotifications
+                  .filter(n => 
+                    (n.hasAcknowledged || readNotifications[n.uniqueId]?.read) &&
+                    !activeNotifications.some(a => a.uniqueId === n.uniqueId)
+                  )
+                  .map((notification, index) => (
+                    <NotificationPreview
+                      key={`read-${notification.id}-${index}`}
+                      notification={notification}
+                      onClick={(notification) => {
+                        setSelectedNotification(notification);
+                      }}
+                      onDismiss={() => {}} // No dismiss for already acknowledged
+                      isRead={true}
+                    />
+                  ))}
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       )}
 
