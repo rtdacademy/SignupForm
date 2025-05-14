@@ -40,6 +40,7 @@ const edgeFunctions = require('./edge');
 
 // AI services
 const googleAIFunctions = require('./googleai');
+//const tempFunctions = require('./TempFunction');
 
 // Assessment functions - Course-specific
 const COM1255IntroToELearning = require('./courses/COM1255/lessons/IntroToELearning');
@@ -112,6 +113,7 @@ exports.batchUpdateNormalizedSchedulesV2 = normalizedScheduleFunctions.batchUpda
 exports.generateContent = googleAIFunctions.generateContent;
 exports.startChatSession = googleAIFunctions.startChatSession;
 exports.sendChatMessage = googleAIFunctions.sendChatMessage;
+//exports.terminalChat = tempFunctions.terminalChat;
 
 //==============================================================================
 // Assessment functions for courses

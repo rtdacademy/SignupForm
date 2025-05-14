@@ -90,14 +90,32 @@ const MessageToStudentsSheet = ({ open, onOpenChange, topic }) => {
               </div>
             </FeatureCard>
 
-            <FeatureCard icon={Link} title="Using Rich Text Features">
-              <p>Make your message more effective with formatting:</p>
+            <FeatureCard icon={Link} title="Using Rich Content Features">
+              <p>Make your message more effective with advanced formatting:</p>
               <ul className="list-disc list-inside mt-2 space-y-1">
                 <li>Use <strong>bold text</strong> for important points</li>
                 <li>Create bulleted lists for clear steps</li>
                 <li>Add links to resources or examples</li>
                 <li>Structure content with headings</li>
+                <li>Embed images to illustrate concepts</li>
+                <li>Include YouTube videos for demonstrations</li>
               </ul>
+              <div className="bg-purple-50 p-4 rounded-lg mt-3 border border-purple-200">
+                <h4 className="text-purple-700 font-semibold mb-2">Rich Content Example:</h4>
+                <pre className="text-xs bg-white p-3 rounded overflow-x-auto border border-purple-100">
+{`<div>
+  <h3 style="font-weight: bold">How to Use This Chemistry Assistant</h3>
+  <p>This assistant can help with:</p>
+  <ul style="margin-left: 20px">
+    <li>Chemical equations</li>
+    <li>Understanding molecular structures</li>
+    <li>Lab safety procedures</li>
+  </ul>
+  <p>Visit our <a href="https://example.com/lab-safety">safety guidelines</a> before conducting any experiments.</p>
+  <p>You can upload images of your work or chemical structures for specific feedback.</p>
+</div>`}
+                </pre>
+              </div>
             </FeatureCard>
 
             <FeatureCard icon={CheckSquare} title="Best Practices">

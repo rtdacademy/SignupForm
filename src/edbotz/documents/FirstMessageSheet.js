@@ -58,9 +58,25 @@ const FirstMessageSheet = ({ open, onOpenChange, topic }) => {
                 for the interaction and helps students feel comfortable and ready to engage.
               </p>
               <p className="text-blue-600 mt-2 font-medium bg-blue-50 p-3 rounded-lg">
-                You can now use rich text formatting in your first message! Use bold, italics, lists, and other formatting options 
-                to create an engaging and visually appealing welcome message for your students.
+                You can now use rich text formatting in your first message! Use bold, italics, lists, images, YouTube videos 
+                and other formatting options to create an engaging and visually appealing welcome message for your students.
               </p>
+              <div className="bg-purple-50 p-4 rounded-lg mt-3 border border-purple-200">
+                <h4 className="text-purple-700 font-semibold mb-2">Rich Content Example:</h4>
+                <pre className="text-xs bg-white p-3 rounded overflow-x-auto border border-purple-100">
+{`<div>
+  <h3 style="font-weight: bold">Welcome to Science Lab!</h3>
+  <p>I can help with:</p>
+  <ul style="margin-left: 20px">
+    <li>Understanding scientific concepts</li>
+    <li>Explaining experimental procedures</li>
+    <li>Solving physics and chemistry problems</li>
+  </ul>
+  <p>Check out this <a href="https://example.com/resources">resource page</a> for additional materials.</p>
+  <p>What would you like to explore today?</p>
+</div>`}
+                </pre>
+              </div>
             </div>
 
             <FeatureCard icon={Target} title="Key Elements">
