@@ -397,7 +397,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col min-h-screen">
       <Header 
         user={currentUser}
         onLogout={handleLogout}
@@ -426,7 +426,7 @@ const Dashboard = () => {
         />
       )}
 
-      <div className="flex-1 relative">
+      <div className="flex-1 relative flex flex-col">
         <div className="fixed inset-0 w-screen h-screen overflow-hidden pointer-events-none">
           <svg width="100%" height="100%" className="absolute top-0 left-0">
             <StaticTriangle color="#49a3a6" />
@@ -435,7 +435,7 @@ const Dashboard = () => {
           </svg>
         </div>
 
-        <div className="relative z-10 container mx-auto px-4 py-8 h-full flex flex-col overflow-auto">
+        <div className="relative z-10 container mx-auto px-4 py-8 flex flex-col">
   {!isEmulating && (
     <div className="grid grid-cols-1 gap-4 mb-6">
       <FormDialog
@@ -479,68 +479,70 @@ const Dashboard = () => {
     );
   })()}
 
-  <div className="flex flex-col lg:flex-row gap-6 flex-1">
+  <div className="flex flex-col lg:flex-row gap-6">
     {/* Main content: Courses */}
-    <div className="lg:w-3/4 space-y-6 flex flex-col">
-      <Card className="flex-1 flex flex-col overflow-hidden border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
+    <div className="lg:w-3/4">
+      <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
           <h3 className="text-lg font-semibold flex items-center">
             <NotebookPen className="h-5 w-5 mr-2 text-blue-600" />
             My Courses
           </h3>
         </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto space-y-6 p-6">
-        {courses.length > 0 ? (
-          courses.map((course) => (
-            <CourseCard
-              user_email_key={current_user_email_key}
-              key={course.CourseID || course.id}
-              course={course}
-              profile={profile}
-              onViewDetails={() => setSelectedCourse(course)}
-              onGoToCourse={() => {
-                setSelectedCourse(course);
-                setShowLMS(true);
-              }}
-              customActions={
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedCourse(course);
-                      setShowLMS(false);
-                    }}
-                    className="flex-1 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
-                    size="sm"
-                  >
-                    View Details
-                  </Button>
-                  <Button
-                    className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
-                    onClick={() => {
-                      setSelectedCourse(course);
-                      setShowLMS(true);
-                    }}
-                  >
-                    Go to Course
-                  </Button>
-                </div>
-              }
-              showProgressBar={true}
-              showGradeInfo={true}
-            />
-          ))
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            No courses enrolled yet
+        <CardContent className="p-6">
+          <div className="space-y-6">
+            {courses.length > 0 ? (
+              courses.map((course) => (
+                <CourseCard
+                  user_email_key={current_user_email_key}
+                  key={course.CourseID || course.id}
+                  course={course}
+                  profile={profile}
+                  onViewDetails={() => setSelectedCourse(course)}
+                  onGoToCourse={() => {
+                    setSelectedCourse(course);
+                    setShowLMS(true);
+                  }}
+                  customActions={
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedCourse(course);
+                          setShowLMS(false);
+                        }}
+                        className="flex-1 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
+                        size="sm"
+                      >
+                        View Details
+                      </Button>
+                      <Button
+                        className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
+                        onClick={() => {
+                          setSelectedCourse(course);
+                          setShowLMS(true);
+                        }}
+                      >
+                        Go to Course
+                      </Button>
+                    </div>
+                  }
+                  showProgressBar={true}
+                  showGradeInfo={true}
+                />
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No courses enrolled yet
+              </div>
+            )}
           </div>
-        )}
         </CardContent>
       </Card>
     </div>
 
     {/* Right Column: Important Dates Only (Profile Card Removed) */}
-    <div className="lg:w-1/4 space-y-6">
+    <div className="lg:w-1/4">
       {/* Important Dates Card */}
       <Card className="border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 py-3">
@@ -550,7 +552,7 @@ const Dashboard = () => {
           </h3>
         </CardHeader>
         <CardContent className="p-4">
-        <ImportantDatesCard importantDates={importantDates} />
+          <ImportantDatesCard importantDates={importantDates} />
         </CardContent>
       </Card>
     </div>

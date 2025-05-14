@@ -234,8 +234,8 @@ export function ImportantDatesCard({ importantDates: importantDatesData }) {
         )}
       </div>
 
-      {/* Dates List with ScrollArea */}
-      <ScrollArea className="h-[400px] rounded-md border">
+      {/* Dates List without a fixed height ScrollArea */}
+      <div className="rounded-md border">
         <div className="p-4">
           {displayDates.length > 0 ? (
             <ul className="space-y-3">
@@ -316,7 +316,7 @@ export function ImportantDatesCard({ importantDates: importantDatesData }) {
             <p className="text-sm text-gray-500">No upcoming dates at this time.</p>
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
