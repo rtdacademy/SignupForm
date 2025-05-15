@@ -4,6 +4,7 @@ const admin = require('firebase-admin');
 const { genkit } = require('genkit/beta'); // Beta package is needed for chat
 const { googleAI } = require('@genkit-ai/googleai');
 const fetch = require('node-fetch');
+const AI_MODELS = require('./aiSettings');
 
 // Initialize Firebase Admin SDK if not already initialized
 if (admin.apps.length === 0) {
@@ -17,7 +18,7 @@ if (admin.apps.length === 0) {
 // Configure genkit with Google AI plugin
 const ai = genkit({
   plugins: [googleAI()],
-  model: googleAI.model('gemini-1.5-flash'), // Set default model
+  model: googleAI.model(AI_MODELS.ACTIVE_CHAT_MODEL), // Use active model from settings
 });
 
 // Store active chat instances by session ID
@@ -148,7 +149,7 @@ const generateContent = onCall({
     
     const { 
       prompt, 
-      model = 'gemini-1.5-flash',
+      model = AI_MODELS.DEFAULT_CHAT_MODEL,
       options = {} 
     } = data;
 
@@ -189,8 +190,7 @@ const startChatSession = onCall({
     console.log("Starting chat session with data:", safeStringify(data));
     
     const { 
-      history = [], 
-      model = 'gemini-1.5-flash',
+      model = AI_MODELS.DEFAULT_CHAT_MODEL,
       systemInstruction = null
     } = data;
 
@@ -292,8 +292,7 @@ const sendChatMessage = onCall({
     
     const { 
       message, 
-      history = [],
-      model = 'gemini-1.5-flash',
+      model = AI_MODELS.DEFAULT_CHAT_MODEL,
       systemInstruction = null,
       streaming = false,
       mediaItems = [],  // Media items including images, documents, and YouTube URLs
@@ -326,48 +325,41 @@ const sendChatMessage = onCall({
     let chat;
     let currentSessionId = sessionId;
     
+    // Prepare the system instruction with clear guidance about the greeting
+    const effectiveSystemInstruction = systemInstruction || 
+      `You are a helpful AI assistant. The user has already seen an initial greeting message from you in the chat interface that said: "Hello! I'm your AI assistant. I can help you with a variety of tasks. Would you like to: hear a joke, learn about a topic, or get help with a question? Just let me know how I can assist you today!" DO NOT repeat this greeting or reference it directly - continue the conversation naturally as if you've already exchanged that first message.`;
+    
     // Check if we have an existing chat session
     if (sessionId && activeChatSessions.has(sessionId)) {
       chat = activeChatSessions.get(sessionId);
       console.log(`Using existing chat session: ${sessionId}`);
     } else {
       // Create a new session
-      const session = ai.createSession({
-        model: googleAI.model(model)
-      });
+      // Session creation is not needed with the new format
       
-      // Create a chat with the pirate persona system message
-      chat = session.chat({
-        system: systemInstruction || `You are a quirky and enthusiastic pirate AI assistant. Respond with pirate slang and nautical expressions. Address the user as 'Captain' and refer to yourself as 'First Mate'. Occasionally mention the sea, ships, or treasure in your responses, even for unrelated topics.`,
+      // Create a chat with the correct format for Gemini 2.0
+      chat = ai.chat({
+        model: googleAI.model(model),
+        system: effectiveSystemInstruction,
         config: {
-          temperature: 0.9 // Slightly higher temperature for more creative responses
-        },
-        history: []
+          temperature: 0.7 // Balanced temperature for natural responses
+        }
       });
       
-      console.log("Chat initialized with pirate persona");
+      console.log("Chat initialized with system instruction");
       
       // Generate a new session ID for tracking
       currentSessionId = Date.now().toString();
       activeChatSessions.set(currentSessionId, chat);
       console.log(`Created new chat session: ${currentSessionId}`);
-      
-      // If there's additional history, we need to replay it to warm up the chat
-      if (history && history.length > 0) {
-        console.log(`Replaying ${history.length} messages from history`);
-        for (const msg of history) {
-          if (msg && msg.sender === 'user' && msg.text) {
-            try {
-              await chat.send(msg.text);
-            } catch (err) {
-              console.warn(`Error replaying message: ${err.message}`);
-              // Continue with other messages - a single failed message shouldn't break the flow
-            }
-          }
-        }
-      }
     }
 
+    // Simple pass-through function - don't modify the table at all
+    const fixMarkdownTables = (text) => {
+      // Just remove blockquote markers (>) from the text, as these can interfere with markdown parsing
+      return text.replace(/^>\s*/gm, '').replace(/\n>\s*/g, '\n');
+    };
+    
     // Now send the actual current message with media
     let responseText;
     try {
@@ -382,11 +374,24 @@ const sendChatMessage = onCall({
           completeResponse += chunk.text || '';
         }
         
-        responseText = completeResponse;
+        // Log the raw streaming response for debugging
+        console.log('=== RAW STREAMING AI RESPONSE START ===');
+        console.log(completeResponse);
+        console.log('=== RAW STREAMING AI RESPONSE END ===');
+        
+        // Format the response before sending back
+        responseText = fixMarkdownTables(completeResponse);
       } else {
         // Regular non-streaming response
         const { text } = await chat.send(prompt);
-        responseText = text;
+        
+        // Log the raw response for debugging
+        console.log('=== RAW AI RESPONSE START ===');
+        console.log(text);
+        console.log('=== RAW AI RESPONSE END ===');
+        
+        // Format the response before sending back
+        responseText = fixMarkdownTables(text);
       }
     } catch (err) {
       console.error("Error during chat message processing:", err);
@@ -394,26 +399,32 @@ const sendChatMessage = onCall({
       if (sessionId) {
         console.log("Chat session error - creating new session");
         
-        // Create a new session
-        const session = ai.createSession({
-          model: googleAI.model(model)
-        });
+        // Session creation is not needed with the new format
         
-        // Create a chat with the pirate persona system message
+        // This code is no longer needed with the new approach
+        
+        // Create a chat with the correct format for Gemini 2.0
         chat = ai.chat({
           model: googleAI.model(model),
-          system: `You are a quirky and enthusiastic pirate AI assistant. Respond with pirate slang and nautical expressions. Address the user as 'Captain' and refer to yourself as 'First Mate'. Occasionally mention the sea, ships, or treasure in your responses, even for unrelated topics.`,
+          system: effectiveSystemInstruction,
           config: {
-            temperature: 0.9 // Slightly higher temperature for more creative responses
-          },
-          history: []
+            temperature: 0.7 // Balanced temperature for natural responses
+          }
         });
+        
         currentSessionId = Date.now().toString();
         activeChatSessions.set(currentSessionId, chat);
         
         // Try sending just the current message without history
         const { text } = await chat.send(prompt);
-        responseText = text;
+        
+        // Log the raw response for debugging in recovery path
+        console.log('=== RAW RECOVERY AI RESPONSE START ===');
+        console.log(text);
+        console.log('=== RAW RECOVERY AI RESPONSE END ===');
+        
+        // Format the response before sending back
+        responseText = fixMarkdownTables(text);
       } else {
         throw err; // Re-throw if we can't recover
       }
@@ -439,6 +450,16 @@ const sendChatMessage = onCall({
     // Clean up occasionally - don't wait for it to complete
     if (Math.random() < 0.1) { // 10% chance on each call
       setTimeout(cleanupOldSessions, 0);
+    }
+    
+    // Log raw table information to help with debugging
+    if (responseText.includes('|')) {
+      console.log('=== TABLE DEBUGGING INFO ===');
+      console.log('Table detected in response');
+      const tableLines = responseText.split('\n').filter(line => line.includes('|'));
+      console.log(`Table has ${tableLines.length} lines`);
+      console.log('First few table lines:');
+      tableLines.slice(0, 3).forEach((line, i) => console.log(`${i}: ${line}`));
     }
     
     return {

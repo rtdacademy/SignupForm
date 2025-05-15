@@ -12,8 +12,211 @@ import {
   FileIcon,
   FileText,
   File,
-  Upload
+  Upload,
+  Copy, 
+  Check
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
+import rehypeRaw from 'rehype-raw';
+import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
+import remarkEmoji from 'remark-emoji';
+import remarkDeflist from 'remark-deflist';
+import rehypeKatex from 'rehype-katex';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { tomorrow as syntaxTheme } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import mermaid from 'mermaid';
+import 'katex/dist/katex.min.css';
+
+// Initialize mermaid
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'neutral',
+  securityLevel: 'loose',
+  fontSize: 14,
+  flowchart: {
+    htmlLabels: true,
+    curve: 'basis'
+  }
+});
+
+// Add global styles for markdown content in chat bubbles
+const markdownStyles = document.createElement('style');
+markdownStyles.textContent = `
+  /* Markdown styling for chat bubbles */
+  .markdown-content h1 {
+    font-size: 1.5rem !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .markdown-content h2 {
+    font-size: 1.25rem !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .markdown-content h3 {
+    font-size: 1.1rem !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .markdown-content p {
+    margin-top: 0.25rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+  
+  .markdown-content pre {
+    background-color: #f5f5f5 !important;
+    padding: 0.5rem !important;
+    border-radius: 0.25rem !important;
+    overflow-x: auto !important;
+    max-width: 100% !important;
+    border: 1px solid #e0e0e0 !important;
+  }
+  
+  .markdown-content code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 0.9em !important;
+    color: #333 !important;
+  }
+  
+  .markdown-content pre code {
+    color: #333 !important;
+    background-color: transparent !important;
+  }
+  
+  .markdown-content img {
+    max-width: 100% !important;
+    height: auto !important;
+    border-radius: 0.25rem !important;
+    margin: 0.5rem 0 !important;
+  }
+  
+  .markdown-content blockquote {
+    border-left: 3px solid #e5e7eb !important;
+    padding-left: 0.75rem !important;
+    color: #4b5563 !important;
+    font-style: italic !important;
+    margin: 0.5rem 0 !important;
+  }
+  
+  .markdown-content ul,
+  .markdown-content ol {
+    padding-left: 1.5rem !important;
+    margin: 0.25rem 0 !important;
+  }
+  
+  .markdown-content li {
+    margin: 0.125rem 0 !important;
+  }
+  
+  /* Enhanced table styling */
+  .markdown-content table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    font-size: 0.875rem !important;
+    margin: 0.5rem 0 !important;
+    table-layout: fixed !important;
+    overflow-x: auto !important;
+  }
+  
+  .markdown-content table * {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+  
+  .markdown-content th,
+  .markdown-content td {
+    border: 1px solid #e5e7eb !important;
+    padding: 0.25rem 0.5rem !important;
+    text-align: left !important;
+    min-width: 80px !important;
+    max-width: 300px !important;
+  }
+  
+  .markdown-content th {
+    background-color: #f3f4f6 !important;
+    font-weight: 600 !important;
+  }
+  
+  /* Add scrolling to tables that exceed container width */
+  .markdown-content .table-container {
+    width: 100% !important;
+    overflow-x: auto !important;
+    margin: 0.5rem 0 !important;
+    border-radius: 0.25rem !important;
+  }
+  
+  .markdown-content .table-container table {
+    margin: 0 !important;
+  }
+  
+  /* Customize table row styling for better readability */
+  .markdown-content tr:nth-child(odd) {
+    background-color: rgba(0, 0, 0, 0.02) !important;
+  }
+  
+  .markdown-content tr:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+  }
+  
+  /* Definition list styling */
+  .markdown-content dl {
+    margin: 0.5rem 0 !important;
+  }
+  
+  .markdown-content dt {
+    font-weight: 600 !important;
+    margin-top: 0.5rem !important;
+  }
+  
+  .markdown-content dd {
+    margin-left: 1.5rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+  
+  /* Details/Summary styling */
+  .markdown-content details {
+    border: 1px solid #e5e7eb !important;
+    border-radius: 0.375rem !important;
+    padding: 0.5rem !important;
+    margin: 0.5rem 0 !important;
+  }
+  
+  .markdown-content summary {
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    padding: 0.25rem !important;
+  }
+  
+  .markdown-content summary:hover {
+    background-color: rgba(0, 0, 0, 0.02) !important;
+  }
+  
+  /* Mermaid diagram styling */
+  .markdown-content .mermaid-diagram {
+    overflow-x: auto !important;
+    max-width: 100% !important;
+    margin: 1rem 0 !important;
+    text-align: center !important;
+  }
+  
+  /* Task list styling */
+  .markdown-content input[type="checkbox"] {
+    margin-right: 0.5rem !important;
+  }
+  
+  /* Emoji styling */
+  .markdown-content .emoji {
+    display: inline-block !important;
+    vertical-align: middle !important;
+    font-size: 1.25em !important;
+  }
+`;
+document.head.appendChild(markdownStyles);
 import { Button } from '../../components/ui/button';
 import { Textarea } from '../../components/ui/textarea';
 import { ScrollArea } from "../../components/ui/scroll-area";
@@ -108,7 +311,217 @@ const YouTubeEmbed = ({ videoId, className }) => {
   );
 };
 
+// Code component with syntax highlighting and copy button
+const CodeBlock = ({ language, value }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="relative group">
+      <button 
+        onClick={handleCopy}
+        className="absolute right-2 top-2 p-1 rounded text-xs bg-gray-800 text-gray-300 hover:bg-gray-700"
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </button>
+      <SyntaxHighlighter
+        language={language}
+        style={syntaxTheme}
+        customStyle={{
+          borderRadius: '0.375rem',
+          padding: '1rem',
+          marginTop: '0.5rem',
+          marginBottom: '0.5rem',
+          fontSize: '0.875rem',
+          backgroundColor: '#f5f5f5', // Lighter background
+          color: '#333', // Darker text color for better contrast
+        }}
+      >
+        {value}
+      </SyntaxHighlighter>
+    </div>
+  );
+};
+
+// Mermaid diagram component
+const MermaidDiagram = ({ value, className }) => {
+  const [svgContent, setSvgContent] = useState('');
+  const uniqueId = useRef(`mermaid-${Math.random().toString(36).substring(2, 11)}`);
+
+  useEffect(() => {
+    const renderDiagram = async () => {
+      try {
+        const { svg } = await mermaid.render(uniqueId.current, value);
+        setSvgContent(svg);
+      } catch (error) {
+        console.error('Mermaid rendering error:', error);
+        setSvgContent(`<pre class="text-red-500 p-2 bg-red-50 rounded">Error rendering diagram: ${error.message}</pre>`);
+      }
+    };
+
+    renderDiagram();
+  }, [value]);
+
+  return (
+    <div 
+      className={cn("mermaid-diagram my-4 overflow-auto max-w-full", className)}
+      dangerouslySetInnerHTML={{ __html: svgContent }}
+    />
+  );
+};
+
 // Sample message component
+// Helper function to detect markdown
+const containsMarkdown = (text) => {
+  if (!text) return false;
+  
+  // Look for more precise patterns to reduce false positives
+  const markdownPatterns = [
+    /^#+\s+.+$/m,                  // Headers: # Header
+    /\*\*.+\*\*/,                  // Bold: **bold**
+    /\*.+\*/,                      // Italic: *italic*
+    /```[\s\S]*```/,               // Code block: ```code```
+    /`[^`]+`/,                     // Inline code: `code`
+    /\[.+\]\(.+\)/,                // Links: [text](url)
+    /\|[^|]+\|[^|]+\|/,            // Tables: |cell|cell|
+    /^\s*>\s+.+$/m,                // Blockquotes: > quote
+    /^\s*-\s+.+$/m,                // Unordered lists: - item
+    /^\s*\d+\.\s+.+$/m,            // Ordered lists: 1. item
+    /!\[.+\]\(.+\)/,               // Images: ![alt](url)
+    /~~.+~~/,                      // Strikethrough: ~~text~~
+    /\$\$.+\$\$/,                  // Math blocks: $$math$$
+    /\$.+\$/,                      // Inline math: $math$
+    /\\[a-zA-Z]+/,                 // LaTeX commands: \alpha, \beta, etc.
+    /\\begin\{/,                   // LaTeX environments: \begin{...}
+    /\\end\{/,                     // LaTeX environments: \end{...}
+    /\\frac\{/,                    // LaTeX fractions: \frac{...}
+    /\\sqrt/,                      // LaTeX square roots: \sqrt{...}
+    /\\left/,                      // LaTeX brackets: \left(...
+    /\\right/,                     // LaTeX brackets: \right)...
+  ];
+  
+  // Check for simple text indicators first for better performance
+  const quickCheck = (
+    text.includes('#') || 
+    text.includes('**') || 
+    text.includes('*') ||
+    text.includes('```') ||
+    text.includes('`') ||
+    text.includes('[') ||
+    text.includes('|') ||
+    text.includes('> ') ||
+    text.includes('- ') ||
+    text.includes('1. ') ||
+    text.includes('$') ||  // Math delimiters
+    text.includes('\\')    // LaTeX commands
+  );
+  
+  // If quick check passes, do more precise checking
+  if (quickCheck) {
+    // Check for common markdown patterns
+    for (const pattern of markdownPatterns) {
+      if (pattern.test(text)) {
+        return true;
+      }
+    }
+    
+    // Special case for tables which can be tricky to detect
+    if (text.includes('|')) {
+      // Count pipe characters in the text
+      const pipeCount = (text.match(/\|/g) || []).length;
+      // If there are multiple pipe characters, it's likely a table
+      if (pipeCount >= 4) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+};
+
+// Helper function to prepare text for remark-gfm table processing
+const formatMarkdownTables = (text) => {
+  if (!text || !text.includes('|')) return text;
+  
+  // Simple processing: just ensure tables have proper newlines and separator rows
+  
+  // First, remove any blockquote markers (>) which could interfere with table parsing
+  let cleanedText = text.replace(/^>\s*/gm, '').replace(/\n>\s*/g, '\n');
+  
+  // Split into lines for processing
+  const lines = cleanedText.split('\n');
+  const newLines = [];
+  let inTable = false;
+  let tableStartIndex = -1;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Skip empty lines
+    if (!line) {
+      newLines.push('');
+      continue;
+    }
+    
+    // Count pipe characters to detect table rows
+    const pipeCount = (line.match(/\|/g) || []).length;
+    
+    // If this looks like a table row (at least two pipes)
+    if (pipeCount >= 2) {
+      // New table detected
+      if (!inTable) {
+        inTable = true;
+        tableStartIndex = newLines.length;
+      }
+      
+      // Clean and normalize the row format
+      // Ensure there's a space after each pipe for better GFM compatibility
+      let cleanedLine = line;
+      cleanedLine = cleanedLine.replace(/\|(\S)/g, '| $1'); // Add space after pipes
+      cleanedLine = cleanedLine.replace(/(\S)\|/g, '$1 |'); // Add space before pipes
+      
+      // Ensure the line starts and ends with a pipe
+      if (!cleanedLine.startsWith('|')) {
+        cleanedLine = '| ' + cleanedLine;
+      }
+      if (!cleanedLine.endsWith('|')) {
+        cleanedLine = cleanedLine + ' |';
+      }
+      
+      newLines.push(cleanedLine);
+      
+      // Check if we need to add a separator row after the header
+      const nextLine = i + 1 < lines.length ? lines[i + 1].trim() : '';
+      const hasHeaderSeparator = nextLine.includes('|') && nextLine.includes('-');
+      
+      // If this looks like a header row and the next line is not a separator, add one
+      if (inTable && tableStartIndex === newLines.length - 1 && !hasHeaderSeparator) {
+        // Determine column count from pipes
+        const columns = cleanedLine.split('|').filter(Boolean).length;
+        let separator = '|';
+        for (let j = 0; j < columns; j++) {
+          separator += ' --- |';
+        }
+        newLines.push(separator);
+      }
+    } else {
+      // Not a table row
+      if (inTable) {
+        // We were in a table, but this line isn't part of it
+        inTable = false;
+      }
+      newLines.push(line);
+    }
+  }
+  
+  return newLines.join('\n');
+};
+
 // Helper function to enhance links in HTML content
 const enhanceLinks = (htmlContent) => {
   if (!htmlContent) return '';
@@ -148,6 +561,43 @@ const enhanceLinks = (htmlContent) => {
       iframe.parentNode.insertBefore(wrapper, iframe);
       wrapper.appendChild(iframe);
     }
+  });
+  
+  // Enhance code blocks for better readability
+  const preElements = div.getElementsByTagName('pre');
+  Array.from(preElements).forEach(pre => {
+    pre.classList.add('bg-gray-100', 'p-2', 'rounded-md', 'overflow-auto', 'my-2', 'text-sm', 'max-h-[200px]', 'border', 'border-gray-200');
+    pre.style.backgroundColor = '#f5f5f5';
+    pre.style.color = '#333';
+  });
+  
+  const codeElements = div.getElementsByTagName('code');
+  Array.from(codeElements).forEach(code => {
+    if (code.parentElement.tagName !== 'PRE') {
+      code.classList.add('bg-gray-100', 'px-1', 'py-0.5', 'rounded', 'text-sm');
+      code.style.color = '#333';
+    } else {
+      // For code blocks inside pre elements
+      code.style.color = '#333';
+      code.style.backgroundColor = 'transparent';
+    }
+  });
+  
+  // Enhance blockquotes
+  const blockquotes = div.getElementsByTagName('blockquote');
+  Array.from(blockquotes).forEach(blockquote => {
+    blockquote.classList.add('border-l-4', 'border-l-gray-300', 'pl-4', 'italic', 'my-2');
+  });
+  
+  // Enhance lists for better spacing
+  const ulElements = div.getElementsByTagName('ul');
+  Array.from(ulElements).forEach(ul => {
+    ul.classList.add('my-1', 'pl-5');
+  });
+  
+  const olElements = div.getElementsByTagName('ol');
+  Array.from(olElements).forEach(ol => {
+    ol.classList.add('my-1', 'pl-5');
   });
   
   return div.innerHTML;
@@ -246,6 +696,214 @@ const MessageBubble = ({
       );
     }
     
+    // Check if the message might be markdown or contains math
+    if (message.text && (containsMarkdown(message.text) || message.text.includes('$') || message.text.includes('\\'))) {
+      // Format tables properly if present
+      const formattedText = formatMarkdownTables(message.text);
+      
+      return (
+        <div className={cn(
+          "prose prose-sm max-w-none markdown-content",
+          isUser && "text-white [&_*]:text-white [&_a]:text-white [&_code]:bg-blue-800 [&_pre]:bg-blue-600",
+          !isUser && "[&_pre]:bg-gray-100 [&_code]:bg-gray-100 [&_code]:text-gray-800 [&_pre_code]:text-gray-800 [&_blockquote]:border-l-4 [&_blockquote]:border-l-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic"
+        )}>
+          <ReactMarkdown
+            remarkPlugins={[remarkMath, remarkGfm, remarkEmoji, remarkDeflist]}
+            rehypePlugins={[
+              [rehypeSanitize, {
+                // Standard HTML elements plus additional elements for admonitions and details/summary
+                allowedElements: [
+                  // Standard markdown elements
+                  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'blockquote', 
+                  'pre', 'code', 'em', 'strong', 'del', 'table', 'thead', 'tbody', 'tr', 
+                  'th', 'td', 'a', 'img', 'hr', 'br', 'div', 'span',
+                  // Additional elements we want to allow
+                  'details', 'summary', 'dl', 'dt', 'dd'
+                ],
+                // Allow certain attributes
+                allowedAttributes: {
+                  // Allow href and target for links
+                  a: ['href', 'target', 'rel'],
+                  // Allow src and alt for images
+                  img: ['src', 'alt', 'title'],
+                  // Allow class and style for common elements
+                  div: ['className', 'class', 'style'],
+                  span: ['className', 'class', 'style'],
+                  code: ['className', 'class', 'language'],
+                  pre: ['className', 'class'],
+                  // Allow open attribute for details
+                  details: ['open']
+                }
+              }],
+              rehypeKatex,
+              rehypeRaw
+            ]}
+            components={{
+              // Make headings slightly smaller in chat bubbles
+              h1: ({node, ...props}) => <h2 className="text-xl font-bold mt-1 mb-2" {...props} />,
+              h2: ({node, ...props}) => <h3 className="text-lg font-bold mt-1 mb-2" {...props} />,
+              h3: ({node, ...props}) => <h4 className="text-base font-bold mt-1 mb-1" {...props} />,
+              
+              // Enhanced code blocks with syntax highlighting
+              code: ({node, inline, className, children, ...props}) => {
+                const match = /language-(\w+)/.exec(className || '');
+                const language = match ? match[1] : '';
+                const value = String(children).replace(/\n$/, '');
+                
+                // For inline code
+                if (inline) {
+                  return <code className="px-1 py-0.5 rounded text-sm font-mono bg-gray-100 text-gray-800" {...props}>{children}</code>
+                }
+                
+                // Check if this is a mermaid diagram
+                if (language === 'mermaid') {
+                  return <MermaidDiagram value={value} />
+                }
+                
+                // Return syntax highlighted code block
+                return <CodeBlock language={language} value={value} />
+              },
+              
+              // Make lists more compact
+              ul: ({node, ...props}) => <ul className="my-1 pl-5" {...props} />,
+              ol: ({node, ...props}) => <ol className="my-1 pl-5" {...props} />,
+              li: ({node, ...props}) => <li className="my-0.5" {...props} />,
+              
+              // Make links open in new tab and have proper styling
+              a: ({node, ...props}) => <a target="_blank" rel="noopener noreferrer" className="font-medium underline" {...props} />,
+              
+              // Style tables to fit in bubbles with horizontal scrolling
+              table: ({node, ...props}) => (
+                <div className="table-container">
+                  <table className="border-collapse border border-gray-300 text-sm" {...props} />
+                </div>
+              ),
+              th: ({node, ...props}) => <th className="border border-gray-300 px-2 py-1 bg-gray-100" {...props} />,
+              td: ({node, ...props}) => <td className="border border-gray-300 px-2 py-1" {...props} />,
+              
+              // Handle details/summary elements
+              details: ({node, ...props}) => <details className="border rounded-md p-2 my-2" {...props} />,
+              summary: ({node, ...props}) => <summary className="font-medium cursor-pointer" {...props} />,
+              
+              // Definition lists
+              dl: ({node, ...props}) => <dl className="my-2" {...props} />,
+              dt: ({node, ...props}) => <dt className="font-bold mt-2" {...props} />,
+              dd: ({node, ...props}) => <dd className="ml-4 mt-1" {...props} />,
+              
+              // Default component to handle HTML directly
+              div: ({node, className, ...props}) => {
+                // Special handling for admonitions
+                if (className?.includes('admonition')) {
+                  const type = className.includes('note') ? 'note' : 
+                              className.includes('warning') ? 'warning' : 
+                              className.includes('danger') ? 'danger' : 'info';
+                  
+                  const colors = {
+                    note: 'bg-blue-50 border-blue-300 text-blue-800',
+                    info: 'bg-green-50 border-green-300 text-green-800',
+                    warning: 'bg-yellow-50 border-yellow-300 text-yellow-800',
+                    danger: 'bg-red-50 border-red-300 text-red-800'
+                  };
+                  
+                  return <div className={`${colors[type]} p-3 border-l-4 rounded my-3`} {...props} />;
+                }
+                
+                return <div className={className} {...props} />;
+              }
+            }}
+          >
+            {formattedText}
+          </ReactMarkdown>
+          {isStreaming && !isProcessing && (
+            <span className="inline-block w-1.5 h-4 ml-0.5 bg-indigo-500 animate-pulse rounded"></span>
+          )}
+        </div>
+      );
+    }
+    
+    // Otherwise, check if user's message might contain math expressions
+    const mightContainMath = message.text && (message.text.includes('$') || message.text.includes('\\'));
+    
+    // If it's a user message and contains math or we want consistent rendering, render with markdown
+    if (isUser && mightContainMath) {
+      const formattedText = formatMarkdownTables(message.text);
+      
+      return (
+        <div className={cn(
+          "prose prose-sm max-w-none markdown-content",
+          "text-white [&_*]:text-white [&_a]:text-white"
+        )}>
+          <ReactMarkdown
+            remarkPlugins={[remarkMath, remarkGfm, remarkEmoji, remarkDeflist]}
+            rehypePlugins={[
+              [rehypeSanitize, {
+                allowedElements: [
+                  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'blockquote', 
+                  'pre', 'code', 'em', 'strong', 'del', 'table', 'thead', 'tbody', 'tr', 
+                  'th', 'td', 'a', 'img', 'hr', 'br', 'div', 'span',
+                  'details', 'summary', 'dl', 'dt', 'dd'
+                ],
+                allowedAttributes: {
+                  a: ['href', 'target', 'rel'],
+                  img: ['src', 'alt', 'title'],
+                  div: ['className', 'class', 'style'],
+                  span: ['className', 'class', 'style'],
+                  code: ['className', 'class', 'language'],
+                  pre: ['className', 'class'],
+                  details: ['open']
+                }
+              }],
+              rehypeKatex,
+              rehypeRaw
+            ]}
+            components={{
+              // Style components for light-on-dark theme for user messages
+              code: ({node, inline, className, children, ...props}) => {
+                const match = /language-(\\w+)/.exec(className || '');
+                const language = match ? match[1] : '';
+                const value = String(children).replace(/\\n$/, '');
+                
+                if (inline) {
+                  return <code className="px-1 py-0.5 rounded text-sm font-mono bg-blue-800 text-white" {...props}>{children}</code>
+                }
+                
+                if (language === 'mermaid') {
+                  return <MermaidDiagram value={value} />
+                }
+                
+                // For code blocks in user messages, use a dark theme with light text
+                return <div className="relative group">
+                  <SyntaxHighlighter
+                    language={language}
+                    style={syntaxTheme}
+                    customStyle={{
+                      borderRadius: '0.375rem',
+                      padding: '1rem',
+                      marginTop: '0.5rem',
+                      marginBottom: '0.5rem',
+                      fontSize: '0.875rem',
+                      backgroundColor: '#2d3748', // Dark background
+                      color: '#e2e8f0', // Light text
+                    }}
+                  >
+                    {value}
+                  </SyntaxHighlighter>
+                </div>
+              },
+              // Other component customizations for user bubbles
+              a: ({node, ...props}) => <a target="_blank" rel="noopener noreferrer" className="font-medium underline text-white" {...props} />,
+              // Maintain other component styles matching the AI bubble style
+            }}
+          >
+            {formattedText}
+          </ReactMarkdown>
+          {isStreaming && !isProcessing && (
+            <span className="inline-block w-1.5 h-4 ml-0.5 bg-indigo-500 animate-pulse rounded"></span>
+          )}
+        </div>
+      );
+    }
+    
     // Otherwise, render as plain text
     return (
       <div className={cn(
@@ -290,7 +948,8 @@ const MessageBubble = ({
           isUser 
             ? "bg-blue-500 text-white rounded-br-none" 
             : "bg-gray-100 text-gray-800 rounded-bl-none",
-          isStreaming && "border border-indigo-200"
+          isStreaming && "border border-indigo-200",
+          !isUser && message.text && containsMarkdown(message.text) && "px-5 py-3" // More padding for formatted content
         )}>
           {/* Render media items if present */}
           {message.media && renderMedia(message.media)}
@@ -316,7 +975,13 @@ const STORAGE_KEY_MESSAGES = 'google_ai_chat_messages';
 
 // Main component
 const GoogleAIChatApp = ({ 
-  firebaseApp = getApp()
+  firebaseApp = getApp(),
+  instructions = "You are a helpful AI assistant that provides clear, accurate information.",
+  firstMessage = "Hello! I'm your AI assistant. I can help you with a variety of tasks. Would you like to: hear a joke, learn about a topic, or get help with a question? Just let me know how I can assist you today!",
+  showYouTube = true,
+  showUpload = true,
+  YouTubeURL = null,
+  predefinedFiles = []
 }) => {
   // Load saved session ID from localStorage if available
   const getSavedSessionId = () => {
@@ -339,8 +1004,30 @@ const GoogleAIChatApp = ({
     }
   };
 
+  // Combine instructions and firstMessage into a single system message
+  const getSystemMessage = useCallback(() => {
+    return `${instructions} Your first message to the user was: "${firstMessage}" Continue the conversation based on the user's responses, remembering that you've already greeted them with this message.`;
+  }, [instructions, firstMessage]);
+
   const [inputMessage, setInputMessage] = useState('');
-  const [messages, setMessages] = useState(getSavedMessages);
+  const inputRef = useRef(null);
+  const [messages, setMessages] = useState(() => {
+    // Initialize with saved messages or create initial message
+    const savedMessages = getSavedMessages();
+    
+    // If there are no saved messages, create an initial AI greeting message
+    if (savedMessages.length === 0) {
+      return [{
+        id: Date.now(),
+        sender: 'ai',
+        text: firstMessage,
+        timestamp: Date.now(),
+      }];
+    }
+    
+    return savedMessages;
+  });
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -398,10 +1085,32 @@ const GoogleAIChatApp = ({
     }
   }, [sessionId]);
 
+  // Set initial YouTube URL if provided
+  useEffect(() => {
+    if (YouTubeURL) {
+      const videoId = extractYouTubeVideoId(YouTubeURL);
+      if (videoId) {
+        setYoutubeURLs([{
+          url: YouTubeURL,
+          type: 'youtube',
+          isPredefined: true // Mark as predefined so we know not to allow removal
+        }]);
+      }
+    }
+  }, [YouTubeURL]);
+
 
   // Reset chat
   const handleReset = useCallback(() => {
-    setMessages([]);
+    // Create a new AI greeting message instead of clearing all messages
+    const initialAiMessage = {
+      id: Date.now(),
+      sender: 'ai',
+      text: firstMessage,
+      timestamp: Date.now(),
+    };
+    
+    setMessages([initialAiMessage]);
     setError(null);
     setUploadedFiles([]);
     setYoutubeURLs([]);
@@ -414,11 +1123,11 @@ const GoogleAIChatApp = ({
     // Also clear localStorage
     try {
       localStorage.removeItem(STORAGE_KEY_SESSION_ID);
-      localStorage.removeItem(STORAGE_KEY_MESSAGES);
+      localStorage.setItem(STORAGE_KEY_MESSAGES, JSON.stringify([initialAiMessage]));
     } catch (e) {
       console.warn("Could not clear localStorage:", e);
     }
-  }, []);
+  }, [firstMessage]);
   
   // Get file type based on mime type or extension
   const getFileType = (file) => {
@@ -451,8 +1160,46 @@ const GoogleAIChatApp = ({
     return 'file';
   };
   
+  // Load predefined files from Firebase Storage URLs if provided
+  useEffect(() => {
+    if (predefinedFiles && predefinedFiles.length > 0) {
+      // These would be processed and added to uploadedFiles
+      // The actual implementation would depend on how you want to handle these files
+      // For now, we'll just log them
+      console.log('Predefined files to load:', predefinedFiles);
+      
+      // In a real implementation, you would:  
+      // 1. Fetch each file from Firebase Storage
+      // 2. Convert to appropriate format
+      // 3. Add to uploadedFiles state with a special flag
+      
+      // This would require Firebase Storage integration
+      // Example pseudo-code:
+      // predefinedFiles.forEach(async (fileUrl) => {
+      //   try {
+      //     const fileRef = ref(storage, fileUrl);
+      //     const metadata = await getMetadata(fileRef);
+      //     const url = await getDownloadURL(fileRef);
+      //     
+      //     setUploadedFiles(prev => [...prev, {
+      //       url,
+      //       type: getFileTypeFromMetadata(metadata),
+      //       name: metadata.name,
+      //       size: metadata.size,
+      //       mimeType: metadata.contentType,
+      //       isPredefined: true // Mark as predefined
+      //     }]);
+      //   } catch (error) {
+      //     console.error(`Error loading predefined file ${fileUrl}:`, error);
+      //   }
+      // });
+    }
+  }, [predefinedFiles]);
+
   // Handle file selection for uploads
   const handleFileSelect = (e) => {
+    if (!showUpload) return;
+    
     const files = Array.from(e.target.files);
     
     if (files.length === 0) return;
@@ -562,12 +1309,20 @@ const GoogleAIChatApp = ({
   
   // Remove a file
   const removeFile = (index) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    setUploadedFiles(prev => {
+      // Don't remove if it's a predefined file
+      if (prev[index]?.isPredefined) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
   };
   
   // Remove a YouTube URL
   const removeYouTubeURL = (index) => {
-    setYoutubeURLs(prev => prev.filter((_, i) => i !== index));
+    setYoutubeURLs(prev => {
+      // Don't remove if it's a predefined URL
+      if (prev[index]?.isPredefined) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
   };
   
   // Trigger file input click
@@ -577,6 +1332,7 @@ const GoogleAIChatApp = ({
   
   // Toggle YouTube URL input
   const toggleYouTubeInput = () => {
+    if (!showYouTube) return;
     setAddingYouTube(prev => !prev);
   };
   
@@ -624,174 +1380,185 @@ const GoogleAIChatApp = ({
     // setProcessingMedia(null);
   };
   
-  // Send message to Google AI
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() && uploadedFiles.length === 0 && youtubeURLs.length === 0) return;
-    setError(null);
-    
-    // Prepare all files (convert to data URLs if needed)
-    const preparedFiles = await prepareFilesForSending();
-    
-    // Combine prepared files and YouTube URLs
-    const allMedia = [...preparedFiles, ...youtubeURLs];
-    
-    const userMessage = {
-      id: Date.now(),
-      sender: 'user',
-      text: inputMessage,
-      timestamp: Date.now(),
-      media: allMedia.length > 0 ? allMedia : undefined
-    };
-    
-    // Create a copy of the input message before clearing it
-    const messageToSend = inputMessage;
-    const mediaItemsToSend = [...allMedia];
-    
-    // Update UI immediately
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
-    setUploadedFiles([]);
-    setYoutubeURLs([]);
-    setYoutubeURL('');
-    setAddingYouTube(false);
-    setIsLoading(true);
-    
-    // Create empty AI message placeholder for streaming
-    const aiMessageId = Date.now() + 1;
-    setMessages(prev => [...prev, {
-      id: aiMessageId,
-      sender: 'ai',
-      text: '',
-      timestamp: Date.now() + 1,
-    }]);
+ // Send message to Google AI
+const handleSendMessage = async () => {
+  if (!inputMessage.trim() && uploadedFiles.length === 0 && youtubeURLs.length === 0) return;
+  setError(null);
+  
+  // Prepare all files (convert to data URLs if needed)
+  const preparedFiles = await prepareFilesForSending();
+  
+  // Combine prepared files and YouTube URLs
+  const allMedia = [...preparedFiles, ...youtubeURLs];
+  
+  const userMessage = {
+    id: Date.now(),
+    sender: 'user',
+    text: inputMessage,
+    timestamp: Date.now(),
+    media: allMedia.length > 0 ? allMedia : undefined
+  };
+  
+  // Create a copy of the input message before clearing it
+  const messageToSend = inputMessage;
+  const mediaItemsToSend = [...allMedia];
+  
+  // Update UI immediately
+  setMessages(prev => [...prev, userMessage]);
+  setInputMessage('');
+  setUploadedFiles([]);
+  setYoutubeURLs([]);
+  setYoutubeURL('');
+  setAddingYouTube(false);
+  setIsLoading(true);
+  
+  // Create empty AI message placeholder for streaming
+  const aiMessageId = Date.now() + 1;
+  setMessages(prev => [...prev, {
+    id: aiMessageId,
+    sender: 'ai',
+    text: '',
+    timestamp: Date.now() + 1,
+  }]);
 
-    // Set streaming state
-    setIsStreaming(true);
-    
-    try {
-      // Start showing media analysis animations if there are media items
-      if (mediaItemsToSend.length > 0) {
-        // Show media processing animations and keep them showing
-        await simulateMediaAnalysis(mediaItemsToSend);
-      } else {
-        // If there's no media, just proceed without showing animations
-        setIsProcessing(false);
-        setProcessingMedia(null);
-      }
-      
-      // Call the Cloud Function with message and history
-      const history = messages.slice(-10); // Keep last 10 messages for context
-      
-      // Log what we're sending to help debug
-      console.log("Sending to AI:", {
-        message: messageToSend,
-        history: history,
-        model: AI_MODEL_MAPPING.livechat.name,
-        streaming: true, // Enable streaming mode
-        mediaItems: mediaItemsToSend.map(item => ({
-          url: item.url,
-          type: item.type,
-          name: item.name,
-          mimeType: item.mimeType
-        }))
-      });
-      
-      // Format the data that we send to match what the Cloud Function expects
-      // Ensure history is always an array even if it's undefined
-      const safeHistory = Array.isArray(history) ? history : [];
-      
-      const result = await sendChatMessage({
-        message: messageToSend, // The actual text message to send
-        history: safeHistory.map(msg => ({
-          // Convert our internal message format to what the function expects
-          sender: msg.sender, // 'user' or 'ai'
-          text: msg.text
-        })),
-        model: AI_MODEL_MAPPING.livechat.name, // Using the live chat model from settings
-        systemInstruction: "You are a helpful AI assistant that provides clear, accurate information.",
-        streaming: true, // Enable streaming mode
-        mediaItems: mediaItemsToSend.map(item => ({
-          url: item.url,
-          type: item.type,
-          name: item.name,
-          mimeType: item.mimeType
-        })),
-        sessionId: sessionId // Pass the session ID if we have one
-      });
-      
-      // Now that we have a response, stop the processing animations
+  // Set streaming state
+  setIsStreaming(true);
+  
+  try {
+    // Start showing media analysis animations if there are media items
+    if (mediaItemsToSend.length > 0) {
+      // Show media processing animations and keep them showing
+      await simulateMediaAnalysis(mediaItemsToSend);
+    } else {
+      // If there's no media, just proceed without showing animations
       setIsProcessing(false);
       setProcessingMedia(null);
+    }
+    
+    // Get the combined system message
+    const systemMessage = getSystemMessage();
+    
+    // Log what we're sending to help debug
+    console.log("Sending to AI:", {
+      message: messageToSend,
+      model: AI_MODEL_MAPPING.livechat.name,
+      systemInstruction: systemMessage,
+      streaming: true, // Enable streaming mode
+      mediaItems: mediaItemsToSend.map(item => ({
+        url: item.url,
+        type: item.type,
+        name: item.name,
+        mimeType: item.mimeType
+      }))
+    });
+    
+    const result = await sendChatMessage({
+      message: messageToSend, // The actual text message to send
+      model: AI_MODEL_MAPPING.livechat.name, // Using the live chat model from settings
+      systemInstruction: systemMessage, // Using our combined system message
+      streaming: true, // Enable streaming mode
+      mediaItems: mediaItemsToSend.map(item => ({
+        url: item.url,
+        type: item.type,
+        name: item.name,
+        mimeType: item.mimeType
+      })),
+      sessionId: sessionId // Pass the session ID if we have one
+    });
+    
+    // Now that we have a response, stop the processing animations
+    setIsProcessing(false);
+    setProcessingMedia(null);
+    
+    // Update the AI message with the response
+    const aiResponse = result.data.text;
+    
+    // Save the session ID if provided by the server
+    if (result.data.sessionId) {
+      setSessionId(result.data.sessionId);
+      console.log(`Chat session established with ID: ${result.data.sessionId}`);
+    }
+    
+    // Simulate progressive typing effect
+    if (result.data.streaming) {
+      let displayedText = '';
+      const fullText = aiResponse;
+      const words = fullText.split(' ');
       
-      // Update the AI message with the response
-      const aiResponse = result.data.text;
-      
-      // Save the session ID if provided by the server
-      if (result.data.sessionId) {
-        setSessionId(result.data.sessionId);
-        console.log(`Chat session established with ID: ${result.data.sessionId}`);
-      }
-      
-      // Simulate progressive typing effect
-      if (result.data.streaming) {
-        let displayedText = '';
-        const fullText = aiResponse;
-        const words = fullText.split(' ');
+      for (let i = 0; i < words.length; i++) {
+        displayedText += words[i] + ' ';
         
-        for (let i = 0; i < words.length; i++) {
-          displayedText += words[i] + ' ';
-          
-          // Update message with current text
-          setMessages(prev =>
-            prev.map(msg =>
-              msg.id === aiMessageId ? { ...msg, text: displayedText } : msg
-            )
-          );
-          
-          // Small delay to simulate typing
-          // This creates a visual effect of streaming
-          if (i < words.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 50));
-          }
-        }
-      } else {
-        // Regular non-streaming update
+        // Update message with current text
         setMessages(prev =>
           prev.map(msg =>
-            msg.id === aiMessageId ? { ...msg, text: aiResponse } : msg
+            msg.id === aiMessageId ? { ...msg, text: displayedText } : msg
           )
         );
+        
+        // Small delay to simulate typing
+        // This creates a visual effect of streaming
+        if (i < words.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+    } else {
+      // Debug table formatting
+      if (aiResponse.includes('|')) {
+        console.log('=== TABLE DEBUGGING INFO ===');
+        console.log('Raw table content:');
+        const tableLines = aiResponse.split('\n').filter(line => line.includes('|'));
+        console.log(tableLines.join('\n'));
+        
+        console.log('\nFormatted table content:');
+        const formattedText = formatMarkdownTables(aiResponse);
+        const formattedTableLines = formattedText.split('\n').filter(line => line.includes('|'));
+        console.log(formattedTableLines.join('\n'));
       }
       
-    } catch (err) {
-      console.error('Error sending message:', err);
-      const errorDetails = err.message || 'Failed to send message. Please try again.';
-      setError(errorDetails);
-      
-      // Show detailed error information in the UI for debugging
-      const errorMessage = err.code === 'functions/invalid-argument' 
-        ? `API Error: ${errorDetails}` 
-        : `I'm sorry, I encountered an error: ${errorDetails}`;
-        
-      // Update the AI message with the error
+      // Regular non-streaming update
       setMessages(prev =>
         prev.map(msg =>
-          msg.id === aiMessageId ? { 
-            ...msg, 
-            text: errorMessage
-          } : msg
+          msg.id === aiMessageId ? { ...msg, text: aiResponse } : msg
         )
       );
-      
-      // Always ensure processing animations are stopped when there's an error
-      setIsProcessing(false);
-      setProcessingMedia(null);
-    } finally {
-      setIsLoading(false);
-      setIsStreaming(false);
-      scrollToBottom();
     }
-  };
+    
+  } catch (err) {
+    console.error('Error sending message:', err);
+    const errorDetails = err.message || 'Failed to send message. Please try again.';
+    setError(errorDetails);
+    
+    // Show detailed error information in the UI for debugging
+    const errorMessage = err.code === 'functions/invalid-argument' 
+      ? `API Error: ${errorDetails}` 
+      : `I'm sorry, I encountered an error: ${errorDetails}`;
+      
+    // Update the AI message with the error
+    setMessages(prev =>
+      prev.map(msg =>
+        msg.id === aiMessageId ? { 
+          ...msg, 
+          text: errorMessage
+        } : msg
+      )
+    );
+    
+    // Always ensure processing animations are stopped when there's an error
+    setIsProcessing(false);
+    setProcessingMedia(null);
+  } finally {
+    setIsLoading(false);
+    setIsStreaming(false);
+    scrollToBottom();
+    
+    // Focus the input textarea after sending a message
+    if (inputRef.current) {
+      setTimeout(() => {
+        inputRef.current.focus();
+      }, 100);
+    }
+  }
+};
   
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !addingYouTube) {
@@ -972,25 +1739,15 @@ const GoogleAIChatApp = ({
             className="h-full"
           >
             <div className="p-4 space-y-6">
-              {messages.length === 0 ? (
-                <div className="text-center text-gray-500 my-8">
-                  <Bot className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                  <p className="text-lg font-medium">Welcome to Edbotz</p>
-                  <p className="text-sm mt-2">
-                    {isInitializing ? 'Loading your assistant...' : 'Ask me anything and I\'ll help you find the answer.'}
-                  </p>
-                </div>
-              ) : (
-                messages.map((message) => (
-                  <MessageBubble
-                    key={message.id}
-                    message={message}
-                    isStreaming={isStreaming && message === messages[messages.length - 1] && message.sender === 'ai'}
-                    isProcessing={isProcessing && message === messages[messages.length - 1] && message.sender === 'ai'}
-                    processingMedia={processingMedia}
-                  />
-                ))
-              )}
+              {messages.map((message) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  isStreaming={isStreaming && message === messages[messages.length - 1] && message.sender === 'ai'}
+                  isProcessing={isProcessing && message === messages[messages.length - 1] && message.sender === 'ai'}
+                  processingMedia={processingMedia}
+                />
+              ))}
             </div>
           </ScrollArea>
         </div>
@@ -1021,31 +1778,36 @@ const GoogleAIChatApp = ({
           <YouTubeURLInput />
           
           <div className="flex gap-2 w-full">
-            <Button
-              type="button"
-              size="icon"
-              variant="outline"
-              onClick={openFileDialog}
-              disabled={isLoading || isInitializing}
-              className="shrink-0 self-end border-gray-300"
-              title="Upload File or Image"
-            >
-              <Upload className="w-5 h-5 text-gray-600" />
-            </Button>
+            {showUpload && (
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={openFileDialog}
+                disabled={isLoading || isInitializing}
+                className="shrink-0 self-end border-gray-300"
+                title="Upload File or Image"
+              >
+                <Upload className="w-5 h-5 text-gray-600" />
+              </Button>
+            )}
             
-            <Button
-              type="button"
-              size="icon"
-              variant="outline"
-              onClick={toggleYouTubeInput}
-              disabled={isLoading || isInitializing || addingYouTube}
-              className="shrink-0 self-end border-gray-300"
-              title="Add YouTube Video"
-            >
-              <Youtube className="w-5 h-5 text-red-600" />
-            </Button>
+            {showYouTube && (
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={toggleYouTubeInput}
+                disabled={isLoading || isInitializing || addingYouTube}
+                className="shrink-0 self-end border-gray-300"
+                title="Add YouTube Video"
+              >
+                <Youtube className="w-5 h-5 text-red-600" />
+              </Button>
+            )}
             
             <Textarea
+              ref={inputRef}
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={handleKeyDown}

@@ -3,25 +3,16 @@ import GoogleAIChatApp from './GoogleAIChatApp';
 
 // Simple wrapper component for the Google AI Chat application
 const GoogleAIChatPage = () => {
-  // Enhanced first message with rich content example
-  const richFirstMessage = `
-    <div>
-      <h3 style="font-weight: bold; margin-bottom: 8px;">Hello! I'm your AI assistant</h3>
-      <p>I can help you with a variety of tasks. Would you like to:</p>
-      <ul style="margin-top: 8px; margin-left: 16px; list-style-type: disc;">
-        <li>Hear a joke</li>
-        <li>Learn about a topic</li>
-        <li>Get help with a question</li>
-      </ul>
-      <p style="margin-top: 8px;">Just let me know how I can assist you today!</p>
-    </div>
-  `;
-
+  // Define instructions and first message
+  const instructions = "You are an educational AI assistant that helps users learn about various topics. Provide clear, accurate, and concise explanations.";
+  const firstMessage = "Hello! I'm your Edbotz AI tutor. I can help you understand concepts, answer questions, or provide learning resources. What would you like to learn about today?";
+  
   return (
     <div className="h-screen flex flex-col">
       <div className="flex-1 min-h-0">
         <GoogleAIChatApp 
-          firstMessage={richFirstMessage}
+          instructions={instructions}
+          firstMessage={firstMessage}
         />
       </div>
     </div>
