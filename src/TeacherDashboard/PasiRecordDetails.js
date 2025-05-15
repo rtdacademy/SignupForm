@@ -19,8 +19,11 @@ import {
   Info, 
   AlertTriangle, 
   HelpCircle, 
-  BellRing 
+  BellRing,
+  ArrowRight,
+  Database
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 // Helper function to calculate age from birthday
 const calculateAge = (birthday) => {
@@ -73,6 +76,87 @@ const formatUserFriendlyDate = (dateValue, isFormatted = false) => {
   }
 };
 
+// No comparison logic needed
+
+// DataField component for displaying labeled data with source indicator
+const DataField = ({ 
+  label, 
+  yourWayValue, 
+  pasiValue, 
+  onClick, 
+  yourWayLabel = "YourWay",
+  pasiLabel = "PASI",
+  sourceType = "both" // Options: "yourway", "pasi", "both", "none"
+}) => {
+  return (
+    <>
+      <dt className="font-medium text-gray-500">{label}:</dt>
+      <dd className="grid grid-cols-2 gap-2">
+        {/* YourWay Value */}
+        {(sourceType === "yourway" || sourceType === "both") && (
+          <div className="cursor-pointer hover:text-blue-600" 
+            onClick={() => onClick && yourWayValue && onClick(yourWayValue, label)}>
+            <div className="flex items-center gap-1">
+              {sourceType === "both" && (
+                <Badge 
+                  variant="outline" 
+                  className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                >
+                  {yourWayLabel}
+                </Badge>
+              )}
+              <span>{yourWayValue || 'N/A'}</span>
+            </div>
+          </div>
+        )}
+        
+        {/* PASI Value */}
+        {(sourceType === "pasi" || sourceType === "both") && (
+          <div className="cursor-pointer hover:text-blue-600" 
+            onClick={() => onClick && pasiValue && onClick(pasiValue, label)}>
+            <div className="flex items-center gap-1">
+              {sourceType === "both" && (
+                <Badge 
+                  variant="outline" 
+                  className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                >
+                  {pasiLabel}
+                </Badge>
+              )}
+              <span>{pasiValue || 'N/A'}</span>
+            </div>
+          </div>
+        )}
+        
+        {/* Single value with no source indicator */}
+        {sourceType === "none" && (
+          <div className="col-span-2 cursor-pointer hover:text-blue-600"
+            onClick={() => onClick && yourWayValue && onClick(yourWayValue, label)}>
+            <span>{yourWayValue || 'N/A'}</span>
+          </div>
+        )}
+      </dd>
+    </>
+  );
+};
+
+// SingleDataField component for displaying labeled data without source indicators
+const SingleDataField = ({ 
+  label, 
+  value, 
+  onClick
+}) => {
+  return (
+    <>
+      <dt className="font-medium text-gray-500">{label}:</dt>
+      <dd className="cursor-pointer hover:text-blue-600" 
+        onClick={() => onClick && value && onClick(value, label)}>
+        <span>{value || 'N/A'}</span>
+      </dd>
+    </>
+  );
+};
+
 // PasiRecordDetails component with forwardRef to allow parent components to pass a ref
 const PasiRecordDetails = forwardRef(({ 
   record, 
@@ -86,6 +170,67 @@ const PasiRecordDetails = forwardRef(({
   // Calculate age from birthday if available
   const age = calculateAge(record.birthday);
   
+  // Determine which data comes from which system
+  const yourWayData = {
+    asn: record.asn,
+    firstName: record.firstName,
+    lastName: record.lastName,
+    preferredFirstName: record.preferredFirstName,
+    email: record.StudentEmail,
+    birthday: record.birthday,
+    studentType: record.StudentType_Value,
+    primarySchool: record.primarySchoolName,
+    schoolYear: record.School_x0020_Year_Value,
+    scheduleStartDate: record.ScheduleStartDate,
+    scheduleEndDate: record.ScheduleEndDate,
+    courseId: record.CourseID,
+    courseName: record.Course_Value,
+    term: record.Term,
+    status: record.Status_Value,
+    grade: undefined, // YourWay doesn't store final grades
+    exitDate: undefined,
+    gender: record.gender,
+    payment_status: record.payment_status,
+    resumingOnDate: record.resumingOnDate,
+    studentPhone: record.StudentPhone
+  };
+  
+  const pasiData = {
+    asn: record.asn,
+    studentName: record.studentName,
+    email: record.email,
+    courseCode: record.courseCode,
+    courseDescription: record.courseDescription,
+    term: record.pasiTerm,
+    status: record.status,
+    grade: record.value,
+    exitDate: record.exitDate,
+    schoolYear: record.schoolYear,
+    assignmentDate: record.assignmentDate,
+    approved: record.approved,
+    deleted: record.deleted,
+    dualEnrolment: record.dualEnrolment,
+    schoolEnrolment: record.schoolEnrolment,
+    creditsAttempted: record.creditsAttempted,
+    fundingRequested: record.fundingRequested
+  };
+  
+  // Parse PASI student name into first and last
+  let pasiFirstName = '';
+  let pasiLastName = '';
+  if (pasiData.studentName) {
+    const parts = pasiData.studentName.split(', ');
+    if (parts.length > 1) {
+      pasiLastName = parts[0];
+      pasiFirstName = parts[1];
+    }
+  }
+  
+  // Format PASI school year to match YourWay format
+  if (pasiData.schoolYear && pasiData.schoolYear.includes('_')) {
+    pasiData.schoolYear = pasiData.schoolYear.replace('_', '/');
+  }
+  
   return (
     <Card className="mt-4" ref={ref}>
       <CardHeader className="py-3">
@@ -98,182 +243,578 @@ const PasiRecordDetails = forwardRef(({
             </Badge>
           )}
         </CardTitle>
-        <CardDescription className="text-xs">
-          {record.studentName} - {record.courseCode} ({record.courseDescription})
+        <CardDescription className="text-xs flex justify-between">
+          <span>{record.studentName} - {record.courseCode} ({record.courseDescription})</span>
+          <div className="flex items-center gap-2">
+            <Badge 
+              variant="outline" 
+              className="flex items-center bg-blue-50 text-blue-700 border-blue-200 text-xs"
+            >
+              <Database className="h-3 w-3 mr-1" /> YourWay
+            </Badge>
+            <ArrowRight className="h-3 w-3 text-gray-400" />
+            <Badge 
+              variant="outline" 
+              className="flex items-center bg-green-50 text-green-700 border-green-200 text-xs"
+            >
+              <Database className="h-3 w-3 mr-1" /> PASI
+            </Badge>
+          </div>
         </CardDescription>
       </CardHeader>
       
       <CardContent className="text-xs py-2">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div>
-            <h3 className="font-medium mb-2 text-sm">Student Information</h3>
-            <dl className="grid grid-cols-[1fr_2fr] gap-1">
-              <dt className="font-medium text-gray-500">ASN:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(record.asn, "ASN")}>
-                {record.asn || 'N/A'}
-              </dd>
+            <h3 className="font-medium mb-2 text-sm flex items-center">
+              <span>Student Information</span>
+            </h3>
+            <dl className="grid grid-cols-[1fr_3fr] gap-2">
+              <SingleDataField 
+                label="ASN" 
+                value={record.asn} 
+                onClick={handleCellClick}
+              />
               
-              <dt className="font-medium text-gray-500">Name:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(record.studentName, "Name")}>
-                {record.studentName || 'N/A'}
-              </dd>
-              
-              <dt className="font-medium text-gray-500">Email:</dt>
-              <dd className="flex items-center gap-1">
-                <span 
-                  className="cursor-pointer hover:text-blue-600" 
-                  onClick={() => handleCellClick(record.email, "Email")}
-                >
-                  {record.email || 'N/A'}
-                </span>
-                {onEmailEdit && (
-                  <Button 
-                    variant="ghost" 
-                    size="xs" 
-                    className="h-5 w-5 p-0" 
-                    onClick={() => onEmailEdit(record)}
+              {/* Name Fields */}
+              <dt className="font-medium text-gray-500">First Name:</dt>
+              <dd className="cursor-pointer hover:text-blue-600" 
+                onClick={() => handleCellClick && yourWayData.firstName && handleCellClick(yourWayData.firstName, "First Name")}>
+                <div className="flex items-center gap-1">
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
                   >
-                    <Edit className="h-3 w-3 text-blue-500" />
-                  </Button>
-                )}
+                    YourWay
+                  </Badge>
+                  <span>{yourWayData.firstName || 'N/A'}</span>
+                </div>
               </dd>
               
+              <dt className="font-medium text-gray-500">Last Name:</dt>
+              <dd className="cursor-pointer hover:text-blue-600" 
+                onClick={() => handleCellClick && yourWayData.lastName && handleCellClick(yourWayData.lastName, "Last Name")}>
+                <div className="flex items-center gap-1">
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                  >
+                    YourWay
+                  </Badge>
+                  <span>{yourWayData.lastName || 'N/A'}</span>
+                </div>
+              </dd>
+              
+              <dt className="font-medium text-gray-500">PASI Name:</dt>
+              <dd className="cursor-pointer hover:text-blue-600" 
+                onClick={() => handleCellClick && pasiData.studentName && handleCellClick(pasiData.studentName, "PASI Name")}>
+                <div className="flex items-center gap-1">
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                  >
+                    PASI
+                  </Badge>
+                  <span>{pasiData.studentName || 'N/A'}</span>
+                </div>
+              </dd>
+              
+              {/* Preferred Name - YourWay only */}
+              {yourWayData.preferredFirstName && (
+                <SingleDataField 
+                  label="Preferred Name" 
+                  value={yourWayData.preferredFirstName} 
+                  onClick={handleCellClick}
+                />
+              )}
+              
+              {/* Email */}
+              <dt className="font-medium text-gray-500">Email:</dt>
+              <dd className="grid grid-cols-2 gap-2">
+                <div className="cursor-pointer hover:text-blue-600" 
+                  onClick={() => handleCellClick && yourWayData.email && handleCellClick(yourWayData.email, "Email")}>
+                  <div className="flex items-center gap-1">
+                    <Badge 
+                      variant="outline" 
+                      className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                    >
+                      YourWay
+                    </Badge>
+                    <span>{yourWayData.email || 'N/A'}</span>
+                  </div>
+                </div>
+                <div className="cursor-pointer hover:text-blue-600" 
+                  onClick={() => handleCellClick && pasiData.email && handleCellClick(pasiData.email, "Email")}>
+                  <div className="flex items-center gap-1">
+                    <Badge 
+                      variant="outline" 
+                      className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                    >
+                      PASI
+                    </Badge>
+                    <span>{pasiData.email || 'N/A'}</span>
+                    {onEmailEdit && (
+                      <Button 
+                        variant="ghost" 
+                        size="xs" 
+                        className="h-5 w-5 p-0" 
+                        onClick={() => onEmailEdit(record)}
+                      >
+                        <Edit className="h-3 w-3 text-blue-500" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </dd>
+              
+              {/* Birthday - YourWay only */}
               <dt className="font-medium text-gray-500">Birthday:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(record.birthday, "Birthday")}>
-                {record.birthday ? formatUserFriendlyDate(record.birthday) : 'N/A'}
+              <dd className="cursor-pointer hover:text-blue-600" 
+                onClick={() => handleCellClick && record.birthday && handleCellClick(record.birthday, "Birthday")}>
+                <div className="flex items-center gap-1">
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                  >
+                    YourWay
+                  </Badge>
+                  <span>{record.birthday ? formatUserFriendlyDate(record.birthday) : 'N/A'}</span>
+                </div>
               </dd>
               
               <dt className="font-medium text-gray-500">Age:</dt>
               <dd>{age}</dd>
               
-              <dt className="font-medium text-gray-500">Student Type:</dt>
-              <dd>{record.studentType_Value || record.displayStudentType || 'N/A'}</dd>
-              
-              {record.primarySchoolName && record.primarySchoolName.trim() !== '' && (
+              {/* Phone - YourWay only */}
+              {yourWayData.studentPhone && (
                 <>
-                  <dt className="font-medium text-gray-500">Primary School:</dt>
-                  <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(record.primarySchoolName, "Primary School")}>
-                    {record.primarySchoolName}
+                  <dt className="font-medium text-gray-500">Phone:</dt>
+                  <dd className="cursor-pointer hover:text-blue-600" 
+                    onClick={() => handleCellClick && yourWayData.studentPhone && handleCellClick(yourWayData.studentPhone, "Phone")}>
+                    <div className="flex items-center gap-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                      >
+                        YourWay
+                      </Badge>
+                      <span>{yourWayData.studentPhone || 'N/A'}</span>
+                    </div>
                   </dd>
                 </>
               )}
               
-              <dt className="font-medium text-gray-500">School Year:</dt>
-              <dd>{record.schoolYear || record.School_x0020_Year_Value || 'N/A'}</dd>
+              {/* Student Type - YourWay only */}
+              <dt className="font-medium text-gray-500">Student Type:</dt>
+              <dd className="cursor-pointer hover:text-blue-600" 
+                onClick={() => handleCellClick && yourWayData.studentType && handleCellClick(yourWayData.studentType, "Student Type")}>
+                <div className="flex items-center gap-1">
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                  >
+                    YourWay
+                  </Badge>
+                  <span>{yourWayData.studentType || 'N/A'}</span>
+                </div>
+              </dd>
               
+              {/* Primary School - YourWay only (if exists) */}
+              {yourWayData.primarySchool && (
+                <>
+                  <dt className="font-medium text-gray-500">Primary School:</dt>
+                  <dd className="col-span-2 cursor-pointer hover:text-blue-600" 
+                    onClick={() => handleCellClick && yourWayData.primarySchool && handleCellClick(yourWayData.primarySchool, "Primary School")}>
+                    <div className="flex items-center gap-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                      >
+                        YourWay
+                      </Badge>
+                      <span>{yourWayData.primarySchool}</span>
+                    </div>
+                  </dd>
+                </>
+              )}
+              
+              {/* School Year */}
+              <dt className="font-medium text-gray-500">School Year:</dt>
+              <dd className="cursor-pointer hover:text-blue-600">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <Badge 
+                      variant="outline" 
+                      className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                    >
+                      YourWay
+                    </Badge>
+                    <span>{yourWayData.schoolYear || 'N/A'}</span>
+                  </div>
+                  {pasiData.schoolYear && (
+                    <div className="flex items-center gap-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                      >
+                        PASI
+                      </Badge>
+                      <span>{pasiData.schoolYear || 'N/A'}</span>
+                    </div>
+                  )}
+                </div>
+              </dd>
+              
+              {/* Registration Date */}
               <dt className="font-medium text-gray-500">Registration Date:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(record.startDateFormatted, "Registration Date")}>
-                {record.startDateFormatted && record.startDateFormatted !== 'N/A' ? 
-                  formatUserFriendlyDate(record.startDateFormatted, true) : 'N/A'}
+              <dd className="cursor-pointer hover:text-blue-600" 
+                onClick={() => handleCellClick && record.startDateFormatted && handleCellClick(record.startDateFormatted, "Registration Date")}>
+                <span>
+                  {record.startDateFormatted && record.startDateFormatted !== 'N/A' ? 
+                    formatUserFriendlyDate(record.startDateFormatted, true) : 'N/A'}
+                </span>
+                {record.startDateSource && (
+                  <span className="text-xs text-gray-500 ml-1">
+                    (Source: {record.startDateSource})
+                  </span>
+                )}
               </dd>
             </dl>
           </div>
           
           <div>
-            <h3 className="font-medium mb-2 text-sm">Course Information</h3>
-            <dl className="grid grid-cols-[1fr_2fr] gap-1">
-              <dt className="font-medium text-gray-500">Course Code:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(record.courseCode, "Course Code")}>
-                {record.courseCode || 'N/A'}
+            <h3 className="font-medium mb-2 text-sm flex items-center">
+              <span>Course Information</span>
+            </h3>
+            <dl className="grid grid-cols-[1fr_3fr] gap-2">
+              {/* Course ID / Code */}
+              <dt className="font-medium text-gray-500">Course ID/Code:</dt>
+              <dd className="grid grid-cols-2 gap-2">
+                <div className="cursor-pointer hover:text-blue-600" 
+                  onClick={() => handleCellClick && yourWayData.courseId && handleCellClick(yourWayData.courseId, "Course ID")}>
+                  <div className="flex items-center gap-1">
+                    <Badge 
+                      variant="outline" 
+                      className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                    >
+                      YourWay
+                    </Badge>
+                    <span>{yourWayData.courseId || 'N/A'}</span>
+                  </div>
+                </div>
+                <div className="cursor-pointer hover:text-blue-600" 
+                  onClick={() => handleCellClick && pasiData.courseCode && handleCellClick(pasiData.courseCode, "Course Code")}>
+                  <div className="flex items-center gap-1">
+                    <Badge 
+                      variant="outline" 
+                      className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                    >
+                      PASI
+                    </Badge>
+                    <span>{pasiData.courseCode || 'N/A'}</span>
+                  </div>
+                </div>
               </dd>
               
+              {/* Course Name / Description */}
               <dt className="font-medium text-gray-500">Description:</dt>
-              <dd>{record.courseDescription || 'N/A'}</dd>
+              <dd className="grid grid-cols-2 gap-2">
+                <div className="cursor-pointer hover:text-blue-600" 
+                  onClick={() => handleCellClick && yourWayData.courseName && handleCellClick(yourWayData.courseName, "Course Name")}>
+                  <div className="flex items-center gap-1">
+                    <Badge 
+                      variant="outline" 
+                      className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                    >
+                      YourWay
+                    </Badge>
+                    <span>{yourWayData.courseName || 'N/A'}</span>
+                  </div>
+                </div>
+                <div className="cursor-pointer hover:text-blue-600" 
+                  onClick={() => handleCellClick && pasiData.courseDescription && handleCellClick(pasiData.courseDescription, "Course Description")}>
+                  <div className="flex items-center gap-1">
+                    <Badge 
+                      variant="outline" 
+                      className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                    >
+                      PASI
+                    </Badge>
+                    <span>{pasiData.courseDescription || 'N/A'}</span>
+                  </div>
+                </div>
+              </dd>
               
+              {/* Term - PASI only */}
               <dt className="font-medium text-gray-500">Term:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(record.pasiTerm || record.displayTerm || record.term, "Term")}>
-                <Badge className="text-xs py-0 px-1.5">
-                  {record.pasiTerm || record.displayTerm || record.term || 'N/A'}
-                </Badge>
+              <dd className="cursor-pointer hover:text-blue-600"
+                onClick={() => handleCellClick && pasiData.term && handleCellClick(pasiData.term, "Term")}
+              >
+                <div className="flex items-center gap-1">
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                  >
+                    PASI
+                  </Badge>
+                  <Badge className="text-xs py-0 px-1.5 bg-green-50 text-green-700 border-green-200">
+                    {pasiData.term || 'N/A'}
+                  </Badge>
+                </div>
               </dd>
               
+              {/* Status */}
               <dt className="font-medium text-gray-500">Status:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(record.status, "Status")}>
-                <Badge 
-                  variant={record.status === 'Completed' ? 'success' : 'secondary'}
-                  className={`
-                    text-xs py-0 px-1.5
-                    ${record.status === 'Completed' 
-                      ? 'bg-green-50 text-green-700 border-green-200' 
-                      : record.status === 'Active'
-                        ? 'bg-blue-50 text-blue-700 border-blue-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                    }
-                  `}
+              <dd className="grid grid-cols-2 gap-2">
+                <div className="cursor-pointer hover:text-blue-600"
+                  onClick={() => handleCellClick && yourWayData.status && handleCellClick(yourWayData.status, "Status")}
                 >
-                  {record.status || 'N/A'}
-                </Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge 
+                      variant="outline" 
+                      className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                    >
+                      YourWay
+                    </Badge>
+                    <Badge 
+                      variant={yourWayData.status === 'Completed' ? 'success' : 'secondary'}
+                      className={`
+                        text-xs py-0 px-1.5
+                        ${yourWayData.status === 'Completed' 
+                          ? 'bg-green-50 text-green-700 border-green-200' 
+                          : yourWayData.status === 'Active'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }
+                      `}
+                    >
+                      {yourWayData.status || 'N/A'}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="cursor-pointer hover:text-blue-600"
+                  onClick={() => handleCellClick && pasiData.status && handleCellClick(pasiData.status, "Status")}
+                >
+                  <div className="flex items-center gap-1">
+                    <Badge 
+                      variant="outline" 
+                      className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                    >
+                      PASI
+                    </Badge>
+                    <Badge 
+                      variant={pasiData.status === 'Completed' ? 'success' : 'secondary'}
+                      className={`
+                        text-xs py-0 px-1.5
+                        ${pasiData.status === 'Completed' 
+                          ? 'bg-green-50 text-green-700 border-green-200' 
+                          : pasiData.status === 'Active'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }
+                      `}
+                    >
+                      {pasiData.status || 'N/A'}
+                    </Badge>
+                  </div>
+                </div>
               </dd>
               
+              {/* Grade - PASI only */}
               <dt className="font-medium text-gray-500">Grade:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(record.value, "Grade")}>
-                {record.value && record.value !== '-' ? record.value : 'N/A'}
+              <dd className="cursor-pointer hover:text-blue-600" 
+                onClick={() => handleCellClick && pasiData.grade && handleCellClick(pasiData.grade, "Grade")}>
+                <div className="flex items-center gap-1">
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                  >
+                    PASI
+                  </Badge>
+                  <span>{pasiData.grade && pasiData.grade !== '-' ? pasiData.grade : 'N/A'}</span>
+                </div>
               </dd>
               
+              {/* Assignment Date - PASI only */}
+              {pasiData.assignmentDate && (
+                <>
+                  <dt className="font-medium text-gray-500">Assignment Date:</dt>
+                  <dd className="cursor-pointer hover:text-blue-600" 
+                    onClick={() => handleCellClick && pasiData.assignmentDate && handleCellClick(pasiData.assignmentDate, "Assignment Date")}>
+                    <div className="flex items-center gap-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                      >
+                        PASI
+                      </Badge>
+                      <span>{pasiData.assignmentDate ? formatUserFriendlyDate(pasiData.assignmentDate) : 'N/A'}</span>
+                    </div>
+                  </dd>
+                </>
+              )}
+              
+              {/* Exit Date - PASI only */}
               <dt className="font-medium text-gray-500">Exit Date:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(record.exitDateFormatted || record.exitDate, "Exit Date")}>
-                {record.exitDateFormatted && record.exitDateFormatted !== 'N/A' ? 
-                  formatUserFriendlyDate(record.exitDateFormatted, true) : 'N/A'}
+              <dd className="cursor-pointer hover:text-blue-600" 
+                onClick={() => handleCellClick && pasiData.exitDate && pasiData.exitDate !== 'N/A' && handleCellClick(pasiData.exitDate, "Exit Date")}>
+                <div className="flex items-center gap-1">
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                  >
+                    PASI
+                  </Badge>
+                  <span>
+                    {pasiData.exitDate && pasiData.exitDate !== 'N/A' ? 
+                      formatUserFriendlyDate(pasiData.exitDate) : 'N/A'}
+                  </span>
+                </div>
               </dd>
+              
+              {/* Schedule Start/End Dates - YourWay only */}
+              {yourWayData.scheduleStartDate && (
+                <>
+                  <dt className="font-medium text-gray-500">Schedule Period:</dt>
+                  <dd className="cursor-pointer hover:text-blue-600">
+                    <div className="flex items-center gap-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                      >
+                        YourWay
+                      </Badge>
+                      <span>
+                        {formatUserFriendlyDate(yourWayData.scheduleStartDate)}
+                        {yourWayData.scheduleEndDate && (
+                          <> to {formatUserFriendlyDate(yourWayData.scheduleEndDate)}</>
+                        )}
+                      </span>
+                    </div>
+                  </dd>
+                </>
+              )}
+              
+              {/* Resuming On Date - YourWay only */}
+              {yourWayData.resumingOnDate && (
+                <>
+                  <dt className="font-medium text-gray-500">Resuming On:</dt>
+                  <dd className="cursor-pointer hover:text-blue-600" 
+                    onClick={() => handleCellClick && yourWayData.resumingOnDate && handleCellClick(yourWayData.resumingOnDate, "Resuming On")}>
+                    <div className="flex items-center gap-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                      >
+                        YourWay
+                      </Badge>
+                      <span>{formatUserFriendlyDate(yourWayData.resumingOnDate)}</span>
+                    </div>
+                  </dd>
+                </>
+              )}
+              
+              {/* PASI-specific fields */}
+              {pasiData.creditsAttempted && (
+                <>
+                  <dt className="font-medium text-gray-500">Credits:</dt>
+                  <dd className="cursor-pointer hover:text-blue-600">
+                    <div className="flex items-center gap-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                      >
+                        PASI
+                      </Badge>
+                      <span>{pasiData.creditsAttempted}</span>
+                    </div>
+                  </dd>
+                </>
+              )}
+              
+              {pasiData.approved && (
+                <>
+                  <dt className="font-medium text-gray-500">Approved:</dt>
+                  <dd className="cursor-pointer hover:text-blue-600">
+                    <div className="flex items-center gap-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                      >
+                        PASI
+                      </Badge>
+                      <span>{pasiData.approved}</span>
+                    </div>
+                  </dd>
+                </>
+              )}
+              
+              {pasiData.fundingRequested && (
+                <>
+                  <dt className="font-medium text-gray-500">Funding Requested:</dt>
+                  <dd className="cursor-pointer hover:text-blue-600">
+                    <div className="flex items-center gap-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                      >
+                        PASI
+                      </Badge>
+                      <span>{pasiData.fundingRequested}</span>
+                    </div>
+                  </dd>
+                </>
+              )}
+              
+              {/* Payment Status - YourWay only */}
+              {yourWayData.payment_status && (
+                <>
+                  <dt className="font-medium text-gray-500">Payment Status:</dt>
+                  <dd className="cursor-pointer hover:text-blue-600">
+                    <div className="flex items-center gap-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                      >
+                        YourWay
+                      </Badge>
+                      <span>{yourWayData.payment_status}</span>
+                    </div>
+                  </dd>
+                </>
+              )}
               
               <dt className="font-medium text-gray-500">Reference #:</dt>
-              <dd className="cursor-pointer hover:text-blue-600 break-all" onClick={() => handleCellClick(record.referenceNumber, "Reference Number")}>
-                {record.referenceNumber || 'N/A'}
+              <dd className="cursor-pointer hover:text-blue-600 break-all" 
+                onClick={() => handleCellClick && record.referenceNumber && handleCellClick(record.referenceNumber, "Reference Number")}>
+                <div className="flex items-center gap-1">
+                  <Badge 
+                    variant="outline" 
+                    className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                  >
+                    PASI
+                  </Badge>
+                  <span>{record.referenceNumber || 'N/A'}</span>
+                </div>
               </dd>
               
-              {/* Link Status */}
-              <dt className="font-medium text-gray-500">Link Status:</dt>
-              <dd className="flex items-center gap-2">
-                {record.summaryKey ? (
-                  <>
-                    <Link2 className="h-4 w-4 text-green-600" />
-                    <span className="text-green-600">Linked</span>
-                    <span className="text-xs text-gray-500 ml-1">({record.summaryKey})</span>
+              {/* SummaryKey (for reference only) */}
+              {record.summaryKey && (
+                <>
+                  <dt className="font-medium text-gray-500">Summary Key:</dt>
+                  <dd className="cursor-pointer hover:text-blue-600 break-all" 
+                    onClick={() => handleCellClick && record.summaryKey && handleCellClick(record.summaryKey, "Summary Key")}>
+                    <span className="text-xs text-gray-600">{record.summaryKey}</span>
                     {onEmailEdit && (
                       <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="text-xs h-6 ml-1"
+                        variant="ghost" 
+                        size="xs"
+                        className="ml-1 h-5 w-5 p-0"
                         onClick={() => onEmailEdit(record)}
                       >
-                        Edit
+                        <Edit className="h-3 w-3 text-blue-500" />
                       </Button>
                     )}
-                  </>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center">
-                      <Wrench className="h-4 w-4 text-amber-600" />
-                      <span className="text-amber-600 ml-1">Not linked</span>
-                    </div>
-                    {onEmailEdit && (
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="text-xs h-6 flex items-center gap-1"
-                          onClick={() => onEmailEdit(record)}
-                        >
-                          <Mail className="h-3 w-3" />
-                          Link Now
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </dd>
-              
-              {/* Staff Review Status */}
-              {onStaffReviewChange && (
-                <>
-                  <dt className="font-medium text-gray-500">Staff Review:</dt>
-                  <dd className="flex items-center gap-2">
-                    <Checkbox 
-                      checked={record.staffReview === true}
-                      onCheckedChange={(checked) => onStaffReviewChange(checked, record)}
-                      className="h-4 w-4 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                    />
-                    <span>{record.staffReview ? 'Reviewed' : 'Not reviewed'}</span>
                   </dd>
                 </>
               )}
@@ -335,6 +876,44 @@ const PasiRecordDetails = forwardRef(({
                           formatUserFriendlyDate(subRecord.exitDateFormatted, true) : 
                           (subRecord.exitDate ? formatUserFriendlyDate(subRecord.exitDate) : 'N/A')}
                       </dd>
+                    </dl>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Related PASI Records */}
+        {record.pasiRecords && Object.keys(record.pasiRecords).length > 0 && (
+          <div className="mt-4">
+            <h3 className="font-medium mb-2 text-sm">Other PASI Records</h3>
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <p className="text-blue-800 flex items-center mb-2">
+                <Info className="h-3 w-3 mr-1" />
+                This student has additional PASI records for other courses
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(record.pasiRecords).map(([courseCode, pasiRecord]) => (
+                  <div key={courseCode} className="bg-white border border-gray-200 rounded-md p-2">
+                    <div className="flex justify-between items-center mb-1">
+                      <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                        {courseCode.toUpperCase()}
+                      </Badge>
+                      <span className="text-xs text-gray-500">
+                        {pasiRecord.pasiRecordID === record.id ? '(Current)' : ''}
+                      </span>
+                    </div>
+                    <dl className="grid grid-cols-[1fr_1.5fr] gap-1 text-xs">
+                      <dt className="font-medium text-gray-500">Description:</dt>
+                      <dd>{pasiRecord.courseDescription || 'N/A'}</dd>
+                      
+                      <dt className="font-medium text-gray-500">Term:</dt>
+                      <dd>{pasiRecord.term || 'N/A'}</dd>
+                      
+                      <dt className="font-medium text-gray-500">Credits:</dt>
+                      <dd>{pasiRecord.creditsAttempted || 'N/A'}</dd>
                     </dl>
                   </div>
                 ))}
