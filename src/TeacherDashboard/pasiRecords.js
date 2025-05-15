@@ -1,12 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from "../components/ui/card";
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import PasiRecordDetails from './PasiRecordDetails';
 import { 
   Table,
   TableBody,
@@ -17,7 +10,6 @@ import {
   TableRow
 } from "../components/ui/table";
 import { 
-  FileText, 
   Loader2, 
   Search, 
   X, 
@@ -161,38 +153,14 @@ const formatDate = (dateValue, isFormatted = false) => {
   }
 };
 
-// Format date for user-friendly display (e.g. "Jan 15, 2025")
-const formatUserFriendlyDate = (dateValue, isFormatted = false) => {
-  if (!isValidDateValue(dateValue)) return 'N/A';
-  
-  try {
-    // Import from timeZoneUtils.js
-    const { toEdmontonDate, formatDateForDisplay } = require('../utils/timeZoneUtils');
-    
-    // Get the standard formatted date first if needed
-    let dateToFormat = dateValue;
-    if (!isFormatted) {
-      const isoDate = formatDate(dateValue, isFormatted);
-      if (isoDate === 'N/A') return 'N/A';
-      dateToFormat = isoDate;
-    }
-    
-    // Use the Edmonton-specific date formatting
-    const edmontonDate = toEdmontonDate(dateToFormat);
-    if (!edmontonDate) return 'N/A';
-    
-    // Format date in Edmonton timezone
-    const options = { month: 'short', day: 'numeric', year: 'numeric' };
-    return edmontonDate.toLocaleDateString('en-US', options);
-  } catch (error) {
-    console.error("Error formatting user-friendly date:", error);
-    return 'N/A';
-  }
-};
+// Format date for user-friendly display is now in PasiRecordDetails component
 
 const PasiRecords = () => {
   // Get PASI records from context
   const { pasiStudentSummariesCombined, isLoadingStudents, currentSchoolYear, refreshStudentSummaries } = useSchoolYear();
+  
+  // Ref for detail card
+  const detailCardRef = useRef(null);
   
   // State for selected record
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -470,10 +438,31 @@ const PasiRecords = () => {
     });
   }, [filteredRecords]);
 
+  // Function to scroll to detail card
+  const scrollToDetailCard = () => {
+    if (detailCardRef.current) {
+      // Wait for the detail card to be fully rendered
+      setTimeout(() => {
+        detailCardRef.current.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  };
+
   // Handle record selection
   const handleRecordSelect = (record) => {
     setSelectedRecord(record);
   };
+  
+  // Effect to observe when selectedRecord changes
+  useEffect(() => {
+    // If selectedRecord exists and detailCardRef is defined, scroll to it
+    if (selectedRecord && detailCardRef.current) {
+      scrollToDetailCard();
+    }
+  }, [selectedRecord]);
 
   // Handle column sorting
   const handleSort = (column) => {
@@ -903,7 +892,7 @@ const PasiRecords = () => {
                   <SortableHeader column="exitDate" label="Exit Date" />
                   <SortableHeader column="workItems" label={<AlertTriangle className="h-3 w-3" />} />
                   <SortableHeader column="linkStatus" label="Linked" />
-                  <TableHead className="text-xs px-1 py-1 w-20 max-w-20 truncate">Actions</TableHead>
+                  <TableHead className="text-xs px-1 py-1 w-32 max-w-32 truncate">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1003,7 +992,7 @@ const PasiRecords = () => {
                                 color: '#1e40af' // blue-800
                               }}
                             >
-                              {formatUserFriendlyDate(record.startDateFormatted, true)}
+                              {record.startDateFormatted}
                             </div>
                           ) : (
                             <span className="text-gray-400">N/A</span>
@@ -1081,7 +1070,7 @@ const PasiRecords = () => {
                               }}
                             >
                               <Edit className="h-2.5 w-2.5 mr-1 flex-shrink-0" />
-                              <span className="truncate">{formatUserFriendlyDate(record.exitDateFormatted, true)}</span>
+                              <span className="truncate">{record.exitDateFormatted}</span>
                             </div>
                           ) : (
                             <span className="text-gray-400">N/A</span>
@@ -1147,20 +1136,42 @@ const PasiRecords = () => {
                         </TableCell>
                         
                         {/* Actions Cell */}
-                        <TableCell className="p-1 w-14 max-w-14 truncate">
-                          {record.hasMultipleRecords ? (
-                            <MultipleRecordsDisplay 
-                              records={record.multipleRecords}
-                              asn={record.asn}
-                              onSelect={(selectedRecord) => handleSelectPasiRecord(record.id, selectedRecord)}
-                              selectedRecord={selectedPasiRecords[record.id]}
-                            />
-                          ) : (
-                            <PasiActionButtons 
-                              asn={record.asn} 
-                              referenceNumber={record.referenceNumber} 
-                            />
-                          )}
+                        <TableCell className="p-1 w-32 max-w-32 truncate">
+                          <div className="flex items-center space-x-1">
+                            {record.hasMultipleRecords ? (
+                              <MultipleRecordsDisplay 
+                                records={record.multipleRecords}
+                                asn={record.asn}
+                                onSelect={(selectedRecord) => handleSelectPasiRecord(record.id, selectedRecord)}
+                                selectedRecord={selectedPasiRecords[record.id]}
+                              />
+                            ) : (
+                              <PasiActionButtons 
+                                asn={record.asn} 
+                                referenceNumber={record.referenceNumber} 
+                              />
+                            )}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRecordSelect(record);
+                                    }}
+                                  >
+                                    <Info className="h-4 w-4 text-blue-500" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>View detailed information</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
                         </TableCell>
                       </TableRow>
                       
@@ -1211,7 +1222,7 @@ const PasiRecords = () => {
                               <TableCell className="p-1 text-gray-500 truncate max-w-20 w-20">
                                 {record.startDateFormatted && record.startDateFormatted !== 'N/A' ? (
                                   <div className="opacity-70">
-                                    {formatUserFriendlyDate(record.startDateFormatted, true)}
+                                    {record.startDateFormatted}
                                   </div>
                                 ) : (
                                   <span className="text-gray-400">N/A</span>
@@ -1270,7 +1281,7 @@ const PasiRecords = () => {
                                     }}
                                   >
                                     <Edit className="h-2.5 w-2.5 mr-1 flex-shrink-0" />
-                                    <span className="truncate">{formatUserFriendlyDate(subRecord.exitDateFormatted, true)}</span>
+                                    <span className="truncate">{subRecord.exitDateFormatted}</span>
                                   </div>
                                 ) : (
                                   <span className="text-gray-400">N/A</span>
@@ -1344,11 +1355,40 @@ const PasiRecords = () => {
                                 </div>
                               </TableCell>
                               
-                              <TableCell className="p-1 w-14 max-w-14 truncate">
-                                <PasiActionButtons 
-                                  asn={record.asn} 
-                                  referenceNumber={subRecord.referenceNumber} 
-                                />
+                              <TableCell className="p-1 w-32 max-w-32 truncate">
+                                <div className="flex items-center space-x-1">
+                                  <PasiActionButtons 
+                                    asn={record.asn} 
+                                    referenceNumber={subRecord.referenceNumber} 
+                                  />
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 w-7 p-0"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const subRecordData = {
+                                              ...record,
+                                              ...subRecord,
+                                              isSubRecord: true,
+                                              parentRecordId: record.id,
+                                              subRecordIndex: index + 1
+                                            };
+                                            handleRecordSelect(subRecordData);
+                                          }}
+                                        >
+                                          <Info className="h-4 w-4 text-blue-500" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>View detailed information</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
                               </TableCell>
                             </TableRow>
                           );
@@ -1372,236 +1412,14 @@ const PasiRecords = () => {
 
         {/* Record details display for selected record */}
         {selectedRecord && (
-          <Card className="mt-4">
-            <CardHeader className="py-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="h-4 w-4" /> 
-                PASI Record Details
-                {selectedRecord.isSubRecord && (
-                  <Badge className="ml-2 bg-purple-100 text-purple-800 border-purple-300 text-xs">
-                    Additional Record {selectedRecord.subRecordIndex}
-                  </Badge>
-                )}
-              </CardTitle>
-              <CardDescription className="text-xs">
-                {selectedRecord.studentName} - {selectedRecord.courseCode} ({selectedRecord.courseDescription})
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-xs py-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-medium mb-2 text-sm">Student Information</h3>
-                  <dl className="grid grid-cols-[1fr_2fr] gap-1">
-                    <dt className="font-medium text-gray-500">ASN:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.asn, "ASN")}>{selectedRecord.asn || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">Name:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.studentName, "Name")}>{selectedRecord.studentName || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">Email:</dt>
-                    <dd className="flex items-center gap-1">
-                      <span 
-                        className="cursor-pointer hover:text-blue-600" 
-                        onClick={() => handleCellClick(selectedRecord.email, "Email")}
-                      >
-                        {selectedRecord.email || 'N/A'}
-                      </span>
-                      <Button 
-                        variant="ghost" 
-                        size="xs" 
-                        className="h-5 w-5 p-0" 
-                        onClick={() => handleOpenEmailEditDialog(selectedRecord)}
-                      >
-                        <Edit className="h-3 w-3 text-blue-500" />
-                      </Button>
-                    </dd>
-                    
-                    <dt className="font-medium text-gray-500">Student Type:</dt>
-                    <dd>{selectedRecord.studentType_Value || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">School Year:</dt>
-                    <dd>{selectedRecord.schoolYear || selectedRecord.School_x0020_Year_Value || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">Registration Date:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.startDateFormatted, "Registration Date")}>
-                      {selectedRecord.startDateFormatted && selectedRecord.startDateFormatted !== 'N/A' ? 
-                        formatUserFriendlyDate(selectedRecord.startDateFormatted, true) : 'N/A'}
-                    </dd>
-                  </dl>
-                </div>
-                
-                <div>
-                  <h3 className="font-medium mb-2 text-sm">Course Information</h3>
-                  <dl className="grid grid-cols-[1fr_2fr] gap-1">
-                    <dt className="font-medium text-gray-500">Course Code:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.courseCode, "Course Code")}>{selectedRecord.courseCode || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">Description:</dt>
-                    <dd>{selectedRecord.courseDescription || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">Term:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.term || selectedRecord.pasiTerm, "Term")}>
-                      <Badge className="text-xs py-0 px-1.5">{selectedRecord.term || selectedRecord.pasiTerm || 'N/A'}</Badge>
-                    </dd>
-                    
-                    <dt className="font-medium text-gray-500">Status:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.status, "Status")}>
-                      <Badge 
-                        variant={selectedRecord.status === 'Completed' ? 'success' : 'secondary'}
-                        className={`
-                          text-xs py-0 px-1.5
-                          ${selectedRecord.status === 'Completed' 
-                            ? 'bg-green-50 text-green-700 border-green-200' 
-                            : selectedRecord.status === 'Active'
-                              ? 'bg-blue-50 text-blue-700 border-blue-200'
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
-                          }
-                        `}
-                      >
-                        {selectedRecord.status || 'N/A'}
-                      </Badge>
-                    </dd>
-                    
-                    <dt className="font-medium text-gray-500">Grade:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.value, "Grade")}>
-                      {selectedRecord.value && selectedRecord.value !== '-' ? selectedRecord.value : 'N/A'}
-                    </dd>
-                    
-                    <dt className="font-medium text-gray-500">Exit Date:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.exitDateFormatted || selectedRecord.exitDate, "Exit Date")}>
-                      {selectedRecord.exitDateFormatted && selectedRecord.exitDateFormatted !== 'N/A' ? 
-                        formatUserFriendlyDate(selectedRecord.exitDateFormatted, true) : 'N/A'}
-                    </dd>
-                    
-                    <dt className="font-medium text-gray-500">Reference #:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600 break-all" onClick={() => handleCellClick(selectedRecord.referenceNumber, "Reference Number")}>
-                      {selectedRecord.referenceNumber || 'N/A'}
-                    </dd>
-                    
-                    {/* Added Link Status to Details */}
-                    <dt className="font-medium text-gray-500">Link Status:</dt>
-                    <dd className="flex items-center gap-2">
-                      {selectedRecord.summaryKey ? (
-                        <>
-                          <Link2 className="h-4 w-4 text-green-600" />
-                          <span className="text-green-600">Linked</span>
-                          <span className="text-xs text-gray-500 ml-1">({selectedRecord.summaryKey})</span>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="text-xs h-6 ml-1"
-                            onClick={() => handleOpenEmailEditDialog(selectedRecord)}
-                          >
-                            Edit
-                          </Button>
-                        </>
-                      ) : (
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center">
-                            <Wrench className="h-4 w-4 text-amber-600" />
-                            <span className="text-amber-600 ml-1">Not linked</span>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="text-xs h-6 flex items-center gap-1"
-                              onClick={() => handleOpenEmailEditDialog(selectedRecord)}
-                            >
-                              <Mail className="h-3 w-3" />
-                              Link Now
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </dd>
-                    
-                    {/* Added Staff Review Status to Details */}
-                    <dt className="font-medium text-gray-500">Staff Review:</dt>
-                    <dd className="flex items-center gap-2">
-                      <Checkbox 
-                        checked={selectedRecord.staffReview === true}
-                        onCheckedChange={(checked) => handleStaffReviewChange(checked, selectedRecord)}
-                        className="h-4 w-4 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                      />
-                      <span>{selectedRecord.staffReview ? 'Reviewed' : 'Not reviewed'}</span>
-                    </dd>
-                    
-                    {/* Added Work Items to Details */}
-                    {selectedRecord.workItems && (
-                      <>
-                        <dt className="font-medium text-gray-500">Work Items:</dt>
-                        <dd className="flex items-center gap-1">
-                          {(() => {
-                            if (selectedRecord.workItems === 'Advice') {
-                              return <Info className="h-3 w-3 text-blue-500" />;
-                            } else if (selectedRecord.workItems === 'Warning') {
-                              return <AlertTriangle className="h-3 w-3 text-amber-500" />;
-                            } else if (selectedRecord.workItems === 'Unknown') {
-                              return <HelpCircle className="h-3 w-3 text-purple-500" />;
-                            } else {
-                              return <BellRing className="h-3 w-3 text-gray-500" />;
-                            }
-                          })()}
-                          {selectedRecord.workItems}
-                        </dd>
-                      </>
-                    )}
-                  </dl>
-                </div>
-              </div>
-              
-              {/* Additional Information about Multiple Records */}
-              {!selectedRecord.isSubRecord && selectedRecord.multipleRecords && selectedRecord.multipleRecords.length > 0 && (
-                <div className="mt-4">
-                  <h3 className="font-medium mb-2 text-sm">Multiple PASI Records</h3>
-                  <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
-                    <p className="text-amber-800 flex items-center mb-2">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
-                      This student has multiple PASI records for this course
-                    </p>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {selectedRecord.multipleRecords.map((record, index) => (
-                        <div key={record.referenceNumber || index} className="bg-white border border-gray-200 rounded-md p-2">
-                          <div className="flex justify-between items-center mb-1">
-                            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
-                              Record {index + 1}
-                            </Badge>
-                            <span className="text-xs text-gray-500">
-                              {record.referenceNumber === selectedRecord.referenceNumber ? '(Current)' : ''}
-                            </span>
-                          </div>
-                          <dl className="grid grid-cols-[1fr_1.5fr] gap-1 text-xs">
-                            <dt className="font-medium text-gray-500">Status:</dt>
-                            <dd>{record.status || 'N/A'}</dd>
-                            
-                            <dt className="font-medium text-gray-500">Term:</dt>
-                            <dd>{record.term || 'N/A'}</dd>
-                            
-                            <dt className="font-medium text-gray-500">Exit Date:</dt>
-                            <dd>{record.exitDateFormatted ? 
-                                formatUserFriendlyDate(record.exitDateFormatted, true) : 
-                                (record.exitDate ? formatUserFriendlyDate(record.exitDate) : 'N/A')}
-                            </dd>
-                          </dl>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex justify-end gap-2 py-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setSelectedRecord(null)}
-              >
-                Close
-              </Button>
-            </CardFooter>
-          </Card>
+          <PasiRecordDetails
+            ref={detailCardRef}
+            record={selectedRecord}
+            onClose={() => setSelectedRecord(null)}
+            onStaffReviewChange={handleStaffReviewChange}
+            onEmailEdit={handleOpenEmailEditDialog}
+            handleCellClick={handleCellClick}
+          />
         )}
 
         {/* Email Edit Dialog */}

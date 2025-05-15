@@ -1,10 +1,11 @@
 // StatusConflicts.js
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
 import { Checkbox } from "../components/ui/checkbox";
-import { AlertTriangle, ArrowRight, Code } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Code, Info } from 'lucide-react';
+import PasiRecordDetails from './PasiRecordDetails';
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { toast } from 'sonner';
 import { getDatabase, ref, update } from 'firebase/database';
@@ -16,6 +17,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../com
 const StatusConflicts = ({ recordsWithStatusMismatch }) => {
   const [sortState, setSortState] = useState({ column: 'studentName', direction: 'asc' });
   const [showRawData, setShowRawData] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  
+  // Ref for detail card
+  const detailCardRef = useRef(null);
   
   // Function to update companion data in Firebase
   const updateStatusConflictsChecked = (recordId, isChecked) => {
@@ -67,12 +72,12 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
   };
 
   // Sortable table header component
-  const SortableHeader = ({ column, label }) => {
+  const SortableHeader = ({ column, label, className = "" }) => {
     const isActive = sortState.column === column;
     
     return (
       <TableHead 
-        className="cursor-pointer hover:bg-muted/50 transition-colors text-xs" 
+        className={`cursor-pointer hover:bg-muted/50 transition-colors text-xs ${className}`}
         onClick={() => handleSort(column)}
       >
         <div className="flex items-center">
@@ -114,6 +119,32 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
     navigator.clipboard.writeText(recordStr);
     toast.success("Record data copied to clipboard as JSON");
   };
+  
+  // Function to scroll to detail card
+  const scrollToDetailCard = () => {
+    if (detailCardRef.current) {
+      // Wait for the detail card to be fully rendered
+      setTimeout(() => {
+        detailCardRef.current.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  };
+
+  // Handle record selection
+  const handleRecordSelect = (record) => {
+    setSelectedRecord(record);
+  };
+  
+  // Effect to observe when selectedRecord changes
+  useEffect(() => {
+    // If selectedRecord exists and detailCardRef is defined, scroll to it
+    if (selectedRecord && detailCardRef.current) {
+      scrollToDetailCard();
+    }
+  }, [selectedRecord]);
 
   // Sort records
   const sortedRecords = useMemo(() => {
@@ -178,16 +209,16 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
           <Table className="text-xs w-full">
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs px-2 py-1 w-8">Checked</TableHead>
-                <SortableHeader column="asn" label="ASN" />
-                <SortableHeader column="studentName" label="Student" />
-                <SortableHeader column="courseCode" label="Course" />
-                <SortableHeader column="status" label="PASI Status" />
-                <TableHead className="text-center w-8">
+                <TableHead className="text-xs px-2 py-1 w-8 min-w-8">Checked</TableHead>
+                <SortableHeader column="asn" label="ASN" className="w-20 min-w-20" />
+                <SortableHeader column="studentName" label="Student" className="w-[15%]" />
+                <SortableHeader column="courseCode" label="Course" className="w-[20%]" />
+                <SortableHeader column="status" label="PASI Status" className="w-[15%]" />
+                <TableHead className="text-center w-8 min-w-8">
                   <ArrowRight className="h-4 w-4 mx-auto" />
                 </TableHead>
-                <SortableHeader column="Status_Value" label="YourWay Status" />
-                <TableHead className="text-xs px-1 py-1 w-28 max-w-28">Actions</TableHead>
+                <SortableHeader column="Status_Value" label="YourWay Status" className="w-[15%]" />
+                <TableHead className="text-xs px-1 py-1 w-36 min-w-36">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -226,22 +257,26 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
                       {record.asn || 'N/A'}
                     </TableCell>
                     <TableCell 
-                      className="p-1 cursor-pointer font-medium" 
+                      className="p-1 cursor-pointer font-medium truncate w-[15%]" 
                       onClick={() => handleCellClick(record.studentName, "Student Name")}
                     >
-                      {record.studentName || 'N/A'}
+                      <div className="truncate">
+                        {record.studentName || 'N/A'}
+                      </div>
                     </TableCell>
                     <TableCell 
-                      className="p-1 cursor-pointer" 
+                      className="p-1 cursor-pointer truncate w-[20%]" 
                       onClick={() => handleCellClick(record.courseCode, "Course")}
                     >
-                      {record.courseCode} - {record.courseDescription || 'N/A'}
+                      <div className="truncate">
+                        {record.courseCode} - {record.courseDescription || 'N/A'}
+                      </div>
                     </TableCell>
                     <TableCell 
-                      className="p-1 cursor-pointer" 
+                      className="p-1 cursor-pointer w-[15%]" 
                       onClick={() => handleCellClick(record.status, "PASI Status")}
                     >
-                      <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-800 whitespace-nowrap">
                         {record.status}
                       </Badge>
                     </TableCell>
@@ -249,7 +284,7 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
                       <AlertTriangle className="h-4 w-4 text-amber-500 inline-block" />
                     </TableCell>
                     <TableCell 
-                      className="p-1 cursor-pointer" 
+                      className="p-1 cursor-pointer w-[15%]" 
                       onClick={() => handleCellClick(record.Status_Value, "YourWay Status")}
                     >
                       <Badge 
@@ -259,16 +294,40 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
                           color: statusOption ? statusOption.color : undefined,
                           borderColor: statusOption ? statusOption.color : undefined
                         }}
-                        className="border"
+                        className="border whitespace-nowrap"
                       >
                         {record.Status_Value}
                       </Badge>
                     </TableCell>
-                    <TableCell className="p-1 w-28 max-w-28">
-                      <PasiActionButtons 
-                        asn={record.asn} 
-                        referenceNumber={record.referenceNumber} 
-                      />
+                    <TableCell className="p-1 w-36 min-w-36">
+                      <div className="flex items-center justify-start space-x-1">
+                        <div className="flex-shrink-0">
+                          <PasiActionButtons 
+                            asn={record.asn} 
+                            referenceNumber={record.referenceNumber} 
+                          />
+                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 flex-shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRecordSelect(record);
+                                }}
+                              >
+                                <Info className="h-4 w-4 text-blue-500" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>View detailed information</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -279,6 +338,16 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
           <div className="text-center py-8 text-muted-foreground">
             No status conflicts found.
           </div>
+        )}
+        
+        {/* Display selected record details */}
+        {selectedRecord && (
+          <PasiRecordDetails
+            ref={detailCardRef}
+            record={selectedRecord}
+            onClose={() => setSelectedRecord(null)}
+            handleCellClick={handleCellClick}
+          />
         )}
       </CardContent>
     </Card>
