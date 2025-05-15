@@ -21,7 +21,7 @@ function StudentManagement({
   filters: propFilters,
   onFilterChange: propOnFilterChange 
 }) {
-  console.log('StudentManagement component rendered');
+  //console.log('StudentManagement component rendered');
 
   // Use the school year context for both year and student summaries
   const { 

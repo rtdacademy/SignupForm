@@ -981,7 +981,11 @@ const GoogleAIChatApp = ({
   showYouTube = true,
   showUpload = true,
   YouTubeURL = null,
-  predefinedFiles = []
+  YouTubeDisplayName = null, // Display name for the YouTube video
+  predefinedFiles = [],
+  predefinedFilesDisplayNames = {}, // Map of file URLs to display names
+  allowContentRemoval = true,
+  showResourcesAtTop = true // Whether to show predefined resources at the top
 }) => {
   // Load saved session ID from localStorage if available
   const getSavedSessionId = () => {
@@ -1086,18 +1090,29 @@ const GoogleAIChatApp = ({
   }, [sessionId]);
 
   // Set initial YouTube URL if provided
+  const loadedYouTubeRef = useRef(false);
+  
   useEffect(() => {
-    if (YouTubeURL) {
+    // Only load YouTube URL once to prevent duplicates
+    if (YouTubeURL && !loadedYouTubeRef.current) {
+      loadedYouTubeRef.current = true;
+      
       const videoId = extractYouTubeVideoId(YouTubeURL);
       if (videoId) {
         setYoutubeURLs([{
           url: YouTubeURL,
           type: 'youtube',
+          displayName: YouTubeDisplayName, // Use the custom display name if provided
           isPredefined: true // Mark as predefined so we know not to allow removal
         }]);
       }
     }
-  }, [YouTubeURL]);
+    
+    // Reset flag when component unmounts
+    return () => {
+      loadedYouTubeRef.current = false;
+    };
+  }, []); // Empty dependency array to run only once on mount
 
 
   // Reset chat
@@ -1160,41 +1175,142 @@ const GoogleAIChatApp = ({
     return 'file';
   };
   
-  // Load predefined files from Firebase Storage URLs if provided
-  useEffect(() => {
-    if (predefinedFiles && predefinedFiles.length > 0) {
-      // These would be processed and added to uploadedFiles
-      // The actual implementation would depend on how you want to handle these files
-      // For now, we'll just log them
-      console.log('Predefined files to load:', predefinedFiles);
-      
-      // In a real implementation, you would:  
-      // 1. Fetch each file from Firebase Storage
-      // 2. Convert to appropriate format
-      // 3. Add to uploadedFiles state with a special flag
-      
-      // This would require Firebase Storage integration
-      // Example pseudo-code:
-      // predefinedFiles.forEach(async (fileUrl) => {
-      //   try {
-      //     const fileRef = ref(storage, fileUrl);
-      //     const metadata = await getMetadata(fileRef);
-      //     const url = await getDownloadURL(fileRef);
-      //     
-      //     setUploadedFiles(prev => [...prev, {
-      //       url,
-      //       type: getFileTypeFromMetadata(metadata),
-      //       name: metadata.name,
-      //       size: metadata.size,
-      //       mimeType: metadata.contentType,
-      //       isPredefined: true // Mark as predefined
-      //     }]);
-      //   } catch (error) {
-      //     console.error(`Error loading predefined file ${fileUrl}:`, error);
-      //   }
-      // });
+  // Helper function to convert a Firebase Storage URL (gs://) to an HTTPS URL
+  const convertGsUrlToHttps = async (gsUrl) => {
+    if (typeof gsUrl !== 'string' || !gsUrl.startsWith('gs://')) {
+      return gsUrl; // Not a valid gs:// URL, return as is
     }
-  }, [predefinedFiles]);
+    
+    try {
+      // In a production environment, you would use Firebase Storage getDownloadURL here
+      // For this example, we'll use a placeholder implementation
+      // This would be replaced with actual Firebase Storage code
+      
+      // Import these at the top of your file:
+      // import { getStorage, ref, getDownloadURL, getMetadata } from "firebase/storage";
+      // const storage = getStorage(firebaseApp);
+      
+      // Example of how this would be implemented with Firebase:
+      // const fileRef = ref(storage, gsUrl);
+      // const httpUrl = await getDownloadURL(fileRef);
+      // const metadata = await getMetadata(fileRef);
+      // return { url: httpUrl, metadata };
+      
+      // For now, we'll simulate this by returning a placeholder URL
+      console.log(`Converting ${gsUrl} to HTTPS URL`);
+      
+      // This simulates the URL pattern that would be returned by getDownloadURL
+      // Format: https://firebasestorage.googleapis.com/v0/b/BUCKET_NAME/o/FILE_PATH?alt=media&token=TOKEN
+      const withoutPrefix = gsUrl.replace('gs://', '');
+      const [bucket, ...pathParts] = withoutPrefix.split('/');
+      const filePath = pathParts.join('/');
+      const encodedPath = encodeURIComponent(filePath);
+      
+      // Just a mock URL for demonstration - in production this would come from Firebase
+      return {
+        url: `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodedPath}?alt=media`,
+        contentType: getContentTypeFromFileName(filePath)
+      };
+    } catch (error) {
+      console.error(`Error converting gs:// URL to HTTPS: ${error}`);
+      return gsUrl; // Return original URL on error
+    }
+  };
+  
+  // Helper to guess content type from filename
+  const getContentTypeFromFileName = (fileName) => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    
+    // Map common extensions to MIME types
+    const mimeMap = {
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'txt': 'text/plain',
+      'csv': 'text/csv'
+    };
+    
+    return mimeMap[extension] || 'application/octet-stream';
+  };
+
+  // Load predefined files from Firebase Storage URLs if provided
+  // Using a ref to track if files were already loaded to prevent duplicates
+  const loadedFilesRef = useRef(false);
+  
+  useEffect(() => {
+    // Only load files if we have predefined files and they haven't been loaded yet
+    if (predefinedFiles && predefinedFiles.length > 0 && !loadedFilesRef.current) {
+      const loadPredefinedFiles = async () => {
+        // Set flag to true to prevent reloading
+        loadedFilesRef.current = true;
+        console.log('Loading predefined files, count:', predefinedFiles.length);
+        
+        // Process each predefined file URL
+        const filePromises = predefinedFiles.map(async (fileUrl) => {
+          try {
+            // Convert gs:// URL to HTTPS and get metadata
+            const { url, contentType } = await convertGsUrlToHttps(fileUrl);
+            
+            // Extract file name from URL or use custom display name if provided
+            const fileName = fileUrl.split('/').pop() || 'Predefined document';
+            // Get custom display name if it exists
+            const displayName = predefinedFilesDisplayNames[fileUrl] || fileName;
+            
+            // Create a Genkit-compatible document object
+            return {
+              url,
+              type: 'document',
+              name: fileName,
+              displayName: displayName, // Custom display name
+              mimeType: contentType,
+              contentType: contentType, // For Genkit API compatibility
+              isPredefined: true, // Mark as predefined so it can't be removed
+              // For Genkit API format:
+              mediaObject: {
+                url,
+                contentType
+              }
+            };
+          } catch (error) {
+            console.error(`Error processing predefined file ${fileUrl}:`, error);
+            return null;
+          }
+        });
+        
+        // Wait for all conversions to complete and filter out any nulls
+        const processedFiles = (await Promise.all(filePromises)).filter(Boolean);
+        
+        // Add the processed files to uploadedFiles state
+        if (processedFiles.length > 0) {
+          setUploadedFiles(prev => {
+            // Filter out any duplicate files based on URL
+            const newFiles = processedFiles.filter(
+              newFile => !prev.some(existingFile => existingFile.url === newFile.url)
+            );
+            
+            console.log('Adding predefined files:', newFiles.length);
+            if (newFiles.length === 0) return prev; // No new files to add
+            return [...prev, ...newFiles];
+          });
+        }
+      };
+      
+      loadPredefinedFiles();
+    }
+    
+    // Reset the loaded flag when component is unmounted
+    return () => {
+      loadedFilesRef.current = false;
+    };
+  }, []); // Empty dependency array so it only runs once on mount
 
   // Handle file selection for uploads
   const handleFileSelect = (e) => {
@@ -1279,8 +1395,19 @@ const GoogleAIChatApp = ({
   const prepareFilesForSending = async () => {
     const preparedFiles = await Promise.all(
       uploadedFiles.map(async fileItem => {
-        // If URL is already set (like for images), just return as is
+        // If URL is already set (like for images or predefined files), adjust format for Genkit if needed
         if (fileItem.url) {
+          // If this is a predefined file with a mediaObject property, format it for Genkit
+          if (fileItem.isPredefined && fileItem.mediaObject) {
+            return {
+              ...fileItem,
+              // Ensure the right format for Genkit Document API
+              media: {
+                url: fileItem.url,
+                contentType: fileItem.contentType || fileItem.mimeType
+              }
+            };
+          }
           return fileItem;
         }
         
@@ -1291,7 +1418,12 @@ const GoogleAIChatApp = ({
             reader.onload = () => {
               resolve({
                 ...fileItem,
-                url: reader.result
+                url: reader.result,
+                // Include media property for Genkit Document API compatibility
+                media: {
+                  url: reader.result,
+                  contentType: fileItem.mimeType
+                }
               });
             };
             reader.onerror = reject;
@@ -1309,6 +1441,9 @@ const GoogleAIChatApp = ({
   
   // Remove a file
   const removeFile = (index) => {
+    // If content removal is not allowed, don't allow removing any files
+    if (!allowContentRemoval) return;
+    
     setUploadedFiles(prev => {
       // Don't remove if it's a predefined file
       if (prev[index]?.isPredefined) return prev;
@@ -1318,6 +1453,9 @@ const GoogleAIChatApp = ({
   
   // Remove a YouTube URL
   const removeYouTubeURL = (index) => {
+    // If content removal is not allowed, don't allow removing any YouTube URLs
+    if (!allowContentRemoval) return;
+    
     setYoutubeURLs(prev => {
       // Don't remove if it's a predefined URL
       if (prev[index]?.isPredefined) return prev;
@@ -1457,12 +1595,25 @@ const handleSendMessage = async () => {
       model: AI_MODEL_MAPPING.livechat.name, // Using the live chat model from settings
       systemInstruction: systemMessage, // Using our combined system message
       streaming: true, // Enable streaming mode
-      mediaItems: mediaItemsToSend.map(item => ({
-        url: item.url,
-        type: item.type,
-        name: item.name,
-        mimeType: item.mimeType
-      })),
+      mediaItems: mediaItemsToSend.map(item => {
+        // Format specifically for Genkit Document API
+        if (item.media) {
+          return {
+            url: item.url,
+            type: item.type,
+            name: item.name,
+            mimeType: item.mimeType || item.contentType,
+            media: item.media // Include properly formatted media object for Genkit
+          };
+        }
+        
+        return {
+          url: item.url,
+          type: item.type,
+          name: item.name,
+          mimeType: item.mimeType
+        };
+      }),
       sessionId: sessionId // Pass the session ID if we have one
     });
     
@@ -1567,49 +1718,61 @@ const handleSendMessage = async () => {
     }
   };
   
-  // Component to display uploaded files
+  // Component to display uploaded files (excluding predefined files if they're shown at the top)
   const FilePreview = () => {
-    if (uploadedFiles.length === 0) return null;
+    // Filter out predefined files if they're shown at the top
+    const filesToShow = showResourcesAtTop 
+      ? uploadedFiles.filter(file => !file.isPredefined) 
+      : uploadedFiles;
+    
+    if (filesToShow.length === 0) return null;
     
     return (
       <div className="border-t pt-3 mb-2">
         <div className="text-sm font-medium text-gray-500 mb-2">Uploaded Files</div>
         <div className="flex flex-wrap gap-2">
-          {uploadedFiles.map((fileItem, index) => {
+          {filesToShow.map((fileItem, index) => {
+            // Get the actual index in the full uploadedFiles array for removal
+            const actualIndex = uploadedFiles.findIndex(file => file === fileItem);
+            
             // Different preview based on file type
             if (fileItem.type === 'image') {
               return (
-                <div key={index} className="relative group">
+                <div key={actualIndex} className="relative group">
                   <img 
                     src={fileItem.url} 
-                    alt={`Uploaded ${fileItem.name || index}`} 
+                    alt={`Uploaded ${fileItem.name || actualIndex}`} 
                     className="h-20 w-auto rounded-md border border-gray-200 object-cover"
                   />
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-90 hover:opacity-100"
-                    title="Remove file"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                  {(allowContentRemoval && !fileItem.isPredefined) && (
+                    <button
+                      onClick={() => removeFile(actualIndex)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-90 hover:opacity-100"
+                      title="Remove file"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               );
             } else {
               // Document or other file type
               return (
-                <div key={index} className="relative flex items-center gap-2 pl-2 pr-7 py-2 bg-gray-50 rounded-md border border-gray-200">
+                <div key={actualIndex} className="relative flex items-center gap-2 pl-2 pr-7 py-2 bg-gray-50 rounded-md border border-gray-200">
                   {getFileIcon(fileItem)}
                   <div className="flex flex-col">
                     <span className="text-sm font-medium truncate max-w-[150px]">{fileItem.name}</span>
                     <span className="text-xs text-gray-500">{getFormattedSize(fileItem.size)}</span>
                   </div>
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="absolute top-1 right-1 text-gray-400 hover:text-red-500"
-                    title="Remove file"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
+                  {(allowContentRemoval && !fileItem.isPredefined) && (
+                    <button
+                      onClick={() => removeFile(actualIndex)}
+                      className="absolute top-1 right-1 text-gray-400 hover:text-red-500"
+                      title="Remove file"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               );
             }
@@ -1619,20 +1782,27 @@ const handleSendMessage = async () => {
     );
   };
   
-  // Component to display YouTube URLs
+  // Component to display YouTube URLs (excluding predefined ones if shown at the top)
   const YouTubePreview = () => {
-    if (youtubeURLs.length === 0) return null;
+    // Filter out predefined YouTube URLs if they're shown at the top
+    const videosToShow = showResourcesAtTop 
+      ? youtubeURLs.filter(item => !item.isPredefined) 
+      : youtubeURLs;
+    
+    if (videosToShow.length === 0) return null;
     
     return (
       <div className="border-t pt-3 mb-2">
         <div className="text-sm font-medium text-gray-500 mb-2">YouTube Videos</div>
         <div className="flex flex-col gap-2">
-          {youtubeURLs.map((item, index) => {
+          {videosToShow.map((item, index) => {
+            // Get the actual index in the full youtubeURLs array for removal
+            const actualIndex = youtubeURLs.findIndex(video => video === item);
             const videoId = extractYouTubeVideoId(item.url);
             const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
             
             return (
-              <div key={index} className="relative flex items-center gap-2 bg-gray-50 rounded-md p-2 border border-gray-200">
+              <div key={actualIndex} className="relative flex items-center gap-2 bg-gray-50 rounded-md p-2 border border-gray-200">
                 {thumbnailUrl && (
                   <img 
                     src={thumbnailUrl} 
@@ -1641,15 +1811,17 @@ const handleSendMessage = async () => {
                   />
                 )}
                 <div className="flex-1 truncate text-sm text-gray-700">
-                  {item.url}
+                  {item.displayName || item.url}
                 </div>
-                <button
-                  onClick={() => removeYouTubeURL(index)}
-                  className="shrink-0 text-red-500 hover:text-red-700"
-                  title="Remove YouTube URL"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                {(allowContentRemoval && !item.isPredefined) && (
+                  <button
+                    onClick={() => removeYouTubeURL(actualIndex)}
+                    className="shrink-0 text-red-500 hover:text-red-700"
+                    title="Remove YouTube URL"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             );
           })}
@@ -1696,6 +1868,80 @@ const handleSendMessage = async () => {
     );
   };
   
+  // Component to display predefined resources at the top
+  const PredefinedResourcesPanel = () => {
+    // Only show if we have predefined files or YouTube URLs and showResourcesAtTop is true
+    const hasPredefinedFiles = uploadedFiles.some(file => file.isPredefined);
+    const hasPredefinedYouTube = youtubeURLs.some(item => item.isPredefined);
+    
+    if (!showResourcesAtTop || (!hasPredefinedFiles && !hasPredefinedYouTube)) {
+      return null;
+    }
+    
+    return (
+      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-3 border-b">
+        <div className="text-sm font-medium text-purple-900 mb-2 flex items-center">
+          <FileText className="w-4 h-4 mr-2" />
+          Resources
+        </div>
+        
+        <div className="flex flex-wrap gap-3">
+          {/* Display predefined YouTube videos */}
+          {youtubeURLs.filter(item => item.isPredefined).map((item, index) => {
+            const videoId = extractYouTubeVideoId(item.url);
+            const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : null;
+            
+            return (
+              <div key={`yt-${index}`} 
+                   className="relative bg-white rounded-md shadow-sm overflow-hidden flex flex-col w-56 border border-gray-200 hover:border-purple-300 transition-colors">
+                {thumbnailUrl && (
+                  <div className="relative overflow-hidden" style={{ paddingTop: '56.25%' }}>
+                    <img 
+                      src={thumbnailUrl} 
+                      alt="YouTube thumbnail" 
+                      className="absolute top-0 left-0 w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 opacity-0 hover:opacity-100 transition-opacity">
+                      <a 
+                        href={item.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="bg-red-600 text-white p-2 rounded-full"
+                      >
+                        <Youtube className="w-5 h-5" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+                <div className="p-2">
+                  <div className="text-sm font-medium line-clamp-1 text-gray-900">
+                    {item.displayName || 'YouTube Video'}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          
+          {/* Display predefined document files */}
+          {uploadedFiles.filter(file => file.isPredefined).map((file, index) => (
+            <div key={`file-${index}`} 
+                 className="relative bg-white rounded-md shadow-sm overflow-hidden flex items-center p-2 border border-gray-200 hover:border-purple-300 transition-colors">
+              {getFileIcon(file)}
+              <div className="ml-2 flex-1 min-w-0">
+                <div className="text-sm font-medium truncate text-gray-900 max-w-[200px]">
+                  {file.displayName || file.name}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {getFormattedSize(file.size)}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full relative">
       <Card className="flex flex-col h-full border-0 rounded-none bg-gradient-to-br from-white to-gray-50">
@@ -1706,7 +1952,7 @@ const handleSendMessage = async () => {
                 <Bot className="w-6 h-6 text-white" />
               </div>
               <CardTitle className="text-lg text-purple-900">
-                Google AI Chat
+                Edbotz AI Chat
               </CardTitle>
             </div>
             
@@ -1732,6 +1978,9 @@ const handleSendMessage = async () => {
             </div>
           </div>
         </CardHeader>
+        
+        {/* Display predefined resources at the top */}
+        <PredefinedResourcesPanel />
         
         <div className="flex-1 min-h-0">
           <ScrollArea 

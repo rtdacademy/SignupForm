@@ -449,7 +449,7 @@ const filteredUnlinkedCount = useMemo(() => {
       
       // Skip if we couldn't find student type or term
       if (!studentType || !term) {
-        console.log(`Skipping record for ${record.studentName || 'unknown'} - missing term (${term}) or student type (${studentType})`);
+       // console.log(`Skipping record for ${record.studentName || 'unknown'} - missing term (${term}) or student type (${studentType})`);
         return false;
       }
       
@@ -462,7 +462,7 @@ const filteredUnlinkedCount = useMemo(() => {
       }
       
       // For debugging
-      console.log(`Checking ${record.studentName}: Student Type = ${studentType}, Term = ${term}`);
+      //console.log(`Checking ${record.studentName}: Student Type = ${studentType}, Term = ${term}`);
       
       // Keep track of the values we found for display in the UI
       record.displayStudentType = studentType;
