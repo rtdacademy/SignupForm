@@ -471,13 +471,13 @@ const filteredUnlinkedCount = useMemo(() => {
       // Check term conflicts:
       // 1. If 'Summer Student' or 'Summer School', then term must be 'Summer'
       if ((studentType === 'Summer Student' || studentType === 'Summer School') && term !== 'Summer') {
-        console.log(`Found mismatch: ${record.studentName} is ${studentType} but term is ${term}`);
+        //console.log(`Found mismatch: ${record.studentName} is ${studentType} but term is ${term}`);
         return true;
       }
       
       // 2. If 'Non-Primary' or 'Home Education', then term cannot be 'Summer'
       if ((studentType === 'Non-Primary' || studentType === 'Home Education') && term === 'Summer') {
-        console.log(`Found mismatch: ${record.studentName} is ${studentType} but term is Summer`);
+        //console.log(`Found mismatch: ${record.studentName} is ${studentType} but term is Summer`);
         return true;
       }
       

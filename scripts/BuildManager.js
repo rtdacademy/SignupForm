@@ -136,10 +136,23 @@ class BuildManager {
 
       return true;
     } catch (error) {
+      // Development server errors (start mode)
       if (this.isStart) {
-        throw error;
+        console.error('Development server crashed:', error.message);
+        console.log('Restarting development server...');
+        
+        // Reset retry counter to prevent stack overflow
+        this.currentRetry = 0;
+        
+        // Wait a moment before restarting
+        setTimeout(() => {
+          return this.execute();
+        }, 2000);
+        
+        return true;
       }
 
+      // Build errors (build mode)
       console.error(`Build attempt ${this.currentRetry + 1} failed:`, error.message);
       
       if (this.currentRetry < this.maxRetries - 1) {
