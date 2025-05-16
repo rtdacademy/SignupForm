@@ -13,18 +13,31 @@ This directory contains the Education Plan for RTD Academy for the 2024-25 schoo
 
 ### Component Structure
 
-The main education plan uses a modular component structure:
+The main education plan follows Alberta Education's required structure:
 
 ```
 24_25/
 ├── EducationPlan.js (main component with sheet navigation)
 ├── Components/
-│   ├── StudentInformation.js
-│   ├── CurrentProgress.js
-│   ├── AcademicGoals.js
-│   ├── CareerPlanning.js
-│   ├── PersonalDevelopment.js
-│   └── NextSteps.js
+│   ├── ExecutiveSummary.js
+│   ├── SchoolProfile.js
+│   ├── ThreeYearProgress.js
+│   ├── AccountabilityStatement.js
+│   ├── StakeholderEngagement.js
+│   ├── FoundationalStatements.js
+│   ├── IndigenousEducation.js
+│   ├── PerformanceMeasures.js
+│   ├── ImplementationPlan.js
+│   ├── BudgetSummary.js
+│   ├── ConclusionFutureDirection.js
+│   ├── ComparativeAnalysis.js
+│   ├── AppendixDocuments.js
+│   └── Domains/
+│       ├── StudentGrowthAchievement.js
+│       ├── TeachingLeading.js
+│       ├── LearningSupports.js
+│       ├── Governance.js
+│       └── SocietalContext.js
 └── CLAUDE.md (this file)
 ```
 
@@ -33,8 +46,51 @@ The main education plan uses a modular component structure:
 The education plan uses a sheet-based navigation system:
 - Menu button in top-right corner opens a navigation sheet
 - Each section has a ref for smooth scrolling
-- Navigation items correspond to major components
+- Navigation items organized by Alberta's required sections (I-IX)
 - Uses `scrollIntoView` for smooth navigation
+- Includes print and export functionality
+
+### Component Organization
+
+Components are organized following Alberta Education's requirements:
+
+**Section I: Introduction & Context**
+- ExecutiveSummary: High-level overview of the education plan
+- SchoolProfile: RTD Academy's profile as online STEM school
+- ThreeYearProgress: Analysis of progress from 2021-2024
+
+**Section II: Accountability**
+- AccountabilityStatement: Board-approved statement of commitment
+
+**Section III: Stakeholder Engagement**
+- StakeholderEngagement: Documentation of engagement process and results
+
+**Section IV: Foundational Statements**
+- FoundationalStatements: Vision, Mission, and Values
+
+**Section V: Domain Analysis**
+- Domains/StudentGrowthAchievement: Math performance and diploma results
+- Domains/TeachingLeading: Online instructional approaches
+- Domains/LearningSupports: Early identification and support systems
+- Domains/Governance: Communication with stakeholders
+- Domains/SocietalContext: Diverse student population and STEM access
+
+**Section VI: Indigenous Education**
+- IndigenousEducation: FNMI student success strategies
+
+**Section VII: Performance Measures**
+- PerformanceMeasures: Provincial and local measures framework
+
+**Section VIII: Implementation**
+- ImplementationPlan: Detailed implementation timeline and responsibilities
+- BudgetSummary: Resource allocation alignment with priorities
+
+**Section IX: Conclusion**
+- ConclusionFutureDirection: Summary and future planning vision
+
+**Supporting Components**
+- ComparativeAnalysis: Three-year trend analysis and data visualization
+- AppendixDocuments: Supporting documentation
 
 ### UI Components Used
 
@@ -316,6 +372,24 @@ When creating new components for the Education Plan:
    };
    
    export default ComponentName;
+   ```
+
+   For Domain components:
+   ```javascript
+   import React from 'react';
+   import { Card } from "../../../../../components/ui/card";
+   
+   const DomainComponent = () => {
+     // Component logic
+     return (
+       <section className="space-y-4">
+         <h3 className="text-xl font-semibold mb-4">Domain Title</h3>
+         {/* Content */}
+       </section>
+     );
+   };
+   
+   export default DomainComponent;
    ```
 
 2. **Use consistent styling**:
