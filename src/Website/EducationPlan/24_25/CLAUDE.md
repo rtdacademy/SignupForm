@@ -38,8 +38,52 @@ The main education plan follows Alberta Education's required structure:
 │       ├── LearningSupports.js
 │       ├── Governance.js
 │       └── SocietalContext.js
+├── CurrentStudentData_May16.json (current year student data)
 └── CLAUDE.md (this file)
 ```
+
+### Current Year Student Data
+
+**Important:** Current year (2024-25) student data is available at `src/Website/EducationPlan/24_25/CurrentStudentData_May16.json`
+
+This JSON file contains anonymized student enrollment data with the following fields:
+
+1. **anonymousId** - Generated hash identifier to replace ASN
+2. **ActiveFutureArchived_Value** - Status indicator (Active/Future/Archived)
+3. **CourseID** - Course identifier number
+4. **Course_Value** - Course name (e.g., "Math 30-1")
+5. **Created** - Creation timestamp
+6. **DiplomaMonthChoices_Value** - Diploma month selection (e.g., "August")
+7. **ScheduleEndDate** - Schedule end date
+8. **ScheduleStartDate** - Schedule start date
+9. **School_x0020_Year_Value** - School year (e.g., "24/25")
+10. **Status_Value** - Current status (e.g., "Resuming on (date)")
+11. **birthday** - Date of birth
+12. **createdAt** - Creation timestamp (milliseconds)
+13. **gender** - Gender
+14. **hasSchedule** - Boolean indicating if student has a schedule
+15. **primarySchoolName** - Primary school name
+16. **approved** - Approval status
+17. **assignmentDate** - Assignment date
+18. **courseCode** - Course code (e.g., "MAT3791")
+19. **courseDescription** - Course description (e.g., "Mathematics 30-1")
+20. **creditsAttempted** - Number of credits attempted
+21. **deleted** - Deletion status
+22. **dualEnrolment** - Dual enrollment status
+23. **exitDate** - Exit date
+24. **fundingRequested** - Funding request status
+25. **period** - Period (e.g., "Regular")
+26. **schoolEnrolment** - School enrollment details
+27. **schoolYear** - School year
+28. **status** - Status (e.g., "Registered", "Completed")
+29. **value** - Grade value
+30. **pasiTerm** - PASI term (e.g., "Summer")
+31. **startDate** - Start date (timestamp)
+32. **startDateFormatted** - Formatted start date
+33. **startDateSource** - Source of start date
+34. **exitDateFormatted** - Formatted exit date
+
+**Note:** These fields exclude all personal identifiable information like names, emails, phone numbers, and the actual ASN, while preserving academic and statistical data needed for analysis.
 
 ### Navigation System
 
@@ -104,10 +148,19 @@ From shadcn/ui:
 
 ### Data Handling
 
-All data is currently sample data marked clearly with:
+Current year data is available in the CurrentStudentData_May16.json file. When analyzing this data:
+- Filter by School_x0020_Year_Value: "24/25" for current year
+- Use ActiveFutureArchived_Value to determine current status
+- Calculate enrollment counts by counting unique anonymousId values
+- Analyze course distributions using Course_Value field
+- Calculate completion rates using status field
+
+Previously, all data was marked clearly with:
 - "(Sample)" labels
 - Yellow warning cards indicating demo content
 - Comments in code marking sample data sections
+
+Now we have actual current year data to work with.
 
 ---
 
@@ -407,7 +460,7 @@ When creating new components for the Education Plan:
 
 When ready to integrate real data:
 
-1. Replace sample data objects with Firebase queries
+1. Replace sample data objects with actual data from CurrentStudentData_May16.json
 2. Add loading states and error handling
 3. Remove sample data warnings
 4. Update component logic to handle dynamic data

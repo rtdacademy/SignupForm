@@ -423,30 +423,150 @@ const PasiAnalysisDashboard = ({ records, isOpen, onClose }) => {
   const downloadCSV = () => {
     if (!records || records.length === 0) return;
     
-    // Create CSV content
+    // Create CSV content with all available headers
     const headers = [
-      'ASN', 
-      'Student Name', 
-      'Course Code', 
-      'Status', 
-      'Term', 
-      'Grade', 
-      'Registration Date', 
+      'ASN',
+      'Student Name',
+      'First Name',
+      'Last Name',
+      'Email',
+      'Student Email',
+      'Parent Email',
+      'Parent First Name',
+      'Parent Last Name',
+      'Parent Phone',
+      'Student Phone',
+      'Student Type',
+      'Course Code',
+      'Course ID',
+      'Course Value',
+      'Course Description',
+      'Status',
+      'Status Value',
+      'Term',
+      'PASI Term',
+      'Registration Date',
       'Exit Date',
-      'Work Items'
+      'Exit Date Formatted',
+      'Start Date',
+      'Start Date Formatted',
+      'Schedule Start Date',
+      'Schedule End Date',
+      'Resuming On Date',
+      'Diploma Month',
+      'School Year',
+      'Active/Future/Archived',
+      'Age',
+      'Birthday',
+      'Gender',
+      'Work Items',
+      'Assignment Date',
+      'Approved',
+      'Deleted',
+      'Dual Enrolment',
+      'Funding Requested',
+      'Period',
+      'Credits Attempted',
+      'Grade',
+      'Reference Number',
+      'School Enrolment',
+      'Primary School Name',
+      'LMS Student ID',
+      'Created',
+      'Created At',
+      'Last Updated',
+      'Last Sync',
+      'Original Email',
+      'Has Schedule',
+      'In Old SharePoint',
+      'Preferred First Name',
+      'Match Status',
+      'Link Status',
+      'Linked',
+      'Linked At',
+      'Display Student Type',
+      'Display Term',
+      'Start Date Source',
+      'UID'
     ].join(',');
     
-    const rows = records.map(record => [
-      record.asn || '',
-      `"${record.studentName || ''}"`, // Wrap in quotes to handle commas in names
-      record.courseCode || '',
-      record.status || '',
-      record.term || record.pasiTerm || '',
-      record.value || '',
-      record.startDateFormatted || '',
-      record.exitDateFormatted || '',
-      record.workItems || ''
-    ].join(','));
+    const rows = records.map(record => {
+      // Function to safely escape CSV values
+      const escapeCSV = (value) => {
+        if (value === null || value === undefined) return '';
+        const str = String(value);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+      
+      return [
+        record.asn || '',
+        escapeCSV(record.studentName),
+        escapeCSV(record.firstName),
+        escapeCSV(record.lastName),
+        escapeCSV(record.email),
+        escapeCSV(record.StudentEmail),
+        escapeCSV(record.ParentEmail),
+        escapeCSV(record.ParentFirstName),
+        escapeCSV(record.ParentLastName),
+        escapeCSV(record.ParentPhone_x0023_),
+        escapeCSV(record.StudentPhone),
+        escapeCSV(record.StudentType_Value || record.studentType || ''),
+        record.courseCode || '',
+        record.CourseID || '',
+        escapeCSV(record.Course_Value),
+        escapeCSV(record.courseDescription),
+        escapeCSV(record.status),
+        escapeCSV(record.Status_Value),
+        record.term || '',
+        record.pasiTerm || '',
+        record.startDateFormatted || '',
+        record.exitDate || '',
+        record.exitDateFormatted || '',
+        record.startDate || '',
+        record.startDateFormatted || '',
+        record.ScheduleStartDate || '',
+        record.ScheduleEndDate || '',
+        record.resumingOnDate || '',
+        escapeCSV(record.DiplomaMonthChoices_Value),
+        escapeCSV(record.School_x0020_Year_Value || record.schoolYear),
+        escapeCSV(record.ActiveFutureArchived_Value),
+        record.age || '',
+        record.birthday || '',
+        escapeCSV(record.gender),
+        escapeCSV(record.workItems),
+        record.assignmentDate || '',
+        escapeCSV(record.approved),
+        escapeCSV(record.deleted),
+        escapeCSV(record.dualEnrolment),
+        escapeCSV(record.fundingRequested),
+        escapeCSV(record.period),
+        record.creditsAttempted || '',
+        record.value || '',
+        escapeCSV(record.referenceNumber),
+        escapeCSV(record.schoolEnrolment),
+        escapeCSV(record.primarySchoolName),
+        record.LMSStudentID || '',
+        record.Created || '',
+        record.createdAt || '',
+        record.lastUpdated || '',
+        record.LastSync || '',
+        escapeCSV(record.originalEmail),
+        record.hasSchedule || '',
+        record.inOldSharePoint || '',
+        escapeCSV(record.preferredFirstName),
+        escapeCSV(record.matchStatus),
+        escapeCSV(record.linkStatus),
+        record.linked || '',
+        record.linkedAt || '',
+        escapeCSV(record.displayStudentType),
+        escapeCSV(record.displayTerm),
+        escapeCSV(record.startDateSource),
+        record.uid || ''
+      ].join(',');
+    });
     
     const csvContent = [headers, ...rows].join('\n');
     
@@ -514,6 +634,146 @@ ${analytics.workItemsDistribution
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Download data as JSON
+  const downloadJSON = () => {
+    if (!records || records.length === 0) return;
+    
+    const jsonContent = JSON.stringify(records, null, 2);
+    
+    // Create download
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `pasi-records-export-${new Date().toISOString().slice(0,10)}.json`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Simple hash function to create anonymous identifier from ASN
+  const createAnonymousId = (asn) => {
+    if (!asn) return 'unknown';
+    
+    // Simple hash function for demonstration
+    // In production, you might want to use a proper cryptographic hash
+    let hash = 0;
+    for (let i = 0; i < asn.length; i++) {
+      const char = asn.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    // Convert to positive number and pad with zeros
+    const positiveHash = Math.abs(hash);
+    return `ANON-${positiveHash.toString().padStart(10, '0')}`;
+  };
+
+  // Download anonymous data (CSV or JSON)
+  const downloadAnonymousData = (format) => {
+    if (!records || records.length === 0) return;
+    
+    // Fields to include in anonymous export (now includes anonymousId)
+    const anonymousFields = [
+      'anonymousId',
+      'ActiveFutureArchived_Value',
+      'CourseID',
+      'Course_Value',
+      'Created',
+      'DiplomaMonthChoices_Value',
+      'ScheduleEndDate',
+      'ScheduleStartDate',
+      'School_x0020_Year_Value',
+      'Status_Value',
+      'StudentType_Value',
+      'birthday',
+      'createdAt',
+      'gender',
+      'hasSchedule',
+      'primarySchoolName',
+      'approved',
+      'assignmentDate',
+      'courseCode',
+      'courseDescription',
+      'creditsAttempted',
+      'deleted',
+      'dualEnrolment',
+      'exitDate',
+      'fundingRequested',
+      'period',
+      'schoolEnrolment',
+      'schoolYear',
+      'status',
+      'value',
+      'pasiTerm',
+      'startDate',
+      'startDateFormatted',
+      'startDateSource',
+      'exitDateFormatted'
+    ];
+    
+    // Create anonymous records with only specified fields
+    const anonymousRecords = records.map(record => {
+      const anonymousRecord = {};
+      
+      // Add anonymous ID based on ASN
+      anonymousRecord.anonymousId = createAnonymousId(record.asn);
+      
+      // Add other fields
+      anonymousFields.forEach(field => {
+        if (field !== 'anonymousId' && record.hasOwnProperty(field)) {
+          anonymousRecord[field] = record[field];
+        }
+      });
+      return anonymousRecord;
+    });
+    
+    if (format === 'json') {
+      // Export as JSON
+      const jsonContent = JSON.stringify(anonymousRecords, null, 2);
+      const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `pasi-records-anonymous-export-${new Date().toISOString().slice(0,10)}.json`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      // Export as CSV
+      const headers = anonymousFields.join(',');
+      
+      const rows = anonymousRecords.map(record => {
+        // Function to safely escape CSV values
+        const escapeCSV = (value) => {
+          if (value === null || value === undefined) return '';
+          const str = String(value);
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+          }
+          return str;
+        };
+        
+        return anonymousFields.map(field => escapeCSV(record[field] || '')).join(',');
+      });
+      
+      const csvContent = [headers, ...rows].join('\n');
+      
+      // Create download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `pasi-records-anonymous-export-${new Date().toISOString().slice(0,10)}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
   
   return (
@@ -1380,6 +1640,30 @@ ${analytics.workItemsDistribution
               disabled={!analytics.totalRecords}
             >
               <Download className="h-4 w-4 mr-1" /> Export CSV
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => downloadAnonymousData('csv')}
+              disabled={!analytics.totalRecords}
+            >
+              <Download className="h-4 w-4 mr-1" /> Export CSV (Anonymous)
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={downloadJSON}
+              disabled={!analytics.totalRecords}
+            >
+              <Download className="h-4 w-4 mr-1" /> Export JSON
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => downloadAnonymousData('json')}
+              disabled={!analytics.totalRecords}
+            >
+              <Download className="h-4 w-4 mr-1" /> Export JSON (Anonymous)
             </Button>
             <Button 
               variant="outline" 

@@ -6,9 +6,12 @@ import { Menu } from "lucide-react";
 
 // Import required components (to be created)
 // Section I: Introduction and Context
-// import ExecutiveSummary from './Components/ExecutiveSummary';
-// import SchoolProfile from './Components/SchoolProfile';
+import ExecutiveSummary from './Components/ExecutiveSummary';
+import SchoolProfile from './Components/SchoolProfile';
 // import ThreeYearProgress from './Components/ThreeYearProgress';
+
+// Current Data Analysis
+import CurrentDataAnalysis from './Components/CurrentDataAnalysis';
 
 // Section II: Accountability Statement
 // import AccountabilityStatement from './Components/AccountabilityStatement';
@@ -48,6 +51,7 @@ const EducationPlan = () => {
   const [isSheetOpen, setIsSheetOpen] = useState(true);
 
   // Create refs for each major section
+  const currentDataRef = useRef(null);
   const executiveSummaryRef = useRef(null);
   const schoolProfileRef = useRef(null);
   const accountabilityRef = useRef(null);
@@ -66,6 +70,12 @@ const EducationPlan = () => {
 
   // Navigation structure following Alberta requirements
   const navigationStructure = [
+    {
+      title: "Current Year Data Analysis",
+      items: [
+        { name: "2024-25 Data Analysis", ref: currentDataRef }
+      ]
+    },
     {
       title: "I. Introduction & Context",
       items: [
@@ -205,27 +215,18 @@ const EducationPlan = () => {
 
       {/* Main Content Sections */}
       <div className="space-y-12">
+        {/* Current Data Analysis */}
+        <div ref={currentDataRef}>
+          <CurrentDataAnalysis />
+        </div>
+
         {/* Section I: Introduction and Context */}
         <div ref={executiveSummaryRef}>
-          <Card>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">I. Executive Summary</h2>
-              <p className="text-gray-600">
-                Component placeholder - ExecutiveSummary component to be implemented
-              </p>
-            </div>
-          </Card>
+          <ExecutiveSummary />
         </div>
 
         <div ref={schoolProfileRef}>
-          <Card>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">School Profile & Three-Year Progress</h2>
-              <p className="text-gray-600">
-                Component placeholder - SchoolProfile and ThreeYearProgress components to be implemented
-              </p>
-            </div>
-          </Card>
+          <SchoolProfile />
         </div>
 
         {/* Section II: Accountability Statement */}
