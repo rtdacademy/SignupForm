@@ -75,6 +75,7 @@ const useRegistrationSettings = (studentType) => {
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentSchoolYearKey, setCurrentSchoolYearKey] = useState(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -95,6 +96,9 @@ const useRegistrationSettings = (studentType) => {
         
         // Format as "xx_yy" where xx is the last 2 digits of the start year, and yy is the last 2 digits of the end year
         const schoolYearKey = `${schoolYearStart.toString().slice(-2)}_${schoolYearEnd.toString().slice(-2)}`;
+        
+        // Store the current school year key for use in building paths
+        setCurrentSchoolYearKey(schoolYearKey);
         
         // Convert student type to the format used in Firebase (replace spaces with dashes)
         const studentTypeKey = studentType.replace(/\s+/g, '-');
@@ -173,9 +177,15 @@ const useRegistrationSettings = (studentType) => {
     
     if (relevantSections.length === 0) return null;
     
-    // For simplicity, just return the first matching section
-    // You could extend this to find the most appropriate one if there are multiple
-    return relevantSections[0];
+    // Find the index of the first matching section in the original array
+    const firstMatchingSection = relevantSections[0];
+    const sectionIndex = settings.timeSections.findIndex(section => section === firstMatchingSection);
+    
+    // Return the section with its index
+    return {
+      ...firstMatchingSection,
+      originalIndex: sectionIndex
+    };
   }, [settings]);
 
   // Check if a time section is currently active (today is within start window AND isActive flag is true)
@@ -263,7 +273,8 @@ const useRegistrationSettings = (studentType) => {
     isTimeSectionActive,
     getDateConstraints,
     getGeneralMessage,
-    crossesSchoolYearBoundary
+    crossesSchoolYearBoundary,
+    currentSchoolYearKey
   };
 };
 
@@ -384,7 +395,8 @@ const NonPrimaryStudentForm = forwardRef(({
     getTimeSection,
     isTimeSectionActive,
     getDateConstraints,
-    getGeneralMessage
+    getGeneralMessage,
+    currentSchoolYearKey
   } = useRegistrationSettings(studentType);
 
   const countryOptions = useMemo(() => countryList().getData(), []);
@@ -401,6 +413,14 @@ const NonPrimaryStudentForm = forwardRef(({
   const getInitialFormData = () => {
     if (initialData) {
       console.log('Using initial data:', initialData);
+      
+      // Check if the registration settings path needs to be fixed
+      if (initialData.registrationSettingsPath && 
+          !initialData.registrationSettingsPath.includes('/timeSections/') &&
+          initialData.timeSectionId) {
+        console.log('Initial data has incomplete registration settings path, will be fixed when currentSchoolYearKey is available');
+      }
+      
       return initialData;
     }
   
@@ -511,20 +531,34 @@ const NonPrimaryStudentForm = forwardRef(({
   
   // Ensure registration settings are populated when enrollment year is set
   useEffect(() => {
-    if (formData.enrollmentYear && studentType && !formData.registrationSettingsPath) {
+    console.log('Registration settings path effect check:', {
+      enrollmentYear: formData.enrollmentYear,
+      studentType,
+      hasRegistrationSettingsPath: !!formData.registrationSettingsPath,
+      currentSchoolYearKey,
+      settingsLoading
+    });
+    
+    // Only build path if we have the school year key from settings
+    if (formData.enrollmentYear && studentType && !formData.registrationSettingsPath && currentSchoolYearKey) {
       const isNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
       const timeSection = getTimeSection(isNextYear);
       
-      // Build registration settings path
-      const schoolYearKey = formData.enrollmentYear.replace('/', '_');
+      // Build registration settings path using the actual school year from settings
       const studentTypeKey = studentType.replace(/\s+/g, '-');
-      const registrationSettingsPath = `/registrationSettings/${schoolYearKey}/${studentTypeKey}`;
+      const registrationBasePath = `/registrationSettings/${currentSchoolYearKey}/${studentTypeKey}`;
+      
+      // Create the full path including the time section index if available
+      const registrationSettingsPath = timeSection?.originalIndex !== undefined ?
+        `${registrationBasePath}/timeSections/${timeSection.originalIndex}` : registrationBasePath;
       
       console.log('Populating missing registration settings:', {
         enrollmentYear: formData.enrollmentYear,
         studentType,
+        currentSchoolYearKey,
         registrationSettingsPath,
-        timeSectionId: timeSection?.id
+        timeSectionId: timeSection?.id,
+        timeSectionOriginalIndex: timeSection?.originalIndex
       });
       
       setFormData(prev => ({
@@ -533,7 +567,40 @@ const NonPrimaryStudentForm = forwardRef(({
         timeSectionId: timeSection?.id || null
       }));
     }
-  }, [formData.enrollmentYear, studentType, formData.registrationSettingsPath, getCurrentSchoolYear, getTimeSection]);
+  }, [formData.enrollmentYear, studentType, formData.registrationSettingsPath, getCurrentSchoolYear, getTimeSection, currentSchoolYearKey, settingsLoading]);
+  
+  // Fix registration settings path when school year key becomes available
+  useEffect(() => {
+    // Only fix if the path exists but is missing the time section
+    if (currentSchoolYearKey && 
+        formData.enrollmentYear && 
+        formData.registrationSettingsPath && 
+        !formData.registrationSettingsPath.includes("/timeSections/")) {
+      
+      console.log('Fixing incomplete registration settings path');
+      
+      const isNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+      const timeSection = getTimeSection(isNextYear);
+      
+      if (timeSection) {
+        const studentTypeKey = studentType.replace(/\s+/g, '-');
+        const registrationBasePath = `/registrationSettings/${currentSchoolYearKey}/${studentTypeKey}`;
+        const registrationSettingsPath = timeSection.originalIndex !== undefined ?
+          `${registrationBasePath}/timeSections/${timeSection.originalIndex}` : registrationBasePath;
+        
+        console.log('Fixed registration settings path:', {
+          oldPath: formData.registrationSettingsPath,
+          newPath: registrationSettingsPath
+        });
+        
+        setFormData(prev => ({
+          ...prev,
+          registrationSettingsPath: registrationSettingsPath,
+          timeSectionId: timeSection.id || null
+        }));
+      }
+    }
+  }, [currentSchoolYearKey]); // Only depend on school year key to avoid loops
   
   // Fetch profile data
   useEffect(() => {
@@ -648,21 +715,42 @@ const NonPrimaryStudentForm = forwardRef(({
   const saveToPendingRegistration = async (formDataToSave) => {
     try {
       setIsSaving(true);
-      console.log('Saving to pending registration:', {
-        registrationSettingsPath: formDataToSave.registrationSettingsPath,
-        timeSectionId: formDataToSave.timeSectionId,
-        studentType: formDataToSave.studentType,
-        enrollmentYear: formDataToSave.enrollmentYear
+      
+      // Ensure registration settings path is built correctly before saving
+      let dataToSave = { ...formDataToSave };
+      
+      if (currentSchoolYearKey && formDataToSave.enrollmentYear && studentType) {
+        const isNextYear = formDataToSave.enrollmentYear !== getCurrentSchoolYear();
+        const timeSection = getTimeSection(isNextYear);
+        
+        // Always rebuild the path with the correct school year key
+        const studentTypeKey = studentType.replace(/\s+/g, '-');
+        const registrationBasePath = `/registrationSettings/${currentSchoolYearKey}/${studentTypeKey}`;
+        
+        // Create the full path including the time section index if available
+        const registrationSettingsPath = timeSection?.originalIndex !== undefined ?
+          `${registrationBasePath}/timeSections/${timeSection.originalIndex}` : registrationBasePath;
+        
+        dataToSave.registrationSettingsPath = registrationSettingsPath;
+        dataToSave.timeSectionId = timeSection?.id || null;
+      }
+      
+      console.log('Saving to pending registration - corrected data:', {
+        registrationSettingsPath: dataToSave.registrationSettingsPath,
+        timeSectionId: dataToSave.timeSectionId,
+        studentType: dataToSave.studentType,
+        enrollmentYear: dataToSave.enrollmentYear,
+        currentSchoolYearKey: currentSchoolYearKey
       });
       
       const db = getDatabase();
       const pendingRegRef = databaseRef(db, `users/${uid}/pendingRegistration`);
       await set(pendingRegRef, {
-        formData: formDataToSave,
+        formData: dataToSave,
         lastUpdated: new Date().toISOString()
       });
       if (onSave) {
-        await onSave(formDataToSave);
+        await onSave(dataToSave);
       }
       setError(null);
     } catch (err) {
@@ -693,19 +781,25 @@ const NonPrimaryStudentForm = forwardRef(({
         const isNextYear = value !== getCurrentSchoolYear();
         const timeSection = getTimeSection(isNextYear);
         
-        // Build registration settings path
-        const schoolYearKey = value ? value.replace('/', '_') : '';
-        const studentTypeKey = studentType ? studentType.replace(/\s+/g, '-') : '';
-        const registrationSettingsPath = schoolYearKey && studentTypeKey ? 
-          `/registrationSettings/${schoolYearKey}/${studentTypeKey}` : null;
+        // Build registration settings path only if we have the school year key from settings
+        let registrationSettingsPath = null;
+        if (currentSchoolYearKey && studentType) {
+          const studentTypeKey = studentType.replace(/\s+/g, '-');
+          const registrationBasePath = `/registrationSettings/${currentSchoolYearKey}/${studentTypeKey}`;
+          
+          // Create the full path including the time section index if available
+          registrationSettingsPath = timeSection?.originalIndex !== undefined ?
+            `${registrationBasePath}/timeSections/${timeSection.originalIndex}` : registrationBasePath;
+        }
         
         console.log('Enrollment year change - updating registration settings:', {
-          value,
-          schoolYearKey,
-          studentTypeKey,
+          enrollmentYear: value,
+          currentSchoolYearKey,
+          studentType,
           registrationSettingsPath,
           timeSection,
-          timeSectionId: timeSection?.id
+          timeSectionId: timeSection?.id,
+          timeSectionOriginalIndex: timeSection?.originalIndex
         });
         
         return {
@@ -731,7 +825,7 @@ const NonPrimaryStudentForm = forwardRef(({
     });
 
     handleBlur(name);
-  }, [handleBlur, getCurrentSchoolYear, getTimeSection, studentType]);
+  }, [handleBlur, getCurrentSchoolYear, getTimeSection, studentType, currentSchoolYearKey]);
 
   const handleCountryChange = (selectedOption) => {
     handleFormChange({
@@ -2162,13 +2256,34 @@ const NonPrimaryStudentForm = forwardRef(({
       return false;
     },
     getFormData: () => {
+      // Ensure registration settings path is built correctly before returning
+      let finalFormData = { ...formData };
+      
+      if (currentSchoolYearKey && formData.enrollmentYear && studentType) {
+        const isNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+        const timeSection = getTimeSection(isNextYear);
+        
+        // Always rebuild the path with the correct school year key
+        const studentTypeKey = studentType.replace(/\s+/g, '-');
+        const registrationBasePath = `/registrationSettings/${currentSchoolYearKey}/${studentTypeKey}`;
+        
+        // Create the full path including the time section index if available
+        const registrationSettingsPath = timeSection?.originalIndex !== undefined ?
+          `${registrationBasePath}/timeSections/${timeSection.originalIndex}` : registrationBasePath;
+        
+        finalFormData.registrationSettingsPath = registrationSettingsPath;
+        finalFormData.timeSectionId = timeSection?.id || null;
+      }
+      
       console.log('Getting form data for submission:', {
-        registrationSettingsPath: formData.registrationSettingsPath,
-        timeSectionId: formData.timeSectionId,
-        studentType: formData.studentType,
-        enrollmentYear: formData.enrollmentYear
+        registrationSettingsPath: finalFormData.registrationSettingsPath,
+        timeSectionId: finalFormData.timeSectionId,
+        studentType: finalFormData.studentType,
+        enrollmentYear: finalFormData.enrollmentYear,
+        currentSchoolYearKey: currentSchoolYearKey
       });
-      return formData;
+      
+      return finalFormData;
     }
   }));
 

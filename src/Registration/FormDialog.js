@@ -270,7 +270,20 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
   const handleReview = async () => {
     try {
       const currentFormData = formRef.current?.getFormData();
+      console.log('Form data received in handleReview:', {
+        registrationSettingsPath: currentFormData?.registrationSettingsPath,
+        timeSectionId: currentFormData?.timeSectionId
+      });
+      
       if (currentFormData) {
+        // Ensure the registration settings path is correct
+        // If it exists but doesn't include /timeSections/, it might be outdated
+        if (currentFormData.registrationSettingsPath && 
+            !currentFormData.registrationSettingsPath.includes('/timeSections/') &&
+            currentFormData.timeSectionId) {
+          console.log('Warning: Registration settings path appears incomplete, missing time section');
+        }
+        
         setFormData(currentFormData);
         setCurrentStep('review');
         const db = getDatabase();
@@ -299,11 +312,19 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
 
       if (snapshot.exists()) {
         const registrationData = snapshot.val();
-        console.log('Retrieved registration data:', {
-          fullData: registrationData.formData,
+        console.log('Retrieved registration data from pending:', {
           registrationSettingsPath: registrationData.formData.registrationSettingsPath,
-          timeSectionId: registrationData.formData.timeSectionId
+          timeSectionId: registrationData.formData.timeSectionId,
+          studentType: registrationData.formData.studentType,
+          enrollmentYear: registrationData.formData.enrollmentYear
         });
+        
+        // Validate the registration settings path
+        if (registrationData.formData.registrationSettingsPath && 
+            !registrationData.formData.registrationSettingsPath.includes('/timeSections/') &&
+            registrationData.formData.timeSectionId) {
+          console.warn('WARNING: Registration settings path is missing time section, this may be incorrect');
+        }
         const studentEmailKey = user_email_key;
 
         // Validate courseId
