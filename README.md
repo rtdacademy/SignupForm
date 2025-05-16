@@ -16,22 +16,7 @@ npm run start:main
 npm run start:second
 ```
 
-### 2. Development with All Local Emulators
-
-Run your app against all local Firebase emulators (both Functions and Realtime Database):
-
-```bash
-# Start the Firebase emulators in one terminal
-npm run start:emulators
-
-# In another terminal, start your app with all emulator connections
-npm run start:main:all-emulators
-
-# Or for second site
-npm run start:second:all-emulators
-```
-
-### 3. Development with Live Database + Functions Emulator
+### 2. Development with Live Database + Functions Emulator
 
 Use the live Realtime Database for real data while running Functions locally for faster development:
 

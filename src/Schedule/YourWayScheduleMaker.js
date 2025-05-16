@@ -335,6 +335,8 @@ const YourWayScheduleMaker = ({
   const [diplomaDates, setDiplomaDates] = useState([]);
   const [selectedDiplomaDate, setSelectedDiplomaDate] = useState(null);
   const [alreadyWroteDiploma, setAlreadyWroteDiploma] = useState(false);
+  const [minCompletionMonths, setMinCompletionMonths] = useState(null);
+  const [recommendedCompletionMonths, setRecommendedCompletionMonths] = useState(null);
 
   const [customBlockoutDates, setCustomBlockoutDates] = useState([]);
   const scheduleRef = useRef(null);
@@ -356,7 +358,23 @@ const YourWayScheduleMaker = ({
   const [scheduleJson, setScheduleJson] = useState(null);
 
   const getMinEndDate = (startDate) => {
-    return startDate ? addDays(startDate, 15) : addDays(minStartDate, 15);
+    if (!startDate) {
+      return addDays(minStartDate, 15);
+    }
+    
+    // Use the greater of 15 days or minCompletionMonths
+    const fifteenDaysLater = addDays(startDate, 15);
+    
+    if (minCompletionMonths) {
+      // Convert months to days (30 days per month)
+      const minCompletionDays = minCompletionMonths * 30;
+      const minCompletionDate = addDays(startDate, minCompletionDays);
+      
+      // Return the later date
+      return minCompletionDate > fifteenDaysLater ? minCompletionDate : fifteenDaysLater;
+    }
+    
+    return fifteenDaysLater;
   };
 
   useEffect(() => {
@@ -396,8 +414,9 @@ const YourWayScheduleMaker = ({
       fetchCourseById(course.CourseID);
       
       // Fetch registration settings if available
-      if (course.registrationSettingsPath && course.timeSectionId) {
-        fetchRegistrationSettings(course.registrationSettingsPath, course.timeSectionId);
+      if (course.registrationSettingsPath) {
+        // Pass the timeSectionId only if it's explicitly provided
+        fetchRegistrationSettings(course.registrationSettingsPath, course.timeSectionId || null);
       }
     } else {
       fetchAllCourses();
@@ -482,6 +501,20 @@ const YourWayScheduleMaker = ({
     if (courseData.NumberOfHours) {
       setCourseHours(courseData.NumberOfHours);
     }
+    
+    // Fetch minimum completion months
+    if (courseData.minCompletionMonths) {
+      setMinCompletionMonths(courseData.minCompletionMonths);
+    } else {
+      setMinCompletionMonths(null);
+    }
+    
+    // Fetch recommended completion months
+    if (courseData.recommendedCompletionMonths) {
+      setRecommendedCompletionMonths(courseData.recommendedCompletionMonths);
+    } else {
+      setRecommendedCompletionMonths(null);
+    }
   };
 
   const encodeEmailForPath = (email) => {
@@ -499,6 +532,8 @@ const YourWayScheduleMaker = ({
     setHasExistingSchedule(false);
     setExistingSchedule(null);
     setScheduleJson(null);
+    setMinCompletionMonths(null);
+    setRecommendedCompletionMonths(null);
 
     try {
       const db = getDatabase();
@@ -525,15 +560,26 @@ const YourWayScheduleMaker = ({
   const fetchRegistrationSettings = async (registrationSettingsPath, timeSectionId) => {
     const db = getDatabase();
     try {
-      const timeSectionRef = ref(db, `${registrationSettingsPath}/timeSections/${timeSectionId}`);
+      // Check if the path already includes the full time section path
+      let targetPath = registrationSettingsPath;
+      
+      // If the path doesn't already include 'timeSections', append it
+      if (!registrationSettingsPath.includes('/timeSections/')) {
+        targetPath = `${registrationSettingsPath}/timeSections/${timeSectionId}`;
+      }
+      
+      console.log('Fetching registration settings from path:', targetPath);
+      const timeSectionRef = ref(db, targetPath);
       const snapshot = await get(timeSectionRef);
       
       if (snapshot.exists()) {
         const settings = snapshot.val();
         console.log('Registration settings loaded:', settings);
+        console.log('Start begins:', settings.startBegins, 'Start ends:', settings.startEnds);
+        console.log('Completion begins:', settings.completionBegins, 'Completion ends:', settings.completionEnds);
         setRegistrationSettings(settings);
       } else {
-        console.warn('No registration settings found at path:', `${registrationSettingsPath}/timeSections/${timeSectionId}`);
+        console.warn('No registration settings found at path:', targetPath);
       }
     } catch (error) {
       console.error('Error fetching registration settings:', error);
@@ -585,28 +631,55 @@ const YourWayScheduleMaker = ({
 
   // Calculate date constraints based on registration settings or defaults
   const getMinStartDate = () => {
-    if (registrationSettings?.startDate) {
-      const settingsStartDate = parseISO(registrationSettings.startDate);
-      const today = new Date();
-      // Use the later of today or the registration settings start date
-      return settingsStartDate > today ? settingsStartDate : today;
+    if (registrationSettings?.startBegins) {
+      try {
+        const settingsStartDate = parseISO(registrationSettings.startBegins);
+        const today = new Date();
+        // Use the later of today or the registration settings start date
+        return settingsStartDate > today ? settingsStartDate : today;
+      } catch (error) {
+        console.error('Error parsing registration settings start begins date:', registrationSettings.startBegins, error);
+        return startOfDay(new Date());
+      }
     }
     // Default: today
     return startOfDay(new Date());
   };
+  
+  // Get the maximum date allowed for start date
+  const getMaxStartDate = () => {
+    if (registrationSettings?.startEnds) {
+      try {
+        return parseISO(registrationSettings.startEnds);
+      } catch (error) {
+        console.error('Error parsing registration settings start ends date:', registrationSettings.startEnds, error);
+      }
+    }
+    // No maximum if not specified
+    return null;
+  };
 
   const getMaxEndDate = () => {
-    if (registrationSettings?.endDate) {
-      return parseISO(registrationSettings.endDate);
+    if (registrationSettings?.completionEnds) {
+      try {
+        return parseISO(registrationSettings.completionEnds);
+      } catch (error) {
+        console.error('Error parsing registration settings completion ends date:', registrationSettings.completionEnds, error);
+      }
     }
     // Default: use course.ScheduleEndDate if no registration settings
     if (course?.ScheduleEndDate) {
-      return parseISO(course.ScheduleEndDate);
+      try {
+        return parseISO(course.ScheduleEndDate);
+      } catch (error) {
+        console.error('Error parsing course end date:', course.ScheduleEndDate, error);
+      }
     }
     return null;
   };
 
   const minStartDate = getMinStartDate();
+  const maxStartDate = getMaxStartDate();
   const maxEndDate = getMaxEndDate();
   
   const getDefaultEndDate = (startDate) => {
@@ -622,6 +695,12 @@ const YourWayScheduleMaker = ({
   const handleStartDateChange = (date) => {
     if (endDate && date > endDate) {
       toast.error("Start date cannot be after end date");
+      return;
+    }
+    
+    // Check if start date exceeds registration period limit
+    if (maxStartDate && date > maxStartDate) {
+      toast.error(`Start date cannot be after ${format(maxStartDate, 'MMM dd, yyyy')} (registration period limit)`);
       return;
     }
     
@@ -643,13 +722,18 @@ const YourWayScheduleMaker = ({
     
     const minEndDate = getMinEndDate(startDate);
     if (date < minEndDate) {
-      toast.error("End date must be at least 15 days after start date");
+      if (minCompletionMonths) {
+        const daysDifference = Math.round((minEndDate - startDate) / (1000 * 60 * 60 * 24));
+        toast.error(`End date must be at least ${minCompletionMonths} month${minCompletionMonths > 1 ? 's' : ''} (${daysDifference} days) after start date`);
+      } else {
+        toast.error("End date must be at least 15 days after start date");
+      }
       return;
     }
     
     // Check if end date exceeds registration settings limit
     if (maxEndDate && date > maxEndDate) {
-      if (registrationSettings?.endDate) {
+      if (registrationSettings?.completionEnds) {
         toast.error(`End date cannot be after ${format(maxEndDate, 'MMM dd, yyyy')} (registration period limit)`);
       } else {
         toast.error(`End date cannot be after ${format(maxEndDate, 'MMM dd, yyyy')} (current course end date)`);
@@ -818,6 +902,18 @@ const YourWayScheduleMaker = ({
 
     if (isDiplomaCourse && !alreadyWroteDiploma && !selectedDiplomaDate) {
       toast.error("Please select a diploma exam date");
+      return;
+    }
+    
+    // Validate minimum completion time
+    const minEndDate = getMinEndDate(startDate);
+    if (endDate < minEndDate) {
+      if (minCompletionMonths) {
+        const daysDifference = Math.round((minEndDate - startDate) / (1000 * 60 * 60 * 24));
+        toast.error(`Schedule duration must be at least ${minCompletionMonths} month${minCompletionMonths > 1 ? 's' : ''} (${daysDifference} days)`);
+      } else {
+        toast.error("Schedule duration must be at least 15 days");
+      }
       return;
     }
 
@@ -1193,12 +1289,6 @@ const YourWayScheduleMaker = ({
               <p className="text-lg font-semibold">
                 {selectedCourse ? selectedCourse.Title : "Loading..."}
               </p>
-              {registrationSettings && (
-                <div className="mt-2 text-sm text-gray-600">
-                  <p>Registration Period: {format(parseISO(registrationSettings.startDate), 'MMM dd, yyyy')} - {format(parseISO(registrationSettings.endDate), 'MMM dd, yyyy')}</p>
-                  <p>Section: {registrationSettings.name || course.timeSectionId}</p>
-                </div>
-              )}
             </div>
           ) : (
             <div>
@@ -1252,7 +1342,14 @@ const YourWayScheduleMaker = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label>Start Date</Label>
+              <Label>
+                Start Date
+                {registrationSettings?.startBegins && registrationSettings?.startEnds && (
+                  <span className="text-xs text-gray-600 ml-2 font-normal">
+                    Must be between {format(parseISO(registrationSettings.startBegins), 'MMM d, yyyy')} and {format(parseISO(registrationSettings.startEnds), 'MMM d, yyyy')}
+                  </span>
+                )}
+              </Label>
               <DatePicker
   selected={startDate}
   onChange={handleStartDateChange}
@@ -1262,7 +1359,13 @@ const YourWayScheduleMaker = ({
     (!canSelectStartDate || !endDate) ? 'opacity-50 cursor-not-allowed' : ''
   }`}
   minDate={minStartDate}
-  maxDate={endDate && maxEndDate ? (endDate < maxEndDate ? endDate : maxEndDate) : (endDate || maxEndDate)}
+  maxDate={(() => {
+    const dates = [];
+    if (endDate) dates.push(endDate);
+    if (maxStartDate) dates.push(maxStartDate);
+    if (maxEndDate) dates.push(maxEndDate);
+    return dates.length > 0 ? dates.reduce((min, date) => (date < min ? date : min)) : null;
+  })()}
   calendarStartDay={1}
   withPortal
   disabled={!canSelectStartDate || !endDate}
@@ -1275,7 +1378,14 @@ const YourWayScheduleMaker = ({
               )}
             </div>
             <div>
-              <Label>End Date</Label>
+              <Label>
+                End Date
+                {registrationSettings?.completionBegins && registrationSettings?.completionEnds && (
+                  <span className="text-xs text-gray-600 ml-2 font-normal">
+                    Must be between {format(parseISO(registrationSettings.completionBegins), 'MMM d, yyyy')} and {format(parseISO(registrationSettings.completionEnds), 'MMM d, yyyy')}
+                  </span>
+                )}
+              </Label>
               <DatePicker
   selected={endDate}
   onChange={handleEndDateChange}
@@ -1302,6 +1412,32 @@ const YourWayScheduleMaker = ({
               )}
             </div>
           </div>
+          
+          {/* Minimum duration warning */}
+          {startDate && endDate && minCompletionMonths && (
+            (() => {
+              const minEndDate = getMinEndDate(startDate);
+              if (endDate < minEndDate) {
+                return (
+                  <Alert className="mt-3 bg-red-50 border-red-200">
+                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-700">
+                      This course requires a minimum of {minCompletionMonths} month{minCompletionMonths > 1 ? 's' : ''} ({minCompletionMonths * 30} days) to complete
+                    </AlertDescription>
+                  </Alert>
+                );
+              }
+              return null;
+            })()
+          )}
+          
+          {/* Recommended completion months */}
+          {recommendedCompletionMonths && (
+            <div className="mt-3 text-sm text-gray-600">
+              <InfoIcon className="h-4 w-4 inline mr-1" />
+              Most students complete this course in {recommendedCompletionMonths} month{recommendedCompletionMonths > 1 ? 's' : ''}
+            </div>
+          )}
 
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="breaks">
@@ -1366,7 +1502,22 @@ const YourWayScheduleMaker = ({
       {scheduleData && (
         <FeatureCard 
           ref={scheduleRef}
-          title="Your Schedule"
+          customHeader={
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-xl font-semibold flex items-center">
+                <ChevronRight className="w-5 h-5 mr-2 text-primary" />
+                Your Schedule
+              </CardTitle>
+              {course && (
+                <Button 
+                  onClick={handleSaveSchedule}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
+                >
+                  Save Schedule
+                </Button>
+              )}
+            </CardHeader>
+          }
           className="bg-gradient-to-br from-muted to-background"
         >
           <Tabs defaultValue="calendar" className="w-full">
@@ -1480,7 +1631,10 @@ const YourWayScheduleMaker = ({
               }}>
                 Back
               </Button>
-              <Button onClick={handleSaveSchedule}>
+              <Button 
+                onClick={handleSaveSchedule}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
+              >
                 Save Schedule
               </Button>
             </div>
