@@ -24,7 +24,7 @@ import GetStartedNow from './Website/GetStartedNow';
 import Emulate from './StudentManagement/Emulate';
 import PoliciesAndReports from './Website/PoliciesAndReports';
 import MigrationLogin from './migration/MigrationLogin';
-import EducationPlan from './Website/EducationPlan/EducationPlan'; 
+import EducationPlan from './Website/EducationPlan/24_25/EducationPlan'; 
 import ModernCourseViewer from './courses/CourseViewer/ModernCourseViewer';
 import CourseEditor from './courses/CourseEditor/CourseEditor';
 import EmployeePortal from './TeacherDashboard/EmployeePortal';
