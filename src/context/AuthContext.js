@@ -106,7 +106,8 @@ export function AuthProvider({ children }) {
     '/adult-students',
     '/your-way',
     '/get-started',
-    '/policies-reports'
+    '/policies-reports',
+    '/education-plan'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public

@@ -23,7 +23,8 @@ import CancelledPayment from './Dashboard/CancelledPayment';
 import GetStartedNow from './Website/GetStartedNow';
 import Emulate from './StudentManagement/Emulate';
 import PoliciesAndReports from './Website/PoliciesAndReports';
-import MigrationLogin from './migration/MigrationLogin'; 
+import MigrationLogin from './migration/MigrationLogin';
+import EducationPlan from './Website/EducationPlan/EducationPlan'; 
 import ModernCourseViewer from './courses/CourseViewer/ModernCourseViewer';
 import CourseEditor from './courses/CourseEditor/CourseEditor';
 import EmployeePortal from './TeacherDashboard/EmployeePortal';
@@ -138,6 +139,7 @@ function MainApp() {
 
 <Route path="/get-started" element={<GetStartedNow />} />
 <Route path="/policies-reports" element={<PoliciesAndReports />} />
+<Route path="/education-plan" element={<EducationPlan />} />
         
       <Route 
   path="/dashboard" 
