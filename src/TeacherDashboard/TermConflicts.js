@@ -1,20 +1,25 @@
 // TermConflicts.js
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
 import { Checkbox } from "../components/ui/checkbox";
-import { AlertTriangle, ArrowRight, Code } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Code, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { toast } from 'sonner';
 import { getDatabase, ref, update } from 'firebase/database';
 import PasiActionButtons from "../components/PasiActionButtons";
+import PasiRecordDetails from './PasiRecordDetails';
 import { Button } from "../components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 const TermConflicts = ({ recordsWithTermMismatch }) => {
   const [sortState, setSortState] = useState({ column: 'studentName', direction: 'asc' });
   const [showRawData, setShowRawData] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  
+  // Ref for detail card
+  const detailCardRef = useRef(null);
   
   // Function to update companion data in Firebase
   const updateTermConflictsChecked = (recordId, isChecked) => {
@@ -109,6 +114,32 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
     navigator.clipboard.writeText(recordStr);
     toast.success("Record data copied to clipboard as JSON");
   };
+  
+  // Function to scroll to detail card
+  const scrollToDetailCard = () => {
+    if (detailCardRef.current) {
+      // Wait for the detail card to be fully rendered
+      setTimeout(() => {
+        detailCardRef.current.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  };
+  
+  // Handle record selection
+  const handleRecordSelect = (record) => {
+    setSelectedRecord(record);
+  };
+  
+  // Effect to observe when selectedRecord changes
+  useEffect(() => {
+    // If selectedRecord exists and detailCardRef is defined, scroll to it
+    if (selectedRecord && detailCardRef.current) {
+      scrollToDetailCard();
+    }
+  }, [selectedRecord]);
 
   // Get term conflict explanation
   const getTermConflictExplanation = (studentType, pasiTerm) => {
@@ -192,7 +223,7 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
                   <ArrowRight className="h-4 w-4 mx-auto" />
                 </TableHead>
                 <SortableHeader column="pasiTerm" label="PASI Term" />
-                <TableHead className="text-xs px-1 py-1 w-28 max-w-28">Actions</TableHead>
+                <TableHead className="text-xs px-1 py-1 w-36 min-w-36">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -265,11 +296,35 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
                       </Badge>
                       <div className="text-xs text-amber-700 mt-1">{explanation}</div>
                     </TableCell>
-                    <TableCell className="p-1 w-28 max-w-28">
-                      <PasiActionButtons 
-                        asn={record.asn} 
-                        referenceNumber={record.referenceNumber} 
-                      />
+                    <TableCell className="p-1 w-36 min-w-36">
+                      <div className="flex items-center justify-start space-x-1">
+                        <div className="flex-shrink-0">
+                          <PasiActionButtons 
+                            asn={record.asn} 
+                            referenceNumber={record.referenceNumber} 
+                          />
+                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 flex-shrink-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRecordSelect(record);
+                                }}
+                              >
+                                <Info className="h-4 w-4 text-blue-500" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>View detailed information</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -280,6 +335,16 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
           <div className="text-center py-8 text-muted-foreground">
             No term conflicts found.
           </div>
+        )}
+        
+        {/* Display selected record details */}
+        {selectedRecord && (
+          <PasiRecordDetails
+            ref={detailCardRef}
+            record={selectedRecord}
+            onClose={() => setSelectedRecord(null)}
+            handleCellClick={handleCellClick}
+          />
         )}
       </CardContent>
     </Card>

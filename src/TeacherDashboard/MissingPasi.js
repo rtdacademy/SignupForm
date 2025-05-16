@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -23,7 +23,8 @@ import {
   XCircle,
   Code,
   Filter,
-  Search
+  Search,
+  Info
 } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { Button } from "../components/ui/button";
@@ -45,6 +46,7 @@ import { Checkbox } from "../components/ui/checkbox";
 import { toast } from 'sonner';
 import { getDatabase, ref, update, get } from 'firebase/database';
 import PasiActionButtons from "../components/PasiActionButtons";
+import PasiRecordDetails from './PasiRecordDetails';
 import { filterRelevantMissingPasiRecordsWithEmailCheck } from '../utils/pasiRecordsUtils';
 import { STUDENT_TYPE_OPTIONS, getStudentTypeInfo } from '../config/DropdownOptions';
 
@@ -135,6 +137,9 @@ const MissingPasi = () => {
   
   // State for selected record
   const [selectedRecord, setSelectedRecord] = useState(null);
+  
+  // Ref for detail card
+  const detailCardRef = useRef(null);
   
   // Toggle for showing raw data - default to closed
   const [showRawData, setShowRawData] = useState(false);
@@ -422,10 +427,31 @@ const MissingPasi = () => {
     };
   }, [processedRecords]);
 
+  // Function to scroll to detail card
+  const scrollToDetailCard = () => {
+    if (detailCardRef.current) {
+      // Wait for the detail card to be fully rendered
+      setTimeout(() => {
+        detailCardRef.current.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  };
+  
   // Handle record selection
   const handleRecordSelect = (record) => {
     setSelectedRecord(record);
   };
+  
+  // Effect to observe when selectedRecord changes
+  useEffect(() => {
+    // If selectedRecord exists and detailCardRef is defined, scroll to it
+    if (selectedRecord && detailCardRef.current) {
+      scrollToDetailCard();
+    }
+  }, [selectedRecord]);
 
   // Handle column sorting
   const handleSort = (column) => {
@@ -535,7 +561,7 @@ const MissingPasi = () => {
     // Set width classes based on column
     let widthClass = "w-16";
     if (column === "studentEmail") {
-      widthClass = "w-[30%] max-w-[200px]"; // Make email column narrower
+      widthClass = "w-[15%] max-w-[150px]"; // Make email column fixed but smaller
     } else if (column === "asn") {
       widthClass = "w-16";
     } else if (column === "studentName") {
@@ -939,6 +965,7 @@ const MissingPasi = () => {
                     <SortableHeader column="schoolYear" label="School Year" />
                     <SortableHeader column="courseValue" label="Course" />
                     <SortableHeader column="payment_status" label="Payment" />
+                    <TableHead className="text-xs px-1 py-1 w-28 min-w-28">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1045,7 +1072,7 @@ const MissingPasi = () => {
                           )}
                         </TableCell>
                         <TableCell 
-                          className="p-1 w-[30%] max-w-[200px] truncate"
+                          className="p-1 w-[15%] max-w-[150px] truncate"
                           onClick={(e) => { e.stopPropagation(); handleCellClick(record.studentEmail, "Student Email"); }}
                           title={record.studentEmail || 'N/A'}
                         >
@@ -1164,8 +1191,32 @@ const MissingPasi = () => {
                             <span className="text-gray-400">-</span>
                           )}
                         </TableCell>
-                        <TableCell className="p-1">
-                          <PasiActionButtons asn={record.asn} referenceNumber={record.referenceNumber} />
+                        <TableCell className="p-1 w-28 min-w-28">
+                          <div className="flex items-center justify-start space-x-1">
+                            <div className="flex-shrink-0">
+                              <PasiActionButtons asn={record.asn} referenceNumber={record.referenceNumber} />
+                            </div>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 flex-shrink-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRecordSelect(record);
+                                    }}
+                                  >
+                                    <Info className="h-4 w-4 text-blue-500" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>View detailed information</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -1187,130 +1238,12 @@ const MissingPasi = () => {
 
         {/* Record details display for selected record */}
         {selectedRecord && (
-          <Card className="mt-4">
-            <CardHeader className="py-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="h-4 w-4" /> 
-                Missing PASI Record Details
-                <Badge variant="destructive" className="ml-2">
-                  <AlertTriangle className="h-3 w-3 mr-1" /> Not Found in PASI
-                </Badge>
-              </CardTitle>
-              <CardDescription className="text-xs">
-                {selectedRecord.studentName} - {selectedRecord.courseValue}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-xs py-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-medium mb-2 text-sm">Student Information</h3>
-                  <dl className="grid grid-cols-[1fr_2fr] gap-1">
-                    <dt className="font-medium text-gray-500">ASN:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.asn, "ASN")}>{selectedRecord.asn || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">Name:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.studentName, "Name")}>{selectedRecord.studentName || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">Email:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.studentEmail, "Email")}>{selectedRecord.studentEmail || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">Student Type:</dt>
-                    <dd>{selectedRecord.studentType || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">School Year:</dt>
-                    <dd>{selectedRecord.schoolYear || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">Registration Date:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.regDateFormatted, "Registration Date")}>
-                      {selectedRecord.regDateFormatted || 'N/A'}
-                    </dd>
-                  </dl>
-                </div>
-                
-                <div>
-                  <h3 className="font-medium mb-2 text-sm">Course Information</h3>
-                  <dl className="grid grid-cols-[1fr_2fr] gap-1">
-                    <dt className="font-medium text-gray-500">Course:</dt>
-                    <dd>{selectedRecord.courseValue || 'N/A'}</dd>
-                    
-                    <dt className="font-medium text-gray-500">Status:</dt>
-                    <dd>
-                      <Badge 
-                        variant={selectedRecord.statusValue === 'Completed' ? 'success' : 'secondary'}
-                        className={`
-                          text-xs py-0 px-1.5
-                          ${selectedRecord.statusValue === 'Completed' 
-                            ? 'bg-green-50 text-green-700 border-green-200' 
-                            : selectedRecord.statusValue === 'Active'
-                              ? 'bg-blue-50 text-blue-700 border-blue-200'
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
-                          }
-                        `}
-                      >
-                        {selectedRecord.statusValue || 'N/A'}
-                      </Badge>
-                    </dd>
-                    
-                    <dt className="font-medium text-gray-500">State:</dt>
-                    <dd>
-                      <Badge 
-                        variant="outline"
-                        className={`
-                          text-xs py-0 px-1.5
-                          ${selectedRecord.state === 'Active' 
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : selectedRecord.state === 'Archived'
-                              ? 'bg-gray-50 text-gray-700 border-gray-200'
-                              : 'bg-purple-50 text-purple-700 border-purple-200'
-                          }
-                        `}
-                      >
-                        {selectedRecord.state || 'N/A'}
-                      </Badge>
-                    </dd>
-                    
-                    <dt className="font-medium text-gray-500">Schedule Start:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.scheduleStart, "Schedule Start")}>
-                      {selectedRecord.scheduleStart || 'N/A'}
-                    </dd>
-                    
-                    <dt className="font-medium text-gray-500">Schedule End:</dt>
-                    <dd className="cursor-pointer hover:text-blue-600" onClick={() => handleCellClick(selectedRecord.scheduleEnd, "Schedule End")}>
-                      {selectedRecord.scheduleEnd || 'N/A'}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-              
-              {/* Full Record Data Display */}
-              <div className="mt-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-medium text-sm">Complete Record Data</h3>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyRecordToClipboard(selectedRecord)}
-                  >
-                    <Code className="h-3 w-3 mr-1" /> Copy JSON
-                  </Button>
-                </div>
-                <div className="bg-gray-50 border border-gray-200 rounded-md p-3 overflow-auto max-h-80">
-                  <pre className="text-xs whitespace-pre-wrap">
-                    {JSON.stringify(selectedRecord, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="flex justify-end gap-2 py-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setSelectedRecord(null)}
-              >
-                Close
-              </Button>
-            </CardFooter>
-          </Card>
+          <PasiRecordDetails
+            ref={detailCardRef}
+            record={selectedRecord}
+            onClose={() => setSelectedRecord(null)}
+            handleCellClick={handleCellClick}
+          />
         )}
 
         {/* Removed the dialog for removing records since we no longer have the remove button */}
