@@ -322,6 +322,22 @@ albertaStudentNumber: {
       return null;
     },
     successMessage: "All required documents uploaded"
+  },
+
+  schoolAddress: {
+    validate: (value, options) => {
+      // Only validate for Non-Primary and Home Education students
+      if (options?.formData?.studentType === 'Non-Primary' || options?.formData?.studentType === 'Home Education') {
+        if (!value || !value.name) {
+          return options?.formData?.studentType === 'Home Education' ? 
+            "Home education provider selection is required" : 
+            "School selection is required";
+        }
+      }
+      return null;
+    },
+    required: true,
+    successMessage: "School selected"
   }
    
 };

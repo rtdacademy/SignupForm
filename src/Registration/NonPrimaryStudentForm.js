@@ -687,6 +687,7 @@ const NonPrimaryStudentForm = forwardRef(({
         }
         return true; // Validate ASN
       },
+      schoolAddress: () => studentType === 'Non-Primary' || studentType === 'Home Education',
     },
     readOnlyFields,
     formData // Pass the entire formData to the validation
@@ -694,7 +695,22 @@ const NonPrimaryStudentForm = forwardRef(({
 
   const rules = useMemo(() => ({
     ...validationRules,
-    email: undefined
+    email: undefined,
+    schoolAddress: validationRules.schoolAddress || {
+      validate: (value, options) => {
+        // Only validate for Non-Primary and Home Education students
+        if (options?.formData?.studentType === 'Non-Primary' || options?.formData?.studentType === 'Home Education') {
+          if (!value || !value.name) {
+            return options?.formData?.studentType === 'Home Education' ? 
+              "Home education provider selection is required" : 
+              "School selection is required";
+          }
+        }
+        return null;
+      },
+      required: true,
+      successMessage: "School selected"
+    }
   }), []);
 
   const {
@@ -2091,12 +2107,17 @@ const NonPrimaryStudentForm = forwardRef(({
       // Simple phone validation
       const isPhoneValid = readOnlyFields.phoneNumber || (formData.phoneNumber && formData.phoneNumber.length > 0);
       
+      // School validation for Non-Primary and Home Education students
+      const isSchoolValid = (studentType !== 'Non-Primary' && studentType !== 'Home Education') || 
+                            (formData.schoolAddress && formData.schoolAddress.name);
+      
       const isFormValid = isValid && 
                          isEligible && 
                          validateDates() && 
                          !noValidDatesAvailable &&
                          formData.courseId &&
                          isPhoneValid &&
+                         isSchoolValid &&
                          (studentType !== 'International Student' || 
                           readOnlyFields.country || 
                           (formData.country && 
@@ -2118,7 +2139,8 @@ const NonPrimaryStudentForm = forwardRef(({
     formData.documents, 
     readOnlyFields, 
     formData.phoneNumber,
-    noValidDatesAvailable
+    noValidDatesAvailable,
+    formData.schoolAddress
   ]);
 
   // Determine if end date should be readonly
@@ -3152,13 +3174,14 @@ const NonPrimaryStudentForm = forwardRef(({
                               location: addressDetails.location
                             }
                           }));
-                        
+                          handleBlur('schoolAddress');
                         } else {
                           setFormData(prev => ({
                             ...prev,
                             currentSchool: '',
                             schoolAddress: null
                           }));
+                          handleBlur('schoolAddress');
                         }
                       }}
                     />
@@ -3179,12 +3202,14 @@ const NonPrimaryStudentForm = forwardRef(({
                               location: addressDetails.location
                             }
                           }));
+                          handleBlur('schoolAddress');
                         } else {
                           setFormData(prev => ({
                             ...prev,
                             currentSchool: '',
                             schoolAddress: null
                           }));
+                          handleBlur('schoolAddress');
                         }
                       }}
                       required
