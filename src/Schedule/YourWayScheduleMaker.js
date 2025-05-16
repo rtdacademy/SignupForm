@@ -300,17 +300,28 @@ const FeatureCard = forwardRef(({ title, customHeader, children, className = '' 
 ));
 
 const YourWayScheduleMaker = ({
-  courseId = null,
+  course = null,
   //defaultStartDate = null,
   defaultEndDate = null,
   onScheduleSaved = () => {},
 }) => {
   const { user, user_email_key, authLoading } = useAuth();
 
-  const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState(defaultEndDate || getDefaultEndDate(null));
+  const [startDate, setStartDate] = useState(() => {
+    if (course?.ScheduleStartDate) {
+      return parseISO(course.ScheduleStartDate);
+    }
+    return new Date();
+  });
+  const [endDate, setEndDate] = useState(() => {
+    if (course?.ScheduleEndDate) {
+      return parseISO(course.ScheduleEndDate);
+    }
+    return defaultEndDate || null;
+  });
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [courses, setCourses] = useState({});
+  const [registrationSettings, setRegistrationSettings] = useState(null);
 
   const [excludeWeekends, setExcludeWeekends] = useState(false);
   const [showBreakOptions, setShowBreakOptions] = useState(false);
@@ -349,14 +360,16 @@ const YourWayScheduleMaker = ({
   };
 
   useEffect(() => {
-  
-    if (defaultEndDate) {
+    // Prioritize course.ScheduleEndDate over defaultEndDate
+    if (course?.ScheduleEndDate) {
+      setEndDate(parseISO(course.ScheduleEndDate));
+    } else if (defaultEndDate) {
       setEndDate(defaultEndDate);
     }
-  }, [defaultEndDate]);
+  }, [defaultEndDate, course]);
 
   useEffect(() => {
-    if (courseId) {
+    if (course) {
       const fetchCourseById = async (id) => {
         const db = getDatabase();
         const courseRef = ref(db, `courses/${id}`);
@@ -380,11 +393,16 @@ const YourWayScheduleMaker = ({
           setLoading(false);
         }
       };
-      fetchCourseById(courseId);
+      fetchCourseById(course.CourseID);
+      
+      // Fetch registration settings if available
+      if (course.registrationSettingsPath && course.timeSectionId) {
+        fetchRegistrationSettings(course.registrationSettingsPath, course.timeSectionId);
+      }
     } else {
       fetchAllCourses();
     }
-  }, [courseId]);
+  }, [course]);
 
   const fetchAllCourses = async () => {
     const db = getDatabase();
@@ -503,6 +521,25 @@ const YourWayScheduleMaker = ({
     }
   }, [selectedCourse, courseHours]);
 
+  // Fetch registration settings from Firebase
+  const fetchRegistrationSettings = async (registrationSettingsPath, timeSectionId) => {
+    const db = getDatabase();
+    try {
+      const timeSectionRef = ref(db, `${registrationSettingsPath}/timeSections/${timeSectionId}`);
+      const snapshot = await get(timeSectionRef);
+      
+      if (snapshot.exists()) {
+        const settings = snapshot.val();
+        console.log('Registration settings loaded:', settings);
+        setRegistrationSettings(settings);
+      } else {
+        console.warn('No registration settings found at path:', `${registrationSettingsPath}/timeSections/${timeSectionId}`);
+      }
+    } catch (error) {
+      console.error('Error fetching registration settings:', error);
+    }
+  };
+
   // Modified useEffect for starting assignment options
   useEffect(() => {
     if (selectedCourse) {
@@ -546,10 +583,38 @@ const YourWayScheduleMaker = ({
     }
   }, [scheduleData]);
 
-  const minStartDate = startOfDay(addDays(new Date(), 2));
+  // Calculate date constraints based on registration settings or defaults
+  const getMinStartDate = () => {
+    if (registrationSettings?.startDate) {
+      const settingsStartDate = parseISO(registrationSettings.startDate);
+      const today = new Date();
+      // Use the later of today or the registration settings start date
+      return settingsStartDate > today ? settingsStartDate : today;
+    }
+    // Default: today
+    return startOfDay(new Date());
+  };
+
+  const getMaxEndDate = () => {
+    if (registrationSettings?.endDate) {
+      return parseISO(registrationSettings.endDate);
+    }
+    // Default: use course.ScheduleEndDate if no registration settings
+    if (course?.ScheduleEndDate) {
+      return parseISO(course.ScheduleEndDate);
+    }
+    return null;
+  };
+
+  const minStartDate = getMinStartDate();
+  const maxEndDate = getMaxEndDate();
   
   const getDefaultEndDate = (startDate) => {
-    // If no start date provided, use today's date as reference
+    // Always use course.ScheduleEndDate to show current selection
+    if (course?.ScheduleEndDate) {
+      return parseISO(course.ScheduleEndDate);
+    }
+    // Fallback if no course end date exists
     const referenceDate = startDate || new Date();
     return addMonths(referenceDate, 5);
   };
@@ -561,13 +626,12 @@ const YourWayScheduleMaker = ({
     }
     
     setStartDate(date);
-    if (date) {
+    // Don't automatically change the end date if we already have one from the course
+    if (!endDate && date) {
       const newEndDate = getDefaultEndDate(date);
       if (!isDiplomaCourse || alreadyWroteDiploma) {
         setEndDate(newEndDate);
       }
-    } else {
-      setEndDate(null);
     }
   };
 
@@ -580,6 +644,16 @@ const YourWayScheduleMaker = ({
     const minEndDate = getMinEndDate(startDate);
     if (date < minEndDate) {
       toast.error("End date must be at least 15 days after start date");
+      return;
+    }
+    
+    // Check if end date exceeds registration settings limit
+    if (maxEndDate && date > maxEndDate) {
+      if (registrationSettings?.endDate) {
+        toast.error(`End date cannot be after ${format(maxEndDate, 'MMM dd, yyyy')} (registration period limit)`);
+      } else {
+        toast.error(`End date cannot be after ${format(maxEndDate, 'MMM dd, yyyy')} (current course end date)`);
+      }
       return;
     }
     
@@ -812,7 +886,7 @@ const YourWayScheduleMaker = ({
   };
 
   const handleSaveSchedule = async () => {
-    if (!scheduleData || !courseId || !user_email_key) {
+    if (!scheduleData || !course?.CourseID || !user_email_key) {
       toast.error("Cannot save schedule. Missing required data.");
       return;
     }
@@ -825,7 +899,7 @@ const YourWayScheduleMaker = ({
       return;
     }
   
-    const basePath = `students/${encodedEmail}/courses/${courseId}`;
+    const basePath = `students/${encodedEmail}/courses/${course.CourseID}`;
   
     try {
       await Promise.all([
@@ -1008,13 +1082,13 @@ const YourWayScheduleMaker = ({
   };
 
   useEffect(() => {
-    if (authLoading || !user || !user_email_key || !courseId) return;
+    if (authLoading || !user || !user_email_key || !course?.CourseID) return;
   
     const db = getDatabase();
-    const scheduleJSONRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${courseId}/ScheduleJSON`);
-    const scheduleRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${courseId}/Schedule`);
-    const scheduleStartDateRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${courseId}/ScheduleStartDate`);
-    const scheduleEndDateRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${courseId}/ScheduleEndDate`);
+    const scheduleJSONRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${course.CourseID}/ScheduleJSON`);
+    const scheduleRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${course.CourseID}/Schedule`);
+    const scheduleStartDateRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${course.CourseID}/ScheduleStartDate`);
+    const scheduleEndDateRef = ref(db, `students/${encodeEmailForPath(user_email_key)}/courses/${course.CourseID}/ScheduleEndDate`);
   
     const fetchScheduleData = async () => {
       try {
@@ -1067,7 +1141,7 @@ const YourWayScheduleMaker = ({
     };
   
     fetchScheduleData();
-  }, [courseId, user, authLoading, user_email_key, startingAssignmentOptions]);
+  }, [course, user, authLoading, user_email_key, startingAssignmentOptions]);
 
   useEffect(() => {
     if (existingSchedule && startingAssignmentOptions.length > 0) {
@@ -1113,12 +1187,18 @@ const YourWayScheduleMaker = ({
         }
       >
         <div className="space-y-4 pt-6">
-          {courseId ? (
+          {course ? (
             <div>
               <Label>Selected Course</Label>
               <p className="text-lg font-semibold">
                 {selectedCourse ? selectedCourse.Title : "Loading..."}
               </p>
+              {registrationSettings && (
+                <div className="mt-2 text-sm text-gray-600">
+                  <p>Registration Period: {format(parseISO(registrationSettings.startDate), 'MMM dd, yyyy')} - {format(parseISO(registrationSettings.endDate), 'MMM dd, yyyy')}</p>
+                  <p>Section: {registrationSettings.name || course.timeSectionId}</p>
+                </div>
+              )}
             </div>
           ) : (
             <div>
@@ -1182,7 +1262,7 @@ const YourWayScheduleMaker = ({
     (!canSelectStartDate || !endDate) ? 'opacity-50 cursor-not-allowed' : ''
   }`}
   minDate={minStartDate}
-  maxDate={endDate}
+  maxDate={endDate && maxEndDate ? (endDate < maxEndDate ? endDate : maxEndDate) : (endDate || maxEndDate)}
   calendarStartDay={1}
   withPortal
   disabled={!canSelectStartDate || !endDate}
@@ -1203,7 +1283,7 @@ const YourWayScheduleMaker = ({
   placeholderText="Select end date"
   className={`w-full border rounded px-3 py-2 mt-1 ${!canSelectEndDate ? 'opacity-50 cursor-not-allowed' : ''}`}
   minDate={startDate ? getMinEndDate(startDate) : getMinEndDate(null)}
-  maxDate={startDate ? addYears(startDate, 1) : null}
+  maxDate={maxEndDate || (startDate ? addYears(startDate, 1) : null)}
   disabled={!canSelectEndDate || (isDiplomaCourse && !alreadyWroteDiploma && selectedDiplomaDate)}
   calendarStartDay={1}
   withPortal
@@ -1272,6 +1352,14 @@ const YourWayScheduleMaker = ({
           >
             Create Schedule
           </Button>
+          {!registrationSettings && course?.registrationSettingsPath && (
+            <Alert className="mt-2">
+              <AlertDescription>
+                <InfoIcon className="inline h-4 w-4 mr-1" />
+                Loading registration period restrictions...
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       </FeatureCard>
 
@@ -1384,7 +1472,7 @@ const YourWayScheduleMaker = ({
               </ScrollArea>
             </TabsContent>
           </Tabs>
-          {courseId && (
+          {course && (
             <div className="flex justify-end space-x-4 mt-4">
               <Button variant="outline" onClick={() => {
                 setScheduleData(null);

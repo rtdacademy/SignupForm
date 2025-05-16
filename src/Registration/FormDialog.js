@@ -299,6 +299,11 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
 
       if (snapshot.exists()) {
         const registrationData = snapshot.val();
+        console.log('Retrieved registration data:', {
+          fullData: registrationData.formData,
+          registrationSettingsPath: registrationData.formData.registrationSettingsPath,
+          timeSectionId: registrationData.formData.timeSectionId
+        });
         const studentEmailKey = user_email_key;
 
         // Validate courseId
@@ -355,6 +360,13 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
         };
 
         // Build the 'courses' data
+        console.log('Building course data with registration settings:', {
+          registrationSettingsPath: registrationData.formData.registrationSettingsPath,
+          timeSectionId: registrationData.formData.timeSectionId,
+          studentType: registrationData.formData.studentType,
+          enrollmentYear: registrationData.formData.enrollmentYear
+        });
+        
         const courseData = {
           "inOldSharePoint": false,
           "ActiveFutureArchived": {
@@ -400,6 +412,11 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
                 : registrationData.formData.diplomaMonth.month || ""
             }
           }),
+          // Add registration settings information
+          ...(registrationData.formData.registrationSettingsPath && {
+            "registrationSettingsPath": registrationData.formData.registrationSettingsPath,
+            "timeSectionId": registrationData.formData.timeSectionId || null
+          }),
           ...(registrationData.studentType !== 'Adult Student' && {
             "primarySchoolName": registrationData.formData.schoolAddress?.name || '',
             "primarySchoolAddress": registrationData.formData.schoolAddress?.fullAddress || '',
@@ -423,6 +440,8 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
             }
           ]
         };
+        
+        console.log('Final course data to be saved:', courseData);
 
         // Prepare all database operations we need to perform
         const writeOperations = [
@@ -475,6 +494,11 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
               },
               "Term": registrationData.formData.term || 'Full Year',
               "isRequiredCourse": true, // Flag to identify it as a required course
+              // Add registration settings information
+              ...(registrationData.formData.registrationSettingsPath && {
+                "registrationSettingsPath": registrationData.formData.registrationSettingsPath,
+                "timeSectionId": registrationData.formData.timeSectionId || null
+              }),
               "jsonStudentNotes": [
                 {
                   "author": "System",

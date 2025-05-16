@@ -139,7 +139,7 @@ const YourWayScheduleCreator = ({
         
         <div className="h-[80vh] overflow-auto">
           <YourWayScheduleMaker
-            courseId={course.CourseID}
+            course={course}
             defaultStartDate={defaultStartDate}
             defaultEndDate={defaultEndDate}
             onScheduleSaved={handleScheduleSaved}

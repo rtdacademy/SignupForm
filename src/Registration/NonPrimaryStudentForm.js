@@ -108,6 +108,13 @@ const useRegistrationSettings = (studentType) => {
         if (snapshot.exists()) {
           const settingsData = snapshot.val();
           console.log('Registration settings loaded:', settingsData);
+          // Log time sections to see their structure
+          if (settingsData.timeSections) {
+            console.log('Time sections:', settingsData.timeSections);
+            settingsData.timeSections.forEach((section, index) => {
+              console.log(`Time section ${index}:`, section);
+            });
+          }
           setSettings(settingsData);
         } else {
           console.error(`No settings found for ${studentType} in the ${schoolYearKey} school year`);
@@ -450,7 +457,9 @@ const NonPrimaryStudentForm = forwardRef(({
         passport: '',
         additionalID: '',
         residencyProof: ''
-      }
+      },
+      registrationSettingsPath: null,
+      timeSectionId: null
     };
 
     console.log('Initial form data:', formData);
@@ -499,6 +508,32 @@ const NonPrimaryStudentForm = forwardRef(({
       setHasASN(true); // International students may or may not have ASN
     }
   }, [studentType]);
+  
+  // Ensure registration settings are populated when enrollment year is set
+  useEffect(() => {
+    if (formData.enrollmentYear && studentType && !formData.registrationSettingsPath) {
+      const isNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+      const timeSection = getTimeSection(isNextYear);
+      
+      // Build registration settings path
+      const schoolYearKey = formData.enrollmentYear.replace('/', '_');
+      const studentTypeKey = studentType.replace(/\s+/g, '-');
+      const registrationSettingsPath = `/registrationSettings/${schoolYearKey}/${studentTypeKey}`;
+      
+      console.log('Populating missing registration settings:', {
+        enrollmentYear: formData.enrollmentYear,
+        studentType,
+        registrationSettingsPath,
+        timeSectionId: timeSection?.id
+      });
+      
+      setFormData(prev => ({
+        ...prev,
+        registrationSettingsPath: registrationSettingsPath,
+        timeSectionId: timeSection?.id || null
+      }));
+    }
+  }, [formData.enrollmentYear, studentType, formData.registrationSettingsPath, getCurrentSchoolYear, getTimeSection]);
   
   // Fetch profile data
   useEffect(() => {
@@ -613,6 +648,13 @@ const NonPrimaryStudentForm = forwardRef(({
   const saveToPendingRegistration = async (formDataToSave) => {
     try {
       setIsSaving(true);
+      console.log('Saving to pending registration:', {
+        registrationSettingsPath: formDataToSave.registrationSettingsPath,
+        timeSectionId: formDataToSave.timeSectionId,
+        studentType: formDataToSave.studentType,
+        enrollmentYear: formDataToSave.enrollmentYear
+      });
+      
       const db = getDatabase();
       const pendingRegRef = databaseRef(db, `users/${uid}/pendingRegistration`);
       await set(pendingRegRef, {
@@ -651,13 +693,31 @@ const NonPrimaryStudentForm = forwardRef(({
         const isNextYear = value !== getCurrentSchoolYear();
         const timeSection = getTimeSection(isNextYear);
         
+        // Build registration settings path
+        const schoolYearKey = value ? value.replace('/', '_') : '';
+        const studentTypeKey = studentType ? studentType.replace(/\s+/g, '-') : '';
+        const registrationSettingsPath = schoolYearKey && studentTypeKey ? 
+          `/registrationSettings/${schoolYearKey}/${studentTypeKey}` : null;
+        
+        console.log('Enrollment year change - updating registration settings:', {
+          value,
+          schoolYearKey,
+          studentTypeKey,
+          registrationSettingsPath,
+          timeSection,
+          timeSectionId: timeSection?.id
+        });
+        
         return {
           ...prev,
           [name]: value,
           startDate: '',
           endDate: '',
           // Update term if available from time section
-          term: timeSection?.term || prev.term
+          term: timeSection?.term || prev.term,
+          // Update registration settings info
+          registrationSettingsPath: registrationSettingsPath,
+          timeSectionId: timeSection?.id || null
         };
       }
       
@@ -671,7 +731,7 @@ const NonPrimaryStudentForm = forwardRef(({
     });
 
     handleBlur(name);
-  }, [handleBlur, getCurrentSchoolYear, getTimeSection]);
+  }, [handleBlur, getCurrentSchoolYear, getTimeSection, studentType]);
 
   const handleCountryChange = (selectedOption) => {
     handleFormChange({
@@ -758,6 +818,12 @@ const NonPrimaryStudentForm = forwardRef(({
     // Get time section based on enrollment year
     const timeSection = getTimeSection(isNextYear);
     
+    // Build registration settings path
+    const schoolYearKey = formData.enrollmentYear ? formData.enrollmentYear.replace('/', '_') : '';
+    const studentTypeKey = studentType ? studentType.replace(/\s+/g, '-') : '';
+    const registrationSettingsPath = schoolYearKey && studentTypeKey ? 
+      `/registrationSettings/${schoolYearKey}/${studentTypeKey}` : null;
+    
     if (!timeSection) {
       console.log(`No time section found for ${isNextYear ? 'next' : 'current'} year`);
       return {
@@ -766,7 +832,9 @@ const NonPrimaryStudentForm = forwardRef(({
         hasActiveWindow: false,
         needsDiplomaSelection: isDiplomaCourse && !selectedDiplomaDate && !alreadyWroteDiploma,
         isNextYear,
-        timeSection: null
+        timeSection: null,
+        registrationSettingsPath,
+        timeSectionId: null
       };
     }
     
@@ -793,7 +861,9 @@ const NonPrimaryStudentForm = forwardRef(({
       hasActiveWindow: hasActiveWindow,
       needsDiplomaSelection: isDiplomaCourse && !selectedDiplomaDate && !alreadyWroteDiploma,
       isNextYear,
-      timeSection
+      timeSection,
+      registrationSettingsPath,
+      timeSectionId: timeSection.id || null
     };
   }, [
     getCurrentSchoolYear,
@@ -803,7 +873,8 @@ const NonPrimaryStudentForm = forwardRef(({
     getDateConstraints,
     isDiplomaCourse,
     selectedDiplomaDate,
-    alreadyWroteDiploma
+    alreadyWroteDiploma,
+    studentType
   ]);
 
   // Handle start date changes
@@ -814,7 +885,9 @@ const NonPrimaryStudentForm = forwardRef(({
       hasActiveWindow, 
       needsDiplomaSelection,
       isNextYear,
-      timeSection
+      timeSection,
+      registrationSettingsPath,
+      timeSectionId
     } = getEffectiveDateConstraints();
     
     // Check if student needs to select a diploma date first
@@ -861,13 +934,26 @@ const NonPrimaryStudentForm = forwardRef(({
       return;
     }
   
-    // If all checks pass, update the start date
+    // If all checks pass, update the start date and registration settings
     handleFormChange({
       target: {
         name: 'startDate',
         value: toDateString(date)
       }
     });
+    
+    // Update registration settings path and time section ID
+    console.log('Updating registration settings:', {
+      registrationSettingsPath,
+      timeSectionId,
+      timeSection
+    });
+    
+    setFormData(prev => ({
+      ...prev,
+      registrationSettingsPath: registrationSettingsPath,
+      timeSectionId: timeSectionId
+    }));
     
     setDateErrors(prev => ({ ...prev, startDate: '' }));
     
@@ -2042,7 +2128,30 @@ const NonPrimaryStudentForm = forwardRef(({
             }
           }
           
-          await saveToPendingRegistration(formData);
+          // Ensure registration settings are populated
+          let dataToSave = formData;
+          if (!formData.registrationSettingsPath && formData.enrollmentYear) {
+            const isNextYear = formData.enrollmentYear !== getCurrentSchoolYear();
+            const timeSection = getTimeSection(isNextYear);
+            
+            // Build registration settings path
+            const schoolYearKey = formData.enrollmentYear.replace('/', '_');
+            const studentTypeKey = studentType.replace(/\s+/g, '-');
+            const registrationSettingsPath = `/registrationSettings/${schoolYearKey}/${studentTypeKey}`;
+            
+            console.log('Adding registration settings before save:', {
+              registrationSettingsPath,
+              timeSectionId: timeSection?.id
+            });
+            
+            dataToSave = {
+              ...formData,
+              registrationSettingsPath: registrationSettingsPath,
+              timeSectionId: timeSection?.id || null
+            };
+          }
+          
+          await saveToPendingRegistration(dataToSave);
           return true;
         } catch (err) {
           console.error("Form submission error:", err);
@@ -2052,7 +2161,15 @@ const NonPrimaryStudentForm = forwardRef(({
       }
       return false;
     },
-    getFormData: () => formData
+    getFormData: () => {
+      console.log('Getting form data for submission:', {
+        registrationSettingsPath: formData.registrationSettingsPath,
+        timeSectionId: formData.timeSectionId,
+        studentType: formData.studentType,
+        enrollmentYear: formData.enrollmentYear
+      });
+      return formData;
+    }
   }));
 
   // Render a read-only field
