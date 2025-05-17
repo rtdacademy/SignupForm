@@ -1,48 +1,152 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from "../../../../components/ui/card";
 import { Badge } from "../../../../components/ui/badge";
-import studentData from '../CurrentStudentData_May16.json';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import rawStudentData from '../CurrentStudentData_May16.json';
 
 const CurrentDataAnalysis = () => {
   const [analysisData, setAnalysisData] = useState(null);
 
   useEffect(() => {
     const analyzeData = () => {
-      const currentYearData = studentData;
+      // Debug: check raw data for Primary students
+      const primaryInRaw = rawStudentData.filter(record => record.StudentType_Value === 'Primary Student');
+      console.log('Primary Student records in raw data:', primaryInRaw.length);
+      
+      // Filter out Primary students from the very beginning
+      const studentData = rawStudentData.filter(record => record.StudentType_Value !== 'Primary Student');
+      
+      // Debug: check filtered data
+      const primaryInFiltered = studentData.filter(record => record.StudentType_Value === 'Primary Student');
+      console.log('Primary Student records in filtered data:', primaryInFiltered.length);
       
       // Unique students
-      const uniqueStudents = [...new Set(currentYearData.map(record => record.anonymousId))];
+      const uniqueStudents = [...new Set(studentData.map(record => record.anonymousId))];
       
-      // Student types breakdown
-      const studentTypeCounts = currentYearData.reduce((acc, record) => {
-        const type = record.StudentType_Value || 'Unknown';
+      // Student types breakdown - per unique student
+      const studentsByAnonymousId = {};
+      studentData.forEach(record => {
+        if (!studentsByAnonymousId[record.anonymousId]) {
+          studentsByAnonymousId[record.anonymousId] = record;
+        }
+      });
+      
+      const studentTypeCounts = Object.values(studentsByAnonymousId).reduce((acc, record) => {
+        let type = record.StudentType_Value || 'Non-Primary';
+        
+        // Skip if Primary type somehow still exists
+        if (type === 'Primary' || type === 'Primary Student') {
+          console.log('Found Primary Student in studentTypeCounts:', record);
+          return acc;
+        }
+        
+        // Consolidate Unknown into Non-Primary
+        if (type === 'Unknown') {
+          type = 'Non-Primary';
+        }
         acc[type] = (acc[type] || 0) + 1;
         return acc;
       }, {});
       
-      // Course enrollments by course
-      const courseCounts = currentYearData.reduce((acc, record) => {
-        const course = record.courseDescription || record.Course_Value || 'Unknown';
-        acc[course] = (acc[course] || 0) + 1;
-        return acc;
-      }, {});
+      // Calculate unique students per status (all students)
+      const uniqueStudentsByStatus = {};
+      const statusGroups = {};
+      studentData.forEach(record => {
+        const status = record.status || 'Unknown';
+        if (!statusGroups[status]) {
+          statusGroups[status] = new Set();
+        }
+        statusGroups[status].add(record.anonymousId);
+      });
+      
+      Object.keys(statusGroups).forEach(status => {
+        uniqueStudentsByStatus[status] = statusGroups[status].size;
+      });
+      
+      // Student type breakdown by status - count unique students
+      const studentTypeByStatus = {};
+      const processedStudents = new Set();
+      
+      // First get unique student-status combinations
+      studentData.forEach(record => {
+        const key = `${record.anonymousId}-${record.status}`;
+        if (!processedStudents.has(key)) {
+          processedStudents.add(key);
+          const status = record.status || 'Unknown';
+          let type = record.StudentType_Value || 'Non-Primary';
+          
+          // Skip if Primary type somehow still exists
+          if (type === 'Primary' || type === 'Primary Student') {
+            console.log('Found Primary Student in studentTypeByStatus:', record);
+            return;
+          }
+          
+          // Consolidate Unknown into Non-Primary
+          if (type === 'Unknown') {
+            type = 'Non-Primary';
+          }
+          
+          if (!studentTypeByStatus[status]) {
+            studentTypeByStatus[status] = {};
+          }
+          
+          if (!studentTypeByStatus[status][type]) {
+            studentTypeByStatus[status][type] = 0;
+          }
+          
+          studentTypeByStatus[status][type] += 1;
+        }
+      });
+      
+      console.log('Final studentTypeByStatus:', studentTypeByStatus);
+      
+      // Define the course codes we want to include
+      const allowedCourseCodes = [
+        // Grade 10 Courses
+        "KAE1782",  // Math 10-4
+        "MAT1793",  // Math 10-3
+        "MAT1791",  // Math 10C
+        "LDC1515",  // Math 15
+        
+        // Grade 11 Courses
+        "KAE2782",  // Math 20-4
+        "MAT2793",  // Math 20-3
+        "MAT2792",  // Math 20-2
+        "MAT2791",  // Math 20-1
+        "SCN2797",  // Physics 20
+        
+        // Grade 12 Courses
+        "MAT3793",  // Math 30-3
+        "MAT3792",  // Math 30-2
+        "MAT3791",  // Math 30-1
+        "MAT3211"   // Math 31 (Calculus)
+      ];
+      
+      // Course enrollments by course - only for allowed course codes
+      const courseCounts = studentData
+        .filter(record => record.courseCode && allowedCourseCodes.includes(record.courseCode))
+        .reduce((acc, record) => {
+          const course = record.courseDescription || record.Course_Value || 'Unknown';
+          acc[course] = (acc[course] || 0) + 1;
+          return acc;
+        }, {});
       
       // Status breakdown
-      const statusCounts = currentYearData.reduce((acc, record) => {
+      const statusCounts = studentData.reduce((acc, record) => {
         const status = record.status || 'Unknown';
         acc[status] = (acc[status] || 0) + 1;
         return acc;
       }, {});
       
       // PASI Term breakdown
-      const pasiTermCounts = currentYearData.reduce((acc, record) => {
+      const pasiTermCounts = studentData.reduce((acc, record) => {
         const term = record.pasiTerm || 'Unknown';
         acc[term] = (acc[term] || 0) + 1;
         return acc;
       }, {});
       
       // Period breakdown
-      const periodCounts = currentYearData.reduce((acc, record) => {
+      const periodCounts = studentData.reduce((acc, record) => {
         const period = record.period || 'Unknown';
         acc[period] = (acc[period] || 0) + 1;
         return acc;
@@ -50,7 +154,7 @@ const CurrentDataAnalysis = () => {
       
       // Calculate average age
       const currentDate = new Date();
-      const validBirthdays = currentYearData
+      const validBirthdays = studentData
         .filter(record => record.birthday)
         .map(record => {
           const birthDate = new Date(record.birthday);
@@ -62,17 +166,60 @@ const CurrentDataAnalysis = () => {
         : 0;
       
       // Credits analysis
-      const creditData = currentYearData
+      const creditData = studentData
         .filter(record => record.creditsAttempted !== undefined && record.creditsAttempted !== null);
       const totalCreditsAttempted = creditData
         .reduce((sum, record) => sum + parseFloat(record.creditsAttempted || 0), 0);
       
-      const completedCredits = currentYearData
+      const completedCredits = studentData
         .filter(record => record.status === 'Completed' && record.creditsAttempted)
         .reduce((sum, record) => sum + parseFloat(record.creditsAttempted || 0), 0);
       
+      // Credits by student type
+      const creditsByStudentType = {};
+      const studentCreditSums = {};
+      
+      studentData.forEach(record => {
+        if (record.creditsAttempted !== undefined && record.creditsAttempted !== null) {
+          let type = record.StudentType_Value || 'Non-Primary';
+          if (type === 'Unknown') {
+            type = 'Non-Primary';
+          }
+          
+          if (!creditsByStudentType[type]) {
+            creditsByStudentType[type] = {
+              totalCredits: 0,
+              uniqueStudents: new Set(),
+              completedCredits: 0
+            };
+          }
+          
+          creditsByStudentType[type].totalCredits += parseFloat(record.creditsAttempted || 0);
+          creditsByStudentType[type].uniqueStudents.add(record.anonymousId);
+          
+          if (record.status === 'Completed') {
+            creditsByStudentType[type].completedCredits += parseFloat(record.creditsAttempted || 0);
+          }
+          
+          // Track total credits per student
+          if (!studentCreditSums[record.anonymousId]) {
+            studentCreditSums[record.anonymousId] = 0;
+          }
+          studentCreditSums[record.anonymousId] += parseFloat(record.creditsAttempted || 0);
+        }
+      });
+      
+      // Calculate averages by student type
+      const creditsByTypeFormatted = Object.entries(creditsByStudentType).map(([type, data]) => ({
+        type,
+        totalCredits: data.totalCredits,
+        completedCredits: data.completedCredits,
+        uniqueStudents: data.uniqueStudents.size,
+        averageCreditsPerStudent: data.uniqueStudents.size > 0 ? data.totalCredits / data.uniqueStudents.size : 0
+      }));
+      
       // Primary school breakdown
-      const primarySchoolCounts = currentYearData.reduce((acc, record) => {
+      const primarySchoolCounts = studentData.reduce((acc, record) => {
         const school = record.primarySchoolName || 'Unknown';
         acc[school] = (acc[school] || 0) + 1;
         return acc;
@@ -84,7 +231,7 @@ const CurrentDataAnalysis = () => {
         .slice(0, 10);
       
       // Grade distribution analysis
-      const gradeDistribution = currentYearData
+      const gradeDistribution = studentData
         .filter(record => record.value && !isNaN(record.value))
         .map(record => parseFloat(record.value));
       
@@ -102,35 +249,89 @@ const CurrentDataAnalysis = () => {
         : 0;
       
       // Active/Future/Archived breakdown
-      const activeStatusCounts = currentYearData.reduce((acc, record) => {
+      const activeStatusCounts = studentData.reduce((acc, record) => {
         const status = record.ActiveFutureArchived_Value || 'Unknown';
         acc[status] = (acc[status] || 0) + 1;
         return acc;
       }, {});
       
       // Diploma month choices
-      const diplomaMonthCounts = currentYearData.reduce((acc, record) => {
+      const diplomaMonthCounts = studentData.reduce((acc, record) => {
         if (record.DiplomaMonthChoices_Value) {
           acc[record.DiplomaMonthChoices_Value] = (acc[record.DiplomaMonthChoices_Value] || 0) + 1;
         }
         return acc;
       }, {});
       
-      // Registration trends by month
-      const registrationsByMonth = currentYearData.reduce((acc, record) => {
-        const date = new Date(record.Created || record.startDate);
-        const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        acc[monthYear] = (acc[monthYear] || 0) + 1;
+      // Registration trends by month - count unique students per date
+      const registrationsByStudentDate = {};
+      studentData.forEach(record => {
+        // Use Created date if available, otherwise use startDate
+        const dateValue = record.Created || record.startDate;
+        if (!dateValue) return; // Skip if no date available
+        
+        const date = new Date(dateValue);
+        const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+        const key = `${record.anonymousId}-${dateKey}`;
+        
+        if (!registrationsByStudentDate[key]) {
+          registrationsByStudentDate[key] = {
+            date: dateKey,
+            monthYear: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+          };
+        }
+      });
+      
+      // Count unique registrations by month
+      const registrationsByMonth = Object.values(registrationsByStudentDate).reduce((acc, entry) => {
+        acc[entry.monthYear] = (acc[entry.monthYear] || 0) + 1;
         return acc;
       }, {});
+      
+      // Convert to array and sort by date for chart, starting from June 2024
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const today = new Date();
+      const currentMonthYear = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+      
+      const registrationTrends = Object.entries(registrationsByMonth)
+        .filter(([monthYear]) => {
+          // Only include data from June 2024 onwards
+          const [year, month] = monthYear.split('-');
+          const yearNum = parseInt(year);
+          const monthNum = parseInt(month);
+          return (yearNum === 2024 && monthNum >= 6) || yearNum > 2024;
+        })
+        .map(([monthYear, count]) => {
+          const [year, month] = monthYear.split('-');
+          const monthIndex = parseInt(month) - 1;
+          let displayCount = count;
+          let label = monthNames[monthIndex] + ' ' + year.slice(2);
+          let isProjection = false;
+          
+          // If this is the current month (May 2025) and we're before the end of the month, project it
+          if (monthYear === currentMonthYear && today.getDate() < 31) {
+            displayCount = count * 2; // Double the current count as projection
+            label += ' (projected)';
+            isProjection = true;
+          }
+          
+          return {
+            date: monthYear,
+            month: label,
+            count: displayCount,
+            isProjection
+          };
+        })
+        .sort((a, b) => a.date.localeCompare(b.date));
       
       // Sort courses by enrollment count
       const sortedCourses = Object.entries(courseCounts)
         .sort(([,a], [,b]) => b - a);
       
-      setAnalysisData({
+      // Create the analysis data object
+      const analysisResult = {
         uniqueStudents,
-        totalEnrollments: currentYearData.length,
+        totalEnrollments: studentData.length,
         studentTypeCounts,
         courseCounts: sortedCourses,
         statusCounts,
@@ -147,9 +348,21 @@ const CurrentDataAnalysis = () => {
         registrationsByMonth,
         creditData: {
           totalStudentsWithCredits: creditData.length,
-          averageCreditsPerStudent: creditData.length > 0 ? totalCreditsAttempted / creditData.length : 0
-        }
-      });
+          averageCreditsPerStudent: uniqueStudents.length > 0 ? totalCreditsAttempted / uniqueStudents.length : 0,
+          averageCreditsPerStudentWithCredits: Object.keys(studentCreditSums).length > 0 
+            ? totalCreditsAttempted / Object.keys(studentCreditSums).length 
+            : 0
+        },
+        uniqueStudentsByStatus,
+        studentTypeByStatus,
+        registrationTrends,
+        creditsByType: creditsByTypeFormatted
+      };
+      
+      // Log the complete analysis data
+      console.log('Current Data Analysis - Complete Results:', analysisResult);
+      
+      setAnalysisData(analysisResult);
     };
     
     analyzeData();
@@ -181,6 +394,52 @@ const CurrentDataAnalysis = () => {
         </Card>
       </div>
       
+      {/* Registration Trends Chart */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold mb-4">Registration Trends by Month</h3>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={analysisData.registrationTrends}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="month" 
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                interval={0}
+              />
+              <YAxis />
+              <Tooltip 
+                formatter={(value, name) => [`${value} students`, name]}
+                contentStyle={{
+                  backgroundColor: 'white',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  padding: '8px'
+                }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="count" 
+                stroke="#3B82F6" 
+                strokeWidth={2}
+                dot={(props) => {
+                  const { cx, cy, payload } = props;
+                  if (payload.isProjection) {
+                    return (
+                      <circle cx={cx} cy={cy} r={6} fill="#3B82F6" stroke="#3B82F6" strokeWidth={2} fillOpacity={0.5} strokeDasharray="2 2" />
+                    );
+                  }
+                  return <circle cx={cx} cy={cy} r={4} fill="#3B82F6" />;
+                }}
+                activeDot={{ r: 6 }}
+                name="Registrations"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
+      
       {/* Student Type Breakdown */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Student Type Distribution</h3>
@@ -194,23 +453,61 @@ const CurrentDataAnalysis = () => {
         </div>
       </Card>
       
-      {/* Status Breakdown */}
+      
+      
+      {/* Student Type by Status Matrix */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Enrollment Status</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Object.entries(analysisData.statusCounts).map(([status, count]) => (
-            <div key={status} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-              <span className="font-medium">{status}</span>
-              <Badge variant={status === 'Completed' ? 'success' : 'secondary'}>{count}</Badge>
-            </div>
-          ))}
+        <h3 className="text-lg font-semibold mb-4">Student Type by Status Matrix</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                {[...new Set(Object.values(analysisData.studentTypeByStatus).flatMap(s => Object.keys(s)))].map(type => {
+                  console.log('Table header type:', type);
+                  return (
+                    <th key={type} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {type}
+                    </th>
+                  );
+                })}
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {Object.entries(analysisData.studentTypeByStatus).map(([status, types]) => {
+                console.log(`Status ${status} types:`, types);
+                const total = Object.values(types).reduce((sum, count) => sum + count, 0);
+                const allTypes = [...new Set(Object.values(analysisData.studentTypeByStatus).flatMap(s => Object.keys(s)))];
+                return (
+                  <tr key={status}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {status}
+                    </td>
+                    {allTypes.map(type => (
+                      <td key={type} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {types[type] || 0}
+                      </td>
+                    ))}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                      {total}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </Card>
       
       {/* Credits Analysis */}
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4">Credits Analysis</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="text-center">
             <p className="text-sm text-gray-600">Total Credits Attempted</p>
             <p className="text-2xl font-bold">{analysisData.totalCreditsAttempted}</p>
@@ -224,37 +521,56 @@ const CurrentDataAnalysis = () => {
             <p className="text-2xl font-bold">{analysisData.creditData.averageCreditsPerStudent.toFixed(2)}</p>
           </div>
         </div>
+        
+        {/* Credits by Student Type Table */}
+        <h4 className="text-md font-semibold mb-3">Credits by Student Type</h4>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Student Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Unique Students
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Total Credits
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Completed Credits
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Avg Credits/Student
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {analysisData.creditsByType.map((row) => (
+                <tr key={row.type}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {row.type}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {row.uniqueStudents}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {row.totalCredits}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {row.completedCredits}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {row.averageCreditsPerStudent.toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
       
-      {/* Grade Distribution */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Grade Distribution</h3>
-        <div className="mb-4">
-          <p className="text-sm text-gray-600">Average Grade</p>
-          <p className="text-2xl font-bold">{analysisData.averageGrade.toFixed(2)}%</p>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {Object.entries(analysisData.gradeDistribution).map(([range, count]) => (
-            <div key={range} className="text-center p-3 bg-gray-50 rounded">
-              <p className="font-medium">{range}</p>
-              <p className="text-xl font-bold">{count}</p>
-            </div>
-          ))}
-        </div>
-      </Card>
       
-      {/* PASI Terms */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">PASI Term Distribution</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Object.entries(analysisData.pasiTermCounts).map(([term, count]) => (
-            <div key={term} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-              <span className="font-medium">{term}</span>
-              <Badge variant="secondary">{count}</Badge>
-            </div>
-          ))}
-        </div>
-      </Card>
       
       {/* Top Courses */}
       <Card className="p-6">
@@ -269,46 +585,8 @@ const CurrentDataAnalysis = () => {
         </div>
       </Card>
       
-      {/* Top Primary Schools */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Top Primary Schools</h3>
-        <div className="space-y-2">
-          {analysisData.topSchools.map(([school, count]) => (
-            <div key={school} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-              <span className="font-medium">{school}</span>
-              <Badge variant="secondary">{count}</Badge>
-            </div>
-          ))}
-        </div>
-      </Card>
       
-      {/* Active/Future/Archived Status */}
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Active/Future/Archived Status</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Object.entries(analysisData.activeStatusCounts).map(([status, count]) => (
-            <div key={status} className="text-center p-3 bg-gray-50 rounded">
-              <p className="font-medium">{status}</p>
-              <p className="text-xl font-bold">{count}</p>
-            </div>
-          ))}
-        </div>
-      </Card>
       
-      {/* Diploma Month Choices */}
-      {Object.keys(analysisData.diplomaMonthCounts).length > 0 && (
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Diploma Month Selections</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(analysisData.diplomaMonthCounts).map(([month, count]) => (
-              <div key={month} className="text-center p-3 bg-gray-50 rounded">
-                <p className="font-medium">{month}</p>
-                <p className="text-xl font-bold">{count}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
     </section>
   );
 };

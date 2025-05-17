@@ -130,7 +130,7 @@
     "tailwindcss-debug-screens": "^2.2.1",
     "typescript": "^4.9.5"
   },
-  "scripts": {
+   "scripts": {
     "cleanup:all": "kill-port 3000 9099 5001 8080 8765 5000 9199 4400 4401 4000 4001 4500 4501 9299 9300 9499 9500",
     "start:emulators": "firebase emulators:start",
     "start:emulators:functions-only": "firebase emulators:start --only functions",
@@ -147,7 +147,11 @@
     "clean": "node scripts/build.js --clean-only",
     "prebuild": "node scripts/build.js --clean-only",
     "export:database": "firebase database:get / > database-export.json",
-    "import:database": "firebase database:set / database-export.json"
+    "import:database": "firebase database:set / database-export.json",
+    
+    "genkit:ui": "cd functions && GENKIT_ENV=dev npx genkit start -o -- node local-dev-server.js",
+    "genkit:dev": "cd functions && node local-dev-server.js",
+    "start:main:functions-genkit": "concurrently \"npm run start:emulators:functions-only\" \"npm run genkit:ui\" \"REACT_APP_USE_FUNCTIONS_EMULATOR=true npm run start:main\""
   },
   "browserslist": [
     ">0.2%",

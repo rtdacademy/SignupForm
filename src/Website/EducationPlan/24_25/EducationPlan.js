@@ -6,7 +6,6 @@ import { Menu } from "lucide-react";
 
 // Import required components (to be created)
 // Section I: Introduction and Context
-import ExecutiveSummary from './Components/ExecutiveSummary';
 import SchoolProfile from './Components/SchoolProfile';
 // import ThreeYearProgress from './Components/ThreeYearProgress';
 
@@ -14,10 +13,10 @@ import SchoolProfile from './Components/SchoolProfile';
 import CurrentDataAnalysis from './Components/CurrentDataAnalysis';
 
 // Section II: Accountability Statement
-// import AccountabilityStatement from './Components/AccountabilityStatement';
+import AccountabilityStatement from './Components/AccountabilityStatement';
 
 // Section III: Stakeholder Engagement
-// import StakeholderEngagement from './Components/StakeholderEngagement';
+import StakeholderEngagement from './Components/StakeholderEngagement';
 
 // Section IV: Vision, Mission, and Values
 // import FoundationalStatements from './Components/FoundationalStatements';
@@ -52,7 +51,6 @@ const EducationPlan = () => {
 
   // Create refs for each major section
   const currentDataRef = useRef(null);
-  const executiveSummaryRef = useRef(null);
   const schoolProfileRef = useRef(null);
   const accountabilityRef = useRef(null);
   const stakeholderRef = useRef(null);
@@ -71,39 +69,33 @@ const EducationPlan = () => {
   // Navigation structure following Alberta requirements
   const navigationStructure = [
     {
-      title: "Current Year Data Analysis",
-      items: [
-        { name: "2024-25 Data Analysis", ref: currentDataRef }
-      ]
-    },
-    {
-      title: "I. Introduction & Context",
-      items: [
-        { name: "Executive Summary", ref: executiveSummaryRef },
-        { name: "School Profile", ref: schoolProfileRef },
-        { name: "Three-Year Progress", ref: schoolProfileRef }
-      ]
-    },
-    {
-      title: "II. Accountability",
+      title: "Accountability",
       items: [
         { name: "Accountability Statement", ref: accountabilityRef }
       ]
     },
     {
-      title: "III. Stakeholder Engagement",
+      title: "I. Introduction & Context",
+      items: [
+        { name: "School Profile", ref: schoolProfileRef },
+        { name: "Current Year Data Analysis", ref: currentDataRef },
+        { name: "Three-Year Progress", ref: schoolProfileRef }
+      ]
+    },
+    {
+      title: "II. Stakeholder Engagement",
       items: [
         { name: "Engagement Process", ref: stakeholderRef }
       ]
     },
     {
-      title: "IV. Foundational Statements",
+      title: "III. Foundational Statements",
       items: [
         { name: "Vision, Mission & Values", ref: foundationalRef }
       ]
     },
     {
-      title: "V. Domain Analysis",
+      title: "IV. Domain Analysis",
       items: [
         { name: "Student Growth & Achievement", ref: domainGrowthRef },
         { name: "Teaching & Leading", ref: domainTeachingRef },
@@ -113,26 +105,26 @@ const EducationPlan = () => {
       ]
     },
     {
-      title: "VI. Indigenous Education",
+      title: "V. Indigenous Education",
       items: [
         { name: "FNMI Student Success", ref: indigenousRef }
       ]
     },
     {
-      title: "VII. Performance Measures",
+      title: "VI. Performance Measures",
       items: [
         { name: "Performance Framework", ref: performanceRef }
       ]
     },
     {
-      title: "VIII. Implementation",
+      title: "VII. Implementation",
       items: [
         { name: "Implementation Plan", ref: implementationRef },
         { name: "Budget Summary", ref: budgetRef }
       ]
     },
     {
-      title: "IX. Conclusion",
+      title: "VIII. Conclusion",
       items: [
         { name: "Future Direction", ref: conclusionRef }
       ]
@@ -215,49 +207,31 @@ const EducationPlan = () => {
 
       {/* Main Content Sections */}
       <div className="space-y-12">
+        {/* Accountability Statement - First after cover page */}
+        <div ref={accountabilityRef}>
+          <AccountabilityStatement />
+        </div>
+
+        {/* Section I: Introduction and Context */}
+        <div ref={schoolProfileRef}>
+          <SchoolProfile />
+        </div>
+
         {/* Current Data Analysis */}
         <div ref={currentDataRef}>
           <CurrentDataAnalysis />
         </div>
 
-        {/* Section I: Introduction and Context */}
-        <div ref={executiveSummaryRef}>
-          <ExecutiveSummary />
-        </div>
-
-        <div ref={schoolProfileRef}>
-          <SchoolProfile />
-        </div>
-
-        {/* Section II: Accountability Statement */}
-        <div ref={accountabilityRef}>
-          <Card>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">II. Accountability Statement</h2>
-              <p className="text-gray-600">
-                Component placeholder - AccountabilityStatement component to be implemented
-              </p>
-            </div>
-          </Card>
-        </div>
-
-        {/* Section III: Stakeholder Engagement */}
+        {/* Section II: Stakeholder Engagement */}
         <div ref={stakeholderRef}>
-          <Card>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">III. Stakeholder Engagement Process</h2>
-              <p className="text-gray-600">
-                Component placeholder - StakeholderEngagement component to be implemented
-              </p>
-            </div>
-          </Card>
+          <StakeholderEngagement />
         </div>
 
-        {/* Section IV: Vision, Mission, Values */}
+        {/* Section III: Vision, Mission, Values */}
         <div ref={foundationalRef}>
           <Card>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">IV. Vision, Mission, and Values</h2>
+              <h2 className="text-2xl font-bold mb-4">III. Vision, Mission, and Values</h2>
               <p className="text-gray-600">
                 Component placeholder - FoundationalStatements component to be implemented
               </p>
@@ -265,9 +239,9 @@ const EducationPlan = () => {
           </Card>
         </div>
 
-        {/* Section V: Domain Analysis */}
+        {/* Section IV: Domain Analysis */}
         <div className="space-y-8">
-          <h2 className="text-2xl font-bold">V. Domain Analysis and Priorities</h2>
+          <h2 className="text-2xl font-bold">IV. Domain Analysis and Priorities</h2>
           
           <div ref={domainGrowthRef}>
             <Card>
@@ -325,11 +299,11 @@ const EducationPlan = () => {
           </div>
         </div>
 
-        {/* Section VI: Indigenous Education */}
+        {/* Section V: Indigenous Education */}
         <div ref={indigenousRef}>
           <Card>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">VI. First Nations, Métis, and Inuit Education</h2>
+              <h2 className="text-2xl font-bold mb-4">V. First Nations, Métis, and Inuit Education</h2>
               <p className="text-gray-600">
                 Component placeholder - IndigenousEducation component to be implemented
               </p>
@@ -337,11 +311,11 @@ const EducationPlan = () => {
           </Card>
         </div>
 
-        {/* Section VII: Performance Measures */}
+        {/* Section VI: Performance Measures */}
         <div ref={performanceRef}>
           <Card>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">VII. Performance Measures Framework</h2>
+              <h2 className="text-2xl font-bold mb-4">VI. Performance Measures Framework</h2>
               <p className="text-gray-600">
                 Component placeholder - PerformanceMeasures component to be implemented
               </p>
@@ -349,11 +323,11 @@ const EducationPlan = () => {
           </Card>
         </div>
 
-        {/* Section VIII: Implementation */}
+        {/* Section VII: Implementation */}
         <div ref={implementationRef}>
           <Card>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">VIII. Implementation Plan</h2>
+              <h2 className="text-2xl font-bold mb-4">VII. Implementation Plan</h2>
               <p className="text-gray-600">
                 Component placeholder - ImplementationPlan component to be implemented
               </p>
@@ -372,11 +346,11 @@ const EducationPlan = () => {
           </Card>
         </div>
 
-        {/* Section IX: Conclusion */}
+        {/* Section VIII: Conclusion */}
         <div ref={conclusionRef}>
           <Card>
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">IX. Conclusion & Future Direction</h2>
+              <h2 className="text-2xl font-bold mb-4">VIII. Conclusion & Future Direction</h2>
               <p className="text-gray-600">
                 Component placeholder - ConclusionFutureDirection component to be implemented
               </p>

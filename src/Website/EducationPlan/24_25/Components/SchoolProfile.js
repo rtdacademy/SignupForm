@@ -1,12 +1,24 @@
 import React from 'react';
 import { Card } from "../../../../components/ui/card";
-import { Badge } from "../../../../components/ui/badge";
-import { Users, Calendar, Globe, BookOpen, Laptop } from 'lucide-react';
+import { Calendar, BookOpen, Laptop, DollarSign } from 'lucide-react';
 
 const SchoolProfile = () => {
   return (
     <section className="space-y-4">
       <h2 className="text-2xl font-semibold mb-4">School Profile</h2>
+      
+      {/* Introduction */}
+      <Card className="p-6">
+        <p className="text-lg leading-relaxed">
+          RTD Academy, founded in September 2022, is an innovative online school based in Alberta, specializing in high school Math and STEM courses. Our core mission is to provide high-quality, accessible education that empowers students to excel in these critical disciplines. With over three years of operational experience, we have evolved from a startup to serving over 1,400 unique students across Alberta.
+        </p>
+        <p className="mt-4 text-lg leading-relaxed">
+          One of our unique features is the asynchronous format of our courses. This allows students to maintain flexible schedules and timelines, accommodating their varied learning needs and lifestyles. We believe in empowering our students through autonomy, encouraging them to take control of their educational journeys.
+        </p>
+        <p className="mt-4 text-lg leading-relaxed">
+          At RTD Academy, our courses are much more than just online textbooks. They are interactive, designed to engage students actively and deepen their understanding of the subject matter. Our students are supported online by dedicated Alberta Math teachers, ensuring they have access to expert guidance whenever they need it.
+        </p>
+      </Card>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="p-6">
@@ -31,103 +43,78 @@ const SchoolProfile = () => {
               <p className="text-sm text-gray-600">Service Area</p>
               <p className="font-medium">Province-wide (Alberta)</p>
             </div>
+            <div>
+              <p className="text-sm text-gray-600">Years of Operation</p>
+              <p className="font-medium">3 years (2022-present)</p>
+            </div>
           </div>
         </Card>
         
         <Card className="p-6">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Student Demographics (2023-24)
+            <Laptop className="h-5 w-5" />
+            Unique Features
           </h3>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span>Total Unique Students</span>
-              <Badge variant="secondary">806</Badge>
-            </div>
-            <div className="flex justify-between items-center">
-              <span>Total Course Enrollments</span>
-              <Badge variant="secondary">1,294</Badge>
-            </div>
-            <div className="mt-3 space-y-1">
-              <div className="flex justify-between text-sm">
-                <span>Non-Primary Students</span>
-                <span>635 (78.8%)</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Summer School Students</span>
-                <span>197 (24.4%)</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Primary Students</span>
-                <span>62 (7.7%)</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Adult Students</span>
-                <span>63 (7.8%)</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Home Education Students</span>
-                <span>47 (5.8%)</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>First Nations Students</span>
-                <span>8</span>
-              </div>
-            </div>
-          </div>
+          <ul className="space-y-2 text-sm">
+            <li>• Year-round enrollment opportunities</li>
+            <li>• Flexible scheduling and pacing</li>
+            <li>• Interactive online course materials</li>
+            <li>• Expert Alberta-certified math teachers</li>
+            <li>• Custom learning management system</li>
+            <li>• Comprehensive solution-based learning</li>
+            <li>• Individualized student support</li>
+            <li>• Diploma exam preparation program</li>
+            <li>• Accessible from anywhere in Alberta</li>
+          </ul>
         </Card>
       </div>
       
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Laptop className="h-5 w-5" />
-          Educational Focus & Offerings
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-medium mb-2">Core Subject Areas</h4>
-            <ul className="space-y-1 text-sm">
-              <li>• High School Mathematics (10-3 through 31)</li>
-              <li>• Technology & Computer Programming</li>
-              <li>• STEM-focused curriculum</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-medium mb-2">Unique Features</h4>
-            <ul className="space-y-1 text-sm">
-              <li>• Year-round enrollment</li>
-              <li>• Flexible scheduling</li>
-              <li>• Interactive online courses</li>
-              <li>• Expert math teacher support</li>
-              <li>• Custom learning management system</li>
-            </ul>
+        <h3 className="text-lg font-semibold mb-4">Educational Focus & Offerings</h3>
+        <div className="space-y-4">
+          <p className="leading-relaxed">
+            RTD Academy offers comprehensive high school mathematics and STEM education, covering all levels from Math 10 through Math 31 (Calculus). Our curriculum is designed to meet Alberta Education standards while providing flexibility for diverse learning needs.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="font-medium mb-2">Mathematics Courses</h4>
+              <ul className="space-y-1 text-sm">
+                <li>• Mathematics 10C, 10-3</li>
+                <li>• Mathematics 20-1, 20-2, 20-3</li>
+                <li>• Mathematics 30-1, 30-2, 30-3</li>
+                <li>• Mathematics 31 (Calculus)</li>
+                <li>• Competencies in Math 15</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">STEM Courses</h4>
+              <ul className="space-y-1 text-sm">
+                <li>• Physics 20</li>
+                <li>• Computer Science & Programming</li>
+                <li>• Technology Integration</li>
+                <li>• Future STEM offerings in development</li>
+              </ul>
+            </div>
           </div>
         </div>
       </Card>
       
       <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Globe className="h-5 w-5" />
-          Organizational Structure
+          <DollarSign className="h-5 w-5" />
+          Funding Model & Accessibility
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-medium mb-2">Governance</h4>
-            <ul className="space-y-1 text-sm">
-              <li>• Board Chair: Nikki Allen</li>
-              <li>• Treasurer: Danielle Wilson</li>
-              <li>• Directors: Candace Perras, Sherry Haarstad, Toni-Lee Hazlett</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-medium mb-2">Funding Model</h4>
-            <ul className="space-y-1 text-sm">
-              <li>• Primary funding: Non-primary distance education grant</li>
-              <li>• Grant funding: 96.4% of revenue</li>
-              <li>• Tuition income: 3.6% of revenue</li>
-              <li>• Free courses for Alberta students</li>
-            </ul>
-          </div>
+        <div className="space-y-3">
+          <p className="leading-relaxed">
+            RTD Academy is primarily funded through the non-primary distance education grant, which enables us to offer our courses for free to students. This reflects our commitment to making quality STEM education accessible to all students, regardless of their socio-economic backgrounds.
+          </p>
+          <ul className="space-y-1 text-sm">
+            <li>• Primary funding: Non-primary distance education grant</li>
+            <li>• Secondary funding: Summer school grants</li>
+            <li>• Free courses for all Alberta students</li>
+            <li>• No financial barriers to STEM education access</li>
+            <li>• Funding enables small class sizes and personalized support</li>
+          </ul>
         </div>
       </Card>
       
@@ -137,9 +124,17 @@ const SchoolProfile = () => {
           <div>
             <h4 className="font-medium text-blue-900 mb-1">Three-Year Planning Context</h4>
             <p className="text-sm text-blue-800">
-              This education plan represents the third and final year of our current planning cycle (2023-2026), 
-              building on two years of operational experience and continuous improvement. Our evolution from startup 
-              to serving over 800 students demonstrates our commitment to accessible, high-quality online STEM education.
+              This education plan represents the third and final year of our current planning cycle, 
+              marking a transition period as we prepare for our next three-year cycle. Our substantial growth from 
+              startup to serving over 1,400 students demonstrates the increasing demand for flexible, high-quality 
+              online STEM education across Alberta. This plan builds upon three years of operational insights, 
+              stakeholder feedback, and continuous improvement to guide our strategic direction.
+            </p>
+            <p className="text-sm text-blue-800 mt-2">
+              As we move forward, we are continuously striving to improve our offerings and services, building on the 
+              feedback and insights gained from our stakeholders. Our Education Plan outlines our strategic priorities, 
+              measures, and initiatives to achieve our vision of being Alberta's premier online provider of mathematics 
+              and STEM education.
             </p>
           </div>
         </div>

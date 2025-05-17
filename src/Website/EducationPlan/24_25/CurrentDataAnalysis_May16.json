@@ -1,0 +1,317 @@
+{
+    "uniqueStudents": 1435,
+    "totalEnrollments": 2903,
+    "studentTypeCounts": {
+        "Home Education": 122,
+        "Non-Primary": 901,
+        "Summer School": 167,
+        "Adult Student": 241,
+        "International Student": 4
+    },
+    "courseCounts": [
+        [
+            "Mathematics 30-1",
+            335
+        ],
+        [
+            "Mathematics 30-2",
+            261
+        ],
+        [
+            "Mathematics 10C",
+            255
+        ],
+        [
+            "Mathematics 20-1",
+            203
+        ],
+        [
+            "Mathematics 20-2",
+            134
+        ],
+        [
+            "Mathematics 31",
+            113
+        ],
+        [
+            "Competencies in Math 15",
+            39
+        ],
+        [
+            "Mathematics 20-3",
+            38
+        ],
+        [
+            "Mathematics 10-3",
+            38
+        ],
+        [
+            "Physics 20",
+            35
+        ],
+        [
+            "Mathematics 30-3",
+            20
+        ]
+    ],
+    "statusCounts": {
+        "Completed": 1475,
+        "Registered": 176,
+        "Active": 1005,
+        "Withdrawn": 247
+    },
+    "pasiTermCounts": {
+        "Semester 2": 1583,
+        "Summer": 177,
+        "Continuous": 479,
+        "Full Year": 663,
+        "Semester 1": 1
+    },
+    "periodCounts": {
+        "Regular": 2903
+    },
+    "averageAge": 18.278383388210194,
+    "totalCreditsAttempted": 8709,
+    "completedCredits": 2783,
+    "topSchools": [
+        [
+            "Unknown",
+            1563
+        ],
+        [
+            "Chestermere High School",
+            89
+        ],
+        [
+            "Paul Kane High School",
+            75
+        ],
+        [
+            "Ernest Manning High School | Calgary Board of Education",
+            73
+        ],
+        [
+            "Queen Elizabeth School",
+            67
+        ],
+        [
+            "Harry Ainlay High School",
+            66
+        ],
+        [
+            "Lillian Osborne High School",
+            58
+        ],
+        [
+            "Gus Wetter School",
+            45
+        ],
+        [
+            "Hillside Jr/Sr High School",
+            42
+        ],
+        [
+            "WISDOM Home Schooling",
+            39
+        ]
+    ],
+    "gradeDistribution": {
+        "90-100": 1024,
+        "80-89": 203,
+        "70-79": 112,
+        "60-69": 60,
+        "50-59": 20,
+        "Below 50": 56
+    },
+    "averageGrade": 89.21966101694915,
+    "activeStatusCounts": {
+        "Archived": 1035,
+        "Active": 1733,
+        "Pending": 91,
+        "Not Set": 44
+    },
+    "diplomaMonthCounts": {
+        "August": 157,
+        "Already Wrote": 138,
+        "June": 531,
+        "NA": 414,
+        "April": 126,
+        "January": 151,
+        "November": 43
+    },
+    "registrationsByMonth": {
+        "2024-12": 95,
+        "2025-04": 164,
+        "2024-09": 175,
+        "2025-03": 150,
+        "2024-10": 97,
+        "2024-08": 74,
+        "2025-01": 267,
+        "2024-06": 72,
+        "2025-05": 53,
+        "2024-07": 52,
+        "2025-02": 249,
+        "2024-11": 84,
+        "2024-05": 17,
+        "2024-04": 11,
+        "2023-06": 2,
+        "2024-01": 6,
+        "2023-03": 2,
+        "2023-12": 3,
+        "2023-09": 2,
+        "2023-07": 1,
+        "2023-11": 1,
+        "2024-02": 5,
+        "2024-03": 4,
+        "2023-10": 1
+    },
+    "creditData": {
+        "totalStudentsWithCredits": 2903,
+        "averageCreditsPerStudent": 6.068989547038328,
+        "averageCreditsPerStudentWithCredits": 6.068989547038328
+    },
+    "uniqueStudentsByStatus": {
+        "Completed": 857,
+        "Registered": 170,
+        "Active": 766,
+        "Withdrawn": 242
+    },
+    "studentTypeByStatus": {
+        "Completed": {
+            "Home Education": 82,
+            "Non-Primary": 660,
+            "Adult Student": 64,
+            "Summer School": 50,
+            "International Student": 1
+        },
+        "Registered": {
+            "Summer School": 163,
+            "Non-Primary": 5,
+            "Adult Student": 2
+        },
+        "Active": {
+            "Non-Primary": 532,
+            "Adult Student": 144,
+            "Summer School": 15,
+            "Home Education": 73,
+            "International Student": 2
+        },
+        "Withdrawn": {
+            "Non-Primary": 172,
+            "Adult Student": 53,
+            "Home Education": 16,
+            "International Student": 1
+        }
+    },
+    "registrationTrends": [
+        {
+            "date": "2024-06",
+            "month": "Jun 24",
+            "count": 72,
+            "isProjection": false
+        },
+        {
+            "date": "2024-07",
+            "month": "Jul 24",
+            "count": 52,
+            "isProjection": false
+        },
+        {
+            "date": "2024-08",
+            "month": "Aug 24",
+            "count": 74,
+            "isProjection": false
+        },
+        {
+            "date": "2024-09",
+            "month": "Sep 24",
+            "count": 175,
+            "isProjection": false
+        },
+        {
+            "date": "2024-10",
+            "month": "Oct 24",
+            "count": 97,
+            "isProjection": false
+        },
+        {
+            "date": "2024-11",
+            "month": "Nov 24",
+            "count": 84,
+            "isProjection": false
+        },
+        {
+            "date": "2024-12",
+            "month": "Dec 24",
+            "count": 95,
+            "isProjection": false
+        },
+        {
+            "date": "2025-01",
+            "month": "Jan 25",
+            "count": 267,
+            "isProjection": false
+        },
+        {
+            "date": "2025-02",
+            "month": "Feb 25",
+            "count": 249,
+            "isProjection": false
+        },
+        {
+            "date": "2025-03",
+            "month": "Mar 25",
+            "count": 150,
+            "isProjection": false
+        },
+        {
+            "date": "2025-04",
+            "month": "Apr 25",
+            "count": 164,
+            "isProjection": false
+        },
+        {
+            "date": "2025-05",
+            "month": "May 25 (projected)",
+            "count": 106,
+            "isProjection": true
+        }
+    ],
+    "creditsByType": [
+        {
+            "type": "Home Education",
+            "totalCredits": 751,
+            "completedCredits": 294,
+            "uniqueStudents": 124,
+            "averageCreditsPerStudent": 6.056451612903226
+        },
+        {
+            "type": "Summer School",
+            "totalCredits": 937,
+            "completedCredits": 89,
+            "uniqueStudents": 179,
+            "averageCreditsPerStudent": 5.23463687150838
+        },
+        {
+            "type": "Non-Primary",
+            "totalCredits": 5664,
+            "completedCredits": 2091,
+            "uniqueStudents": 924,
+            "averageCreditsPerStudent": 6.12987012987013
+        },
+        {
+            "type": "Adult Student",
+            "totalCredits": 1340,
+            "completedCredits": 303,
+            "uniqueStudents": 246,
+            "averageCreditsPerStudent": 5.4471544715447155
+        },
+        {
+            "type": "International Student",
+            "totalCredits": 17,
+            "completedCredits": 6,
+            "uniqueStudents": 4,
+            "averageCreditsPerStudent": 4.25
+        }
+    ]
+}
