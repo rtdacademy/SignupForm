@@ -3,13 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../../../context/AuthContext';
 import { Button } from '../../../../components/ui/button';
+import { Infinity } from 'lucide-react';
 
 /**
  * A Multiple Choice Question component powered by AI that interacts with Firebase Cloud Functions.
  * The question content is dynamically generated using Google's Gemini AI.
  * 
  * This component handles:
- * - AI-generated questions based on topic and difficulty
+ * - AI-generated questions based on topic and difficulty from course.Assessments
  * - Submission of answers and feedback
  * - Tracking of attempts
  * - Displaying explanation of correct answers
@@ -19,16 +20,14 @@ const AIMultipleChoiceQuestion = ({
   courseId,                // Course identifier
   assessmentId,            // Unique identifier for this assessment
   cloudFunctionName,       // Name of the cloud function to call
-  course,                  // Course object 
+  course,                  // Course object containing assessment data
 
-  // Optional props
-  topic = 'elearning_benefits_challenges', // Topic for the AI to generate a question about
-  difficulty = 'intermediate', // Difficulty level: beginner, intermediate, advanced
+  // Styling props only - all other configuration comes from course.Assessments
   theme = 'purple',        // Color theme: 'blue', 'green', 'purple', etc.
-  maxAttempts = 3,         // Maximum number of attempts allowed
-  title = 'AI-Generated Question', // Question title/header
   questionClassName = '',  // Additional class name for question container
   optionsClassName = '',   // Additional class name for options container
+  
+  // Callback functions
   onCorrectAnswer = () => {}, // Callback when answer is correct
   onAttempt = () => {},    // Callback on each attempt
   onComplete = () => {},   // Callback when all attempts are used
@@ -58,6 +57,8 @@ const AIMultipleChoiceQuestion = ({
   const [expectingNewQuestion, setExpectingNewQuestion] = useState(false);
   // Track the last question ID to detect when a new question arrives
   const [lastQuestionTimestamp, setLastQuestionTimestamp] = useState(null);
+  // Add a safety timeout ref to exit loading state if stuck
+  const safetyTimeoutRef = useRef(null);
 
   // Add cleanup effect
   useEffect(() => {
@@ -66,8 +67,72 @@ const AIMultipleChoiceQuestion = ({
       if (regenerationTimeoutRef.current) {
         clearTimeout(regenerationTimeoutRef.current);
       }
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+      }
     };
   }, []);
+  
+  // Effect to handle safety timeouts for loading state
+  useEffect(() => {
+    // Define loadAssessment function here to avoid dependency issues
+    const attemptReload = async () => {
+      try {
+        console.log("Attempting to reload assessment after safety timeout");
+        setLoading(true);
+        
+        if (course && course.Assessments && course.Assessments[assessmentId]) {
+          const data = course.Assessments[assessmentId];
+          console.log("Reloaded data after timeout:", data);
+          setQuestion(data);
+          setLastQuestionTimestamp(data.timestamp || 0);
+          
+          if (data.lastSubmission) {
+            setResult(data.lastSubmission);
+            setSelectedAnswer(data.lastSubmission.answer || '');
+          } else {
+            setResult(null);
+            setSelectedAnswer('');
+          }
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        console.error("Error in safety reload:", err);
+        setLoading(false);
+      }
+    };
+    
+    // If we're regenerating and expecting a new question, set a safety timeout
+    if (regenerating && expectingNewQuestion) {
+      // Clear any existing safety timeout
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+      }
+      
+      // Set a new safety timeout (30 seconds)
+      safetyTimeoutRef.current = setTimeout(() => {
+        console.log("🚨 Safety timeout triggered after 30 seconds - force exiting loading state");
+        setRegenerating(false);
+        setExpectingNewQuestion(false);
+        // Try to reload with current data
+        attemptReload();
+      }, 30000);
+    } else if (!regenerating || !expectingNewQuestion) {
+      // Clear the safety timeout if we're no longer in regeneration state
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = null;
+      }
+    }
+    
+    return () => {
+      // Clean up the safety timeout if the effect re-runs
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current);
+      }
+    };
+  }, [regenerating, expectingNewQuestion, course, assessmentId]);
   
   useEffect(() => {
     if (!currentUser || !currentUser.email) {
@@ -86,8 +151,9 @@ const AIMultipleChoiceQuestion = ({
           const data = course.Assessments[assessmentId];
           console.log("AI question data received from course:", data);
           
-          // Check if maxAttempts has been reached
-          const attemptsExhausted = data.attempts >= (data.maxAttempts || maxAttempts);
+          // Check if maxAttempts has been reached - use value from data rather than default
+          const maxAttemptsFromData = data.maxAttempts; // No fallback needed, we want to use what's in the data
+          const attemptsExhausted = data.attempts >= maxAttemptsFromData;
           const maxAttemptsReached = data.status === 'maxAttemptsReached' || attemptsExhausted;
           
           // Enhance the data with our UI flags
@@ -99,7 +165,7 @@ const AIMultipleChoiceQuestion = ({
           
           // If we're expecting a new question during regeneration
           if (expectingNewQuestion) {
-            // Check if this is truly a new question (by timestamp AND question text)
+            // Check if this is a new question using more relaxed criteria
             const newTimestamp = data.timestamp || 0;
             const oldTimestamp = lastQuestionTimestamp || 0;
             const newQuestionText = data.questionText || '';
@@ -109,14 +175,30 @@ const AIMultipleChoiceQuestion = ({
             console.log(`Timestamp comparison - New: ${newTimestamp}, Old: ${oldTimestamp}`);
             console.log(`Text comparison - New question starts with: "${newQuestionText.substring(0, 20)}...", Old question starts with: "${oldQuestionText.substring(0, 20)}..."`);
             
-            // Only consider it a new question if BOTH the timestamp is newer AND the question text has changed
-            // This prevents intermediate updates from being treated as new questions
+            // Check various conditions that might indicate a new question
             const isNewTimestamp = newTimestamp > oldTimestamp;
             const isNewQuestionText = newQuestionText !== oldQuestionText && newQuestionText.length > 0;
             
-            if (isNewTimestamp && isNewQuestionText) {
-              // This is truly a new question, update the UI
-              console.log("✅ New question detected with new timestamp and different text");
+            // Also check if options have changed, which is a strong indicator of a new question
+            const hasNewOptions = data.options && question?.options && 
+              JSON.stringify(data.options) !== JSON.stringify(question.options);
+            
+            // Add a timeout to prevent infinite loading
+            const regenerationTimeoutExpired = Date.now() - lastGeneratedTimeRef.current > 10000; // 10 seconds
+            
+            // Accept if EITHER timestamp is newer OR question text has changed OR options have changed
+            // OR if we've been waiting too long (safety timeout)
+            if (isNewTimestamp || isNewQuestionText || hasNewOptions || regenerationTimeoutExpired) {
+              // This is a new question, update the UI
+              console.log(`✅ New question detected! Criteria matched: ${
+                [
+                  isNewTimestamp ? 'new timestamp' : '',
+                  isNewQuestionText ? 'different text' : '',
+                  hasNewOptions ? 'different options' : '',
+                  regenerationTimeoutExpired ? 'timeout expired' : ''
+                ].filter(Boolean).join(', ')
+              }`);
+              
               setQuestion(enhancedData);
               setLastQuestionTimestamp(newTimestamp);
               setExpectingNewQuestion(false);
@@ -132,13 +214,18 @@ const AIMultipleChoiceQuestion = ({
                 setSelectedAnswer('');
               }
             } else {
-              // Not a completely new question - might be a partial update
-              // So we don't update the UI, but we do take note of new timestamp if it exists
-              if (isNewTimestamp) {
-                console.log("⚠️ New timestamp but same question text. Likely an intermediate update, not treating as new question.");
-                setLastQuestionTimestamp(newTimestamp); // Still update timestamp for future comparisons
-              } else {
-                console.log("⚠️ Received same question or older question, ignoring update");
+              // Log that we're still waiting for a truly new question
+              console.log("⚠️ Received update but doesn't match new question criteria yet, waiting for complete update");
+              setLastQuestionTimestamp(newTimestamp); // Still update timestamp for future comparisons
+              
+              // Safety measure: If we've been waiting for more than 15 seconds, force-accept this as a new question
+              if (Date.now() - lastGeneratedTimeRef.current > 15000) {
+                console.log("⚠️ Safety timeout triggered - accepting update as new question despite not meeting criteria");
+                setQuestion(enhancedData);
+                setExpectingNewQuestion(false);
+                setRegenerating(false);
+                setResult(null);
+                setSelectedAnswer('');
               }
             }
           } else {
@@ -231,14 +318,19 @@ const AIMultipleChoiceQuestion = ({
     try {
       const assessmentFunction = httpsCallable(functions, cloudFunctionName);
 
+      // Extract topic and difficulty from assessment data if available
+      const assessmentData = course?.Assessments?.[assessmentId] || {};
+      const topicFromData = assessmentData.topic || 'elearning_benefits_challenges';
+      const difficultyFromData = assessmentData.difficulty || 'intermediate';
+      
       const functionParams = {
         courseId: courseId,
         assessmentId: assessmentId,
         operation: 'generate',
         studentEmail: currentUser.email,
         userId: currentUser.uid,
-        topic: topic,
-        difficulty: difficulty
+        topic: topicFromData,
+        difficulty: difficultyFromData
       };
 
       console.log(`Calling cloud function ${cloudFunctionName} to generate AI question`, functionParams);
@@ -297,6 +389,11 @@ const AIMultipleChoiceQuestion = ({
     try {
       const assessmentFunction = httpsCallable(functions, cloudFunctionName);
 
+      // Extract topic and difficulty from assessment data if available
+      const assessmentData = course?.Assessments?.[assessmentId] || {};
+      const topicFromData = assessmentData.topic || 'elearning_benefits_challenges';
+      const difficultyFromData = assessmentData.difficulty || 'intermediate';
+      
       const functionParams = {
         courseId: courseId,
         assessmentId: assessmentId,
@@ -304,8 +401,8 @@ const AIMultipleChoiceQuestion = ({
         answer: selectedAnswer,
         studentEmail: currentUser.email,
         userId: currentUser.uid,
-        topic: topic,
-        difficulty: difficulty
+        topic: topicFromData,
+        difficulty: difficultyFromData
       };
 
       console.log(`Calling cloud function ${cloudFunctionName} to evaluate AI question answer`, functionParams);
@@ -361,27 +458,38 @@ const AIMultipleChoiceQuestion = ({
     
     // Check if we've exceeded or reached max attempts allowed
     // Note: This only applies to the regenerate button; the server will enforce this too
-    if (question && question.attempts >= (question.maxAttempts || maxAttempts)) {
-      console.log(`Cannot regenerate - max attempts reached (${question.attempts}/${question.maxAttempts || maxAttempts})`);
-      setError(`You have reached the maximum number of attempts (${question.maxAttempts || maxAttempts}).`);
+    if (question && question.attempts >= question.maxAttempts) {
+      console.log(`Cannot regenerate - max attempts reached (${question.attempts}/${question.maxAttempts})`);
+      setError(`You have reached the maximum number of attempts (${question.maxAttempts}).`);
       return;
     }
     
-    // Delay UI updates until after operations to prevent flickering
-    setTimeout(() => {
-      setSelectedAnswer('');
-      setResult(null);
-      setRegenerating(true);
-      // Mark that we're expecting a new question to arrive via course prop update
-      setExpectingNewQuestion(true);
-    }, 0);
+    // Record the regeneration start time for timeout handling
+    lastGeneratedTimeRef.current = Date.now();
+    
+    // Update UI state immediately
+    setSelectedAnswer('');
+    setResult(null);
+    setRegenerating(true);
+    setError(null); // Clear any previous errors
+    
+    // Mark that we're expecting a new question to arrive via course prop update
+    setExpectingNewQuestion(true);
 
     // Call the cloud function directly, which will handle incrementing the attempts
     // and update the database, which will trigger a course prop update from parent
     try {
       console.log("Requesting question regeneration while preserving attempt count");
-      generateQuestion();
+      generateQuestion().catch(error => {
+        // Handle async errors
+        console.error("Error during question regeneration:", error);
+        setExpectingNewQuestion(false);
+        setRegenerating(false);
+        isGeneratingRef.current = false;
+        setError("Failed to regenerate question: " + (error.message || error));
+      });
     } catch (error) {
+      // Handle immediate errors
       console.error("Error during regeneration:", error);
       setExpectingNewQuestion(false);
       setRegenerating(false);
@@ -430,7 +538,9 @@ const AIMultipleChoiceQuestion = ({
       <div className="px-4 py-3 border-b"
            style={{ backgroundColor: themeColors.bgDark, borderColor: themeColors.border }}>
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg font-medium" style={{ color: themeColors.textDark }}>{title}</h3>
+          <h3 className="text-lg font-medium" style={{ color: themeColors.textDark }}>
+            {course?.Assessments?.[assessmentId]?.title || 'AI-Generated Question'}
+          </h3>
           {question?.generatedBy === 'ai' && (
             <span className="text-xs py-1 px-2 rounded bg-purple-100 text-purple-800 font-medium">
               AI-powered
@@ -447,8 +557,12 @@ const AIMultipleChoiceQuestion = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
               Attempts: <span className="font-medium ml-1">{question.attempts || 0}</span> 
-              {question.maxAttempts && question.maxAttempts < 9999 && 
-                <span> / {question.maxAttempts}</span>}
+              <span className="mx-1">/</span>
+              {question.maxAttempts && question.maxAttempts > 1000 ? (
+                <Infinity className="h-3.5 w-3.5 inline-block text-gray-600" />
+              ) : (
+                <span className="font-medium">{question.maxAttempts}</span>
+              )}
             </span>
           </div>
         )}
@@ -588,14 +702,18 @@ const AIMultipleChoiceQuestion = ({
                   <p className="mb-3 text-sm">{result.feedback}</p>
 
                   {/* Additional guidance based on result */}
-                  {!result.isCorrect && question.attempts < (question.maxAttempts || maxAttempts) && (
+                  {!result.isCorrect && question.attempts < question.maxAttempts && (
                     <div className="text-sm mb-2 border-t border-b py-2 mt-2">
-                      <p className="font-medium">
-                        {(question.maxAttempts || maxAttempts) >= 9999 ? 
-                          `Attempt ${question.attempts}` : 
-                          `Attempt ${question.attempts} of ${question.maxAttempts || maxAttempts}`}
-                        {((question.maxAttempts || maxAttempts) - question.attempts) > 0 && (question.maxAttempts || maxAttempts) < 9999 && 
-                          ` (${(question.maxAttempts || maxAttempts) - question.attempts} remaining)`
+                      <p className="font-medium flex items-center">
+                        {question.maxAttempts > 1000 ? 
+                          <>Attempt {question.attempts}</> : 
+                          <>Attempt {question.attempts} of {question.maxAttempts}</>
+                        }
+                        {(question.maxAttempts - question.attempts) > 0 && question.maxAttempts <= 1000 && 
+                          <> ({question.maxAttempts - question.attempts} remaining)</>
+                        }
+                        {question.maxAttempts > 1000 && 
+                          <> (unlimited <Infinity className="h-3.5 w-3.5 inline-block ml-0.5" />)</>
                         }
                       </p>
                       <p>Review your answer and try again.</p>
@@ -605,7 +723,7 @@ const AIMultipleChoiceQuestion = ({
                   {/* For generating a new AI question */}
                   <div className="mt-4">
                     {result && !question.maxAttemptsReached && !question.attemptsExhausted && 
-                     question.attempts < (question.maxAttempts || maxAttempts) && (
+                     question.attempts < question.maxAttempts && (
                       <Button
                         onClick={handleRegenerate}
                         style={{
@@ -623,13 +741,14 @@ const AIMultipleChoiceQuestion = ({
                     
                     {/* Display message when max attempts reached */}
                     {(question.maxAttemptsReached || question.attemptsExhausted || 
-                      question.attempts >= (question.maxAttempts || maxAttempts)) && (
+                      question.attempts >= question.maxAttempts) && (
                       <div className="text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-md text-sm">
                         <p className="font-medium mb-1">Maximum attempts reached</p>
-                        <p>
-                          {(question.maxAttempts || maxAttempts) >= 9999 ?
-                            `You have made ${question.attempts} attempts for this question and cannot make more.` :
-                            `You have used all ${question.attempts} of your ${question.maxAttempts || maxAttempts} available attempts for this question.`
+                        <p className="flex items-center">
+                          {question.maxAttempts > 1000 ?
+                            <>You have made {question.attempts} attempts for this question and cannot make more.</>
+                           :
+                            <>You have used all {question.attempts} of your {question.maxAttempts} available attempts for this question.</>
                           }
                         </p>
                       </div>
