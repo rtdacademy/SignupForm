@@ -296,7 +296,8 @@ const sendChatMessage = onCall({
       systemInstruction = null,
       streaming = false,
       mediaItems = [],  // Media items including images, documents, and YouTube URLs
-      sessionId = null  // Session ID for persistent chat
+      sessionId = null,  // Session ID for persistent chat
+      context = null  // Context object for Genkit API
     } = data;
 
     // Validate input
@@ -321,6 +322,16 @@ const sendChatMessage = onCall({
     const safeMediaItems = Array.isArray(mediaItems) ? mediaItems : [];
     const prompt = await processMultimodalContent(message, safeMediaItems);
     console.log("Processed prompt:", safeStringify(prompt));
+    
+    // Log context if provided
+    if (context) {
+      console.log("Context provided:", safeStringify(context));
+    }
+    
+    // Simply log if context is provided
+    if (context) {
+      console.log("Using context as provided in Genkit documentation");
+    }
 
     let chat;
     let currentSessionId = sessionId;
@@ -343,7 +354,8 @@ const sendChatMessage = onCall({
         system: effectiveSystemInstruction,
         config: {
           temperature: 0.7 // Balanced temperature for natural responses
-        }
+        },
+        context: context // Pass the context to the chat
       });
       
       console.log("Chat initialized with system instruction");
@@ -409,7 +421,8 @@ const sendChatMessage = onCall({
           system: effectiveSystemInstruction,
           config: {
             temperature: 0.7 // Balanced temperature for natural responses
-          }
+          },
+          context: context // Pass the context to the chat in recovery path
         });
         
         currentSessionId = Date.now().toString();

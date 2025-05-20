@@ -26,6 +26,24 @@ const GoogleAIChatPage = () => {
     "gs://rtd-academy.appspot.com/files/-OJJIPFxZBlVilWdgQGg/Proof of Enrollment.pdf": "Course Enrollment Document"
   };
   
+  // Example context object according to Genkit documentation
+  // This would typically come from authentication or user state in production
+  const context = {
+    auth: {
+      uid: "test-student-123",
+      token: {
+        email: "teststudent@example.com",
+        name: "Test Student"
+      }
+    },
+    // Additional context information about the student
+    userInfo: {
+      studentName: "John Doe",
+      gradeLevel: "Grade 10",
+      currentCourse: "Mathematics 10-1"
+    }
+  };
+  
   return (
     <div className="h-screen flex flex-col">
       <div className="flex-1 min-h-0">
@@ -34,12 +52,13 @@ const GoogleAIChatPage = () => {
           firstMessage={firstMessage}
           showYouTube={showYouTube}
           showUpload={showUpload}
-          YouTubeURL={YouTubeURL}
-          YouTubeDisplayName={YouTubeDisplayName}
-          predefinedFiles={predefinedFiles}
-          predefinedFilesDisplayNames={predefinedFilesDisplayNames}
+          //YouTubeURL={YouTubeURL}
+          //YouTubeDisplayName={YouTubeDisplayName}
+          //predefinedFiles={predefinedFiles}
+          //predefinedFilesDisplayNames={predefinedFilesDisplayNames}
           allowContentRemoval={allowContentRemoval}
           showResourcesAtTop={showResourcesAtTop}
+          context={context}
         />
       </div>
     </div>

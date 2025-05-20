@@ -1,15 +1,47 @@
 /**
  * Cloud functions for the Benefits and Challenges of E-Learning lesson
  * This file contains assessment functions using AI-generated questions
+ * Updated to use Genkit with structured outputs for better type safety
  */
 
 const { onCall } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('../../../utils.js');
-const { GoogleGenAI } = require('@google/genai');
+const { genkit } = require('genkit/beta');
+const { googleAI } = require('@genkit-ai/googleai');
+const { z } = require('zod');
 
 // Environment variables
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// Initialize Genkit with Google AI plugin
+const ai = genkit({
+  plugins: [googleAI()],
+  model: googleAI.model('gemini-2.0-flash'), // Use the latest Flash model
+});
+
+//==============================================================================
+// Zod Schemas for Structured Outputs
+//==============================================================================
+
+// Define the schema for an individual answer option
+const AnswerOptionSchema = z.object({
+  id: z.enum(['a', 'b', 'c', 'd']).describe('Unique identifier for this option'),
+  text: z.string().describe('The text of this answer option'),
+  feedback: z.string().describe('Feedback to show if this option is selected'),
+});
+
+// Define the schema for the complete AI-generated question
+const AIQuestionSchema = z.object({
+  questionText: z.string().describe('The text of the multiple-choice question'),
+  options: z.array(AnswerOptionSchema)
+    .length(4)
+    .describe('Exactly four answer options for the question'),
+  correctOptionId: z.enum(['a', 'b', 'c', 'd'])
+    .describe('The ID of the correct answer option'),
+  explanation: z.string()
+    .describe('A detailed explanation of why the correct answer is right and the others are wrong'),
+});
 
 //==============================================================================
 // Shared Utilities
@@ -169,46 +201,8 @@ async function initializeCourseIfNeeded(studentKey, courseId) {
 }
 
 //==============================================================================
-// AI-Powered Multiple Choice Question Functions
+// AI-Powered Multiple Choice Question Functions using Genkit
 //==============================================================================
-
-/**
- * Schema for AI question generation
- * This defines the structure we want the AI to follow
- */
-const questionSchema = {
-  type: "object",
-  properties: {
-    questionText: {
-      type: "string",
-      description: "The text of the multiple-choice question"
-    },
-    options: {
-      type: "array",
-      description: "Four answer options for the question",
-      items: {
-        type: "object",
-        properties: {
-          id: { type: "string", description: "Unique identifier for this option (a, b, c, or d)" },
-          text: { type: "string", description: "The text of this answer option" },
-          feedback: { type: "string", description: "Feedback to show if this option is selected" }
-        },
-        required: ["id", "text", "feedback"]
-      },
-      minItems: 4,
-      maxItems: 4
-    },
-    correctOptionId: {
-      type: "string",
-      description: "The ID of the correct answer option (a, b, c, or d)"
-    },
-    explanation: {
-      type: "string",
-      description: "A detailed explanation of why the correct answer is right and the others are wrong"
-    }
-  },
-  required: ["questionText", "options", "correctOptionId", "explanation"]
-};
 
 /**
  * Prompt templates for question generation based on topic and difficulty
@@ -317,7 +311,7 @@ function getPredefinedQuestion(difficulty = 'intermediate') {
 }
 
 /**
- * Uses Google's Gemini API to generate a custom multiple choice question
+ * Uses Genkit with structured outputs to generate a custom multiple choice question
  * @param {string} topic - The question topic
  * @param {string} difficulty - The difficulty level (beginner, intermediate, advanced)
  * @returns {Promise<Object>} Generated question with options and solution
@@ -334,9 +328,6 @@ async function generateAIQuestion(topic, difficulty = 'intermediate') {
     const topicTemplates = PROMPT_TEMPLATES[topic] || PROMPT_TEMPLATES.elearning_benefits_challenges;
     const promptTemplate = topicTemplates[difficulty] || topicTemplates.intermediate;
     
-    // Initialize the Google AI client exactly as in googleai.js
-    const genAI = new GoogleGenAI({apiKey: GEMINI_API_KEY});
-    
     // Create prompt content with clearer instructions
     const promptText = `${promptTemplate}
 
@@ -345,166 +336,52 @@ async function generateAIQuestion(topic, difficulty = 'intermediate') {
     2. Make sure the question has ONE clear correct answer
     3. Ensure all incorrect options (distractors) are plausible but clearly wrong
     4. Include specific feedback for each answer option explaining why it's correct or incorrect
-    5. Format your response as a JSON object matching the schema below
-    6. Do not include any text outside the JSON structure
-    7. IMPORTANT: Your response must be valid JSON format with exactly 4 options, each with id, text, and feedback fields
-    8. IMPORTANT: The options array must contain objects with ids "a", "b", "c", and "d" only
+    5. Use exactly 4 options with IDs: a, b, c, and d
     
-    Schema:
-    {
-      "questionText": "Your question text here",
-      "options": [
-        {
-          "id": "a",
-          "text": "First option text",
-          "feedback": "Feedback for selecting this option"
-        },
-        {
-          "id": "b",
-          "text": "Second option text",
-          "feedback": "Feedback for selecting this option"
-        },
-        {
-          "id": "c",
-          "text": "Third option text",
-          "feedback": "Feedback for selecting this option" 
-        },
-        {
-          "id": "d",
-          "text": "Fourth option text",
-          "feedback": "Feedback for selecting this option"
-        }
-      ],
-      "correctOptionId": "one of: a, b, c, or d",
-      "explanation": "Detailed explanation of the answer"
-    }`;
+    Generate a multiple-choice question about e-learning following the requirements above.`;
     
-    // Send the prompt to the API using the same format as googleai.js
-    console.log("Sending prompt to Gemini API:", promptTemplate.substring(0, 100) + "...");
+    console.log("Generating AI question with structured output using Genkit");
     
     try {
-      // Generate content using the same API calls as in googleai.js
-      const response = await genAI.models.generateContent({
-        model: "gemini-2.0-flash-001",
-        contents: promptText,
-        generationConfig: {
-          temperature: 0.2,
+      // Use Genkit's structured output with our Zod schema
+      const { output } = await ai.generate({
+        model: googleAI.model('gemini-2.0-flash'),
+        prompt: promptText,
+        output: { 
+          schema: AIQuestionSchema
+        },
+        config: {
+          temperature: 0.7,  // Balanced temperature for creative but consistent responses
           topP: 0.8,
           topK: 40
         }
       });
       
-      // Extract the response text
-      const responseText = response.text;
-      console.log("Raw response from Gemini:", responseText.substring(0, 200) + "...");
-      
-      // Extract the JSON from the response
-      // Handle various ways the model might format the response
-      let jsonStr;
-      // Check for code blocks with json language marker
-      const jsonBlockMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
-      if (jsonBlockMatch) {
-        jsonStr = jsonBlockMatch[1];
-      } else {
-        // Check for generic code blocks
-        const codeBlockMatch = responseText.match(/```\n([\s\S]*?)\n```/);
-        if (codeBlockMatch) {
-          jsonStr = codeBlockMatch[1];
-        } else {
-          // Check for JSON object with curly braces
-          const jsonObjectMatch = responseText.match(/(\{[\s\S]*\})/);
-          if (jsonObjectMatch) {
-            jsonStr = jsonObjectMatch[1];
-          } else {
-            // Just use the entire response as a fallback
-            jsonStr = responseText;
-          }
-        }
+      if (output == null) {
+        console.error("Genkit returned null output for AI question generation");
+        throw new Error("Response doesn't satisfy schema.");
       }
       
-      console.log("Extracted JSON string:", jsonStr.substring(0, 200) + "...");
+      console.log("Successfully generated AI question with structured output:", 
+        output.questionText.substring(0, 50) + "...");
       
-      try {
-        const questionData = JSON.parse(jsonStr);
-        
-        // Log the parsed question data structure
-        console.log("Parsed question data:", JSON.stringify(questionData, null, 2).substring(0, 300) + "...");
+      return {
+        ...output,
+        generatedBy: 'ai'
+      };
       
-        // Validate the required fields are present
-        if (!questionData.questionText || !questionData.options || 
-            !questionData.correctOptionId || !questionData.explanation) {
-          console.error("Generated question is missing required fields:", {
-            hasQuestionText: !!questionData.questionText,
-            hasOptions: !!questionData.options,
-            hasCorrectOptionId: !!questionData.correctOptionId,
-            hasExplanation: !!questionData.explanation
-          });
-          throw new Error("Generated question is missing required fields");
-        }
-        
-        // Ensure exactly 4 options
-        if (!Array.isArray(questionData.options) || questionData.options.length !== 4) {
-          console.error("Options validation failed:", {
-            isArray: Array.isArray(questionData.options),
-            optionsCount: questionData.options ? questionData.options.length : 0
-          });
-          throw new Error("Generated question must have exactly 4 options");
-        }
-        
-        // Ensure all options have id, text and feedback
-        let optionsValid = true;
-        let invalidOptionIndex = -1;
-        
-        questionData.options.forEach((option, index) => {
-          if (!option.id || !option.text || !option.feedback) {
-            optionsValid = false;
-            invalidOptionIndex = index;
-            console.error(`Option at index ${index} is invalid:`, {
-              hasId: !!option.id,
-              hasText: !!option.text,
-              hasFeedback: !!option.feedback,
-              option: option
-            });
-          }
-        });
-        
-        if (!optionsValid) {
-          throw new Error(`Option at index ${invalidOptionIndex} is missing required properties`);
-        }
-        
-        // Ensure the correctOptionId matches one of the option ids
-        const optionIds = questionData.options.map(opt => opt.id);
-        if (!questionData.options.some(opt => opt.id === questionData.correctOptionId)) {
-          console.error("correctOptionId validation failed:", {
-            correctOptionId: questionData.correctOptionId,
-            availableOptionIds: optionIds
-          });
-          throw new Error("correctOptionId must match the id of one of the options");
-        }
-        
-        console.log("Successfully parsed AI-generated question:", questionData.questionText.substring(0, 50) + "...");
-        
-        return {
-          ...questionData,
-          generatedBy: 'ai'
-        };
-      } catch (parseError) {
-        console.error("Failed to parse JSON from Gemini response:", parseError);
-        console.error("JSON string that failed to parse:", jsonStr);
-        throw new Error(`Failed to parse Gemini response: ${parseError.message}`);
-      }
-    } catch (error) {
-      console.error("Error with Gemini API:", error.message);
+    } catch (err) {
+      console.error("Error with Genkit AI generation:", err.message);
       
       // Check if it's a permission or authentication error
-      if (error.message && error.message.includes("permission") || 
-          error.message.includes("auth") || 
-          error.message.includes("scope")) {
+      if (err.message && (err.message.includes("permission") || 
+          err.message.includes("auth") || 
+          err.message.includes("scope"))) {
         console.warn("This appears to be an API permission or authentication error.");
       }
       
       // Fall back to a predefined question
-      console.log("Falling back to predefined question due to API error");
+      console.log("Falling back to predefined question due to AI generation error");
       return getPredefinedQuestion(difficulty);
     }
   } catch (error) {
@@ -611,7 +488,7 @@ exports.handleAIQuestion = onCall({
         throw new Error(`Maximum attempts (${maxAttempts}) reached for this assessment. No more regenerations allowed.`);
       }
       
-      // STEP 4: Generate the AI question
+      // STEP 4: Generate the AI question using Genkit
       console.log(`Generating AI question on topic: ${params.topic}, difficulty: ${params.difficulty}`);
       const question = await generateAIQuestion(params.topic, params.difficulty);
       

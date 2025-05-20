@@ -985,7 +985,8 @@ const GoogleAIChatApp = ({
   predefinedFiles = [],
   predefinedFilesDisplayNames = {}, // Map of file URLs to display names
   allowContentRemoval = true,
-  showResourcesAtTop = true // Whether to show predefined resources at the top
+  showResourcesAtTop = true, // Whether to show predefined resources at the top
+  context = null // Context object for Genkit API
 }) => {
   // Load saved session ID from localStorage if available
   const getSavedSessionId = () => {
@@ -1587,8 +1588,15 @@ const handleSendMessage = async () => {
         type: item.type,
         name: item.name,
         mimeType: item.mimeType
-      }))
+      })),
+      hasContext: context !== null // Log if context is being provided
     });
+    
+    // If context exists, log it
+    if (context) {
+      console.log("Passing context to AI via Genkit context object:", context);
+      console.log("Note: This uses the Genkit context mechanism, not system message embedding");
+    }
     
     const result = await sendChatMessage({
       message: messageToSend, // The actual text message to send
@@ -1614,7 +1622,8 @@ const handleSendMessage = async () => {
           mimeType: item.mimeType
         };
       }),
-      sessionId: sessionId // Pass the session ID if we have one
+      sessionId: sessionId, // Pass the session ID if we have one
+      context: context // Pass the context object for Genkit API
     });
     
     // Now that we have a response, stop the processing animations
