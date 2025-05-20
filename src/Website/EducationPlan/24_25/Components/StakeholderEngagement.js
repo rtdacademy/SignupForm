@@ -122,7 +122,7 @@ const StakeholderEngagement = () => {
           <div className="bg-gray-50 p-4 rounded">
             <h4 className="font-medium mb-2">Analysis & Implementation</h4>
             <ul className="text-sm space-y-1">
-              <li>• Monthly stakeholder feedback review</li>
+              
               <li>• Technology enhancement priorities</li>
               <li>• Process improvement initiatives</li>
               <li>• Curriculum adjustments</li>

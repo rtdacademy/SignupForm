@@ -31,10 +31,7 @@ const SchoolProfile = () => {
               <p className="text-sm text-gray-600">Founded</p>
               <p className="font-medium">September 2022</p>
             </div>
-            <div>
-              <p className="text-sm text-gray-600">School Type</p>
-              <p className="font-medium">Online Private School</p>
-            </div>
+       
             <div>
               <p className="text-sm text-gray-600">Learning Model</p>
               <p className="font-medium">Asynchronous, Self-Paced</p>
@@ -106,15 +103,8 @@ const SchoolProfile = () => {
         </h3>
         <div className="space-y-3">
           <p className="leading-relaxed">
-            RTD Academy is primarily funded through the non-primary distance education grant, which enables us to offer our courses for free to students. This reflects our commitment to making quality STEM education accessible to all students, regardless of their socio-economic backgrounds.
+            RTD Academy is mainly funded through the non-primary distance education grant, which enables us to offer our courses for free to students. This reflects our commitment to making quality STEM education accessible to all students, regardless of their socio-economic backgrounds.
           </p>
-          <ul className="space-y-1 text-sm">
-            <li>• Primary funding: Non-primary distance education grant</li>
-            <li>• Secondary funding: Summer school grants</li>
-            <li>• Free courses for all Alberta students</li>
-            <li>• No financial barriers to STEM education access</li>
-            <li>• Funding enables small class sizes and personalized support</li>
-          </ul>
         </div>
       </Card>
       

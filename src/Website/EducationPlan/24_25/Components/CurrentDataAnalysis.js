@@ -442,7 +442,7 @@ const CurrentDataAnalysis = () => {
       
       {/* Student Type Breakdown */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Student Type Distribution</h3>
+        <h3 className="text-lg font-semibold mb-4">Student Type Distribution (Unique Students)</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Object.entries(analysisData.studentTypeCounts).map(([type, count]) => (
             <div key={type} className="flex justify-between items-center p-3 bg-gray-50 rounded">
@@ -457,7 +457,7 @@ const CurrentDataAnalysis = () => {
       
       {/* Student Type by Status Matrix */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Student Type by Status Matrix</h3>
+        <h3 className="text-lg font-semibold mb-4">Student Type by Status (Unique Courses)</h3>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

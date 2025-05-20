@@ -1,28 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getDatabase, ref, onValue } from 'firebase/database';
 import { useAuth } from '../../../../context/AuthContext';
 import { Button } from '../../../../components/ui/button';
 import { Infinity } from 'lucide-react';
+import { sanitizeEmail } from '../../../../utils/sanitizeEmail';
 
 /**
  * A Multiple Choice Question component powered by AI that interacts with Firebase Cloud Functions.
  * The question content is dynamically generated using Google's Gemini AI.
  * 
  * This component handles:
- * - AI-generated questions based on topic and difficulty from course.Assessments
+ * - AI-generated questions based on topic and difficulty
  * - Submission of answers and feedback
  * - Tracking of attempts
  * - Displaying explanation of correct answers
+ * - Real-time updates via Firebase database listener
  */
 const AIMultipleChoiceQuestion = ({
   // Required props
   courseId,                // Course identifier
   assessmentId,            // Unique identifier for this assessment
   cloudFunctionName,       // Name of the cloud function to call
-  course,                  // Course object containing assessment data
+  course,                  // Course object (optional - not used for database access anymore)
 
-  // Styling props only - all other configuration comes from course.Assessments
+  // Styling props only - all other configuration comes from the database
   theme = 'purple',        // Color theme: 'blue', 'green', 'purple', etc.
   questionClassName = '',  // Additional class name for question container
   optionsClassName = '',   // Additional class name for options container
@@ -49,6 +52,7 @@ const AIMultipleChoiceQuestion = ({
 
   // Firebase references
   const functions = getFunctions();
+  const db = getDatabase();
 
   // Get theme colors
   const themeColors = getThemeColors(theme);
@@ -81,19 +85,13 @@ const AIMultipleChoiceQuestion = ({
         console.log("Attempting to reload assessment after safety timeout");
         setLoading(true);
         
-        if (course && course.Assessments && course.Assessments[assessmentId]) {
-          const data = course.Assessments[assessmentId];
-          console.log("Reloaded data after timeout:", data);
-          setQuestion(data);
-          setLastQuestionTimestamp(data.timestamp || 0);
-          
-          if (data.lastSubmission) {
-            setResult(data.lastSubmission);
-            setSelectedAnswer(data.lastSubmission.answer || '');
-          } else {
-            setResult(null);
-            setSelectedAnswer('');
-          }
+        // After a safety timeout, we rely on the database listener to refresh data
+        // Just reset the component state and allow the database listener to update
+        console.log("Safety timeout triggered - resetting state and waiting for database update");
+        
+        // Reset state but don't clear the question to avoid UI flicker
+        if (question) {
+          setLastQuestionTimestamp(question.timestamp || 0);
         }
         
         setLoading(false);
@@ -141,120 +139,136 @@ const AIMultipleChoiceQuestion = ({
       return;
     }
 
-    // Load assessment from course.Assessments
+    // Get sanitized email for database path
+    const studentEmail = currentUser.email;
+    const studentKey = sanitizeEmail(studentEmail);
+
+    // Listen for assessment data in the database
     const loadAssessment = async () => {
       setLoading(true);
       try {
-        console.log(`Loading assessment from course.Assessments: ${assessmentId}`);
-        
-        if (course && course.Assessments && course.Assessments[assessmentId]) {
-          const data = course.Assessments[assessmentId];
-          console.log("AI question data received from course:", data);
-          
-          // Check if maxAttempts has been reached - use value from data rather than default
-          const maxAttemptsFromData = data.maxAttempts; // No fallback needed, we want to use what's in the data
-          const attemptsExhausted = data.attempts >= maxAttemptsFromData;
-          const maxAttemptsReached = data.status === 'maxAttemptsReached' || attemptsExhausted;
-          
-          // Enhance the data with our UI flags
-          const enhancedData = {
-            ...data,
-            maxAttemptsReached,
-            attemptsExhausted
-          };
-          
-          // If we're expecting a new question during regeneration
-          if (expectingNewQuestion) {
-            // Check if this is a new question using more relaxed criteria
-            const newTimestamp = data.timestamp || 0;
-            const oldTimestamp = lastQuestionTimestamp || 0;
-            const newQuestionText = data.questionText || '';
-            const oldQuestionText = question?.questionText || '';
+        console.log(`Creating database ref for question: students/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`);
+
+        // Setup firebase database listener
+        const assessmentRef = ref(db, `students/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`);
+
+        const unsubscribe = onValue(assessmentRef, (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            console.log("AI question data received from database:", data);
             
-            // Log what we're comparing
-            console.log(`Timestamp comparison - New: ${newTimestamp}, Old: ${oldTimestamp}`);
-            console.log(`Text comparison - New question starts with: "${newQuestionText.substring(0, 20)}...", Old question starts with: "${oldQuestionText.substring(0, 20)}..."`);
+            // Check if maxAttempts has been reached - use value from data rather than default
+            const maxAttemptsFromData = data.maxAttempts; // No fallback needed, we want to use what's in the data
+            const attemptsExhausted = data.attempts >= maxAttemptsFromData;
+            const maxAttemptsReached = data.status === 'maxAttemptsReached' || attemptsExhausted;
             
-            // Check various conditions that might indicate a new question
-            const isNewTimestamp = newTimestamp > oldTimestamp;
-            const isNewQuestionText = newQuestionText !== oldQuestionText && newQuestionText.length > 0;
+            // Enhance the data with our UI flags
+            const enhancedData = {
+              ...data,
+              maxAttemptsReached,
+              attemptsExhausted
+            };
             
-            // Also check if options have changed, which is a strong indicator of a new question
-            const hasNewOptions = data.options && question?.options && 
-              JSON.stringify(data.options) !== JSON.stringify(question.options);
-            
-            // Add a timeout to prevent infinite loading
-            const regenerationTimeoutExpired = Date.now() - lastGeneratedTimeRef.current > 10000; // 10 seconds
-            
-            // Accept if EITHER timestamp is newer OR question text has changed OR options have changed
-            // OR if we've been waiting too long (safety timeout)
-            if (isNewTimestamp || isNewQuestionText || hasNewOptions || regenerationTimeoutExpired) {
-              // This is a new question, update the UI
-              console.log(`✅ New question detected! Criteria matched: ${
-                [
-                  isNewTimestamp ? 'new timestamp' : '',
-                  isNewQuestionText ? 'different text' : '',
-                  hasNewOptions ? 'different options' : '',
-                  regenerationTimeoutExpired ? 'timeout expired' : ''
-                ].filter(Boolean).join(', ')
-              }`);
+            // If we're expecting a new question during regeneration
+            if (expectingNewQuestion) {
+              // Check if this is a new question using more relaxed criteria
+              const newTimestamp = data.timestamp || 0;
+              const oldTimestamp = lastQuestionTimestamp || 0;
+              const newQuestionText = data.questionText || '';
+              const oldQuestionText = question?.questionText || '';
               
+              // Log what we're comparing
+              console.log(`Timestamp comparison - New: ${newTimestamp}, Old: ${oldTimestamp}`);
+              console.log(`Text comparison - New question starts with: "${newQuestionText.substring(0, 20)}...", Old question starts with: "${oldQuestionText.substring(0, 20)}..."`);
+              
+              // Check various conditions that might indicate a new question
+              const isNewTimestamp = newTimestamp > oldTimestamp;
+              const isNewQuestionText = newQuestionText !== oldQuestionText && newQuestionText.length > 0;
+              
+              // Also check if options have changed, which is a strong indicator of a new question
+              const hasNewOptions = data.options && question?.options && 
+                JSON.stringify(data.options) !== JSON.stringify(question.options);
+              
+              // Add a timeout to prevent infinite loading
+              const regenerationTimeoutExpired = Date.now() - lastGeneratedTimeRef.current > 10000; // 10 seconds
+              
+              // Accept if EITHER timestamp is newer OR question text has changed OR options have changed
+              // OR if we've been waiting too long (safety timeout)
+              if (isNewTimestamp || isNewQuestionText || hasNewOptions || regenerationTimeoutExpired) {
+                // This is a new question, update the UI
+                console.log(`✅ New question detected! Criteria matched: ${
+                  [
+                    isNewTimestamp ? 'new timestamp' : '',
+                    isNewQuestionText ? 'different text' : '',
+                    hasNewOptions ? 'different options' : '',
+                    regenerationTimeoutExpired ? 'timeout expired' : ''
+                  ].filter(Boolean).join(', ')
+                }`);
+                
+                setQuestion(enhancedData);
+                setLastQuestionTimestamp(newTimestamp);
+                setExpectingNewQuestion(false);
+                setRegenerating(false);
+                
+                // Reset result if present
+                if (data.lastSubmission) {
+                  setResult(data.lastSubmission);
+                  // Preselect the last submitted answer
+                  setSelectedAnswer(data.lastSubmission.answer || '');
+                } else {
+                  setResult(null);
+                  setSelectedAnswer('');
+                }
+              } else {
+                // Log that we're still waiting for a truly new question
+                console.log("⚠️ Received update but doesn't match new question criteria yet, waiting for complete update");
+                setLastQuestionTimestamp(newTimestamp); // Still update timestamp for future comparisons
+                
+                // Safety measure: If we've been waiting for more than 15 seconds, force-accept this as a new question
+                if (Date.now() - lastGeneratedTimeRef.current > 15000) {
+                  console.log("⚠️ Safety timeout triggered - accepting update as new question despite not meeting criteria");
+                  setQuestion(enhancedData);
+                  setExpectingNewQuestion(false);
+                  setRegenerating(false);
+                  setResult(null);
+                  setSelectedAnswer('');
+                }
+              }
+            } else {
+              // Normal case, update question data
               setQuestion(enhancedData);
-              setLastQuestionTimestamp(newTimestamp);
-              setExpectingNewQuestion(false);
-              setRegenerating(false);
+              setLastQuestionTimestamp(data.timestamp || 0);
               
-              // Reset result if present
+              // If there's a last submission, set the result and preselect the answer
               if (data.lastSubmission) {
                 setResult(data.lastSubmission);
                 // Preselect the last submitted answer
                 setSelectedAnswer(data.lastSubmission.answer || '');
-              } else {
-                setResult(null);
-                setSelectedAnswer('');
+                console.log(`Preselecting last submitted answer: ${data.lastSubmission.answer}`);
               }
-            } else {
-              // Log that we're still waiting for a truly new question
-              console.log("⚠️ Received update but doesn't match new question criteria yet, waiting for complete update");
-              setLastQuestionTimestamp(newTimestamp); // Still update timestamp for future comparisons
               
-              // Safety measure: If we've been waiting for more than 15 seconds, force-accept this as a new question
-              if (Date.now() - lastGeneratedTimeRef.current > 15000) {
-                console.log("⚠️ Safety timeout triggered - accepting update as new question despite not meeting criteria");
-                setQuestion(enhancedData);
-                setExpectingNewQuestion(false);
-                setRegenerating(false);
-                setResult(null);
-                setSelectedAnswer('');
+              // If max attempts reached, show appropriate message
+              if (maxAttemptsReached) {
+                console.log("Maximum attempts reached for this assessment:", data.attempts);
+                // Only set the error if there's not already a result showing (to avoid confusion)
+                if (!data.lastSubmission) {
+                  setError("You've reached the maximum number of attempts for this question.");
+                }
               }
             }
           } else {
-            // Normal case, update question data
-            setQuestion(enhancedData);
-            setLastQuestionTimestamp(data.timestamp || 0);
-            
-            // If there's a last submission, set the result and preselect the answer
-            if (data.lastSubmission) {
-              setResult(data.lastSubmission);
-              // Preselect the last submitted answer
-              setSelectedAnswer(data.lastSubmission.answer || '');
-              console.log(`Preselecting last submitted answer: ${data.lastSubmission.answer}`);
-            }
-            
-            // If max attempts reached, show appropriate message
-            if (maxAttemptsReached) {
-              console.log("Maximum attempts reached for this assessment:", data.attempts);
-              // Only set the error if there's not already a result showing (to avoid confusion)
-              if (!data.lastSubmission) {
-                setError("You've reached the maximum number of attempts for this question.");
-              }
-            }
+            console.log("No AI question data found in database, generating new question");
+            generateQuestion();
           }
-        } else {
-          console.log("No AI question data found in course, generating new question");
-          generateQuestion();
-        }
-        setLoading(false);
+          setLoading(false);
+        }, (error) => {
+          console.error("Error in database listener:", error);
+          setError("Failed to load question data");
+          setLoading(false);
+        });
+
+        // Return cleanup function to unsubscribe from database listener
+        return () => unsubscribe();
       } catch (err) {
         console.error("Error loading assessment:", err);
         setError("Failed to load assessment. Please try refreshing the page.");
@@ -262,8 +276,14 @@ const AIMultipleChoiceQuestion = ({
       }
     };
 
-    loadAssessment();
-  }, [currentUser, courseId, assessmentId, course, expectingNewQuestion, lastQuestionTimestamp]);
+    // Start the database listener
+    const unsubscribePromise = loadAssessment();
+    
+    // Cleanup function to unsubscribe when component unmounts
+    return () => {
+      unsubscribePromise?.then(unsubscribe => unsubscribe && unsubscribe());
+    };
+  }, [currentUser, courseId, assessmentId, db, expectingNewQuestion, lastQuestionTimestamp]);
 
   // Generate a new question using cloud function with debouncing
   const generateQuestion = async () => {
@@ -318,10 +338,9 @@ const AIMultipleChoiceQuestion = ({
     try {
       const assessmentFunction = httpsCallable(functions, cloudFunctionName);
 
-      // Extract topic and difficulty from assessment data if available
-      const assessmentData = course?.Assessments?.[assessmentId] || {};
-      const topicFromData = assessmentData.topic || 'elearning_benefits_challenges';
-      const difficultyFromData = assessmentData.difficulty || 'intermediate';
+      // Extract topic and difficulty from question data if available
+      const topicFromData = question?.topic || 'elearning_benefits_challenges';
+      const difficultyFromData = question?.difficulty || 'intermediate';
       
       const functionParams = {
         courseId: courseId,
@@ -338,9 +357,9 @@ const AIMultipleChoiceQuestion = ({
       const result = await assessmentFunction(functionParams);
       console.log("AI question generation successful:", result);
 
-      // The cloud function will update the course.Assessments in the database
-      // Since we don't have a listener anymore, we need to handle manually or wait for props update
-      // We should NOT reset regenerating flag here - wait for course prop to update
+      // The cloud function will update the assessment in the database
+      // Our database listener will pick up the changes automatically
+      // We should NOT reset regenerating flag here - wait for the listener to update
       
       // If we're not in regeneration mode, we can clear the regenerating flag
       if (!expectingNewQuestion) {
@@ -389,10 +408,9 @@ const AIMultipleChoiceQuestion = ({
     try {
       const assessmentFunction = httpsCallable(functions, cloudFunctionName);
 
-      // Extract topic and difficulty from assessment data if available
-      const assessmentData = course?.Assessments?.[assessmentId] || {};
-      const topicFromData = assessmentData.topic || 'elearning_benefits_challenges';
-      const difficultyFromData = assessmentData.difficulty || 'intermediate';
+      // Extract topic and difficulty from question data if available
+      const topicFromData = question?.topic || 'elearning_benefits_challenges';
+      const difficultyFromData = question?.difficulty || 'intermediate';
       
       const functionParams = {
         courseId: courseId,
@@ -417,12 +435,11 @@ const AIMultipleChoiceQuestion = ({
         onCorrectAnswer();
       }
 
-      // Since we removed the database listener, we need to handle the result manually
-      // If the result data is available directly in the cloud function response, use it
+      // The database listener will pick up the submitted answer and update the UI
+      // But we can also handle the result directly from the response for immediate feedback
       if (result.data?.result) {
         setResult(result.data.result);
       }
-      // Otherwise we'll rely on the updated course prop
     } catch (err) {
       console.error("Error submitting answer:", err);
       
@@ -473,11 +490,11 @@ const AIMultipleChoiceQuestion = ({
     setRegenerating(true);
     setError(null); // Clear any previous errors
     
-    // Mark that we're expecting a new question to arrive via course prop update
+    // Mark that we're expecting a new question to arrive via database listener
     setExpectingNewQuestion(true);
 
     // Call the cloud function directly, which will handle incrementing the attempts
-    // and update the database, which will trigger a course prop update from parent
+    // and update the database, which will trigger our database listener
     try {
       console.log("Requesting question regeneration while preserving attempt count");
       generateQuestion().catch(error => {
@@ -539,7 +556,7 @@ const AIMultipleChoiceQuestion = ({
            style={{ backgroundColor: themeColors.bgDark, borderColor: themeColors.border }}>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-lg font-medium" style={{ color: themeColors.textDark }}>
-            {course?.Assessments?.[assessmentId]?.title || 'AI-Generated Question'}
+            {question?.title || 'AI-Generated Question'}
           </h3>
           {question?.generatedBy === 'ai' && (
             <span className="text-xs py-1 px-2 rounded bg-purple-100 text-purple-800 font-medium">
