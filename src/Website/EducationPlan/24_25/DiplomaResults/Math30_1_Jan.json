@@ -1,0 +1,424 @@
+[
+    {
+  "schoolInfo": {
+    "name": "RTD Math Academy",
+    "code": "2444",
+    "corporationCode": "0402",
+    "corporationName": "RTD Math Academy Ltd",
+    "examPeriod": "January 2025",
+    "subject": "Mathematics 30-1",
+    "studentCount": 26,
+    "provincialCount": 12000
+  },
+  "overallPerformance": {
+    "acceptableStandard": {
+      "school": 100.0,
+      "province": 95.6,
+      "difference": 4.4
+    },
+    "standardOfExcellence": {
+      "school": 42.3,
+      "province": 47.0,
+      "difference": -4.7
+    },
+    "averageMarks": {
+      "schoolAwarded": {
+        "school": 81.1,
+        "province": 79.4,
+        "difference": 1.7
+      },
+      "diplomaExam": {
+        "school": 65.5,
+        "province": 68.1,
+        "difference": -2.6
+      },
+      "blended": {
+        "school": 76.8,
+        "province": 76.1,
+        "difference": 0.7
+      }
+    },
+    "standardDeviations": {
+      "schoolAwarded": {
+        "school": 11.0,
+        "province": 13.9,
+        "difference": -2.9
+      },
+      "diplomaExam": {
+        "school": 19.9,
+        "province": 21.6,
+        "difference": -1.7
+      },
+      "blended": {
+        "school": 10.5,
+        "province": 15.2,
+        "difference": -4.7
+      }
+    }
+  },
+  "gradeDistribution": {
+    "schoolAwarded": {
+      "A": { "school": 65.4, "province": 58.5, "difference": 6.9 },
+      "B": { "school": 23.1, "province": 26.5, "difference": -3.4 },
+      "C": { "school": 11.5, "province": 12.5, "difference": -1.0 },
+      "F": { "school": 0.0, "province": 2.5, "difference": -2.5 }
+    },
+    "diplomaExam": {
+      "A": { "school": 26.9, "province": 36.6, "difference": -9.7 },
+      "B": { "school": 26.9, "province": 22.8, "difference": 4.1 },
+      "C": { "school": 30.8, "province": 18.6, "difference": 12.2 },
+      "F": { "school": 15.4, "province": 22.0, "difference": -6.6 }
+    },
+    "blended": {
+      "A": { "school": 42.3, "province": 47.0, "difference": -4.7 },
+      "B": { "school": 46.2, "province": 30.1, "difference": 16.1 },
+      "C": { "school": 11.5, "province": 18.6, "difference": -7.1 },
+      "F": { "school": 0.0, "province": 4.4, "difference": -4.4 }
+    }
+  },
+  "diplomaExamByFormat": {
+    "machineScored": {
+      "weight": 75,
+      "school": 66.0,
+      "province": 67.4,
+      "difference": -1.4
+    },
+    "writtenResponse": {
+      "weight": 25,
+      "school": 52.4,
+      "province": 58.8,
+      "difference": -6.4
+    }
+  },
+  "genderAnalysis": {
+    "distribution": {
+      "male": {
+        "school": 61.5,
+        "province": 53.8,
+        "difference": 7.7
+      },
+      "female": {
+        "school": 38.5,
+        "province": 45.9,
+        "difference": -7.4
+      }
+    },
+    "acceptableStandard": {
+      "male": {
+        "school": 100.0,
+        "province": 95.6,
+        "difference": 4.4
+      },
+      "female": {
+        "school": 100.0,
+        "province": 95.6,
+        "difference": 4.4
+      }
+    },
+    "standardOfExcellence": {
+      "male": {
+        "school": 43.8,
+        "province": 45.9,
+        "difference": -2.1
+      },
+      "female": {
+        "school": 40.0,
+        "province": 48.1,
+        "difference": -8.1
+      }
+    },
+    "averageMarks": {
+      "schoolAwarded": {
+        "male": {
+          "school": 84.1,
+          "province": 79.0,
+          "difference": 5.1
+        },
+        "female": {
+          "school": 76.2,
+          "province": 79.9,
+          "difference": -3.7
+        }
+      },
+      "diplomaExam": {
+        "male": {
+          "school": 63.4,
+          "province": 67.8,
+          "difference": -4.4
+        },
+        "female": {
+          "school": 68.8,
+          "province": 68.4,
+          "difference": 0.4
+        }
+      },
+      "blended": {
+        "male": {
+          "school": 77.9,
+          "province": 75.7,
+          "difference": 2.2
+        },
+        "female": {
+          "school": 74.9,
+          "province": 76.5,
+          "difference": -1.6
+        }
+      }
+    }
+  },
+  "topicPerformance": {
+    "machineScored": {
+      "relationsAndFunctions": {
+        "maxScore": 17,
+        "school": 11.2,
+        "province": 11.7,
+        "difference": -0.5
+      },
+      "trigonometry": {
+        "maxScore": 9,
+        "school": 6.4,
+        "province": 6.2,
+        "difference": 0.2
+      },
+      "permutationsCombinationsBinomialTheorem": {
+        "maxScore": 6,
+        "school": 3.5,
+        "province": 3.7,
+        "difference": -0.2
+      }
+    },
+    "cognitiveLevel": {
+      "conceptual": {
+        "maxScore": 11,
+        "school": 7.1,
+        "province": 7.3,
+        "difference": -0.2
+      },
+      "procedural": {
+        "maxScore": 11,
+        "school": 7.4,
+        "province": 7.6,
+        "difference": -0.2
+      },
+      "problemSolving": {
+        "maxScore": 10,
+        "school": 6.7,
+        "province": 6.7,
+        "difference": 0.0
+      }
+    }
+  },
+  "writtenResponsePerformance": {
+    "item1": {
+      "averageRawScore": {
+        "school": 2.4,
+        "province": 2.8,
+        "difference": -0.4
+      },
+      "topic": "Relations and Functions",
+      "parts": {
+        "1a": {
+          "cognitiveLevel": "Procedural",
+          "school": {
+            "noResponse": 11.5,
+            "rawScore": {
+              "0": 15.4,
+              "0.5": 3.8,
+              "1": 15.4,
+              "1.5": 38.5,
+              "2": 15.4
+            }
+          },
+          "province": {
+            "noResponse": 2.5,
+            "rawScore": {
+              "0": 23.7,
+              "0.5": 12.9,
+              "1": 7.4,
+              "1.5": 21.8,
+              "2": 31.8
+            }
+          }
+        },
+        "1b": {
+          "cognitiveLevel": "Problem Solving",
+          "school": {
+            "noResponse": 7.7,
+            "rawScore": {
+              "0": 7.7,
+              "0.5": 19.2,
+              "1": 19.2,
+              "1.5": 11.5,
+              "2": 7.7,
+              "2.5": 11.5,
+              "3": 15.4
+            }
+          },
+          "province": {
+            "noResponse": 2.1,
+            "rawScore": {
+              "0": 8.3,
+              "0.5": 11.7,
+              "1": 14.0,
+              "1.5": 12.2,
+              "2": 14.2,
+              "2.5": 13.5,
+              "3": 24.0
+            }
+          }
+        }
+      }
+    },
+    "item2": {
+      "averageRawScore": {
+        "school": 3.1,
+        "province": 2.9,
+        "difference": 0.2
+      },
+      "topic": "Relations and Functions",
+      "parts": {
+        "2a": {
+          "cognitiveLevel": "Conceptual",
+          "school": {
+            "noResponse": 3.8,
+            "rawScore": {
+              "0": 23.1,
+              "0.5": 15.4,
+              "1": 42.3,
+              "1.5": 11.5,
+              "2": 3.8
+            }
+          },
+          "province": {
+            "noResponse": 1.1,
+            "rawScore": {
+              "0": 25.5,
+              "0.5": 11.3,
+              "1": 42.2,
+              "1.5": 12.5,
+              "2": 7.5
+            }
+          }
+        },
+        "2b": {
+          "cognitiveLevel": "Problem Solving",
+          "school": {
+            "noResponse": 0.0,
+            "rawScore": {
+              "0": 0.0,
+              "0.5": 7.7,
+              "1": 0.0,
+              "1.5": 11.5,
+              "2": 23.1,
+              "2.5": 19.2,
+              "3": 38.5
+            }
+          },
+          "province": {
+            "noResponse": 1.3,
+            "rawScore": {
+              "0": 1.6,
+              "0.5": 5.4,
+              "1": 6.9,
+              "1.5": 17.6,
+              "2": 17.0,
+              "2.5": 15.5,
+              "3": 34.8
+            }
+          }
+        }
+      }
+    },
+    "item3": {
+      "averageRawScore": {
+        "school": 2.4,
+        "province": 3.1,
+        "difference": -0.7
+      },
+      "topic": "Trigonometry",
+      "parts": {
+        "3a": {
+          "cognitiveLevel": "Conceptual",
+          "school": {
+            "noResponse": 11.5,
+            "rawScore": {
+              "0": 26.9,
+              "0.5": 34.6,
+              "1": 7.7,
+              "1.5": 3.8,
+              "2": 15.4
+            }
+          },
+          "province": {
+            "noResponse": 2.5,
+            "rawScore": {
+              "0": 20.1,
+              "0.5": 21.1,
+              "1": 23.1,
+              "1.5": 18.2,
+              "2": 15.0
+            }
+          }
+        },
+        "3b": {
+          "cognitiveLevel": "Procedural",
+          "school": {
+            "noResponse": 15.4,
+            "rawScore": {
+              "0": 3.8,
+              "0.5": 0.0,
+              "1": 3.8,
+              "1.5": 15.4,
+              "2": 15.4,
+              "2.5": 23.1,
+              "3": 23.1
+            }
+          },
+          "province": {
+            "noResponse": 2.9,
+            "rawScore": {
+              "0": 5.1,
+              "0.5": 3.1,
+              "1": 8.6,
+              "1.5": 10.5,
+              "2": 13.6,
+              "2.5": 14.3,
+              "3": 41.9
+            }
+          }
+        }
+      }
+    }
+  },
+  "strengths": [
+    "100% of students achieved the Acceptable Standard",
+    "No students failed (0% F grades vs 4.4% provincially)",
+    "Higher average blended mark (76.8% vs 76.1%)",
+    "Strong middle performance (46.2% B grades vs 30.1% provincially)",
+    "Lower exam failure rate (15.4% vs 22.0% provincially)",
+    "Slightly better performance in Trigonometry",
+    "Better performance on Item 2 written response",
+    "Lower standard deviations showing more consistent performance"
+  ],
+  "areasForImprovement": [
+    "Lower Standard of Excellence rate (42.3% vs 47.0%)",
+    "Diploma exam average below provincial (65.5% vs 68.1%)",
+    "Fewer A grades on the diploma (26.9% vs 36.6%)",
+    "Weaker written response performance overall (52.4% vs 58.8%)",
+    "Relations and Functions performance slightly below average",
+    "Male students underperformed on the diploma (63.4% vs 67.8%)",
+    "Significantly weaker performance on Items 1 and 3 written responses",
+    "Specific concepts: transformation operations, inverse functions, coordinate mapping"
+  ],
+  "recommendations": [
+    "Target increasing the Standard of Excellence rate",
+    "Strengthen written response skills, particularly in Relations and Functions",
+    "Focus on moving B students to A level performance",
+    "Address specific concept gaps in transformations and inverse functions",
+    "Implement strategies to improve male performance on diploma exams",
+    "Maintain strong assessment practices that have led to 100% pass rate",
+    "Develop additional support for written response Items 1 and 3",
+    "Continue the successful teaching approaches that resulted in no failing students"
+  ]
+}
+]

@@ -1,0 +1,264 @@
+[
+    {
+  "schoolInfo": {
+    "name": "RTD Math Academy",
+    "code": "2444",
+    "corporationCode": "0402",
+    "corporationName": "RTD Math Academy Ltd",
+    "examPeriod": "April 2025",
+    "subject": "Mathematics 30-2",
+    "studentCount": 22,
+    "provincialCount": "Not Available"
+  },
+  "overallPerformance": {
+    "acceptableStandard": {
+      "school": 59.1,
+      "province": "Not Available",
+      "difference": "Not Available"
+    },
+    "standardOfExcellence": {
+      "school": 13.6,
+      "province": "Not Available",
+      "difference": "Not Available"
+    },
+    "averageMarks": {
+      "diplomaExam": {
+        "school": 48.0,
+        "province": "Not Available",
+        "difference": "Not Available"
+      }
+    }
+  },
+  "gradeDistribution": {
+    "diplomaExam": {
+      "A": { "school": 13.6, "province": "Not Available", "difference": "Not Available" },
+      "B": { "school": 22.7, "province": "Not Available", "difference": "Not Available" },
+      "C": { "school": 22.7, "province": "Not Available", "difference": "Not Available" },
+      "F": { "school": 40.9, "province": "Not Available", "difference": "Not Available" }
+    }
+  },
+  "diplomaExamByFormat": {
+    "machineScored": {
+      "multipleChoice": {
+        "maxScore": 24,
+        "average": 13.1,
+        "percentage": 54.6
+      },
+      "numericalResponse": {
+        "maxScore": 8,
+        "average": 3.9,
+        "percentage": 48.8
+      },
+      "combined": {
+        "maxScore": 32,
+        "average": 17.0,
+        "percentage": 53.1
+      }
+    },
+    "writtenResponse": {
+      "maxScore": 28,
+      "average": 11.0,
+      "percentage": 39.3
+    }
+  },
+  "genderAnalysis": {
+    "distribution": {
+      "male": {
+        "school": 45.5,
+        "province": "Not Available",
+        "difference": "Not Available"
+      },
+      "female": {
+        "school": 54.5,
+        "province": "Not Available",
+        "difference": "Not Available"
+      }
+    },
+    "averageMarks": {
+      "diplomaExam": {
+        "male": {
+          "school": 45.3,
+          "province": "Not Available",
+          "difference": "Not Available"
+        },
+        "female": {
+          "school": 50.3,
+          "province": "Not Available",
+          "difference": "Not Available"
+        },
+        "gap": 5.0
+      }
+    },
+    "acceptableStandard": {
+      "male": {
+        "count": 5,
+        "percentage": 50.0
+      },
+      "female": {
+        "count": 8,
+        "percentage": 66.7
+      }
+    },
+    "standardOfExcellence": {
+      "male": {
+        "count": 1,
+        "percentage": 10.0
+      },
+      "female": {
+        "count": 2,
+        "percentage": 16.7
+      }
+    }
+  },
+  "topicPerformance": {
+    "machineScored": {
+      "logicalReasoning": {
+        "maxScore": 6,
+        "average": 2.5,
+        "percentage": 41.7
+      },
+      "probability": {
+        "maxScore": 10,
+        "average": 6.2,
+        "percentage": 62.0
+      },
+      "relationsAndFunctions": {
+        "maxScore": 16,
+        "average": 8.3,
+        "percentage": 51.9
+      }
+    },
+    "cognitiveLevel": {
+      "conceptual": {
+        "maxScore": 12,
+        "average": 7.0,
+        "percentage": 58.3
+      },
+      "procedural": {
+        "maxScore": 9,
+        "average": 3.0,
+        "percentage": 33.3
+      },
+      "problemSolving": {
+        "maxScore": 11,
+        "average": 7.0,
+        "percentage": 63.6
+      }
+    }
+  },
+  "writtenResponsePerformance": {
+    "item1": {
+      "averageRawScore": 4.3,
+      "maxScore": 14,
+      "percentage": 30.7,
+      "parts": {
+        "1a": {
+          "maxScore": 1,
+          "average": 0.5,
+          "percentage": 50.0
+        },
+        "1b": {
+          "maxScore": 2,
+          "average": 0.6,
+          "percentage": 30.0
+        },
+        "1c": {
+          "maxScore": 2,
+          "average": 0.6,
+          "percentage": 30.0
+        },
+        "1d": {
+          "maxScore": 2,
+          "average": 0.8,
+          "percentage": 40.0
+        }
+      }
+    },
+    "item2": {
+      "averageRawScore": 6.7,
+      "maxScore": 14,
+      "percentage": 47.9,
+      "parts": {
+        "2a": {
+          "maxScore": 1,
+          "average": 0.5,
+          "percentage": 50.0
+        },
+        "2b": {
+          "maxScore": 2,
+          "average": 0.5,
+          "percentage": 25.0
+        },
+        "2c": {
+          "maxScore": 2,
+          "average": 0.5,
+          "percentage": 25.0
+        },
+        "2d": {
+          "maxScore": 2,
+          "average": 1.7,
+          "percentage": 85.0
+        }
+      }
+    }
+  },
+  "individualPerformanceHeatmap": {
+    "strongestAreas": [
+      "Problem Solving skills (63.6%)",
+      "Probability (62.0%)",
+      "Item 2d written response (85.0%)",
+      "Conceptual understanding (58.3%)"
+    ],
+    "weakestAreas": [
+      "Procedural skills (33.3%)",
+      "Logical Reasoning (41.7%)",
+      "Item 2b written response (25.0%)",
+      "Item 2c written response (25.0%)",
+      "Item 1b written response (30.0%)",
+      "Item 1c written response (30.0%)"
+    ]
+  },
+  "observations": {
+    "strengths": [
+      "Strong performance on problem solving tasks",
+      "Good understanding of probability concepts",
+      "Higher female achievement rates overall",
+      "Strong performance on item 2d",
+      "Reasonable conceptual understanding"
+    ],
+    "areasForImprovement": [
+      "High failure rate (40.9%)",
+      "Weak procedural skills across all topics",
+      "Poor logical reasoning performance",
+      "Low written response scores (except for item 2d)",
+      "Low standard of excellence rate (13.6%)",
+      "Significant gender performance gap"
+    ],
+    "recommendations": [
+      "Implement intensive remediation for struggling students to reduce the high failure rate",
+      "Focus instruction on procedural skills and logical reasoning",
+      "Provide targeted practice for written response items, especially 1b, 1c, 2b, and 2c",
+      "Create collaborative learning groups that mix stronger and weaker students",
+      "Develop specific interventions to improve male student performance",
+      "Analyze item 2d success factors and apply the same strategies to other written response items",
+      "Increase formative assessment frequency to identify and address gaps earlier"
+    ],
+    "comparisonToJanuary": {
+      "changes": [
+        "Significant decrease in acceptable standard achievement (January: 100%, April: 59.1%)",
+        "Higher failure rate (January: 0%, April: 40.9%)",
+        "Similar standard of excellence rate (January: 24.2%, April: 13.6%)",
+        "More balanced gender distribution in April",
+        "Consistent strength in problem solving across both exams",
+        "Persistent weakness in procedural skills across both exams"
+      ],
+      "possibleFactors": [
+        "Different student cohort with varying preparation levels",
+        "Lower teacher familiarity with April cohort needs",
+        "Potentially more complex exam content in April session",
+        "Different instructional approaches or time constraints between cohorts"
+      ]
+    }
+  }
+}
+]

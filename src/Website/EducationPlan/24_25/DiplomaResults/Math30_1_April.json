@@ -1,0 +1,227 @@
+[
+    {
+  "schoolInfo": {
+    "name": "RTD Math Academy",
+    "code": "2444",
+    "corporationCode": "0402",
+    "corporationName": "RTD Math Academy Ltd",
+    "examPeriod": "April 2025",
+    "subject": "Mathematics 30-1",
+    "studentCount": 15,
+    "provincialCount": "Not Available"
+  },
+  "overallPerformance": {
+    "acceptableStandard": {
+      "school": 66.7,
+      "province": "Not Available",
+      "difference": "Not Available"
+    },
+    "standardOfExcellence": {
+      "school": 13.3,
+      "province": "Not Available",
+      "difference": "Not Available"
+    },
+    "averageMarks": {
+      "diplomaExam": {
+        "school": 56.9,
+        "province": "Not Available",
+        "difference": "Not Available"
+      }
+    }
+  },
+  "gradeDistribution": {
+    "diplomaExam": {
+      "A": { "school": 13.3, "province": "Not Available", "difference": "Not Available" },
+      "B": { "school": 40.0, "province": "Not Available", "difference": "Not Available" },
+      "C": { "school": 13.3, "province": "Not Available", "difference": "Not Available" },
+      "F": { "school": 33.3, "province": "Not Available", "difference": "Not Available" }
+    }
+  },
+  "diplomaExamByFormat": {
+    "machineScored": {
+      "multipleChoice": {
+        "maxScore": 24,
+        "average": 12.9,
+        "percentage": 53.8
+      },
+      "numericalResponse": {
+        "maxScore": 8,
+        "average": 3.9,
+        "percentage": 48.8
+      },
+      "combined": {
+        "maxScore": 32,
+        "average": 16.8,
+        "percentage": 52.5
+      }
+    },
+    "writtenResponse": {
+      "maxScore": 30,
+      "average": 15.1,
+      "percentage": 50.3
+    }
+  },
+  "genderAnalysis": {
+    "distribution": {
+      "male": {
+        "school": 53.3,
+        "province": "Not Available",
+        "difference": "Not Available"
+      },
+      "female": {
+        "school": 46.7,
+        "province": "Not Available",
+        "difference": "Not Available"
+      }
+    },
+    "averageMarks": {
+      "diplomaExam": {
+        "male": {
+          "school": 66.6,
+          "province": "Not Available",
+          "difference": "Not Available"
+        },
+        "female": {
+          "school": 45.7,
+          "province": "Not Available",
+          "difference": "Not Available"
+        },
+        "gap": 20.9
+      }
+    },
+    "acceptableStandard": {
+      "male": {
+        "count": 7,
+        "percentage": 87.5
+      },
+      "female": {
+        "count": 3,
+        "percentage": 42.9
+      }
+    },
+    "standardOfExcellence": {
+      "male": {
+        "count": 2,
+        "percentage": 25.0
+      },
+      "female": {
+        "count": 0,
+        "percentage": 0.0
+      }
+    }
+  },
+  "topicPerformance": {
+    "machineScored": {
+      "relationsAndFunctions": {
+        "maxScore": 17,
+        "average": 9.1,
+        "percentage": 53.5
+      },
+      "trigonometry": {
+        "maxScore": 9,
+        "average": 4.9,
+        "percentage": 54.4
+      },
+      "permutationsCombinationsBinomialTheorem": {
+        "maxScore": 6,
+        "average": 2.8,
+        "percentage": 46.7
+      }
+    },
+    "cognitiveLevel": {
+      "conceptual": {
+        "maxScore": 11,
+        "average": 6.8,
+        "percentage": 61.8
+      },
+      "procedural": {
+        "maxScore": 11,
+        "average": 4.5,
+        "percentage": 40.9
+      },
+      "problemSolving": {
+        "maxScore": 10,
+        "average": 5.4,
+        "percentage": 54.0
+      }
+    }
+  },
+  "writtenResponsePerformance": {
+    "item1": {
+      "averageRawScore": 2.6,
+      "maxScore": 5,
+      "percentage": 52.0,
+      "parts": {
+        "1a": {
+          "maxScore": 2,
+          "average": 1.4,
+          "percentage": 70.0
+        },
+        "1b": {
+          "maxScore": 3,
+          "average": 1.2,
+          "percentage": 40.0
+        }
+      }
+    },
+    "item2": {
+      "averageRawScore": 2.9,
+      "maxScore": 5,
+      "percentage": 58.0,
+      "parts": {
+        "2a": {
+          "maxScore": 2,
+          "average": 1.2,
+          "percentage": 60.0
+        },
+        "2b": {
+          "maxScore": 3,
+          "average": 1.7,
+          "percentage": 56.7
+        }
+      }
+    },
+    "item3": {
+      "averageRawScore": 2.0,
+      "maxScore": 5,
+      "percentage": 40.0,
+      "parts": {
+        "3a": {
+          "maxScore": 2,
+          "average": 0.9,
+          "percentage": 45.0
+        },
+        "3b": {
+          "maxScore": 3,
+          "average": 1.0,
+          "percentage": 33.3
+        }
+      }
+    }
+  },
+  "observations": {
+    "strengths": [
+      "Strong male student performance (87.5% achieving acceptable standard)",
+      "Good performance on conceptual questions (61.8%)",
+      "Higher performance on Item 2 written response (58.0%)",
+      "Solid trigonometry performance (54.4%)"
+    ],
+    "areasForImprovement": [
+      "Female student performance (only 42.9% achieving acceptable standard)",
+      "Significant gender performance gap (20.9%)",
+      "Low Standard of Excellence rate (13.3%)",
+      "Poor performance on Item 3 written response (40.0%)",
+      "Weak procedural question performance (40.9%)",
+      "High failure rate (33.3%)"
+    ],
+    "recommendations": [
+      "Targeted support for female students to close the gender gap",
+      "Focus on procedural skills development",
+      "Additional practice with Item 3 content (Trigonometry)",
+      "Implementation of strategies to move B students to A level",
+      "Early identification and intervention for at-risk students to reduce failure rate",
+      "Emphasis on Permutations, Combinations and Binomial Theorem topics"
+    ]
+  }
+}
+]

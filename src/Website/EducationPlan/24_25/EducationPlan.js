@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Card } from "../../../components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../../../components/ui/sheet";
 import { Button } from "../../../components/ui/button";
-import { Menu } from "lucide-react";
+import { Menu, ChevronRight, ChevronLeft } from "lucide-react";
 
 // Import required components (to be created)
 // Section I: Introduction and Context
@@ -19,35 +19,33 @@ import AccountabilityStatement from './Components/AccountabilityStatement';
 import StakeholderEngagement from './Components/StakeholderEngagement';
 
 // Section IV: Vision, Mission, and Values
-// import FoundationalStatements from './Components/FoundationalStatements';
+import FoundationalStatements from './Components/FoundationalStatements';
 
 // Section V: Domain Analysis and Priorities
-// import StudentGrowthAchievement from './Components/Domains/StudentGrowthAchievement';
-// import TeachingLeading from './Components/Domains/TeachingLeading';
-// import LearningSupports from './Components/Domains/LearningSupports';
-// import Governance from './Components/Domains/Governance';
-// import SocietalContext from './Components/Domains/SocietalContext';
+import StudentGrowthAchievement from './Components/Domains/StudentGrowthAchievement';
+import TeachingLeading from './Components/Domains/TeachingLeading';
+import LearningSupports from './Components/Domains/LearningSupports';
+import AcademicIntegrityInitiative from './Components/Domains/AcademicIntegrityInitiative';
+import Governance from './Components/Domains/Governance';
+import SocietalContext from './Components/Domains/SocietalContext';
 
 // Section VI: Indigenous Education
-// import IndigenousEducation from './Components/IndigenousEducation';
+import IndigenousEducation from './Components/IndigenousEducation';
 
 // Section VII: Performance Measures
-// import PerformanceMeasures from './Components/PerformanceMeasures';
+import PerformanceMeasures from './Components/PerformanceMeasures';
 
-// Section VIII: Implementation
-// import ImplementationPlan from './Components/ImplementationPlan';
-// import BudgetSummary from './Components/BudgetSummary';
-
-// Section IX: Conclusion
-// import ConclusionFutureDirection from './Components/ConclusionFutureDirection';
+// Section VIII: Conclusion
+import ConclusionFutureDirection from './Components/ConclusionFutureDirection';
 
 // Supporting Components
 // import ComparativeAnalysis from './Components/ComparativeAnalysis';
 // import AppendixDocuments from './Components/AppendixDocuments';
 
 const EducationPlan = () => {
-  // State for sheet open/close
+  // States for navigation
   const [isSheetOpen, setIsSheetOpen] = useState(true);
+  const [isSheetExpanded, setIsSheetExpanded] = useState(false);
 
   // Create refs for each major section
   const currentDataRef = useRef(null);
@@ -117,14 +115,7 @@ const EducationPlan = () => {
       ]
     },
     {
-      title: "VII. Implementation",
-      items: [
-        { name: "Implementation Plan", ref: implementationRef },
-        { name: "Budget Summary", ref: budgetRef }
-      ]
-    },
-    {
-      title: "VIII. Conclusion",
+      title: "VII. Conclusion",
       items: [
         { name: "Future Direction", ref: conclusionRef }
       ]
@@ -136,7 +127,7 @@ const EducationPlan = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto p-6 md:pl-16">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -145,44 +136,110 @@ const EducationPlan = () => {
         </div>
         
         <div>
-          {/* Navigation Sheet */}
-          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
-                <Menu className="h-4 w-4" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent className="w-[400px] overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>Education Plan Navigation</SheetTitle>
-              </SheetHeader>
-              <div className="mt-4 space-y-6">
-                {navigationStructure.map((section) => (
-                  <div key={section.title}>
-                    <h3 className="font-semibold text-sm text-gray-600 mb-2">
-                      {section.title}
-                    </h3>
-                    <div className="space-y-1">
-                      {section.items.map((item) => (
-                        <Button
-                          key={item.name}
-                          variant="ghost"
-                          className="w-full justify-start text-sm"
-                          onClick={() => {
-                            scrollToSection(item.ref);
-                            setIsSheetOpen(false);
-                          }}
-                        >
-                          {item.name}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </SheetContent>
-          </Sheet>
+          {/* Mobile Navigation Trigger - Only visible on small screens */}
+          <div className="md:hidden">
+            <Button variant="outline" size="icon" onClick={() => setIsSheetOpen(true)}>
+              <Menu className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
+        
+        {/* Fixed side navigation */}
+        <div className={`fixed top-0 left-0 h-full z-50 transition-all duration-300 ${isSheetExpanded ? 'w-[400px]' : 'w-[50px]'} bg-white shadow-lg flex`}>
+          {/* Toggle button */}
+          <div className="absolute top-20 right-0 translate-x-full">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="rounded-r-md rounded-l-none h-10 shadow-md"
+              onClick={() => setIsSheetExpanded(!isSheetExpanded)}
+            >
+              {isSheetExpanded ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </Button>
+          </div>
+          
+          {/* Collapsed state - Just shows icons */}
+          {!isSheetExpanded && (
+            <div className="w-full p-2 overflow-y-auto scrollbar-thin flex flex-col items-center pt-16 space-y-6">
+              {navigationStructure.map((section, index) => (
+                <Button
+                  key={index}
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  title={section.title}
+                  onClick={() => scrollToSection(section.items[0].ref)}
+                >
+                  <span className="text-xs font-semibold">
+                    {section.title.includes('.') ? section.title.split('.')[0] : (section.title === "Accountability" ? "A" : "")}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          )}
+          
+          {/* Expanded state - Shows full navigation */}
+          {isSheetExpanded && (
+            <div className="w-full p-6 overflow-y-auto pt-16 space-y-6">
+              <h2 className="text-lg font-bold mb-4">Education Plan Navigation</h2>
+              {navigationStructure.map((section) => (
+                <div key={section.title}>
+                  <h3 className="font-semibold text-sm text-gray-600 mb-2">
+                    {section.title}
+                  </h3>
+                  <div className="space-y-1">
+                    {section.items.map((item) => (
+                      <Button
+                        key={item.name}
+                        variant="ghost"
+                        className="w-full justify-start text-sm"
+                        onClick={() => {
+                          scrollToSection(item.ref);
+                          setIsSheetExpanded(false);
+                        }}
+                      >
+                        {item.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* Responsive Sheet for mobile only */}
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetContent className="w-full sm:w-[400px] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Education Plan Navigation</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4 space-y-6">
+              {navigationStructure.map((section) => (
+                <div key={section.title}>
+                  <h3 className="font-semibold text-sm text-gray-600 mb-2">
+                    {section.title}
+                  </h3>
+                  <div className="space-y-1">
+                    {section.items.map((item) => (
+                      <Button
+                        key={item.name}
+                        variant="ghost"
+                        className="w-full justify-start text-sm"
+                        onClick={() => {
+                          scrollToSection(item.ref);
+                          setIsSheetOpen(false);
+                        }}
+                      >
+                        {item.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Cover Page */}
@@ -229,14 +286,7 @@ const EducationPlan = () => {
 
         {/* Section III: Vision, Mission, Values */}
         <div ref={foundationalRef}>
-          <Card>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">III. Vision, Mission, and Values</h2>
-              <p className="text-gray-600">
-                Component placeholder - FoundationalStatements component to be implemented
-              </p>
-            </div>
-          </Card>
+          <FoundationalStatements />
         </div>
 
         {/* Section IV: Domain Analysis */}
@@ -244,118 +294,43 @@ const EducationPlan = () => {
           <h2 className="text-2xl font-bold">IV. Domain Analysis and Priorities</h2>
           
           <div ref={domainGrowthRef}>
-            <Card>
-              <div className="p-6">
-                <h3 className="text-xl font-semibold mb-4">Domain 1: Student Growth & Achievement</h3>
-                <p className="text-gray-600">
-                  Component placeholder - StudentGrowthAchievement component to be implemented
-                </p>
-              </div>
-            </Card>
+            <StudentGrowthAchievement />
           </div>
 
           <div ref={domainTeachingRef}>
-            <Card>
-              <div className="p-6">
-                <h3 className="text-xl font-semibold mb-4">Domain 2: Teaching & Leading</h3>
-                <p className="text-gray-600">
-                  Component placeholder - TeachingLeading component to be implemented
-                </p>
-              </div>
-            </Card>
+            <TeachingLeading />
           </div>
 
           <div ref={domainSupportsRef}>
-            <Card>
-              <div className="p-6">
-                <h3 className="text-xl font-semibold mb-4">Domain 3: Learning Supports</h3>
-                <p className="text-gray-600">
-                  Component placeholder - LearningSupports component to be implemented
-                </p>
-              </div>
-            </Card>
+            <LearningSupports />
+          </div>
+          
+          <div>
+            <AcademicIntegrityInitiative />
           </div>
 
           <div ref={domainGovernanceRef}>
-            <Card>
-              <div className="p-6">
-                <h3 className="text-xl font-semibold mb-4">Domain 4: Governance</h3>
-                <p className="text-gray-600">
-                  Component placeholder - Governance component to be implemented
-                </p>
-              </div>
-            </Card>
+            <Governance />
           </div>
 
           <div ref={domainSocietalRef}>
-            <Card>
-              <div className="p-6">
-                <h3 className="text-xl font-semibold mb-4">Domain 5: Local & Societal Context</h3>
-                <p className="text-gray-600">
-                  Component placeholder - SocietalContext component to be implemented
-                </p>
-              </div>
-            </Card>
+            <SocietalContext />
           </div>
         </div>
 
         {/* Section V: Indigenous Education */}
         <div ref={indigenousRef}>
-          <Card>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">V. First Nations, Métis, and Inuit Education</h2>
-              <p className="text-gray-600">
-                Component placeholder - IndigenousEducation component to be implemented
-              </p>
-            </div>
-          </Card>
+          <IndigenousEducation />
         </div>
 
         {/* Section VI: Performance Measures */}
         <div ref={performanceRef}>
-          <Card>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">VI. Performance Measures Framework</h2>
-              <p className="text-gray-600">
-                Component placeholder - PerformanceMeasures component to be implemented
-              </p>
-            </div>
-          </Card>
+          <PerformanceMeasures />
         </div>
 
-        {/* Section VII: Implementation */}
-        <div ref={implementationRef}>
-          <Card>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">VII. Implementation Plan</h2>
-              <p className="text-gray-600">
-                Component placeholder - ImplementationPlan component to be implemented
-              </p>
-            </div>
-          </Card>
-        </div>
-
-        <div ref={budgetRef}>
-          <Card>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Budget Summary</h2>
-              <p className="text-gray-600">
-                Component placeholder - BudgetSummary component to be implemented
-              </p>
-            </div>
-          </Card>
-        </div>
-
-        {/* Section VIII: Conclusion */}
+        {/* Section VII: Conclusion */}
         <div ref={conclusionRef}>
-          <Card>
-            <div className="p-6">
-              <h2 className="text-2xl font-bold mb-4">VIII. Conclusion & Future Direction</h2>
-              <p className="text-gray-600">
-                Component placeholder - ConclusionFutureDirection component to be implemented
-              </p>
-            </div>
-          </Card>
+          <ConclusionFutureDirection />
         </div>
       </div>
 
