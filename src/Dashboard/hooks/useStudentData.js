@@ -130,18 +130,7 @@ export const useStudentData = (userEmailKey) => {
         
         // Convert to array with IDs, explicitly handling important config properties
         const notifications = Object.entries(notificationsData).map(([id, data]) => {
-          // Debug the fetched notification data
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`Notification ${id} raw data:`, {
-              id,
-              title: data.title,
-              type: data.type,
-              hasDisplayConfig: !!data.displayConfig,
-              displayConfigFrequency: data.displayConfig?.frequency,
-              hasRenewalConfig: !!data.renewalConfig,
-              renewalConfigMethod: data.renewalConfig?.method
-            });
-          }
+          // No longer logging debug data for each notification
           
           // Directly return the data with ID added
           return {
@@ -163,45 +152,18 @@ export const useStudentData = (userEmailKey) => {
   // Function to calculate age from birthdate - using utility function
   const calculateAge = calculateAgeUtil;
 
-  // Store seen notifications in local storage to handle one-time notifications
-  const getSeenNotifications = (userEmail) => {
-    if (!userEmail) return {};
-    
-    const storageKey = `seen_notifications_${userEmail.replace(/\./g, '_')}`;
-    let seenNotifications = {};
-    
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        seenNotifications = JSON.parse(stored);
-      }
-    } catch (e) {
-      console.error('Error reading from localStorage:', e);
-    }
-    
-    return seenNotifications;
+  // This function is no longer needed as we're using Firebase exclusively
+  // Keeping it as an empty placeholder to minimize code changes elsewhere
+  const getSeenNotifications = () => {
+    return {};
   };
 
-  // Mark a notification as seen
+  // Mark a notification as seen - now only using Firebase
   const markNotificationSeen = async (notificationId, userEmail, notification) => {
     if (!userEmail || !notificationId) return;
     
     // Import sanitizeEmail to ensure consistent email format
     const { sanitizeEmail } = await import('../../utils/sanitizeEmail');
-    
-    // Use the sanitizeEmail function to get the proper format for storage keys
-    // For localStorage we still use underscores since periods are not recommended in keys
-    const storageKey = `seen_notifications_${userEmail.replace(/\./g, '_')}`;
-    let seenNotifications = getSeenNotifications(userEmail);
-    
-    // Mark as seen locally
-    seenNotifications[notificationId] = Date.now();
-    
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(seenNotifications));
-    } catch (e) {
-      console.error('Error writing to localStorage:', e);
-    }
     
     // Update the Firebase database to track this notification as seen and acknowledged
     const db = getDatabase();
@@ -403,73 +365,8 @@ export const useStudentData = (userEmailKey) => {
 
   // Process notifications for each course - using the utility function
   const processNotificationsForCourses = (courses, profile, allNotifications) => {
-    // Log the student data we have for matching
-    console.log('🔔 NOTIFICATION PROCESSING:', {
-      email: profile?.StudentEmail,
-      age: calculateAge(profile?.birthday),
-      notificationCount: allNotifications?.length || 0
-    });
-    
-    // Debug all notifications before processing
-    if (process.env.NODE_ENV === 'development' && allNotifications?.length > 0) {
-      console.log('Raw notification objects before processing:', allNotifications.map(n => ({
-        id: n.id,
-        title: n.title,
-        type: n.type,
-        hasDisplayConfig: !!n.displayConfig,
-        displayConfig: n.displayConfig ? {
-          frequency: n.displayConfig.frequency,
-          dayOfWeek: n.displayConfig.dayOfWeek,
-          hasDates: !!n.displayConfig.dates
-        } : null,
-        hasRenewalConfig: !!n.renewalConfig,
-        renewalConfig: n.renewalConfig ? {
-          method: n.renewalConfig.method,
-          dayOfWeek: n.renewalConfig.dayOfWeek,
-          hasDates: !!n.renewalConfig.dates
-        } : null,
-        hasRepeatInterval: !!n.repeatInterval,
-        repeatInterval: n.repeatInterval,
-        hasRepeatIntervalProperty: n.hasOwnProperty('repeatInterval')
-      })));
-    }
-    
-    // Get previously seen notifications
-    const seenNotifications = profile?.StudentEmail ? getSeenNotifications(profile.StudentEmail) : {};
-    
-    // Use the utility function to process notifications
-    const processedCourses = processNotificationsUtil(courses, profile, allNotifications, seenNotifications);
-    
-    // Debug processed notifications in each course
-    if (process.env.NODE_ENV === 'development') {
-      processedCourses.forEach(course => {
-        if (course.notificationIds && Object.keys(course.notificationIds).length > 0) {
-          console.log(`Processed notifications for course ${course.id}:`, 
-            Object.values(course.notificationIds).map(n => ({
-              id: n.id,
-              title: n.title,
-              type: n.type,
-              hasDisplayConfig: !!n.displayConfig,
-              displayConfig: n.displayConfig ? {
-                frequency: n.displayConfig.frequency,
-                dayOfWeek: n.displayConfig.dayOfWeek,
-                hasDates: !!n.displayConfig.dates
-              } : null,
-              hasRenewalConfig: !!n.renewalConfig,
-              renewalConfig: n.renewalConfig ? {
-                method: n.renewalConfig.method,
-                dayOfWeek: n.renewalConfig.dayOfWeek,
-                hasDates: !!n.renewalConfig.dates
-              } : null,
-              hasRepeatInterval: !!n.repeatInterval,
-              repeatInterval: n.repeatInterval,
-              hasRepeatIntervalProperty: n.hasOwnProperty('repeatInterval'),
-              shouldDisplay: n.shouldDisplay
-            }))
-          );
-        }
-      });
-    }
+    // We now use Firebase exclusively for notification tracking, passing an empty object for seenNotifications
+    const processedCourses = processNotificationsUtil(courses, profile, allNotifications, {});
     
     return processedCourses;
   };
@@ -941,38 +838,20 @@ export const useStudentData = (userEmailKey) => {
     };
   }, [userEmailKey, isEmulating]);
 
-  // Add a consolidated console log to see all notification-related data
+  // Add a simplified notification summary log
   if (!studentData.loading && studentData.profile) {
-    console.log('🔔🔔🔔 NOTIFICATION SYSTEM SUMMARY 🔔🔔🔔', {
-      student: {
-        email: studentData.profile.StudentEmail,
-        fullName: `${studentData.profile.firstName || ''} ${studentData.profile.lastName || ''}`,
-        age: calculateAge(studentData.profile.birthday)
-      },
-      notifications: {
-        totalActive: studentData.allNotifications?.length || 0,
-        coursesWithNotifications: studentData.courses?.filter(c => 
-          c.notificationIds && Object.keys(c.notificationIds).length > 0
-        ).length || 0,
-        visibleNotifications: studentData.courses?.reduce((count, course) => {
-          if (!course.notificationIds) return count;
-          return count + Object.values(course.notificationIds)
-            .filter(n => n.shouldDisplay).length;
-        }, 0) || 0,
-        courseBreakdown: studentData.courses?.map(course => ({
-          id: course.id,
-          title: course.courseDetails?.Title,
-          totalNotifications: course.notificationIds ? Object.keys(course.notificationIds).length : 0,
-          visibleNotifications: course.notificationIds ? 
-            Object.values(course.notificationIds).filter(n => n.shouldDisplay).length : 0,
-          hasAcknowledgedNotifications: course.studentDashboardNotificationsResults ? 
-            Object.keys(course.studentDashboardNotificationsResults).length : 0
-        })).filter(c => c.totalNotifications > 0)
-      },
-      storagePaths: {
-        mainResults: 'studentDashboardNotificationsResults/{notificationId}/{userEmail}',
-        courseSpecific: 'students/{userEmail}/courses/{courseId}/studentDashboardNotificationsResults/{notificationId}'
-      }
+    const visibleNotifications = studentData.courses?.reduce((count, course) => {
+      if (!course.notificationIds) return count;
+      return count + Object.values(course.notificationIds)
+        .filter(n => n.shouldDisplay).length;
+    }, 0) || 0;
+    
+    console.log('📋 NOTIFICATION SUMMARY:', {
+      totalActive: studentData.allNotifications?.length || 0,
+      visibleNotifications,
+      coursesWithNotifications: studentData.courses?.filter(c => 
+        c.notificationIds && Object.keys(c.notificationIds).length > 0
+      ).length || 0
     });
   }
   
@@ -1145,17 +1024,7 @@ export const useStudentData = (userEmailKey) => {
                             (notification.type === 'notification' && !notification.repeatInterval) ||
                             (notification.type === 'survey' && !notification.repeatInterval && notification.type !== 'weekly-survey');
                             
-        // For debugging in development
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Marking notification as seen:', {
-            id: notification.id,
-            type: notification.type,
-            displayFrequency,
-            hasRepeatInterval: !!notification.repeatInterval,
-            repeatInterval: notification.repeatInterval,
-            isOneTimeType
-          });
-        }
+        // No longer logging detailed notification data when marking as seen
         
         // Mark this notification as seen if it's one-time (for all courses)
         if (isOneTimeType || displayFrequency === 'one-time') {

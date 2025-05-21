@@ -24,9 +24,12 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { cn } from '../lib/utils';
 import { getDatabase, ref, set, get, update } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getAuth } from 'firebase/auth';
 import { useAuth } from '../context/AuthContext';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 const NotificationIcon = ({ type, size = "h-5 w-5", repeatInterval = null }) => {
   // New consolidated notification system:
@@ -497,35 +500,11 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
   // Since each survey is now specific to a single course, we just need that course's ID
   const courseId = notification.courses[0]?.id;
   
-  // Initialize with default questions if none provided in notification
+  // Use notification questions or an empty array if none provided
   const [surveyQuestions, setSurveyQuestions] = useState(() => {
-    if (notification.surveyQuestions && notification.surveyQuestions.length > 0) {
-      return notification.surveyQuestions;
-    }
-    
-    // Use default questions if none provided
-    return [
-      {
-        "id": "1746273438863",
-        "options": [
-          {
-            "id": "1746273438863-1",
-            "text": "fdsfds"
-          },
-          {
-            "id": "1746273438863-2",
-            "text": "fdsdfggfdfgd"
-          }
-        ],
-        "question": "test question",
-        "questionType": "multiple-choice"
-      },
-      {
-        "id": "1746273454917",
-        "question": "test question 2",
-        "questionType": "text-input"
-      }
-    ];
+    return (notification.surveyQuestions && notification.surveyQuestions.length > 0)
+      ? notification.surveyQuestions
+      : [];
   });
 
   const handleSubmit = async (e) => {
@@ -899,10 +878,8 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
   // State to control compact view
   const [isCompactView, setIsCompactView] = useState(true);
   const [selectedNotification, setSelectedNotification] = useState(null);
-  const [readNotifications, setReadNotifications] = useState(() => {
-    const stored = localStorage.getItem(`read_notifications_${profile?.StudentEmail}`);
-    return stored ? JSON.parse(stored) : {};
-  });
+  // We no longer need to store read status in local state since we're using Firebase exclusively
+  const [readNotifications, setReadNotifications] = useState({});
   const { current_user_email_key } = useAuth();
 
   // State to track which tab is selected
@@ -1192,10 +1169,12 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     return true;
   };
 
-  // Filter out dismissed one-time notifications and completed surveys that don't renew
+  // Filter notifications based only on Firebase data
+  // One-time notifications should not appear in active tabs once acknowledged in Firebase
+  // Surveys should not appear in active tabs once completed unless they should be renewed
   let activeNotifications = allNotifications.filter(notification => {
-    // Filter out one-time notifications that have been dismissed
-    if (notification.type === 'once' && readNotifications[notification.uniqueId]?.dismissed) {
+    // Filter out acknowledged notifications (but keep them in allNotifications for history)
+    if (notification.hasAcknowledged) {
       return false;
     }
     
@@ -1207,8 +1186,8 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     return true;
   });
   
-  // Determine if there are any unread or important notifications that need attention
-  const hasUnreadNotifications = activeNotifications.some(n => !readNotifications[n.uniqueId]?.read);
+  // Determine if there are any unread notifications that need attention, checking Firebase data
+  const hasUnreadNotifications = activeNotifications.some(n => !n.hasSeen);
   
   // Check for important notifications
   const hasImportantNotifications = activeNotifications.some(n => isImportantNotification(n));
@@ -1298,6 +1277,9 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     }
   }, [profile]);
 
+  // Track if user has manually changed tabs
+  const [userChangedTab, setUserChangedTab] = useState(false);
+  
   // Check for notifications status and update view accordingly
   useEffect(() => {
     // Only show compact view when there's nothing requiring attention
@@ -1316,6 +1298,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
         },
         display: {
           userToggled,
+          userChangedTab,
           isExpanded,
           isCompactView: !needsAttention && !isExpanded,
           visible: activeNotifications.length
@@ -1327,39 +1310,32 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     if (hasUnreadNotifications && !userToggled) {
       setIsExpanded(true);
       
-      // If we have important notifications or incomplete surveys, highlight the appropriate tab
-      if (hasImportantNotifications) {
-        setActiveTab("important");
-      } else if (hasIncompleteRequiredNotifications) {
-        setActiveTab("surveys");
+      // Only set the active tab automatically if the user hasn't changed it manually
+      if (!userChangedTab) {
+        if (hasImportantNotifications) {
+          setActiveTab("important");
+        } else if (hasIncompleteRequiredNotifications) {
+          setActiveTab("surveys");
+        }
       }
     }
   }, [
     activeNotifications, 
     userToggled, 
+    userChangedTab,
     hasUnreadNotifications, 
     hasImportantNotifications, 
     hasIncompleteRequiredNotifications, 
     isExpanded
   ]);
 
-  // Mark notification as read and store in localStorage
+  // Mark notification as read using only Firebase
   const markAsRead = async (notification) => {
-    const uniqueId = typeof notification === 'object' ? notification.uniqueId : notification;
     const notificationId = typeof notification === 'object' ? 
       (notification.originalNotificationId || notification.id) : notification;
     
     // Import sanitizeEmail to ensure consistent email format
     const { sanitizeEmail } = await import('../utils/sanitizeEmail');
-    
-    setReadNotifications(prev => {
-      const updated = {
-        ...prev,
-        [uniqueId]: { ...prev[uniqueId], read: true }
-      };
-      localStorage.setItem(`read_notifications_${profile?.StudentEmail}`, JSON.stringify(updated));
-      return updated;
-    });
     
     // Also update hasSeen status in Firebase
     if (profile?.StudentEmail && notificationId) {
@@ -1528,23 +1504,23 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
       });
     }
     
-    // Check if all notifications will be read after this one
+    // Check if all notifications will be read after this one based on Firebase data
     const allRead = activeNotifications.every(n => 
-      n.uniqueId === uniqueId || readNotifications[n.uniqueId]?.read
+      n.uniqueId === notification.uniqueId || n.hasSeen
     );
     
     // Check if all surveys will be completed
     const allSurveysCompleted = activeNotifications.every(n =>
       (n.type !== 'survey' && n.type !== 'weekly-survey') || 
       n.surveyCompleted ||
-      n.uniqueId === uniqueId // Current notification being opened counts as addressed
+      n.uniqueId === notification.uniqueId // Current notification being opened counts as addressed
     );
     
-    // Check if all important notifications will be addressed
+    // Check if all important notifications will be addressed based on Firebase data
     const allImportantAddressed = activeNotifications.every(n =>
       !isImportantNotification(n) || 
-      readNotifications[n.uniqueId]?.read ||
-      n.uniqueId === uniqueId // Current notification being opened counts as addressed
+      n.hasSeen ||
+      n.uniqueId === notification.uniqueId // Current notification being opened counts as addressed
     );
     
     // If everything is addressed, automatically switch to compact mode after a delay
@@ -1560,22 +1536,13 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
 
   // Dismiss/acknowledge notification (for both one-time and repeating notifications)
   // This function has been simplified to apply acknowledgment to all courses at once
+  // and now only uses Firebase for tracking
   const dismissNotification = async (notification) => {
     // Use the original ID for backend notification dismissal
     await markNotificationAsSeen(notification.originalNotificationId || notification.id);
     
     // Import sanitizeEmail to ensure consistent email format
     const { sanitizeEmail } = await import('../utils/sanitizeEmail');
-    
-    // Update local storage to mark as dismissed
-    setReadNotifications(prev => {
-      const updated = {
-        ...prev,
-        [notification.uniqueId]: { ...prev[notification.uniqueId], dismissed: true }
-      };
-      localStorage.setItem(`read_notifications_${profile?.StudentEmail}`, JSON.stringify(updated));
-      return updated;
-    });
     
     // For all notification types, update the database with acknowledgment status
     if (profile?.StudentEmail) {
@@ -1850,88 +1817,77 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     if (!selectedNotification || !current_user_email_key || !selectedCourseIds || selectedCourseIds.length === 0) return;
 
     try {
-      // Import sanitizeEmail to ensure consistent email format
-      const { sanitizeEmail } = await import('../utils/sanitizeEmail');
+      // Get the user's auth information
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
       
-      // Get the original notification ID
+      // Get the original notification ID - make sure this isn't null
       const notificationId = selectedNotification.originalNotificationId || selectedNotification.id;
       
       // In our new model, each survey notification has exactly one course
       const selectedCourse = selectedNotification.courses[0];
       const courseId = selectedCourse.id;
       
-      // Prepare data for the cloud function
+      // Log detailed notification data for debugging
+      console.log("Selected notification:", {
+        id: selectedNotification.id,
+        originalId: selectedNotification.originalNotificationId,
+        finalId: notificationId,
+        courseInfo: selectedCourse,
+        courseId
+      });
+      
+      // Verify we have valid data before submitting
+      if (!notificationId) {
+        console.error("Missing notification ID");
+        throw new Error("Missing notification ID");
+      }
+      
+      if (!courseId) {
+        console.error("Missing course ID");
+        throw new Error("Missing course ID");
+      }
+      
+      if (!answers || Object.keys(answers).length === 0) {
+        console.error("No answers provided");
+        throw new Error("Please provide an answer before submitting");
+      }
+      
+      const userEmail = currentUser?.email || profile?.StudentEmail;
+      
+      // Prepare data for the cloud function - using the same structure as seen in DynamicQuestion
       const submissionData = {
-        notificationId,
-        courseId,
-        answers: answers || {}, // Ensure answers is at least an empty object
-        userEmail: profile?.StudentEmail || 'test-user@example.com',
-        studentName: `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim() || 'Test User',
-        sanitizedUserEmail: sanitizeEmail(current_user_email_key)
+        notificationId: notificationId,
+        courseId: courseId,
+        answers: answers,
+        userEmail: userEmail,
+        studentName: `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim()
       };
       
-      console.log('Submitting survey via cloud function:', submissionData);
-      
-      // Call the cloud function
-      const { getFunctions, httpsCallable, connectFunctionsEmulator } = await import('firebase/functions');
+      // Get functions instance
       const functions = getFunctions();
       
-      // Check if we're in development mode to connect to emulator
-      if (process.env.NODE_ENV === 'development') {
-        try {
-          // Connect to the local emulator (if running)
-          connectFunctionsEmulator(functions, "localhost", 5001);
-          console.log("Connected to functions emulator");
-        } catch (error) {
-          console.warn("Could not connect to functions emulator:", error);
-        }
-      }
+      // Log what we're about to send
+      console.log('SUBMITTING SURVEY DATA:', JSON.stringify(submissionData, null, 2));
       
+      // Create a clean data object for the cloud function
+      const functionData = {
+        notificationId: String(notificationId), // Ensure string type
+        courseId: String(courseId), // Ensure string type
+        answers: { ...answers }, // Copy answers to avoid reference issues
+        userEmail: String(userEmail || ''), // Ensure string type
+        studentName: String(submissionData.studentName || '')
+      };
+      
+      // Log the clean data
+      console.log('Clean data for cloud function:', JSON.stringify(functionData, null, 2));
+      
+      // Call the cloud function with the clean data
       const submitSurvey = httpsCallable(functions, 'submitNotificationSurvey');
-      
-      // Add Debug flag for testing/development
-      if (process.env.NODE_ENV === 'development') {
-        // Add extra data for emulator testing
-        submissionData.debug = true;
-        submissionData.bypassAuth = true; // Enable bypass for emulator testing
-        
-        // Force valid test values for emulator
-        if (!submissionData.notificationId || submissionData.notificationId === 'none') {
-          submissionData.notificationId = '-OQjoY2E87d4goYanajF'; // Test notification ID
-        }
-        
-        if (!submissionData.courseId || submissionData.courseId === 'none') {
-          submissionData.courseId = '12345'; // Test course ID
-        }
-        
-        // Make sure there's always at least one test answer
-        if (!submissionData.answers || Object.keys(submissionData.answers).length === 0) {
-          submissionData.answers = {
-            'test-question-id': 'test-answer-value'
-          };
-        }
-        
-        // Log what we're sending to the function - safely
-        try {
-          // Safely stringify, avoiding circular references
-          const safeData = {
-            notificationId: submissionData.notificationId,
-            courseId: submissionData.courseId,
-            userEmail: submissionData.userEmail,
-            hasAnswers: !!submissionData.answers,
-            answerCount: Object.keys(submissionData.answers || {}).length,
-            testValues: 'Added for emulator testing',
-            bypassAuth: true
-          };
-          console.log('SUBMITTING SURVEY DATA:', JSON.stringify(safeData, null, 2));
-        } catch (err) {
-          console.log('Error logging submission data:', err.message);
-        }
-      }
-      
-      // Wait for the cloud function to complete
       console.log('Calling submitSurvey cloud function...');
-      const result = await submitSurvey(submissionData);
+      
+      // Pass the data to the function
+      const result = await submitSurvey(functionData);
       console.log('Survey submitted successfully:', result.data);
       
       // Process categories from answers - we still need to do this client-side
@@ -1956,12 +1912,12 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
       );
       
       const allNotificationsRead = activeNotifications.every(n => 
-        readNotifications[n.uniqueId]?.read || (n.uniqueId === selectedNotification.uniqueId)
+        n.hasSeen || (n.uniqueId === selectedNotification.uniqueId)
       );
       
       const allImportantAddressed = activeNotifications.every(n =>
         !isImportantNotification(n) || 
-        readNotifications[n.uniqueId]?.read ||
+        n.hasSeen ||
         (n.uniqueId === selectedNotification.uniqueId)
       );
       
@@ -2116,18 +2072,6 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          {!isExpanded && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsCompactView(true);
-              }}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
           <Button 
             variant="ghost" 
             size="sm" 
@@ -2144,7 +2088,14 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
       
       {isExpanded && (
         <CardContent className="p-4 pt-0">
-          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs 
+            defaultValue="all" 
+            value={activeTab} 
+            onValueChange={(value) => {
+              setActiveTab(value);
+              setUserChangedTab(true); // Mark that user has manually changed tabs
+            }} 
+            className="w-full">
             <TabsList className="mb-4">
               <TabsTrigger value="all" className="flex items-center gap-2">
                 <Bell className="h-4 w-4" />
@@ -2175,7 +2126,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
                       markAsRead(notification);
                     }}
                     onDismiss={dismissNotification}
-                    isRead={readNotifications[notification.uniqueId]?.read}
+                    isRead={notification.hasSeen}
                   />
                 ))}
               </div>
@@ -2194,7 +2145,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
                         markAsRead(notification);
                       }}
                       onDismiss={dismissNotification}
-                      isRead={readNotifications[notification.uniqueId]?.read}
+                      isRead={notification.hasSeen}
                     />
                   ))}
               </div>
@@ -2213,30 +2164,124 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
                         markAsRead(notification);
                       }}
                       onDismiss={dismissNotification}
-                      isRead={readNotifications[notification.uniqueId]?.read}
+                      isRead={notification.hasSeen}
                     />
                   ))}
               </div>
             </TabsContent>
             
             <TabsContent value="acknowledged" className="mt-0">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {allNotifications
-                  .filter(n => 
-                    (n.hasAcknowledged || readNotifications[n.uniqueId]?.read) &&
-                    !activeNotifications.some(a => a.uniqueId === n.uniqueId)
-                  )
-                  .map((notification, index) => (
-                    <NotificationPreview
-                      key={`read-${notification.id}-${index}`}
-                      notification={notification}
-                      onClick={(notification) => {
-                        setSelectedNotification(notification);
-                      }}
-                      onDismiss={() => {}} // No dismiss for already acknowledged
-                      isRead={true}
-                    />
-                  ))}
+              <div className="border rounded-md overflow-hidden">
+                <div className="max-h-[400px] overflow-y-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {allNotifications
+                        .filter(n => 
+                          (n.hasAcknowledged || readNotifications[n.uniqueId]?.read) ||
+                          ((n.type === 'survey' || n.type === 'weekly-survey') && n.surveyCompleted)
+                        )
+                        .map((notification, index) => {
+                          // Get formatted notification type description
+                          const getTypeIconAndLabel = () => {
+                            if (notification.type === 'survey' || notification.type === 'weekly-survey') {
+                              return {
+                                icon: <ClipboardList className="h-4 w-4 text-purple-600" />,
+                                label: notification.type === 'weekly-survey' ? 'Weekly Survey' : 'Survey'
+                              };
+                            } else if (notification.type === 'notification' || notification.type === 'once') {
+                              return {
+                                icon: <Bell className="h-4 w-4 text-amber-600" />,
+                                label: 'Notification'
+                              };
+                            } else if (notification.type === 'recurring') {
+                              return {
+                                icon: <RefreshCw className="h-4 w-4 text-blue-600" />,
+                                label: 'Recurring'
+                              };
+                            }
+                            return { icon: <Bell className="h-4 w-4 text-gray-600" />, label: 'Other' };
+                          };
+                          
+                          const { icon, label } = getTypeIconAndLabel();
+                          
+                          // Get course info if available
+                          const courseInfo = notification.courses && notification.courses.length > 0 ? 
+                            getCourseInfo(notification.courses[0].id) : null;
+                          
+                          // Get status text
+                          const getStatusText = () => {
+                            if ((notification.type === 'survey' || notification.type === 'weekly-survey') && notification.surveyCompleted) {
+                              return {
+                                icon: <CheckCircle2 className="h-4 w-4 text-green-600" />,
+                                text: "Survey Completed"
+                              };
+                            } else if (notification.hasAcknowledged) {
+                              return {
+                                icon: <CheckCircle2 className="h-4 w-4 text-blue-600" />,
+                                text: "Acknowledged"
+                              };
+                            } else {
+                              return {
+                                icon: <History className="h-4 w-4 text-gray-600" />,
+                                text: "Read"
+                              };
+                            }
+                          };
+                          
+                          const { icon: statusIcon, text: statusText } = getStatusText();
+                          
+                          return (
+                            <tr key={`history-${notification.uniqueId || notification.id}-${index}`}>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  {icon}
+                                  <span className="ml-2 text-sm text-gray-900">{label}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="text-sm text-gray-900 max-w-[250px] truncate">
+                                  {notification.title}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {courseInfo ? (
+                                  <div className="flex items-center">
+                                    {courseInfo.icon && <courseInfo.icon className="h-4 w-4 mr-1" style={{ color: courseInfo.color || '#374151' }} />}
+                                    <span className="text-sm text-gray-900">{courseInfo.label}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-gray-500">General</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  {statusIcon}
+                                  <span className="ml-2 text-sm text-gray-900">{statusText}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button 
+                                  onClick={() => setSelectedNotification(notification)}
+                                  className="text-blue-600 hover:text-blue-900"
+                                >
+                                  View
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </TabsContent>
           </Tabs>
