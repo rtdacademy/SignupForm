@@ -1845,218 +1845,104 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     }
   };
 
-  // Handle survey submission
+  // Handle survey submission using cloud function
   const handleSurveySubmit = async (answers, selectedCourseIds) => {
     if (!selectedNotification || !current_user_email_key || !selectedCourseIds || selectedCourseIds.length === 0) return;
 
-    // Import sanitizeEmail to ensure consistent email format
-    const { sanitizeEmail } = await import('../utils/sanitizeEmail');
-    
-    const db = getDatabase();
-    
     try {
-      // Get the original notification ID for database storage
+      // Import sanitizeEmail to ensure consistent email format
+      const { sanitizeEmail } = await import('../utils/sanitizeEmail');
+      
+      // Get the original notification ID
       const notificationId = selectedNotification.originalNotificationId || selectedNotification.id;
       
-      // In our new model, each survey notification already has exactly one course
+      // In our new model, each survey notification has exactly one course
       const selectedCourse = selectedNotification.courses[0];
+      const courseId = selectedCourse.id;
       
-      // Create data object with student info and selected course ID
-      const surveyData = {
-        notificationId: notificationId,
-        courses: [selectedCourse],
-        answers,
-        submittedAt: new Date().toISOString(),
-        studentEmail: profile?.StudentEmail,
-        studentName: `${profile?.firstName} ${profile?.lastName}`,
-        hasSeen: true,
-        hasSeenTimeStamp: new Date().toISOString(),
-        // Add acknowledgment fields automatically when completing the survey
-        hasAcknowledged: true,
-        acknowledgedAt: new Date().toISOString()
+      // Prepare data for the cloud function
+      const submissionData = {
+        notificationId,
+        courseId,
+        answers: answers || {}, // Ensure answers is at least an empty object
+        userEmail: profile?.StudentEmail || 'test-user@example.com',
+        studentName: `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim() || 'Test User',
+        sanitizedUserEmail: sanitizeEmail(current_user_email_key)
       };
       
-      // Generate a timestamp for this submission
-      const timestamp = Date.now();
+      console.log('Submitting survey via cloud function:', submissionData);
       
-      // Store results in a hierarchical structure that maintains security permissions
-      // Format: /surveyResponses/{notificationId}/{timestamp}/{userEmailKey}/
-      const sanitizedUserEmail = sanitizeEmail(current_user_email_key); 
-      const newSurveyRef = ref(db, `surveyResponses/${notificationId}/${timestamp}/${sanitizedUserEmail}`);
+      // Call the cloud function
+      const { getFunctions, httpsCallable, connectFunctionsEmulator } = await import('firebase/functions');
+      const functions = getFunctions();
       
-      await set(newSurveyRef, {
-        answers,
-        courseId: selectedCourse.id,
-        courseName: selectedCourse.title,
-        hasSeen: true,
-        hasSeenTimeStamp: new Date().toISOString(),
-        hasAcknowledged: true,
-        acknowledgedAt: new Date().toISOString(),
-        notificationId,
-        studentEmail: profile?.StudentEmail,
-        studentName: `${profile?.firstName} ${profile?.lastName}`,
-        submittedAt: new Date().toISOString(),
-        timestamp
-      });
-      
-      // Legacy location for backward compatibility 
-      const legacySurveyRef = ref(db, `surveyResponses/${sanitizedUserEmail}/notifications/${notificationId}`);
-      await set(legacySurveyRef, surveyData);
-      
-      // Create a hierarchical structure for studentDashboardNotificationsResults
-      // Format: /studentDashboardNotificationsResults/{notificationId}/{timestamp}/{userEmailKey}/
-      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${timestamp}/${sanitizedUserEmail}`);
-      
-      // Store in hierarchical structure for better filtering while maintaining security
-      await set(resultsRef, {
-        answers,
-        courseId: selectedCourse.id,
-        courseName: selectedCourse.title,
-        completed: true,
-        completedAt: new Date().toISOString(),
-        email: profile?.StudentEmail,
-        hasSeen: true,
-        hasSeenTimeStamp: new Date().toISOString(),
-        hasAcknowledged: true,
-        acknowledgedAt: new Date().toISOString(),
-        latestSubmission: true, // Flag to identify most recent submission
-        notificationId,
-        studentEmail: profile?.StudentEmail,
-        studentName: `${profile?.firstName} ${profile?.lastName}`,
-        submittedAt: new Date().toISOString(),
-        timestamp,
-        displayFrequency: selectedNotification.displayConfig?.frequency || 'one-time'
-      });
-      
-      // Also maintain backward compatibility structure
-      const legacyResultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedUserEmail}`);
-      
-      // First fetch existing data to preserve submission history
-      const legacySnapshot = await get(legacyResultsRef);
-      const existingData = legacySnapshot.exists() ? legacySnapshot.val() : {};
-      
-      // Prepare the update
-      await set(legacyResultsRef, {
-        ...existingData,
-        ...surveyData,
-        courseIds: [selectedCourse.id],
-        email: profile?.StudentEmail,
-        completed: true,
-        completedAt: new Date().toISOString(),
-        hasAcknowledged: true,
-        acknowledgedAt: new Date().toISOString(),
-        // Store a reference to the hierarchical structure entry 
-        latestSubmissionPath: `${notificationId}/${timestamp}/${sanitizedUserEmail}`,
-        // Ensure we have a submissions object with the timestamp entry
-        submissions: {
-          ...(existingData.submissions || {}),
-          [timestamp]: {
-            answers,
-            submittedAt: new Date().toISOString(),
-            courseIds: [selectedCourse.id],
-            courses: [selectedCourse],
-            hasAcknowledged: true,
-            acknowledgedAt: new Date().toISOString()
-          }
-        },
-        // Update lastSubmitted and lastAcknowledged timestamps
-        lastSubmitted: new Date().toISOString(),
-        lastAcknowledged: new Date().toISOString()
-      });
-      
-      // Also store the result in the course record for real-time updates
-      const courseResultsRef = ref(db, `students/${sanitizedUserEmail}/courses/${selectedCourse.id}/studentDashboardNotificationsResults/${notificationId}`);
-      await set(courseResultsRef, {
-        completed: true,
-        completedAt: new Date().toISOString(),
-        answers, // Store answers directly in the format provided
-        hasSeen: true,
-        hasSeenTimeStamp: new Date().toISOString(),
-        hasAcknowledged: true,
-        acknowledgedAt: new Date().toISOString(),
-        // Reference to the hierarchical structure path
-        latestSubmissionPath: `${notificationId}/${timestamp}/${sanitizedUserEmail}`
-      });
-
-      // Process categories from answers
-      // For each multiple-choice answer, check if the selected option has a category assigned
-      if (selectedNotification.surveyQuestions && selectedNotification.surveyQuestions.length > 0) {
-        const categoryUpdates = [];
-        
-        // Loop through each answer to check for categories
-        for (const [questionId, answerId] of Object.entries(answers)) {
-          // Find the corresponding question
-          const question = selectedNotification.surveyQuestions.find(q => q.id === questionId);
-          
-          // Skip if question not found or not a multiple-choice question
-          if (!question || question.questionType !== 'multiple-choice') continue;
-          
-          // Find the selected option
-          const selectedOption = question.options.find(opt => opt.id === answerId);
-          
-          // Check if the option has a category
-          if (selectedOption && selectedOption.category && selectedOption.category !== 'none') {
-            // Get the category details
-            const categoryId = selectedOption.category;
-            
-            // Extract teacher email key from the option's category path - this is more complex
-            // We need to find which teacher owns this category by examining the 
-            // notification's conditions which has the teacher email key in the format:
-            // { "kyle@rtdacademy,com": ["1746563182275"] }
-            let teacherEmailKey = null;
-            
-            // Check each condition for categories
-            if (selectedNotification.conditions && selectedNotification.conditions.categories) {
-              for (const teacherCat of selectedNotification.conditions.categories) {
-                // Get the teacher email
-                const key = Object.keys(teacherCat)[0];
-                // Get the categories for this teacher
-                const categories = teacherCat[key] || [];
-                
-                // If this teacher has the category, use this teacher
-                if (categories.includes(categoryId)) {
-                  teacherEmailKey = key;
-                  break;
-                }
-              }
-            }
-            
-            // If we couldn't find the teacher, try to use the first teacher or the default
-            if (!teacherEmailKey && selectedNotification.conditions && selectedNotification.conditions.categories && 
-                selectedNotification.conditions.categories.length > 0) {
-              teacherEmailKey = Object.keys(selectedNotification.conditions.categories[0])[0];
-            }
-            
-            // Now check if there's a staffKey directly on the selectedOption
-            let staffKey = selectedOption.staffKey || teacherEmailKey;
-            
-            // If we have a staff key and category, add to updates
-            if (staffKey && staffKey !== 'none') {
-              const categoryPath = `students/${sanitizedUserEmail}/courses/${selectedCourse.id}/categories/${staffKey}/${categoryId}`;
-              categoryUpdates.push({ path: categoryPath, value: true });
-            }
-          }
-        }
-        
-        // Apply all category updates if we have any
-        if (categoryUpdates.length > 0) {
-          // Convert the updates array to an object for update() function
-          const updateObj = {};
-          for (const updateItem of categoryUpdates) {
-            updateObj[updateItem.path] = updateItem.value;
-          }
-          
-          // Use update instead of set to avoid overwriting other categories
-          await update(ref(db), updateObj);
-          console.log(`Added ${categoryUpdates.length} categories to student using update()`);
+      // Check if we're in development mode to connect to emulator
+      if (process.env.NODE_ENV === 'development') {
+        try {
+          // Connect to the local emulator (if running)
+          connectFunctionsEmulator(functions, "localhost", 5001);
+          console.log("Connected to functions emulator");
+        } catch (error) {
+          console.warn("Could not connect to functions emulator:", error);
         }
       }
-
-      // Close dialog and refresh notifications
+      
+      const submitSurvey = httpsCallable(functions, 'submitNotificationSurvey');
+      
+      // Add Debug flag for testing/development
+      if (process.env.NODE_ENV === 'development') {
+        // Add extra data for emulator testing
+        submissionData.debug = true;
+        submissionData.bypassAuth = true; // Enable bypass for emulator testing
+        
+        // Force valid test values for emulator
+        if (!submissionData.notificationId || submissionData.notificationId === 'none') {
+          submissionData.notificationId = '-OQjoY2E87d4goYanajF'; // Test notification ID
+        }
+        
+        if (!submissionData.courseId || submissionData.courseId === 'none') {
+          submissionData.courseId = '12345'; // Test course ID
+        }
+        
+        // Make sure there's always at least one test answer
+        if (!submissionData.answers || Object.keys(submissionData.answers).length === 0) {
+          submissionData.answers = {
+            'test-question-id': 'test-answer-value'
+          };
+        }
+        
+        // Log what we're sending to the function - safely
+        try {
+          // Safely stringify, avoiding circular references
+          const safeData = {
+            notificationId: submissionData.notificationId,
+            courseId: submissionData.courseId,
+            userEmail: submissionData.userEmail,
+            hasAnswers: !!submissionData.answers,
+            answerCount: Object.keys(submissionData.answers || {}).length,
+            testValues: 'Added for emulator testing',
+            bypassAuth: true
+          };
+          console.log('SUBMITTING SURVEY DATA:', JSON.stringify(safeData, null, 2));
+        } catch (err) {
+          console.log('Error logging submission data:', err.message);
+        }
+      }
+      
+      // Wait for the cloud function to complete
+      console.log('Calling submitSurvey cloud function...');
+      const result = await submitSurvey(submissionData);
+      console.log('Survey submitted successfully:', result.data);
+      
+      // Process categories from answers - we still need to do this client-side
+      // because categories are specific to the UI and how the user interacts
+      if (selectedNotification.surveyQuestions && selectedNotification.surveyQuestions.length > 0) {
+        await processCategoryUpdates(answers, selectedNotification, courseId, sanitizeEmail(current_user_email_key));
+      }
+      
+      // Update local state and UI
       setSelectedNotification(null);
       markAsRead(selectedNotification);
-      
-      // Also mark as dismissed/acknowledged since we've added the acknowledgment fields
       dismissNotification(selectedNotification);
       
       // Show success message
@@ -2085,9 +1971,87 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
           setIsCompactView(true);
         }, 1500); // Slightly longer delay to ensure notification state has updated
       }
+      
+      // Force refresh to update notifications
+      if (forceRefresh) {
+        setTimeout(() => {
+          forceRefresh();
+        }, 500);
+      }
     } catch (error) {
       console.error('Error submitting survey:', error);
-      toast?.error?.('Failed to submit survey. Please try again.') || alert('Failed to submit survey. Please try again.');
+      toast?.error?.(`Failed to submit survey: ${error.message}`) || 
+        alert(`Failed to submit survey: ${error.message}`);
+    }
+  };
+  
+  // Helper function to process category updates
+  const processCategoryUpdates = async (answers, notification, courseId, sanitizedUserEmail) => {
+    const db = getDatabase();
+    const categoryUpdates = [];
+    
+    // Loop through each answer to check for categories
+    for (const [questionId, answerId] of Object.entries(answers)) {
+      // Find the corresponding question
+      const question = notification.surveyQuestions.find(q => q.id === questionId);
+      
+      // Skip if question not found or not a multiple-choice question
+      if (!question || question.questionType !== 'multiple-choice') continue;
+      
+      // Find the selected option
+      const selectedOption = question.options.find(opt => opt.id === answerId);
+      
+      // Check if the option has a category
+      if (selectedOption && selectedOption.category && selectedOption.category !== 'none') {
+        // Get the category details
+        const categoryId = selectedOption.category;
+        
+        // Extract teacher email key from the option's category path
+        let teacherEmailKey = null;
+        
+        // Check each condition for categories
+        if (notification.conditions && notification.conditions.categories) {
+          for (const teacherCat of notification.conditions.categories) {
+            // Get the teacher email
+            const key = Object.keys(teacherCat)[0];
+            // Get the categories for this teacher
+            const categories = teacherCat[key] || [];
+            
+            // If this teacher has the category, use this teacher
+            if (categories.includes(categoryId)) {
+              teacherEmailKey = key;
+              break;
+            }
+          }
+        }
+        
+        // Fallback if we couldn't find the teacher
+        if (!teacherEmailKey && notification.conditions?.categories?.length > 0) {
+          teacherEmailKey = Object.keys(notification.conditions.categories[0])[0];
+        }
+        
+        // Now check if there's a staffKey directly on the selectedOption
+        let staffKey = selectedOption.staffKey || teacherEmailKey;
+        
+        // If we have a staff key and category, add to updates
+        if (staffKey && staffKey !== 'none') {
+          const categoryPath = `students/${sanitizedUserEmail}/courses/${courseId}/categories/${staffKey}/${categoryId}`;
+          categoryUpdates.push({ path: categoryPath, value: true });
+        }
+      }
+    }
+    
+    // Apply all category updates if we have any
+    if (categoryUpdates.length > 0) {
+      // Convert the updates array to an object for update() function
+      const updateObj = {};
+      for (const updateItem of categoryUpdates) {
+        updateObj[updateItem.path] = updateItem.value;
+      }
+      
+      // Use update instead of set to avoid overwriting other categories
+      await update(ref(db), updateObj);
+      console.log(`Added ${categoryUpdates.length} categories to student using update()`);
     }
   };
 
