@@ -459,6 +459,7 @@ const Dashboard = () => {
       profile={profile}
       markNotificationAsSeen={markNotificationAsSeen}
       forceRefresh={forceRefresh}
+      allNotifications={allNotifications}
     />
   )}
 

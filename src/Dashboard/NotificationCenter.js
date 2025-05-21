@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
@@ -23,7 +23,7 @@ import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { cn } from '../lib/utils';
-import { getDatabase, ref, set, get, update } from 'firebase/database';
+import { getDatabase, ref, set, get, update, onValue } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { useAuth } from '../context/AuthContext';
@@ -429,7 +429,7 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
         <div 
           className="text-xs text-gray-600 line-clamp-2 mb-2 flex-grow"
           dangerouslySetInnerHTML={{ 
-            __html: notification.content?.replace(/<[^>]*>/g, '').substring(0, 60) + '...' 
+            __html: (notification.content || "Content unavailable")?.replace(/<[^>]*>/g, '').substring(0, 60) + '...' 
           }}
         />
         
@@ -497,8 +497,11 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
   const [answers, setAnswers] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Ensure notification has courses array to prevent errors
+  const hasCourses = notification.courses && Array.isArray(notification.courses) && notification.courses.length > 0;
+  
   // Since each survey is now specific to a single course, we just need that course's ID
-  const courseId = notification.courses[0]?.id;
+  const courseId = hasCourses ? notification.courses[0]?.id : null;
   
   // Use notification questions or an empty array if none provided
   const [surveyQuestions, setSurveyQuestions] = useState(() => {
@@ -519,18 +522,24 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
   };
 
   // Display the relevant course information at the top of the form
-  const courseInfo = notification.courses[0] ? 
-    getCourseInfo(notification.courses[0].id) : null;
+  const courseInfo = hasCourses ? getCourseInfo(notification.courses[0].id) : null;
   const CourseIcon = courseInfo?.icon || BookOpen;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Course information section */}
-      {courseInfo && (
+      {courseInfo && hasCourses ? (
         <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
           <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
             <CourseIcon className="h-5 w-5" style={{ color: courseInfo?.color || '#374151' }} />
             <span>Completing survey for: {courseInfo?.label || notification.courses[0].title}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <BookOpen className="h-5 w-5" />
+            <span>Completing survey for course (details unavailable)</span>
           </div>
         </div>
       )}
@@ -689,7 +698,7 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
         
         <div className="mt-4">
           {/* Show course badges in dialog too */}
-          {notification.courses && notification.courses.length > 0 && (
+          {notification.courses && Array.isArray(notification.courses) && notification.courses.length > 0 ? (
             <div className="mb-4 flex flex-wrap gap-2">
               {notification.courses.map((course, index) => {
                 const courseInfo = getCourseInfo(course.id);
@@ -710,13 +719,22 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
                 );
               })}
             </div>
+          ) : (
+            <div className="mb-4 flex flex-wrap gap-2">
+              <span 
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600"
+              >
+                <BookOpen className="h-4 w-4" />
+                Course details unavailable
+              </span>
+            </div>
           )}
           
           {(notification.type === 'survey' || notification.type === 'weekly-survey') && !notification.surveyCompleted ? (
             <div className="space-y-6">
               <div 
                 className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: notification.content }}
+                dangerouslySetInnerHTML={{ __html: notification.content || "Notification content is no longer available." }}
               />
               <div className="border-t pt-6">
                 <h3 className="text-lg font-semibold mb-4">Complete {notification.type === 'weekly-survey' ? 'Weekly Survey' : 'Survey'}</h3>
@@ -742,7 +760,7 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
             <div className="space-y-6">
               <div 
                 className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: notification.content }}
+                dangerouslySetInnerHTML={{ __html: notification.content || "Notification content is no longer available." }}
               />
               
               {/* Display completed survey responses */}
@@ -760,37 +778,107 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
                   </div>
                 )}
                 <div className="bg-gray-50 rounded-lg p-4 space-y-4">
-                  {(notification.surveyAnswers || 
-                   (notification.courses?.[0]?.studentDashboardNotificationsResults && 
-                    notification.notificationId && 
-                    notification.courses[0].studentDashboardNotificationsResults[notification.notificationId]?.answers)) ? (
-                    // Use direct answers or try to get them from the first course's results
-                    Object.entries(
-                      notification.surveyAnswers || 
-                      notification.courses[0].studentDashboardNotificationsResults[notification.notificationId]?.answers
-                    ).map(([questionId, answer]) => {
-                      // Find the corresponding question
-                      const question = notification.surveyQuestions?.find(q => q.id === questionId);
-                      if (!question) return null;
+                  {(() => {
+                    console.log("Rendering completed survey answers. Data:", {
+                      hasAnswers: !!notification.answers,
+                      hasSurveyAnswers: !!notification.surveyAnswers,
+                      answers: notification.answers,
+                      surveyAnswers: notification.surveyAnswers,
+                      courses: notification.courses,
+                      hasFirstCourse: !!notification.courses?.[0],
+                      hasResults: !!notification.courses?.[0]?.studentDashboardNotificationsResults,
+                      questions: notification.surveyQuestions
+                    });
+                    
+                    // Identify all possible answer sources with preference for submission answers
+                    let answerSources = null;
+                    
+                    // 1. First priority: check for submissions with answers in the notification
+                    if (notification.submissions) {
+                      // Sort by submittedAt to get most recent first
+                      const submissionWithAnswers = Object.values(notification.submissions)
+                        .filter(s => s.answers && s.submittedAt) // Only submissions with answers and submittedAt
+                        .sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''))[0]; // Most recent
+                        
+                      if (submissionWithAnswers?.answers) {
+                        answerSources = submissionWithAnswers.answers;
+                        console.log("Found answers in notification.submissions:", Object.keys(answerSources));
+                      }
+                    }
+                    
+                    // 2. Second priority: check course notification results
+                    if (!answerSources && notification.courses?.[0]?.studentDashboardNotificationsResults) {
+                      const notificationId = notification.id || notification.originalNotificationId || notification.notificationId;
                       
-                      return (
-                        <div key={questionId} className="border-b pb-3 last:border-b-0 last:pb-0">
-                          <p className="font-medium text-sm mb-1">{question.question}</p>
-                          {question.questionType === 'multiple-choice' ? (
-                            <div className="text-sm bg-white p-2 rounded border">
-                              {question.options?.find(opt => opt.id === answer)?.text || answer}
-                            </div>
-                          ) : (
-                            <div className="text-sm bg-white p-2 rounded border whitespace-pre-wrap">
-                              {answer}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-gray-500 text-sm">Response details not available</p>
-                  )}
+                      if (notificationId && notification.courses[0].studentDashboardNotificationsResults[notificationId]) {
+                        // Get the results data
+                        const resultData = notification.courses[0].studentDashboardNotificationsResults[notificationId];
+                        
+                        // Check if there are submissions with answers
+                        if (resultData.submissions) {
+                          // Sort by submittedAt to get most recent first
+                          const submissionWithAnswers = Object.values(resultData.submissions)
+                            .filter(s => s.answers && s.submittedAt) // Only submissions with answers and submittedAt
+                            .sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''))[0]; // Most recent
+                            
+                          if (submissionWithAnswers?.answers) {
+                            answerSources = submissionWithAnswers.answers;
+                            console.log("Found answers in course notification results submissions:", Object.keys(answerSources));
+                          }
+                        }
+                        
+                        // If no submissions with answers, try direct answers
+                        if (!answerSources && resultData.answers) {
+                          answerSources = resultData.answers;
+                          console.log("Found answers in course notification results:", Object.keys(answerSources));
+                        }
+                      }
+                    }
+                    
+                    // 3. Fallback to direct properties
+                    if (!answerSources) {
+                      answerSources = notification.answers || notification.surveyAnswers;
+                      if (answerSources) {
+                        console.log("Found answers in direct properties:", Object.keys(answerSources));
+                      }
+                    }
+                    
+                    if (answerSources) {
+                      console.log("Found answers:", answerSources);
+                      return Object.entries(answerSources).map(([questionId, answer]) => {
+                        // Find the corresponding question
+                        const question = notification.surveyQuestions?.find(q => q.id === questionId);
+                        
+                        // Log details about question finding
+                        console.log(`Finding question for ${questionId}:`, 
+                          question ? 'FOUND' : 'NOT FOUND', 
+                          notification.surveyQuestions?.length || 0);
+                          
+                        // Fallback question data if not found
+                        const questionText = question?.question || `Question ${questionId}`;
+                        const questionType = question?.questionType || 'text';
+                        const options = question?.options || [];
+                        
+                        return (
+                          <div key={questionId} className="border-b pb-3 last:border-b-0 last:pb-0">
+                            <p className="font-medium text-sm mb-1">{questionText}</p>
+                            {questionType === 'multiple-choice' ? (
+                              <div className="text-sm bg-white p-2 rounded border">
+                                {options.find(opt => opt.id === answer)?.text || answer}
+                              </div>
+                            ) : (
+                              <div className="text-sm bg-white p-2 rounded border whitespace-pre-wrap">
+                                {answer}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                    }
+                    
+                    // No answers found, display fallback message
+                    return <p className="text-gray-500 text-sm">Response details not available</p>;
+                  })()}
                 </div>
               </div>
             </div>
@@ -798,7 +886,7 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
             <div className="space-y-6">
               <div 
                 className="prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: notification.content }}
+                dangerouslySetInnerHTML={{ __html: notification.content || "Notification content is no longer available." }}
               />
               
               {/* For acknowledged regular notifications, show acknowledgment status */}
@@ -870,7 +958,7 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
 
 // Regular notification dialog now handles all notifications
 
-const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRefresh }) => {
+const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRefresh, allNotifications }) => {
   // Track if user has manually toggled the accordion
   const [userToggled, setUserToggled] = useState(false);
   // Start collapsed unless there are important notifications
@@ -886,8 +974,15 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
   const [activeTab, setActiveTab] = useState("all");
 
   // Process notifications - create separate notifications for surveys per course
-  const allNotifications = React.useMemo(() => {
+  const processedNotifications = useMemo(() => {
     const result = [];
+    
+    // Log the incoming allNotifications prop to verify it's being passed correctly
+    console.log('🔔 RECEIVED ALL NOTIFICATIONS:', allNotifications?.length, allNotifications?.map(n => ({
+      id: n.id,
+      title: n.title,
+      type: n.type
+    })));
     
     // Debug each course's notifications
     if (process.env.NODE_ENV === 'development') {
@@ -1142,7 +1237,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     }
     
     return result;
-  }, [courses]);
+  }, [courses, allNotifications]);
 
   // Build a helper to check if a notification should be renewed
   const shouldRenewNotification = (notification) => {
@@ -1172,8 +1267,8 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
   // Filter notifications based only on Firebase data
   // One-time notifications should not appear in active tabs once acknowledged in Firebase
   // Surveys should not appear in active tabs once completed unless they should be renewed
-  let activeNotifications = allNotifications.filter(notification => {
-    // Filter out acknowledged notifications (but keep them in allNotifications for history)
+  let activeNotifications = processedNotifications.filter(notification => {
+    // Filter out acknowledged notifications (but keep them in processedNotifications for history)
     if (notification.hasAcknowledged) {
       return false;
     }
@@ -1185,6 +1280,114 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     
     return true;
   });
+  
+  // History tab no longer has expandable groups
+  
+  // No longer need group expansion functionality
+  
+  // Process history items from courses' notification results
+  const historyItems = useMemo(() => {
+    // Array to store history items
+    const items = [];
+    
+    // Debug logging for courses and their notification results
+    console.log('🔄 Processing history items from courses:', courses?.map(course => ({
+      id: course.id,
+      hasResults: !!course.studentDashboardNotificationsResults,
+      resultsCount: course.studentDashboardNotificationsResults ? 
+        Object.keys(course.studentDashboardNotificationsResults).length : 0
+    })));
+    
+    // Process each course's notifications results
+    // But now use only the root-level notification data, ignoring individual submissions
+    courses?.forEach(course => {
+      if (course.studentDashboardNotificationsResults) {
+        Object.entries(course.studentDashboardNotificationsResults).forEach(([notificationId, resultData]) => {
+          // Check if we need to process this notification
+          // Check if the notification has been interacted with
+          const hasAction = resultData.hasSeen || 
+                         resultData.hasAcknowledged || 
+                         resultData.completed;
+                         
+          // Check if this notification belongs to this course
+          const notificationCourseIds = resultData.courseIds || [resultData.courseId];
+          const currentCourseId = course.id?.toString() || course.CourseID?.toString();
+          const courseMatch = notificationCourseIds?.some(id => id?.toString() === currentCourseId) || false;
+          
+          // Only process if both conditions are met
+          const shouldProcess = hasAction && courseMatch;
+          
+          if (shouldProcess) {
+            // First look for a match in processedNotifications (local notifications)
+            let originalNotification = processedNotifications.find(n => 
+              n.id === notificationId || n.originalNotificationId === notificationId
+            );
+            
+            // If not found in processed notifications, try the allNotifications prop (all active notifications)
+            if (!originalNotification && allNotifications) {
+              originalNotification = allNotifications.find(n => n.id === notificationId);
+              console.log(`Looking for notification ${notificationId} in allNotifications:`, 
+                originalNotification ? 'FOUND' : 'NOT FOUND');
+            }
+            
+            // Determine notification type (survey or regular notification)
+            const isSurveyType = originalNotification?.type === 'survey' || 
+                              originalNotification?.type === 'weekly-survey' ||
+                              (resultData.answers && Object.keys(resultData.answers).length > 0);
+            
+            // Create a single history item using only the root-level notification data
+            const historyItem = {
+              id: notificationId,
+              courseId: resultData.courseId || course.id,
+              courseTitle: resultData.courseTitle || course.courseDetails?.Title || course.title || `Course ${course.id}`,
+              // Use data from original notification when available
+              title: originalNotification?.title || 'Unknown Notification',
+              type: originalNotification?.type || (isSurveyType ? 'survey' : 'notification'),
+              // Use status from result data
+              hasSeen: resultData.hasSeen || false,
+              hasAcknowledged: resultData.hasAcknowledged || false,
+              hasSeenTimeStamp: resultData.hasSeenTimeStamp || resultData.lastSeen,
+              acknowledgedAt: resultData.acknowledgedAt || resultData.lastAcknowledged,
+              // Basic submission data
+              submittedAt: resultData.completedAt,
+              surveyCompleted: resultData.completed || false,
+              completedAt: resultData.completedAt,
+              // Save answers
+              answers: resultData.answers || null,
+              surveyAnswers: resultData.answers || null,
+              // Save survey questions if available
+              surveyQuestions: originalNotification?.surveyQuestions || [],
+              // Reference to original notification for viewing
+              originalNotification,
+              // Store the complete result data
+              resultData
+            };
+            
+            // Log if we found answers
+            if (resultData.answers) {
+              console.log(`Found answers for notification ${notificationId} in history:`, Object.keys(resultData.answers).length);
+            }
+            
+            // Add item to the list
+            items.push(historyItem);
+          }
+        });
+      }
+    });
+    
+    // Sort all items by date (newest first)
+    items.sort((a, b) => {
+      const aTime = a.submittedAt || a.completedAt || a.acknowledgedAt || a.hasSeenTimeStamp || '';
+      const bTime = b.submittedAt || b.completedAt || b.acknowledgedAt || b.hasSeenTimeStamp || '';
+      return bTime.localeCompare(aTime); // Newest first
+    });
+    
+    // Log the final set of history items
+    console.log('📋 Final history items:', items.length);
+    
+    // Return just the sorted items
+    return { allItems: items, items };
+  }, [courses, processedNotifications, allNotifications]);
   
   // Determine if there are any unread notifications that need attention, checking Firebase data
   const hasUnreadNotifications = activeNotifications.some(n => !n.hasSeen);
@@ -1352,6 +1555,10 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
       let hasRepeatInterval = false;
       let isSurveyType = false;
       
+      // Extract course information to include with the seen status
+      let courseIds = [];
+      let coursesInfo = [];
+      
       if (typeof notification === 'object') {
         // Extract repeatInterval information - check all possible ways to identify a repeating notification
         hasRepeatInterval = !!notification.repeatInterval || 
@@ -1366,6 +1573,19 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
         // Determine if this is a survey type - only true for explicit survey types
         isSurveyType = notification.type === 'survey' || 
                        notification.type === 'weekly-survey';
+        
+        // Extract course information
+        if (notification.courses && Array.isArray(notification.courses)) {
+          notification.courses.forEach(course => {
+            if (course.id) {
+              courseIds.push(course.id);
+              coursesInfo.push({
+                id: course.id,
+                title: course.title || `Course ${course.id}`
+              });
+            }
+          });
+        }
       }
       
       // First try to get existing data so we don't overwrite survey results
@@ -1377,7 +1597,14 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
           ...existingData,
           hasSeen: true,
           hasSeenTimeStamp: currentDate,
-          userEmail: profile?.StudentEmail
+          userEmail: profile?.StudentEmail,
+          // Add course information
+          ...(courseIds.length > 0 && { 
+            courseIds: courseIds,
+            courses: coursesInfo,
+            // Include a lastCourseId field for easy reference
+            lastCourseId: courseIds[0]
+          })
         };
         
         // For repeating notifications, handle differently to track interaction history
@@ -1390,7 +1617,12 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
           // Record this view
           updateData.submissions[currentTimestamp] = {
             seen: true,
-            seenAt: currentDate
+            seenAt: currentDate,
+            // Include course information in the submission record
+            ...(courseIds.length > 0 && {
+              courseIds: courseIds,
+              courses: coursesInfo
+            })
           };
           
           // Update the lastSeen timestamp
@@ -1438,7 +1670,57 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
             console.log('Notification marked as seen:', {
               notificationId,
               hasRepeatInterval,
-              isSurveyType
+              isSurveyType,
+              courseIds
+            });
+          }
+          
+          // Also update course-specific records for each course if this is an object with courses
+          if (typeof notification === 'object' && notification.courses && Array.isArray(notification.courses)) {
+            // Process each course to update its notification seen status
+            notification.courses.forEach(course => {
+              if (course.id) {
+                // Create path to course-specific notification results
+                const courseNotificationRef = ref(db, 
+                  `students/${sanitizedUserEmail}/courses/${course.id}/studentDashboardNotificationsResults/${notificationId}`);
+                
+                // Get any existing course notification data
+                get(courseNotificationRef).then(courseSnapshot => {
+                  const courseData = courseSnapshot.exists() ? courseSnapshot.val() : {};
+                  
+                  // Create update data for the course-specific path
+                  const courseUpdateData = {
+                    ...courseData,
+                    hasSeen: true,
+                    hasSeenTimeStamp: currentDate,
+                    // Add course information to course-specific record
+                    courseId: course.id,
+                    submittedForCourse: course.id,
+                    courseTitle: course.title || `Course ${course.id}`,
+                    // Add the full list of course IDs and info
+                    courseIds: courseIds,
+                    courses: coursesInfo
+                  };
+                  
+                  // Copy important fields from the main notification record
+                  if (updateData.submissions) {
+                    courseUpdateData.submissions = updateData.submissions;
+                  }
+                  if (updateData.nextRenewalDate) {
+                    courseUpdateData.nextRenewalDate = updateData.nextRenewalDate;
+                  }
+                  if (updateData.lastSeen) {
+                    courseUpdateData.lastSeen = updateData.lastSeen;
+                  }
+                  
+                  // Update the course-specific notification record
+                  set(courseNotificationRef, courseUpdateData).catch(error => {
+                    console.error(`Error updating course ${course.id} notification seen status:`, error);
+                  });
+                }).catch(error => {
+                  console.error(`Error getting course ${course.id} notification data:`, error);
+                });
+              }
             });
           }
         });
@@ -1449,7 +1731,14 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
         let updateData = {
           hasSeen: true,
           hasSeenTimeStamp: currentDate,
-          userEmail: profile?.StudentEmail
+          userEmail: profile?.StudentEmail,
+          // Add course information to fallback data
+          ...(courseIds.length > 0 && { 
+            courseIds: courseIds,
+            courses: coursesInfo,
+            // Include a lastCourseId field for easy reference
+            lastCourseId: courseIds[0]
+          })
         };
         
         // For repeating notifications, initialize interaction history
@@ -1457,7 +1746,12 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
           updateData.submissions = {
             [currentTimestamp]: {
               seen: true,
-              seenAt: currentDate
+              seenAt: currentDate,
+              // Include course information in the submission record
+              ...(courseIds.length > 0 && {
+                courseIds: courseIds,
+                courses: coursesInfo
+              })
             }
           };
           updateData.lastSeen = currentDate;
@@ -1498,7 +1792,48 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
           }
         }
         
-        set(resultsRef, updateData).catch(error => {
+        set(resultsRef, updateData).then(() => {
+          // Also update course-specific records in the fallback path
+          if (typeof notification === 'object' && notification.courses && Array.isArray(notification.courses)) {
+            // Process each course to update its notification seen status
+            notification.courses.forEach(course => {
+              if (course.id) {
+                // Create path to course-specific notification results
+                const courseNotificationRef = ref(db, 
+                  `students/${sanitizedUserEmail}/courses/${course.id}/studentDashboardNotificationsResults/${notificationId}`);
+                
+                // Create update data for the course-specific path
+                const courseUpdateData = {
+                  hasSeen: true,
+                  hasSeenTimeStamp: currentDate,
+                  // Add course information to course-specific record
+                  courseId: course.id,
+                  submittedForCourse: course.id,
+                  courseTitle: course.title || `Course ${course.id}`,
+                  // Add the full list of course IDs and info
+                  courseIds: courseIds,
+                  courses: coursesInfo
+                };
+                
+                // Copy important fields from the main notification record
+                if (updateData.submissions) {
+                  courseUpdateData.submissions = updateData.submissions;
+                }
+                if (updateData.nextRenewalDate) {
+                  courseUpdateData.nextRenewalDate = updateData.nextRenewalDate;
+                }
+                if (updateData.lastSeen) {
+                  courseUpdateData.lastSeen = updateData.lastSeen;
+                }
+                
+                // Update the course-specific notification record
+                set(courseNotificationRef, courseUpdateData).catch(error => {
+                  console.error(`Error updating course ${course.id} notification seen status (fallback):`, error);
+                });
+              }
+            });
+          }
+        }).catch(error => {
           console.error('Error updating notification seen status in Firebase (fallback):', error);
         });
       });
@@ -1570,6 +1905,22 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
       const isSurveyType = notification.type === 'survey' || 
                           notification.type === 'weekly-survey';
       
+      // Extract course information to include with the acknowledgment
+      const courseIds = [];
+      const coursesInfo = [];
+      
+      if (notification.courses && Array.isArray(notification.courses)) {
+        notification.courses.forEach(course => {
+          if (course.id) {
+            courseIds.push(course.id);
+            coursesInfo.push({
+              id: course.id,
+              title: course.title || `Course ${course.id}`
+            });
+          }
+        });
+      }
+      
       // First try to get existing data so we don't overwrite survey results
       get(resultsRef).then(snapshot => {
         const existingData = snapshot.exists() ? snapshot.val() : {};
@@ -1581,7 +1932,12 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
           hasSeenTimeStamp: currentDate,
           hasAcknowledged: true,
           acknowledgedAt: currentDate,
-          userEmail: profile?.StudentEmail
+          userEmail: profile?.StudentEmail,
+          // Add course information
+          courseIds: courseIds,
+          courses: coursesInfo,
+          // Include a lastCourseId field for easy reference (if available)
+          ...(courseIds.length > 0 && { lastCourseId: courseIds[0] })
         };
         
         // For repeating notifications, handle differently to track interaction history
@@ -1596,7 +1952,10 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
             seen: true,
             seenAt: currentDate,
             hasAcknowledged: true,
-            acknowledgedAt: currentDate
+            acknowledgedAt: currentDate,
+            // Include course information in the submission record
+            courseIds: courseIds,
+            courses: coursesInfo
           };
           
           // Update the lastSeen and lastAcknowledged timestamps
@@ -1648,7 +2007,8 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
               hasRepeatInterval,
               isSurveyType,
               nextRenewalDate: updateData.nextRenewalDate,
-              storedInBothPlaces: true
+              storedInBothPlaces: true,
+              courseIds: courseIds
             });
           }
           
@@ -1671,7 +2031,14 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
                     hasSeen: true,
                     hasSeenTimeStamp: currentDate,
                     hasAcknowledged: true,
-                    acknowledgedAt: currentDate
+                    acknowledgedAt: currentDate,
+                    // Add course information to course-specific record
+                    courseId: course.id,
+                    submittedForCourse: course.id,
+                    courseTitle: course.title || `Course ${course.id}`,
+                    // Add the full list of course IDs and info
+                    courseIds: courseIds,
+                    courses: coursesInfo
                   };
                   
                   // Copy important fields from the main notification results
@@ -1714,7 +2081,12 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
           hasSeenTimeStamp: currentDate,
           hasAcknowledged: true,
           acknowledgedAt: currentDate,
-          userEmail: profile?.StudentEmail
+          userEmail: profile?.StudentEmail,
+          // Add course information to fallback data
+          courseIds: courseIds,
+          courses: coursesInfo,
+          // Include a lastCourseId field for easy reference (if available)
+          ...(courseIds.length > 0 && { lastCourseId: courseIds[0] })
         };
         
         // For repeating notifications, initialize interaction history
@@ -1724,7 +2096,10 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
               seen: true,
               seenAt: currentDate,
               hasAcknowledged: true,
-              acknowledgedAt: currentDate
+              acknowledgedAt: currentDate,
+              // Include course information in the submission record
+              courseIds: courseIds,
+              courses: coursesInfo
             }
           };
           updateData.lastSeen = currentDate;
@@ -1781,7 +2156,14 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
                   hasSeen: true,
                   hasSeenTimeStamp: currentDate,
                   hasAcknowledged: true,
-                  acknowledgedAt: currentDate
+                  acknowledgedAt: currentDate,
+                  // Add course information to course-specific record
+                  courseId: course.id,
+                  submittedForCourse: course.id,
+                  courseTitle: course.title || `Course ${course.id}`,
+                  // Add the full list of course IDs and info
+                  courseIds: courseIds,
+                  courses: coursesInfo
                 };
                 
                 // Copy important fields from the main notification results
@@ -1828,13 +2210,31 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
       const selectedCourse = selectedNotification.courses[0];
       const courseId = selectedCourse.id;
       
+      // Extract course information to include with the submission
+      const courseIds = [];
+      const coursesInfo = [];
+      
+      if (selectedNotification.courses && Array.isArray(selectedNotification.courses)) {
+        selectedNotification.courses.forEach(course => {
+          if (course.id) {
+            courseIds.push(course.id);
+            coursesInfo.push({
+              id: course.id,
+              title: course.title || `Course ${course.id}`
+            });
+          }
+        });
+      }
+      
       // Log detailed notification data for debugging
       console.log("Selected notification:", {
         id: selectedNotification.id,
         originalId: selectedNotification.originalNotificationId,
         finalId: notificationId,
         courseInfo: selectedCourse,
-        courseId
+        courseId,
+        courseIds,
+        coursesCount: coursesInfo.length
       });
       
       // Verify we have valid data before submitting
@@ -1859,6 +2259,8 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
       const submissionData = {
         notificationId: notificationId,
         courseId: courseId,
+        courseIds: courseIds,
+        courses: coursesInfo,
         answers: answers,
         userEmail: userEmail,
         studentName: `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim()
@@ -1874,6 +2276,10 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
       const functionData = {
         notificationId: String(notificationId), // Ensure string type
         courseId: String(courseId), // Ensure string type
+        // Include the array of all course IDs this notification applies to
+        courseIds: courseIds.map(id => String(id)), // Ensure all IDs are strings
+        // Include the full courses information
+        courses: coursesInfo,
         answers: { ...answers }, // Copy answers to avoid reference issues
         userEmail: String(userEmail || ''), // Ensure string type
         studentName: String(submissionData.studentName || '')
@@ -1928,11 +2334,20 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
         }, 1500); // Slightly longer delay to ensure notification state has updated
       }
       
-      // Force refresh to update notifications
+      // Force refresh after survey submission to ensure data is updated in useStudentData
       if (forceRefresh) {
-        setTimeout(() => {
-          forceRefresh();
-        }, 500);
+        console.log('Executing immediate refresh after survey submission');
+        
+        // Call forceRefresh to update data
+        forceRefresh().then(() => {
+          console.log('Initial survey refresh complete');
+          
+          // Add a short delay before switching to history tab to ensure data is loaded
+          setTimeout(() => {
+            console.log('Switching to history tab after survey submission');
+            setActiveTab("acknowledged");
+          }, 200);
+        });
       }
     } catch (error) {
       console.error('Error submitting survey:', error);
@@ -2172,113 +2587,229 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
             
             <TabsContent value="acknowledged" className="mt-0">
               <div className="border rounded-md overflow-hidden">
-                <div className="max-h-[400px] overflow-y-auto">
+                <div className="max-h-[600px] overflow-y-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50 sticky top-0">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
                       <tr>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status / Date</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {allNotifications
-                        .filter(n => 
-                          (n.hasAcknowledged || readNotifications[n.uniqueId]?.read) ||
-                          ((n.type === 'survey' || n.type === 'weekly-survey') && n.surveyCompleted)
-                        )
-                        .map((notification, index) => {
-                          // Get formatted notification type description
-                          const getTypeIconAndLabel = () => {
-                            if (notification.type === 'survey' || notification.type === 'weekly-survey') {
-                              return {
-                                icon: <ClipboardList className="h-4 w-4 text-purple-600" />,
-                                label: notification.type === 'weekly-survey' ? 'Weekly Survey' : 'Survey'
-                              };
-                            } else if (notification.type === 'notification' || notification.type === 'once') {
-                              return {
-                                icon: <Bell className="h-4 w-4 text-amber-600" />,
-                                label: 'Notification'
-                              };
-                            } else if (notification.type === 'recurring') {
-                              return {
-                                icon: <RefreshCw className="h-4 w-4 text-blue-600" />,
-                                label: 'Recurring'
-                              };
+                      {/* Map through individual notification items instead of groups */}
+                      {historyItems.items.map((item, index) => {
+                        // Get formatted notification type description
+                        const getTypeIconAndLabel = (item) => {
+                          if (item.type === 'survey' || item.type === 'weekly-survey') {
+                            return {
+                              icon: <ClipboardList className="h-4 w-4 text-purple-600" />,
+                              label: item.type === 'weekly-survey' ? 'Weekly Survey' : 'Survey'
+                            };
+                          } else if (item.type === 'notification' || item.type === 'once') {
+                            return {
+                              icon: <Bell className="h-4 w-4 text-amber-600" />,
+                              label: 'Notification'
+                            };
+                          } else if (item.type === 'recurring') {
+                            return {
+                              icon: <RefreshCw className="h-4 w-4 text-blue-600" />,
+                              label: 'Recurring'
+                            };
+                          }
+                          return { icon: <Bell className="h-4 w-4 text-gray-600" />, label: 'Other' };
+                        };
+                        
+                        const { icon, label } = getTypeIconAndLabel(item);
+                        
+                        // Get course info
+                        const courseInfo = getCourseInfo(item.courseId);
+                        
+                        // Get status text
+                        const getStatusText = (item) => {
+                          if (item.surveyCompleted) {
+                            return {
+                              icon: <CheckCircle2 className="h-4 w-4 text-green-600" />,
+                              text: "Survey Completed"
+                            };
+                          } else if (item.hasAcknowledged) {
+                            return {
+                              icon: <CheckCircle2 className="h-4 w-4 text-blue-600" />,
+                              text: "Acknowledged"
+                            };
+                          } else {
+                            return {
+                              icon: <History className="h-4 w-4 text-gray-600" />,
+                              text: "Read"
+                            };
+                          }
+                        };
+                        
+                        // Get the status
+                        const { icon: statusIcon, text: statusText } = getStatusText(item);
+
+                        // Format date for display
+                        const formatDate = (dateString) => {
+                          if (!dateString) return "Unknown date";
+                          const date = new Date(dateString);
+                          return date.toLocaleDateString() + " " + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        };
+                        
+                        // Handle view action for a specific item
+                        const handleView = (item) => {
+                          // Find course details from our courses array - this is critical for proper display
+                          const findCourseInfo = (courseIdStr) => {
+                            // Try to find a matching course, handling string/number conversion
+                            const courseId = courseIdStr.toString();
+                            let matchingCourse = null;
+                            
+                            // Look through all available courses
+                            if (courses && courses.length > 0) {
+                              // First try exact string match
+                              matchingCourse = courses.find(c => c.CourseID?.toString() === courseId || c.id?.toString() === courseId);
+                              
+                              if (!matchingCourse) {
+                                // Try numeric conversion match (some IDs are numbers, some are strings)
+                                matchingCourse = courses.find(c => parseInt(c.CourseID) === parseInt(courseId) || parseInt(c.id) === parseInt(courseId));
+                              }
                             }
-                            return { icon: <Bell className="h-4 w-4 text-gray-600" />, label: 'Other' };
-                          };
-                          
-                          const { icon, label } = getTypeIconAndLabel();
-                          
-                          // Get course info if available
-                          const courseInfo = notification.courses && notification.courses.length > 0 ? 
-                            getCourseInfo(notification.courses[0].id) : null;
-                          
-                          // Get status text
-                          const getStatusText = () => {
-                            if ((notification.type === 'survey' || notification.type === 'weekly-survey') && notification.surveyCompleted) {
+                            
+                            if (matchingCourse) {
+                              console.log(`Found course match for ID ${courseId}:`, matchingCourse.courseDetails?.Title);
+                              
                               return {
-                                icon: <CheckCircle2 className="h-4 w-4 text-green-600" />,
-                                text: "Survey Completed"
-                              };
-                            } else if (notification.hasAcknowledged) {
-                              return {
-                                icon: <CheckCircle2 className="h-4 w-4 text-blue-600" />,
-                                text: "Acknowledged"
+                                id: matchingCourse.CourseID || matchingCourse.id,
+                                title: matchingCourse.courseDetails?.Title ||
+                                       matchingCourse.Course?.Value ||
+                                       `Course ${courseId}`
                               };
                             } else {
+                              // If no match found, use what we have
                               return {
-                                icon: <History className="h-4 w-4 text-gray-600" />,
-                                text: "Read"
+                                id: courseId,
+                                title: item.courseTitle || `Course ${courseId}`
                               };
                             }
                           };
                           
-                          const { icon: statusIcon, text: statusText } = getStatusText();
+                          // Create a specialized notification that includes this submission
+                          let viewNotification;
                           
-                          return (
-                            <tr key={`history-${notification.uniqueId || notification.id}-${index}`}>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  {icon}
-                                  <span className="ml-2 text-sm text-gray-900">{label}</span>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
+                          // Get course ID from the item or its resultData
+                          const targetCourseId = item.courseId || 
+                                              item.resultData?.courseId ||
+                                              (item.resultData?.courseIds && item.resultData.courseIds[0]);
+                          
+                          // Get course info
+                          const courseInfo = targetCourseId ? findCourseInfo(targetCourseId) : null;
+                          
+                          if (item.originalNotification) {
+                            // Start with original notification
+                            viewNotification = {...item.originalNotification};
+                            
+                            // Update courses array with the proper course information
+                            if (courseInfo) {
+                              viewNotification.courses = [{
+                                id: courseInfo.id,
+                                title: courseInfo.title
+                              }];
+                            }
+                            
+                            // If this is a survey with answers, add them
+                            if (item.answers && (item.type === 'survey' || item.type === 'weekly-survey')) {
+                              viewNotification.answers = item.answers;
+                              viewNotification.surveyAnswers = item.answers;
+                              viewNotification.surveyCompleted = true;
+                            }
+                          } else {
+                            // Reconstruct notification from item data
+                            viewNotification = {
+                              id: item.id,
+                              title: item.title || "Unknown Notification",
+                              type: item.type || "notification",
+                              content: "Details for this notification are no longer available.",
+                              // Use our properly retrieved course info
+                              courses: courseInfo ? [{
+                                id: courseInfo.id,
+                                title: courseInfo.title
+                              }] : [{
+                                id: item.courseId || "unknown",
+                                title: item.courseTitle || "Unknown Course"
+                              }],
+                              surveyQuestions: item.surveyQuestions || []
+                            };
+                            
+                            // For survey types with answers
+                            if ((item.type === 'survey' || item.type === 'weekly-survey') && item.answers) {
+                              viewNotification.surveyCompleted = true;
+                              viewNotification.answers = item.answers;
+                              viewNotification.surveyAnswers = item.answers;
+                            }
+                          }
+                          
+                          console.log("Viewing notification with courses:", viewNotification.courses);
+                          
+                          // Show the notification
+                          setSelectedNotification(viewNotification);
+                        };
+                        
+                        return (
+                          <tr 
+                            key={`item-${item.id}-${index}`}
+                            className="hover:bg-gray-50"
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                {icon}
+                                <span className="ml-2 text-sm text-gray-900">{label}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center">
                                 <div className="text-sm text-gray-900 max-w-[250px] truncate">
-                                  {notification.title}
+                                  {item.title}
                                 </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                {courseInfo ? (
-                                  <div className="flex items-center">
-                                    {courseInfo.icon && <courseInfo.icon className="h-4 w-4 mr-1" style={{ color: courseInfo.color || '#374151' }} />}
-                                    <span className="text-sm text-gray-900">{courseInfo.label}</span>
-                                  </div>
-                                ) : (
-                                  <span className="text-sm text-gray-500">General</span>
-                                )}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              {courseInfo ? (
                                 <div className="flex items-center">
-                                  {statusIcon}
-                                  <span className="ml-2 text-sm text-gray-900">{statusText}</span>
+                                  {courseInfo.icon && <courseInfo.icon className="h-4 w-4 mr-1" style={{ color: courseInfo.color || '#374151' }} />}
+                                  <span className="text-sm text-gray-900">{courseInfo.label}</span>
                                 </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <button 
-                                  onClick={() => setSelectedNotification(notification)}
-                                  className="text-blue-600 hover:text-blue-900"
-                                >
-                                  View
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
+                              ) : (
+                                <span className="text-sm text-gray-500">{item.courseTitle}</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                {statusIcon}
+                                <span className="ml-2 text-sm text-gray-900">{statusText}</span>
+                                <span className="ml-2 text-xs text-gray-500">
+                                  {formatDate(item.submittedAt || item.completedAt || item.acknowledgedAt || item.hasSeenTimeStamp)}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button 
+                                onClick={() => handleView(item)}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {historyItems.items.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                            No notification history available
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
