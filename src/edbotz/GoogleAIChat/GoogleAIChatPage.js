@@ -9,8 +9,8 @@ const GoogleAIChatPage = () => {
   
   // Test props for the GoogleAIChatApp component
   // These would be provided dynamically in production
-  const showYouTube = false;
-  const showUpload = false;
+  const showYouTube = true;
+  const showUpload = true;
   const YouTubeURL = "https://www.youtube.com/watch?v=hg6d1Jcm3w0";
   const YouTubeDisplayName = "Introduction to Online Learning"; // Custom display name for the YouTube video
   const allowContentRemoval = false; // Set to false to prevent users from removing any content

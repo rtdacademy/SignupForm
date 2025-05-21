@@ -32,7 +32,7 @@ firebase database --help
 
 # Get help for specific commands
 firebase database:get --help
-firebase database:set --help
+firebase database:update --help
 ```
 
 First explore the database structure before making any changes.

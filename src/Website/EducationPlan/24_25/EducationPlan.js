@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { Card } from "../../../components/ui/card";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../../../components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription, SheetFooter, SheetClose } from "../../../components/ui/sheet";
 import { Button } from "../../../components/ui/button";
-import { Menu, ChevronRight, ChevronLeft } from "lucide-react";
+import { Menu, ChevronRight, ChevronLeft, Bot, LightbulbIcon } from "lucide-react";
+import GoogleAIChatPage from '../../../edbotz/GoogleAIChat/GoogleAIChatPage';
 
 // Import required components (to be created)
 // Section I: Introduction and Context
@@ -43,9 +44,10 @@ import ConclusionFutureDirection from './Components/ConclusionFutureDirection';
 // import AppendixDocuments from './Components/AppendixDocuments';
 
 const EducationPlan = () => {
-  // States for navigation
-  const [isSheetOpen, setIsSheetOpen] = useState(true);
+  // States for navigation and AI preview
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
+  const [isAIPreviewOpen, setIsAIPreviewOpen] = useState(false);
 
   // Create refs for each major section
   const currentDataRef = useRef(null);
@@ -125,13 +127,21 @@ const EducationPlan = () => {
   const scrollToSection = (ref) => {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+  
+  // Expose function to open AI preview to window for access from other components
+  React.useEffect(() => {
+    window.openAIPreview = () => setIsAIPreviewOpen(true);
+    return () => {
+      window.openAIPreview = undefined;
+    };
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto p-6 md:pl-16">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold">RTD Academy Education Plan 2024-2027</h1>
+          <h1 className="text-3xl font-bold">RTD Academy Education Plan 2023-2026</h1>
           <p className="text-gray-600 mt-2">Third Year of Three-Year Plan</p>
         </div>
         
@@ -249,7 +259,7 @@ const EducationPlan = () => {
             RTD Academy
           </h1>
           <h2 className="text-2xl font-semibold mb-6">
-            Education Plan 2024-2027
+            Education Plan 2023-2026
           </h2>
           <p className="text-lg text-gray-600 mb-8">
             Third Year of Three-Year Education Plan
@@ -261,6 +271,23 @@ const EducationPlan = () => {
           </div>
         </div>
       </Card>
+      
+      {/* AI Preview Sheet */}
+      <Sheet open={isAIPreviewOpen} onOpenChange={setIsAIPreviewOpen}>
+        <SheetContent className="w-full md:max-w-[800px] h-full p-0 overflow-hidden" side="right">
+          <div className="h-full">
+            <GoogleAIChatPage />
+          </div>
+          
+          <div className="absolute top-4 right-4 z-10">
+            <SheetClose asChild>
+              <Button size="sm" variant="outline" className="h-8 px-2 bg-white/80 backdrop-blur-sm">
+                Close
+              </Button>
+            </SheetClose>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Main Content Sections */}
       <div className="space-y-12">

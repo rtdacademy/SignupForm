@@ -198,6 +198,7 @@ function MainApp() {
             </Layout>
           ) : <Navigate to="/login" />
         } />
+        <Route path="/google-ai-chat" element={<GoogleAIChatPage />} />
       </Routes>
     </div>
   );

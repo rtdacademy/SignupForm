@@ -10,7 +10,7 @@ const AccountabilityStatement = () => {
       <Card className="p-8">
         <div className="flex items-start gap-3 mb-6">
           <FileSignature className="h-6 w-6 text-gray-700 mt-1" />
-          <h3 className="text-xl font-semibold">Accountability Statement for the 2024-2027 Education Plan</h3>
+          <h3 className="text-xl font-semibold">Accountability Statement for the 2023-2026 Education Plan</h3>
         </div>
         
         <div className="space-y-6">
@@ -24,7 +24,7 @@ const AccountabilityStatement = () => {
           </p>
           
           <p className="text-lg">
-            The Board approved the 2024/2027 Education Plan on ____________________
+            The Board approved the 2023/2026 Education Plan on ____________________
           </p>
           
           <div className="mt-8 space-y-4">
@@ -37,7 +37,7 @@ const AccountabilityStatement = () => {
             </div>
             
             <div className="pt-4">
-              <p className="text-sm text-gray-600">Review Date: May 31, 2025</p>
+              <p className="text-sm text-gray-600">Review Date: _____________</p>
             </div>
           </div>
         </div>

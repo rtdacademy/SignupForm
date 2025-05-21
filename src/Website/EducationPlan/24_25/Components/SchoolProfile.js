@@ -60,8 +60,8 @@ const SchoolProfile = () => {
             <li>• Custom learning management system</li>
             <li>• Comprehensive solution-based learning</li>
             <li>• Individualized student support</li>
-            <li>• Diploma exam preparation program</li>
-            <li>• Accessible from anywhere in Alberta</li>
+           
+            <li>• Accessible from anywhere</li>
           </ul>
         </Card>
       </div>

@@ -105,6 +105,15 @@ const LearningSupports = () => {
                   when students struggle with specific concepts. This technology goes beyond traditional tutoring 
                   to provide intelligent assistance that grows more effective the more students interact with it.
                 </p>
+                <div className="mt-3 flex justify-end">
+                  <button 
+                    onClick={() => window.openAIPreview && window.openAIPreview()}
+                    className="flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700"
+                  >
+                    <span className="mr-1">Preview AI Integration</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-bot"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+                  </button>
+                </div>
               </div>
               
               <div className="bg-gray-50 p-4 rounded">

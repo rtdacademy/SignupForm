@@ -107,7 +107,8 @@ export function AuthProvider({ children }) {
     '/your-way',
     '/get-started',
     '/policies-reports',
-    '/education-plan'
+    '/education-plan',
+    '/google-ai-chat'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public
