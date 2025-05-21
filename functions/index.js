@@ -42,6 +42,9 @@ const edgeFunctions = require('./edge');
 const googleAIFunctions = require('./googleai');
 //const tempFunctions = require('./TempFunction');
 
+// Student dashboard notifications
+const surveySubmissionFunctions = require('./surveySubmissions');
+
 // Assessment functions - Course-specific
 const COM1255IntroToELearning = require('./courses/COM1255/lessons/IntroToELearning');
 const COM1255BenefitsChallenges = require('./courses/COM1255/lessons/BenefitsChallenges');
@@ -114,6 +117,9 @@ exports.generateContent = googleAIFunctions.generateContent;
 exports.startChatSession = googleAIFunctions.startChatSession;
 exports.sendChatMessage = googleAIFunctions.sendChatMessage;
 //exports.terminalChat = tempFunctions.terminalChat;
+
+// Notification functions
+exports.submitNotificationSurvey = surveySubmissionFunctions.submitNotificationSurvey;
 
 //==============================================================================
 // Assessment functions for courses
