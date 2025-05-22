@@ -360,15 +360,25 @@ export const COURSE_OPTIONS = [
     courseId: 93,
     pasiCode: "MAT3211"
   },
-   { 
-    value: "Math 31",
-    label: "Math 31 (Calculus)", 
-    courseType: "Math",
+  { 
+    value: "Physics 30",
+    label: "Physics 30", 
+    courseType: "Science",
     grade: 12,
     color: "#10B981",
-    icon: Calculator,
-    courseId: 93,
-    pasiCode: "MAT3211"
+    icon: Beaker,
+    courseId: 2,
+    pasiCode: "SCN3797"
+  },
+  { 
+    value: "COM1255 - E-Learning",
+    label: "COM1255 - E-Learning", 
+    courseType: "Options",
+    grade: 10,
+    color: "#3B82F6",
+    icon: Code,
+    courseId: 1,
+    pasiCode: "COM1255"
   },
 ];
 
@@ -391,6 +401,7 @@ export const COURSE_CODE_TO_ID = {
   "MAT3792": 87,  // Math 30-2
   "MAT3791": 89,  // Math 30-1
   "MAT3211": 93,  // Math 31 (Calculus)
+  "SCN3797": 2,   // Physics 30
 
   // CTS Courses (using first value from the courseId arrays)
   "CSE1210": 1111, // Client-side Scripting 1
@@ -614,6 +625,16 @@ export const PASI_COURSES = [
     courseType: "Math",
     grade: 12,
     courseId: [93]
+  },
+  // New Grade 12 Science Course: Physics 30
+  {
+    pasiCode: "SCN3797",
+    description: "Physics 30",
+    credits: 5,
+    color: "#10B981", // Same as grade 12 theme (green)
+    courseType: "Science",
+    grade: 12,
+    courseId: [2]
   },
 
   // CTS Courses

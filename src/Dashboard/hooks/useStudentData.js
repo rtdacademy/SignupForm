@@ -149,14 +149,7 @@ export const useStudentData = (userEmailKey) => {
     }
   };
 
-  // Function to calculate age from birthdate - using utility function
-  const calculateAge = calculateAgeUtil;
 
-  // This function is no longer needed as we're using Firebase exclusively
-  // Keeping it as an empty placeholder to minimize code changes elsewhere
-  const getSeenNotifications = () => {
-    return {};
-  };
 
   // Mark a notification as seen - now only using Firebase
   const markNotificationSeen = async (notificationId, userEmail, notification) => {

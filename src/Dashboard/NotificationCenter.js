@@ -199,24 +199,6 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
   // Define the getTypeDescription function before using it in debug logging
   // Generate a description of the notification type for display
   const getTypeDescription = () => {
-    // Debugging in development mode
-    if (process.env.NODE_ENV === 'development') {
-      console.log('getTypeDescription for:', {
-        id: notification.id,
-        title: notification.title,
-        type: notification.type,
-        hasDisplayConfig: !!notification.displayConfig,
-        displayFrequency: notification.displayConfig?.frequency,
-        displayDayOfWeek: notification.displayConfig?.dayOfWeek,
-        displayDates: notification.displayConfig?.dates,
-        hasRenewalConfig: !!notification.renewalConfig,
-        renewalMethod: notification.renewalConfig?.method,
-        renewalDayOfWeek: notification.renewalConfig?.dayOfWeek,
-        renewalDates: notification.renewalConfig?.dates,
-        hasRepeatInterval: !!notification.repeatInterval
-      });
-    }
-
     // Get display frequency from notification properties, with strong prioritization
     // 1. Use displayConfig.frequency if available (new format)
     // 2. Use explicit type-based identification (weekly-survey)
@@ -328,30 +310,7 @@ const NotificationPreview = ({ notification, onClick, onDismiss, isRead }) => {
     return 'Notification';
   };
 
-  // For debugging in development
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Notification Preview Props:', {
-      id: notification.id,
-      title: notification.title,
-      type: notification.type,
-      hasRepeatInterval,
-      repeatInterval,
-      isSurveyType,
-      typeDescription: getTypeDescription(),
-      repeatIntervalValue: notification.repeatInterval ? notification.repeatInterval.value : 'not set',
-      repeatIntervalUnit: notification.repeatInterval ? notification.repeatInterval.unit : 'not set',
-      // Show exactly what the notification object contains for detailed debugging
-      fullNotification: JSON.parse(JSON.stringify(notification))
-    });
 
-    // Specifically check for repeatInterval property
-    console.log('RepeatInterval debugging:', {
-      hasOwnProperty: notification.hasOwnProperty('repeatInterval'),
-      directValue: notification.repeatInterval,
-      typeofValue: typeof notification.repeatInterval,
-      stringifiedValue: JSON.stringify(notification.repeatInterval)
-    });
-  }
   
   // Get style with interval info and full notification
   const style = getNotificationStyle(notification.type, repeatInterval, notification);
@@ -510,6 +469,21 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
       : [];
   });
 
+  // Check if all questions are answered
+  const areAllQuestionsAnswered = useMemo(() => {
+    if (surveyQuestions.length === 0) return false;
+    
+    return surveyQuestions.every(question => {
+      const answer = answers[question.id];
+      // For multiple choice, check if a value is selected
+      if (question.questionType === 'multiple-choice') {
+        return answer && answer.trim() !== '';
+      }
+      // For text questions, check if there's meaningful content
+      return answer && answer.trim().length > 0;
+    });
+  }, [answers, surveyQuestions]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -579,8 +553,13 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
         </Button>
         <Button 
           type="submit" 
-          disabled={isSubmitting || !courseId}
-          className="bg-purple-600 hover:bg-purple-700"
+          disabled={isSubmitting || !courseId || !areAllQuestionsAnswered}
+          className={cn(
+            "transition-all duration-200",
+            areAllQuestionsAnswered && !isSubmitting && courseId
+              ? "bg-purple-600 hover:bg-purple-700"
+              : "bg-gray-400 cursor-not-allowed"
+          )}
         >
           {isSubmitting ? 'Submitting...' : 'Submit Survey'}
         </Button>
@@ -1006,40 +985,11 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     courses?.forEach(course => {
       if (course.notificationIds) {
         Object.values(course.notificationIds).forEach(notification => {
-          // Debug each notification to see if important flag exists and repeatInterval property
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Processing notification:', {
-              id: notification.id,
-              title: notification.title,
-              type: notification.type,
-              important: notification.important,
-              Important: notification.Important,
-              shouldDisplay: notification.shouldDisplay,
-              // Add detailed debugging for repeatInterval
-              hasRepeatInterval: !!notification.repeatInterval,
-              repeatInterval: notification.repeatInterval,
-              hasOwnRepeatIntervalProperty: notification.hasOwnProperty('repeatInterval'),
-              objectKeys: Object.keys(notification)
-            });
-          }
-          
+       
           if (notification.shouldDisplay) {
             if (notification.type === 'survey') {
               // For surveys, create a unique notification for each course
               const courseTitle = course.courseDetails?.Title || course.title || `Course ${course.id}`;
-              
-              // Debug the notification object properties BEFORE copying
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`Survey notification (PRE-COPY) ${notification.id}:`, {
-                  hasDisplayConfig: !!notification.displayConfig,
-                  displayConfig: notification.displayConfig,
-                  displayConfigFrequency: notification.displayConfig?.frequency,
-                  hasRenewalConfig: !!notification.renewalConfig,
-                  renewalConfig: notification.renewalConfig,
-                  renewalConfigMethod: notification.renewalConfig?.method,
-                  keys: Object.keys(notification)
-                });
-              }
               
               // Create base notification object
               const newNotification = {
@@ -1109,18 +1059,6 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
               const existingIndex = result.findIndex(n => n.id === notification.id);
               if (existingIndex === -1) {
                 // First time seeing this notification, create it with courses array
-                // Debug the notification object properties BEFORE copying
-                if (process.env.NODE_ENV === 'development') {
-                  console.log(`Regular notification (PRE-COPY) ${notification.id}:`, {
-                    hasDisplayConfig: !!notification.displayConfig,
-                    displayConfig: notification.displayConfig,
-                    displayConfigFrequency: notification.displayConfig?.frequency,
-                    hasRenewalConfig: !!notification.renewalConfig,
-                    renewalConfig: notification.renewalConfig,
-                    renewalConfigMethod: notification.renewalConfig?.method,
-                    keys: Object.keys(notification)
-                  });
-                }
                 
                 // Create base notification object with explicit property copies
                 const newNotification = {
@@ -1152,25 +1090,14 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
                   }]
                 };
                 
-                // Debug the new notification object to confirm properties were copied
-                if (process.env.NODE_ENV === 'development') {
-                  console.log(`Regular notification (AFTER-COPY) ${newNotification.id}:`, {
-                    hasDisplayConfig: !!newNotification.displayConfig,
-                    displayConfig: newNotification.displayConfig,
-                    displayConfigFrequency: newNotification.displayConfig?.frequency,
-                    hasRenewalConfig: !!newNotification.renewalConfig,
-                    renewalConfig: newNotification.renewalConfig,
-                    renewalConfigMethod: newNotification.renewalConfig?.method,
-                    keys: Object.keys(newNotification)
-                  });
-                }
+             
                 
                 // IMPORTANT: Explicitly copy the repeatInterval property if it exists
                 // Preserve important properties
                 if (notification.hasOwnProperty('repeatInterval')) {
                   newNotification.repeatInterval = notification.repeatInterval;
                   if (process.env.NODE_ENV === 'development') {
-                    console.log(`Preserved repeatInterval for notification ${notification.id}:`, notification.repeatInterval);
+                   // console.log(`Preserved repeatInterval for notification ${notification.id}:`, notification.repeatInterval);
                   }
                 }
                 
@@ -1311,8 +1238,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
             // If not found in processed notifications, try the allNotifications prop (all active notifications)
             if (!originalNotification && allNotifications) {
               originalNotification = allNotifications.find(n => n.id === notificationId);
-              console.log(`Looking for notification ${notificationId} in allNotifications:`, 
-                originalNotification ? 'FOUND' : 'NOT FOUND');
+            
             }
             
             // Determine notification type (survey or regular notification)
@@ -1387,7 +1313,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
   
   // FOR TESTING: Force one notification to be important if we have any
   if (process.env.NODE_ENV === 'development' && activeNotifications.length > 0 && !activeNotifications.some(n => n.important === true)) {
-    console.log('TESTING: Forcibly setting first notification as important');
+   // console.log('TESTING: Forcibly setting first notification as important');
     activeNotifications = activeNotifications.map((notification, index) => {
       if (index === 0) {
         return {
@@ -1476,23 +1402,6 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
     // Set compact view state
     setIsCompactView(!needsAttention && !isExpanded);
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔔 NOTIFICATION DISPLAY STATUS 🔔', {
-        attention: {
-          hasUnread: hasUnreadNotifications,
-          hasImportant: hasImportantNotifications,
-          hasIncompleteSurveys: hasIncompleteRequiredNotifications,
-          needsAttention: needsAttention
-        },
-        display: {
-          userToggled,
-          userChangedTab,
-          isExpanded,
-          isCompactView: !needsAttention && !isExpanded,
-          visible: activeNotifications.length
-        }
-      });
-    }
     
     // Always auto-expand if there are unacknowledged notifications, unless user manually collapsed it
     if (hasUnreadNotifications && !userToggled) {
@@ -2410,14 +2319,6 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
       console.log(`Added ${categoryUpdates.length} categories to student using update()`);
     }
   };
-
-  // Debug only in development environment
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Rendering NotificationCenter with:', {
-      totalNotifications: allNotifications.length,
-      activeNotifications: activeNotifications.length
-    });
-  }
   
   // Always show the notification center, even when there are no active notifications
   // This allows students to see their notification history

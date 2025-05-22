@@ -544,18 +544,7 @@ export const getIntervalInMilliseconds = (interval) => {
  * @returns {Object} - Match result with condition results and overall match status
  */
 export const evaluateNotificationMatch = (notification, course, profile, seenNotifications = {}) => {
-  // Debug first notification evaluation
-  if (process.env.NODE_ENV === 'development') {
-    console.log('EVALUATING NOTIFICATION MATCH:', {
-      notificationId: notification.id,
-      notificationTitle: notification.title,
-      notificationType: notification.type,
-      hasRepeatInterval: !!notification.repeatInterval,
-      courseId: course.id,
-      hasConditions: !!notification.conditions,
-      conditionCount: notification.conditions ? Object.keys(notification.conditions).length : 0
-    });
-  }
+
 
   // Determine notification characteristics
   const isSurveyType = notification.type === 'survey' || 
@@ -656,16 +645,7 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
       }
     }
     
-    // Debug interaction dates in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Notification ${notification.id} last interaction date:`, {
-        lastInteracted,
-        hasResults: !!notificationResults,
-        lastSubmitted: notificationResults?.lastSubmitted,
-        lastSeen: notificationResults?.lastSeen,
-        submissionCount: notificationResults?.submissions ? Object.keys(notificationResults.submissions).length : 0
-      });
-    }
+
     
     if (lastInteracted) {
       const lastInteractedDate = new Date(lastInteracted);
@@ -676,14 +656,6 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
       if (nextRenewalDateField) {
         const storedNextRenewalDate = new Date(nextRenewalDateField);
         
-        // Log the stored renewal date for debugging
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`Found stored next renewal date for ${notification.id}:`, {
-            nextRenewalDate: storedNextRenewalDate.toISOString(),
-            currentDate: currentDate.toISOString(),
-            shouldRenew: currentDate >= storedNextRenewalDate
-          });
-        }
         
         // If we have a renewal date and the current date has reached it, immediately show
         if (currentDate >= storedNextRenewalDate) {
