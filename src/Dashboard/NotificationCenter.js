@@ -527,22 +527,7 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Course information section */}
-      {courseInfo && hasCourses ? (
-        <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-            <CourseIcon className="h-5 w-5" style={{ color: courseInfo?.color || '#374151' }} />
-            <span>Completing survey for: {courseInfo?.label || notification.courses[0].title}</span>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-          <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-            <BookOpen className="h-5 w-5" />
-            <span>Completing survey for course (details unavailable)</span>
-          </div>
-        </div>
-      )}
+ 
       
       {surveyQuestions.map((question, index) => (
         <div key={question.id} className="space-y-3">
