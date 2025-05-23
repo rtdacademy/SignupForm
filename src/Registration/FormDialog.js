@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Loader2, AlertTriangle, X, InfoIcon } from "lucide-react";
+import { Progress } from "../components/ui/progress";
+import { Loader2, AlertTriangle, X, InfoIcon, CheckCircle } from "lucide-react";
 import StudentTypeSelector from './StudentTypeSelector';
 import NonPrimaryStudentForm from './NonPrimaryStudentForm';
 //import AdultStudentForm from './AdultStudentForm';
@@ -41,13 +42,13 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
   // Required courses state
   const [requiredCourses, setRequiredCourses] = useState([]);
   const [loadingRequiredCourses, setLoadingRequiredCourses] = useState(false);
-
   // Form state
   const [currentStep, setCurrentStep] = useState('type-selection');
   const [selectedStudentType, setSelectedStudentType] = useState('');
   const [isFormValid, setIsFormValid] = useState(false);
   const [formData, setFormData] = useState(null);
   const [existingRegistration, setExistingRegistration] = useState(null);
+  const [completionPercentage, setCompletionPercentage] = useState(0);
   const formRef = React.useRef(null);
 
   // Use the new registration windows hook
@@ -300,10 +301,10 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
       setError('Failed to proceed to review');
     }
   };
-
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
+      setCompletionPercentage(100); // Show 100% completion during submission
       setError(null);
 
       const db = getDatabase();
@@ -548,14 +549,13 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
         trackConversion();
 
         // Remove the pendingRegistration node
-        await remove(pendingRegRef);
-
-        // Reset all form state
+        await remove(pendingRegRef);        // Reset all form state
         setCurrentStep('type-selection');
         setSelectedStudentType('');
         setIsFormValid(false);
         setFormData(null);
         setExistingRegistration(null);
+        setCompletionPercentage(0);
 
         // Close the dialog
         onOpenChange(false);
@@ -578,7 +578,38 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
     } else {
       onOpenChange(false);
     }
-  };
+  };  // Track completion percentage from form
+  useEffect(() => {
+    const trackProgress = () => {
+      if (formRef.current && currentStep === 'form') {
+        try {
+          const percentage = formRef.current.getCompletionPercentage?.() || 0;
+          setCompletionPercentage(percentage);
+        } catch (error) {
+          console.error('Error getting completion percentage:', error);
+        }
+      } else {
+        // Set progress based on current step
+        if (currentStep === 'type-selection') {
+          setCompletionPercentage(selectedStudentType ? 10 : 0);
+        } else if (currentStep === 'review') {
+          setCompletionPercentage(95);
+        }
+      }
+    };
+
+    // Track progress immediately
+    trackProgress();
+
+    // Set up interval to track progress periodically while on form step
+    const interval = currentStep === 'form' ? setInterval(trackProgress, 1000) : null;
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [currentStep, selectedStudentType]);
 
   const renderContent = () => {
     if (currentStep === 'review') {
@@ -699,8 +730,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
           <div className="flex flex-col h-full">
             {/* Header Section */}
           {/* Header Section */}
-<SheetHeader className="px-1 pb-4">
-  {currentStep === 'form' && selectedStudentType && (
+<SheetHeader className="px-1 pb-4">  {currentStep === 'form' && selectedStudentType && (
     <div className="flex items-center justify-between mb-3">
       {(() => {
         const { color, icon: Icon, description } = getStudentTypeInfo(selectedStudentType);
@@ -715,12 +745,12 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
         );
       })()}
       <Button 
-        variant="ghost" 
+        variant="outline" 
         size="sm" 
         onClick={handleBack} 
-        className="text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+        className="bg-customGreen-light border-customGreen-medium text-customGreen-dark hover:bg-customGreen-medium hover:text-white hover:border-customGreen-dark transition-all duration-200 font-medium shadow-sm"
       >
-        Change Student Type
+        ✏️ Change Student Type
       </Button>
     </div>
   )}
@@ -734,9 +764,24 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
           ? 'Please determine your student type'
           : 'Please review your information before submitting'}
       </div>
-    </>
-  )}
-</SheetHeader>
+    </>  )}
+</SheetHeader>            {/* Compact Progress Bar - Only show during form step */}
+            {currentStep === 'form' && (
+              <div className="px-1 pb-3">
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-600">Form Completion</span>
+                    <span className="text-customGreen-dark font-medium">{completionPercentage}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-customGreen-medium to-customGreen-dark transition-all duration-300"
+                      style={{ width: `${completionPercentage}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Content Section - Scrollable */}
             <div className="flex-1 overflow-y-auto pr-1">

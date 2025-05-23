@@ -17,7 +17,10 @@ import {
   Calendar,
   AlertCircle,
   Loader2,
-  
+  Shield,
+  Users,
+  FileText,
+  HelpCircle
 } from 'lucide-react';
 import {
   Tooltip,
@@ -36,6 +39,8 @@ import AddressPicker from '../components/AddressPicker';
 import { getDatabase, ref as databaseRef, get, set } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import InternationalDocuments from './InternationalDocuments';
+import StudentPhotoUpload from './StudentPhotoUpload';
+import CitizenshipDocuments from './CitizenshipDocuments';
 import Select from 'react-select';
 import countryList from 'react-select-country-list';
 import {
@@ -481,7 +486,19 @@ const NonPrimaryStudentForm = forwardRef(({
         residencyProof: ''
       },
       registrationSettingsPath: null,
-      timeSectionId: null
+      timeSectionId: null,
+      // New fields
+      studentPhoto: '',
+      albertaResident: '',
+      parentRelationship: '',
+      isLegalGuardian: false,
+      hasLegalRestrictions: '',
+      legalDocumentUrl: '',
+      indigenousIdentification: '',
+      indigenousStatus: '',
+      citizenshipDocuments: [],
+      howDidYouHear: '',
+      whyApplying: ''
     };
 
     console.log('Initial form data:', formData);
@@ -692,6 +709,10 @@ const NonPrimaryStudentForm = forwardRef(({
         return true; // Validate ASN
       },
       schoolAddress: () => studentType === 'Non-Primary' || studentType === 'Home Education',
+      parentRelationship: () => !user18OrOlder,
+      legalDocumentUrl: () => formData.hasLegalRestrictions === 'yes',
+      indigenousStatus: () => formData.indigenousIdentification === 'yes',
+      citizenshipDocuments: () => studentType !== 'International Student',
     },
     readOnlyFields,
     formData // Pass the entire formData to the validation
@@ -716,14 +737,14 @@ const NonPrimaryStudentForm = forwardRef(({
       successMessage: "School selected"
     }
   }), []);
-
   const {
     errors,
     touched,
     isValid,
+    completionPercentage,
     handleBlur,
     validateForm
-  } = useFormValidation(formData, rules, validationOptions); 
+  } = useFormValidation(formData, rules, validationOptions);
 
   // Memoize validateForm ref to prevent it from causing infinite updates
   const validateFormRef = useRef(validateForm);
@@ -873,6 +894,15 @@ const NonPrimaryStudentForm = forwardRef(({
       handleBlur('documents'); // Trigger validation for documents
       return newData;
     });
+  };
+
+  // Handle file uploads for new fields
+  const handleFileUpload = (fieldName, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+    handleBlur(fieldName);
   };
 
   // Handle date changes
@@ -2217,7 +2247,6 @@ const NonPrimaryStudentForm = forwardRef(({
       }));
     }
   }, [usePreferredFirstName, formData.firstName, profileData]);
-
   // Handle form submission and data retrieval
   useImperativeHandle(ref, () => ({
     async submitForm() {
@@ -2310,7 +2339,14 @@ const NonPrimaryStudentForm = forwardRef(({
       });
       
       return finalFormData;
-    }
+    },
+    getCompletionPercentage: () => completionPercentage,
+    getValidationStatus: () => ({
+      isValid,
+      completionPercentage,
+      isEligible,
+      hasValidDates: validateDates() && !noValidDatesAvailable
+    })
   }));
 
   // Render a read-only field
@@ -2787,6 +2823,15 @@ const NonPrimaryStudentForm = forwardRef(({
             </CardContent>
           </Card>
 
+          {/* Student Photo Upload - for Non-International students */}
+          {studentType !== 'International Student' && (
+            <StudentPhotoUpload
+              onUploadComplete={handleFileUpload}
+              initialPhoto={formData.studentPhoto}
+              error={touched.studentPhoto && errors.studentPhoto ? errors.studentPhoto : null}
+            />
+          )}
+
           {studentType === 'International Student' && (
             <>
               <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
@@ -3067,6 +3112,54 @@ const NonPrimaryStudentForm = forwardRef(({
                     message={
                       touched.birthday
                         ? errors.birthday || validationRules.birthday.successMessage
+                        : null
+                    }
+                  />
+                </div>
+              )}
+
+              {/* Alberta Residency Question - for Non-International students */}
+              {studentType !== 'International Student' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Alberta Residency <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-sm text-gray-600">
+                    Are you a resident of Alberta? as defined by Section 4 of the Education Act - 
+                    meaning that the student is living and ordinarily present in Alberta, 
+                    and has a parent who is a resident of Canada?
+                  </p>
+                  <div className="flex gap-4">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="albertaResident"
+                        value="yes"
+                        checked={formData.albertaResident === 'yes'}
+                        onChange={handleFormChange}
+                        onBlur={() => handleBlur('albertaResident')}
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Yes</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="albertaResident"
+                        value="no"
+                        checked={formData.albertaResident === 'no'}
+                        onChange={handleFormChange}
+                        onBlur={() => handleBlur('albertaResident')}
+                        className="mr-2"
+                      />
+                      <span className="text-sm">No</span>
+                    </label>
+                  </div>
+                  <ValidationFeedback
+                    isValid={touched.albertaResident && !errors.albertaResident}
+                    message={
+                      touched.albertaResident
+                        ? errors.albertaResident || validationRules.albertaResident.successMessage
                         : null
                     }
                   />
@@ -3374,6 +3467,64 @@ const NonPrimaryStudentForm = forwardRef(({
                     As you are under 18, parent/guardian information is required.
                   </p>
 
+                  {/* Parent Relationship */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Relationship to Student <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="parentRelationship"
+                      value={formData.parentRelationship}
+                      onChange={handleFormChange}
+                      onBlur={() => handleBlur('parentRelationship')}
+                      className={`w-full p-2 border rounded-md ${
+                        touched.parentRelationship && errors.parentRelationship ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      required
+                    >
+                      <option value="">Select relationship</option>
+                      <option value="Father">Father</option>
+                      <option value="Mother">Mother</option>
+                      <option value="Guardian">Guardian</option>
+                      <option value="Emergency Contact">Emergency Contact</option>
+                      <option value="Doctor">Doctor</option>
+                      <option value="Sitter">Sitter</option>
+                      <option value="Custodian">Custodian</option>
+                      <option value="School Closure Contact">School Closure Contact</option>
+                      <option value="Caregiver">Caregiver</option>
+                      <option value="Stepmother">Stepmother</option>
+                      <option value="Stepfather">Stepfather</option>
+                    </select>
+                    <ValidationFeedback
+                      isValid={touched.parentRelationship && !errors.parentRelationship}
+                      message={
+                        touched.parentRelationship
+                          ? errors.parentRelationship || validationRules.parentRelationship.successMessage
+                          : null
+                      }
+                    />
+
+                    {/* Legal Guardian Checkbox */}
+                    <div className="flex items-center mt-2">
+                      <input
+                        type="checkbox"
+                        id="isLegalGuardian"
+                        name="isLegalGuardian"
+                        checked={formData.isLegalGuardian}
+                        onChange={(e) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            isLegalGuardian: e.target.checked
+                          }));
+                        }}
+                        className="mr-2"
+                      />
+                      <label htmlFor="isLegalGuardian" className="text-sm">
+                        This person is the legal guardian of student
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     {readOnlyFields.parentFirstName ? (
                       renderReadOnlyField('parentFirstName', formData.parentFirstName, 'Parent First Name')
@@ -3493,7 +3644,143 @@ const NonPrimaryStudentForm = forwardRef(({
             </CardContent>
           </Card>
 
-      
+
+          {/* Indigenous FNMI Declaration - for all non-International students */}
+          {studentType !== 'International Student' && (
+            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
+              <CardHeader>
+                <h3 className="text-md font-semibold flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Indigenous Identification
+                </h3>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Indigenous Self-Identification <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-sm text-gray-600">
+                    Does the student wish to self-identify as an Indigenous person?
+                  </p>
+                  <div className="flex gap-4">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="indigenousIdentification"
+                        value="yes"
+                        checked={formData.indigenousIdentification === 'yes'}
+                        onChange={handleFormChange}
+                        onBlur={() => handleBlur('indigenousIdentification')}
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Yes</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="indigenousIdentification"
+                        value="no"
+                        checked={formData.indigenousIdentification === 'no'}
+                        onChange={handleFormChange}
+                        onBlur={() => handleBlur('indigenousIdentification')}
+                        className="mr-2"
+                      />
+                      <span className="text-sm">No</span>
+                    </label>
+                  </div>
+                  <ValidationFeedback
+                    isValid={touched.indigenousIdentification && !errors.indigenousIdentification}
+                    message={
+                      touched.indigenousIdentification
+                        ? errors.indigenousIdentification || validationRules.indigenousIdentification.successMessage
+                        : null
+                    }
+                  />
+
+                  {formData.indigenousIdentification === 'yes' && (
+                    <div className="space-y-2 mt-3">
+                      <label className="text-sm font-medium">
+                        Indigenous Status <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="indigenousStatus"
+                        value={formData.indigenousStatus}
+                        onChange={handleFormChange}
+                        onBlur={() => handleBlur('indigenousStatus')}
+                        className={`w-full p-2 border rounded-md ${
+                          touched.indigenousStatus && errors.indigenousStatus ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        required
+                      >
+                        <option value="">Select status</option>
+                        <option value="331">331 - Indigenous Learner - Status First Nations</option>
+                        <option value="332">332 - Indigenous Learner - Non-Status First Nations</option>
+                        <option value="333">333 - Indigenous Learner - Metis</option>
+                        <option value="334">334 - Indigenous Learner - Inuit</option>
+                      </select>
+                      <ValidationFeedback
+                        isValid={touched.indigenousStatus && !errors.indigenousStatus}
+                        message={
+                          touched.indigenousStatus
+                            ? errors.indigenousStatus || validationRules.indigenousStatus.successMessage
+                            : null
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Citizenship Verification - for all non-International students */}
+          {studentType !== 'International Student' && (
+            <CitizenshipDocuments
+              onUploadComplete={handleFileUpload}
+              initialDocuments={formData.citizenshipDocuments || []}
+              error={touched.citizenshipDocuments && errors.citizenshipDocuments ? errors.citizenshipDocuments : null}
+            />
+          )}
+
+          {/* Marketing Questions - for all student types */}
+          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
+            <CardHeader>
+              <h3 className="text-md font-semibold flex items-center gap-2">
+                <HelpCircle className="h-5 w-5" />
+                Help Us Improve
+              </h3>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  How did you hear about us? (Optional)
+                </label>
+                <input
+                  type="text"
+                  name="howDidYouHear"
+                  value={formData.howDidYouHear}
+                  onChange={handleFormChange}
+                  onBlur={() => handleBlur('howDidYouHear')}
+                  className="w-full p-2 border rounded-md"
+                  placeholder="e.g., Google search, friend referral, social media..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Why are you applying with us? (Optional)
+                </label>
+                <textarea
+                  name="whyApplying"
+                  value={formData.whyApplying}
+                  onChange={handleFormChange}
+                  onBlur={() => handleBlur('whyApplying')}
+                  className="w-full p-3 border rounded-md min-h-[80px] resize-y"
+                  placeholder="Tell us what made you choose our school..."
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Additional Information Card */}
           <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">

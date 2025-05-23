@@ -368,6 +368,104 @@ albertaStudentNumber: {
     },
     required: true,
     successMessage: "Valid address selected"
+  },
+
+  studentPhoto: {
+    validate: (value) => {
+      if (!value) return "Student photo is required";
+      return null;
+    },
+    required: true,
+    successMessage: "Photo uploaded successfully"
+  },
+
+  albertaResident: {
+    validate: (value, options) => {
+      if (!value) return "Please indicate if you are a resident of Alberta";
+      if (value !== 'yes' && value !== 'no') return "Please select yes or no";
+      
+      // Check if non-Alberta resident in restricted student types
+      if (value === 'no' && options?.formData?.studentType && 
+          (options.formData.studentType === 'Non-Primary' || 
+           options.formData.studentType === 'Home Education' || 
+           options.formData.studentType === 'Summer School')) {
+        return "Non-Alberta residents cannot register as this student type. Please change to Adult Student.";
+      }
+      
+      return null;
+    },
+    required: true,
+    successMessage: "Alberta residency status selected"
+  },
+
+  parentRelationship: {
+    validate: (value, options) => {
+      // Only validate if student is under 18
+      if (options?.conditionalValidation?.parentRelationship && !options.conditionalValidation.parentRelationship()) {
+        return null;
+      }
+      if (!value) return "Parent/guardian relationship is required";
+      return null;
+    },
+    required: true,
+    successMessage: "Relationship selected"
+  },
+
+  isLegalGuardian: {
+    validate: () => null, // Checkbox doesn't need validation
+    required: false
+  },
+
+  indigenousIdentification: {
+    validate: (value) => {
+      if (!value) return "Please indicate if you wish to self-identify as Indigenous";
+      if (value !== 'yes' && value !== 'no' && value !== 'unsure') return "Please select yes, no, or prefer not to answer";
+      return null;
+    },
+    required: true,
+    successMessage: "Indigenous identification status selected"
+  },
+
+  indigenousStatus: {
+    validate: (value, options) => {
+      // Only validate if indigenousIdentification is 'yes'
+      if (options?.formData?.indigenousIdentification === 'yes' && !value) {
+        return "Please select an Indigenous status";
+      }
+      return null;
+    },
+    required: false,
+    successMessage: "Indigenous status selected"
+  },
+
+  citizenshipDocuments: {
+    validate: (value, options) => {
+      // Skip validation for International Students
+      if (options?.formData?.studentType === 'International Student') {
+        return null;
+      }
+      // Handle both old format (array of URLs) and new format (array of objects)
+      if (!value || !Array.isArray(value) || value.length === 0) {
+        return "At least one citizenship verification document is required";
+      }
+      return null;
+    },
+    required: true,
+    successMessage: "Citizenship documents uploaded"
+  },
+
+  howDidYouHear: {
+    validate: (value) => {
+      if (!value) return "Please select how you heard about us";
+      return null;
+    },
+    required: true,
+    successMessage: "Selection completed"
+  },
+
+  whyApplying: {
+    validate: () => null, // Optional field
+    required: false
   }
    
 };

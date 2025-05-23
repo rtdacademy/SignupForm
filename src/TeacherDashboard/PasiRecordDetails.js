@@ -404,6 +404,25 @@ const PasiRecordDetails = forwardRef(({
                 </>
               )}
               
+              {/* Full Address - YourWay only */}
+              {record.fullAddress && (
+                <>
+                  <dt className="font-medium text-gray-500">Address:</dt>
+                  <dd className="cursor-pointer hover:text-blue-600" 
+                    onClick={() => handleCellClick && record.fullAddress && handleCellClick(record.fullAddress, "Address")}>
+                    <div className="flex items-center gap-1">
+                      <Badge 
+                        variant="outline" 
+                        className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                      >
+                        YourWay
+                      </Badge>
+                      <span>{record.fullAddress}</span>
+                    </div>
+                  </dd>
+                </>
+              )}
+              
               {/* Student Type - YourWay only */}
               <dt className="font-medium text-gray-500">Student Type:</dt>
               <dd className="cursor-pointer hover:text-blue-600" 
