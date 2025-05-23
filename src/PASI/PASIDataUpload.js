@@ -42,7 +42,7 @@ import { processPasiLinkCreation, formatSchoolYearWithSlash, processPasiRecordDe
 
 import MissingPasi from '../TeacherDashboard/MissingPasi';
 import MissingYourWay from '../TeacherDashboard/MissingYourWay';
-import { COURSE_OPTIONS, COURSE_CODE_TO_ID, ACTIVE_FUTURE_ARCHIVED_OPTIONS, COURSE_ID_TO_CODE } from '../config/DropdownOptions';
+import { COURSE_OPTIONS, COURSE_CODE_TO_ID, ACTIVE_FUTURE_ARCHIVED_OPTIONS, COURSE_ID_TO_CODE, STATUS_OPTIONS } from '../config/DropdownOptions';
 import { useAuth } from '../context/AuthContext';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { hasPasiRecordForCourse, isRecordActuallyMissing, getPasiCodesForCourseId, filterRelevantMissingPasiRecords, filterRelevantMissingPasiRecordsWithEmailCheck, hasValidAsnEmailAssociation } from '../utils/pasiRecordsUtils';
@@ -72,6 +72,17 @@ const ValidationRules = {
         "✅ Mark Added to PASI",
         "☑️ Removed From PASI (Funded)",
         "Course Completed",
+        "Unenrolled"
+      ]
+    },
+    Registered: {
+      incompatibleStatuses: [
+        "Unenrolled",
+        "Course Completed"
+      ]
+    },
+    Withdrawn: {
+      validStatuses: [
         "Unenrolled"
       ]
     }
@@ -394,13 +405,70 @@ const filteredUnlinkedCount = useMemo(() => {
       // Check Active status incompatibilities
       if (record.status === "Active" && 
           ValidationRules.statusCompatibility.Active.incompatibleStatuses.includes(record.Status_Value)) {
+        record.mismatchType = "status";
+        record.mismatchReason = `PASI status "${record.status}" is incompatible with YourWay status "${record.Status_Value}"`;
         return true;
       }
       
       // Check Completed status validations
       if (record.status === "Completed" && 
           !ValidationRules.statusCompatibility.Completed.validStatuses.includes(record.Status_Value)) {
+        record.mismatchType = "status";
+        record.mismatchReason = `PASI status "${record.status}" requires YourWay status to be one of: ${ValidationRules.statusCompatibility.Completed.validStatuses.join(", ")}`;
         return true;
+      }
+      
+      // Check Registered status incompatibilities
+      if (record.status === "Registered" && 
+          ValidationRules.statusCompatibility.Registered.incompatibleStatuses.includes(record.Status_Value)) {
+        record.mismatchType = "status";
+        record.mismatchReason = `PASI status "${record.status}" is incompatible with YourWay status "${record.Status_Value}"`;
+        return true;
+      }
+      
+      // Check Withdrawn status validations
+      if (record.status === "Withdrawn" && 
+          !ValidationRules.statusCompatibility.Withdrawn.validStatuses.includes(record.Status_Value)) {
+        record.mismatchType = "status";
+        record.mismatchReason = `PASI status "${record.status}" requires YourWay status to be "Unenrolled"`;
+        return true;
+      }
+      
+      // Check ActiveFutureArchived value mismatches
+      const statusOption = STATUS_OPTIONS.find(opt => opt.value === record.Status_Value);
+      if (statusOption && record.ActiveFutureArchived_Value) {
+        let expectedState;
+        
+        // Special handling for "Resuming on (date)" status
+        if (record.Status_Value === "Resuming on (date)" && record.resumingOnDate) {
+          const today = new Date();
+          const resumingDate = new Date(record.resumingOnDate);
+          
+          // If today is before the resuming date, use activeFutureArchivedValue
+          // If today is on or after the resuming date, use activeFutureArchivedValueFinal
+          if (today < resumingDate) {
+            expectedState = statusOption.activeFutureArchivedValue;
+          } else {
+            expectedState = statusOption.activeFutureArchivedValueFinal;
+          }
+        } else {
+          // For all other statuses, use activeFutureArchivedValueFinal
+          expectedState = statusOption.activeFutureArchivedValueFinal;
+        }
+        
+        if (expectedState && record.ActiveFutureArchived_Value) {
+          const actualState = record.ActiveFutureArchived_Value;
+          
+          if (expectedState !== actualState) {
+            record.mismatchType = "state";
+            record.mismatchReason = record.Status_Value === "Resuming on (date)" 
+              ? `YourWay status "${record.Status_Value}" requires ActiveFutureArchived state to be "${expectedState}" ${new Date() < new Date(record.resumingOnDate) ? 'before resuming date' : 'after resuming date'} but it is "${actualState}"`
+              : `YourWay status "${record.Status_Value}" requires ActiveFutureArchived state to be "${expectedState}" but it is "${actualState}"`;
+            record.expectedState = expectedState;
+            record.actualState = actualState;
+            return true;
+          }
+        }
       }
       
       return false;
