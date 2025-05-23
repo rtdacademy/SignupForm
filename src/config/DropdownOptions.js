@@ -182,7 +182,7 @@ export const STATUS_OPTIONS = [
     category: "Other", 
     allowAutoStatusChange: false, 
     alertLevel: ALERT_LEVELS.GREY,
-    activeFutureArchivedValue: "Pending",
+    activeFutureArchivedValue: "Active",
     activeFutureArchivedValueFinal: "Active",
     tooltip: "Student is on temporary pause with scheduled return date",
     delay:true
