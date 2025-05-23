@@ -100,6 +100,24 @@ const syncProfileToCourseSummariesV2 = onValueWritten({
       }
     }
 
+    // Check for address changes
+    const beforeFullAddress = getNestedValue(event.data.before, 'address.fullAddress');
+    const afterFullAddress = getNestedValue(event.data.after, 'address.fullAddress');
+    
+    if (JSON.stringify(beforeFullAddress) !== JSON.stringify(afterFullAddress)) {
+      console.log(`Profile field address.fullAddress changed from ${beforeFullAddress} to ${afterFullAddress}`);
+      changes['fullAddress'] = afterFullAddress !== null ? afterFullAddress : '';
+    }
+    
+    // Check for location changes
+    const beforeLocation = getNestedValue(event.data.before, 'address.location');
+    const afterLocation = getNestedValue(event.data.after, 'address.location');
+    
+    if (JSON.stringify(beforeLocation) !== JSON.stringify(afterLocation)) {
+      console.log(`Profile field address.location changed`);
+      changes['location'] = afterLocation !== null ? afterLocation : null;
+    }
+
     // If nothing changed, exit early
     if (Object.keys(changes).length === 0) {
       console.log(`No profile changes detected for student ${studentId}`);
@@ -368,6 +386,15 @@ const updateStudentCourseSummaryV2 = onValueWritten({
         summaryData[`guardianEmail${index + 1}`] = guardian.email || '';
       });
       
+      // Handle address fields
+      if (profileData.address) {
+        summaryData['fullAddress'] = profileData.address.fullAddress || '';
+        summaryData['location'] = profileData.address.location || null;
+      } else {
+        summaryData['fullAddress'] = '';
+        summaryData['location'] = null;
+      }
+      
       // Merge with detected changes
       summaryData = { ...summaryData, ...changes };
       
@@ -469,6 +496,15 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
     guardians.forEach((guardian, index) => {
       summaryData[`guardianEmail${index + 1}`] = guardian.email || '';
     });
+    
+    // Handle address fields
+    if (profileData.address) {
+      summaryData['fullAddress'] = profileData.address.fullAddress || '';
+      summaryData['location'] = profileData.address.location || null;
+    } else {
+      summaryData['fullAddress'] = '';
+      summaryData['location'] = null;
+    }
     
     // Define field mappings to extract from event data
     const fieldMappings = {
@@ -720,6 +756,15 @@ const batchSyncStudentDataV2 = onCall({
             const currentGuardianCount = guardians.length;
             for (let i = currentGuardianCount + 1; i <= 5; i++) { // Assuming max 5 guardians
               summaryData[`guardianEmail${i}`] = null;
+            }
+            
+            // Handle address fields
+            if (profileData.address) {
+              summaryData['fullAddress'] = profileData.address.fullAddress || '';
+              summaryData['location'] = profileData.address.location || null;
+            } else {
+              summaryData['fullAddress'] = '';
+              summaryData['location'] = null;
             }
             
             // 2. Add course fields
