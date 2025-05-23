@@ -10,7 +10,7 @@ import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDjx3BINgvUwR1CHE80yX1gCBXYl5OMCqs",
-  authDomain: "rtd-academy.firebaseapp.com",
+  authDomain: "yourway.rtdacademy.com",
   databaseURL: "https://rtd-academy-default-rtdb.firebaseio.com",
   projectId: "rtd-academy",
   storageBucket: "rtd-academy.appspot.com",
