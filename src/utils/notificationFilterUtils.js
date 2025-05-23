@@ -599,15 +599,29 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
                            notification.type === 'recurring';
   
   // Skip if this is a one-time notification that has been seen
-  if ((isOneTimeType && seenNotifications[notification.id]) ||
-      (isOneTimeType && course.studentDashboardNotificationsResults?.[notification.id]?.completed) ||
-      (notification.type === 'survey' && displayFrequency === 'one-time' && course.studentDashboardNotificationsResults?.[notification.id]?.completed)) {
-    return {
-      isMatch: false,
-      shouldDisplay: false,
-      conditionResults: [],
-      reason: 'Already seen/completed (one-time)'
-    };
+  // For surveys, only check course-specific completion
+  // For regular notifications, check both global and course-specific
+  if (isSurveyType) {
+    // For surveys, ONLY check course-specific completion
+    if (isOneTimeType && course.studentDashboardNotificationsResults?.[notification.id]?.completed) {
+      return {
+        isMatch: false,
+        shouldDisplay: false,
+        conditionResults: [],
+        reason: 'Survey already completed for this course'
+      };
+    }
+  } else {
+    // For regular notifications, check both global seen status and course-specific acknowledgment
+    if ((isOneTimeType && seenNotifications[notification.id]) ||
+        (isOneTimeType && course.studentDashboardNotificationsResults?.[notification.id]?.acknowledged)) {
+      return {
+        isMatch: false,
+        shouldDisplay: false,
+        conditionResults: [],
+        reason: 'Already seen/acknowledged (one-time)'
+      };
+    }
   }
   
   // For repeating notifications/surveys, check if enough time has passed since the last interaction
@@ -773,7 +787,24 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
   
   // Check if this survey has already been completed for this specific course
   const notificationResults = course.studentDashboardNotificationsResults?.[notification.id];
-  const surveyCompleted = isSurveyType && notificationResults?.completed === true;
+  
+  // For surveys, we ONLY check the course-specific completion status
+  // This ensures each course can have its own survey completion state
+  let surveyCompleted = false;
+  
+  if (isSurveyType) {
+    // Always check course-specific completion for surveys
+    // This is the key change - we only look at the course-specific result
+    surveyCompleted = notificationResults?.completed === true;
+    
+    // Debug logging for survey completion check
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Survey completion check for ${notification.id} in course ${course.id}:`, {
+        courseSpecificCompleted: notificationResults?.completed,
+        surveyCompleted
+      });
+    }
+  }
   
   // Format conditions for evaluation
   const conditions = notification.conditions || {};

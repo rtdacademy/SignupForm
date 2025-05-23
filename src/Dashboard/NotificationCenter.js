@@ -489,6 +489,11 @@ const SurveyForm = ({ notification, onSubmit, onCancel }) => {
     setIsSubmitting(true);
     try {
       // Pass the course ID directly since we now only have one course per survey notification
+      // Make sure courseId is valid before submitting
+      if (!courseId) {
+        console.error('No course ID available for survey submission');
+        throw new Error('Course information is missing');
+      }
       await onSubmit(answers, [courseId]);
     } finally {
       setIsSubmitting(false);
@@ -922,7 +927,7 @@ const NotificationDialog = ({ notification, isOpen, onClose, onSurveySubmit, onD
 
 // Regular notification dialog now handles all notifications
 
-const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRefresh, allNotifications }) => {
+const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSurveyResponse, forceRefresh, allNotifications }) => {
   // Track if user has manually toggled the accordion
   const [userToggled, setUserToggled] = useState(false);
   // Start collapsed unless there are important notifications
@@ -2194,6 +2199,17 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, forceRef
       // because categories are specific to the UI and how the user interacts
       if (selectedNotification.surveyQuestions && selectedNotification.surveyQuestions.length > 0) {
         await processCategoryUpdates(answers, selectedNotification, courseId, sanitizeEmail(current_user_email_key));
+      }
+      
+      // IMPORTANT: Also update using submitSurveyResponse to ensure course-specific tracking
+      if (submitSurveyResponse && courseId) {
+        try {
+          await submitSurveyResponse(notificationId, courseId, answers);
+          console.log('Course-specific survey tracking updated');
+        } catch (error) {
+          console.error('Error updating course-specific survey tracking:', error);
+          // Don't fail the whole operation if this fails
+        }
       }
       
       // Update local state and UI

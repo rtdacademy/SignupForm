@@ -875,16 +875,27 @@ export const useStudentData = (userEmailKey) => {
       const currentDate = new Date().toISOString();
       const courseDetails = studentData.courses.find(c => c.id === courseId);
       
+      // For surveys, we want to track completion per course
+      // Keep existing course completions and add this one
+      const existingCourseIds = existingData.courseIds || [];
+      const existingCourses = existingData.courses || [];
+      
+      // Add current course if not already in the list
+      if (!existingCourseIds.includes(courseId)) {
+        existingCourseIds.push(courseId);
+        existingCourses.push({
+          id: courseId,
+          title: courseDetails?.courseDetails?.Title || `Course ${courseId}`
+        });
+      }
+      
       let updateData = {
         ...existingData,
         completed: true,
         completedAt: currentDate,
         answers: answers,
-        courseIds: [courseId],
-        courses: [{
-          id: courseId,
-          title: courseDetails?.courseDetails?.Title || `Course ${courseId}`
-        }],
+        courseIds: existingCourseIds,
+        courses: existingCourses,
         email: userEmail,
         notificationId: notificationId,
         studentEmail: userEmail,
@@ -969,6 +980,27 @@ export const useStudentData = (userEmailKey) => {
       // Update the record
       set(resultsRef, updateData).then(() => {
         console.log('Survey response submitted successfully!');
+        
+        // IMPORTANT: Also update the course-specific notification result
+        // This ensures that the survey is marked as completed for THIS specific course
+        const courseNotificationRef = ref(db, 
+          `students/${sanitizedUserEmail}/courses/${courseId}/studentDashboardNotificationsResults/${notificationId}`);
+        
+        // Create course-specific completion record
+        const courseSpecificData = {
+          completed: true,
+          completedAt: currentDate,
+          courseId: courseId,
+          notificationId: notificationId,
+          // For repeating surveys, also store submission history
+          ...(updateData.submissions && { submissions: updateData.submissions })
+        };
+        
+        set(courseNotificationRef, courseSpecificData).then(() => {
+          console.log(`Survey marked as completed for course ${courseId}`);
+        }).catch(error => {
+          console.error(`Error updating course-specific notification status: ${error}`);
+        });
       }).catch(error => {
         console.error('Error submitting survey response:', error);
       });

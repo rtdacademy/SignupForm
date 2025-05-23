@@ -375,6 +375,9 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   // Track when conditions change to recalculate matched students
   const [conditionsChanged, setConditionsChanged] = useState(false);
   
+  // Track if any filters have been modified from initial state
+  const [filtersModified, setFiltersModified] = useState(false);
+  
   // School year options
   const schoolYearOptions = getSchoolYearOptions();
   
@@ -448,6 +451,12 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       return [];
     }
     
+    // If using current form state and filters haven't been modified, return empty array
+    // However, we need to check if we're in edit mode with existing filters
+    if (useCurrentFormState && !filtersModified && !editMode) {
+      return [];
+    }
+    
     // Create a form state object for the utility function if needed
     const formState = useCurrentFormState ? {
       selectedStudentTypes,
@@ -482,7 +491,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   
   // Keep track of student count when conditions change
   useEffect(() => {
-    if (editMode) {
+    if (editMode && filtersModified) {
       updateMatchedStudentCount();
     }
   }, [
@@ -497,6 +506,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     selectedCategories,
     selectedActiveFutureArchivedValues,
     conditionLogic,
+    filtersModified,
     editMode
   ]);
   
@@ -600,6 +610,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     setCustomDates([]); // Reset custom dates
     setCurrentNotification(null);
     setEditMode(false);
+    setFiltersModified(false);
   };
   
   // Add a new survey question
@@ -802,6 +813,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     }
     
     setEditMode(true);
+    setFiltersModified(true); // When editing, we have existing filters
   };
   
   // Sanitize HTML content
@@ -1163,6 +1175,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   // Handle multi-select changes
   const handleMultiSelectChange = (field, value) => {
     setConditionsChanged(true);
+    setFiltersModified(true);
     
     switch (field) {
       case 'studentTypes':
@@ -1256,6 +1269,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   // Handle category selection for notifications
   const handleCategoryChange = (categoryId, teacherEmailKey) => {
     setConditionsChanged(true);
+    setFiltersModified(true);
     
     setSelectedCategories(prevCategories => {
       // Find the teacher entry
@@ -1298,6 +1312,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   // Handle removing a category
   const handleRemoveCategory = (categoryId, teacherEmailKey) => {
     setConditionsChanged(true);
+    setFiltersModified(true);
     
     setSelectedCategories(prevCategories => {
       // Find the teacher entry
@@ -2307,7 +2322,10 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                         <div className="text-sm font-medium mb-1 text-gray-600">Condition Logic:</div>
                         <Select 
                           value={conditionLogic} 
-                          onValueChange={setConditionLogic}
+                          onValueChange={(value) => {
+                            setConditionLogic(value);
+                            setFiltersModified(true);
+                          }}
                         >
                           <SelectTrigger className="w-80 border-2 font-medium" style={{ 
                             borderColor: conditionLogic === 'and' ? '#2563eb' : '#f59e0b',
@@ -2395,6 +2413,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                   }`}
                                   onClick={() => {
                                     setConditionsChanged(true);
+                                    setFiltersModified(true);
                                     
                                     if (isSelected) {
                                       // Remove if already selected
@@ -2436,6 +2455,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                 size="sm"
                                 onClick={() => {
                                   setConditionsChanged(true);
+                                  setFiltersModified(true);
                                   setSelectedActiveFutureArchivedValues(['Active']);
                                 }}
                               >
@@ -2642,7 +2662,10 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                 <Button 
                                   variant="outline" 
                                   size="sm"
-                                  onClick={() => setSelectedCategories([])}
+                                  onClick={() => {
+                                    setSelectedCategories([]);
+                                    setFiltersModified(true);
+                                  }}
                                   className="border-indigo-300 text-indigo-700 hover:bg-indigo-100"
                                 >
                                   Clear All
@@ -2758,10 +2781,13 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                 id="date-range-start"
                                 type="date" 
                                 value={scheduleEndDateRange.start} 
-                                onChange={(e) => setScheduleEndDateRange({
-                                  ...scheduleEndDateRange,
-                                  start: e.target.value
-                                })}
+                                onChange={(e) => {
+                                  setScheduleEndDateRange({
+                                    ...scheduleEndDateRange,
+                                    start: e.target.value
+                                  });
+                                  setFiltersModified(true);
+                                }}
                                 className="w-full pr-10"
                               />
                               <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -2775,10 +2801,13 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                 id="date-range-end"
                                 type="date" 
                                 value={scheduleEndDateRange.end} 
-                                onChange={(e) => setScheduleEndDateRange({
-                                  ...scheduleEndDateRange,
-                                  end: e.target.value
-                                })}
+                                onChange={(e) => {
+                                  setScheduleEndDateRange({
+                                    ...scheduleEndDateRange,
+                                    end: e.target.value
+                                  });
+                                  setFiltersModified(true);
+                                }}
                                 className="w-full pr-10"
                               />
                               <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -2829,10 +2858,13 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                               min="5"
                               max="100"
                               value={ageRange.min} 
-                              onChange={(e) => setAgeRange({
-                                ...ageRange,
-                                min: e.target.value
-                              })}
+                              onChange={(e) => {
+                                setAgeRange({
+                                  ...ageRange,
+                                  min: e.target.value
+                                });
+                                setFiltersModified(true);
+                              }}
                               placeholder="e.g. 14"
                             />
                           </div>
@@ -2845,10 +2877,13 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                               min="5"
                               max="100" 
                               value={ageRange.max} 
-                              onChange={(e) => setAgeRange({
-                                ...ageRange,
-                                max: e.target.value
-                              })}
+                              onChange={(e) => {
+                                setAgeRange({
+                                  ...ageRange,
+                                  max: e.target.value
+                                });
+                                setFiltersModified(true);
+                              }}
                               placeholder="e.g. 18"
                             />
                           </div>
@@ -2889,22 +2924,48 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                 >
                   Cancel
                 </Button>
-                <Button 
-                  onClick={saveNotification}
-                  disabled={isSaving}
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      {currentNotification ? 'Update' : 'Save'} Notification
-                    </>
+                <div className="flex items-center gap-2">
+                  {filtersModified && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleOpenStudentSelectionDialog}
+                      className="mr-2"
+                    >
+                      <Search className="h-4 w-4 mr-1" />
+                      {matchingStudentCount} student{matchingStudentCount !== 1 ? 's' : ''} selected
+                    </Button>
                   )}
-                </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Button 
+                            onClick={saveNotification}
+                            disabled={isSaving || !filtersModified}
+                          >
+                            {isSaving ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="mr-2 h-4 w-4" />
+                                {currentNotification ? 'Update' : 'Save'} Notification
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      {!filtersModified && !isSaving && (
+                        <TooltipContent>
+                          <p>Please select at least one filter to target students</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
               </CardFooter>
             </Card>
           ) : (
