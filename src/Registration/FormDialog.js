@@ -369,6 +369,10 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
           "lastName": registrationData.formData.lastName || '',
           "originalEmail": user.email,
           "uid": uid,
+          // Add address information if provided
+          ...(registrationData.formData.address && {
+            "address": registrationData.formData.address
+          }),
           // Add international student information to profile if applicable
           ...(registrationData.studentType === 'International Student' && {
             "internationalDocuments": {

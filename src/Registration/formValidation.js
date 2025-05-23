@@ -338,6 +338,36 @@ albertaStudentNumber: {
     },
     required: true,
     successMessage: "School selected"
+  },
+
+  address: {
+    validate: (value, options) => {
+      // Skip validation if readonly
+      if (options?.readOnlyFields?.address) {
+        return null;
+      }
+      
+      if (!value) return "Address is required";
+      
+      // Check if it's a proper address object
+      if (typeof value === 'object') {
+        if (!value.streetAddress) return "Street address is required";
+        if (!value.city) return "City is required";
+        if (!value.province) return "Province/State is required";
+        if (!value.postalCode) return "Postal/ZIP code is required";
+        
+        // For non-international students, ensure it's in Alberta
+        if (options?.formData?.studentType !== 'International Student' && value.province !== 'AB') {
+          return "Address must be in Alberta";
+        }
+      } else {
+        return "Please select a valid address";
+      }
+      
+      return null;
+    },
+    required: true,
+    successMessage: "Valid address selected"
   }
    
 };

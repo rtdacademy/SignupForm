@@ -107,6 +107,7 @@ const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequir
     ['Name', nameDisplay],
     ['Email', user.email],
     ['Phone', formData.phoneNumber],
+    ['Address', formData.address?.fullAddress || ''],
     ['Birthday', formData.birthday],
     ['Age', formData.age ? `${formData.age} years old` : ''],
     ['Alberta Student Number', asnDisplay],

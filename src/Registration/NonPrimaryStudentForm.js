@@ -32,6 +32,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import SchoolAddressPicker from '../components/SchoolAddressPicker';
 import HomeSchoolSelector from '../components/HomeSchoolSelector'; 
 import CapitalizedInput from '../components/CapitalizedInput';
+import AddressPicker from '../components/AddressPicker';
 import { getDatabase, ref as databaseRef, get, set } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import InternationalDocuments from './InternationalDocuments';
@@ -454,6 +455,7 @@ const NonPrimaryStudentForm = forwardRef(({
       lastName: validationRules.lastName.format(user?.displayName?.split(' ').slice(1).join(' ') || ''),
       preferredFirstName: '', 
       phoneNumber: '',
+      address: null, // Add address field
       currentSchool: '',
       schoolAddress: null,
       birthday: '',
@@ -629,6 +631,7 @@ const NonPrimaryStudentForm = forwardRef(({
             parentPhone: snapshot.val().ParentPhone_x0023_ || prev.parentPhone,
             parentEmail: snapshot.val().ParentEmail || prev.parentEmail,
             country: snapshot.val().internationalDocuments?.countryOfOrigin || prev.country,
+            address: snapshot.val().address || prev.address,
           }));
 
           // Set document URLs if they exist
@@ -667,7 +670,8 @@ const NonPrimaryStudentForm = forwardRef(({
       parentEmail: !!profileData.ParentEmail,
       country: !!profileData.internationalDocuments?.countryOfOrigin,
       documents: !!(profileData.internationalDocuments?.passport && 
-                  profileData.internationalDocuments?.additionalID)
+                  profileData.internationalDocuments?.additionalID),
+      address: !!profileData.address
     };
   }, [profileData]);
 
@@ -2994,6 +2998,40 @@ const NonPrimaryStudentForm = forwardRef(({
                   {studentType === 'International Student' && (
                     <p className="text-sm text-gray-500">
                       Please select your country code and enter your phone number
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Address Field */}
+              {readOnlyFields.address ? (
+                renderReadOnlyField('address', formData.address?.fullAddress || formData.address, 'Address')
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Address <span className="text-red-500">*</span>
+                  </label>
+                  <AddressPicker
+                    onAddressSelect={(addressDetails) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        address: addressDetails
+                      }));
+                      handleBlur('address');
+                    }}
+                    studentType={studentType}
+                  />
+                  <ValidationFeedback
+                    isValid={touched.address && !errors.address}
+                    message={
+                      touched.address
+                        ? errors.address || validationRules.address.successMessage
+                        : null
+                    }
+                  />
+                  {studentType !== 'International Student' && (
+                    <p className="text-sm text-gray-500">
+                      Please select an address in Canada (must be within Alberta)
                     </p>
                   )}
                 </div>
