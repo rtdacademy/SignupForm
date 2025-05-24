@@ -317,7 +317,13 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
           registrationSettingsPath: registrationData.formData.registrationSettingsPath,
           timeSectionId: registrationData.formData.timeSectionId,
           studentType: registrationData.formData.studentType,
-          enrollmentYear: registrationData.formData.enrollmentYear
+          enrollmentYear: registrationData.formData.enrollmentYear,
+          // Log new fields to verify they're being passed
+          indigenousStatus: registrationData.formData.indigenousStatus,
+          studentPhoto: registrationData.formData.studentPhoto,
+          albertaResident: registrationData.formData.albertaResident,
+          parentRelationship: registrationData.formData.parentRelationship,
+          howDidYouHear: registrationData.formData.howDidYouHear
         });
         
         // Validate the registration settings path
@@ -374,6 +380,18 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
           ...(registrationData.formData.address && {
             "address": registrationData.formData.address
           }),
+          // Add new registration fields
+          "studentPhoto": registrationData.formData.studentPhoto || '',
+          "albertaResident": registrationData.formData.albertaResident || false,
+          "parentRelationship": registrationData.formData.parentRelationship || '',
+          "isLegalGuardian": registrationData.formData.isLegalGuardian || false,
+          "hasLegalRestrictions": registrationData.formData.hasLegalRestrictions || '',
+          "legalDocumentUrl": registrationData.formData.legalDocumentUrl || '',
+          "indigenousIdentification": registrationData.formData.indigenousIdentification || '',
+          "indigenousStatus": registrationData.formData.indigenousStatus || '',
+          "citizenshipDocuments": registrationData.formData.citizenshipDocuments || [],
+          "howDidYouHear": registrationData.formData.howDidYouHear || '',
+          "whyApplying": registrationData.formData.whyApplying || '',
           // Add international student information to profile if applicable
           ...(registrationData.studentType === 'International Student' && {
             "internationalDocuments": {
@@ -468,6 +486,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
         };
         
         console.log('Final course data to be saved:', courseData);
+        console.log('Final profile data to be saved:', profileData);
 
         // Prepare all database operations we need to perform
         const writeOperations = [

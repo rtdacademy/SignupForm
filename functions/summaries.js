@@ -54,7 +54,11 @@ const syncProfileToCourseSummariesV2 = onValueWritten({
       'LastSync', 'ParentEmail', 'ParentFirstName', 'ParentLastName', 
       'ParentPhone_x0023_', 'StudentEmail', 'StudentPhone', 'age', 'asn', 
       'birthday', 'firstName', 'lastName', 'originalEmail', 
-      'preferredFirstName', 'gender', 'uid'
+      'preferredFirstName', 'gender', 'uid', 'ParentPermission_x003f_',
+      'albertaResident', 'hasLegalRestrictions', 'howDidYouHear',
+      'indigenousIdentification', 'indigenousStatus', 'internationalDocuments',
+      'isLegalGuardian', 'legalDocumentUrl', 'parentRelationship',
+      'studentPhoto', 'whyApplying'
     ];
 
     // Collect changes by comparing before and after
@@ -100,22 +104,15 @@ const syncProfileToCourseSummariesV2 = onValueWritten({
       }
     }
 
-    // Check for address changes
-    const beforeFullAddress = getNestedValue(event.data.before, 'address.fullAddress');
-    const afterFullAddress = getNestedValue(event.data.after, 'address.fullAddress');
+    // Check for address changes - sync entire address object
+    const beforeAddress = event.data.before && event.data.before.exists() && event.data.before.child('address').exists() ?
+                         event.data.before.child('address').val() : null;
+    const afterAddress = event.data.after.child('address').exists() ?
+                        event.data.after.child('address').val() : null;
     
-    if (JSON.stringify(beforeFullAddress) !== JSON.stringify(afterFullAddress)) {
-      console.log(`Profile field address.fullAddress changed from ${beforeFullAddress} to ${afterFullAddress}`);
-      changes['fullAddress'] = afterFullAddress !== null ? afterFullAddress : '';
-    }
-    
-    // Check for location changes
-    const beforeLocation = getNestedValue(event.data.before, 'address.location');
-    const afterLocation = getNestedValue(event.data.after, 'address.location');
-    
-    if (JSON.stringify(beforeLocation) !== JSON.stringify(afterLocation)) {
-      console.log(`Profile field address.location changed`);
-      changes['location'] = afterLocation !== null ? afterLocation : null;
+    if (JSON.stringify(beforeAddress) !== JSON.stringify(afterAddress)) {
+      console.log(`Profile field address changed`);
+      changes['address'] = afterAddress !== null ? afterAddress : null;
     }
 
     // If nothing changed, exit early
@@ -370,7 +367,11 @@ const updateStudentCourseSummaryV2 = onValueWritten({
         'LastSync', 'ParentEmail', 'ParentFirstName', 'ParentLastName', 
         'ParentPhone_x0023_', 'StudentEmail', 'StudentPhone', 'age', 'asn', 
         'birthday', 'firstName', 'lastName', 'originalEmail', 
-        'preferredFirstName', 'gender', 'uid'
+        'preferredFirstName', 'gender', 'uid', 'ParentPermission_x003f_',
+        'albertaResident', 'hasLegalRestrictions', 'howDidYouHear',
+        'indigenousIdentification', 'indigenousStatus', 'internationalDocuments',
+        'isLegalGuardian', 'legalDocumentUrl', 'parentRelationship',
+        'studentPhoto', 'whyApplying'
       ];
       
       // Copy profile fields
@@ -386,13 +387,11 @@ const updateStudentCourseSummaryV2 = onValueWritten({
         summaryData[`guardianEmail${index + 1}`] = guardian.email || '';
       });
       
-      // Handle address fields
+      // Handle address fields - sync entire address object
       if (profileData.address) {
-        summaryData['fullAddress'] = profileData.address.fullAddress || '';
-        summaryData['location'] = profileData.address.location || null;
+        summaryData['address'] = profileData.address;
       } else {
-        summaryData['fullAddress'] = '';
-        summaryData['location'] = null;
+        summaryData['address'] = null;
       }
       
       // Merge with detected changes
@@ -481,7 +480,11 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
       'LastSync', 'ParentEmail', 'ParentFirstName', 'ParentLastName', 
       'ParentPhone_x0023_', 'StudentEmail', 'StudentPhone', 'age', 'asn', 
       'birthday', 'firstName', 'lastName', 'originalEmail', 
-      'preferredFirstName', 'gender', 'uid'
+      'preferredFirstName', 'gender', 'uid', 'ParentPermission_x003f_',
+      'albertaResident', 'hasLegalRestrictions', 'howDidYouHear',
+      'indigenousIdentification', 'indigenousStatus', 'internationalDocuments',
+      'isLegalGuardian', 'legalDocumentUrl', 'parentRelationship',
+      'studentPhoto', 'whyApplying'
     ];
     
     // Copy profile fields
@@ -497,13 +500,11 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
       summaryData[`guardianEmail${index + 1}`] = guardian.email || '';
     });
     
-    // Handle address fields
+    // Handle address fields - sync entire address object
     if (profileData.address) {
-      summaryData['fullAddress'] = profileData.address.fullAddress || '';
-      summaryData['location'] = profileData.address.location || null;
+      summaryData['address'] = profileData.address;
     } else {
-      summaryData['fullAddress'] = '';
-      summaryData['location'] = null;
+      summaryData['address'] = null;
     }
     
     // Define field mappings to extract from event data
@@ -736,7 +737,11 @@ const batchSyncStudentDataV2 = onCall({
               'LastSync', 'ParentEmail', 'ParentFirstName', 'ParentLastName', 
               'ParentPhone_x0023_', 'StudentEmail', 'StudentPhone', 'age', 'asn', 
               'birthday', 'firstName', 'lastName', 'originalEmail', 
-              'preferredFirstName', 'gender', 'uid'
+              'preferredFirstName', 'gender', 'uid', 'ParentPermission_x003f_',
+              'albertaResident', 'hasLegalRestrictions', 'howDidYouHear',
+              'indigenousIdentification', 'indigenousStatus', 'internationalDocuments',
+              'isLegalGuardian', 'legalDocumentUrl', 'parentRelationship',
+              'studentPhoto', 'whyApplying'
             ];
             
             // Copy profile fields
@@ -758,13 +763,11 @@ const batchSyncStudentDataV2 = onCall({
               summaryData[`guardianEmail${i}`] = null;
             }
             
-            // Handle address fields
+            // Handle address fields - sync entire address object
             if (profileData.address) {
-              summaryData['fullAddress'] = profileData.address.fullAddress || '';
-              summaryData['location'] = profileData.address.location || null;
+              summaryData['address'] = profileData.address;
             } else {
-              summaryData['fullAddress'] = '';
-              summaryData['location'] = null;
+              summaryData['address'] = null;
             }
             
             // 2. Add course fields

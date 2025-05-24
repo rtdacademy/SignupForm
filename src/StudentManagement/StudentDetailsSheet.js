@@ -16,6 +16,7 @@ import { SheetHeader, SheetTitle } from "../components/ui/sheet";
 import { cn } from "../lib/utils";
 import GuardianManager from './GuardianManager';
 import { EmailChangeDialog } from './EmailChangeDialog';
+import ProfileHistory from './ProfileHistory';
 
 function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, onUpdate }) {
   const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
@@ -137,6 +138,7 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
         <TabsList className="mb-4">
           <TabsTrigger value="profile">Profile Data</TabsTrigger>
           <TabsTrigger value="course">Course Data</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
         <TabsContent value="profile">
           <ScrollArea className="h-[calc(100vh-200px)]">
@@ -209,6 +211,11 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
                 {isDiplomaCourse && renderEditableField("Diploma Month", "DiplomaMonthChoices_Value", DIPLOMA_MONTH_OPTIONS)}
               </CardContent>
             </Card>
+          </ScrollArea>
+        </TabsContent>
+        <TabsContent value="history">
+          <ScrollArea className="h-[calc(100vh-200px)]">
+            <ProfileHistory studentEmailKey={studentKey} />
           </ScrollArea>
         </TabsContent>
       </Tabs>

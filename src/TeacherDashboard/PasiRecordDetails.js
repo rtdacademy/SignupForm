@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -21,9 +21,14 @@ import {
   HelpCircle, 
   BellRing,
   ArrowRight,
-  Database
+  Database,
+  FileText as FileTextIcon
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { getDatabase, ref as databaseRef, get } from 'firebase/database';
+import { sanitizeEmail } from '../utils/sanitizeEmail';
+import ProfileHistory from '../StudentManagement/ProfileHistory';
 
 // Helper function to calculate age from birthday
 const calculateAge = (birthday) => {
@@ -167,8 +172,45 @@ const PasiRecordDetails = forwardRef(({
 }, ref) => {
   if (!record) return null;
   
+  // State for profile history
+  const [isProfileHistoryOpen, setIsProfileHistoryOpen] = useState(false);
+  const [hasProfileHistory, setHasProfileHistory] = useState(false);
+  const [studentEmailKey, setStudentEmailKey] = useState('');
+  
   // Calculate age from birthday if available
   const age = calculateAge(record.birthday);
+  
+  // Check if profile history exists
+  useEffect(() => {
+    const checkProfileHistory = async () => {
+      if (!record.StudentEmail) {
+        console.log("No StudentEmail found in record");
+        return;
+      }
+      
+      const db = getDatabase();
+      const emailKey = sanitizeEmail(record.StudentEmail);
+      console.log("Checking profile history for:", {
+        originalEmail: record.StudentEmail,
+        sanitizedKey: emailKey,
+        path: `students/${emailKey}/profileHistory`
+      });
+      setStudentEmailKey(emailKey);
+      
+      const profileHistoryRef = databaseRef(db, `students/${emailKey}/profileHistory`);
+      
+      try {
+        const snapshot = await get(profileHistoryRef);
+        setHasProfileHistory(snapshot.exists());
+        console.log("Profile history exists:", snapshot.exists());
+      } catch (error) {
+        console.error("Error checking profile history:", error);
+        setHasProfileHistory(false);
+      }
+    };
+
+    checkProfileHistory();
+  }, [record.StudentEmail]);
   
   // Determine which data comes from which system
   const yourWayData = {
@@ -232,7 +274,8 @@ const PasiRecordDetails = forwardRef(({
   }
   
   return (
-    <Card className="mt-4" ref={ref}>
+    <>
+      <Card className="mt-4" ref={ref}>
       <CardHeader className="py-3">
         <CardTitle className="text-base flex items-center gap-2">
           <FileText className="h-4 w-4" /> 
@@ -946,12 +989,36 @@ const PasiRecordDetails = forwardRef(({
         <Button 
           variant="outline" 
           size="sm"
+          className="text-purple-600 hover:text-purple-700"
+          onClick={() => setIsProfileHistoryOpen(true)}
+        >
+          <FileTextIcon className="w-4 h-4 mr-1" />
+          Profile History
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm"
           onClick={onClose}
         >
           Close
         </Button>
       </CardFooter>
     </Card>
+    
+    {/* Profile History Dialog */}
+    <Dialog open={isProfileHistoryOpen} onOpenChange={setIsProfileHistoryOpen}>
+      <DialogContent className="max-w-[90vw] w-[800px] h-[80vh] max-h-[700px] p-4 flex flex-col">
+        <DialogHeader className="mb-4 bg-white">
+          <DialogTitle>
+            Profile Change History - {record.firstName} {record.lastName}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex-grow overflow-auto">
+          <ProfileHistory studentEmailKey={studentEmailKey} />
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 });
 

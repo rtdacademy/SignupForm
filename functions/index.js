@@ -34,6 +34,7 @@ const asnFunctions = require('./asnSync');
 
 // User management
 const archiveStudentDataFunctions = require('./archiveStudentData');
+const profileHistoryFunctions = require('./profileHistory');
 
 // Edge functions
 const edgeFunctions = require('./edge');
@@ -62,6 +63,7 @@ exports.sendChatMessageV2 = chatFunctions.sendChatMessageV2;
 exports.deleteCategoryForStudentsV2 = categoryFunctions.deleteCategoryForStudentsV2;
 exports.archiveStudentDataV2 = archiveStudentDataFunctions.archiveStudentDataV2;
 exports.restoreStudentDataV2 = archiveStudentDataFunctions.restoreStudentDataV2;
+exports.trackProfileChangesV2 = profileHistoryFunctions.trackProfileChangesV2;
 
 // Course summary and data functions
 exports.syncProfileToCourseSummariesV2 = summaryFunctions.syncProfileToCourseSummariesV2;
