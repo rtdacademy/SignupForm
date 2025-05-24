@@ -36,6 +36,15 @@ const trackProfileChangesV2 = onValueWritten({
   const timestamp = admin.database.ServerValue.TIMESTAMP;
   const changedFields = [];
   
+  // Get the lastChange info if it exists
+  let lastChangeInfo = null;
+  try {
+    const lastChangeSnapshot = await db.ref(`/students/${studentKey}/profileHistory/lastChange`).once('value');
+    lastChangeInfo = lastChangeSnapshot.val();
+  } catch (error) {
+    console.log('No lastChange info found, continuing without it');
+  }
+  
   try {
     // Compare each field and track changes
     const fieldsToTrack = [
@@ -80,8 +89,18 @@ const trackProfileChangesV2 = onValueWritten({
         continue;
       }
       
+      // Skip if the before value doesn't exist (null, undefined, or empty string)
+      // This prevents tracking initial value settings
+      if (beforeValue === null || beforeValue === undefined || beforeValue === '') {
+        continue;
+      }
+      
       // Handle address object specially
       if (field === 'address') {
+        // Skip if beforeValue doesn't exist for address
+        if (!beforeValue || Object.keys(beforeValue).length === 0) {
+          continue;
+        }
         // Compare the entire address object
         if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
           changedFields.push({
@@ -96,6 +115,10 @@ const trackProfileChangesV2 = onValueWritten({
       
       // Handle array fields (like citizenshipDocuments)
       if (field === 'citizenshipDocuments' || field === 'internationalDocuments') {
+        // Skip if beforeValue doesn't exist or is empty array
+        if (!beforeValue || (Array.isArray(beforeValue) && beforeValue.length === 0)) {
+          continue;
+        }
         if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
           changedFields.push({
             field: field,
@@ -127,7 +150,7 @@ const trackProfileChangesV2 = onValueWritten({
     // Save each changed field to history
     const historyPromises = changedFields.map(async (change) => {
       // Create a unique key for this history entry
-      const historyKey = `${change.field}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const historyKey = `${change.field}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
       
       // Save to profileHistory
       return db.ref(`/students/${studentKey}/profileHistory/${historyKey}`).set({
@@ -137,9 +160,10 @@ const trackProfileChangesV2 = onValueWritten({
         changedAt: change.timestamp,
         // Add metadata about the change
         metadata: {
-          userEmail: afterData.StudentEmail || afterData.originalEmail,
+          userEmail: lastChangeInfo?.userEmail || 'system',
           uid: afterData.uid || null,
-          changeSource: 'profile_update' // Could be extended to track source of change
+          changeSource: 'profile_update', // Could be extended to track source of change
+          lastChangeTimestamp: lastChangeInfo?.timestamp || null
         }
       });
     });
@@ -154,9 +178,21 @@ const trackProfileChangesV2 = onValueWritten({
       timestamp: timestamp,
       fieldsChanged: changedFields.map(c => c.field),
       changeCount: changedFields.length,
-      userEmail: afterData.StudentEmail || afterData.originalEmail,
-      uid: afterData.uid || null
+      userEmail: lastChangeInfo?.userEmail || 'system',
+      uid: afterData.uid || null,
+      lastChangeTimestamp: lastChangeInfo?.timestamp || null
     });
+    
+    // Clean up the lastChange field after using it
+    if (lastChangeInfo) {
+      try {
+        await db.ref(`/students/${studentKey}/profileHistory/lastChange`).remove();
+        console.log('Cleaned up lastChange field');
+      } catch (cleanupError) {
+        console.error('Error cleaning up lastChange field:', cleanupError);
+        // Continue even if cleanup fails
+      }
+    }
     
     return null;
     

@@ -49,7 +49,7 @@ const syncProfileToCourseSummariesV2 = onValueWritten({
   }
 
   try {
-    // Define profile fields to sync
+    // Define profile fields to sync (excluding arrays and objects that need special handling)
     const profileFields = [
       'LastSync', 'ParentEmail', 'ParentFirstName', 'ParentLastName', 
       'ParentPhone_x0023_', 'StudentEmail', 'StudentPhone', 'age', 'asn', 
@@ -113,6 +113,29 @@ const syncProfileToCourseSummariesV2 = onValueWritten({
     if (JSON.stringify(beforeAddress) !== JSON.stringify(afterAddress)) {
       console.log(`Profile field address changed`);
       changes['address'] = afterAddress !== null ? afterAddress : null;
+    }
+
+    // Check for citizenshipDocuments changes - sync entire array
+    const beforeCitizenshipDocs = event.data.before && event.data.before.exists() && event.data.before.child('citizenshipDocuments').exists() ?
+                                  event.data.before.child('citizenshipDocuments').val() : null;
+    const afterCitizenshipDocs = event.data.after.child('citizenshipDocuments').exists() ?
+                                 event.data.after.child('citizenshipDocuments').val() : null;
+    
+    if (JSON.stringify(beforeCitizenshipDocs) !== JSON.stringify(afterCitizenshipDocs)) {
+      console.log(`Profile field citizenshipDocuments changed`);
+      // Convert object-based array back to actual array if needed
+      if (afterCitizenshipDocs && typeof afterCitizenshipDocs === 'object' && !Array.isArray(afterCitizenshipDocs)) {
+        // Firebase stores arrays as objects with numeric keys
+        const docsArray = [];
+        Object.keys(afterCitizenshipDocs).forEach(key => {
+          if (!isNaN(key)) {
+            docsArray[parseInt(key)] = afterCitizenshipDocs[key];
+          }
+        });
+        changes['citizenshipDocuments'] = docsArray.filter(doc => doc !== undefined);
+      } else {
+        changes['citizenshipDocuments'] = afterCitizenshipDocs;
+      }
     }
 
     // If nothing changed, exit early
@@ -394,6 +417,24 @@ const updateStudentCourseSummaryV2 = onValueWritten({
         summaryData['address'] = null;
       }
       
+      // Handle citizenshipDocuments array
+      if (profileData.citizenshipDocuments) {
+        // Convert object-based array to actual array if needed
+        if (typeof profileData.citizenshipDocuments === 'object' && !Array.isArray(profileData.citizenshipDocuments)) {
+          const docsArray = [];
+          Object.keys(profileData.citizenshipDocuments).forEach(key => {
+            if (!isNaN(key)) {
+              docsArray[parseInt(key)] = profileData.citizenshipDocuments[key];
+            }
+          });
+          summaryData['citizenshipDocuments'] = docsArray.filter(doc => doc !== undefined);
+        } else {
+          summaryData['citizenshipDocuments'] = profileData.citizenshipDocuments;
+        }
+      } else {
+        summaryData['citizenshipDocuments'] = null;
+      }
+      
       // Merge with detected changes
       summaryData = { ...summaryData, ...changes };
       
@@ -505,6 +546,24 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
       summaryData['address'] = profileData.address;
     } else {
       summaryData['address'] = null;
+    }
+    
+    // Handle citizenshipDocuments array
+    if (profileData.citizenshipDocuments) {
+      // Convert object-based array to actual array if needed
+      if (typeof profileData.citizenshipDocuments === 'object' && !Array.isArray(profileData.citizenshipDocuments)) {
+        const docsArray = [];
+        Object.keys(profileData.citizenshipDocuments).forEach(key => {
+          if (!isNaN(key)) {
+            docsArray[parseInt(key)] = profileData.citizenshipDocuments[key];
+          }
+        });
+        summaryData['citizenshipDocuments'] = docsArray.filter(doc => doc !== undefined);
+      } else {
+        summaryData['citizenshipDocuments'] = profileData.citizenshipDocuments;
+      }
+    } else {
+      summaryData['citizenshipDocuments'] = null;
     }
     
     // Define field mappings to extract from event data
@@ -768,6 +827,24 @@ const batchSyncStudentDataV2 = onCall({
               summaryData['address'] = profileData.address;
             } else {
               summaryData['address'] = null;
+            }
+            
+            // Handle citizenshipDocuments array
+            if (profileData.citizenshipDocuments) {
+              // Convert object-based array to actual array if needed
+              if (typeof profileData.citizenshipDocuments === 'object' && !Array.isArray(profileData.citizenshipDocuments)) {
+                const docsArray = [];
+                Object.keys(profileData.citizenshipDocuments).forEach(key => {
+                  if (!isNaN(key)) {
+                    docsArray[parseInt(key)] = profileData.citizenshipDocuments[key];
+                  }
+                });
+                summaryData['citizenshipDocuments'] = docsArray.filter(doc => doc !== undefined);
+              } else {
+                summaryData['citizenshipDocuments'] = profileData.citizenshipDocuments;
+              }
+            } else {
+              summaryData['citizenshipDocuments'] = null;
             }
             
             // 2. Add course fields

@@ -9,7 +9,7 @@ import NonPrimaryStudentForm from './NonPrimaryStudentForm';
 import StudentRegistrationReview from './StudentRegistrationReview';
 //import { cn } from "../lib/utils";
 import { useAuth } from '../context/AuthContext';
-import { getDatabase, ref, get, remove, set } from 'firebase/database';
+import { getDatabase, ref, get, remove, set, update } from 'firebase/database';
 import { useConversionTracking } from '../components/hooks/use-conversion-tracking';
 import { useRegistrationWindows, RegistrationPeriod } from '../utils/registrationPeriods';
 import {
@@ -488,9 +488,29 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
         console.log('Final course data to be saved:', courseData);
         console.log('Final profile data to be saved:', profileData);
 
+        // Prepare profile updates object
+        const profileUpdates = {};
+        
+        // Helper function to flatten nested objects for Firebase update
+        const flattenObject = (obj, prefix = '') => {
+          Object.keys(obj).forEach(key => {
+            const value = obj[key];
+            const path = prefix ? `${prefix}/${key}` : key;
+            
+            if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+              // Recursively flatten nested objects
+              flattenObject(value, path);
+            } else {
+              profileUpdates[`students/${studentEmailKey}/profile/${path}`] = value;
+            }
+          });
+        };
+        
+        flattenObject(profileData);
+
         // Prepare all database operations we need to perform
         const writeOperations = [
-          set(ref(db, `students/${studentEmailKey}/profile`), profileData),
+          update(ref(db), profileUpdates),
           set(ref(db, `students/${studentEmailKey}/courses/${numericCourseId}`), courseData)
         ];
 

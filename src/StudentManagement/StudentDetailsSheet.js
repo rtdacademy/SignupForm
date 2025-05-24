@@ -17,8 +17,10 @@ import { cn } from "../lib/utils";
 import GuardianManager from './GuardianManager';
 import { EmailChangeDialog } from './EmailChangeDialog';
 import ProfileHistory from './ProfileHistory';
+import { useAuth } from '../context/AuthContext';
 
 function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, onUpdate }) {
+  const { user } = useAuth();
   const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
   const [courseTitle, setCourseTitle] = useState('');
   const schoolYearOptions = useMemo(() => getSchoolYearOptions(), []);
@@ -62,6 +64,13 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
     } else {
       updates[`students/${studentKey}/profile/${field}`] = value;
     }
+
+    // Add lastChange tracking with user email and timestamp
+    updates[`students/${studentKey}/profileHistory/lastChange`] = {
+      userEmail: user?.email || 'unknown',
+      timestamp: Date.now(),
+      field: field
+    };
 
     try {
       await update(ref(db), updates);

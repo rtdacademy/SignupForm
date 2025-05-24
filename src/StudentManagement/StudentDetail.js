@@ -124,8 +124,16 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
 
   const handleStudentStatsChange = (checked) => {
     const db = getDatabase();
-    const studentRef = ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}/courses/${courseId}`);
-    update(studentRef, { showStats: checked })
+    const studentRef = ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}`);
+    const updates = {
+      [`courses/${courseId}/showStats`]: checked,
+      'profileHistory/lastChange': {
+        userEmail: user?.email || 'unknown',
+        timestamp: Date.now(),
+        field: 'showStats'
+      }
+    };
+    update(studentRef, updates)
       .then(() => {
         console.log('Successfully updated student showStats');
         setStudentData(prev => ({
@@ -193,11 +201,16 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     const db = getDatabase();
   
     try {
-      // Update the student's LMS Student ID
+      // Update the student's LMS Student ID with lastChange tracking
       await update(
-        ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}/courses/${courseId}`),
+        ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}`),
         {
-          LMSStudentID: newLMSId
+          [`courses/${courseId}/LMSStudentID`]: newLMSId,
+          'profileHistory/lastChange': {
+            userEmail: user?.email || 'unknown',
+            timestamp: Date.now(),
+            field: 'LMSStudentID'
+          }
         }
       );
       
@@ -353,8 +366,14 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                 noteType: '📝'
               };
               const jsonStudentNotes = [legacyNote];
-              await update(ref(db, `students/${sanitizedEmail}/courses/${selectedCourseId}`), 
-                { jsonStudentNotes });
+              await update(ref(db, `students/${sanitizedEmail}`), {
+                [`courses/${selectedCourseId}/jsonStudentNotes`]: jsonStudentNotes,
+                'profileHistory/lastChange': {
+                  userEmail: user?.email || 'unknown',
+                  timestamp: Date.now(),
+                  field: 'jsonStudentNotes'
+                }
+              });
               setNotes(jsonStudentNotes);
             } else {
               setNotes(courseData.jsonStudentNotes);

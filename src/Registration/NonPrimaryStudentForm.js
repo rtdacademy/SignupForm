@@ -3147,7 +3147,7 @@ const NonPrimaryStudentForm = forwardRef(({
                   />
                   {studentType !== 'International Student' && (
                     <p className="text-sm text-gray-500">
-                      Please select an address in Canada (must be within Alberta)
+                      Please select an address in Canada
                     </p>
                   )}
                 </div>

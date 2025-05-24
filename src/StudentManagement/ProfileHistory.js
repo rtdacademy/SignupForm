@@ -42,10 +42,19 @@ const ProfileHistory = ({ studentEmailKey }) => {
         })).sort((a, b) => b.timestamp - a.timestamp);
 
         // Convert history to array and sort by timestamp
-        const historyArray = Object.entries(historyData).map(([key, value]) => ({
-          id: key,
-          ...value
-        })).sort((a, b) => b.changedAt - a.changedAt);
+        // Filter out entries where the original value was not set
+        const historyArray = Object.entries(historyData)
+          .map(([key, value]) => ({
+            id: key,
+            ...value
+          }))
+          .filter(item => {
+            // Only include items where previousValue was actually set
+            return item.previousValue !== null && 
+                   item.previousValue !== undefined && 
+                   item.previousValue !== '';
+          })
+          .sort((a, b) => b.changedAt - a.changedAt);
 
         setSummaries(summariesArray);
         setHistory(historyArray);

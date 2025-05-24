@@ -22,7 +22,10 @@ import {
   BellRing,
   ArrowRight,
   Database,
-  FileText as FileTextIcon
+  FileText as FileTextIcon,
+  MapPin,
+  ExternalLink,
+  FileCheck
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
@@ -172,6 +175,9 @@ const PasiRecordDetails = forwardRef(({
 }, ref) => {
   if (!record) return null;
   
+  // Log record to inspect available properties
+  console.log('PasiRecordDetails - record:', record);
+  
   // State for profile history
   const [isProfileHistoryOpen, setIsProfileHistoryOpen] = useState(false);
   const [hasProfileHistory, setHasProfileHistory] = useState(false);
@@ -277,15 +283,17 @@ const PasiRecordDetails = forwardRef(({
     <>
       <Card className="mt-4" ref={ref}>
       <CardHeader className="py-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <FileText className="h-4 w-4" /> 
-          PASI Record Details
-          {record.isSubRecord && (
-            <Badge className="ml-2 bg-purple-100 text-purple-800 border-purple-300 text-xs">
-              Additional Record {record.subRecordIndex}
-            </Badge>
-          )}
-        </CardTitle>
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4" /> 
+              PASI Record Details
+              {record.isSubRecord && (
+                <Badge className="ml-2 bg-purple-100 text-purple-800 border-purple-300 text-xs">
+                  Additional Record {record.subRecordIndex}
+                </Badge>
+              )}
+            </CardTitle>
         <CardDescription className="text-xs flex justify-between">
           <span>{record.studentName} - {record.courseCode} ({record.courseDescription})</span>
           <div className="flex items-center gap-2">
@@ -304,6 +312,20 @@ const PasiRecordDetails = forwardRef(({
             </Badge>
           </div>
         </CardDescription>
+          </div>
+          {/* Student Photo */}
+          {record.studentPhoto && (
+            <div className="flex-shrink-0">
+              <img 
+                src={record.studentPhoto} 
+                alt="Student photo" 
+                className="w-16 h-16 rounded-lg object-cover border border-gray-200"
+                onClick={() => window.open(record.studentPhoto, '_blank')}
+                style={{ cursor: 'pointer' }}
+              />
+            </div>
+          )}
+        </div>
       </CardHeader>
       
       <CardContent className="text-xs py-2">
@@ -348,19 +370,6 @@ const PasiRecordDetails = forwardRef(({
                 </div>
               </dd>
               
-              <dt className="font-medium text-gray-500">PASI Name:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" 
-                onClick={() => handleCellClick && pasiData.studentName && handleCellClick(pasiData.studentName, "PASI Name")}>
-                <div className="flex items-center gap-1">
-                  <Badge 
-                    variant="outline" 
-                    className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
-                  >
-                    PASI
-                  </Badge>
-                  <span>{pasiData.studentName || 'N/A'}</span>
-                </div>
-              </dd>
               
               {/* Preferred Name - YourWay only */}
               {yourWayData.preferredFirstName && (
@@ -448,19 +457,33 @@ const PasiRecordDetails = forwardRef(({
               )}
               
               {/* Full Address - YourWay only */}
-              {record.fullAddress && (
+              {record.address && record.address.formattedAddress && (
                 <>
                   <dt className="font-medium text-gray-500">Address:</dt>
-                  <dd className="cursor-pointer hover:text-blue-600" 
-                    onClick={() => handleCellClick && record.fullAddress && handleCellClick(record.fullAddress, "Address")}>
-                    <div className="flex items-center gap-1">
+                  <dd>
+                    <div className="flex items-center gap-2">
                       <Badge 
                         variant="outline" 
                         className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
                       >
                         YourWay
                       </Badge>
-                      <span>{record.fullAddress}</span>
+                      <span className="cursor-pointer" 
+                        onClick={() => handleCellClick && record.address.formattedAddress && handleCellClick(record.address.formattedAddress, "Address")}>
+                        {record.address.formattedAddress}
+                      </span>
+                      {record.address.placeId && (
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          className="h-6 px-2 text-xs flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                          onClick={() => window.open(`https://www.google.com/maps/place/?q=place_id:${record.address.placeId}`, '_blank')}
+                          title="View on Google Maps"
+                        >
+                          <MapPin className="h-3 w-3" />
+                          Maps
+                        </Button>
+                      )}
                     </div>
                   </dd>
                 </>
@@ -903,6 +926,87 @@ const PasiRecordDetails = forwardRef(({
               )}
             </dl>
           </div>
+          
+          {/* Documents Section */}
+          {(record.citizenshipDocuments?.length > 0 || record.internationalDocuments) && (
+            <div>
+              <h3 className="font-medium mb-2 text-sm flex items-center">
+                <span>Documents</span>
+              </h3>
+              <dl className="grid grid-cols-[1fr_3fr] gap-2">
+                {/* Citizenship Documents */}
+                {record.citizenshipDocuments?.length > 0 && (
+                  <>
+                    <dt className="font-medium text-gray-500">Citizenship:</dt>
+                    <dd>
+                      <div className="flex flex-wrap gap-2">
+                        {record.citizenshipDocuments.map((doc, index) => (
+                          <Button
+                            key={index}
+                            variant="outline"
+                            size="xs"
+                            className="text-xs flex items-center gap-1"
+                            onClick={() => window.open(doc.url, '_blank')}
+                          >
+                            <FileCheck className="h-3 w-3" />
+                            {doc.typeLabel || doc.type}
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        ))}
+                      </div>
+                    </dd>
+                  </>
+                )}
+                
+                {/* International Documents */}
+                {record.internationalDocuments && (
+                  <>
+                    <dt className="font-medium text-gray-500">International:</dt>
+                    <dd>
+                      <div className="flex flex-wrap gap-2">
+                        {record.internationalDocuments.passport && (
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            className="text-xs flex items-center gap-1"
+                            onClick={() => window.open(record.internationalDocuments.passport, '_blank')}
+                          >
+                            <FileCheck className="h-3 w-3" />
+                            Passport
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {record.internationalDocuments.additionalID && (
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            className="text-xs flex items-center gap-1"
+                            onClick={() => window.open(record.internationalDocuments.additionalID, '_blank')}
+                          >
+                            <FileCheck className="h-3 w-3" />
+                            Additional ID
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {record.internationalDocuments.residencyProof && (
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            className="text-xs flex items-center gap-1"
+                            onClick={() => window.open(record.internationalDocuments.residencyProof, '_blank')}
+                          >
+                            <FileCheck className="h-3 w-3" />
+                            Residency Proof
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </dd>
+                  </>
+                )}
+              </dl>
+            </div>
+          )}
         </div>
         
         {/* Additional Information about Multiple Records */}
