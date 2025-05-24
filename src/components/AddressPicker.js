@@ -51,8 +51,9 @@ const AddressPicker = ({ onAddressSelect, studentType }) => {
           }
         });
 
-        // For non-international students, check if the address is in Alberta
-        if (studentType !== 'International Student' && province !== 'AB') {
+        // For students other than International and Adult, check if the address is in Alberta
+        const normalizedStudentType = studentType?.trim();
+        if (normalizedStudentType !== 'International Student' && normalizedStudentType !== 'Adult Student' && province !== 'AB') {
           setError('Please select an address within Alberta. The selected address is in ' + province + '.');
           return;
         }
@@ -92,16 +93,16 @@ const AddressPicker = ({ onAddressSelect, studentType }) => {
   };
 
   // Different configurations based on student type
-  const autocompletionRequest = studentType === 'International Student' 
+  const autocompletionRequest = (studentType === 'International Student' || studentType === 'Adult Student')
     ? {
-        // No restrictions for international students
+        // No restrictions for international and adult students
       } 
     : {
-        // Restrict to Canada for non-international students
+        // Restrict to Canada for other student types
         componentRestrictions: { country: 'ca' }
       };
 
-  const placeholder = studentType === 'International Student' 
+  const placeholder = (studentType === 'International Student' || studentType === 'Adult Student')
     ? 'Search for your address'
     : 'Search for your address in Canada';
 
@@ -159,22 +160,32 @@ const AddressPicker = ({ onAddressSelect, studentType }) => {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <h5 className="text-xs font-medium text-gray-500">Street</h5>
-              <p className="text-sm">{selectedPlace.streetAddress}</p>
-            </div>
+            {selectedPlace.streetAddress && (
+              <div>
+                <h5 className="text-xs font-medium text-gray-500">Street</h5>
+                <p className="text-sm">{selectedPlace.streetAddress}</p>
+              </div>
+            )}
             <div>
               <h5 className="text-xs font-medium text-gray-500">City</h5>
-              <p className="text-sm">{selectedPlace.city}</p>
+              <p className="text-sm">{selectedPlace.city || 'Not specified'}</p>
             </div>
             <div>
               <h5 className="text-xs font-medium text-gray-500">Province/State</h5>
-              <p className="text-sm">{selectedPlace.province}</p>
+              <p className="text-sm">{selectedPlace.province || 'Not specified'}</p>
             </div>
-            <div>
-              <h5 className="text-xs font-medium text-gray-500">Postal/ZIP Code</h5>
-              <p className="text-sm">{selectedPlace.postalCode}</p>
-            </div>
+            {selectedPlace.postalCode && (
+              <div>
+                <h5 className="text-xs font-medium text-gray-500">Postal/ZIP Code</h5>
+                <p className="text-sm">{selectedPlace.postalCode}</p>
+              </div>
+            )}
+            {selectedPlace.country && (
+              <div>
+                <h5 className="text-xs font-medium text-gray-500">Country</h5>
+                <p className="text-sm">{selectedPlace.countryLong || selectedPlace.country}</p>
+              </div>
+            )}
           </div>
         </div>
       )}

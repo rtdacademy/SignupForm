@@ -351,13 +351,22 @@ albertaStudentNumber: {
       
       // Check if it's a proper address object
       if (typeof value === 'object') {
-        if (!value.streetAddress) return "Street address is required";
-        if (!value.city) return "City is required";
-        if (!value.province) return "Province/State is required";
-        if (!value.postalCode) return "Postal/ZIP code is required";
+        // For International and Adult students, we're more flexible with address requirements
+        const isFlexibleAddressType = options?.formData?.studentType === 'International Student' || 
+                                      options?.formData?.studentType === 'Adult Student';
         
-        // For non-international students, ensure it's in Alberta
-        if (options?.formData?.studentType !== 'International Student' && value.province !== 'AB') {
+        // Basic requirements - at minimum need city and country/province
+        if (!value.city) return "City is required";
+        if (!value.province && !value.country) return "Province/State or Country is required";
+        
+        // For non-international/adult students, require more complete addresses
+        if (!isFlexibleAddressType) {
+          if (!value.streetAddress) return "Street address is required";
+          if (!value.postalCode) return "Postal/ZIP code is required";
+        }
+        
+        // For students other than International and Adult, ensure it's in Alberta
+        if (!isFlexibleAddressType && value.province !== 'AB') {
           return "Address must be in Alberta";
         }
       } else {
@@ -381,21 +390,30 @@ albertaStudentNumber: {
 
   albertaResident: {
     validate: (value, options) => {
-      if (!value) return "Please indicate if you are a resident of Alberta";
-      if (value !== 'yes' && value !== 'no') return "Please select yes or no";
+      // For checkbox, we need to check if it's true/false
+      // Also handle legacy 'yes'/'no' values for backward compatibility
+      const isResident = value === true || value === 'yes';
+      const hasValue = value === true || value === false || value === 'yes' || value === 'no';
+      
+      if (!hasValue) return "Please acknowledge your Alberta residency status";
       
       // Check if non-Alberta resident in restricted student types
-      if (value === 'no' && options?.formData?.studentType && 
+      if (!isResident && options?.formData?.studentType && 
           (options.formData.studentType === 'Non-Primary' || 
            options.formData.studentType === 'Home Education' || 
            options.formData.studentType === 'Summer School')) {
         return "Non-Alberta residents cannot register as this student type. Please change to Adult Student.";
       }
       
+      // For the checkbox, they must check it (be a resident) to proceed
+      if (!isResident) {
+        return "You must be an Alberta resident to proceed with registration";
+      }
+      
       return null;
     },
     required: true,
-    successMessage: "Alberta residency status selected"
+    successMessage: "Alberta residency acknowledged"
   },
 
   parentRelationship: {
@@ -457,6 +475,25 @@ albertaStudentNumber: {
   howDidYouHear: {
     validate: (value) => {
       if (!value) return "Please select how you heard about us";
+      
+      const validOptions = [
+        'google-search',
+        'online-ad',
+        'social-media',
+        'friend-referral',
+        'school-counselor',
+        'teacher',
+        'radio-ad',
+        'newspaper',
+        'school-website',
+        'education-fair',
+        'other'
+      ];
+      
+      if (!validOptions.includes(value)) {
+        return "Please select a valid option";
+      }
+      
       return null;
     },
     required: true,
@@ -466,6 +503,24 @@ albertaStudentNumber: {
   whyApplying: {
     validate: () => null, // Optional field
     required: false
+  },
+
+  startDate: {
+    validate: (value) => {
+      if (!value) return "Start date is required";
+      return null;
+    },
+    required: true,
+    successMessage: "Valid start date"
+  },
+
+  endDate: {
+    validate: (value) => {
+      if (!value) return "End date is required";
+      return null;
+    },
+    required: true,
+    successMessage: "Valid end date"
   }
    
 };
@@ -499,13 +554,21 @@ const useFormValidation = (initialData, rules, options = {}) => {
       let hasInitialValues = false;
 
       Object.keys(initialData).forEach(fieldName => {
+        const fieldValue = initialData[fieldName];
+        
         // Mark read-only fields as touched and valid
         if (readOnlyFields[fieldName]) {
           initialTouched[fieldName] = true;
           hasInitialValues = true;
         }
-        // Mark fields with initial values as touched
-        else if (initialData[fieldName] && rules[fieldName]) {
+        // Mark fields with initial values as touched if they have validation rules
+        else if (fieldValue && rules[fieldName]) {
+          initialTouched[fieldName] = true;
+          hasInitialValues = true;
+        }
+        // Special handling for common fields that should be marked as touched if they have values
+        // even if validation rules aren't loaded yet
+        else if (fieldValue && ['startDate', 'endDate', 'birthday', 'firstName', 'lastName'].includes(fieldName)) {
           initialTouched[fieldName] = true;
           hasInitialValues = true;
         }
@@ -521,6 +584,29 @@ const useFormValidation = (initialData, rules, options = {}) => {
       setInitialized(true);
     }
   }, [initialData, rules, readOnlyFields, initialized]);
+
+  // Add this new effect to handle late field population
+  useEffect(() => {
+    if (initialized) {
+      const newTouched = {};
+      let shouldUpdate = false;
+
+      // Check for fields that now have values but weren't touched during initialization
+      Object.keys(formData).forEach(fieldName => {
+        if (formData[fieldName] && !touched[fieldName] && rules[fieldName]) {
+          newTouched[fieldName] = true;
+          shouldUpdate = true;
+        }
+      });
+
+      if (shouldUpdate) {
+        setTouched(prev => ({
+          ...prev,
+          ...newTouched
+        }));
+      }
+    }
+  }, [formData, touched, rules, initialized]);
 
   // Memoize format field function
   const formatField = useCallback((name, value) => {
@@ -557,18 +643,23 @@ const useFormValidation = (initialData, rules, options = {}) => {
     }
 
     try {
-      return rules[name].validate(value, { conditionalValidation: memoizedOptions.conditionalValidation });
+      return rules[name].validate(value, { 
+        conditionalValidation: memoizedOptions.conditionalValidation,
+        formData: formData,
+        readOnlyFields: memoizedOptions.readOnlyFields
+      });
     } catch (error) {
       console.error(`Validation error for field ${name}:`, error);
       return `Validation error: ${error.message}`;
     }
-  }, [rules, memoizedOptions]);
+  }, [rules, memoizedOptions, formData]);
 
   // Memoize form validation function
   const validateForm = useCallback(() => {
     const newErrors = {};
     let validCount = 0;
     let totalFields = 0;
+    const fieldValidationStatus = {}; // Track validation status of each field
 
     Object.keys(rules).forEach(fieldName => {
       // Skip validation for read-only fields
@@ -591,14 +682,24 @@ const useFormValidation = (initialData, rules, options = {}) => {
 
         if (error) {
           newErrors[fieldName] = error;
+          fieldValidationStatus[fieldName] = { valid: false, error };
         } else {
           validCount++;
+          fieldValidationStatus[fieldName] = { valid: true };
         }
       }
     });
 
     const percentage = totalFields > 0 ? (validCount / totalFields) * 100 : 0;
     const newIsValid = Object.keys(newErrors).length === 0;
+
+    // Log validation results for debugging
+    if (formData.studentType === 'International Student') {
+      console.log('=== International Student Validation ===');
+      console.log('All validated fields:', fieldValidationStatus);
+      console.log('Errors:', newErrors);
+      console.log('Total fields:', totalFields, 'Valid count:', validCount, 'Percentage:', percentage);
+    }
 
     // Batch state updates
     setErrors(prevErrors => {

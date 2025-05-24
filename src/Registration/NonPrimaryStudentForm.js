@@ -489,7 +489,7 @@ const NonPrimaryStudentForm = forwardRef(({
       timeSectionId: null,
       // New fields
       studentPhoto: '',
-      albertaResident: '',
+      albertaResident: false,
       parentRelationship: '',
       isLegalGuardian: false,
       hasLegalRestrictions: '',
@@ -525,6 +525,7 @@ const NonPrimaryStudentForm = forwardRef(({
   const [recommendedCompletionMonths, setRecommendedCompletionMonths] = useState(null);
   const [recommendedEndDate, setRecommendedEndDate] = useState(null);
   const [noValidDatesAvailable, setNoValidDatesAvailable] = useState(false);
+  const [areDatesValid, setAreDatesValid] = useState(false);
 
   const [dateErrors, setDateErrors] = useState({
     startDate: '',
@@ -648,7 +649,8 @@ const NonPrimaryStudentForm = forwardRef(({
             parentPhone: snapshot.val().ParentPhone_x0023_ || prev.parentPhone,
             parentEmail: snapshot.val().ParentEmail || prev.parentEmail,
             country: snapshot.val().internationalDocuments?.countryOfOrigin || prev.country,
-            address: snapshot.val().address || prev.address,
+            // Don't pre-populate address - require fresh input for each registration
+            // address: snapshot.val().address || prev.address,
           }));
 
           // Set document URLs if they exist
@@ -688,7 +690,8 @@ const NonPrimaryStudentForm = forwardRef(({
       country: !!profileData.internationalDocuments?.countryOfOrigin,
       documents: !!(profileData.internationalDocuments?.passport && 
                   profileData.internationalDocuments?.additionalID),
-      address: !!profileData.address
+      // Don't make address read-only - require fresh input for each registration
+      // address: !!profileData.address
     };
   }, [profileData]);
 
@@ -711,8 +714,10 @@ const NonPrimaryStudentForm = forwardRef(({
       schoolAddress: () => studentType === 'Non-Primary' || studentType === 'Home Education',
       parentRelationship: () => !user18OrOlder,
       legalDocumentUrl: () => formData.hasLegalRestrictions === 'yes',
+      indigenousIdentification: () => studentType !== 'International Student',
       indigenousStatus: () => formData.indigenousIdentification === 'yes',
       citizenshipDocuments: () => studentType !== 'International Student',
+      albertaResident: () => studentType !== 'International Student' && !user18OrOlder,
     },
     readOnlyFields,
     formData // Pass the entire formData to the validation
@@ -743,7 +748,8 @@ const NonPrimaryStudentForm = forwardRef(({
     isValid,
     completionPercentage,
     handleBlur,
-    validateForm
+    validateForm,
+    getFieldStatus
   } = useFormValidation(formData, rules, validationOptions);
 
   // Memoize validateForm ref to prevent it from causing infinite updates
@@ -883,17 +889,16 @@ const NonPrimaryStudentForm = forwardRef(({
       [type]: url
     }));
     
-    setFormData(prev => {
-      const newData = {
-        ...prev,
-        documents: {
-          ...prev.documents,
-          [type]: url
-        }
-      };
-      handleBlur('documents'); // Trigger validation for documents
-      return newData;
-    });
+    setFormData(prev => ({
+      ...prev,
+      documents: {
+        ...prev.documents,
+        [type]: url
+      }
+    }));
+    
+    // Trigger validation after state update
+    handleBlur('documents');
   };
 
   // Handle file uploads for new fields
@@ -1085,6 +1090,9 @@ const NonPrimaryStudentForm = forwardRef(({
         value: toDateString(date)
       }
     });
+    
+    // Mark field as touched for validation
+    handleBlur('startDate');
     
     // Update registration settings path and time section ID
     console.log('Updating registration settings:', {
@@ -1291,6 +1299,10 @@ const NonPrimaryStudentForm = forwardRef(({
         value: toDateString(date)
       }
     });
+    
+    // Mark field as touched for validation
+    handleBlur('endDate');
+    
     setDateErrors(prev => ({ ...prev, endDate: '' }));
     
     // Get term from the active time section and add it to form data
@@ -1362,8 +1374,10 @@ const NonPrimaryStudentForm = forwardRef(({
 
   // Update validation status
   useEffect(() => {
-    onValidationChange(isValid && isEligible && validateDates() && !noValidDatesAvailable);
-  }, [isValid, isEligible, noValidDatesAvailable, onValidationChange]);
+    const overallValid = isValid && isEligible && areDatesValid && !noValidDatesAvailable;
+    onValidationChange(overallValid);
+  }, [isValid, isEligible, areDatesValid, noValidDatesAvailable, onValidationChange]);
+
 
   // Fetch courses from Firebase
   useEffect(() => {
@@ -2135,6 +2149,45 @@ const NonPrimaryStudentForm = forwardRef(({
     noValidDatesAvailable
   ]);
 
+  // Update areDatesValid whenever validateDates dependencies change
+  useEffect(() => {
+    const isValid = validateDates();
+    setAreDatesValid(isValid);
+  }, [validateDates]);
+
+  // Effect to restore validation state for date fields when component has existing data
+  useEffect(() => {
+    // Only run after component is fully loaded and if we have date values
+    if (!loading && !settingsLoading && (formData.startDate || formData.endDate)) {
+      // Small delay to ensure all initialization is complete
+      const timeoutId = setTimeout(() => {
+        // Mark date fields as touched if they have values but aren't touched yet
+        if (formData.startDate && !touched.startDate) {
+          handleBlur('startDate');
+        }
+        if (formData.endDate && !touched.endDate) {
+          handleBlur('endDate');
+        }
+        
+        // Ensure date validation runs
+        setTimeout(() => {
+          validateDates();
+        }, 50);
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [
+    loading, 
+    settingsLoading, 
+    formData.startDate, 
+    formData.endDate, 
+    touched.startDate, 
+    touched.endDate, 
+    handleBlur, 
+    validateDates
+  ]);
+
   // Validate form and update validation status
   useEffect(() => {
     const debouncedValidation = _.debounce(() => {
@@ -2195,9 +2248,17 @@ const NonPrimaryStudentForm = forwardRef(({
     const { value } = e.target;
     const selectedCourse = courses.find(course => course.id === value);
   
+    // Use handleFormChange to trigger validation
+    handleFormChange({
+      target: {
+        name: 'courseId',
+        value: value
+      }
+    });
+    
+    // Update additional fields
     setFormData(prev => ({
       ...prev,
-      courseId: value,
       courseName: selectedCourse ? selectedCourse.title : '',
       startDate: '', // Reset start date when course changes
       endDate: '' // Reset end date when course changes
@@ -2671,6 +2732,12 @@ const NonPrimaryStudentForm = forwardRef(({
                     studentType={studentType}
                     disabled={noValidDatesAvailable}
                   />
+                  {(touched.startDate || formData.startDate) && !dateErrors.startDate && (
+                    <ValidationFeedback
+                      isValid={!errors.startDate}
+                      message={errors.startDate || validationRules.startDate?.successMessage}
+                    />
+                  )}
 
                   <DatePickerWithInfo
                     label="Completion Date"
@@ -2743,6 +2810,12 @@ const NonPrimaryStudentForm = forwardRef(({
                     alreadyWroteDiploma={alreadyWroteDiploma}
                     selectedDiplomaDate={selectedDiplomaDate}
                   />
+                  {(touched.endDate || formData.endDate) && !dateErrors.endDate && (
+                    <ValidationFeedback
+                      isValid={!errors.endDate}
+                      message={errors.endDate || validationRules.endDate?.successMessage}
+                    />
+                  )}
                 </div>
 
         
@@ -2823,14 +2896,12 @@ const NonPrimaryStudentForm = forwardRef(({
             </CardContent>
           </Card>
 
-          {/* Student Photo Upload - for Non-International students */}
-          {studentType !== 'International Student' && (
-            <StudentPhotoUpload
-              onUploadComplete={handleFileUpload}
-              initialPhoto={formData.studentPhoto}
-              error={touched.studentPhoto && errors.studentPhoto ? errors.studentPhoto : null}
-            />
-          )}
+          {/* Student Photo Upload - for all students */}
+          <StudentPhotoUpload
+            onUploadComplete={handleFileUpload}
+            initialPhoto={formData.studentPhoto}
+            error={touched.studentPhoto && errors.studentPhoto ? errors.studentPhoto : null}
+          />
 
           {studentType === 'International Student' && (
             <>
@@ -3118,42 +3189,48 @@ const NonPrimaryStudentForm = forwardRef(({
                 </div>
               )}
 
-              {/* Alberta Residency Question - for Non-International students */}
-              {studentType !== 'International Student' && (
+              {/* Alberta Residency Acknowledgment - for Non-International students and non-adults */}
+              {studentType !== 'International Student' && !user18OrOlder && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    Alberta Residency <span className="text-red-500">*</span>
-                  </label>
-                  <p className="text-sm text-gray-600">
-                    Are you a resident of Alberta? as defined by Section 4 of the Education Act - 
-                    meaning that the student is living and ordinarily present in Alberta, 
-                    and has a parent who is a resident of Canada?
-                  </p>
-                  <div className="flex gap-4">
-                    <label className="flex items-center">
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3">
                       <input
-                        type="radio"
+                        type="checkbox"
                         name="albertaResident"
-                        value="yes"
-                        checked={formData.albertaResident === 'yes'}
-                        onChange={handleFormChange}
+                        checked={formData.albertaResident === true || formData.albertaResident === 'yes'}
+                        onChange={(e) => {
+                          handleFormChange({
+                            target: {
+                              name: 'albertaResident',
+                              value: e.target.checked
+                            }
+                          });
+                        }}
                         onBlur={() => handleBlur('albertaResident')}
-                        className="mr-2"
+                        className="mt-1 h-4 w-4 rounded border-gray-300"
                       />
-                      <span className="text-sm">Yes</span>
+                      <div className="flex-1">
+                        <span className="text-sm font-medium">
+                          I acknowledge that I am a resident of Alberta <span className="text-red-500">*</span>
+                        </span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button type="button" className="ml-1 text-gray-500 hover:text-gray-700 inline-flex">
+                                <InfoIcon className="h-3 w-3" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-sm">
+                                As defined by Section 4 of the Education Act - meaning that the student is 
+                                living and ordinarily present in Alberta, and has a parent who is a resident of Canada.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </label>
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="albertaResident"
-                        value="no"
-                        checked={formData.albertaResident === 'no'}
-                        onChange={handleFormChange}
-                        onBlur={() => handleBlur('albertaResident')}
-                        className="mr-2"
-                      />
-                      <span className="text-sm">No</span>
-                    </label>
+                
                   </div>
                   <ValidationFeedback
                     isValid={touched.albertaResident && !errors.albertaResident}
@@ -3753,17 +3830,34 @@ const NonPrimaryStudentForm = forwardRef(({
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  How did you hear about us? (Optional)
+                  How did you hear about us? <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   name="howDidYouHear"
                   value={formData.howDidYouHear}
                   onChange={handleFormChange}
                   onBlur={() => handleBlur('howDidYouHear')}
-                  className="w-full p-2 border rounded-md"
-                  placeholder="e.g., Google search, friend referral, social media..."
-                />
+                  className="w-full p-2 border rounded-md bg-white"
+                >
+                  <option value="">Select an option</option>
+                  <option value="google-search">Google Search</option>
+                  <option value="online-ad">Online Advertising (Google Ads, etc.)</option>
+                  <option value="social-media">Social Media (Facebook, Instagram, etc.)</option>
+                  <option value="friend-referral">Friend or Family Referral</option>
+                  <option value="school-counselor">School Counselor</option>
+                  <option value="teacher">Teacher Recommendation</option>
+                  <option value="radio-ad">Radio Advertisement</option>
+                  <option value="newspaper">Newspaper</option>
+                  <option value="school-website">School Website</option>
+                  <option value="education-fair">Education Fair/Event</option>
+                  <option value="other">Other</option>
+                </select>
+                {getFieldStatus('howDidYouHear') && (
+                  <ValidationFeedback 
+                    isValid={getFieldStatus('howDidYouHear').isValid}
+                    message={getFieldStatus('howDidYouHear').message}
+                  />
+                )}
               </div>
 
               <div className="space-y-2">

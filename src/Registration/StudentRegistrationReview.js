@@ -110,7 +110,9 @@ const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequir
     ['Address', formData.address?.fullAddress || ''],
     ['Birthday', formData.birthday],
     ['Age', formData.age ? `${formData.age} years old` : ''],
+    ['Gender', formData.gender ? formData.gender.charAt(0).toUpperCase() + formData.gender.slice(1) : ''],
     ['Alberta Student Number', asnDisplay],
+    ['Student Photo', formData.studentPhoto ? 'Uploaded' : 'Not uploaded'],
     // Show school information for appropriate student types
     ...(shouldShowSchoolSelection(formData.studentType)
       ? [
@@ -130,6 +132,12 @@ const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequir
     ['Parent Last Name', formData.parentLastName],
     ['Parent Phone', formData.parentPhone],
     ['Parent Email', formData.parentEmail],
+    ...(formData.parentRelationship ? [
+      ['Relationship', formData.parentRelationship.charAt(0).toUpperCase() + formData.parentRelationship.slice(1)]
+    ] : []),
+    ...(formData.parentRelationship && formData.parentRelationship !== 'parent' ? [
+      ['Legal Guardian', formData.isLegalGuardian ? 'Yes' : 'No']
+    ] : []),
   ];
 
   const courseInfo = [
@@ -154,6 +162,52 @@ const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequir
         ['Proof of Residency', formData.documents?.residencyProof ? 'Uploaded' : 'Not required'],
       ]
     : [];
+
+  // Residency and identification information
+  const residencyInfo = [
+    ...(formData.studentType !== 'International Student' ? [
+      ['Alberta Resident', formData.albertaResident === true || formData.albertaResident === 'yes' ? 'Yes' : 'No'],
+    ] : []),
+    ['Indigenous Identification', 
+      formData.indigenousIdentification === 'yes' ? 'Yes' : 
+      formData.indigenousIdentification === 'no' ? 'No' : 
+      formData.indigenousIdentification === 'unsure' ? 'Prefer not to answer' : ''],
+    ...(formData.indigenousIdentification === 'yes' && formData.indigenousStatus ? [
+      ['Indigenous Status', formData.indigenousStatus],
+    ] : []),
+  ];
+
+  // Citizenship documentation (for non-international students)
+  const citizenshipInfo = !isInternationalStudent && formData.citizenshipDocuments && formData.citizenshipDocuments.length > 0
+    ? [['Citizenship Documents', `${formData.citizenshipDocuments.length} document(s) uploaded`]]
+    : [];
+
+  // Format "how did you hear about us" option
+  const formatHowDidYouHear = (value) => {
+    if (!value) return '';
+    
+    const mappings = {
+      'google-search': 'Google Search',
+      'online-ad': 'Online Advertising (Google Ads, etc.)',
+      'social-media': 'Social Media (Facebook, Instagram, etc.)',
+      'friend-referral': 'Friend or Family Referral',
+      'school-counselor': 'School Counselor',
+      'teacher': 'Teacher Recommendation',
+      'radio-ad': 'Radio Advertisement',
+      'newspaper': 'Newspaper',
+      'school-website': 'School Website',
+      'education-fair': 'Education Fair/Event',
+      'other': 'Other'
+    };
+    
+    return mappings[value] || value;
+  };
+
+  // Survey information
+  const surveyInfo = [
+    ['How did you hear about us?', formatHowDidYouHear(formData.howDidYouHear)],
+    ...(formData.whyApplying ? [['Why are you applying?', formData.whyApplying]] : []),
+  ];
 
   // Render required courses section if there are any
   const renderRequiredCourses = () => {
@@ -220,6 +274,16 @@ const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequir
           <ReviewSection title="Course Information" items={courseInfo} />
 
           {renderRequiredCourses()}
+
+          {residencyInfo.filter(([_, value]) => value).length > 0 && (
+            <ReviewSection title="Residency & Identification" items={residencyInfo} />
+          )}
+
+          {citizenshipInfo.length > 0 && (
+            <ReviewSection title="Citizenship Documentation" items={citizenshipInfo} />
+          )}
+
+          <ReviewSection title="Survey Information" items={surveyInfo} />
 
           {formData.additionalInformation && (
             <div className="space-y-3">

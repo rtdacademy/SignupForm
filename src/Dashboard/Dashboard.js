@@ -559,39 +559,7 @@ const Dashboard = () => {
         </CardContent>
       </Card>
       
-      {/* Raw Props Display */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card className="border border-gray-200 shadow-md mt-4">
-          <CardHeader className="bg-gradient-to-r from-yellow-50 to-amber-50 py-3">
-            <h3 className="text-lg font-semibold flex items-center">
-              🔍 Raw Data Inspector
-            </h3>
-          </CardHeader>
-          <CardContent className="p-4 max-h-96 overflow-auto">
-            <details>
-              <summary className="cursor-pointer font-medium mb-2">Student Data</summary>
-              <pre className="text-xs bg-gray-100 p-2 rounded overflow-auto">
-                {JSON.stringify({
-                  profile,
-                  courses: courses?.map(c => ({
-                    id: c.id,
-                    title: c.courseDetails?.Title,
-                    hasValidPayment: c.payment?.hasValidPayment
-                  })),
-                  notifications: {
-                    count: allNotifications?.length,
-                    activeCount: courses?.reduce((count, course) => {
-                      if (!course.notificationIds) return count;
-                      return count + Object.values(course.notificationIds)
-                        .filter(n => n.shouldDisplay).length;
-                    }, 0) || 0
-                  }
-                }, null, 2)}
-              </pre>
-            </details>
-          </CardContent>
-        </Card>
-      )}
+   
     </div>
   </div>
 
