@@ -127,7 +127,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
     const studentRef = ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}`);
     const updates = {
       [`courses/${courseId}/showStats`]: checked,
-      'profileHistory/lastChange': {
+      [`courses/${courseId}/enrollmentHistory/lastChange`]: {
         userEmail: user?.email || 'unknown',
         timestamp: Date.now(),
         field: 'showStats'
@@ -206,7 +206,7 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
         ref(db, `students/${sanitizeEmail(studentSummary.StudentEmail)}`),
         {
           [`courses/${courseId}/LMSStudentID`]: newLMSId,
-          'profileHistory/lastChange': {
+          [`courses/${courseId}/enrollmentHistory/lastChange`]: {
             userEmail: user?.email || 'unknown',
             timestamp: Date.now(),
             field: 'LMSStudentID'

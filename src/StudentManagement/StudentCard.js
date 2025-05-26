@@ -335,6 +335,14 @@ const updateStatus = useCallback(async (newStatus) => {
       throw new Error(`Invalid ActiveFutureArchived value configured for status: ${newStatus}`);
     }
 
+    // First, set the lastChange tracking info
+    const lastChangeRef = ref(db, `students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`);
+    await set(lastChangeRef, {
+      userEmail: user?.email || 'unknown',
+      timestamp: Date.now(),
+      field: 'Status_Value'
+    });
+
     // Use transaction for course data update
     const courseRef = ref(db, `students/${studentKey}/courses/${courseId}`);
     const result = await runTransaction(courseRef, (currentData) => {

@@ -64,6 +64,7 @@ exports.deleteCategoryForStudentsV2 = categoryFunctions.deleteCategoryForStudent
 exports.archiveStudentDataV2 = archiveStudentDataFunctions.archiveStudentDataV2;
 exports.restoreStudentDataV2 = archiveStudentDataFunctions.restoreStudentDataV2;
 exports.trackProfileChangesV2 = profileHistoryFunctions.trackProfileChangesV2;
+exports.trackCourseEnrollmentChangesV2 = profileHistoryFunctions.trackCourseEnrollmentChangesV2;
 
 // Course summary and data functions
 exports.syncProfileToCourseSummariesV2 = summaryFunctions.syncProfileToCourseSummariesV2;

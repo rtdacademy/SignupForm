@@ -101,6 +101,19 @@ const PendingFinalizationDialog = ({
     
       // 3. Update database with path references
       const updates = {
+        // Add lastChange tracking with finalization details
+        [`students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`]: {
+          userEmail: user?.email || 'unknown',
+          timestamp: Date.now(),
+          field: 'Status_Value',
+          isFinalization: true,
+          finalizationDetails: {
+            action: isUnenrolled ? 'unenrolled' : 'completed',
+            finalMark: (isUnenrolled && metFundingRequirements === "no") ? null : Number(finalMark),
+            metFundingRequirements: isUnenrolled ? (metFundingRequirements === "yes") : null,
+            comment: comment
+          }
+        },
         [`students/${studentKey}/courses/${courseId}/jsonStudentNotes`]: [newNote, ...existingNotes],
         [`students/${studentKey}/courses/${courseId}/teacherFinalMark`]: 
           (isUnenrolled && metFundingRequirements === "no") ? null : Number(finalMark),

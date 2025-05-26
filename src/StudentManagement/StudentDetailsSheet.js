@@ -54,23 +54,43 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
     const db = getDatabase();
     const updates = {};
 
-    if (['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value', 'DiplomaMonthChoices_Value'].includes(field)) {
+    // Determine if this is a course enrollment field or a profile field
+    const isCourseEnrollmentField = ['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value', 'DiplomaMonthChoices_Value'].includes(field);
+
+    if (isCourseEnrollmentField) {
       const fieldName = field.replace('_Value', '');
       updates[`students/${studentKey}/courses/${courseId}/${fieldName}/Value`] = value;
+      // Add enrollment-specific lastChange tracking
+      updates[`students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`] = {
+        userEmail: user?.email || 'unknown',
+        timestamp: Date.now(),
+        field: field
+      };
     } else if (field === 'ParentPermission_x003f_') {
       updates[`students/${studentKey}/profile/ParentPermission_x003f_/Value`] = value;
+      // Add profile-specific lastChange tracking
+      updates[`students/${studentKey}/profileHistory/lastChange`] = {
+        userEmail: user?.email || 'unknown',
+        timestamp: Date.now(),
+        field: field
+      };
     } else if (field === 'Parent_x002f_Guardian') {
       updates[`students/${studentKey}/profile/Parent_x002f_Guardian`] = value;
+      // Add profile-specific lastChange tracking
+      updates[`students/${studentKey}/profileHistory/lastChange`] = {
+        userEmail: user?.email || 'unknown',
+        timestamp: Date.now(),
+        field: field
+      };
     } else {
       updates[`students/${studentKey}/profile/${field}`] = value;
+      // Add profile-specific lastChange tracking
+      updates[`students/${studentKey}/profileHistory/lastChange`] = {
+        userEmail: user?.email || 'unknown',
+        timestamp: Date.now(),
+        field: field
+      };
     }
-
-    // Add lastChange tracking with user email and timestamp
-    updates[`students/${studentKey}/profileHistory/lastChange`] = {
-      userEmail: user?.email || 'unknown',
-      timestamp: Date.now(),
-      field: field
-    };
 
     try {
       await update(ref(db), updates);

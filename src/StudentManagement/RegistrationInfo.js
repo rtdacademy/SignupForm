@@ -18,6 +18,7 @@ import {
 } from '../config/DropdownOptions';
 import { AlertCircle, Copy, ClipboardCheck, Edit } from "lucide-react";
 import { Alert, AlertDescription } from "../components/ui/alert";
+import { useAuth } from '../context/AuthContext';
 import { ScrollArea } from '../components/ui/scroll-area';
 import SectionPicker from './SectionPicker';
 import SchoolAddressPicker from '../components/SchoolAddressPicker';
@@ -31,6 +32,7 @@ import {
 import GuardianManager from './GuardianManager';
 
 const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
+  const { user } = useAuth();
   const [status, setStatus] = useState('');
   const [pasi, setPasi] = useState('');
   const [courses, setCourses] = useState([]);
@@ -189,7 +191,12 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
     try {
       await update(ref(db), {
         [`students/${studentKey}/courses/${courseId}/Status/Value`]: newStatus,
-        [`students/${studentKey}/courses/${courseId}/Status/Id`]: STATUS_OPTIONS.findIndex(opt => opt.value === newStatus) + 1
+        [`students/${studentKey}/courses/${courseId}/Status/Id`]: STATUS_OPTIONS.findIndex(opt => opt.value === newStatus) + 1,
+        [`students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`]: {
+          userEmail: user?.email || 'unknown',
+          timestamp: Date.now(),
+          field: 'Status_Value'
+        }
       });
       setStatus(newStatus);
       setCourseData(prev => ({ ...prev, status: newStatus }));
@@ -209,7 +216,12 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
     try {
       await update(ref(db), {
         [`students/${studentKey}/courses/${courseId}/PASI/Value`]: newPasi,
-        [`students/${studentKey}/courses/${courseId}/PASI/Id`]: newPasi === 'Yes' ? 1 : 2
+        [`students/${studentKey}/courses/${courseId}/PASI/Id`]: newPasi === 'Yes' ? 1 : 2,
+        [`students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`]: {
+          userEmail: user?.email || 'unknown',
+          timestamp: Date.now(),
+          field: 'PASI_Value'
+        }
       });
       setPasi(newPasi);
     } catch (error) {
@@ -261,6 +273,14 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
         updates[`students/${studentKey}/courses/${courseId}/${field}`] = value;
       }
       
+      // Add enrollment lastChange tracking
+      const fieldForHistory = field.includes('/') ? field.replace('/', '_') : field;
+      updates[`students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`] = {
+        userEmail: user?.email || 'unknown',
+        timestamp: Date.now(),
+        field: fieldForHistory
+      };
+      
       await update(ref(db), updates);
       setCourseData(prev => ({ ...prev, [field.replace('/Value', '')]: value }));
     } catch (error) {
@@ -288,6 +308,11 @@ const RegistrationInfo = ({ studentData, courseId, readOnly = false }) => {
           placeId: addressDetails.placeId,
           fullAddress: addressDetails.fullAddress,
           location: addressDetails.location
+        },
+        [`students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`]: {
+          userEmail: user?.email || 'unknown',
+          timestamp: Date.now(),
+          field: 'primarySchoolAddress'
         }
       });
 
