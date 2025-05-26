@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon } from 'lucide-react';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { getDatabase, ref, set, get, push, remove, update, runTransaction, serverTimestamp  } from 'firebase/database';
@@ -188,10 +188,6 @@ const StudentCard = React.memo(({
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [teacherNames, setTeacherNames] = useState({});
   
-  // State variables for status history dialog
-  const [isStatusHistoryOpen, setIsStatusHistoryOpen] = useState(false);
-  const [statusHistory, setStatusHistory] = useState([]);
-  const [loadingStatusHistory, setLoadingStatusHistory] = useState(false);
 
   // State variable for expanded view
   const [isExpanded, setIsExpanded] = useState(false);
@@ -759,31 +755,6 @@ const handleStatusChange = useCallback(async (newStatus) => {
 
   const isAutoStatusAllowed = useMemo(() => getStatusAllowsAutoStatus(statusValue), [statusValue]);
 
-  const handleOpenStatusHistory = useCallback(async () => {
-    setIsStatusHistoryOpen(true);
-    setLoadingStatusHistory(true);
-
-    const db = getDatabase();
-    const lastUnderscoreIndex = student.id.lastIndexOf('_');
-    const studentKey = student.id.slice(0, lastUnderscoreIndex);
-    const courseId = student.id.slice(lastUnderscoreIndex + 1);
-    const statusLogRef = ref(db, `students/${studentKey}/courses/${courseId}/statusLog`);
-
-    try {
-      const snapshot = await get(statusLogRef);
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const historyArray = Object.values(data).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        setStatusHistory(historyArray);
-      } else {
-        setStatusHistory([]);
-      }
-    } catch (error) {
-      console.error("Error fetching status history:", error);
-    } finally {
-      setLoadingStatusHistory(false);
-    }
-  }, [student.id]);
 
   // Function to determine grade color and icon
   const getGradeColorAndIcon = useCallback((grade) => {
@@ -1382,7 +1353,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
             // Calculate number of visible buttons
             const buttonCount = 
               (checkAsnIssues ? 1 : 0) +
-              2 + // Chat and Status are always visible
+              1 + // Chat is always visible
               (hasProfileHistory ? 1 : 0) +
               1 + // Emulate is always visible
               (currentMode === MODES.REGISTRATION ? 1 : 0) +
@@ -1438,16 +1409,6 @@ const handleStatusChange = useCallback(async (newStatus) => {
                   Chat
                 </Button>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={buttonClass}
-                  onClick={handleOpenStatusHistory}
-                >
-                  <History className={iconClass} />
-                  Status
-                </Button>
-
                 {hasProfileHistory && (
                   <Button
                     variant="outline"
@@ -1459,7 +1420,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
                     }}
                   >
                     <FileTextIcon className={iconClass} />
-                    {useShortLabels ? "History" : "Profile History"}
+                    {useShortLabels ? "History" : "History"}
                   </Button>
                 )}
 
@@ -1542,36 +1503,6 @@ const handleStatusChange = useCallback(async (newStatus) => {
         </DialogContent>
       </Dialog>
 
-      {/* Status History Dialog */}
-      <Dialog open={isStatusHistoryOpen} onOpenChange={setIsStatusHistoryOpen}>
-        <DialogContent className="max-w-[90vw] w-[600px] h-[70vh] max-h-[600px] p-4 flex flex-col">
-          <DialogHeader className="mb-4 bg-white">
-            <DialogTitle>
-              Status Update History
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-grow overflow-auto">
-          {loadingStatusHistory ? (
-            <div className="text-center">Loading...</div>
-          ) : statusHistory.length > 0 ? (
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr><th className="px-2 py-1 text-left">Timestamp</th><th className="px-2 py-1 text-left">Status</th><th className="px-2 py-1 text-left">Previous Status</th><th className="px-2 py-1 text-left">Updated By</th><th className="px-2 py-1 text-left">Type</th></tr>
-              </thead>
-              <tbody>
-                {statusHistory.map((logEntry, index) => (
-                  <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-                    <td className="px-2 py-1">{new Date(logEntry.timestamp).toLocaleString()}</td><td className="px-2 py-1">{getSafeValue(logEntry.status)}</td><td className="px-2 py-1">{getSafeValue(logEntry.previousStatus)}</td><td className="px-2 py-1">{logEntry.updatedByType === 'teacher' ? (<>{logEntry.updatedBy.name} ({logEntry.updatedBy.email})</>) : ('Auto Status')}</td><td className="px-2 py-1">{logEntry.bulkUpdate && (<TooltipProvider><Tooltip><TooltipTrigger asChild><div className="inline-flex items-center text-blue-600"><Users className="h-4 w-4" /></div></TooltipTrigger><TooltipContent><p>Part of a bulk update</p></TooltipContent></Tooltip></TooltipProvider>)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="text-center">No status history available.</div>
-          )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Course Removal Dialog */}
       <Dialog open={isRemovalDialogOpen} onOpenChange={setIsRemovalDialogOpen}>

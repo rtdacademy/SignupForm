@@ -286,7 +286,7 @@ const ProfileHistory = ({ studentEmailKey }) => {
   };
 
   if (loading) {
-    return <div className="text-center py-4">Loading profile history...</div>;
+    return <div className="text-center py-4">Loading history...</div>;
   }
 
   if (history.length === 0 && summaries.length === 0) {
@@ -294,7 +294,7 @@ const ProfileHistory = ({ studentEmailKey }) => {
       <Card>
         <CardContent className="text-center py-6">
           <History className="h-12 w-12 text-gray-300 mx-auto mb-2" />
-          <p className="text-gray-500">No profile history available</p>
+          <p className="text-gray-500">No history available</p>
         </CardContent>
       </Card>
     );
@@ -306,7 +306,7 @@ const ProfileHistory = ({ studentEmailKey }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <History className="h-5 w-5" />
-            <h3 className="text-lg font-semibold">Profile History</h3>
+            <h3 className="text-lg font-semibold">History</h3>
             <Badge variant="secondary">{history.length} changes</Badge>
           </div>
           {expanded ? <ChevronUp /> : <ChevronDown />}

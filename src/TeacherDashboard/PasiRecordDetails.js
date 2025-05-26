@@ -1227,7 +1227,7 @@ const PasiRecordDetails = forwardRef(({
           onClick={() => setIsProfileHistoryOpen(true)}
         >
           <FileTextIcon className="w-4 h-4 mr-1" />
-          Profile History
+          History
         </Button>
         <Button 
           variant="outline" 
