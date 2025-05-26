@@ -35,6 +35,7 @@ const asnFunctions = require('./asnSync');
 // User management
 const archiveStudentDataFunctions = require('./archiveStudentData');
 const profileHistoryFunctions = require('./profileHistory');
+const parentPortalFunctions = require('./parentPortal');
 
 // Edge functions
 const edgeFunctions = require('./edge');
@@ -123,6 +124,14 @@ exports.sendChatMessage = googleAIFunctions.sendChatMessage;
 
 // Notification functions
 exports.submitNotificationSurvey = surveySubmissionFunctions.submitNotificationSurvey;
+
+// Parent Portal functions
+exports.sendParentInvitation = parentPortalFunctions.sendParentInvitation;
+exports.sendParentInvitationOnCreate = parentPortalFunctions.sendParentInvitationOnCreate;
+exports.validateParentInvitation = parentPortalFunctions.validateParentInvitation;
+exports.processParentInvitationRequest = parentPortalFunctions.processParentInvitationRequest;
+exports.acceptParentInvitation = parentPortalFunctions.acceptParentInvitation;
+exports.approveStudentEnrollment = parentPortalFunctions.approveStudentEnrollment;
 
 //==============================================================================
 // Assessment functions for courses

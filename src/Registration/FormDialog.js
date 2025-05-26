@@ -358,9 +358,10 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
         const profileData = {
           "LastSync": new Date().toISOString(),
           "ParentEmail": registrationData.formData.parentEmail || '',
-          "ParentPermission_x003f_": {
-            "Id": registrationData.formData.age >= 18 ? 1 : 2,
-            "Value": registrationData.formData.age >= 18 ? "Not Required" : "No Approval Yet"
+          "parentApprovalStatus": {
+            "required": registrationData.formData.age < 18,
+            "status": registrationData.formData.age >= 18 ? "not_required" : "pending",
+            "lastUpdated": new Date().toISOString()
           },
           "ParentPhone_x0023_": registrationData.formData.parentPhone || '',
           "ParentFirstName": registrationData.formData.parentFirstName || '',
@@ -584,6 +585,42 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
 
         // Execute all database operations in parallel
         await Promise.all(writeOperations);
+
+        // Handle parent invitation if student is under 18
+        console.log('Checking parent invitation eligibility:', {
+          age: registrationData.formData.age,
+          parentEmail: registrationData.formData.parentEmail,
+          shouldSendInvite: registrationData.formData.age < 18 && registrationData.formData.parentEmail
+        });
+        
+        if (registrationData.formData.age < 18 && registrationData.formData.parentEmail) {
+          console.log('Creating parent invitation request...');
+          try {
+            // Create parent invitation request under the student's profile
+            // The cloud function will process this and create the actual invitation
+            await set(ref(db, `students/${studentEmailKey}/parentInvitationRequest`), {
+              parentEmail: registrationData.formData.parentEmail,
+              parentName: `${registrationData.formData.parentFirstName || ''} ${registrationData.formData.parentLastName || ''}`.trim() || 'Parent/Guardian',
+              studentEmail: user.email,
+              studentName: `${registrationData.formData.firstName} ${registrationData.formData.lastName}`,
+              relationship: registrationData.formData.parentRelationship || 'Parent',
+              requestedAt: new Date().toISOString(),
+              courseId: numericCourseId,
+              courseName: registrationData.formData.courseName,
+              status: 'pending'
+            });
+
+            console.log('Parent invitation request created. Cloud function will process and send email.');
+          } catch (inviteError) {
+            console.error('Error creating parent invitation request:', inviteError);
+            console.error('Error details:', {
+              message: inviteError.message,
+              code: inviteError.code,
+              details: inviteError.details
+            });
+            // Don't block registration if invitation fails
+          }
+        }
 
         trackConversion();
 

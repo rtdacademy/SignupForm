@@ -61,6 +61,7 @@ export function AuthProvider({ children }) {
   const [isStaffUser, setIsStaffUser] = useState(false);
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [isSuperAdminUser, setIsSuperAdminUser] = useState(false);
+  const [isParentUser, setIsParentUser] = useState(false);
   const [courseTeachers, setCourseTeachers] = useState({});
   const [staffMembers, setStaffMembers] = useState({});
   const [isMigratedUser, setIsMigratedUser] = useState(false);
@@ -108,7 +109,8 @@ export function AuthProvider({ children }) {
     '/get-started',
     '/policies-reports',
     '/education-plan',
-    '/google-ai-chat'
+    '/google-ai-chat',
+    '/parent-login'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public
@@ -136,6 +138,19 @@ export function AuthProvider({ children }) {
 
   const checkIsStaff = (user) => {
     return user && user.email.endsWith("@rtdacademy.com");
+  };
+
+  const checkIsParent = async (user, emailKey) => {
+    if (!user) return false;
+    try {
+      const db = getDatabase();
+      const parentRef = ref(db, `parents/${emailKey}/profile`);
+      const snapshot = await get(parentRef);
+      return snapshot.exists();
+    } catch (error) {
+      console.error('Error checking parent status:', error);
+      return false;
+    }
   };
 
   const checkIsAdmin = (user, adminEmailsList) => {
@@ -597,21 +612,45 @@ export function AuthProvider({ children }) {
               }
             }
           } else {
-            dataCreated = await ensureUserNode(currentUser, emailKey);
-            if (dataCreated && isMounted) {
-              await checkTokenExpiration(); // Check token expiration for the new user
+            // Check if user is a parent
+            const parentStatus = await checkIsParent(currentUser, emailKey);
+            
+            if (parentStatus) {
+              // Parent user - don't create student node
+              await checkTokenExpiration();
               
               setUser(currentUser);
               setUserEmailKey(emailKey);
               setIsStaffUser(false);
               setIsAdminUser(false);
               setIsSuperAdminUser(false);
+              setIsParentUser(true);
               
-              // Add a small delay before navigation to ensure state is updated
+              // Navigate to parent dashboard
               if (location.pathname.toLowerCase() === '/login') {
                 authTimeout = setTimeout(() => {
-                  if (isMounted) navigate('/dashboard');
+                  if (isMounted) navigate('/parent-dashboard');
                 }, 500);
+              }
+            } else {
+              // Regular student user
+              dataCreated = await ensureUserNode(currentUser, emailKey);
+              if (dataCreated && isMounted) {
+                await checkTokenExpiration(); // Check token expiration for the new user
+                
+                setUser(currentUser);
+                setUserEmailKey(emailKey);
+                setIsStaffUser(false);
+                setIsAdminUser(false);
+                setIsSuperAdminUser(false);
+                setIsParentUser(false);
+                
+                // Add a small delay before navigation to ensure state is updated
+                if (location.pathname.toLowerCase() === '/login') {
+                  authTimeout = setTimeout(() => {
+                    if (isMounted) navigate('/dashboard');
+                  }, 500);
+                }
               }
             }
           }
@@ -622,6 +661,7 @@ export function AuthProvider({ children }) {
             setIsStaffUser(false);
             setIsAdminUser(false);
             setIsSuperAdminUser(false);
+            setIsParentUser(false);
             setCourseTeachers({});
             setStaffMembers({});
             setEmulatedUser(null);
@@ -821,6 +861,7 @@ export function AuthProvider({ children }) {
     isStaffUser,
     isAdminUser,
     isSuperAdminUser,
+    isParentUser,
     ensureStaffNode,
     ensureUserNode,
     signOut,
