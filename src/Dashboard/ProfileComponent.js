@@ -18,7 +18,7 @@ const GENDER_OPTIONS = [
 
 const REQUIRED_FIELDS = ['preferredFirstName', 'StudentPhone', 'gender'];
 
-const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
+const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) => {
   const { current_user_email_key } = useAuth();
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
@@ -62,11 +62,13 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
         [field]: value
       }));
 
-      // Update database
-      const db = getDatabase();
-      await update(ref(db), {
-        [`students/${current_user_email_key}/profile/${field}`]: value
-      });
+      // Only update database if not in readOnly mode
+      if (!readOnly) {
+        const db = getDatabase();
+        await update(ref(db), {
+          [`students/${current_user_email_key}/profile/${field}`]: value
+        });
+      }
 
       setError(null);
     } catch (err) {
@@ -81,20 +83,23 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
     const value = formData[field];
     const isRequired = ['preferredFirstName', 'StudentPhone', 'gender'].includes(field);
     const isMissing = isRequired && (!value || !String(value).trim());
+    
+    // Apply global readOnly if set
+    const isReadonly = readOnly || readonly;
 
     return (
       <div className="space-y-2">
         <label className="text-sm font-medium">
           {label}
           {isRequired && <span className="text-red-500 ml-1">*</span>}
-          {!readonly && <span className="text-primary ml-1">(Editable)</span>}
+          {!isReadonly && <span className="text-primary ml-1">(Editable)</span>}
         </label>
         
         {isGenderField ? (
           <Select
             value={value}
             onValueChange={(val) => handleChange(field, val)}
-            disabled={readonly}
+            disabled={isReadonly}
           >
             <SelectTrigger className={`w-full ${isMissing ? 'border-red-500' : ''}`}>
               <SelectValue placeholder="Select gender" />
@@ -112,8 +117,8 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
             country={"ca"}
             value={value}
             onChange={(val) => handleChange(field, val)}
-            disabled={readonly}
-            inputClass={`w-full p-2 border rounded-md ${isMissing ? 'border-red-500' : ''} ${readonly ? 'bg-gray-50' : ''}`}
+            disabled={isReadonly}
+            inputClass={`w-full p-2 border rounded-md ${isMissing ? 'border-red-500' : ''} ${isReadonly ? 'bg-gray-50' : ''}`}
             containerClass="phone-input-container"
             buttonClass="phone-input-button"
             preferredCountries={["ca"]}
@@ -126,8 +131,8 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
             onChange={(e) => handleChange(field, e.target.value)}
             className={`w-full p-2 border rounded-md 
               ${isMissing ? 'border-red-500' : ''} 
-              ${readonly ? 'bg-gray-50' : ''}`}
-            readOnly={readonly}
+              ${isReadonly ? 'bg-gray-50' : ''}`}
+            readOnly={isReadonly}
           />
         )}
         
@@ -144,7 +149,7 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile }) => {
         <SheetHeader className="flex-shrink-0">
           <SheetTitle>Profile Information</SheetTitle>
           <SheetDescription>
-            Manage your profile information
+            {readOnly ? 'View student profile information' : 'Manage your profile information'}
           </SheetDescription>
         </SheetHeader>
 

@@ -30,6 +30,7 @@ import CourseEditor from './courses/CourseEditor/CourseEditor';
 import EmployeePortal from './TeacherDashboard/EmployeePortal';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import ParentLogin from './ParentPortal/ParentLogin';
+import ParentDashboard from './ParentPortal/ParentDashboard';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -142,6 +143,7 @@ function MainApp() {
 <Route path="/policies-reports" element={<PoliciesAndReports />} />
 <Route path="/education-plan" element={<EducationPlan />} />
 <Route path="/parent-login" element={<ParentLogin />} />
+<Route path="/parent-dashboard" element={<ParentDashboard />} />
         
       <Route 
   path="/dashboard" 

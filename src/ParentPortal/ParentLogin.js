@@ -28,7 +28,9 @@ import {
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { Loader2, CheckCircle, AlertCircle, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Loader2, CheckCircle, AlertCircle, Users, ChevronDown, ChevronUp, ShieldCheck, ExternalLink } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
@@ -58,6 +60,12 @@ const ParentLogin = () => {
   
   // Accordion state for email/password forms
   const [isEmailFormOpen, setIsEmailFormOpen] = useState(false);
+
+  // ASN verification state
+  const [showASNDialog, setShowASNDialog] = useState(false);
+  const [asnInput, setAsnInput] = useState('');
+  const [asnError, setAsnError] = useState('');
+  const [asnVerifying, setAsnVerifying] = useState(false);
 
   // Success state
   const [success, setSuccess] = useState(false);
@@ -143,8 +151,69 @@ const ParentLogin = () => {
     return passwordRegex.test(password);
   };
 
-  // Auto-accept invitation after successful authentication
-  const acceptInvitation = async (user) => {
+  // Format ASN input - matching NonPrimaryStudentForm.js implementation
+  const formatASN = (value) => {
+    // Remove all non-digits and limit to 9 digits
+    let formattedValue = value.replace(/\D/g, "").slice(0, 9);
+    
+    // Apply ####-####-# format
+    if (formattedValue.length > 4) {
+      formattedValue = `${formattedValue.slice(0, 4)}-${formattedValue.slice(4)}`;
+    }
+    if (formattedValue.length > 9) {
+      formattedValue = `${formattedValue.slice(0, 9)}-${formattedValue.slice(9)}`;
+    }
+    
+    return formattedValue;
+  };
+
+  // Verify student ASN before accepting invitation
+  const verifyASN = async () => {
+    // Clear any previous errors
+    setAsnError('');
+    
+    try {
+      setAsnVerifying(true);
+
+      if (!asnInput.trim()) {
+        setAsnError('Please enter the student\'s Alberta Student Number');
+        setAsnVerifying(false);
+        return;
+      }
+
+      const functions = getFunctions();
+      const verifyStudentASN = httpsCallable(functions, 'verifyStudentASN');
+      
+      const result = await verifyStudentASN({ 
+        invitationToken: token,
+        providedASN: asnInput.trim()
+      });
+      
+      if (result.data.success) {
+        // ASN verified successfully, now accept invitation
+        setShowASNDialog(false);
+        await acceptInvitation();
+      } else {
+        throw new Error('ASN verification failed');
+      }
+    } catch (err) {
+      console.error('Error verifying ASN:', err);
+      
+      // Extract the error message from the server
+      let errorMessage = 'Failed to verify student information. Please try again.';
+      
+      // The error message from our cloud function should be in err.message
+      if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setAsnVerifying(false);
+      setAsnError(errorMessage);
+    }
+  };
+
+  // Auto-accept invitation after successful authentication AND ASN verification
+  const acceptInvitation = async () => {
     try {
       setAuthLoading(true);
       const functions = getFunctions();
@@ -190,8 +259,9 @@ const ParentLogin = () => {
           setAuthLoading(false);
           return;
         }
-        // Auto-accept invitation
-        await acceptInvitation(user);
+        // Show ASN verification dialog
+        setShowASNDialog(true);
+        setAuthLoading(false);
       } else {
         // Regular parent login: redirect to parent dashboard
         setAuthLoading(false);
@@ -240,8 +310,9 @@ const ParentLogin = () => {
         await sendEmailVerification(userCredential.user);
         
         if (token && invitation) {
-          // Token-based flow: auto-accept invitation
-          await acceptInvitation(userCredential.user);
+          // Token-based flow: show ASN verification dialog
+          setShowASNDialog(true);
+          setAuthLoading(false);
         } else {
           // Regular signup: redirect to parent dashboard
           setAuthLoading(false);
@@ -254,8 +325,9 @@ const ParentLogin = () => {
         
         if (user.emailVerified) {
           if (token && invitation) {
-            // Token-based flow: auto-accept invitation
-            await acceptInvitation(user);
+            // Token-based flow: show ASN verification dialog
+            setShowASNDialog(true);
+            setAuthLoading(false);
           } else {
             // Regular sign-in: redirect to parent dashboard
             setAuthLoading(false);
@@ -764,6 +836,99 @@ const ParentLogin = () => {
               onClick={() => setShowVerificationDialog(false)}
             >
               Got it, I'll check my email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showASNDialog} onOpenChange={setShowASNDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-green-600" />
+                Verify Student Information
+              </div>
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-4 mt-4">
+                <p>To protect student privacy and ensure you're authorized to access {invitation?.studentName}'s information, please enter their Alberta Student Number (ASN).</p>
+                
+                <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                  <p className="font-medium text-blue-900 mb-1">What is an ASN?</p>
+                  <p className="text-blue-700">The Alberta Student Number is a unique 9-digit identifier assigned to each student in Alberta. It appears on report cards and official school documents in the format: ####-####-#</p>
+                </div>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="asn">Alberta Student Number</Label>
+              <Input
+                id="asn"
+                type="text"
+                placeholder="0000-0000-0"
+                value={asnInput}
+                onChange={(e) => setAsnInput(formatASN(e.target.value))}
+                maxLength={11}
+                className="font-mono"
+                autoComplete="off"
+              />
+              {asnError && (
+                <div className="flex items-center gap-2 mt-2">
+                  <AlertCircle className="h-4 w-4 text-red-500" />
+                  <p className="text-sm text-red-600">{asnError}</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="text-sm text-gray-600">
+              <p className="mb-2">Don't know the ASN? You can find it:</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>On report cards or progress reports</li>
+                <li>On school registration documents</li>
+                <li>By asking the school office</li>
+                <li>
+                  <a 
+                    href="https://learnerregistry.ae.alberta.ca/Home/StartLookup" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                  >
+                    Through the Alberta Education Learner Registry
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowASNDialog(false);
+                setAsnInput('');
+                setAsnError('');
+                auth.signOut();
+              }}
+              disabled={asnVerifying}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={verifyASN}
+              disabled={asnVerifying || !asnInput.trim()}
+            >
+              {asnVerifying ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                'Verify & Continue'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

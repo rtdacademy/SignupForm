@@ -148,6 +148,11 @@ export function AuthProvider({ children }) {
       const snapshot = await get(parentRef);
       return snapshot.exists();
     } catch (error) {
+      // Silently handle permission denied errors - just return false
+      // This is expected for non-parent users
+      if (error.code === 'PERMISSION_DENIED' || error.message.includes('Permission denied')) {
+        return false;
+      }
       console.error('Error checking parent status:', error);
       return false;
     }
@@ -612,8 +617,12 @@ export function AuthProvider({ children }) {
               }
             }
           } else {
-            // Check if user is a parent
-            const parentStatus = await checkIsParent(currentUser, emailKey);
+            // Check if user is a parent (skip this check if on parent-login page with invitation token or parent-dashboard)
+            const isParentInvitationFlow = location.pathname === '/parent-login' && 
+                                          new URLSearchParams(location.search).get('token');
+            const isParentDashboard = location.pathname === '/parent-dashboard';
+            
+            const parentStatus = !isParentInvitationFlow && !isParentDashboard && await checkIsParent(currentUser, emailKey);
             
             if (parentStatus) {
               // Parent user - don't create student node

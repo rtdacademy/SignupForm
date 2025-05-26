@@ -36,6 +36,7 @@ const asnFunctions = require('./asnSync');
 const archiveStudentDataFunctions = require('./archiveStudentData');
 const profileHistoryFunctions = require('./profileHistory');
 const parentPortalFunctions = require('./parentPortal');
+const studentPropertiesFunctions = require('./studentProperties');
 
 // Edge functions
 const edgeFunctions = require('./edge');
@@ -129,9 +130,19 @@ exports.submitNotificationSurvey = surveySubmissionFunctions.submitNotificationS
 exports.sendParentInvitation = parentPortalFunctions.sendParentInvitation;
 exports.sendParentInvitationOnCreate = parentPortalFunctions.sendParentInvitationOnCreate;
 exports.validateParentInvitation = parentPortalFunctions.validateParentInvitation;
+exports.verifyStudentASN = parentPortalFunctions.verifyStudentASN;
 exports.processParentInvitationRequest = parentPortalFunctions.processParentInvitationRequest;
 exports.acceptParentInvitation = parentPortalFunctions.acceptParentInvitation;
 exports.approveStudentEnrollment = parentPortalFunctions.approveStudentEnrollment;
+exports.getParentDashboardData = parentPortalFunctions.getParentDashboardData;
+
+// Student Properties functions (Parent Portal)
+exports.updateStudentPersonalInfo = studentPropertiesFunctions.updateStudentPersonalInfo;
+exports.updateStudentAddress = studentPropertiesFunctions.updateStudentAddress;
+exports.updateStudentAcademicInfo = studentPropertiesFunctions.updateStudentAcademicInfo;
+exports.updateGuardianInfo = studentPropertiesFunctions.updateGuardianInfo;
+exports.updateStudentStatus = studentPropertiesFunctions.updateStudentStatus;
+exports.updateStudentDocuments = studentPropertiesFunctions.updateStudentDocuments;
 
 //==============================================================================
 // Assessment functions for courses

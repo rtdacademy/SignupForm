@@ -3,6 +3,7 @@ const { onCall } = require('firebase-functions/v2/https');
 const { onRequest } = require('firebase-functions/v2/https');
 const { onValueCreated } = require('firebase-functions/v2/database');
 const { onValueDeleted } = require('firebase-functions/v2/database');
+const { HttpsError } = require('firebase-functions/v2/https');
 
 // Other dependencies
 const admin = require('firebase-admin');
@@ -140,6 +141,8 @@ const sendParentInvitation = onCall({
               <a href="${invitationLink}" class="button">Create Parent Account</a>
             </div>
             
+            <p><strong>Important:</strong> For security purposes, you'll need ${studentName}'s Alberta Student Number (ASN) to complete the setup. This is a 9-digit number (####-####-#) found on report cards and school documents.</p>
+            
             <p><strong>This invitation will expire in 48 hours.</strong></p>
             
             <p>If you have any questions or need assistance, please contact us at info@rtdacademy.com</p>
@@ -174,6 +177,8 @@ As their parent/guardian, you're invited to create a parent account. Once fully 
 
 To create your parent account, please visit:
 ${invitationLink}
+
+Important: For security purposes, you'll need ${studentName}'s Alberta Student Number (ASN) to complete the setup. This is a 9-digit number (####-####-#) found on report cards and school documents.
 
 This invitation will expire in 48 hours.
 
@@ -270,6 +275,11 @@ const acceptParentInvitation = onCall({
     const expirationTime = new Date(invitation.expiresAt).getTime();
     if (Date.now() > expirationTime) {
       throw new Error('This invitation has expired');
+    }
+
+    // Verify ASN was checked
+    if (!invitation.asnVerified) {
+      throw new Error('Student identity verification is required before accepting this invitation');
     }
 
     const { studentEmailKey, studentName, relationship, courseId, courseName } = invitation;
@@ -566,6 +576,8 @@ const sendParentInvitationOnCreate = onValueCreated({
               <a href="${invitationLink}" class="button">Create Parent Account</a>
             </div>
             
+            <p><strong>Important:</strong> For security purposes, you'll need ${studentName}'s Alberta Student Number (ASN) to complete the setup. This is a 9-digit number (####-####-#) found on report cards and school documents.</p>
+            
             <p><strong>This invitation will expire in 48 hours.</strong></p>
             
             <p>If you have any questions or need assistance, please contact us at info@rtdacademy.com</p>
@@ -600,6 +612,8 @@ As their ${relationship || 'parent/guardian'}, you're invited to create a parent
 
 To create your parent account, please visit:
 ${invitationLink}
+
+Important: For security purposes, you'll need ${studentName}'s Alberta Student Number (ASN) to complete the setup. This is a 9-digit number (####-####-#) found on report cards and school documents.
 
 This invitation will expire in 48 hours.
 
@@ -715,6 +729,118 @@ const validateParentInvitation = onCall({
 });
 
 /**
+ * Cloud Function: verifyStudentASN
+ * Verifies that the parent knows the student's ASN before linking accounts
+ */
+const verifyStudentASN = onCall({
+  memory: '256MiB',
+  timeoutSeconds: 30,
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
+}, async (data) => {
+  // Authentication check
+  if (!data.auth) {
+    console.error('Unauthenticated request attempted');
+    throw new HttpsError('unauthenticated', 'User must be authenticated.');
+  }
+
+  const { invitationToken, providedASN } = data.data;
+
+  if (!invitationToken || !providedASN) {
+    throw new HttpsError('invalid-argument', 'Missing required fields');
+  }
+
+  const db = admin.database();
+  
+  try {
+    // Get invitation details
+    const invitationRef = db.ref(`parentInvitations/${invitationToken}`);
+    const invitationSnapshot = await invitationRef.once('value');
+    
+    if (!invitationSnapshot.exists()) {
+      throw new HttpsError('not-found', 'Invalid invitation token');
+    }
+    
+    const invitation = invitationSnapshot.val();
+    
+    // Validate invitation is still pending
+    if (invitation.status !== 'pending') {
+      throw new HttpsError('failed-precondition', 'This invitation has already been used or is no longer valid');
+    }
+    
+    // Verify the parent email matches the authenticated user
+    if (invitation.parentEmail.toLowerCase() !== data.auth.token.email.toLowerCase()) {
+      throw new HttpsError('permission-denied', 'This invitation was sent to a different email address');
+    }
+    
+    // Get the student's ASN from their profile
+    const studentEmailKey = invitation.studentEmailKey;
+    const studentProfileRef = db.ref(`students/${studentEmailKey}/profile/asn`);
+    const studentASNSnapshot = await studentProfileRef.once('value');
+    
+    if (!studentASNSnapshot.exists()) {
+      console.error(`No ASN found for student: ${studentEmailKey}`);
+      throw new HttpsError(
+        'not-found',
+        'Student verification data not found. Please contact support.'
+      );
+    }
+    
+    const actualASN = studentASNSnapshot.val();
+    
+    // Clean both ASNs for comparison (remove dashes and spaces)
+    const cleanProvidedASN = providedASN.replace(/[\s-]/g, '');
+    const cleanActualASN = actualASN.replace(/[\s-]/g, '');
+    
+    // Log for debugging (without revealing the actual ASN)
+    console.log(`ASN verification attempt for invitation ${invitationToken}: Length matches: ${cleanProvidedASN.length === cleanActualASN.length}`);
+    
+    // Compare ASNs
+    if (cleanProvidedASN !== cleanActualASN) {
+      // Log failed attempt for security monitoring
+      console.warn(`Failed ASN verification attempt for invitation ${invitationToken} by ${data.auth.token.email}`);
+      
+      // Track failed attempts
+      await invitationRef.child('verificationAttempts').push({
+        timestamp: new Date().toISOString(),
+        attemptedBy: data.auth.token.email,
+        success: false
+      });
+      
+      // For v2 functions, use HttpsError for proper client error handling
+      throw new HttpsError(
+        'invalid-argument',
+        'The Alberta Student Number provided does not match our records. Please ensure you enter the ASN exactly as it appears on the student\'s official documents (####-####-#).'
+      );
+    }
+    
+    // ASN matches - mark verification as successful
+    await invitationRef.update({
+      asnVerified: true,
+      asnVerifiedAt: new Date().toISOString(),
+      asnVerifiedBy: data.auth.token.email
+    });
+    
+    console.log(`Successful ASN verification for invitation ${invitationToken}`);
+    
+    return {
+      success: true,
+      message: 'Student identity verified successfully'
+    };
+
+  } catch (error) {
+    console.error('Error verifying student ASN:', error);
+    
+    // If it's already an HttpsError, re-throw it
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    // Otherwise, wrap it in an HttpsError
+    throw new HttpsError('internal', error.message || 'Failed to verify student information');
+  }
+});
+
+/**
  * Database Trigger: processParentInvitationRequest
  * Watches for parent invitation requests under student profiles and creates actual invitations
  * This provides better security as students can only create requests under their own profile
@@ -794,12 +920,206 @@ const processParentInvitationRequest = onValueCreated({
   }
 });
 
+/**
+ * Cloud Function: getParentDashboardData
+ * Fetches all linked students' data that the parent has permission to view
+ */
+const getParentDashboardData = onCall({
+  memory: '256MiB',
+  timeoutSeconds: 60,
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
+}, async (data) => {
+  // Authentication check
+  if (!data.auth) {
+    console.error('Unauthenticated request attempted');
+    throw new Error('User must be authenticated.');
+  }
+
+  const parentEmail = data.auth.token.email;
+  const parentEmailKey = sanitizeEmail(parentEmail);
+
+  const db = admin.database();
+  
+  try {
+    // Fetch parent's data
+    const parentRef = db.ref(`parents/${parentEmailKey}`);
+    const parentSnapshot = await parentRef.once('value');
+    
+    if (!parentSnapshot.exists()) {
+      throw new Error('Parent account not found. Please ensure you have accepted a parent invitation.');
+    }
+    
+    const parentData = parentSnapshot.val();
+    
+    // Check if parent has any linked students
+    if (!parentData.linkedStudents || Object.keys(parentData.linkedStudents).length === 0) {
+      return {
+        success: true,
+        message: 'No linked students found',
+        linkedStudents: []
+      };
+    }
+    
+    // Process each linked student
+    const linkedStudentsData = [];
+    
+    for (const [studentKey, studentLink] of Object.entries(parentData.linkedStudents)) {
+      try {
+        // Verify the link is active by checking student's profile
+        const studentParentLinkRef = db.ref(`students/${studentKey}/profile/parentAccounts/${parentEmailKey}`);
+        const studentParentLinkSnapshot = await studentParentLinkRef.once('value');
+        
+        if (!studentParentLinkSnapshot.exists()) {
+          console.warn(`Parent link not found in student profile for ${studentKey}`);
+          continue;
+        }
+        
+        const studentParentLink = studentParentLinkSnapshot.val();
+        if (studentParentLink.status !== 'active') {
+          console.warn(`Parent link is not active for student ${studentKey}`);
+          continue;
+        }
+        
+        // Fetch student profile data
+        const studentProfileRef = db.ref(`students/${studentKey}/profile`);
+        const studentProfileSnapshot = await studentProfileRef.once('value');
+        
+        if (!studentProfileSnapshot.exists()) {
+          console.warn(`Student profile not found for ${studentKey}`);
+          continue;
+        }
+        
+        const studentProfile = studentProfileSnapshot.val();
+        const permissions = studentLink.permissions || {};
+        
+        // Build student data object based on permissions
+        const studentData = {
+          studentKey,
+          studentName: studentLink.studentName,
+          relationship: studentLink.relationship,
+          linkedAt: studentLink.linkedAt,
+          permissions,
+          enrollmentApproval: studentLink.enrollmentApproval,
+          profile: {}
+        };
+        
+        // Add profile data based on permissions
+        if (permissions.viewSchedule) {
+          studentData.profile.firstName = studentProfile.firstName;
+          studentData.profile.lastName = studentProfile.lastName;
+          studentData.profile.asn = studentProfile.asn;
+          studentData.profile.grade = studentProfile.grade;
+          studentData.profile.homeSchool = studentProfile.homeSchool;
+        }
+        
+        if (permissions.editContactInfo) {
+          studentData.profile.phone = studentProfile.phone;
+          studentData.profile.address = studentProfile.address;
+          studentData.profile.city = studentProfile.city;
+          studentData.profile.province = studentProfile.province;
+          studentData.profile.postalCode = studentProfile.postalCode;
+        }
+        
+        // Fetch courses if permitted
+        if (permissions.viewSchedule || permissions.viewGrades) {
+          const studentCoursesRef = db.ref(`students/${studentKey}/courses`);
+          const studentCoursesSnapshot = await studentCoursesRef.once('value');
+          
+          if (studentCoursesSnapshot.exists()) {
+            const courses = studentCoursesSnapshot.val();
+            studentData.courses = {};
+            
+            for (const [courseId, courseData] of Object.entries(courses)) {
+              const courseInfo = {
+                courseName: courseData.courseName,
+                courseCode: courseData.courseCode,
+                credits: courseData.credits,
+                status: courseData.status,
+                enrollmentStatus: courseData.enrollmentStatus,
+                parentApproval: courseData.parentApproval,
+                startDate: courseData.startDate,
+                endDate: courseData.endDate
+              };
+              
+              // Add grades if permitted
+              if (permissions.viewGrades) {
+                courseInfo.overallGrade = courseData.overallGrade;
+                courseInfo.letterGrade = courseData.letterGrade;
+                courseInfo.progress = courseData.progress;
+                courseInfo.completedUnits = courseData.completedUnits;
+                courseInfo.totalUnits = courseData.totalUnits;
+                courseInfo.lastAccessed = courseData.lastAccessed;
+              }
+              
+              // Add schedule if permitted
+              if (permissions.viewSchedule) {
+                courseInfo.schedule = courseData.schedule;
+                courseInfo.datesArray = courseData.datesArray;
+                courseInfo.nextScheduledDate = courseData.nextScheduledDate;
+              }
+              
+              studentData.courses[courseId] = courseInfo;
+            }
+          }
+        }
+        
+        // Add notes if permitted
+        if (permissions.viewNotes) {
+          // We'll only include a count of notes, not the actual content for privacy
+          const notesRef = db.ref(`students/${studentKey}/courses`);
+          const notesSnapshot = await notesRef.once('value');
+          
+          if (notesSnapshot.exists()) {
+            const courses = notesSnapshot.val();
+            studentData.notesCount = {};
+            
+            for (const [courseId, courseData] of Object.entries(courses)) {
+              if (courseData.jsonStudentNotes && Array.isArray(courseData.jsonStudentNotes)) {
+                studentData.notesCount[courseId] = courseData.jsonStudentNotes.length;
+              }
+            }
+          }
+        }
+        
+        // Add payment info if permitted (typically false for security)
+        if (permissions.viewPayments) {
+          studentData.profile.paymentStatus = studentProfile.paymentStatus;
+          studentData.profile.paymentPlan = studentProfile.paymentPlan;
+        }
+        
+        linkedStudentsData.push(studentData);
+        
+      } catch (error) {
+        console.error(`Error processing student ${studentKey}:`, error);
+        // Continue with other students
+      }
+    }
+    
+    return {
+      success: true,
+      parentProfile: {
+        email: parentData.profile?.email || parentEmail,
+        lastLogin: parentData.profile?.lastLogin,
+        emailVerified: parentData.profile?.emailVerified
+      },
+      linkedStudents: linkedStudentsData,
+      totalLinkedStudents: linkedStudentsData.length
+    };
+    
+  } catch (error) {
+    console.error('Error fetching parent dashboard data:', error);
+    throw new Error(`Failed to fetch dashboard data: ${error.message}`);
+  }
+});
+
 // Export all functions
 module.exports = {
   sendParentInvitation,
   sendParentInvitationOnCreate,
   validateParentInvitation,
+  verifyStudentASN,
   processParentInvitationRequest,
   acceptParentInvitation,
-  approveStudentEnrollment
+  approveStudentEnrollment,
+  getParentDashboardData
 };
