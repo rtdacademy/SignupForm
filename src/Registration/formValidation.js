@@ -369,9 +369,17 @@ albertaStudentNumber: {
         const isFlexibleAddressType = options?.formData?.studentType === 'International Student' || 
                                       options?.formData?.studentType === 'Adult Student';
         
-        // Basic requirements - at minimum need city and country/province
-        if (!value.city) return "City is required";
-        if (!value.province && !value.country) return "Province/State or Country is required";
+        // For International Students, be more flexible with address requirements
+        if (isFlexibleAddressType) {
+          // For international students, only require country or full address
+          if (!value.country && !value.fullAddress) {
+            return "Country or complete address is required";
+          }
+        } else {
+          // Basic requirements for other student types - need city and country/province
+          if (!value.city) return "City is required";
+          if (!value.province && !value.country) return "Province/State or Country is required";
+        }
         
         // For non-international/adult students, require more complete addresses
         if (!isFlexibleAddressType) {

@@ -39,6 +39,14 @@ const AddressPicker = ({ onAddressSelect, studentType }) => {
           if (types.includes('locality')) {
             city = component.long_name;
           }
+          // Fallback for city - try sublocality_level_1 for international addresses
+          if (!city && types.includes('sublocality_level_1')) {
+            city = component.long_name;
+          }
+          // Another fallback - try administrative_area_level_2
+          if (!city && types.includes('administrative_area_level_2')) {
+            city = component.long_name;
+          }
           if (types.includes('administrative_area_level_1')) {
             province = component.short_name;
           }
@@ -51,9 +59,30 @@ const AddressPicker = ({ onAddressSelect, studentType }) => {
           }
         });
 
-        // For students other than International and Adult, check if the address is in Alberta
+        // Final fallback for international addresses - extract city from formatted address
+        const needsCityFallback = studentType === 'International Student' || 
+                                 studentType === 'Adult Student' || 
+                                 studentType === 'Parent Verification';
+        
+        if (!city && needsCityFallback) {
+          // Try to extract city from the last part of the formatted address before country
+          const addressParts = place.formatted_address.split(',').map(part => part.trim());
+          if (addressParts.length >= 2) {
+            // Take the second-to-last part as a potential city
+            const potentialCity = addressParts[addressParts.length - 2];
+            if (potentialCity && potentialCity !== country && potentialCity !== countryLong) {
+              city = potentialCity;
+            }
+          }
+        }
+
+        // For students other than International, Adult, and Parent Verification, check if the address is in Alberta
         const normalizedStudentType = studentType?.trim();
-        if (normalizedStudentType !== 'International Student' && normalizedStudentType !== 'Adult Student' && province !== 'AB') {
+        const isRestrictedType = normalizedStudentType !== 'International Student' && 
+                                normalizedStudentType !== 'Adult Student' && 
+                                normalizedStudentType !== 'Parent Verification';
+        
+        if (isRestrictedType && province !== 'AB') {
           setError('Please select an address within Alberta. The selected address is in ' + province + '.');
           return;
         }
@@ -91,18 +120,21 @@ const AddressPicker = ({ onAddressSelect, studentType }) => {
     onAddressSelect(null);
     setError(null);
   };
-
   // Different configurations based on student type
-  const autocompletionRequest = (studentType === 'International Student' || studentType === 'Adult Student')
+  const isUnrestrictedType = studentType === 'International Student' || 
+                            studentType === 'Adult Student' || 
+                            studentType === 'Parent Verification';
+  
+  const autocompletionRequest = isUnrestrictedType
     ? {
-        // No restrictions for international and adult students
+        // No restrictions for international students, adult students, and parent verification
       } 
     : {
         // Restrict to Canada for other student types
         componentRestrictions: { country: 'ca' }
       };
 
-  const placeholder = (studentType === 'International Student' || studentType === 'Adult Student')
+  const placeholder = isUnrestrictedType
     ? 'Search for your address'
     : 'Search for your address in Canada';
 

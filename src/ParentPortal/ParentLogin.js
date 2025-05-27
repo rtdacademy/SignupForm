@@ -30,17 +30,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Loader2, CheckCircle, AlertCircle, Users, ChevronDown, ChevronUp, ShieldCheck, ExternalLink } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Users, ChevronDown, ChevronUp, ShieldCheck, ExternalLink, MapPin } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '../components/ui/collapsible';
+import AddressPicker from '../components/AddressPicker';
 
 const ParentLogin = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
+  const isFirstTime = searchParams.get('firstTime') === 'true';
+  const emailFromParam = searchParams.get('email');
 
   // Invitation state
   const [loading, setLoading] = useState(true);
@@ -50,22 +53,25 @@ const ParentLogin = () => {
   // Auth state
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
-  const [emailInput, setEmailInput] = useState('');
+  const [emailInput, setEmailInput] = useState(emailFromParam || '');
   const [password, setPassword] = useState('');
-  const [activeTab, setActiveTab] = useState('signin');
+  const [activeTab, setActiveTab] = useState(isFirstTime ? 'signup' : 'signin');
   const [authLoading, setAuthLoading] = useState(false);
-  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [showEmailVerificationDialog, setShowEmailVerificationDialog] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [isResetingPassword, setIsResetingPassword] = useState(false);
   
   // Accordion state for email/password forms
   const [isEmailFormOpen, setIsEmailFormOpen] = useState(false);
 
-  // ASN verification state
-  const [showASNDialog, setShowASNDialog] = useState(false);
+  // Student verification state (ASN or Address)
+  const [showStudentVerificationDialog, setShowStudentVerificationDialog] = useState(false);
+  const [verificationType, setVerificationType] = useState('asn'); // 'asn' or 'address'
   const [asnInput, setAsnInput] = useState('');
-  const [asnError, setAsnError] = useState('');
-  const [asnVerifying, setAsnVerifying] = useState(false);
+  const [addressInput, setAddressInput] = useState(null);
+  const [verificationError, setVerificationError] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [verificationOptions, setVerificationOptions] = useState({ asn: true, address: true });
 
   // Success state
   const [success, setSuccess] = useState(false);
@@ -75,7 +81,12 @@ const ParentLogin = () => {
   useEffect(() => {
     const validateToken = async () => {
       if (!token) {
-        // No token provided - this is a regular parent login
+        // No token provided - this is a regular parent login or firstTime signup
+        if (isFirstTime && emailFromParam) {
+          // Pre-fill email for first-time parent
+          setEmailInput(decodeURIComponent(emailFromParam));
+          setActiveTab('signup');
+        }
         setLoading(false);
         return;
       }
@@ -90,6 +101,9 @@ const ParentLogin = () => {
           setInvitation(result.data.invitation);
           setEmailInput(result.data.invitation.parentEmail);
           setActiveTab('signup'); // Default to signup tab for new invitations
+          setVerificationOptions(result.data.invitation.verificationOptions || { asn: true, address: true });
+          // Default to ASN if available, otherwise address
+          setVerificationType(result.data.invitation.verificationOptions?.asn ? 'asn' : 'address');
           setLoading(false);
         } else {
           setInvitationError('Invalid invitation token. Please check your email link.');
@@ -167,37 +181,54 @@ const ParentLogin = () => {
     return formattedValue;
   };
 
-  // Verify student ASN before accepting invitation
-  const verifyASN = async () => {
+  // Verify student identity before accepting invitation
+  const verifyStudent = async () => {
     // Clear any previous errors
-    setAsnError('');
+    setVerificationError('');
     
     try {
-      setAsnVerifying(true);
+      setVerifying(true);
 
-      if (!asnInput.trim()) {
-        setAsnError('Please enter the student\'s Alberta Student Number');
-        setAsnVerifying(false);
-        return;
+      // Validate based on verification type
+      if (verificationType === 'asn') {
+        if (!asnInput.trim()) {
+          setVerificationError('Please enter the student\'s Alberta Student Number');
+          setVerifying(false);
+          return;
+        }
+      } else if (verificationType === 'address') {
+        if (!addressInput) {
+          setVerificationError('Please select the student\'s home address');
+          setVerifying(false);
+          return;
+        }
       }
 
       const functions = getFunctions();
       const verifyStudentASN = httpsCallable(functions, 'verifyStudentASN');
       
-      const result = await verifyStudentASN({ 
+      const verificationData = {
         invitationToken: token,
-        providedASN: asnInput.trim()
-      });
+        verificationType
+      };
+      
+      if (verificationType === 'asn') {
+        verificationData.providedASN = asnInput.trim();
+      } else {
+        verificationData.providedAddress = addressInput;
+      }
+      
+      const result = await verifyStudentASN(verificationData);
       
       if (result.data.success) {
-        // ASN verified successfully, now accept invitation
-        setShowASNDialog(false);
+        // Verification successful, now accept invitation
+        setShowStudentVerificationDialog(false);
         await acceptInvitation();
       } else {
-        throw new Error('ASN verification failed');
+        throw new Error('Verification failed');
       }
     } catch (err) {
-      console.error('Error verifying ASN:', err);
+      console.error('Error verifying student:', err);
       
       // Extract the error message from the server
       let errorMessage = 'Failed to verify student information. Please try again.';
@@ -207,8 +238,8 @@ const ParentLogin = () => {
         errorMessage = err.message;
       }
       
-      setAsnVerifying(false);
-      setAsnError(errorMessage);
+      setVerifying(false);
+      setVerificationError(errorMessage);
     }
   };
 
@@ -259,8 +290,8 @@ const ParentLogin = () => {
           setAuthLoading(false);
           return;
         }
-        // Show ASN verification dialog
-        setShowASNDialog(true);
+        // Show verification dialog
+        setShowStudentVerificationDialog(true);
         setAuthLoading(false);
       } else {
         // Regular parent login: redirect to parent dashboard
@@ -310,8 +341,8 @@ const ParentLogin = () => {
         await sendEmailVerification(userCredential.user);
         
         if (token && invitation) {
-          // Token-based flow: show ASN verification dialog
-          setShowASNDialog(true);
+          // Token-based flow: show verification dialog
+          setShowStudentVerificationDialog(true);
           setAuthLoading(false);
         } else {
           // Regular signup: redirect to parent dashboard
@@ -325,8 +356,8 @@ const ParentLogin = () => {
         
         if (user.emailVerified) {
           if (token && invitation) {
-            // Token-based flow: show ASN verification dialog
-            setShowASNDialog(true);
+            // Token-based flow: show verification dialog
+            setShowStudentVerificationDialog(true);
             setAuthLoading(false);
           } else {
             // Regular sign-in: redirect to parent dashboard
@@ -337,7 +368,7 @@ const ParentLogin = () => {
           await sendEmailVerification(user);
           await auth.signOut();
           setVerificationEmail(emailInput.trim());
-          setShowVerificationDialog(true);
+          setShowEmailVerificationDialog(true);
           setAuthLoading(false);
         }
       }
@@ -548,11 +579,7 @@ const ParentLogin = () => {
                   : 'Sign in to access your parent dashboard and manage your linked students.'
                 }
               </p>
-              {invitation && (
-                <div className="mt-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <strong>💡 Recommended:</strong> If you use Gmail or Outlook, click the social login buttons below for fastest setup!
-                </div>
-              )}
+            
             </div>
             
             {renderAlerts()}
@@ -578,14 +605,16 @@ const ParentLogin = () => {
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
                       required
-                      readOnly={!!invitation}
+                      readOnly={!!invitation || (isFirstTime && emailFromParam)}
                       className={`mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 sm:text-sm ${
-                        invitation ? 'bg-gray-50' : 'focus:outline-none focus:ring-purple-500 focus:border-purple-500'
+                        (invitation || (isFirstTime && emailFromParam)) ? 'bg-gray-50' : 'focus:outline-none focus:ring-purple-500 focus:border-purple-500'
                       }`}
                       placeholder={invitation ? invitation.parentEmail : "Enter your email address"}
                     />
-                    {invitation && (
-                      <p className="mt-1 text-xs text-gray-500">This invitation is for {invitation.parentEmail}</p>
+                    {(invitation || (isFirstTime && emailFromParam)) && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {invitation ? `This invitation is for ${invitation.parentEmail}` : `Creating account for ${emailInput}`}
+                      </p>
                     )}
                   </div>
 
@@ -641,9 +670,7 @@ const ParentLogin = () => {
             </div>
 
             <div className="text-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                🚀 Recommended: Quick Setup
-              </h3>
+            
               <p className="text-sm text-gray-600">
                 Sign in with your existing Google or Microsoft account for fastest access
               </p>
@@ -691,11 +718,7 @@ const ParentLogin = () => {
                   : 'Join our new Parent Portal to manage your children\'s education and access upcoming features.'
                 }
               </p>
-              {invitation && (
-                <div className="mt-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                  <strong>💡 Recommended:</strong> If you use Gmail or Outlook, click the social signup buttons below for fastest setup!
-                </div>
-              )}
+            
             </div>
             
             {renderAlerts()}
@@ -721,14 +744,16 @@ const ParentLogin = () => {
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
                       required
-                      readOnly={!!invitation}
+                      readOnly={!!invitation || (isFirstTime && emailFromParam)}
                       className={`mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 sm:text-sm ${
-                        invitation ? 'bg-gray-50' : 'focus:outline-none focus:ring-purple-500 focus:border-purple-500'
+                        (invitation || (isFirstTime && emailFromParam)) ? 'bg-gray-50' : 'focus:outline-none focus:ring-purple-500 focus:border-purple-500'
                       }`}
                       placeholder={invitation ? invitation.parentEmail : "Enter your email address"}
                     />
-                    {invitation && (
-                      <p className="mt-1 text-xs text-gray-500">This invitation is for {invitation.parentEmail}</p>
+                    {(invitation || (isFirstTime && emailFromParam)) && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        {invitation ? `This invitation is for ${invitation.parentEmail}` : `Creating account for ${emailInput}`}
+                      </p>
                     )}
                   </div>
 
@@ -814,7 +839,7 @@ const ParentLogin = () => {
 
   return (
     <>
-      <Dialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
+      <Dialog open={showEmailVerificationDialog} onOpenChange={setShowEmailVerificationDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Email Verification Required</DialogTitle>
@@ -833,7 +858,7 @@ const ParentLogin = () => {
           </DialogHeader>
           <DialogFooter className="sm:justify-center">
             <Button
-              onClick={() => setShowVerificationDialog(false)}
+              onClick={() => setShowEmailVerificationDialog(false)}
             >
               Got it, I'll check my email
             </Button>
@@ -841,8 +866,8 @@ const ParentLogin = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showASNDialog} onOpenChange={setShowASNDialog}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={showStudentVerificationDialog} onOpenChange={setShowStudentVerificationDialog}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               <div className="flex items-center gap-2">
@@ -852,76 +877,144 @@ const ParentLogin = () => {
             </DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-4 mt-4">
-                <p>To protect student privacy and ensure you're authorized to access {invitation?.studentName}'s information, please enter their Alberta Student Number (ASN).</p>
+                <p>To protect student privacy and ensure you're authorized to access {invitation?.studentName}'s information, please verify their identity.</p>
                 
-                <div className="bg-blue-50 p-3 rounded-lg text-sm">
-                  <p className="font-medium text-blue-900 mb-1">What is an ASN?</p>
-                  <p className="text-blue-700">The Alberta Student Number is a unique 9-digit identifier assigned to each student in Alberta. It appears on report cards and official school documents in the format: ####-####-#</p>
-                </div>
+                {invitation?.studentEmail && (
+                  <div className="bg-gray-50 p-3 rounded-lg text-sm">
+                    <p className="text-gray-600">Student Email: <span className="font-medium text-gray-900">{invitation.studentEmail}</span></p>
+                  </div>
+                )}
               </div>
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="asn">Alberta Student Number</Label>
-              <Input
-                id="asn"
-                type="text"
-                placeholder="0000-0000-0"
-                value={asnInput}
-                onChange={(e) => setAsnInput(formatASN(e.target.value))}
-                maxLength={11}
-                className="font-mono"
-                autoComplete="off"
-              />
-              {asnError && (
-                <div className="flex items-center gap-2 mt-2">
-                  <AlertCircle className="h-4 w-4 text-red-500" />
-                  <p className="text-sm text-red-600">{asnError}</p>
-                </div>
-              )}
-            </div>
-            
-            <div className="text-sm text-gray-600">
-              <p className="mb-2">Don't know the ASN? You can find it:</p>
-              <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>On report cards or progress reports</li>
-                <li>On school registration documents</li>
-                <li>By asking the school office</li>
-                <li>
-                  <a 
-                    href="https://learnerregistry.ae.alberta.ca/Home/StartLookup" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline inline-flex items-center gap-1"
+            {/* Verification Type Selector - only show if both options available */}
+            {verificationOptions.asn && verificationOptions.address && (
+              <div className="space-y-2">
+                <Label>Verification Method</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    type="button"
+                    variant={verificationType === 'asn' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setVerificationType('asn');
+                      setVerificationError('');
+                    }}
+                    className="justify-start"
                   >
-                    Through the Alberta Education Learner Registry
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </li>
-              </ul>
-            </div>
+                    <ShieldCheck className="h-4 w-4 mr-2" />
+                    ASN Number
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={verificationType === 'address' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setVerificationType('address');
+                      setVerificationError('');
+                    }}
+                    className="justify-start"
+                  >
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Home Address
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            {/* ASN Verification */}
+            {verificationType === 'asn' && verificationOptions.asn && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="asn">Alberta Student Number</Label>
+                  <Input
+                    id="asn"
+                    type="text"
+                    placeholder="0000-0000-0"
+                    value={asnInput}
+                    onChange={(e) => setAsnInput(formatASN(e.target.value))}
+                    maxLength={11}
+                    className="font-mono"
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-gray-500">Format: ####-####-#</p>
+                </div>
+                
+                <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                  <p className="font-medium text-blue-900 mb-1">What is an ASN?</p>
+                  <p className="text-blue-700">The Alberta Student Number is a unique 9-digit identifier found on report cards and official school documents.</p>
+                </div>
+              </>
+            )}
+            
+            {/* Address Verification */}
+            {verificationType === 'address' && (
+              <div className="space-y-2">
+                <Label>Home Address</Label>
+                <AddressPicker 
+                  onAddressSelect={setAddressInput}
+                  studentType="Parent Verification"
+                />
+                {addressInput && (
+                  <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
+                    <p className="text-gray-600">Selected: {addressInput.fullAddress}</p>
+                  </div>
+                )}
+                <p className="text-xs text-gray-500">Please select the exact address the student used during registration</p>
+              </div>
+            )}
+            
+            {/* Error Display */}
+            {verificationError && (
+              <div className="flex items-center gap-2 mt-2">
+                <AlertCircle className="h-4 w-4 text-red-500" />
+                <p className="text-sm text-red-600">{verificationError}</p>
+              </div>
+            )}
+            
+            {/* Help Text */}
+            {verificationType === 'asn' && (
+              <div className="text-sm text-gray-600">
+                <p className="mb-2">Don't know the ASN? You can find it:</p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>On report cards or progress reports</li>
+                  <li>On school registration documents</li>
+                  <li>By asking the school office</li>
+                  <li>
+                    <a 
+                      href="https://learnerregistry.ae.alberta.ca/Home/StartLookup" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                    >
+                      Through the Alberta Education Learner Registry
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            )}
           </div>
           
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
-                setShowASNDialog(false);
+                setShowStudentVerificationDialog(false);
                 setAsnInput('');
-                setAsnError('');
+                setAddressInput(null);
+                setVerificationError('');
                 auth.signOut();
               }}
-              disabled={asnVerifying}
+              disabled={verifying}
             >
               Cancel
             </Button>
             <Button
-              onClick={verifyASN}
-              disabled={asnVerifying || !asnInput.trim()}
+              onClick={verifyStudent}
+              disabled={verifying || (verificationType === 'asn' ? !asnInput.trim() : !addressInput)}
             >
-              {asnVerifying ? (
+              {verifying ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Verifying...
@@ -940,11 +1033,7 @@ const ParentLogin = () => {
             <Users className="h-12 w-12 text-purple-600" />
           </div>
           <h1 className="mt-4 text-3xl font-extrabold text-center text-purple-600">RTD Academy Parent Portal</h1>
-          <div className="mt-2 text-center">
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-              🎉 NEW FEATURE
-            </span>
-          </div>
+         
           {invitation ? (
             <div className="mt-4 text-center">
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
@@ -965,9 +1054,20 @@ const ParentLogin = () => {
           ) : !loading && (
             <div className="mt-4 text-center">
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <p className="text-sm text-purple-800">
-                  Welcome back! Sign in to access your parent dashboard.
-                </p>
+                {isFirstTime && emailFromParam ? (
+                  <>
+                    <p className="text-sm text-purple-800 font-medium">
+                      Welcome! Your child has invited you to create a parent account.
+                    </p>
+                    <p className="text-sm text-purple-700 mt-2">
+                      Please create your account below to view and approve their enrollment.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-purple-800">
+                    Welcome back! Sign in to access your parent dashboard.
+                  </p>
+                )}
                 <div className="mt-3 text-xs text-purple-600 bg-purple-100 rounded p-2">
                   <strong>Coming Soon:</strong> Full parent dashboard with grades, schedules, and communication tools!
                 </div>

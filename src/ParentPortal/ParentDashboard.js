@@ -9,6 +9,17 @@ import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from "../components/ui/dialog";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import AddressPicker from '../components/AddressPicker';
 import { 
   Users, 
   GraduationCap, 
@@ -24,6 +35,8 @@ import {
   X,
   RefreshCw,
   UserCircle,
+  ShieldCheck,
+  MapPin,
 } from 'lucide-react';
 import CourseCard from '../Dashboard/CourseCard';
 import { ImportantDatesCard } from '../Dashboard/ImportantDatesCard';
@@ -73,16 +86,56 @@ const hasParentMadeEnrollmentDecisions = (student) => {
     course => course.approved || course.denied
   );
 };
+
+/**
+ * Format ASN input - matching NonPrimaryStudentForm.js implementation
+ */
+const formatASN = (value) => {
+  // Remove all non-digits and limit to 9 digits
+  let formattedValue = value.replace(/\D/g, "").slice(0, 9);
+  
+  // Apply ####-####-# format
+  if (formattedValue.length > 4) {
+    formattedValue = `${formattedValue.slice(0, 4)}-${formattedValue.slice(4)}`;
+  }
+  if (formattedValue.length > 9) {
+    formattedValue = `${formattedValue.slice(0, 9)}-${formattedValue.slice(9)}`;
+  }
+  
+  return formattedValue;
+};
+
 const ParentDashboard = () => {
   const navigate = useNavigate();
   const { currentUser, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [parentData, setParentData] = useState(null);  const [selectedStudentKey, setSelectedStudentKey] = useState(null);
+  const [parentData, setParentData] = useState(null);
+  const [selectedStudentKey, setSelectedStudentKey] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [showLMS, setShowLMS] = useState(false);
   const [approvalLoading, setApprovalLoading] = useState({});
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [, forceUpdate] = useState({});
+  
+  // Verification dialog state
+  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [pendingInvitation, setPendingInvitation] = useState(null);
+  const [verificationType, setVerificationType] = useState('asn');
+  const [asnInput, setAsnInput] = useState('');
+  const [addressInput, setAddressInput] = useState(null);
+  const [verificationError, setVerificationError] = useState('');
+  const [verifying, setVerifying] = useState(false);
+
+  // Debug effect to monitor dialog state
+  useEffect(() => {
+    console.log('=== State Debug ===');
+    console.log('showVerificationDialog:', showVerificationDialog);
+    console.log('pendingInvitation:', pendingInvitation);
+    console.log('pendingInvitation?.token:', pendingInvitation?.token);
+    console.log('verificationType:', verificationType);
+    console.log('==================');
+  }, [showVerificationDialog, pendingInvitation, verificationType]);
 
   // Function to fetch parent data
   const fetchParentData = async (showToast = true) => {
@@ -193,10 +246,94 @@ const ParentDashboard = () => {
     ).length;
   }, 0) || 0;
 
+  // Handle accepting pending invitation
+  const handleAcceptInvitation = (invitation) => {
+    console.log('handleAcceptInvitation called with:', invitation);
+    console.log('Current showVerificationDialog state:', showVerificationDialog);
+    
+    // Set all the state values
+    setPendingInvitation(invitation);
+    setVerificationType('asn'); // Default to ASN
+    setAsnInput('');
+    setAddressInput(null);
+    setVerificationError('');
+    setShowVerificationDialog(true);
+    
+    console.log('All states set. Invitation token:', invitation.token);
+    
+    // Force a re-render after a small delay
+    setTimeout(() => {
+      forceUpdate({});
+      console.log('Forced re-render');
+    }, 100);
+  };
+
+  // Verify and accept invitation
+  const verifyAndAcceptInvitation = async () => {
+    setVerificationError('');
+    setVerifying(true);
+
+    try {
+      // Validate input
+      if (verificationType === 'asn' && !asnInput.trim()) {
+        setVerificationError('Please enter the student\'s Alberta Student Number');
+        setVerifying(false);
+        return;
+      }
+      if (verificationType === 'address' && !addressInput) {
+        setVerificationError('Please select the student\'s home address');
+        setVerifying(false);
+        return;
+      }
+
+      const functions = getFunctions();
+      const verifyStudentASN = httpsCallable(functions, 'verifyStudentASN');
+      
+      const verificationData = {
+        invitationToken: pendingInvitation.token,
+        verificationType
+      };
+      
+      if (verificationType === 'asn') {
+        verificationData.providedASN = asnInput.trim();
+      } else {
+        verificationData.providedAddress = addressInput;
+      }
+      
+      const verifyResult = await verifyStudentASN(verificationData);
+      
+      if (verifyResult.data.success) {
+        // Now accept the invitation
+        const acceptParentInvitation = httpsCallable(functions, 'acceptParentInvitation');
+        const acceptResult = await acceptParentInvitation({ invitationToken: pendingInvitation.token });
+        
+        if (acceptResult.data.success) {
+          toast.success(`Successfully linked to ${acceptResult.data.studentName}!`);
+          setShowVerificationDialog(false);
+          setPendingInvitation(null);
+          setAsnInput('');
+          setAddressInput(null);
+          // Refresh dashboard data
+          await fetchParentData(false);
+        } else {
+          throw new Error('Failed to accept invitation');
+        }
+      } else {
+        throw new Error('Verification failed');
+      }
+    } catch (err) {
+      console.error('Error accepting invitation:', err);
+      setVerificationError(err.message || 'Failed to verify student information. Please try again.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   // Handle course approval
   const handleCourseApproval = async (studentKey, courseId, approved) => {
-    // Set loading state for this specific course
-    setApprovalLoading(prev => ({ ...prev, [`${studentKey}-${courseId}`]: true }));
+    // Set loading state for this specific course and action (approve or decline)
+    const loadingKey = `${studentKey}-${courseId}-${approved ? 'approve' : 'decline'}`;
+    setApprovalLoading(prev => ({ ...prev, [loadingKey]: true }));
     
     try {
       const functions = getFunctions();
@@ -257,7 +394,8 @@ const ParentDashboard = () => {
       // Clear loading state
       setApprovalLoading(prev => {
         const newState = { ...prev };
-        delete newState[`${studentKey}-${courseId}`];
+        const loadingKey = `${studentKey}-${courseId}-${approved ? 'approve' : 'decline'}`;
+        delete newState[loadingKey];
         return newState;
       });
     }
@@ -319,13 +457,261 @@ const ParentDashboard = () => {
           isEmulating={false}
           isStaffUser={false}
         />
-        <div className="container mx-auto px-4 py-8">
-          <Alert>
-            <Users className="h-4 w-4" />
-            <AlertDescription>
-              No linked students found. Please contact the school if you believe this is an error.
-            </AlertDescription>
-          </Alert>
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
+          {/* Welcome message for new parents */}
+          <Card className="mb-6">
+            <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50">
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <Users className="h-6 w-6 text-purple-600" />
+                Welcome to the RTD Academy Parent Portal!
+              </h1>
+            </CardHeader>
+            <CardContent className="p-6">
+              {parentData?.message && (
+                <Alert className="mb-4 bg-green-50 border-green-200">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    {parentData.message}
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              <div className="space-y-4">
+                <p className="text-gray-700">
+                  The Parent Portal is a new feature that allows you to:
+                </p>
+                <ul className="list-disc pl-6 space-y-2 text-gray-600">
+                  <li>✅ Approve your child's course enrollments</li>
+                  <li>✅ Access important school information</li>
+                  <li className="text-gray-400">🔄 View grades and progress (coming soon)</li>
+                  <li className="text-gray-400">🔄 Access course schedules (coming soon)</li>
+                  <li className="text-gray-400">🔄 Update contact information (coming soon)</li>
+                  <li className="text-gray-400">🔄 Communicate with teachers (coming soon)</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pending Invitations */}
+          {parentData?.pendingInvitations && parentData.pendingInvitations.length > 0 && (
+            <Card className="mb-6 border-purple-200">
+              <CardHeader className="bg-purple-50">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-purple-600" />
+                  Pending Student Invitations
+                </h2>
+              </CardHeader>
+              <CardContent className="p-6">
+                <p className="text-sm text-gray-600 mb-4">
+                  You have pending invitations to link to the following students:
+                </p>
+                <div className="space-y-3">
+                  {parentData.pendingInvitations.map((invitation) => (
+                    <div key={invitation.token}>
+                      {/* Show invitation or verification form based on state */}
+                      {pendingInvitation?.token === invitation.token && showVerificationDialog ? (
+                        /* Inline Verification Form */
+                        <Card className="border-2 border-purple-500 shadow-lg">
+                          <CardHeader className="bg-purple-50">
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <ShieldCheck className="h-5 w-5 text-green-600" />
+                                Verify Student Information
+                              </h3>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setShowVerificationDialog(false);
+                                  setPendingInvitation(null);
+                                  setAsnInput('');
+                                  setAddressInput(null);
+                                  setVerificationError('');
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-6">
+                            <div className="space-y-4">
+                              <div>
+                                <p className="text-gray-700">
+                                  To protect student privacy, please verify <strong>{invitation.studentName}</strong>'s identity before linking accounts.
+                                </p>
+                                <p className="text-sm text-gray-500 mt-1">
+                                  Course: {invitation.courseName}
+                                </p>
+                              </div>
+
+                              {/* Verification Type Selector */}
+                              <div className="space-y-2">
+                                <Label>Verification Method</Label>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <Button
+                                    type="button"
+                                    variant={verificationType === 'asn' ? 'default' : 'outline'}
+                                    onClick={() => {
+                                      setVerificationType('asn');
+                                      setVerificationError('');
+                                    }}
+                                    className="justify-start"
+                                  >
+                                    <ShieldCheck className="h-4 w-4 mr-2" />
+                                    ASN Number
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant={verificationType === 'address' ? 'default' : 'outline'}
+                                    onClick={() => {
+                                      setVerificationType('address');
+                                      setVerificationError('');
+                                    }}
+                                    className="justify-start"
+                                  >
+                                    <MapPin className="h-4 w-4 mr-2" />
+                                    Home Address
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* ASN Verification */}
+                              {verificationType === 'asn' && (
+                                <>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="asn">Alberta Student Number</Label>
+                                    <Input
+                                      id="asn"
+                                      type="text"
+                                      placeholder="0000-0000-0"
+                                      value={asnInput}
+                                      onChange={(e) => setAsnInput(formatASN(e.target.value))}
+                                      maxLength={11}
+                                      className="font-mono"
+                                      autoComplete="off"
+                                    />
+                                    <p className="text-xs text-gray-500">Format: ####-####-#</p>
+                                  </div>
+                                  
+                                  <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                                    <p className="font-medium text-blue-900 mb-1">What is an ASN?</p>
+                                    <p className="text-blue-700">The Alberta Student Number is a unique 9-digit identifier found on report cards and official school documents.</p>
+                                  </div>
+                                </>
+                              )}
+
+                              {/* Address Verification */}
+                              {verificationType === 'address' && (
+                                <div className="space-y-2">
+                                  <Label>Home Address</Label>
+                                  <AddressPicker 
+                                    onAddressSelect={setAddressInput}
+                                    studentType="Parent Verification"
+                                  />
+                                  {addressInput && (
+                                    <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
+                                      <p className="text-gray-600">Selected: {addressInput.fullAddress}</p>
+                                    </div>
+                                  )}
+                                  <p className="text-xs text-gray-500">Please select the exact address the student used during registration</p>
+                                </div>
+                              )}
+
+                              {/* Error Display */}
+                              {verificationError && (
+                                <Alert variant="destructive">
+                                  <AlertCircle className="h-4 w-4" />
+                                  <AlertDescription>{verificationError}</AlertDescription>
+                                </Alert>
+                              )}
+
+                              {/* Action Buttons */}
+                              <div className="flex gap-2 justify-end pt-4">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setShowVerificationDialog(false);
+                                    setPendingInvitation(null);
+                                    setAsnInput('');
+                                    setAddressInput(null);
+                                    setVerificationError('');
+                                  }}
+                                  disabled={verifying}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  onClick={verifyAndAcceptInvitation}
+                                  disabled={verifying || (verificationType === 'asn' ? !asnInput.trim() : !addressInput)}
+                                >
+                                  {verifying ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Verifying...
+                                    </>
+                                  ) : (
+                                    'Verify & Link'
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        /* Normal Invitation Display */
+                        <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium">{invitation.studentName}</p>
+                              <p className="text-sm text-gray-600">Course: {invitation.courseName}</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Expires: {new Date(invitation.expiresAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              className="bg-purple-600 hover:bg-purple-700"
+                              onClick={() => handleAcceptInvitation(invitation)}
+                            >
+                              Accept Invitation
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* How to Link Students */}
+          <Card className="border-blue-200">
+            <CardHeader className="bg-blue-50">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Users className="h-5 w-5 text-blue-600" />
+                How to Link to Your Child's Account
+              </h2>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-medium text-gray-800 mb-2">Option 1: Through Student Registration</h3>
+                  <p className="text-sm text-gray-600">
+                    When your child registers for a course, they can enter your email address. 
+                    You'll receive an invitation email with a link to connect your accounts.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-800 mb-2">Option 2: Contact the School</h3>
+                  <p className="text-sm text-gray-600">
+                    Contact RTD Academy at <a href="mailto:info@rtdacademy.com" className="text-blue-600 hover:underline">info@rtdacademy.com</a> to 
+                    request linkage to your child's account.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -362,6 +748,215 @@ const ParentDashboard = () => {
               Refresh
             </Button>
           </div>
+          
+          
+          {/* Pending Invitations for existing parents with linked students */}
+          {parentData?.pendingInvitations && parentData.pendingInvitations.length > 0 && parentData.linkedStudents && parentData.linkedStudents.length > 0 && (
+            <Card className="mb-6 border-purple-200">
+              <CardHeader className="bg-purple-50">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-purple-600" />
+                  New Student Link Requests
+                </h2>
+              </CardHeader>
+              <CardContent className="p-6">
+                <p className="text-sm text-gray-600 mb-4">
+                  You have new invitations to link to the following students:
+                </p>
+                <div className="space-y-3">
+                  {parentData.pendingInvitations.map((invitation) => {
+                    // Debug log for each invitation
+                    console.log('Rendering invitation:', invitation.token);
+                    console.log('Checking condition:', {
+                      'pendingInvitation?.token': pendingInvitation?.token,
+                      'invitation.token': invitation.token,
+                      'tokens match': pendingInvitation?.token === invitation.token,
+                      'showVerificationDialog': showVerificationDialog,
+                      'should show form': pendingInvitation?.token === invitation.token && showVerificationDialog
+                    });
+                    
+                    return (
+                    <div key={invitation.token}>
+                      {/* Show invitation or verification form based on state */}
+                      {pendingInvitation?.token === invitation.token && showVerificationDialog ? (
+                        /* Inline Verification Form */
+                        <Card className="border-2 border-purple-500 shadow-lg">
+                          <CardHeader className="bg-purple-50">
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <ShieldCheck className="h-5 w-5 text-green-600" />
+                                Verify Student Information
+                              </h3>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setShowVerificationDialog(false);
+                                  setPendingInvitation(null);
+                                  setAsnInput('');
+                                  setAddressInput(null);
+                                  setVerificationError('');
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-6">
+                            <div className="space-y-4">
+                              <div>
+                                <p className="text-gray-700">
+                                  To protect student privacy, please verify <strong>{invitation.studentName}</strong>'s identity before linking accounts.
+                                </p>
+                                <p className="text-sm text-gray-500 mt-1">
+                                  Course: {invitation.courseName}
+                                </p>
+                              </div>
+
+                              {/* Verification Type Selector */}
+                              <div className="space-y-2">
+                                <Label>Verification Method</Label>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <Button
+                                    type="button"
+                                    variant={verificationType === 'asn' ? 'default' : 'outline'}
+                                    onClick={() => {
+                                      setVerificationType('asn');
+                                      setVerificationError('');
+                                    }}
+                                    className="justify-start"
+                                  >
+                                    <ShieldCheck className="h-4 w-4 mr-2" />
+                                    ASN Number
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant={verificationType === 'address' ? 'default' : 'outline'}
+                                    onClick={() => {
+                                      setVerificationType('address');
+                                      setVerificationError('');
+                                    }}
+                                    className="justify-start"
+                                  >
+                                    <MapPin className="h-4 w-4 mr-2" />
+                                    Home Address
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* ASN Verification */}
+                              {verificationType === 'asn' && (
+                                <>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="asn">Alberta Student Number</Label>
+                                    <Input
+                                      id="asn"
+                                      type="text"
+                                      placeholder="0000-0000-0"
+                                      value={asnInput}
+                                      onChange={(e) => setAsnInput(formatASN(e.target.value))}
+                                      maxLength={11}
+                                      className="font-mono"
+                                      autoComplete="off"
+                                    />
+                                    <p className="text-xs text-gray-500">Format: ####-####-#</p>
+                                  </div>
+                                  
+                                  <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                                    <p className="font-medium text-blue-900 mb-1">What is an ASN?</p>
+                                    <p className="text-blue-700">The Alberta Student Number is a unique 9-digit identifier found on report cards and official school documents.</p>
+                                  </div>
+                                </>
+                              )}
+
+                              {/* Address Verification */}
+                              {verificationType === 'address' && (
+                                <div className="space-y-2">
+                                  <Label>Home Address</Label>
+                                  <AddressPicker 
+                                    onAddressSelect={setAddressInput}
+                                    studentType="Parent Verification"
+                                  />
+                                  {addressInput && (
+                                    <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
+                                      <p className="text-gray-600">Selected: {addressInput.fullAddress}</p>
+                                    </div>
+                                  )}
+                                  <p className="text-xs text-gray-500">Please select the exact address the student used during registration</p>
+                                </div>
+                              )}
+
+                              {/* Error Display */}
+                              {verificationError && (
+                                <Alert variant="destructive">
+                                  <AlertCircle className="h-4 w-4" />
+                                  <AlertDescription>{verificationError}</AlertDescription>
+                                </Alert>
+                              )}
+
+                              {/* Action Buttons */}
+                              <div className="flex gap-2 justify-end pt-4">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setShowVerificationDialog(false);
+                                    setPendingInvitation(null);
+                                    setAsnInput('');
+                                    setAddressInput(null);
+                                    setVerificationError('');
+                                  }}
+                                  disabled={verifying}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  onClick={verifyAndAcceptInvitation}
+                                  disabled={verifying || (verificationType === 'asn' ? !asnInput.trim() : !addressInput)}
+                                >
+                                  {verifying ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Verifying...
+                                    </>
+                                  ) : (
+                                    'Verify & Link'
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        /* Normal Invitation Display */
+                        <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium">{invitation.studentName || 'Unknown Student'}</p>
+                              <p className="text-sm text-gray-600">Course: {invitation.courseName || 'Unknown Course'}</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Expires: {invitation.expiresAt ? new Date(invitation.expiresAt).toLocaleDateString() : 'Unknown'}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              className="bg-purple-600 hover:bg-purple-700"
+                              onClick={() => {
+                                console.log('Button clicked! Invitation:', invitation);
+                                handleAcceptInvitation(invitation);
+                              }}
+                            >
+                              Accept & Link
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
           
           {/* Pending Approvals Banner */}
           {pendingApprovalsCount > 0 && (
@@ -466,9 +1061,9 @@ const ParentDashboard = () => {
                                 })()}
                               </div>
                               <div className="flex items-center gap-2 mr-2">
-                                {/* Student Type Badge */}
-                                {student.studentType?.Value && (() => {
-                                  const typeInfo = getStudentTypeInfo(student.studentType.Value);
+                                {/* Student Type Badge - from first course */}
+                                {student.courses?.[0]?.StudentType?.Value && (() => {
+                                  const typeInfo = getStudentTypeInfo(student.courses[0].StudentType.Value);
                                   const TypeIcon = typeInfo.icon;
                                   return (
                                     <Badge 
@@ -476,7 +1071,7 @@ const ParentDashboard = () => {
                                       style={{ backgroundColor: typeInfo.color, color: 'white' }}
                                     >
                                       {TypeIcon && <TypeIcon className="h-3 w-3" />}
-                                      <span className="text-xs">{student.studentType.Value}</span>
+                                      <span className="text-xs">{student.courses[0].StudentType.Value}</span>
                                     </Badge>
                                   );
                                 })()}
@@ -639,9 +1234,9 @@ const ParentDashboard = () => {
                                     variant="outline"
                                     className="border-green-500 text-green-700 hover:bg-green-50"
                                     onClick={() => handleCourseApproval(student.studentEmailKey, courseId, true)}
-                                    disabled={approvalLoading[`${student.studentEmailKey}-${courseId}`]}
+                                    disabled={approvalLoading[`${student.studentEmailKey}-${courseId}-approve`] || approvalLoading[`${student.studentEmailKey}-${courseId}-decline`]}
                                   >
-                                    {approvalLoading[`${student.studentEmailKey}-${courseId}`] ? (
+                                    {approvalLoading[`${student.studentEmailKey}-${courseId}-approve`] ? (
                                       <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                                     ) : (
                                       <CheckCircle className="h-4 w-4 mr-1" />
@@ -653,9 +1248,9 @@ const ParentDashboard = () => {
                                     variant="outline"
                                     className="border-red-500 text-red-700 hover:bg-red-50"
                                     onClick={() => handleCourseApproval(student.studentEmailKey, courseId, false)}
-                                    disabled={approvalLoading[`${student.studentEmailKey}-${courseId}`]}
+                                    disabled={approvalLoading[`${student.studentEmailKey}-${courseId}-approve`] || approvalLoading[`${student.studentEmailKey}-${courseId}-decline`]}
                                   >
-                                    {approvalLoading[`${student.studentEmailKey}-${courseId}`] ? (
+                                    {approvalLoading[`${student.studentEmailKey}-${courseId}-decline`] ? (
                                       <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                                     ) : (
                                       <X className="h-4 w-4 mr-1" />
@@ -697,27 +1292,39 @@ const ParentDashboard = () => {
                           </h3>
                         </CardHeader>
                         <CardContent className="p-6">
-                          {student.courses && student.courses.length > 0 ? (
-                            <div className="space-y-6">
-                              {student.courses.map((course) => (
-                                <CourseCard
-                                  key={course.CourseID || course.id}
-                                  course={course}
-                                  profile={student.profile}
-                                  onViewDetails={() => setSelectedCourse(course)}
-                                  onGoToCourse={() => {
-                                    toast.info("Parent view of course content coming soon!");
-                                  }}
-                                  showProgressBar={student.permissions.viewGrades}
-                                  showGradeInfo={student.permissions.viewGrades}
-                                />
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-8 text-gray-500">
-                              No courses enrolled yet
-                            </div>
-                          )}
+                          {(() => {
+                            // Filter courses to only show approved ones
+                            const approvedCourses = student.courses?.filter(course => {
+                              const courseId = course.CourseID || course.id;
+                              const enrollmentCourse = student.enrollmentApproval?.courses?.[courseId];
+                              return enrollmentCourse?.approved === true;
+                            }) || [];
+
+                            return approvedCourses.length > 0 ? (
+                              <div className="space-y-6">
+                                {approvedCourses.map((course) => (
+                                  <CourseCard
+                                    key={course.CourseID || course.id}
+                                    course={course}
+                                    profile={student.profile}
+                                    onViewDetails={() => setSelectedCourse(course)}
+                                    onGoToCourse={() => {
+                                      toast.info("Parent view of course content coming soon!");
+                                    }}
+                                    showProgressBar={student.permissions.viewGrades}
+                                    showGradeInfo={student.permissions.viewGrades}
+                                  />
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 text-gray-500">
+                                {student.courses && student.courses.length > 0 
+                                  ? "No approved courses yet. Please approve enrollments above to view courses."
+                                  : "No courses enrolled yet"
+                                }
+                              </div>
+                            );
+                          })()}
                         </CardContent>
                       </Card>
                     )}
@@ -798,9 +1405,9 @@ const ParentDashboard = () => {
                           })()}
                         </div>
                         <div className="flex items-center gap-2 mr-2">
-                          {/* Student Type Badge */}
-                          {selectedStudent.studentType?.Value && (() => {
-                            const typeInfo = getStudentTypeInfo(selectedStudent.studentType.Value);
+                          {/* Student Type Badge - from first course */}
+                          {selectedStudent.courses?.[0]?.StudentType?.Value && (() => {
+                            const typeInfo = getStudentTypeInfo(selectedStudent.courses[0].StudentType.Value);
                             const TypeIcon = typeInfo.icon;
                             return (
                               <Badge 
@@ -808,7 +1415,7 @@ const ParentDashboard = () => {
                                 style={{ backgroundColor: typeInfo.color, color: 'white' }}
                               >
                                 {TypeIcon && <TypeIcon className="h-3 w-3" />}
-                                <span className="text-xs">{selectedStudent.studentType.Value}</span>
+                                <span className="text-xs">{selectedStudent.courses[0].StudentType.Value}</span>
                               </Badge>
                             );
                           })()}
@@ -971,9 +1578,9 @@ const ParentDashboard = () => {
                                 variant="outline"
                                 className="border-green-500 text-green-700 hover:bg-green-50"
                                 onClick={() => handleCourseApproval(selectedStudent.studentEmailKey, courseId, true)}
-                                disabled={approvalLoading[`${selectedStudent.studentEmailKey}-${courseId}`]}
+                                disabled={approvalLoading[`${selectedStudent.studentEmailKey}-${courseId}-approve`] || approvalLoading[`${selectedStudent.studentEmailKey}-${courseId}-decline`]}
                               >
-                                {approvalLoading[`${selectedStudent.studentEmailKey}-${courseId}`] ? (
+                                {approvalLoading[`${selectedStudent.studentEmailKey}-${courseId}-approve`] ? (
                                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                                 ) : (
                                   <CheckCircle className="h-4 w-4 mr-1" />
@@ -985,9 +1592,9 @@ const ParentDashboard = () => {
                                 variant="outline"
                                 className="border-red-500 text-red-700 hover:bg-red-50"
                                 onClick={() => handleCourseApproval(selectedStudent.studentEmailKey, courseId, false)}
-                                disabled={approvalLoading[`${selectedStudent.studentEmailKey}-${courseId}`]}
+                                disabled={approvalLoading[`${selectedStudent.studentEmailKey}-${courseId}-approve`] || approvalLoading[`${selectedStudent.studentEmailKey}-${courseId}-decline`]}
                               >
-                                {approvalLoading[`${selectedStudent.studentEmailKey}-${courseId}`] ? (
+                                {approvalLoading[`${selectedStudent.studentEmailKey}-${courseId}-decline`] ? (
                                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                                 ) : (
                                   <X className="h-4 w-4 mr-1" />
@@ -1034,27 +1641,39 @@ const ParentDashboard = () => {
                     </h3>
                   </CardHeader>
                   <CardContent className="p-6">
-                    {selectedStudent.courses && selectedStudent.courses.length > 0 ? (
-                      <div className="space-y-6">
-                        {selectedStudent.courses.map((course) => (
-                          <CourseCard
-                            key={course.CourseID || course.id}
-                            course={course}
-                            profile={selectedStudent.profile}
-                            onViewDetails={() => setSelectedCourse(course)}
-                            onGoToCourse={() => {
-                              toast.info("Parent view of course content coming soon!");
-                            }}
-                            showProgressBar={selectedStudent.permissions.viewGrades}
-                            showGradeInfo={selectedStudent.permissions.viewGrades}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        No courses enrolled yet
-                      </div>
-                    )}
+                    {(() => {
+                      // Filter courses to only show approved ones
+                      const approvedCourses = selectedStudent.courses?.filter(course => {
+                        const courseId = course.CourseID || course.id;
+                        const enrollmentCourse = selectedStudent.enrollmentApproval?.courses?.[courseId];
+                        return enrollmentCourse?.approved === true;
+                      }) || [];
+
+                      return approvedCourses.length > 0 ? (
+                        <div className="space-y-6">
+                          {approvedCourses.map((course) => (
+                            <CourseCard
+                              key={course.CourseID || course.id}
+                              course={course}
+                              profile={selectedStudent.profile}
+                              onViewDetails={() => setSelectedCourse(course)}
+                              onGoToCourse={() => {
+                                toast.info("Parent view of course content coming soon!");
+                              }}
+                              showProgressBar={selectedStudent.permissions.viewGrades}
+                              showGradeInfo={selectedStudent.permissions.viewGrades}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          {selectedStudent.courses && selectedStudent.courses.length > 0 
+                            ? "No approved courses yet. Please approve enrollments above to view courses."
+                            : "No courses enrolled yet"
+                          }
+                        </div>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               )}
@@ -1076,6 +1695,7 @@ const ParentDashboard = () => {
           )}
         </div>
       </div>
+      
     </div>
   );
 };

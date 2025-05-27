@@ -58,9 +58,7 @@ const minorRequirements = {
 // Requirements specific to international students
 const internationalRequirements = {
   documents: {
-    'internationalDocuments.passport': { importance: FIELD_IMPORTANCE.REQUIRED, label: 'Passport' },
-    'internationalDocuments.additionalID': { importance: FIELD_IMPORTANCE.REQUIRED, label: 'Additional ID' },
-    'internationalDocuments.residencyProof': { importance: FIELD_IMPORTANCE.RECOMMENDED, label: 'Proof of Residency' },
+    internationalDocuments: { importance: FIELD_IMPORTANCE.REQUIRED, label: 'International Documents', isArray: true, minItems: 1 },
     citizenshipDocuments: { importance: FIELD_IMPORTANCE.OPTIONAL, label: 'Citizenship Documents' } // Override to optional
   }
 };
@@ -141,6 +139,7 @@ export function getFieldValue(student, fieldPath) {
 
 /**
  * Check if a field has a value (not null, undefined, or empty string/array)
+ * For international documents array, check if it has at least one valid document
  */
 export function hasFieldValue(student, fieldPath) {
   const value = getFieldValue(student, fieldPath);
@@ -149,8 +148,14 @@ export function hasFieldValue(student, fieldPath) {
     return false;
   }
   
-  if (Array.isArray(value) && value.length === 0) {
-    return false;
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return false;
+    }
+    // For international documents, check if at least one document has a URL
+    if (fieldPath === 'profile.internationalDocuments') {
+      return value.some(doc => doc && doc.url);
+    }
   }
   
   return true;
@@ -184,8 +189,15 @@ export function calculateCompletionStats(student) {
       let fieldPath;
       if (category === 'guardian') {
         fieldPath = `profile.${fieldName}`;
-      } else if (category === 'documents' && fieldName.includes('.')) {
-        fieldPath = fieldName;
+      } else if (category === 'documents') {
+        // Handle documents specially - they might be at top level or nested
+        if (fieldName === 'internationalDocuments') {
+          fieldPath = `profile.internationalDocuments`;
+        } else if (fieldName.includes('.')) {
+          fieldPath = fieldName;
+        } else {
+          fieldPath = `profile.${fieldName}`;
+        }
       } else if (fieldName.includes('.')) {
         // Handle nested fields like 'address.streetAddress'
         fieldPath = `profile.${fieldName}`;
@@ -261,8 +273,15 @@ export function getMissingFields(student, importanceFilter = null) {
       let fieldPath;
       if (category === 'guardian') {
         fieldPath = `profile.${fieldName}`;
-      } else if (category === 'documents' && fieldName.includes('.')) {
-        fieldPath = fieldName;
+      } else if (category === 'documents') {
+        // Handle documents specially - they might be at top level or nested
+        if (fieldName === 'internationalDocuments') {
+          fieldPath = `profile.internationalDocuments`;
+        } else if (fieldName.includes('.')) {
+          fieldPath = fieldName;
+        } else {
+          fieldPath = `profile.${fieldName}`;
+        }
       } else if (fieldName.includes('.')) {
         // Handle nested fields like 'address.streetAddress'
         fieldPath = `profile.${fieldName}`;
