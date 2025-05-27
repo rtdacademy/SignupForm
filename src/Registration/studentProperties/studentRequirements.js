@@ -24,9 +24,7 @@ const commonRequirements = {
     StudentPhone: { importance: FIELD_IMPORTANCE.RECOMMENDED, label: 'Phone Number' }
   },
   academic: {
-    asn: { importance: FIELD_IMPORTANCE.PASI_REQUIRED, label: 'Alberta Student Number (ASN)' },
-    grade: { importance: FIELD_IMPORTANCE.PASI_REQUIRED, label: 'Grade Level' },
-    homeSchool: { importance: FIELD_IMPORTANCE.OPTIONAL, label: 'Home School' }
+    asn: { importance: FIELD_IMPORTANCE.PASI_REQUIRED, label: 'Alberta Student Number (ASN)' }
   },
   address: {
     'address.streetAddress': { importance: FIELD_IMPORTANCE.PASI_REQUIRED, label: 'Street Address' },
@@ -69,27 +67,7 @@ const internationalRequirements = {
 
 // Student type specific overrides
 const studentTypeOverrides = {
-  'Adult Student': {
-    academic: {
-      grade: { importance: FIELD_IMPORTANCE.OPTIONAL, label: 'Grade Level' }
-    }
-  },
-  'Summer School': {
-    academic: {
-      homeSchool: { importance: FIELD_IMPORTANCE.RECOMMENDED, label: 'Home School' }
-    }
-  },
-  'Home Education': {
-    academic: {
-      homeSchool: { importance: FIELD_IMPORTANCE.REQUIRED, label: 'Home Education Provider' },
-      grade: { importance: FIELD_IMPORTANCE.OPTIONAL, label: 'Grade Level' }
-    }
-  },
-  'Non-Primary': {
-    academic: {
-      homeSchool: { importance: FIELD_IMPORTANCE.REQUIRED, label: 'Primary School' }
-    }
-  }
+  // Currently no overrides needed since primary school is stored at course level
 };
 
 /**

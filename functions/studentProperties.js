@@ -342,33 +342,64 @@ const updateStudentAcademicInfo = onCall({
     const historyEntries = [];
     
     // Valid fields for academic info
-    const validFields = ['asn', 'grade', 'homeSchool'];
+    const validFields = ['asn', 'primarySchool'];
     const updateData = {};
     
-    for (const [field, newValue] of Object.entries(updates)) {
-      if (!validFields.includes(field)) {
-        throw new HttpsError('invalid-argument', `Field '${field}' is not allowed for academic info updates`);
-      }
-      
+    // Handle ASN update
+    if (updates.asn !== undefined) {
       // Special validation for ASN
-      if (field === 'asn' && newValue) {
+      if (updates.asn) {
         const asnPattern = /^\d{4}-\d{4}-\d$/;
-        if (!asnPattern.test(newValue)) {
+        if (!asnPattern.test(updates.asn)) {
           throw new HttpsError('invalid-argument', 'ASN must be in format ####-####-#');
         }
       }
       
-      const oldValue = currentProfile[field];
-      if (oldValue !== newValue) {
-        updateData[field] = newValue;
-        fieldsChanged.push(field);
+      const oldValue = currentProfile.asn;
+      if (oldValue !== updates.asn) {
+        updateData.asn = updates.asn;
+        fieldsChanged.push('asn');
         
         // Create history entry
         const entryKey = await createProfileHistoryEntry(
           studentEmailKey, 
-          field, 
+          'asn', 
           oldValue, 
-          newValue, 
+          updates.asn, 
+          parentEmail
+        );
+        historyEntries.push(entryKey);
+      }
+    }
+    
+    // Handle primary school update (for Home Education and Non-Primary students)
+    if (updates.primarySchool) {
+      // Get student's courses to update primary school info
+      const coursesRef = db.ref(`students/${studentEmailKey}/courses`);
+      const coursesSnapshot = await coursesRef.once('value');
+      
+      if (coursesSnapshot.exists()) {
+        const courses = coursesSnapshot.val();
+        const courseUpdates = {};
+        
+        // Update primary school info for all courses
+        for (const courseId of Object.keys(courses)) {
+          courseUpdates[`${courseId}/primarySchoolName`] = updates.primarySchool.name || null;
+          courseUpdates[`${courseId}/primarySchoolAddress`] = updates.primarySchool.address || null;
+          courseUpdates[`${courseId}/primarySchoolPlaceId`] = updates.primarySchool.placeId || null;
+        }
+        
+        // Apply updates to all courses
+        await coursesRef.update(courseUpdates);
+        fieldsChanged.push('primarySchool');
+        
+        // Create history entry for primary school change
+        const oldPrimarySchool = courses[Object.keys(courses)[0]]?.primarySchoolName || null;
+        const entryKey = await createProfileHistoryEntry(
+          studentEmailKey, 
+          'primarySchool', 
+          oldPrimarySchool, 
+          updates.primarySchool.name, 
           parentEmail
         );
         historyEntries.push(entryKey);

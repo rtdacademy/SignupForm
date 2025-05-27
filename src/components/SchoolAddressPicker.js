@@ -3,8 +3,8 @@ import GooglePlacesAutocomplete, { geocodeByPlaceId } from 'react-google-places-
 import { Button } from "./ui/button";
 import { X } from "lucide-react";
 
-const SchoolAddressPicker = ({ onAddressSelect }) => {
-  const [selectedPlace, setSelectedPlace] = useState(null);
+const SchoolAddressPicker = ({ onAddressSelect, initialValue }) => {
+  const [selectedPlace, setSelectedPlace] = useState(initialValue);
 
   const handleSelect = async (selection) => {
     try {
@@ -59,6 +59,7 @@ const SchoolAddressPicker = ({ onAddressSelect }) => {
               label: selectedPlace.name, 
               value: { place_id: selectedPlace.placeId } 
             } : null,
+            defaultInputValue: initialValue?.name || '',
             onChange: handleSelect,
             placeholder: 'Search for your school in Alberta',
             classNames: {
