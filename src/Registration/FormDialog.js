@@ -323,7 +323,10 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
           studentPhoto: registrationData.formData.studentPhoto,
           albertaResident: registrationData.formData.albertaResident,
           parentRelationship: registrationData.formData.parentRelationship,
-          howDidYouHear: registrationData.formData.howDidYouHear
+          howDidYouHear: registrationData.formData.howDidYouHear,
+          // Log international documents
+          internationalDocuments: registrationData.formData.internationalDocuments,
+          documents: registrationData.formData.documents
         });
         
         // Validate the registration settings path
@@ -395,12 +398,13 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
           "whyApplying": registrationData.formData.whyApplying || '',
           // Add international student information to profile if applicable
           ...(registrationData.studentType === 'International Student' && {
-            "internationalDocuments": {
-              "passport": registrationData.formData.documents?.passport || '',
-              "additionalID": registrationData.formData.documents?.additionalID || '',
-              "residencyProof": registrationData.formData.documents?.residencyProof || '',
-              "countryOfOrigin": registrationData.formData.country || ''
-            }
+            "internationalDocuments": registrationData.formData.internationalDocuments || 
+              // Fallback to old format if new format is not available
+              (registrationData.formData.documents ? {
+                "passport": registrationData.formData.documents.passport || '',
+                "additionalID": registrationData.formData.documents.additionalID || '',
+                "residencyProof": registrationData.formData.documents.residencyProof || ''
+              } : [])
           })
         };
 
@@ -466,6 +470,16 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
             "primarySchoolName": registrationData.formData.schoolAddress?.name || '',
             "primarySchoolAddress": registrationData.formData.schoolAddress?.fullAddress || '',
             "primarySchoolPlaceId": registrationData.formData.schoolAddress?.placeId || ''
+          }),
+          // Add international documents to course data if student is international
+          ...(registrationData.studentType === 'International Student' && {
+            "internationalDocuments": registrationData.formData.internationalDocuments || 
+              // Fallback to old format if new format is not available
+              (registrationData.formData.documents ? {
+                "passport": registrationData.formData.documents.passport || '',
+                "additionalID": registrationData.formData.documents.additionalID || '',
+                "residencyProof": registrationData.formData.documents.residencyProof || ''
+              } : [])
           }),
           "jsonStudentNotes": [
             {
@@ -779,7 +793,7 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
             onClick={currentStep === 'type-selection' ? handleProceed : handleReview}
             disabled={
               (currentStep === 'type-selection' && !selectedStudentType) ||
-              (currentStep === 'form' && !isFormValid)
+              (currentStep === 'form' && !isFormValid && completionPercentage < 100)
             }
           >
             {currentStep === 'type-selection' ? 'Proceed' : 'Review'}

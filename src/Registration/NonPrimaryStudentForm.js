@@ -41,8 +41,6 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'fire
 import InternationalDocuments from './InternationalDocuments';
 import StudentPhotoUpload from './StudentPhotoUpload';
 import CitizenshipDocuments from './CitizenshipDocuments';
-import Select from 'react-select';
-import countryList from 'react-select-country-list';
 import {
   ValidationFeedback,
   validationRules,
@@ -405,7 +403,6 @@ const NonPrimaryStudentForm = forwardRef(({
     currentSchoolYearKey
   } = useRegistrationSettings(studentType);
 
-  const countryOptions = useMemo(() => countryList().getData(), []);
 
   const [documentUrls, setDocumentUrls] = useState({
     passport: '',
@@ -478,13 +475,13 @@ const NonPrimaryStudentForm = forwardRef(({
       diplomaMonth: null,
       studentType: studentType || 'Non-Primary', // Initialize with studentType prop
       age: null,
-      country: '', 
       term: defaultTerm, // Initialize with default term based on student type
       documents: {
         passport: '',
         additionalID: '',
         residencyProof: ''
       },
+      internationalDocuments: [], // New array format for international documents
       registrationSettingsPath: null,
       timeSectionId: null,
       // New fields
@@ -648,7 +645,6 @@ const NonPrimaryStudentForm = forwardRef(({
             parentLastName: snapshot.val().ParentLastName || prev.parentLastName,
             parentPhone: snapshot.val().ParentPhone_x0023_ || prev.parentPhone,
             parentEmail: snapshot.val().ParentEmail || prev.parentEmail,
-            country: snapshot.val().internationalDocuments?.countryOfOrigin || prev.country,
             // Don't pre-populate address - require fresh input for each registration
             // address: snapshot.val().address || prev.address,
           }));
@@ -687,7 +683,6 @@ const NonPrimaryStudentForm = forwardRef(({
       parentLastName: !!profileData.ParentLastName,
       parentPhone: !!profileData.ParentPhone_x0023_,
       parentEmail: !!profileData.ParentEmail,
-      country: !!profileData.internationalDocuments?.countryOfOrigin,
       documents: !!(profileData.internationalDocuments?.passport && 
                   profileData.internationalDocuments?.additionalID),
       // Don't make address read-only - require fresh input for each registration
@@ -703,7 +698,6 @@ const NonPrimaryStudentForm = forwardRef(({
       parentPhone: () => !user18OrOlder,
       parentEmail: () => !user18OrOlder,
       preferredFirstName: () => usePreferredFirstName,
-      country: () => studentType === 'International Student',
       documents: () => studentType === 'International Student',
       albertaStudentNumber: () => {
         if (studentType === 'International Student' && !hasASN) {
@@ -874,31 +868,36 @@ const NonPrimaryStudentForm = forwardRef(({
     handleBlur(name);
   }, [handleBlur, getCurrentSchoolYear, getTimeSection, studentType, currentSchoolYearKey]);
 
-  const handleCountryChange = (selectedOption) => {
-    handleFormChange({
-      target: {
-        name: 'country',
-        value: selectedOption.value
-      }
-    });
-  };
 
-  const handleDocumentUpload = (type, url) => {
-    setDocumentUrls(prev => ({
-      ...prev,
-      [type]: url
-    }));
-    
-    setFormData(prev => ({
-      ...prev,
-      documents: {
-        ...prev.documents,
-        [type]: url
-      }
-    }));
-    
-    // Trigger validation after state update
-    handleBlur('documents');
+  const handleDocumentUpload = (type, data) => {
+    // Handle both old format (type, url) and new format ('internationalDocuments', array)
+    if (type === 'internationalDocuments') {
+      // New array format from updated InternationalDocuments component
+      setFormData(prev => ({
+        ...prev,
+        internationalDocuments: data,
+        documents: data // Also set documents field for backward compatibility
+      }));
+      handleBlur('internationalDocuments');
+      handleBlur('documents');
+    } else {
+      // Old format - keep for backward compatibility
+      setDocumentUrls(prev => ({
+        ...prev,
+        [type]: data
+      }));
+      
+      setFormData(prev => ({
+        ...prev,
+        documents: {
+          ...prev.documents,
+          [type]: data
+        }
+      }));
+      
+      // Trigger validation after state update
+      handleBlur('documents');
+    }
   };
 
   // Handle file uploads for new fields
@@ -2322,18 +2321,18 @@ const NonPrimaryStudentForm = forwardRef(({
           }
           
           // International student validation
-          if (studentType === 'International Student' && 
-              !readOnlyFields.country && 
-              !readOnlyFields.documents) {
-            const errors = [];
-            if (!formData.country) {
-              errors.push('Please select your country of origin');
-            }
-            if (!formData.documents?.passport || !formData.documents?.additionalID) {
-              errors.push('Please upload all required documents (Passport and Additional ID)');
-            }
-            if (errors.length > 0) {
-              setError(errors.join('. '));
+          if (studentType === 'International Student' && !readOnlyFields.documents) {
+            // Check for documents in either format
+            const hasNewFormatDocs = formData.internationalDocuments && 
+                                    Array.isArray(formData.internationalDocuments) && 
+                                    formData.internationalDocuments.length > 0;
+            const hasOldFormatDocs = formData.documents && 
+                                    (formData.documents.passport || 
+                                     formData.documents.additionalID || 
+                                     formData.documents.residencyProof);
+            
+            if (!hasNewFormatDocs && !hasOldFormatDocs) {
+              setError('Please upload at least one identification document');
               return false;
             }
           }
@@ -2904,52 +2903,10 @@ const NonPrimaryStudentForm = forwardRef(({
           />
 
           {studentType === 'International Student' && (
-            <>
-              <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
-                <CardHeader>
-                  <h3 className="text-md font-semibold">Country Information</h3>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Country of Origin <span className="text-red-500">*</span>
-                    </label>
-                    {readOnlyFields.country ? (
-                      <input
-                        type="text"
-                        value={formData.country}
-                        className="w-full p-2 border rounded-md bg-gray-50 cursor-not-allowed"
-                        readOnly
-                      />
-                    ) : (
-                      <Select
-                        options={countryOptions}
-                        value={countryOptions.find(option => option.value === formData.country)}
-                        onChange={handleCountryChange}
-                        className={touched.country && errors.country ? 'border-red-500' : ''}
-                        placeholder="Select your country"
-                      />
-                    )}
-                    {readOnlyFields.country && (
-                      <p className="text-sm text-gray-500 mt-2">
-                        Country of origin cannot be changed as it's already set in your profile
-                      </p>
-                    )}
-                    {touched.country && errors.country && (
-                      <ValidationFeedback
-                        isValid={false}
-                        message={errors.country}
-                      />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <InternationalDocuments
-                onUploadComplete={handleDocumentUpload}
-                initialDocuments={documentUrls} 
-              />
-            </>
+            <InternationalDocuments
+              onUploadComplete={handleDocumentUpload}
+              initialDocuments={formData.internationalDocuments || []} 
+            />
           )}
 
           {/* Profile Information Card */}

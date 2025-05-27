@@ -285,20 +285,6 @@ albertaStudentNumber: {
    },
 
    
-   country: {
-    validate: (value, options) => {
-      // Only validate for international students
-      if (options?.formData?.studentType === 'International Student') {
-        // Skip validation if the field is read-only (exists in profile)
-        if (options?.readOnlyFields?.country) {
-          return null;
-        }
-        if (!value) return "Country of origin is required";
-      }
-      return null;
-    },
-    successMessage: "Valid country selection"
-  },
   
   documents: {
     validate: (value, options) => {
@@ -309,19 +295,47 @@ albertaStudentNumber: {
           return null;
         }
         
-        if (!value) return "Required documents are missing";
+        if (!value) return "At least one document is required";
         
-        // Check required documents
-        if (!value.passport) {
-          return "Passport is required";
-        }
-        if (!value.additionalID) {
-          return "Additional ID document is required";
+        // Handle both old format (object) and new format (array)
+        if (Array.isArray(value)) {
+          // New array format - need at least one document
+          if (value.length === 0) {
+            return "Please upload at least one identification document";
+          }
+        } else if (typeof value === 'object') {
+          // Old object format - check if any document exists
+          const hasDocument = value.passport || value.additionalID || value.residencyProof;
+          if (!hasDocument) {
+            return "Please upload at least one identification document";
+          }
+        } else {
+          return "Invalid document format";
         }
       }
       return null;
     },
-    successMessage: "All required documents uploaded"
+    successMessage: "Document requirement satisfied"
+  },
+
+  internationalDocuments: {
+    validate: (value, options) => {
+      // Only validate for international students
+      if (options?.formData?.studentType === 'International Student') {
+        // Skip validation if already handled by documents field
+        if (options?.readOnlyFields?.internationalDocuments) {
+          return null;
+        }
+        
+        // Handle array format for international documents
+        if (!value || !Array.isArray(value) || value.length === 0) {
+          return "At least one identification document is required";
+        }
+      }
+      return null;
+    },
+    required: true,
+    successMessage: "International documents uploaded"
   },
 
   schoolAddress: {

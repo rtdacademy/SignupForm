@@ -1,10 +1,17 @@
 import React from 'react';
 import { Card, CardContent } from "../components/ui/card";
-import { Loader2, InfoIcon } from "lucide-react";
+import { Loader2, InfoIcon, FileText, Eye, ExternalLink } from "lucide-react";
 import { getDatabase, ref, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 
 // Utility function to determine if school selection should be shown
 const shouldShowSchoolSelection = (studentType) => {
@@ -15,7 +22,7 @@ const shouldShowSchoolSelection = (studentType) => {
   );
 };
 
-const ReviewSection = ({ title, items }) => (
+const ReviewSection = ({ title, items, children }) => (
   <div className="space-y-3">
     <h3 className="font-semibold text-lg">{title}</h3>
     <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
@@ -29,8 +36,105 @@ const ReviewSection = ({ title, items }) => (
           )
       )}
     </dl>
+    {children}
   </div>
 );
+
+// Document Preview Component
+const DocumentPreview = ({ documents, title }) => {
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
+
+  if (!documents || (Array.isArray(documents) && documents.length === 0)) {
+    return null;
+  }
+
+  // Convert old format to array format for consistent handling
+  const documentArray = Array.isArray(documents) ? documents : [];
+
+  const handlePreview = (doc) => {
+    setSelectedDocument(doc);
+    setShowPreview(true);
+  };
+
+
+  const getFileType = (url) => {
+    if (!url) return 'unknown';
+    const extension = url.split('.').pop().toLowerCase().split('?')[0];
+    return extension;
+  };
+
+  return (
+    <>
+      <div className="mt-2 space-y-2">
+        <p className="text-sm font-medium text-gray-600">{title}:</p>
+        <div className="space-y-1">
+          {documentArray.map((doc, index) => {
+            const fileType = getFileType(doc.url);
+            const isPDF = fileType === 'pdf';
+            
+            return (
+              <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-700">
+                    {doc.typeLabel || doc.type || `Document ${index + 1}`}
+                  </span>
+                  {doc.name && (
+                    <span className="text-xs text-gray-500">({doc.name})</span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {isPDF ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => window.open(doc.url, '_blank')}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      View
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handlePreview(doc)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Preview
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Image Preview Dialog */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedDocument?.typeLabel || selectedDocument?.type || 'Document Preview'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-auto max-h-[calc(90vh-100px)]">
+            {selectedDocument && (
+              <img
+                src={selectedDocument.url}
+                alt={selectedDocument.name || 'Document'}
+                className="w-full h-auto"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
 
 const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequiredCourses = false }) => {
   const { user } = useAuth();
@@ -153,13 +257,27 @@ const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequir
       : []),
   ];
 
+  // Handle international student documents
+  const getInternationalDocumentCount = () => {
+    // Check new array format first
+    if (formData.internationalDocuments && Array.isArray(formData.internationalDocuments)) {
+      return formData.internationalDocuments.length;
+    }
+    // Check old object format
+    if (formData.documents) {
+      let count = 0;
+      if (formData.documents.passport) count++;
+      if (formData.documents.additionalID) count++;
+      if (formData.documents.residencyProof) count++;
+      return count;
+    }
+    return 0;
+  };
+
   // International student information
   const internationalInfo = isInternationalStudent
     ? [
-        ['Country of Origin', formData.country],
-        ['Passport', formData.documents?.passport ? 'Uploaded' : 'Not uploaded'],
-        ['Additional ID', formData.documents?.additionalID ? 'Uploaded' : 'Not uploaded'],
-        ['Proof of Residency', formData.documents?.residencyProof ? 'Uploaded' : 'Not required'],
+        ['Identification Documents', `${getInternationalDocumentCount()} document(s) uploaded`],
       ]
     : [];
 
@@ -257,7 +375,15 @@ const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequir
             <ReviewSection
               title="International Student Information"
               items={internationalInfo}
-            />
+            >
+              {/* Document preview for international students */}
+              {formData.internationalDocuments && formData.internationalDocuments.length > 0 && (
+                <DocumentPreview 
+                  documents={formData.internationalDocuments} 
+                  title="Uploaded Documents"
+                />
+              )}
+            </ReviewSection>
           )}
 
           {shouldShowParentInfo && (
@@ -280,7 +406,15 @@ const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequir
           )}
 
           {citizenshipInfo.length > 0 && (
-            <ReviewSection title="Citizenship Documentation" items={citizenshipInfo} />
+            <ReviewSection title="Citizenship Documentation" items={citizenshipInfo}>
+              {/* Document preview for citizenship documents */}
+              {formData.citizenshipDocuments && formData.citizenshipDocuments.length > 0 && (
+                <DocumentPreview 
+                  documents={formData.citizenshipDocuments} 
+                  title="Uploaded Documents"
+                />
+              )}
+            </ReviewSection>
           )}
 
           <ReviewSection title="Survey Information" items={surveyInfo} />
