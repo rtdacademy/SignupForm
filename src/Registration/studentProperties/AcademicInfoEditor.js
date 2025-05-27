@@ -5,8 +5,11 @@ import { Button } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Loader2, GraduationCap, Save, X } from 'lucide-react';
+import { Loader2, GraduationCap, Save, X, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import HomeSchoolSelector from '../../components/HomeSchoolSelector';
+import SchoolAddressPicker from '../../components/SchoolAddressPicker';
+import { getStudentRequirements, FIELD_IMPORTANCE } from './studentRequirements';
 
 const AcademicInfoEditor = ({ studentData, onUpdate, onCancel }) => {
   const [loading, setLoading] = useState(false);
@@ -16,6 +19,15 @@ const AcademicInfoEditor = ({ studentData, onUpdate, onCancel }) => {
     grade: studentData.profile?.grade || '',
     homeSchool: studentData.profile?.homeSchool || ''
   });
+  
+  // Get student type from the first course or studentType field
+  const studentType = studentData.studentType?.Value || 
+                     studentData.courses?.[0]?.StudentType?.Value || 
+                     '';
+  
+  // Get requirements for this student
+  const requirements = getStudentRequirements(studentData);
+  const academicRequirements = requirements.academic || {};
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -114,6 +126,25 @@ const AcademicInfoEditor = ({ studentData, onUpdate, onCancel }) => {
     'Kindergarten', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5',
     'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'
   ];
+  
+  // Determine if fields are required based on student type
+  const isGradeRequired = academicRequirements.grade?.importance === FIELD_IMPORTANCE.PASI_REQUIRED ||
+                         academicRequirements.grade?.importance === FIELD_IMPORTANCE.REQUIRED;
+  
+  const isHomeSchoolRequired = studentType === 'Home Education' || 
+                              (academicRequirements.homeSchool?.importance === FIELD_IMPORTANCE.PASI_REQUIRED ||
+                               academicRequirements.homeSchool?.importance === FIELD_IMPORTANCE.REQUIRED);
+  
+  const shouldUseHomeSchoolSelector = studentType === 'Home Education';
+  const shouldUseSchoolAddressPicker = studentType === 'Non-Primary';
+  
+  const handleSchoolSelect = (addressDetails) => {
+    if (addressDetails) {
+      handleInputChange('homeSchool', addressDetails.name);
+    } else {
+      handleInputChange('homeSchool', '');
+    }
+  };
 
   return (
     <Card className="w-full">
@@ -130,7 +161,12 @@ const AcademicInfoEditor = ({ studentData, onUpdate, onCancel }) => {
 
         <div className="grid grid-cols-1 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="asn">Alberta Student Number (ASN)</Label>
+            <Label htmlFor="asn">
+              Alberta Student Number (ASN)
+              {academicRequirements.asn?.importance === FIELD_IMPORTANCE.PASI_REQUIRED && (
+                <span className="text-red-500 ml-1">*</span>
+              )}
+            </Label>
             <Input
               id="asn"
               value={formData.asn}
@@ -145,35 +181,71 @@ const AcademicInfoEditor = ({ studentData, onUpdate, onCancel }) => {
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="grade">Grade Level</Label>
-            <select
-              id="grade"
-              value={formData.grade}
-              onChange={(e) => handleInputChange('grade', e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              disabled={loading}
-            >
-              <option value="">Select grade level</option>
-              {grades.map(grade => (
-                <option key={grade} value={grade}>
-                  {grade}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Only show grade field if it's not an Adult Student taking individual courses */}
+          {studentType !== 'Adult Student' && (
+            <div className="space-y-2">
+              <Label htmlFor="grade">
+                Grade Level
+                {isGradeRequired && (
+                  <span className="text-red-500 ml-1">*</span>
+                )}
+              </Label>
+              <select
+                id="grade"
+                value={formData.grade}
+                onChange={(e) => handleInputChange('grade', e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                disabled={loading}
+              >
+                <option value="">Select grade level</option>
+                {grades.map(grade => (
+                  <option key={grade} value={grade}>
+                    {grade}
+                  </option>
+                ))}
+              </select>
+              {studentType === 'Adult Student' && (
+                <p className="text-sm text-gray-600">
+                  Grade level is not required for adult students taking individual courses
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">
-            <Label htmlFor="homeSchool">Home School</Label>
-            <Input
-              id="homeSchool"
-              value={formData.homeSchool}
-              onChange={(e) => handleInputChange('homeSchool', e.target.value)}
-              placeholder="Enter home school name"
-              disabled={loading}
-            />
+            <Label htmlFor="homeSchool">
+              {studentType === 'Home Education' ? 'Home Education Provider' : 
+               studentType === 'Non-Primary' ? 'Primary School' : 'Home School'}
+              {isHomeSchoolRequired && (
+                <span className="text-red-500 ml-1">*</span>
+              )}
+              {!isHomeSchoolRequired && academicRequirements.homeSchool?.importance === FIELD_IMPORTANCE.RECOMMENDED && (
+                <span className="text-sm text-gray-500 ml-1">(recommended)</span>
+              )}
+            </Label>
+            
+            {shouldUseHomeSchoolSelector ? (
+              <HomeSchoolSelector onAddressSelect={handleSchoolSelect} />
+            ) : shouldUseSchoolAddressPicker ? (
+              <SchoolAddressPicker onAddressSelect={handleSchoolSelect} />
+            ) : (
+              <Input
+                id="homeSchool"
+                value={formData.homeSchool}
+                onChange={(e) => handleInputChange('homeSchool', e.target.value)}
+                placeholder={studentType === 'Summer School' ? "Enter your regular school name" : "Enter home school name"}
+                disabled={loading}
+              />
+            )}
+            
             <p className="text-sm text-gray-600">
-              The student's primary or home school (if applicable)
+              {studentType === 'Home Education' ? 
+                'Select your home education provider or organization' :
+               studentType === 'Non-Primary' ?
+                'Select your primary school (the school you normally attend)' :
+               studentType === 'Summer School' ?
+                'Enter the school you attend during the regular school year' :
+                'The student\'s primary or home school (if applicable)'}
             </p>
           </div>
         </div>
@@ -199,6 +271,27 @@ const AcademicInfoEditor = ({ studentData, onUpdate, onCancel }) => {
             Save Changes
           </Button>
         </div>
+        {/* Info alert for student type specific requirements */}
+        {studentType && (
+          <Alert className="mt-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>{studentType} Requirements:</strong>
+              {studentType === 'Adult Student' && (
+                <span> Grade level is not required for adult students taking individual high school courses.</span>
+              )}
+              {studentType === 'Home Education' && (
+                <span> Please select your home education provider from the search field.</span>
+              )}
+              {studentType === 'Non-Primary' && (
+                <span> Please select your primary school (the school you normally attend) from the search field.</span>
+              )}
+              {studentType === 'Summer School' && (
+                <span> Please enter the school you attend during the regular school year.</span>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );

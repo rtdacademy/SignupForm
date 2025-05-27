@@ -4,3 +4,5 @@ export { default as AcademicInfoEditor } from './AcademicInfoEditor';
 export { default as GuardianInfoEditor } from './GuardianInfoEditor';
 export { default as StatusEditor } from './StatusEditor';
 export { default as DocumentsEditor } from './DocumentsEditor';
+export { default as ProfileCompletionTracker } from './ProfileCompletionTracker';
+export * from './studentRequirements';

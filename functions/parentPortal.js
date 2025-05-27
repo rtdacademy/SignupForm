@@ -960,10 +960,22 @@ const getParentDashboardData = onCall({
       };
     }
     
+    // Fetch important dates once (shared across all students)
+    const importantDatesRef = db.ref('ImportantDates');
+    const importantDatesSnapshot = await importantDatesRef.once('value');
+    const importantDates = importantDatesSnapshot.exists() ? importantDatesSnapshot.val() : {};
+    
     // Process each linked student
     const linkedStudentsData = [];
+    const processedStudentKeys = new Set(); // Track processed students to avoid duplicates
     
     for (const [studentKey, studentLink] of Object.entries(parentData.linkedStudents)) {
+      // Skip if we've already processed this student
+      if (processedStudentKeys.has(studentKey)) {
+        console.warn(`Duplicate student key found: ${studentKey}. Using first occurrence.`);
+        continue;
+      }
+      processedStudentKeys.add(studentKey);
       try {
         // Verify the link is active by checking student's profile
         const studentParentLinkRef = db.ref(`students/${studentKey}/profile/parentAccounts/${parentEmailKey}`);
@@ -995,30 +1007,16 @@ const getParentDashboardData = onCall({
         // Build student data object based on permissions
         const studentData = {
           studentKey,
+          studentEmailKey: studentKey, // Ensure both naming conventions are supported
           studentName: studentLink.studentName,
           relationship: studentLink.relationship,
           linkedAt: studentLink.linkedAt,
           permissions,
           enrollmentApproval: studentLink.enrollmentApproval,
-          profile: {}
+          profile: studentProfile, // Include entire profile
+          // We'll add studentType from the first course if available
+          studentType: null
         };
-        
-        // Add profile data based on permissions
-        if (permissions.viewSchedule) {
-          studentData.profile.firstName = studentProfile.firstName;
-          studentData.profile.lastName = studentProfile.lastName;
-          studentData.profile.asn = studentProfile.asn;
-          studentData.profile.grade = studentProfile.grade;
-          studentData.profile.homeSchool = studentProfile.homeSchool;
-        }
-        
-        if (permissions.editContactInfo) {
-          studentData.profile.phone = studentProfile.phone;
-          studentData.profile.address = studentProfile.address;
-          studentData.profile.city = studentProfile.city;
-          studentData.profile.province = studentProfile.province;
-          studentData.profile.postalCode = studentProfile.postalCode;
-        }
         
         // Fetch courses if permitted
         if (permissions.viewSchedule || permissions.viewGrades) {
@@ -1027,38 +1025,129 @@ const getParentDashboardData = onCall({
           
           if (studentCoursesSnapshot.exists()) {
             const courses = studentCoursesSnapshot.val();
-            studentData.courses = {};
+            studentData.courses = [];
             
             for (const [courseId, courseData] of Object.entries(courses)) {
+              // Fetch detailed course information from /courses/{courseId}
+              let courseDetails = null;
+              let teachersInfo = [];
+              try {
+                const courseDetailsRef = db.ref(`courses/${courseId}`);
+                const courseDetailsSnapshot = await courseDetailsRef.once('value');
+                if (courseDetailsSnapshot.exists()) {
+                  courseDetails = courseDetailsSnapshot.val();
+                  
+                  // Fetch teacher information
+                  if (courseDetails.Teachers && Array.isArray(courseDetails.Teachers)) {
+                    for (const teacherEmail of courseDetails.Teachers) {
+                      try {
+                        const teacherKey = teacherEmail.replace(/\./g, ',');
+                        const teacherRef = db.ref(`staff/${teacherKey}`);
+                        const teacherSnapshot = await teacherRef.once('value');
+                        if (teacherSnapshot.exists()) {
+                          const teacherData = teacherSnapshot.val();
+                          teachersInfo.push({
+                            email: teacherData.email,
+                            firstName: teacherData.firstName,
+                            lastName: teacherData.lastName,
+                            displayName: `${teacherData.firstName} ${teacherData.lastName}`,
+                            signature: teacherData.signature
+                          });
+                        }
+                      } catch (error) {
+                        console.log(`Could not fetch teacher info for ${teacherEmail}:`, error.message);
+                      }
+                    }
+                  }
+                }
+              } catch (error) {
+                console.log(`Could not fetch course details for ${courseId}:`, error.message);
+              }
+              
               const courseInfo = {
-                courseName: courseData.courseName,
-                courseCode: courseData.courseCode,
-                credits: courseData.credits,
-                status: courseData.status,
-                enrollmentStatus: courseData.enrollmentStatus,
+                // Core identifiers
+                CourseID: courseId,
+                id: courseId,
+                
+                // From student's course data
+                Course: courseData.Course || { 
+                  Id: parseInt(courseId), 
+                  Value: courseData.courseName || courseDetails?.Title || `Course ${courseId}`
+                },
+                courseName: courseData.courseName || courseData.Course?.Value || courseDetails?.Title || '',
+                courseCode: courseData.courseCode || courseDetails?.Title || '',
+                credits: courseData.credits || courseDetails?.courseCredits || 0,
+                courseCredits: courseData.credits || courseDetails?.courseCredits || 0,
+                
+                // Status and enrollment
+                Status: courseData.Status || { Id: 1, Value: 'Active' },
+                status: courseData.status || courseData.Status?.Value || 'Active',
+                ActiveFutureArchived: courseData.ActiveFutureArchived || { Id: 1, Value: 'Active' },
+                enrollmentStatus: courseData.enrollmentStatus || courseData.ActiveFutureArchived?.Value || 'Active',
                 parentApproval: courseData.parentApproval,
-                startDate: courseData.startDate,
-                endDate: courseData.endDate
+                
+                // Dates
+                ScheduleStartDate: courseData.ScheduleStartDate || courseData.startDate || '',
+                ScheduleEndDate: courseData.ScheduleEndDate || courseData.endDate || '',
+                startDate: courseData.startDate || courseData.ScheduleStartDate || '',
+                endDate: courseData.endDate || courseData.ScheduleEndDate || '',
+                
+                // From course details
+                CourseType: courseDetails?.CourseType || '',
+                grade: courseDetails?.grade || '',
+                NumberOfHours: courseDetails?.NumberOfHours || '',
+                minCompletionMonths: courseDetails?.minCompletionMonths || 1,
+                recommendedCompletionMonths: courseDetails?.recommendedCompletionMonths || 5,
+                units: courseDetails?.units || [],
+                weights: courseDetails?.weights || {},
+                DiplomaCourse: courseDetails?.DiplomaCourse || 'No',
+                CurrentTeacher: courseDetails?.CurrentTeacher || '',
+                Teachers: courseDetails?.Teachers || [],
+                teachersInfo: teachersInfo,
+                // Add courseDetails with teacher info formatted for CourseDetailsDialog
+                courseDetails: {
+                  ...courseDetails,
+                  teachers: teachersInfo.reduce((acc, teacher, index) => {
+                    acc[index] = {
+                      displayName: teacher.displayName,
+                      email: teacher.email,
+                      firstName: teacher.firstName,
+                      lastName: teacher.lastName
+                    };
+                    return acc;
+                  }, {}),
+                  supportStaff: {} // Add support staff if available
+                }
               };
               
               // Add grades if permitted
               if (permissions.viewGrades) {
                 courseInfo.overallGrade = courseData.overallGrade;
                 courseInfo.letterGrade = courseData.letterGrade;
-                courseInfo.progress = courseData.progress;
-                courseInfo.completedUnits = courseData.completedUnits;
-                courseInfo.totalUnits = courseData.totalUnits;
+                courseInfo.progress = courseData.progress || 0;
+                courseInfo.completedUnits = courseData.completedUnits || 0;
+                courseInfo.totalUnits = courseData.totalUnits || courseDetails?.units?.length || 0;
                 courseInfo.lastAccessed = courseData.lastAccessed;
+                
+                // Calculate progress if not provided
+                if (!courseInfo.progress && courseInfo.totalUnits > 0) {
+                  courseInfo.progress = Math.round((courseInfo.completedUnits / courseInfo.totalUnits) * 100);
+                }
               }
               
               // Add schedule if permitted
               if (permissions.viewSchedule) {
                 courseInfo.schedule = courseData.schedule;
                 courseInfo.datesArray = courseData.datesArray;
-                courseInfo.nextScheduledDate = courseData.nextScheduledDate;
+                courseInfo.nextScheduledDate = courseData.nextScheduledDate || null;
               }
               
-              studentData.courses[courseId] = courseInfo;
+              studentData.courses.push(courseInfo);
+              
+              // Set student type from first course if not already set
+              if (!studentData.studentType && courseData.StudentType) {
+                studentData.studentType = courseData.StudentType;
+              }
             }
           }
         }
@@ -1081,11 +1170,10 @@ const getParentDashboardData = onCall({
           }
         }
         
-        // Add payment info if permitted (typically false for security)
-        if (permissions.viewPayments) {
-          studentData.profile.paymentStatus = studentProfile.paymentStatus;
-          studentData.profile.paymentPlan = studentProfile.paymentPlan;
-        }
+        // Payment info already handled above when we included the full profile
+        
+        // Add important dates (already fetched above)
+        studentData.importantDates = importantDates;
         
         linkedStudentsData.push(studentData);
         
