@@ -412,6 +412,7 @@ const ParentDashboard = () => {
           portalType="Parent Portal"
           isEmulating={false}
           isStaffUser={false}
+          parentInfo={null}
         />
         <div className="flex justify-center items-center flex-1">
           <div className="text-center">
@@ -434,6 +435,7 @@ const ParentDashboard = () => {
           portalType="Parent Portal"
           isEmulating={false}
           isStaffUser={false}
+          parentInfo={null}
         />
         <div className="container mx-auto px-4 py-8">
           <Alert variant="destructive">
@@ -456,6 +458,7 @@ const ParentDashboard = () => {
           portalType="Parent Portal"
           isEmulating={false}
           isStaffUser={false}
+          parentInfo={null}
         />
         <div className="container mx-auto px-4 py-8 max-w-4xl">
           {/* Welcome message for new parents */}
@@ -596,6 +599,17 @@ const ParentDashboard = () => {
                                   <div className="bg-blue-50 p-3 rounded-lg text-sm">
                                     <p className="font-medium text-blue-900 mb-1">What is an ASN?</p>
                                     <p className="text-blue-700">The Alberta Student Number is a unique 9-digit identifier found on report cards and official school documents.</p>
+                                    <p className="text-blue-700 mt-2">
+                                      Need help finding your child's ASN? 
+                                      <a 
+                                        href="https://learnerregistry.ae.alberta.ca/home/startlookup" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 underline hover:text-blue-800 font-medium ml-1"
+                                      >
+                                        Look it up on Alberta Education's website
+                                      </a>
+                                    </p>
                                   </div>
                                 </>
                               )}
@@ -731,6 +745,14 @@ const ParentDashboard = () => {
         portalType="Parent Portal"
         isEmulating={false}
         isStaffUser={false}
+        parentInfo={parentData ? {
+          name: currentUser?.displayName || parentData.parentProfile?.email?.split('@')[0] || 'Parent',
+          email: parentData.parentProfile?.email || currentUser?.email,
+          linkedStudents: parentData.linkedStudents?.map(s => ({
+            name: s.studentName,
+            relationship: s.relationship
+          }))
+        } : null}
       />
 
       <div className="flex-1 relative flex flex-col">
@@ -865,6 +887,17 @@ const ParentDashboard = () => {
                                   <div className="bg-blue-50 p-3 rounded-lg text-sm">
                                     <p className="font-medium text-blue-900 mb-1">What is an ASN?</p>
                                     <p className="text-blue-700">The Alberta Student Number is a unique 9-digit identifier found on report cards and official school documents.</p>
+                                    <p className="text-blue-700 mt-2">
+                                      Need help finding your child's ASN? 
+                                      <a 
+                                        href="https://learnerregistry.ae.alberta.ca/home/startlookup" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 underline hover:text-blue-800 font-medium ml-1"
+                                      >
+                                        Look it up on Alberta Education's website
+                                      </a>
+                                    </p>
                                   </div>
                                 </>
                               )}
