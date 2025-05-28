@@ -1,0 +1,47 @@
+{
+  "courseId": "2",
+  "title": "Physics 30",
+  "fullTitle": "2 - Physics 30",
+  "description": "This is a template course description. Replace this with a detailed description of what students will learn in this course.",
+  "credits": 10,
+  "grade": "12",
+  "prerequisites": [],
+  "instructors": [],
+  "duration": "1 semester",
+  "contentFolder": "content",
+  "functionsFolder": "functions/2",
+  "weights": {
+    "lesson": 0.2,
+    "assignment": 0.4,
+    "exam": 0.4
+  },
+  "settings": {
+    "allowLateSubmissions": true,
+    "latePenaltyPerDay": 0.1,
+    "maxLateDays": 7,
+    "showProgressBar": true,
+    "showGrades": true,
+    "enableAIQuestions": true,
+    "enableTextToSpeech": true,
+    "enableCollaboration": false,
+    "requireSequentialProgress": false
+  },
+  "theme": {
+    "primaryColor": "purple",
+    "secondaryColor": "blue",
+    "customCSS": ""
+  },
+  "notifications": {
+    "enableEmailNotifications": true,
+    "enableInAppNotifications": true,
+    "notifyOnGrade": true,
+    "notifyOnFeedback": true,
+    "notifyOnAnnouncement": true
+  },
+  "metadata": {
+    "createdDate": "2025-05-28T11:04:26.436Z",
+    "lastModified": "2025-05-28T11:04:26.436Z",
+    "version": "1.0.0",
+    "status": "draft"
+  }
+}

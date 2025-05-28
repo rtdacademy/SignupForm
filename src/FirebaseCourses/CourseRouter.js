@@ -4,6 +4,7 @@ import FirebaseCourseWrapper from './FirebaseCourseWrapperImproved';
 // Import course components
 // Using dynamic imports for better code splitting
 const COM1255Course = lazy(() => import('./courses/COM1255'));
+const Course2 = lazy(() => import('./courses/2'));
 
 // Default template course component for courses without specific implementations
 const TemplateCourse = ({ course }) => {
@@ -51,6 +52,19 @@ const CourseRouter = ({ course, isStaffView = false, devMode = false }) => {
         return (
           <Suspense fallback={<LoadingCourse />}>
             <COM1255Course
+              course={course}
+              activeItemId={currentItemId}
+              onItemSelect={handleItemSelect}
+              isStaffView={isStaffView}
+              devMode={devMode}
+            />
+          </Suspense>
+        );
+      case 2: // Physics 30
+      case '2':
+        return (
+          <Suspense fallback={<LoadingCourse />}>
+            <Course2
               course={course}
               activeItemId={currentItemId}
               onItemSelect={handleItemSelect}
