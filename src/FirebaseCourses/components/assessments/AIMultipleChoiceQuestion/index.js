@@ -6,6 +6,91 @@ import { useAuth } from '../../../../context/AuthContext';
 import { Button } from '../../../../components/ui/button';
 import { Infinity } from 'lucide-react';
 import { sanitizeEmail } from '../../../../utils/sanitizeEmail';
+import { InlineMath, BlockMath } from 'react-katex';
+import 'katex/dist/katex.min.css';
+
+/**
+ * Renders text with LaTeX math support
+ * Supports inline math ($...$) and display math ($$...$$)
+ * Uses a simple approach that preserves the original LaTeX formatting
+ */
+const renderMathText = (text) => {
+  if (!text) return text;
+  
+  try {
+    const parts = [];
+    let currentIndex = 0;
+    
+    // Simple regex to find math expressions
+    const mathRegex = /(\$\$(.+?)\$\$|\$(.+?)\$)/g;
+    let match;
+    
+    while ((match = mathRegex.exec(text)) !== null) {
+      // Add text before the math expression
+      if (match.index > currentIndex) {
+        const textBefore = text.slice(currentIndex, match.index);
+        if (textBefore) {
+          parts.push(textBefore);
+        }
+      }
+      
+      // Add the math expression
+      const isDisplayMath = match[0].startsWith('$$');
+      const mathContent = isDisplayMath ? match[2] : match[3];
+      
+      try {
+        // Preprocess math content to handle special characters
+        let processedMathContent = mathContent;
+        
+        // Replace various forms of multiplication dots with \cdot
+        // This handles Unicode middle dot (·), bullet operator (•), and similar characters
+        processedMathContent = processedMathContent.replace(/[·•⋅∙]/g, '\\cdot ');
+        
+        // Also handle cases where these might appear in \text{} commands
+        processedMathContent = processedMathContent.replace(/\\text\{([^}]*[·•⋅∙][^}]*)\}/g, (match, textContent) => {
+          const fixedText = textContent.replace(/[·•⋅∙]/g, '\\cdot ');
+          return `\\text{${fixedText}}`;
+        });
+        
+        if (isDisplayMath) {
+          parts.push(<BlockMath key={`display-${match.index}`} math={processedMathContent} />);
+        } else {
+          parts.push(<InlineMath key={`inline-${match.index}`} math={processedMathContent} />);
+        }
+      } catch (e) {
+        console.warn('Error rendering math:', mathContent, e);
+        parts.push(match[0]); // Fallback to original text
+      }
+      
+      currentIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text after the last math expression
+    if (currentIndex < text.length) {
+      const remainingText = text.slice(currentIndex);
+      if (remainingText) {
+        parts.push(remainingText);
+      }
+    }
+    
+    // If no math was found, return original text
+    if (parts.length === 0) {
+      return text;
+    }
+    
+    // If only one part and it's text, return it directly
+    if (parts.length === 1 && typeof parts[0] === 'string') {
+      return parts[0];
+    }
+    
+    // Return React fragment with all parts
+    return <>{parts}</>;
+    
+  } catch (e) {
+    console.warn('Error in renderMathText:', e);
+    return text;
+  }
+};
 
 /**
  * A Multiple Choice Question component powered by AI that interacts with Firebase Cloud Functions.
@@ -24,6 +109,7 @@ const AIMultipleChoiceQuestion = ({
   assessmentId,            // Unique identifier for this assessment
   cloudFunctionName,       // Name of the cloud function to call
   course,                  // Course object (optional - not used for database access anymore)
+  topic,                   // Topic for question generation (optional)
 
   // Styling props only - all other configuration comes from the database
   theme = 'purple',        // Color theme: 'blue', 'green', 'purple', etc.
@@ -44,6 +130,7 @@ const AIMultipleChoiceQuestion = ({
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [selectedDifficulty, setSelectedDifficulty] = useState(null);
   
   // Refs for debouncing and preventing multiple calls
   const isGeneratingRef = useRef(false);
@@ -54,8 +141,9 @@ const AIMultipleChoiceQuestion = ({
   const functions = getFunctions();
   const db = getDatabase();
 
-  // Get theme colors
-  const themeColors = getThemeColors(theme);
+  // Get theme colors - use theme from question settings if available, otherwise use prop
+  const activeTheme = question?.settings?.theme || theme;
+  const themeColors = getThemeColors(activeTheme);
 
   // Track if we're currently waiting for a new question during regeneration
   const [expectingNewQuestion, setExpectingNewQuestion] = useState(false);
@@ -210,6 +298,12 @@ const AIMultipleChoiceQuestion = ({
                 setExpectingNewQuestion(false);
                 setRegenerating(false);
                 
+                // Update selectedDifficulty to match the new question's difficulty
+                // This ensures the UI shows the actual difficulty that was generated
+                if (enhancedData.difficulty) {
+                  setSelectedDifficulty(enhancedData.difficulty);
+                }
+                
                 // Reset result if present
                 if (data.lastSubmission) {
                   setResult(data.lastSubmission);
@@ -238,6 +332,12 @@ const AIMultipleChoiceQuestion = ({
               // Normal case, update question data
               setQuestion(enhancedData);
               setLastQuestionTimestamp(data.timestamp || 0);
+              
+              // Set selectedDifficulty to match the question's difficulty
+              // This ensures consistency when the component first loads
+              if (enhancedData.difficulty && !selectedDifficulty) {
+                setSelectedDifficulty(enhancedData.difficulty);
+              }
               
               // If there's a last submission, set the result and preselect the answer
               if (data.lastSubmission) {
@@ -339,8 +439,9 @@ const AIMultipleChoiceQuestion = ({
       const assessmentFunction = httpsCallable(functions, cloudFunctionName);
 
       // Extract topic and difficulty from question data if available
-      const topicFromData = question?.topic || 'elearning_benefits_challenges';
-      const difficultyFromData = question?.difficulty || 'intermediate';
+      // For assignments with difficulty selection, use selectedDifficulty, otherwise use question data
+      const topicFromData = topic || question?.topic || 'general';
+      const difficultyFromData = selectedDifficulty || question?.difficulty || question?.settings?.defaultDifficulty || 'intermediate';
       
       const functionParams = {
         courseId: courseId,
@@ -409,7 +510,8 @@ const AIMultipleChoiceQuestion = ({
       const assessmentFunction = httpsCallable(functions, cloudFunctionName);
 
       // Extract topic and difficulty from question data if available
-      const topicFromData = question?.topic || 'elearning_benefits_challenges';
+      // Use current difficulty from question data for evaluation
+      const topicFromData = topic || question?.topic || 'general';
       const difficultyFromData = question?.difficulty || 'intermediate';
       
       const functionParams = {
@@ -466,7 +568,7 @@ const AIMultipleChoiceQuestion = ({
   };
 
   // Handle regeneration of the question with debounce protection
-  const handleRegenerate = () => {
+  const handleRegenerate = (customDifficulty = null) => {
     // If we're already generating, don't trigger again
     if (isGeneratingRef.current || regenerating) {
       console.log("Already regenerating a question, ignoring duplicate request");
@@ -492,6 +594,11 @@ const AIMultipleChoiceQuestion = ({
     
     // Mark that we're expecting a new question to arrive via database listener
     setExpectingNewQuestion(true);
+
+    // If a custom difficulty was provided, set it persistently
+    if (customDifficulty) {
+      setSelectedDifficulty(customDifficulty);
+    }
 
     // Call the cloud function directly, which will handle incrementing the attempts
     // and update the database, which will trigger our database listener
@@ -575,7 +682,7 @@ const AIMultipleChoiceQuestion = ({
               </svg>
               Attempts: <span className="font-medium ml-1">{question.attempts || 0}</span> 
               <span className="mx-1">/</span>
-              {question.maxAttempts && question.maxAttempts > 1000 ? (
+              {question.maxAttempts && question.maxAttempts > 500 ? (
                 <Infinity className="h-3.5 w-3.5 inline-block text-gray-600" />
               ) : (
                 <span className="font-medium">{question.maxAttempts}</span>
@@ -628,7 +735,42 @@ const AIMultipleChoiceQuestion = ({
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
-              <p className="text-gray-800 mb-5 text-lg font-medium">{question.questionText}</p>
+              {/* Difficulty Selection for Assignments */}
+              {question.settings?.allowDifficultySelection && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Choose Difficulty Level:</h4>
+                  <div className="flex gap-2">
+                    {['beginner', 'intermediate', 'advanced'].map(difficulty => (
+                      <button
+                        key={difficulty}
+                        onClick={() => {
+                          setSelectedDifficulty(difficulty);
+                          // If this is a free regeneration on difficulty change, trigger regeneration
+                          if (question.settings?.freeRegenerationOnDifficultyChange && question.difficulty !== difficulty) {
+                            handleRegenerate();
+                          }
+                        }}
+                        className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                          (selectedDifficulty || question.difficulty) === difficulty
+                            ? 'bg-blue-100 border-blue-300 text-blue-800'
+                            : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  {selectedDifficulty && selectedDifficulty !== question.difficulty && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Click "Generate New AI Question" to apply difficulty change
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="text-gray-800 mb-5 text-lg font-medium">
+                {renderMathText(question.questionText)}
+              </div>
 
               <div className={`space-y-2.5 mb-5 ${optionsClassName}`}>
                 {question.options?.map((option, index) => (
@@ -669,7 +811,9 @@ const AIMultipleChoiceQuestion = ({
                       disabled={result !== null} // Disable after any submission (prevent resubmitting)
                       className={`mr-3 h-4 w-4 text-${themeColors.name}-600 focus:ring-${themeColors.name}-500`}
                     />
-                    <label htmlFor={option.id} className="text-gray-700 flex-grow cursor-pointer">{option.text}</label>
+                    <div className="text-gray-700 flex-grow cursor-pointer" onClick={() => !result && setSelectedAnswer(option.id)}>
+                      {renderMathText(option.text)}
+                    </div>
 
                     {/* Show the correct/incorrect icon if there's a result */}
                     {result?.isCorrect && selectedAnswer === option.id && (
@@ -716,20 +860,22 @@ const AIMultipleChoiceQuestion = ({
                   <p className="font-medium text-base mb-1">
                     {result.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
                   </p>
-                  <p className="mb-3 text-sm">{result.feedback}</p>
+                  <div className="mb-3 text-sm">
+                    {renderMathText(result.feedback)}
+                  </div>
 
                   {/* Additional guidance based on result */}
                   {!result.isCorrect && question.attempts < question.maxAttempts && (
                     <div className="text-sm mb-2 border-t border-b py-2 mt-2">
                       <p className="font-medium flex items-center">
-                        {question.maxAttempts > 1000 ? 
+                        {question.maxAttempts > 500 ? 
                           <>Attempt {question.attempts}</> : 
                           <>Attempt {question.attempts} of {question.maxAttempts}</>
                         }
-                        {(question.maxAttempts - question.attempts) > 0 && question.maxAttempts <= 1000 && 
+                        {(question.maxAttempts - question.attempts) > 0 && question.maxAttempts <= 500 && 
                           <> ({question.maxAttempts - question.attempts} remaining)</>
                         }
-                        {question.maxAttempts > 1000 && 
+                        {question.maxAttempts > 500 && 
                           <> (unlimited <Infinity className="h-3.5 w-3.5 inline-block ml-0.5" />)</>
                         }
                       </p>
@@ -741,19 +887,48 @@ const AIMultipleChoiceQuestion = ({
                   <div className="mt-4">
                     {result && !question.maxAttemptsReached && !question.attemptsExhausted && 
                      question.attempts < question.maxAttempts && (
-                      <Button
-                        onClick={handleRegenerate}
-                        style={{
-                          backgroundColor: themeColors.accent,
-                          color: 'white',
-                        }}
-                        className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:shadow-md"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Generate New AI Question
-                      </Button>
+                      <>
+                        {/* Show difficulty selection for lesson type activities */}
+                        {question.activityType === 'lesson' ? (
+                          <div className="space-y-3">
+                          
+                            <div className="grid grid-cols-3 gap-2">
+                              {['beginner', 'intermediate', 'advanced'].map(difficulty => (
+                                <Button
+                                  key={difficulty}
+                                  onClick={() => handleRegenerate(difficulty)}
+                                  style={{
+                                    backgroundColor: difficulty === question.difficulty ? themeColors.accent : 'white',
+                                    color: difficulty === question.difficulty ? 'white' : themeColors.accent,
+                                    borderColor: themeColors.accent,
+                                  }}
+                                  className="text-sm font-medium py-2 px-3 rounded border transition-all duration-200 hover:shadow-md"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                  {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          /* Regular regenerate button for non-lesson activities */
+                          <Button
+                            onClick={() => handleRegenerate()}
+                            style={{
+                              backgroundColor: themeColors.accent,
+                              color: 'white',
+                            }}
+                            className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:shadow-md"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Generate New AI Question
+                          </Button>
+                        )}
+                      </>
                     )}
                     
                     {/* Display message when max attempts reached */}
@@ -762,7 +937,7 @@ const AIMultipleChoiceQuestion = ({
                       <div className="text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-md text-sm">
                         <p className="font-medium mb-1">Maximum attempts reached</p>
                         <p className="flex items-center">
-                          {question.maxAttempts > 1000 ?
+                          {question.maxAttempts > 500 ?
                             <>You have made {question.attempts} attempts for this question and cannot make more.</>
                            :
                             <>You have used all {question.attempts} of your {question.maxAttempts} available attempts for this question.</>

@@ -10,7 +10,7 @@
  */
 
 // Import modular assessment types from shared directory
-const { createAIMultipleChoice } = require('../../../../shared/assessment-types/ai-multiple-choice');
+const { createAIMultipleChoice } = require('../../../shared/assessment-types/ai-multiple-choice');
 
 // Import course-specific fallback questions
 const { FALLBACK_QUESTIONS } = require('./fallback-questions');
@@ -81,7 +81,7 @@ const {
   initializeCourseIfNeeded, 
   getServerTimestamp, 
   getDatabaseRef 
-} = require('../../../../shared/utilities/database-utils');
+} = require('../../../shared/utilities/database-utils');
 
 // Predefined questions database
 const PREDEFINED_QUESTIONS = {

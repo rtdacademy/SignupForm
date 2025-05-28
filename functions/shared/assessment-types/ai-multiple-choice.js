@@ -5,13 +5,13 @@
  */
 
 const { onCall } = require('firebase-functions/v2/https');
-const admin = require('firebase-admin');
 const { genkit } = require('genkit/beta');
 const { googleAI } = require('@genkit-ai/googleai');
 const { z } = require('zod');
 const { loadConfig } = require('../utilities/config-loader');
-const { extractParameters, initializeCourseIfNeeded, getServerTimestamp } = require('../utilities/database-utils');
+const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../utilities/database-utils');
 const { AIQuestionSchema } = require('../schemas/assessment-schemas');
+const { applyPromptModules } = require('../prompt-modules');
 
 // Environment variables
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -56,23 +56,24 @@ async function generateAIQuestion(config, topic, difficulty = 'intermediate', fa
     const promptTemplate = prompts[difficulty] || prompts.intermediate || 
       `Create a multiple-choice question about ${topic} at ${difficulty} level.`;
     
-    // Create prompt content with guidelines from defaults
+    // Apply conditional prompt modules as system instructions
+    const systemInstructions = applyPromptModules(config);
+    
+    // Create clean prompt content focused on the task
     const promptText = `${promptTemplate}
 
-    Follow these specific guidelines:
+    REQUIREMENTS:
     1. Create a question that tests understanding, not just memorization
     2. Make sure the question has ONE clear correct answer
     3. Ensure all incorrect options (distractors) are plausible but clearly wrong
     4. Include specific feedback for each answer option explaining why it's correct or incorrect
-    5. Use exactly 4 options with IDs: a, b, c, and d
-    
-    Generate a multiple-choice question following the requirements above.`;
+    5. Use exactly 4 options with IDs: a, b, c, and d`;
     
     console.log("Generating AI question with structured output using Genkit");
     
     try {
       // Use Genkit's structured output with our Zod schema
-      const { output } = await ai.generate({
+      const generateOptions = {
         model: googleAI.model('gemini-2.0-flash'),
         prompt: promptText,
         output: { 
@@ -83,11 +84,52 @@ async function generateAIQuestion(config, topic, difficulty = 'intermediate', fa
           topP: config.aiSettings?.topP || 0.8,
           topK: config.aiSettings?.topK || 40
         }
-      });
+      };
+      
+      // Add system instructions if we have prompt modules enabled
+      if (systemInstructions && systemInstructions.trim().length > 0) {
+        generateOptions.system = systemInstructions;
+      }
+      
+      const { output } = await ai.generate(generateOptions);
       
       if (output == null) {
         console.error("Genkit returned null output for AI question generation");
         throw new Error("Response doesn't satisfy schema.");
+      }
+      
+      // Validate required fields are present and properly formatted
+      if (!output.questionText || typeof output.questionText !== 'string' || output.questionText.trim().length === 0) {
+        console.error("Invalid or missing questionText:", output.questionText);
+        throw new Error("Generated question is missing valid questionText");
+      }
+      
+      if (!output.options || !Array.isArray(output.options) || output.options.length !== 4) {
+        console.error("Invalid options array:", output.options);
+        throw new Error("Generated question must have exactly 4 options");
+      }
+      
+      if (!output.correctOptionId || !['a', 'b', 'c', 'd'].includes(output.correctOptionId)) {
+        console.error("Invalid correctOptionId:", output.correctOptionId);
+        throw new Error("Generated question has invalid correctOptionId");
+      }
+      
+      if (!output.explanation || typeof output.explanation !== 'string' || output.explanation.trim().length === 0) {
+        console.error("Invalid or missing explanation:", output.explanation);
+        throw new Error("Generated question is missing valid explanation");
+      }
+      
+      // Validate that explanation doesn't contain excessive whitespace or malformed content
+      // Increased limit to 5000 characters to accommodate detailed physics explanations
+      if (output.explanation.length > 5000) {
+        console.error("Explanation is too long (>5000 chars):", output.explanation.substring(0, 100) + "...");
+        throw new Error("Generated explanation is too long");
+      }
+      
+      // Check for truly malformed content (e.g., repeated characters, empty explanation)
+      if (output.explanation.match(/(.)\1{50,}/) || output.explanation.replace(/\s/g, '').length < 10) {
+        console.error("Explanation appears malformed:", output.explanation.substring(0, 100));
+        throw new Error("Generated explanation appears malformed");
       }
       
       console.log("Successfully generated AI question with structured output:", 
@@ -184,6 +226,27 @@ function evaluateAIQuestionAnswer(question, studentAnswer) {
 }
 
 /**
+ * Infers activity type from assessment ID patterns
+ * @param {string} assessmentId - The assessment identifier
+ * @returns {string} The inferred activity type
+ */
+function inferActivityTypeFromAssessmentId(assessmentId) {
+  if (!assessmentId) return 'lesson';
+  
+  const id = assessmentId.toLowerCase();
+  
+  if (id.includes('assignment') || id.includes('homework') || id.includes('hw')) {
+    return 'assignment';
+  } else if (id.includes('exam') || id.includes('test') || id.includes('final')) {
+    return 'exam';
+  } else if (id.includes('lab') || id.includes('laboratory') || id.includes('experiment')) {
+    return 'lab';
+  } else {
+    return 'lesson';
+  }
+}
+
+/**
  * Factory function to create an AI Multiple Choice assessment handler
  * @param {Object} courseConfig - Course-specific configuration
  * @returns {Function} Cloud function handler
@@ -197,8 +260,20 @@ function createAIMultipleChoice(courseConfig = {}) {
   }, async (data, context) => {
     // Load and merge configurations
     const globalConfig = await loadConfig();
+    
+    // SECURITY: Use hardcoded activity type from course config (cannot be manipulated by client)
+    // Priority: courseConfig.activityType (hardcoded) > inferred from assessmentId > fallback to lesson
+    const activityType = courseConfig.activityType || inferActivityTypeFromAssessmentId(data.assessmentId) || 'lesson';
+    
+    // Log the activity type being used for debugging
+    console.log(`Using activity type: ${activityType} (Source: ${courseConfig.activityType ? 'hardcoded' : 'inferred'})`);
+    
+    // Get activity-specific configuration
+    const activityConfig = courseConfig.activityTypes?.[activityType] || courseConfig.activityTypes?.lesson || {};
+    
     const config = {
-      ...globalConfig.questionTypes.multipleChoice.ai_generated,
+      ...globalConfig.questionTypes?.multipleChoice?.ai_generated || {},
+      ...activityConfig,
       ...courseConfig
     };
 
@@ -209,8 +284,7 @@ function createAIMultipleChoice(courseConfig = {}) {
     await initializeCourseIfNeeded(params.studentKey, params.courseId);
 
     // Reference to the assessment in the database
-    const assessmentRef = admin.database()
-      .ref(`students/${params.studentKey}/courses/${params.courseId}/Assessments/${params.assessmentId}`);
+    const assessmentRef = getDatabaseRef('studentAssessment', params.studentKey, params.courseId, params.assessmentId);
     console.log(`Database path: students/${params.studentKey}/courses/${params.courseId}/Assessments/${params.assessmentId}`);
 
     // Handle question generation operation
@@ -230,16 +304,17 @@ function createAIMultipleChoice(courseConfig = {}) {
         console.log(`This is a ${isRegeneration ? 'regeneration' : 'new question'} request. Current attempts: ${currentAttempts}`);
         
         // Look up course settings to get max attempts
-        const courseRef = admin.database()
-          .ref(`courses/${params.courseId}/assessments/${params.assessmentId}`);
+        const courseRef = getDatabaseRef('courseAssessment', params.courseId, params.assessmentId);
         const courseAssessmentSnapshot = await courseRef.once('value');
         const courseAssessmentData = courseAssessmentSnapshot.val();
         
-        // Determine max attempts from hierarchy: courseConfig > courseAssessmentData > defaults
-        let maxAttempts = config.maxAttempts || 9999;
+        // Determine max attempts from hierarchy: courseConfig > activityConfig > courseAssessmentData > defaults
+        let maxAttempts = config.maxAttempts || activityConfig.maxAttempts || 9999;
         if (courseAssessmentData && courseAssessmentData.maxAttempts) {
           maxAttempts = courseAssessmentData.maxAttempts;
         }
+        
+        console.log(`Max attempts configuration: courseConfig=${config.maxAttempts}, activityConfig=${activityConfig.maxAttempts}, final=${maxAttempts}`);
         
         console.log(`Max attempts allowed: ${maxAttempts}`);
         
@@ -272,9 +347,16 @@ function createAIMultipleChoice(courseConfig = {}) {
           attempts: currentAttempts,
           status: 'active',
           maxAttempts: maxAttempts,
-          pointsValue: config.pointsValue || 2,
+          activityType: activityType,
+          pointsValue: config.pointsValue || activityConfig.pointValue || 2,
+          attemptPenalty: config.attemptPenalty || activityConfig.attemptPenalty || 0,
           settings: {
-            showFeedback: config.showFeedback !== false
+            showFeedback: config.showFeedback !== false && activityConfig.showDetailedFeedback !== false,
+            enableHints: config.enableHints !== false && activityConfig.enableHints !== false,
+            allowDifficultySelection: config.allowDifficultySelection || activityConfig.allowDifficultySelection || false,
+            theme: config.theme || activityConfig.theme || 'purple',
+            defaultDifficulty: config.defaultDifficulty || activityConfig.defaultDifficulty || 'intermediate',
+            freeRegenerationOnDifficultyChange: config.freeRegenerationOnDifficultyChange || activityConfig.freeRegenerationOnDifficultyChange || false
           }
         };
         
@@ -282,8 +364,7 @@ function createAIMultipleChoice(courseConfig = {}) {
         await assessmentRef.set(questionData);
 
         // Store the secure data in a completely separate database node (server-side only)
-        const secureRef = admin.database()
-          .ref(`courses_secure/${params.courseId}/assessments/${params.assessmentId}`);
+        const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
         
         await secureRef.set({
           correctOptionId: question.correctOptionId,
@@ -319,8 +400,7 @@ function createAIMultipleChoice(courseConfig = {}) {
         }
         
         // Verify max attempts from course settings
-        const courseRef = admin.database()
-          .ref(`courses/${params.courseId}/assessments/${params.assessmentId}`);
+        const courseRef = getDatabaseRef('courseAssessment', params.courseId, params.assessmentId);
         const courseAssessmentSnapshot = await courseRef.once('value');
         const courseAssessmentData = courseAssessmentSnapshot.val();
         
@@ -350,8 +430,7 @@ function createAIMultipleChoice(courseConfig = {}) {
         }
 
         // Get the secure data
-        const secureRef = admin.database()
-          .ref(`courses_secure/${params.courseId}/assessments/${params.assessmentId}`);
+        const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
         const secureSnapshot = await secureRef.once('value');
         const secureData = secureSnapshot.val();
 
@@ -415,8 +494,7 @@ function createAIMultipleChoice(courseConfig = {}) {
 
         // Update the grade if the answer is correct AND we haven't previously recorded a correct grade
         if (result.isCorrect && !wasCorrectOverall) {
-          const gradeRef = admin.database()
-            .ref(`students/${params.studentKey}/courses/${params.courseId}/Grades/assessments/${params.assessmentId}`);
+          const gradeRef = getDatabaseRef('studentGrade', params.studentKey, params.courseId, params.assessmentId);
 
           // Calculate score based on the pointsValue from settings
           const pointsValue = assessmentData.pointsValue || 2;

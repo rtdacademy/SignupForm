@@ -156,10 +156,8 @@ exports.COM1255_BenefitsChallengesAI = COM1255BenefitsChallenges.handleAIQuestio
 
 // 2 Course Functions
 exports.course2_shared_aiQuestion = require('./courses/2/shared/aiQuestions').course2_shared_aiQuestion;
-exports.course2_02_core_concepts_multipleChoice = require('./courses/2/02-core-concepts/assessments').course2_02_core_concepts_multipleChoice;
-exports.course2_02_core_concepts_aiQuestion = require('./courses/2/02-core-concepts/assessments').course2_02_core_concepts_aiQuestion;
+exports.course2_02_momentum_one_dimension_aiQuestion = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_aiQuestion;
 
 // 100 Course Functions
-exports.course100_shared_aiQuestion = require('./courses/100/shared/aiQuestions').course100_shared_aiQuestion;
 exports.course100_02_core_concepts_multipleChoice = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_multipleChoice;
 exports.course100_02_core_concepts_aiQuestion = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_aiQuestion;

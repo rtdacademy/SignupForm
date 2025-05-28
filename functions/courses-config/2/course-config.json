@@ -11,11 +11,12 @@
   "contentFolder": "content",
   "functionsFolder": "functions/2",
   "weights": {
-    "lesson": 0.2,
-    "assignment": 0.4,
-    "exam": 0.4
+    "lesson": 0.15,
+    "assignment": 0.35,
+    "lab": 0.2,
+    "exam": 0.3
   },
-  "settings": {
+  "globalSettings": {
     "allowLateSubmissions": true,
     "latePenaltyPerDay": 0.1,
     "maxLateDays": 7,
@@ -26,9 +27,109 @@
     "enableCollaboration": false,
     "requireSequentialProgress": false
   },
-  "theme": {
-    "primaryColor": "purple",
-    "secondaryColor": "blue",
+  "activityTypes": {
+    "lesson": {
+      "displayName": "Lesson",
+      "maxAttempts": 999,
+      "attemptPenalty": 0,
+      "pointValue": 5,
+      "theme": "purple",
+      "showDetailedFeedback": true,
+      "enableHints": true,
+      "allowDifficultySelection": false,
+      "defaultDifficulty": "intermediate",
+      "aiSettings": {
+        "temperature": 0.7,
+        "maxTokens": 1000,
+        "topP": 0.9
+      }
+    },
+    "assignment": {
+      "displayName": "Assignment",
+      "maxAttempts": 3,
+      "attemptPenalty": 0.2,
+      "pointValue": 10,
+      "theme": "blue",
+      "showDetailedFeedback": true,
+      "enableHints": true,
+      "allowDifficultySelection": true,
+      "defaultDifficulty": "beginner",
+      "freeRegenerationOnDifficultyChange": true,
+      "aiSettings": {
+        "temperature": 0.7,
+        "maxTokens": 1200,
+        "topP": 0.9
+      }
+    },
+    "lab": {
+      "displayName": "Lab",
+      "maxAttempts": 3,
+      "attemptPenalty": 0.2,
+      "pointValue": 15,
+      "theme": "green",
+      "showDetailedFeedback": true,
+      "enableHints": true,
+      "allowDifficultySelection": false,
+      "defaultDifficulty": "intermediate",
+      "aiSettings": {
+        "temperature": 0.6,
+        "maxTokens": 1200,
+        "topP": 0.8
+      }
+    },
+    "exam": {
+      "displayName": "Exam",
+      "maxAttempts": 1,
+      "attemptPenalty": 0,
+      "pointValue": 25,
+      "theme": "red",
+      "showDetailedFeedback": false,
+      "enableHints": false,
+      "allowDifficultySelection": false,
+      "defaultDifficulty": "advanced",
+      "aiSettings": {
+        "temperature": 0.5,
+        "maxTokens": 1500,
+        "topP": 0.8
+      }
+    }
+  },
+  "themes": {
+    "lesson": {
+      "primaryColor": "purple",
+      "secondaryColor": "indigo",
+      "accent": "#8b5cf6",
+      "background": "#f5f3ff",
+      "border": "#ddd6fe"
+    },
+    "assignment": {
+      "primaryColor": "blue",
+      "secondaryColor": "sky",
+      "accent": "#3b82f6",
+      "background": "#f0f9ff",
+      "border": "#bfdbfe"
+    },
+    "lab": {
+      "primaryColor": "green",
+      "secondaryColor": "emerald",
+      "accent": "#10b981",
+      "background": "#ecfdf5",
+      "border": "#a7f3d0"
+    },
+    "exam": {
+      "primaryColor": "red",
+      "secondaryColor": "rose",
+      "accent": "#ef4444",
+      "background": "#fef2f2",
+      "border": "#fecaca"
+    },
+    "default": {
+      "primaryColor": "purple",
+      "secondaryColor": "blue",
+      "accent": "#8b5cf6",
+      "background": "#f5f3ff",
+      "border": "#ddd6fe"
+    },
     "customCSS": ""
   },
   "notifications": {
