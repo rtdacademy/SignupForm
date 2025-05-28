@@ -7,9 +7,25 @@ This document outlines the secure assessment system for delivering and evaluatin
 1. **Security-First Design**: Question logic, parameters, and answers are stored server-side
 2. **Separation of Concerns**: Content delivery (client) vs. assessment logic (server)
 3. **Stateful Tracking**: Student progress and assessment results are tracked in the database
-4. **Seed-Based Generation**: Questions use deterministic random seeds for reproducibility
-5. **Cloud Function Architecture**: Assessment logic is centralized by lesson/content
-6. **Configurable Settings**: Assessment parameters are managed through database settings
+4. **Modular Architecture**: Reusable assessment types with shared utilities and configuration
+5. **Configuration Hierarchy**: Global defaults → Course settings → Assessment-level overrides
+6. **Template-Based Development**: Standardized course creation with convention-based naming
+
+## Modular Assessment System (NEW)
+
+The platform now uses a modular assessment system that dramatically simplifies course development:
+
+### Available Assessment Types:
+- **AI Multiple Choice**: `createAIMultipleChoice()` - Generates questions using AI with course-specific prompts
+- **Standard Multiple Choice**: Traditional predefined questions
+- **Dynamic Math**: Parameterized math problems (extensible)
+- **Assignment Submission**: File upload and text submission handling
+
+### Benefits:
+- ✅ **No Code Duplication**: Shared, tested logic across all courses
+- ✅ **Consistent Database Integration**: Automatic adherence to security and data patterns
+- ✅ **Easy Customization**: Configure with prompts and settings, not complex code
+- ✅ **Automatic Fallbacks**: Course-specific fallback questions when AI fails
 
 ## Component Architecture
 
@@ -182,49 +198,60 @@ Assessment configuration is stored in the following paths:
 
 ## Cloud Function Implementation
 
-Each lesson has a single cloud function file that contains handlers for all assessment types in that lesson:
+### Modular Architecture
+
+Cloud functions now use a modular architecture with shared components:
 
 ```
-/functions/courses/{courseId}/{contentType}/{contentName}.js
+/functions/
+├── shared/
+│   ├── assessment-types/          # Reusable assessment modules
+│   │   ├── ai-multiple-choice.js  # createAIMultipleChoice()
+│   │   ├── standard-multiple-choice.js
+│   │   └── dynamic-math.js
+│   ├── utilities/                 # Shared utilities
+│   │   ├── database-utils.js      # Standard DB operations
+│   │   ├── config-loader.js       # Configuration hierarchy
+│   │   └── parameter-validator.js # Input validation
+│   └── schemas/                   # Zod validation schemas
+└── courses/{courseId}/{contentPath}/
+    └── assessments.js             # Course-specific implementations
 ```
 
-For example:
-```
-/functions/courses/COM1255/lessons/IntroToELearning.js
-```
+### Example Course Implementation
 
-### Cloud Function Design
-
-Each cloud function file exports multiple handlers that implement:
-
-1. **Settings Retrieval**: Gets assessment settings from the database with fallbacks and overrides
-2. **Question Generation**: Creates question parameters from a seed and settings
-3. **Answer Evaluation**: Compares student answer to correct solution
-4. **Progress & Grade Tracking**: Updates student records with scores based on settings
-
-Example cloud function structure:
+Course developers now create simple configuration-based functions:
 
 ```javascript
-// Shared utility for fetching assessment settings with priority order:
-// 1. Hardcoded settings (highest priority)
-// 2. Database content type settings (lessons, exams)
-// 3. Database question type settings 
-// 4. Database default settings
-// 5. Fallback default settings (lowest priority)
-async function getAssessmentSettings(courseId, questionType, contentType) {
-  // ... implementation
-}
+// Import the modular assessment type
+const { createAIMultipleChoice } = require('../../../../shared/assessment-types/ai-multiple-choice');
+const { FALLBACK_QUESTIONS } = require('./fallback-questions');
 
-// Multiple choice question handler
-exports.handleMultipleChoiceQuestion = functions.https.onCall(async (data, context) => {
-  // ... implementation for generating and evaluating multiple choice questions
-});
-
-// Dynamic question handler
-exports.handleDynamicQuestion = functions.https.onCall(async (data, context) => {
-  // ... implementation for generating and evaluating dynamic math questions
+// Create an AI multiple choice assessment with course-specific config
+exports.course2_02_core_concepts_aiQuestion = createAIMultipleChoice({
+  // Course-specific prompts
+  prompts: {
+    beginner: "Create a basic physics question about...",
+    intermediate: "Create a physics problem requiring...",
+    advanced: "Create a complex physics scenario..."
+  },
+  
+  // Override default settings
+  maxAttempts: 3,
+  pointsValue: 5,
+  
+  // Course-specific fallback questions
+  fallbackQuestions: FALLBACK_QUESTIONS
 });
 ```
+
+### Configuration Hierarchy
+
+Settings are merged in this priority order:
+
+1. **Assessment-Level Config** (highest priority): Settings in `createAIMultipleChoice({...})`
+2. **Course Config**: Values from `course-config.json`
+3. **Global Defaults** (lowest priority): Values from `courses/config/assessment-defaults.json`
 
 ## Client-Side Implementation
 
@@ -272,27 +299,52 @@ const LessonContent = () => {
 };
 ```
 
-## Creating New Assessments
+## Creating New Assessments (Updated Process)
 
-To implement a new assessment question:
+The modular system has dramatically simplified assessment creation:
 
-1. **Update Course Structure in Database**:
-   - Add the assessment configuration to the course structure in the database at `/courses/{courseId}/courseDetails/courseStructure/structure/`
-   - Include assessment ID, type, cloud function name, and other configuration parameters
+### For New Courses:
+1. **Use Course Template**: Run `npm run create-course -- --id=COURSEID --title="Course Title"`
+2. **Customize Prompts**: Edit the prompts in `assessments.js` for your subject matter
+3. **Add Fallback Questions**: Create subject-specific fallback questions in `fallback-questions.js`
+4. **Deploy**: Add to `functions/index.js` and deploy with `firebase deploy --only functions`
 
-2. **Configure Settings**:
-   - Ensure appropriate defaults exist in the database under `/courses/{courseId}/assessmentSettings/`
-   - Customize settings per question type or content type as needed
+### For Additional Assessments in Existing Courses:
 
-3. **Create/Update Cloud Function**:
-   - Create a new function file or add to an existing file in the appropriate directory
-   - Implement question generation logic with settings consideration
-   - Implement answer evaluation logic with appropriate scoring
+#### Option A: Use Modular Assessment Types
+```javascript
+// In assessments.js, add another modular assessment
+exports.courseId_lesson_name_newAssessment = createAIMultipleChoice({
+  prompts: {
+    beginner: "Create a question about...",
+    intermediate: "Create a question that...",
+    advanced: "Create a complex question..."
+  },
+  maxAttempts: 2,
+  pointsValue: 3
+});
+```
 
-4. **Update Client**:
-   - Create the question component in the appropriate lesson content file
-   - Register the component in the content registry at `src/FirebaseCourses/courses/COM1255/content/index.js`
-   - Configure with appropriate courseId, assessmentId, and cloudFunctionName
+#### Option B: Create Custom Assessment
+```javascript
+// For unique requirements, create custom functions
+const { onCall } = require('firebase-functions/v2/https');
+const { extractParameters, getDatabaseRef } = require('../../../../shared/utilities/database-utils');
+
+exports.courseId_lesson_name_customAssessment = onCall({
+  region: 'us-central1',
+  timeoutSeconds: 60,
+}, async (data, context) => {
+  const params = extractParameters(data, context);
+  // Custom assessment logic here
+});
+```
+
+### Benefits of New Process:
+- ✅ **10x Faster Development**: Minutes instead of hours per assessment
+- ✅ **Zero Boilerplate**: No database utilities, parameter validation, or security code needed
+- ✅ **Consistent Behavior**: All assessments work the same way across courses
+- ✅ **Automatic Best Practices**: Security, error handling, and database patterns built-in
 
 ## Security Considerations
 
@@ -319,28 +371,66 @@ Assessment results automatically update the student's gradebook:
    - Content type weights (lessons, assignments, exams)
    - Individual assessment weights within each content
 
-## Overriding Assessment Settings
+## Configuration System (Updated)
 
-Settings can be adjusted at three levels (in order of increasing priority):
+The new system uses a file-based configuration hierarchy:
 
-1. **Global Default Settings**: Base settings for all assessments
-2. **Content Type Settings**: Settings specific to lessons, assignments, or exams
-3. **Question Type Settings**: Settings specific to question types (multiple choice, dynamic)
-4. **Hardcoded Settings**: Direct values in the cloud function (highest priority)
+### Configuration Files:
 
-To override settings for a specific question, modify the hardcoded settings in the cloud function:
-
-```javascript
-// Hardcoded settings specific to this cloud function - highest priority
-const hardcodedSettings = {
-  multipleChoice: {
-    maxAttempts: 3,
-    pointsValue: 2
+1. **Global Defaults** (`functions/config/assessment-defaults.json`):
+```json
+{
+  "questionTypes": {
+    "multipleChoice": {
+      "ai_generated": {
+        "maxAttempts": 9999,
+        "pointsValue": 2,
+        "showFeedback": true,
+        "generationPrompts": {
+          "beginner": "Create a basic multiple-choice question...",
+          "intermediate": "Create a multiple-choice question...",
+          "advanced": "Create a complex multiple-choice question..."
+        }
+      }
+    }
   },
-  dynamic: {
-    showRegenerate: true
+  "cloudFunctions": {
+    "timeout": 60,
+    "memory": "512MiB",
+    "region": "us-central1"
   }
-};
+}
 ```
 
-This layered approach allows for flexible configuration while maintaining the ability to enforce specific requirements when needed.
+2. **Course Configuration** (`functions/courses-config/{courseId}/course-config.json`):
+```json
+{
+  "courseId": "2",
+  "title": "Physics 30",
+  "weights": {
+    "lesson": 0.2,
+    "assignment": 0.4,
+    "exam": 0.4
+  },
+  "settings": {
+    "maxAttempts": 3,
+    "pointsValue": 5
+  }
+}
+```
+
+3. **Assessment-Level Configuration** (in assessment functions):
+```javascript
+exports.course2_lesson_aiQuestion = createAIMultipleChoice({
+  maxAttempts: 2,        // Overrides course and global defaults
+  pointsValue: 10,       // Overrides course and global defaults
+  prompts: { ... }       // Overrides global prompts
+});
+```
+
+### Priority Order (Highest to Lowest):
+1. **Assessment-Level Settings** (function configuration)
+2. **Course Settings** (`course-config.json`)
+3. **Global Defaults** (`assessment-defaults.json`)
+
+This file-based approach provides better version control, easier deployment, and clearer configuration management than database-stored settings.

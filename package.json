@@ -147,6 +147,7 @@
     "clean": "node scripts/build.js --clean-only",
     "prebuild": "node scripts/build.js --clean-only",
     "export:database": "firebase database:get / > database-export.json",
+    "create-course": "node scripts/create-course.js",
     "import:database": "firebase database:set / database-export.json",
     
     "genkit:ui": "cd functions && GENKIT_ENV=dev npx genkit start -o -- node local-dev-server.js",
