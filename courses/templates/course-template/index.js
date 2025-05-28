@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ProgressProvider } from '../../../src/FirebaseCourses/context/CourseProgressContext';
-import { Badge } from '../../../src/components/ui/badge';
+import { ProgressProvider } from '../../context/CourseProgressContext';
+import { Badge } from '../../../components/ui/badge';
 import contentRegistry from './content';
-import courseConfig from './course-config.json';
+import courseDisplay from './course-display.json';
 import courseStructure from './course-structure.json';
 
 // Type-specific styling
@@ -29,13 +29,13 @@ const CourseTEMPLATE_ID = ({
   devMode = false
 }) => {
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
-  const courseId = courseConfig.courseId;
-  const structure = courseStructure.units;
+  const courseId = courseDisplay.courseId;
+  const structure = courseStructure.courseStructure?.units || courseStructure.units || [];
 
   // Debug logging
   useEffect(() => {
-    console.log(`${courseConfig.courseId}: Course loaded`, {
-      config: courseConfig,
+    console.log(`${courseDisplay.courseId}: Course loaded`, {
+      config: courseDisplay,
       structure: courseStructure,
       contentRegistry: Object.keys(contentRegistry)
     });
@@ -133,7 +133,7 @@ const CourseTEMPLATE_ID = ({
           <ContentComponent
             course={course}
             courseId={courseId}
-            courseConfig={courseConfig}
+            courseDisplay={courseDisplay}
             itemConfig={activeItem}
             isStaffView={isStaffView}
             devMode={devMode}
@@ -191,12 +191,10 @@ const CourseTEMPLATE_ID = ({
       <div className="max-w-4xl mx-auto p-6">
         {/* Course Header */}
         <div className="mb-6 bg-white rounded-lg shadow-sm p-4">
-          <h1 className="text-2xl font-bold text-gray-900">{courseConfig.fullTitle}</h1>
-          <p className="text-gray-600 mt-1">{courseConfig.description}</p>
+          <h1 className="text-2xl font-bold text-gray-900">{courseDisplay.fullTitle}</h1>
+          <p className="text-gray-600 mt-1">{courseDisplay.description}</p>
           <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-            <span>Credits: {courseConfig.credits}</span>
-            <span>•</span>
-            <span>Grade {courseConfig.grade}</span>
+            <span>Grade {courseDisplay.grade}</span>
             <span>•</span>
             <span>{progressStats.percentage}% Complete</span>
           </div>

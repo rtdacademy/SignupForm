@@ -1,0 +1,24 @@
+{
+  "courseId": "100",
+  "title": "Sample Course",
+  "fullTitle": "100 - Sample Course",
+  "description": "This is a template course description. Replace this with a detailed description of what students will learn in this course.",
+  "grade": "10",
+  "prerequisites": [],
+  "instructors": [],
+  "duration": "1 semester",
+  "theme": {
+    "primaryColor": "purple",
+    "secondaryColor": "blue",
+    "customCSS": ""
+  },
+  "displaySettings": {
+    "showProgressBar": true,
+    "showGrades": true,
+    "enableTextToSpeech": true
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "status": "draft"
+  }
+}
