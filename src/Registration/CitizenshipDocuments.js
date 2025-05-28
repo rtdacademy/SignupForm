@@ -6,7 +6,7 @@ import { Button } from "../components/ui/button";
 import { AlertTriangle, Upload, Check, Loader2, FileText, X, Camera } from "lucide-react";
 import { useAuth } from '../context/AuthContext';
 
-const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments = [], error: externalError }, ref) => {
+const CitizenshipDocuments = forwardRef(({ onUploadComplete, initialDocuments = [], error: externalError }, ref) => {
   const { user } = useAuth();
   const [documents, setDocuments] = useState(initialDocuments);
   const [uploadingIndex, setUploadingIndex] = useState(null);
@@ -17,14 +17,15 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Document type options for international students
+  // Document type options
   const documentTypes = [
-    { value: 'passport', label: 'Passport' },
     { value: 'birth-certificate', label: 'Birth Certificate' },
-    { value: 'national-id', label: 'National ID Card' },
-    { value: 'study-permit', label: 'Study Permit' },
-    { value: 'work-permit', label: 'Work Permit' },
-    { value: 'other', label: 'Other Government Issued ID' }
+    { value: 'citizenship-certificate', label: 'Canadian Citizenship Certificate' },
+    { value: 'citizenship-card', label: 'Canadian Citizenship Card' },
+    { value: 'passport', label: 'Canadian Passport' },
+    { value: 'visa', label: 'Visa' },
+    { value: 'immigration-document', label: 'Immigration Document' },
+    { value: 'other', label: 'Other' }
   ];
 
   const handleFileSelect = async (files, documentType = null) => {
@@ -73,7 +74,7 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
           
           setDocuments(prev => {
             const updated = [...prev, newDoc];
-            onUploadComplete('internationalDocuments', updated);
+            onUploadComplete('citizenshipDocuments', updated);
             return updated;
           });
         }
@@ -96,7 +97,7 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
     const timestamp = Date.now();
     const fileExtension = file.name.split('.').pop().toLowerCase();
     const fileName = `${timestamp}-${documentType}.${fileExtension}`;
-    const filePath = `rtdAcademy/international/${user.uid}/${fileName}`;
+    const filePath = `rtdAcademy/citizenshipDocs/${user.uid}/${fileName}`;
     const fileRef = storageRef(storage, filePath);
 
     try {
@@ -111,7 +112,7 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
   const handleRemoveDocument = (index) => {
     setDocuments(prev => {
       const updated = prev.filter((_, i) => i !== index);
-      onUploadComplete('internationalDocuments', updated);
+      onUploadComplete('citizenshipDocuments', updated);
       return updated;
     });
   };
@@ -202,20 +203,19 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
       <CardHeader className="pb-3">
         <h3 className="text-lg font-semibold text-blue-900 flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          International Student Documents <span className="text-red-500">*</span>
+          Citizenship Verification <span className="text-red-500">*</span>
         </h3>
       </CardHeader>
       <CardContent className="space-y-4">
         <Alert className="bg-blue-50 border-blue-200">
           <AlertDescription className="text-blue-800">
-            Please upload <strong>ONE</strong> of the following documents:
+            Upload acceptable copies of one of the following:
             <ul className="list-disc pl-5 mt-2">
-              <li>Valid Passport</li>
-              <li>Birth Certificate or National ID Card</li>
-              <li>Study Permit or Work Permit</li>
-              <li>Other Government Issued ID</li>
+              <li>Birth Certificate within Canada</li>
+              <li>Canadian Citizenship Certificate or Card</li>
+              <li>Canadian Passport</li>
+              <li>Type of Visa or other document supporting lawful admittance to Canada</li>
             </ul>
-            <p className="mt-2 font-medium">Note: Only one document is required for verification.</p>
           </AlertDescription>
         </Alert>
 
@@ -267,12 +267,6 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
                 </button>
               </div>
             ))}
-            <Alert className="bg-green-50 border-green-200">
-              <Check className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                Document requirement satisfied. You have uploaded {documents.length} document{documents.length > 1 ? 's' : ''}.
-              </AlertDescription>
-            </Alert>
           </div>
         )}
 
@@ -285,7 +279,7 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
                 variant="outline"
                 className="border-blue-300 hover:bg-blue-50 flex-1"
                 disabled={uploadingIndex !== null || !selectedDocumentType}
-                onClick={() => document.getElementById('international-upload-input').click()}
+                onClick={() => document.getElementById('citizenship-upload-input').click()}
               >
                 {uploadingIndex !== null ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -310,7 +304,7 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
               <p className="text-sm text-gray-500">Please select a document type to upload or capture documents</p>
             )}
             <input
-              id="international-upload-input"
+              id="citizenship-upload-input"
               type="file"
               accept=".pdf,.jpg,.jpeg,.png"
               onChange={(e) => handleFileSelect(e.target.files)}
@@ -377,8 +371,7 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
             <li>PDF or image format (JPEG, PNG)</li>
             <li>Maximum file size: 5MB per file</li>
             <li>Clear, readable copies of official documents</li>
-            <li>Only ONE document is required for verification</li>
-            <li>You can upload additional documents if needed</li>
+            <li>You can upload multiple documents if needed</li>
           </ul>
         </div>
       </CardContent>
@@ -386,6 +379,6 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
   );
 });
 
-InternationalDocuments.displayName = 'InternationalDocuments';
+CitizenshipDocuments.displayName = 'CitizenshipDocuments';
 
-export default InternationalDocuments;
+export default CitizenshipDocuments;

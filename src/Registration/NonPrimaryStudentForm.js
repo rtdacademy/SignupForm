@@ -17,7 +17,10 @@ import {
   Calendar,
   AlertCircle,
   Loader2,
-  
+  Shield,
+  Users,
+  FileText,
+  HelpCircle
 } from 'lucide-react';
 import {
   Tooltip,
@@ -32,11 +35,12 @@ import "react-datepicker/dist/react-datepicker.css";
 import SchoolAddressPicker from '../components/SchoolAddressPicker';
 import HomeSchoolSelector from '../components/HomeSchoolSelector'; 
 import CapitalizedInput from '../components/CapitalizedInput';
+import AddressPicker from '../components/AddressPicker';
 import { getDatabase, ref as databaseRef, get, set } from 'firebase/database';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import InternationalDocuments from './InternationalDocuments';
-import Select from 'react-select';
-import countryList from 'react-select-country-list';
+import StudentPhotoUpload from './StudentPhotoUpload';
+import CitizenshipDocuments from './CitizenshipDocuments';
 import {
   ValidationFeedback,
   validationRules,
@@ -399,7 +403,6 @@ const NonPrimaryStudentForm = forwardRef(({
     currentSchoolYearKey
   } = useRegistrationSettings(studentType);
 
-  const countryOptions = useMemo(() => countryList().getData(), []);
 
   const [documentUrls, setDocumentUrls] = useState({
     passport: '',
@@ -454,6 +457,7 @@ const NonPrimaryStudentForm = forwardRef(({
       lastName: validationRules.lastName.format(user?.displayName?.split(' ').slice(1).join(' ') || ''),
       preferredFirstName: '', 
       phoneNumber: '',
+      address: null, // Add address field
       currentSchool: '',
       schoolAddress: null,
       birthday: '',
@@ -471,15 +475,27 @@ const NonPrimaryStudentForm = forwardRef(({
       diplomaMonth: null,
       studentType: studentType || 'Non-Primary', // Initialize with studentType prop
       age: null,
-      country: '', 
       term: defaultTerm, // Initialize with default term based on student type
       documents: {
         passport: '',
         additionalID: '',
         residencyProof: ''
       },
+      internationalDocuments: [], // New array format for international documents
       registrationSettingsPath: null,
-      timeSectionId: null
+      timeSectionId: null,
+      // New fields
+      studentPhoto: '',
+      albertaResident: false,
+      parentRelationship: '',
+      isLegalGuardian: false,
+      hasLegalRestrictions: '',
+      legalDocumentUrl: '',
+      indigenousIdentification: '',
+      indigenousStatus: '',
+      citizenshipDocuments: [],
+      howDidYouHear: '',
+      whyApplying: ''
     };
 
     console.log('Initial form data:', formData);
@@ -506,6 +522,7 @@ const NonPrimaryStudentForm = forwardRef(({
   const [recommendedCompletionMonths, setRecommendedCompletionMonths] = useState(null);
   const [recommendedEndDate, setRecommendedEndDate] = useState(null);
   const [noValidDatesAvailable, setNoValidDatesAvailable] = useState(false);
+  const [areDatesValid, setAreDatesValid] = useState(false);
 
   const [dateErrors, setDateErrors] = useState({
     startDate: '',
@@ -628,7 +645,8 @@ const NonPrimaryStudentForm = forwardRef(({
             parentLastName: snapshot.val().ParentLastName || prev.parentLastName,
             parentPhone: snapshot.val().ParentPhone_x0023_ || prev.parentPhone,
             parentEmail: snapshot.val().ParentEmail || prev.parentEmail,
-            country: snapshot.val().internationalDocuments?.countryOfOrigin || prev.country,
+            // Don't pre-populate address - require fresh input for each registration
+            // address: snapshot.val().address || prev.address,
           }));
 
           // Set document URLs if they exist
@@ -665,9 +683,10 @@ const NonPrimaryStudentForm = forwardRef(({
       parentLastName: !!profileData.ParentLastName,
       parentPhone: !!profileData.ParentPhone_x0023_,
       parentEmail: !!profileData.ParentEmail,
-      country: !!profileData.internationalDocuments?.countryOfOrigin,
       documents: !!(profileData.internationalDocuments?.passport && 
-                  profileData.internationalDocuments?.additionalID)
+                  profileData.internationalDocuments?.additionalID),
+      // Don't make address read-only - require fresh input for each registration
+      // address: !!profileData.address
     };
   }, [profileData]);
 
@@ -679,7 +698,6 @@ const NonPrimaryStudentForm = forwardRef(({
       parentPhone: () => !user18OrOlder,
       parentEmail: () => !user18OrOlder,
       preferredFirstName: () => usePreferredFirstName,
-      country: () => studentType === 'International Student',
       documents: () => studentType === 'International Student',
       albertaStudentNumber: () => {
         if (studentType === 'International Student' && !hasASN) {
@@ -688,6 +706,12 @@ const NonPrimaryStudentForm = forwardRef(({
         return true; // Validate ASN
       },
       schoolAddress: () => studentType === 'Non-Primary' || studentType === 'Home Education',
+      parentRelationship: () => !user18OrOlder,
+      legalDocumentUrl: () => formData.hasLegalRestrictions === 'yes',
+      indigenousIdentification: () => studentType !== 'International Student',
+      indigenousStatus: () => formData.indigenousIdentification === 'yes',
+      citizenshipDocuments: () => studentType !== 'International Student',
+      albertaResident: () => studentType !== 'International Student' && !user18OrOlder,
     },
     readOnlyFields,
     formData // Pass the entire formData to the validation
@@ -712,14 +736,15 @@ const NonPrimaryStudentForm = forwardRef(({
       successMessage: "School selected"
     }
   }), []);
-
   const {
     errors,
     touched,
     isValid,
+    completionPercentage,
     handleBlur,
-    validateForm
-  } = useFormValidation(formData, rules, validationOptions); 
+    validateForm,
+    getFieldStatus
+  } = useFormValidation(formData, rules, validationOptions);
 
   // Memoize validateForm ref to prevent it from causing infinite updates
   const validateFormRef = useRef(validateForm);
@@ -843,32 +868,45 @@ const NonPrimaryStudentForm = forwardRef(({
     handleBlur(name);
   }, [handleBlur, getCurrentSchoolYear, getTimeSection, studentType, currentSchoolYearKey]);
 
-  const handleCountryChange = (selectedOption) => {
-    handleFormChange({
-      target: {
-        name: 'country',
-        value: selectedOption.value
-      }
-    });
-  };
 
-  const handleDocumentUpload = (type, url) => {
-    setDocumentUrls(prev => ({
-      ...prev,
-      [type]: url
-    }));
-    
-    setFormData(prev => {
-      const newData = {
+  const handleDocumentUpload = (type, data) => {
+    // Handle both old format (type, url) and new format ('internationalDocuments', array)
+    if (type === 'internationalDocuments') {
+      // New array format from updated InternationalDocuments component
+      setFormData(prev => ({
+        ...prev,
+        internationalDocuments: data,
+        documents: data // Also set documents field for backward compatibility
+      }));
+      handleBlur('internationalDocuments');
+      handleBlur('documents');
+    } else {
+      // Old format - keep for backward compatibility
+      setDocumentUrls(prev => ({
+        ...prev,
+        [type]: data
+      }));
+      
+      setFormData(prev => ({
         ...prev,
         documents: {
           ...prev.documents,
-          [type]: url
+          [type]: data
         }
-      };
-      handleBlur('documents'); // Trigger validation for documents
-      return newData;
-    });
+      }));
+      
+      // Trigger validation after state update
+      handleBlur('documents');
+    }
+  };
+
+  // Handle file uploads for new fields
+  const handleFileUpload = (fieldName, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+    handleBlur(fieldName);
   };
 
   // Handle date changes
@@ -1051,6 +1089,9 @@ const NonPrimaryStudentForm = forwardRef(({
         value: toDateString(date)
       }
     });
+    
+    // Mark field as touched for validation
+    handleBlur('startDate');
     
     // Update registration settings path and time section ID
     console.log('Updating registration settings:', {
@@ -1257,6 +1298,10 @@ const NonPrimaryStudentForm = forwardRef(({
         value: toDateString(date)
       }
     });
+    
+    // Mark field as touched for validation
+    handleBlur('endDate');
+    
     setDateErrors(prev => ({ ...prev, endDate: '' }));
     
     // Get term from the active time section and add it to form data
@@ -1328,8 +1373,10 @@ const NonPrimaryStudentForm = forwardRef(({
 
   // Update validation status
   useEffect(() => {
-    onValidationChange(isValid && isEligible && validateDates() && !noValidDatesAvailable);
-  }, [isValid, isEligible, noValidDatesAvailable, onValidationChange]);
+    const overallValid = isValid && isEligible && areDatesValid && !noValidDatesAvailable;
+    onValidationChange(overallValid);
+  }, [isValid, isEligible, areDatesValid, noValidDatesAvailable, onValidationChange]);
+
 
   // Fetch courses from Firebase
   useEffect(() => {
@@ -2101,6 +2148,45 @@ const NonPrimaryStudentForm = forwardRef(({
     noValidDatesAvailable
   ]);
 
+  // Update areDatesValid whenever validateDates dependencies change
+  useEffect(() => {
+    const isValid = validateDates();
+    setAreDatesValid(isValid);
+  }, [validateDates]);
+
+  // Effect to restore validation state for date fields when component has existing data
+  useEffect(() => {
+    // Only run after component is fully loaded and if we have date values
+    if (!loading && !settingsLoading && (formData.startDate || formData.endDate)) {
+      // Small delay to ensure all initialization is complete
+      const timeoutId = setTimeout(() => {
+        // Mark date fields as touched if they have values but aren't touched yet
+        if (formData.startDate && !touched.startDate) {
+          handleBlur('startDate');
+        }
+        if (formData.endDate && !touched.endDate) {
+          handleBlur('endDate');
+        }
+        
+        // Ensure date validation runs
+        setTimeout(() => {
+          validateDates();
+        }, 50);
+      }, 100);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [
+    loading, 
+    settingsLoading, 
+    formData.startDate, 
+    formData.endDate, 
+    touched.startDate, 
+    touched.endDate, 
+    handleBlur, 
+    validateDates
+  ]);
+
   // Validate form and update validation status
   useEffect(() => {
     const debouncedValidation = _.debounce(() => {
@@ -2161,9 +2247,17 @@ const NonPrimaryStudentForm = forwardRef(({
     const { value } = e.target;
     const selectedCourse = courses.find(course => course.id === value);
   
+    // Use handleFormChange to trigger validation
+    handleFormChange({
+      target: {
+        name: 'courseId',
+        value: value
+      }
+    });
+    
+    // Update additional fields
     setFormData(prev => ({
       ...prev,
-      courseId: value,
       courseName: selectedCourse ? selectedCourse.title : '',
       startDate: '', // Reset start date when course changes
       endDate: '' // Reset end date when course changes
@@ -2213,7 +2307,6 @@ const NonPrimaryStudentForm = forwardRef(({
       }));
     }
   }, [usePreferredFirstName, formData.firstName, profileData]);
-
   // Handle form submission and data retrieval
   useImperativeHandle(ref, () => ({
     async submitForm() {
@@ -2228,18 +2321,18 @@ const NonPrimaryStudentForm = forwardRef(({
           }
           
           // International student validation
-          if (studentType === 'International Student' && 
-              !readOnlyFields.country && 
-              !readOnlyFields.documents) {
-            const errors = [];
-            if (!formData.country) {
-              errors.push('Please select your country of origin');
-            }
-            if (!formData.documents?.passport || !formData.documents?.additionalID) {
-              errors.push('Please upload all required documents (Passport and Additional ID)');
-            }
-            if (errors.length > 0) {
-              setError(errors.join('. '));
+          if (studentType === 'International Student' && !readOnlyFields.documents) {
+            // Check for documents in either format
+            const hasNewFormatDocs = formData.internationalDocuments && 
+                                    Array.isArray(formData.internationalDocuments) && 
+                                    formData.internationalDocuments.length > 0;
+            const hasOldFormatDocs = formData.documents && 
+                                    (formData.documents.passport || 
+                                     formData.documents.additionalID || 
+                                     formData.documents.residencyProof);
+            
+            if (!hasNewFormatDocs && !hasOldFormatDocs) {
+              setError('Please upload at least one identification document');
               return false;
             }
           }
@@ -2306,7 +2399,14 @@ const NonPrimaryStudentForm = forwardRef(({
       });
       
       return finalFormData;
-    }
+    },
+    getCompletionPercentage: () => completionPercentage,
+    getValidationStatus: () => ({
+      isValid,
+      completionPercentage,
+      isEligible,
+      hasValidDates: validateDates() && !noValidDatesAvailable
+    })
   }));
 
   // Render a read-only field
@@ -2631,6 +2731,12 @@ const NonPrimaryStudentForm = forwardRef(({
                     studentType={studentType}
                     disabled={noValidDatesAvailable}
                   />
+                  {(touched.startDate || formData.startDate) && !dateErrors.startDate && (
+                    <ValidationFeedback
+                      isValid={!errors.startDate}
+                      message={errors.startDate || validationRules.startDate?.successMessage}
+                    />
+                  )}
 
                   <DatePickerWithInfo
                     label="Completion Date"
@@ -2703,6 +2809,12 @@ const NonPrimaryStudentForm = forwardRef(({
                     alreadyWroteDiploma={alreadyWroteDiploma}
                     selectedDiplomaDate={selectedDiplomaDate}
                   />
+                  {(touched.endDate || formData.endDate) && !dateErrors.endDate && (
+                    <ValidationFeedback
+                      isValid={!errors.endDate}
+                      message={errors.endDate || validationRules.endDate?.successMessage}
+                    />
+                  )}
                 </div>
 
         
@@ -2783,53 +2895,18 @@ const NonPrimaryStudentForm = forwardRef(({
             </CardContent>
           </Card>
 
+          {/* Student Photo Upload - for all students */}
+          <StudentPhotoUpload
+            onUploadComplete={handleFileUpload}
+            initialPhoto={formData.studentPhoto}
+            error={touched.studentPhoto && errors.studentPhoto ? errors.studentPhoto : null}
+          />
+
           {studentType === 'International Student' && (
-            <>
-              <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
-                <CardHeader>
-                  <h3 className="text-md font-semibold">Country Information</h3>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Country of Origin <span className="text-red-500">*</span>
-                    </label>
-                    {readOnlyFields.country ? (
-                      <input
-                        type="text"
-                        value={formData.country}
-                        className="w-full p-2 border rounded-md bg-gray-50 cursor-not-allowed"
-                        readOnly
-                      />
-                    ) : (
-                      <Select
-                        options={countryOptions}
-                        value={countryOptions.find(option => option.value === formData.country)}
-                        onChange={handleCountryChange}
-                        className={touched.country && errors.country ? 'border-red-500' : ''}
-                        placeholder="Select your country"
-                      />
-                    )}
-                    {readOnlyFields.country && (
-                      <p className="text-sm text-gray-500 mt-2">
-                        Country of origin cannot be changed as it's already set in your profile
-                      </p>
-                    )}
-                    {touched.country && errors.country && (
-                      <ValidationFeedback
-                        isValid={false}
-                        message={errors.country}
-                      />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <InternationalDocuments
-                onUploadComplete={handleDocumentUpload}
-                initialDocuments={documentUrls} 
-              />
-            </>
+            <InternationalDocuments
+              onUploadComplete={handleDocumentUpload}
+              initialDocuments={formData.internationalDocuments || []} 
+            />
           )}
 
           {/* Profile Information Card */}
@@ -2998,6 +3075,40 @@ const NonPrimaryStudentForm = forwardRef(({
                   )}
                 </div>
               )}
+
+              {/* Address Field */}
+              {readOnlyFields.address ? (
+                renderReadOnlyField('address', formData.address?.fullAddress || formData.address, 'Address')
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Address <span className="text-red-500">*</span>
+                  </label>
+                  <AddressPicker
+                    onAddressSelect={(addressDetails) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        address: addressDetails
+                      }));
+                      handleBlur('address');
+                    }}
+                    studentType={studentType}
+                  />
+                  <ValidationFeedback
+                    isValid={touched.address && !errors.address}
+                    message={
+                      touched.address
+                        ? errors.address || validationRules.address.successMessage
+                        : null
+                    }
+                  />
+                  {studentType !== 'International Student' && (
+                    <p className="text-sm text-gray-500">
+                      Please select an address in Canada
+                    </p>
+                  )}
+                </div>
+              )}
               {/* Birthday Section */}
               {readOnlyFields.birthday ? (
                 renderReadOnlyField('birthday', formData.birthday, 'Birthday')
@@ -3029,6 +3140,60 @@ const NonPrimaryStudentForm = forwardRef(({
                     message={
                       touched.birthday
                         ? errors.birthday || validationRules.birthday.successMessage
+                        : null
+                    }
+                  />
+                </div>
+              )}
+
+              {/* Alberta Residency Acknowledgment - for Non-International students and non-adults */}
+              {studentType !== 'International Student' && !user18OrOlder && (
+                <div className="space-y-2">
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        name="albertaResident"
+                        checked={formData.albertaResident === true || formData.albertaResident === 'yes'}
+                        onChange={(e) => {
+                          handleFormChange({
+                            target: {
+                              name: 'albertaResident',
+                              value: e.target.checked
+                            }
+                          });
+                        }}
+                        onBlur={() => handleBlur('albertaResident')}
+                        className="mt-1 h-4 w-4 rounded border-gray-300"
+                      />
+                      <div className="flex-1">
+                        <span className="text-sm font-medium">
+                          I acknowledge that I am a resident of Alberta <span className="text-red-500">*</span>
+                        </span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button type="button" className="ml-1 text-gray-500 hover:text-gray-700 inline-flex">
+                                <InfoIcon className="h-3 w-3" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-sm">
+                                As defined by Section 4 of the Education Act - meaning that the student is 
+                                living and ordinarily present in Alberta, and has a parent who is a resident of Canada.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </label>
+                
+                  </div>
+                  <ValidationFeedback
+                    isValid={touched.albertaResident && !errors.albertaResident}
+                    message={
+                      touched.albertaResident
+                        ? errors.albertaResident || validationRules.albertaResident.successMessage
                         : null
                     }
                   />
@@ -3336,6 +3501,64 @@ const NonPrimaryStudentForm = forwardRef(({
                     As you are under 18, parent/guardian information is required.
                   </p>
 
+                  {/* Parent Relationship */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">
+                      Relationship to Student <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="parentRelationship"
+                      value={formData.parentRelationship}
+                      onChange={handleFormChange}
+                      onBlur={() => handleBlur('parentRelationship')}
+                      className={`w-full p-2 border rounded-md ${
+                        touched.parentRelationship && errors.parentRelationship ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      required
+                    >
+                      <option value="">Select relationship</option>
+                      <option value="Father">Father</option>
+                      <option value="Mother">Mother</option>
+                      <option value="Guardian">Guardian</option>
+                      <option value="Emergency Contact">Emergency Contact</option>
+                      <option value="Doctor">Doctor</option>
+                      <option value="Sitter">Sitter</option>
+                      <option value="Custodian">Custodian</option>
+                      <option value="School Closure Contact">School Closure Contact</option>
+                      <option value="Caregiver">Caregiver</option>
+                      <option value="Stepmother">Stepmother</option>
+                      <option value="Stepfather">Stepfather</option>
+                    </select>
+                    <ValidationFeedback
+                      isValid={touched.parentRelationship && !errors.parentRelationship}
+                      message={
+                        touched.parentRelationship
+                          ? errors.parentRelationship || validationRules.parentRelationship.successMessage
+                          : null
+                      }
+                    />
+
+                    {/* Legal Guardian Checkbox */}
+                    <div className="flex items-center mt-2">
+                      <input
+                        type="checkbox"
+                        id="isLegalGuardian"
+                        name="isLegalGuardian"
+                        checked={formData.isLegalGuardian}
+                        onChange={(e) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            isLegalGuardian: e.target.checked
+                          }));
+                        }}
+                        className="mr-2"
+                      />
+                      <label htmlFor="isLegalGuardian" className="text-sm">
+                        This person is the legal guardian of student
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     {readOnlyFields.parentFirstName ? (
                       renderReadOnlyField('parentFirstName', formData.parentFirstName, 'Parent First Name')
@@ -3455,7 +3678,160 @@ const NonPrimaryStudentForm = forwardRef(({
             </CardContent>
           </Card>
 
-      
+
+          {/* Indigenous FNMI Declaration - for all non-International students */}
+          {studentType !== 'International Student' && (
+            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
+              <CardHeader>
+                <h3 className="text-md font-semibold flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Indigenous Identification
+                </h3>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Indigenous Self-Identification <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-sm text-gray-600">
+                    Does the student wish to self-identify as an Indigenous person?
+                  </p>
+                  <div className="flex gap-4">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="indigenousIdentification"
+                        value="yes"
+                        checked={formData.indigenousIdentification === 'yes'}
+                        onChange={handleFormChange}
+                        onBlur={() => handleBlur('indigenousIdentification')}
+                        className="mr-2"
+                      />
+                      <span className="text-sm">Yes</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="indigenousIdentification"
+                        value="no"
+                        checked={formData.indigenousIdentification === 'no'}
+                        onChange={handleFormChange}
+                        onBlur={() => handleBlur('indigenousIdentification')}
+                        className="mr-2"
+                      />
+                      <span className="text-sm">No</span>
+                    </label>
+                  </div>
+                  <ValidationFeedback
+                    isValid={touched.indigenousIdentification && !errors.indigenousIdentification}
+                    message={
+                      touched.indigenousIdentification
+                        ? errors.indigenousIdentification || validationRules.indigenousIdentification.successMessage
+                        : null
+                    }
+                  />
+
+                  {formData.indigenousIdentification === 'yes' && (
+                    <div className="space-y-2 mt-3">
+                      <label className="text-sm font-medium">
+                        Indigenous Status <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="indigenousStatus"
+                        value={formData.indigenousStatus}
+                        onChange={handleFormChange}
+                        onBlur={() => handleBlur('indigenousStatus')}
+                        className={`w-full p-2 border rounded-md ${
+                          touched.indigenousStatus && errors.indigenousStatus ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        required
+                      >
+                        <option value="">Select status</option>
+                        <option value="331">331 - Indigenous Learner - Status First Nations</option>
+                        <option value="332">332 - Indigenous Learner - Non-Status First Nations</option>
+                        <option value="333">333 - Indigenous Learner - Metis</option>
+                        <option value="334">334 - Indigenous Learner - Inuit</option>
+                      </select>
+                      <ValidationFeedback
+                        isValid={touched.indigenousStatus && !errors.indigenousStatus}
+                        message={
+                          touched.indigenousStatus
+                            ? errors.indigenousStatus || validationRules.indigenousStatus.successMessage
+                            : null
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Citizenship Verification - for all non-International students */}
+          {studentType !== 'International Student' && (
+            <CitizenshipDocuments
+              onUploadComplete={handleFileUpload}
+              initialDocuments={formData.citizenshipDocuments || []}
+              error={touched.citizenshipDocuments && errors.citizenshipDocuments ? errors.citizenshipDocuments : null}
+            />
+          )}
+
+          {/* Marketing Questions - for all student types */}
+          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">
+            <CardHeader>
+              <h3 className="text-md font-semibold flex items-center gap-2">
+                <HelpCircle className="h-5 w-5" />
+                Help Us Improve
+              </h3>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  How did you hear about us? <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="howDidYouHear"
+                  value={formData.howDidYouHear}
+                  onChange={handleFormChange}
+                  onBlur={() => handleBlur('howDidYouHear')}
+                  className="w-full p-2 border rounded-md bg-white"
+                >
+                  <option value="">Select an option</option>
+                  <option value="google-search">Google Search</option>
+                  <option value="online-ad">Online Advertising (Google Ads, etc.)</option>
+                  <option value="social-media">Social Media (Facebook, Instagram, etc.)</option>
+                  <option value="friend-referral">Friend or Family Referral</option>
+                  <option value="school-counselor">School Counselor</option>
+                  <option value="teacher">Teacher Recommendation</option>
+                  <option value="radio-ad">Radio Advertisement</option>
+                  <option value="newspaper">Newspaper</option>
+                  <option value="school-website">School Website</option>
+                  <option value="education-fair">Education Fair/Event</option>
+                  <option value="other">Other</option>
+                </select>
+                {getFieldStatus('howDidYouHear') && (
+                  <ValidationFeedback 
+                    isValid={getFieldStatus('howDidYouHear').isValid}
+                    message={getFieldStatus('howDidYouHear').message}
+                  />
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Why are you applying with us? (Optional)
+                </label>
+                <textarea
+                  name="whyApplying"
+                  value={formData.whyApplying}
+                  onChange={handleFormChange}
+                  onBlur={() => handleBlur('whyApplying')}
+                  className="w-full p-3 border rounded-md min-h-[80px] resize-y"
+                  placeholder="Tell us what made you choose our school..."
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Additional Information Card */}
           <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 shadow-md hover:shadow-lg transition-all duration-200 border-t-4 border-t-blue-400">

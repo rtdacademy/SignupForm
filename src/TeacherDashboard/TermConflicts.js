@@ -54,6 +54,9 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
       // Use the displayStudentType and displayTerm that were set during filtering
       StudentType_Value: record.displayStudentType || record.StudentType_Value || record.studentType || '',
       pasiTerm: record.displayTerm || record.pasiTerm || record.term || '',
+      period: record.displayPeriod || record.period || '',
+      exitDate: record.displayExitDate || record.exitDate || '',
+      suggestedPeriod: record.suggestedPeriod || '',
       referenceNumber: record.referenceNumber || '',
     }));
   }, [recordsWithTermMismatch]);
@@ -142,13 +145,29 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
   }, [selectedRecord]);
 
   // Get term conflict explanation
-  const getTermConflictExplanation = (studentType, pasiTerm) => {
+  const getTermConflictExplanation = (record) => {
+    const studentType = record.StudentType_Value;
+    const pasiTerm = record.pasiTerm;
+    const period = record.period;
+    const exitDate = record.exitDate;
+    
+    // Original rules
     if (studentType === 'Summer Student' && pasiTerm !== 'Summer') {
       return "Summer Student records must have 'Summer' term.";
     } else if ((studentType === 'Non-Primary' || studentType === 'Home Education') && pasiTerm === 'Summer') {
       return `${studentType} records cannot have 'Summer' term.`;
     }
-    return "Term configuration is incorrect for this student type.";
+    
+    // New rules for Adult/International students
+    if ((studentType === 'Adult Student' || studentType === 'International Student')) {
+      if (period === 'Full Year' && exitDate && exitDate !== '-') {
+        return `${studentType} with exit date ${exitDate} in summer range should have 'Summer' period.`;
+      } else if (period === 'Summer' && exitDate && exitDate !== '-') {
+        return `${studentType} with exit date ${exitDate} outside summer range should have 'Full Year' period.`;
+      }
+    }
+    
+    return "Term/Period configuration is incorrect for this student type.";
   };
 
   // Sort records
@@ -219,16 +238,18 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
                 <SortableHeader column="studentName" label="Student" />
                 <SortableHeader column="courseCode" label="Course" />
                 <SortableHeader column="StudentType_Value" label="Student Type" />
+                <SortableHeader column="period" label="Current Period" />
                 <TableHead className="text-center w-8">
                   <ArrowRight className="h-4 w-4 mx-auto" />
                 </TableHead>
-                <SortableHeader column="pasiTerm" label="PASI Term" />
+                <SortableHeader column="suggestedPeriod" label="Suggested Period" />
+                <SortableHeader column="exitDate" label="Exit Date" />
                 <TableHead className="text-xs px-1 py-1 w-36 min-w-36">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedRecords.map((record) => {
-                const explanation = getTermConflictExplanation(record.StudentType_Value, record.pasiTerm);
+                const explanation = getTermConflictExplanation(record);
                 
                 return (
                   <TableRow key={record.id} className="hover:bg-gray-100">
@@ -281,20 +302,36 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
                         {record.StudentType_Value}
                       </Badge>
                     </TableCell>
+                    <TableCell 
+                      className="p-1 cursor-pointer" 
+                      onClick={() => handleCellClick(record.period, "Current Period")}
+                    >
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                        {record.period || 'N/A'}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-center w-8">
                       <AlertTriangle className="h-4 w-4 text-amber-500 inline-block" />
                     </TableCell>
                     <TableCell 
                       className="p-1 cursor-pointer" 
-                      onClick={() => handleCellClick(record.pasiTerm, "PASI Term")}
+                      onClick={() => handleCellClick(record.suggestedPeriod, "Suggested Period")}
                     >
-                      <Badge 
-                        variant="secondary" 
-                        className="bg-amber-100 text-amber-800 border border-amber-300"
-                      >
-                        {record.pasiTerm}
-                      </Badge>
-                      <div className="text-xs text-amber-700 mt-1">{explanation}</div>
+                      <div>
+                        <Badge 
+                          variant="secondary" 
+                          className="bg-green-100 text-green-800 border border-green-300"
+                        >
+                          {record.suggestedPeriod || 'N/A'}
+                        </Badge>
+                        <div className="text-xs text-amber-700 mt-1">{explanation}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell 
+                      className="p-1 cursor-pointer" 
+                      onClick={() => handleCellClick(record.exitDate, "Exit Date")}
+                    >
+                      {record.exitDate && record.exitDate !== '-' ? record.exitDate : 'N/A'}
                     </TableCell>
                     <TableCell className="p-1 w-36 min-w-36">
                       <div className="flex items-center justify-start space-x-1">

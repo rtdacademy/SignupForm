@@ -136,6 +136,18 @@ const ResumingOnDialog = ({
   
       // Prepare all updates
       const updates = {
+        // Add lastChange tracking with resuming on details
+        [`students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`]: {
+          userEmail: user?.email || 'unknown',
+          timestamp: Date.now(),
+          field: 'Status_Value',
+          isResumingOn: true,
+          resumingOnDetails: {
+            date: formattedDbDate,
+            displayDate: formattedDisplayDate,
+            comment: comment
+          }
+        },
         [`students/${studentKey}/courses/${courseId}/jsonStudentNotes`]: [newNote, ...existingNotes],
         [`students/${studentKey}/courses/${courseId}/resumingOnDate`]: formattedDbDate,
         [`students/${studentKey}/courses/${courseId}/Status/Value`]: "Resuming on (date)",

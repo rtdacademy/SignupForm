@@ -1243,6 +1243,7 @@ const MissingPasi = () => {
             record={selectedRecord}
             onClose={() => setSelectedRecord(null)}
             handleCellClick={handleCellClick}
+            isMissingPasi={true}
           />
         )}
 

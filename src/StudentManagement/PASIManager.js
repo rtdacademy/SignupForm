@@ -17,6 +17,7 @@ import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { Copy, ClipboardCheck, Check, X, ExternalLink, AlertCircle, Edit, Send, User, CheckCircle, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from "../components/ui/alert";
 import EnrollmentStatusEmailDialog from './EnrollmentStatusEmailDialog';
+import { useAuth } from '../context/AuthContext';
 import { 
   COURSE_ENROLLMENT_STATUS_OPTIONS,
   getCourseEnrollmentStatusInfo
@@ -48,6 +49,7 @@ const PASI_STATUS_OPTIONS = [
 ];
 
 const PASIManager = ({ studentData, courseId, assignedStaff  }) => {
+  const { user } = useAuth();
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -149,6 +151,13 @@ const PASIManager = ({ studentData, courseId, assignedStaff  }) => {
     const studentKey = sanitizeEmail(studentData.profile.StudentEmail);
     const updates = {};
     updates[`students/${studentKey}/courses/${courseId}/${field}`] = value;
+    
+    // Add enrollment lastChange tracking
+    updates[`students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`] = {
+      userEmail: user?.email || 'unknown',
+      timestamp: Date.now(),
+      field: field
+    };
 
     try {
       await update(ref(db), updates);
@@ -173,6 +182,13 @@ const PASIManager = ({ studentData, courseId, assignedStaff  }) => {
     // Update both Value and Id fields for PASI status
     updates[`students/${studentKey}/courses/${courseId}/PASI/Value`] = value;
     updates[`students/${studentKey}/courses/${courseId}/PASI/Id`] = PASI_STATUS_OPTIONS.findIndex(opt => opt.value === value) + 1;
+    
+    // Add enrollment lastChange tracking
+    updates[`students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`] = {
+      userEmail: user?.email || 'unknown',
+      timestamp: Date.now(),
+      field: 'PASI_Value'
+    };
 
     try {
       await update(ref(db), updates);

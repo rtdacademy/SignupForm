@@ -167,11 +167,38 @@ const MassUpdateDialog = ({
         if (selectedProperty === 'categories') {
           const categoryPath = `${basePath}/categories/${selectedTeacherKey}/${selectedCategory.id}`;
           updates[categoryPath] = isCategoryEnabled;
+          
+          // Add lastChange tracking for category updates
+          updates[`${basePath}/enrollmentHistory/lastChange`] = {
+            userEmail: user?.email || 'unknown',
+            timestamp: Date.now(),
+            field: 'categories',
+            isMassUpdate: true,
+            massUpdateDetails: {
+              totalStudents: selectedStudents.length,
+              categoryName: selectedCategory.name,
+              action: isCategoryEnabled ? 'added' : 'removed'
+            }
+          };
         } else {
           const propertyInfo = PROPERTY_OPTIONS.find(p => p.value === selectedProperty);
           if (propertyInfo) {
             const updatePath = `${basePath}/${propertyInfo.path}`;
             updates[updatePath] = selectedValue;
+            
+            // Add lastChange tracking for all property updates
+            const fieldName = propertyInfo.path.replace('/', '_');
+            updates[`${basePath}/enrollmentHistory/lastChange`] = {
+              userEmail: user?.email || 'unknown',
+              timestamp: Date.now(),
+              field: fieldName,
+              isMassUpdate: true,
+              massUpdateDetails: {
+                totalStudents: selectedStudents.length,
+                propertyName: propertyInfo.label,
+                newValue: selectedValue
+              }
+            };
   
             // Add status log entry if we're updating status
             if (selectedProperty === 'status') {

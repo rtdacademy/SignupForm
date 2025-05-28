@@ -16,8 +16,11 @@ import { SheetHeader, SheetTitle } from "../components/ui/sheet";
 import { cn } from "../lib/utils";
 import GuardianManager from './GuardianManager';
 import { EmailChangeDialog } from './EmailChangeDialog';
+import ProfileHistory from './ProfileHistory';
+import { useAuth } from '../context/AuthContext';
 
 function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, onUpdate }) {
+  const { user } = useAuth();
   const [isDiplomaCourse, setIsDiplomaCourse] = useState(false);
   const [courseTitle, setCourseTitle] = useState('');
   const schoolYearOptions = useMemo(() => getSchoolYearOptions(), []);
@@ -51,15 +54,42 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
     const db = getDatabase();
     const updates = {};
 
-    if (['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value', 'DiplomaMonthChoices_Value'].includes(field)) {
+    // Determine if this is a course enrollment field or a profile field
+    const isCourseEnrollmentField = ['School_x0020_Year_Value', 'StudentType_Value', 'ActiveFutureArchived_Value', 'DiplomaMonthChoices_Value'].includes(field);
+
+    if (isCourseEnrollmentField) {
       const fieldName = field.replace('_Value', '');
       updates[`students/${studentKey}/courses/${courseId}/${fieldName}/Value`] = value;
+      // Add enrollment-specific lastChange tracking
+      updates[`students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`] = {
+        userEmail: user?.email || 'unknown',
+        timestamp: Date.now(),
+        field: field
+      };
     } else if (field === 'ParentPermission_x003f_') {
       updates[`students/${studentKey}/profile/ParentPermission_x003f_/Value`] = value;
+      // Add profile-specific lastChange tracking
+      updates[`students/${studentKey}/profileHistory/lastChange`] = {
+        userEmail: user?.email || 'unknown',
+        timestamp: Date.now(),
+        field: field
+      };
     } else if (field === 'Parent_x002f_Guardian') {
       updates[`students/${studentKey}/profile/Parent_x002f_Guardian`] = value;
+      // Add profile-specific lastChange tracking
+      updates[`students/${studentKey}/profileHistory/lastChange`] = {
+        userEmail: user?.email || 'unknown',
+        timestamp: Date.now(),
+        field: field
+      };
     } else {
       updates[`students/${studentKey}/profile/${field}`] = value;
+      // Add profile-specific lastChange tracking
+      updates[`students/${studentKey}/profileHistory/lastChange`] = {
+        userEmail: user?.email || 'unknown',
+        timestamp: Date.now(),
+        field: field
+      };
     }
 
     try {
@@ -137,6 +167,7 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
         <TabsList className="mb-4">
           <TabsTrigger value="profile">Profile Data</TabsTrigger>
           <TabsTrigger value="course">Course Data</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
         <TabsContent value="profile">
           <ScrollArea className="h-[calc(100vh-200px)]">
@@ -209,6 +240,11 @@ function StudentDetailsSheet({ studentData, courseData, courseId, studentKey, on
                 {isDiplomaCourse && renderEditableField("Diploma Month", "DiplomaMonthChoices_Value", DIPLOMA_MONTH_OPTIONS)}
               </CardContent>
             </Card>
+          </ScrollArea>
+        </TabsContent>
+        <TabsContent value="history">
+          <ScrollArea className="h-[calc(100vh-200px)]">
+            <ProfileHistory studentEmailKey={studentKey} />
           </ScrollArea>
         </TabsContent>
       </Tabs>

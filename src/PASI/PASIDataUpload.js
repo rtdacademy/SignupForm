@@ -511,9 +511,33 @@ const filteredUnlinkedCount = useMemo(() => {
         return r.Term || null;
       };
       
-      // Extract student type and term using our helper functions
+      // Helper function to find period from record
+      const findPeriod = (r) => {
+        // Try direct properties
+        if (r.period) return r.period;
+        if (r.Period) return r.Period;
+        
+        // Try nested structures
+        if (r.summaryData?.Period?.Value) return r.summaryData.Period.Value;
+        
+        return null;
+      };
+      
+      // Helper function to parse exit date
+      const parseExitDate = (dateStr) => {
+        if (!dateStr || dateStr === '-' || dateStr === '') return null;
+        try {
+          return new Date(dateStr);
+        } catch (e) {
+          return null;
+        }
+      };
+      
+      // Extract student type, term, period, and exit date using our helper functions
       const studentType = findStudentType(record);
       const term = findTerm(record);
+      const period = findPeriod(record);
+      const exitDate = parseExitDate(record.exitDate);
       
       // Skip if we couldn't find student type or term
       if (!studentType || !term) {
@@ -535,18 +559,59 @@ const filteredUnlinkedCount = useMemo(() => {
       // Keep track of the values we found for display in the UI
       record.displayStudentType = studentType;
       record.displayTerm = term;
+      record.displayPeriod = period;
+      record.displayExitDate = record.exitDate;
+      
+      // Determine suggested period for display
+      let suggestedPeriod = null;
       
       // Check term conflicts:
       // 1. If 'Summer Student' or 'Summer School', then term must be 'Summer'
       if ((studentType === 'Summer Student' || studentType === 'Summer School') && term !== 'Summer') {
         //console.log(`Found mismatch: ${record.studentName} is ${studentType} but term is ${term}`);
+        suggestedPeriod = 'Summer';
+        record.suggestedPeriod = suggestedPeriod;
         return true;
       }
       
       // 2. If 'Non-Primary' or 'Home Education', then term cannot be 'Summer'
       if ((studentType === 'Non-Primary' || studentType === 'Home Education') && term === 'Summer') {
         //console.log(`Found mismatch: ${record.studentName} is ${studentType} but term is Summer`);
+        suggestedPeriod = 'Full Year';
+        record.suggestedPeriod = suggestedPeriod;
         return true;
+      }
+      
+      // 3. NEW RULE: If Adult Student or International Student AND period is Full Year 
+      // BUT exitDate is between July 15 and August 31, should be Summer
+      if ((studentType === 'Adult Student' || studentType === 'International Student') && 
+          period === 'Full Year' && exitDate) {
+        const year = exitDate.getFullYear();
+        const july15 = new Date(year, 6, 15); // July is month 6 (0-indexed)
+        const august31 = new Date(year, 7, 31); // August is month 7
+        
+        if (exitDate >= july15 && exitDate <= august31) {
+          console.log(`Found mismatch: ${record.studentName} is ${studentType} with Full Year period but exit date ${record.exitDate} is in summer range`);
+          suggestedPeriod = 'Summer';
+          record.suggestedPeriod = suggestedPeriod;
+          return true;
+        }
+      }
+      
+      // 4. NEW RULE: If Adult Student or International Student AND period is Summer 
+      // BUT exitDate is outside July 15 - August 31, should be Full Year
+      if ((studentType === 'Adult Student' || studentType === 'International Student') && 
+          period === 'Summer' && exitDate) {
+        const year = exitDate.getFullYear();
+        const july15 = new Date(year, 6, 15); // July is month 6 (0-indexed)
+        const august31 = new Date(year, 7, 31); // August is month 7
+        
+        if (exitDate < july15 || exitDate > august31) {
+          console.log(`Found mismatch: ${record.studentName} is ${studentType} with Summer period but exit date ${record.exitDate} is outside summer range`);
+          suggestedPeriod = 'Full Year';
+          record.suggestedPeriod = suggestedPeriod;
+          return true;
+        }
       }
       
       return false;

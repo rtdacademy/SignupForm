@@ -3,8 +3,8 @@ import GooglePlacesAutocomplete, { geocodeByPlaceId } from 'react-google-places-
 import { Button } from "./ui/button";
 import { X } from "lucide-react";
 
-const HomeSchoolSelector = ({ onAddressSelect }) => {
-  const [selectedPlace, setSelectedPlace] = useState(null);
+const HomeSchoolSelector = ({ onAddressSelect, initialValue }) => {
+  const [selectedPlace, setSelectedPlace] = useState(initialValue);
 
   const handleSelect = async (selection) => {
     try {
@@ -49,6 +49,7 @@ const HomeSchoolSelector = ({ onAddressSelect }) => {
               label: selectedPlace.name, 
               value: { place_id: selectedPlace.placeId } 
             } : null,
+            defaultInputValue: initialValue?.name || '',
             onChange: handleSelect,
             placeholder: 'Search for your home education provider',
             classNames: {
