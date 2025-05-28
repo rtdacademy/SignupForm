@@ -1,6 +1,8 @@
 /**
  * Utility functions for sanitizing HTML content to prevent unwanted editable elements
  * and other potentially problematic attributes
+ * this is particularly useful in applications where user-generated content is displayed
+ * and you want to ensure that no contenteditable attributes or event handlers are present.
  */
 
 /**
