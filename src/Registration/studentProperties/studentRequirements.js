@@ -35,11 +35,18 @@ const commonRequirements = {
   status: {
     albertaResident: { importance: FIELD_IMPORTANCE.PASI_REQUIRED, label: 'Alberta Residency' },
     indigenousIdentification: { importance: FIELD_IMPORTANCE.RECOMMENDED, label: 'Indigenous Identification' },
-    indigenousStatus: { importance: FIELD_IMPORTANCE.RECOMMENDED, label: 'Indigenous Status' }
+    indigenousStatus: { 
+      importance: FIELD_IMPORTANCE.RECOMMENDED, 
+      label: 'Indigenous Status',
+      conditional: {
+        field: 'indigenousIdentification',
+        condition: 'equals',
+        value: 'Yes'
+      }
+    }
   },
   documents: {
-    studentPhoto: { importance: FIELD_IMPORTANCE.RECOMMENDED, label: 'Student Photo' },
-    citizenshipDocuments: { importance: FIELD_IMPORTANCE.REQUIRED, label: 'Citizenship Documents' }
+    studentPhoto: { importance: FIELD_IMPORTANCE.RECOMMENDED, label: 'Student Photo' }
   }
 };
 
@@ -55,17 +62,36 @@ const minorRequirements = {
   }
 };
 
+// Requirements for non-international students
+const nonInternationalRequirements = {
+  documents: {
+    citizenshipDocuments: { importance: FIELD_IMPORTANCE.REQUIRED, label: 'Citizenship Documents' }
+  }
+};
+
 // Requirements specific to international students
 const internationalRequirements = {
   documents: {
-    internationalDocuments: { importance: FIELD_IMPORTANCE.REQUIRED, label: 'International Documents', isArray: true, minItems: 1 },
-    citizenshipDocuments: { importance: FIELD_IMPORTANCE.OPTIONAL, label: 'Citizenship Documents' } // Override to optional
+    internationalDocuments: { importance: FIELD_IMPORTANCE.REQUIRED, label: 'International Documents', isArray: true, minItems: 1 }
   }
 };
 
 // Student type specific overrides
 const studentTypeOverrides = {
-  // Currently no overrides needed since primary school is stored at course level
+  'Adult Student': {
+    status: {
+      // Remove indigenous fields for Adult Students
+      indigenousIdentification: null,
+      indigenousStatus: null
+    }
+  },
+  'International Student': {
+    status: {
+      // Remove indigenous fields for International Students
+      indigenousIdentification: null,
+      indigenousStatus: null
+    }
+  }
 };
 
 /**
@@ -87,6 +113,11 @@ export function getStudentRequirements(student) {
     studentType = student.courses[0].StudentType?.Value;
   }
   
+  // Add citizenship documents for non-international students
+  if (studentType !== 'International Student') {
+    requirements = mergeRequirements(requirements, nonInternationalRequirements);
+  }
+  
   // Add international requirements if international student
   if (studentType === 'International Student') {
     requirements = mergeRequirements(requirements, internationalRequirements);
@@ -102,6 +133,7 @@ export function getStudentRequirements(student) {
 
 /**
  * Merge two requirement objects, with the second overriding the first
+ * If a field is set to null in the override, it will be removed from the merged result
  */
 function mergeRequirements(base, override) {
   const merged = { ...base };
@@ -110,7 +142,17 @@ function mergeRequirements(base, override) {
     if (!merged[category]) {
       merged[category] = {};
     }
-    merged[category] = { ...merged[category], ...override[category] };
+    
+    // Handle null values by removing fields
+    Object.entries(override[category]).forEach(([field, value]) => {
+      if (value === null) {
+        // Remove the field if it's set to null
+        delete merged[category][field];
+      } else {
+        // Otherwise merge normally
+        merged[category][field] = value;
+      }
+    });
   });
   
   return merged;
@@ -135,6 +177,46 @@ export function getFieldValue(student, fieldPath) {
   }
   
   return value;
+}
+
+/**
+ * Check if a field should be included based on conditional requirements
+ * @param {Object} student - Student data
+ * @param {Object} fieldConfig - Field configuration with potential conditional
+ * @param {string} category - Category of the field
+ * @returns {boolean} Whether the field should be included
+ */
+function shouldIncludeField(student, fieldConfig, category) {
+  if (!fieldConfig.conditional) {
+    return true; // No conditions, always include
+  }
+  
+  const { field: conditionalField, condition, value } = fieldConfig.conditional;
+  
+  // Build the field path for the conditional field
+  let conditionalFieldPath;
+  if (category === 'guardian') {
+    conditionalFieldPath = `profile.${conditionalField}`;
+  } else if (conditionalField.includes('.')) {
+    conditionalFieldPath = `profile.${conditionalField}`;
+  } else {
+    conditionalFieldPath = `profile.${conditionalField}`;
+  }
+  
+  const conditionalValue = getFieldValue(student, conditionalFieldPath);
+  
+  switch (condition) {
+    case 'equals':
+      return conditionalValue === value;
+    case 'notEquals':
+      return conditionalValue !== value;
+    case 'exists':
+      return hasFieldValue(student, conditionalFieldPath);
+    case 'notExists':
+      return !hasFieldValue(student, conditionalFieldPath);
+    default:
+      return true;
+  }
 }
 
 /**
@@ -186,6 +268,11 @@ export function calculateCompletionStats(student) {
     };
     
     Object.entries(fields).forEach(([fieldName, config]) => {
+      // Check if field should be included based on conditional requirements
+      if (!shouldIncludeField(student, config, category)) {
+        return; // Skip this field
+      }
+      
       let fieldPath;
       if (category === 'guardian') {
         fieldPath = `profile.${fieldName}`;
@@ -207,11 +294,7 @@ export function calculateCompletionStats(student) {
       
       const hasValue = hasFieldValue(student, fieldPath);
       
-      // Debug logging for troubleshooting
-      if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {
-        const actualValue = getFieldValue(student, fieldPath);
-        console.log(`Field check: ${fieldPath} = ${JSON.stringify(actualValue)} (hasValue: ${hasValue})`);
-      }
+
       
       stats.total++;
       stats.byCategory[category].total++;
@@ -268,6 +351,11 @@ export function getMissingFields(student, importanceFilter = null) {
     Object.entries(fields).forEach(([fieldName, config]) => {
       if (importanceFilter && config.importance !== importanceFilter) {
         return;
+      }
+      
+      // Check if field should be included based on conditional requirements
+      if (!shouldIncludeField(student, config, category)) {
+        return; // Skip this field
       }
       
       let fieldPath;

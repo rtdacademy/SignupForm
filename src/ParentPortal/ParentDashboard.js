@@ -245,6 +245,10 @@ const ParentDashboard = () => {
       course => !course.approved && !course.denied
     ).length;
   }, 0) || 0;
+  
+  // Filter out notification-only invitations (these are for already-linked students adding new courses)
+  // These courses will appear in the pending approvals section, so we don't need to show them as invitations
+  const realInvitations = parentData?.pendingInvitations?.filter(inv => !inv.notificationOnly) || [];
 
   // Handle accepting pending invitation
   const handleAcceptInvitation = (invitation) => {
@@ -495,8 +499,8 @@ const ParentDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Pending Invitations */}
-          {parentData?.pendingInvitations && parentData.pendingInvitations.length > 0 && (
+          {/* Pending Invitations - Already filtered */}
+          {realInvitations.length > 0 && (
             <Card className="mb-6 border-purple-200">
               <CardHeader className="bg-purple-50">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -509,7 +513,7 @@ const ParentDashboard = () => {
                   You have pending invitations to link to the following students:
                 </p>
                 <div className="space-y-3">
-                  {parentData.pendingInvitations.map((invitation) => (
+                  {realInvitations.map((invitation) => (
                     <div key={invitation.token}>
                       {/* Show invitation or verification form based on state */}
                       {pendingInvitation?.token === invitation.token && showVerificationDialog ? (
@@ -773,7 +777,7 @@ const ParentDashboard = () => {
           
           
           {/* Pending Invitations for existing parents with linked students */}
-          {parentData?.pendingInvitations && parentData.pendingInvitations.length > 0 && parentData.linkedStudents && parentData.linkedStudents.length > 0 && (
+          {realInvitations.length > 0 && parentData.linkedStudents && parentData.linkedStudents.length > 0 && (
             <Card className="mb-6 border-purple-200">
               <CardHeader className="bg-purple-50">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -786,7 +790,7 @@ const ParentDashboard = () => {
                   You have new invitations to link to the following students:
                 </p>
                 <div className="space-y-3">
-                  {parentData.pendingInvitations.map((invitation) => {
+                  {realInvitations.map((invitation) => {
                     // Debug log for each invitation
                     console.log('Rendering invitation:', invitation.token);
                     console.log('Checking condition:', {

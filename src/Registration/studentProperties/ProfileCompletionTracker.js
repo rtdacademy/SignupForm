@@ -4,6 +4,12 @@ import { Button } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Progress } from '../../components/ui/progress';
 import { Badge } from '../../components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from '../../components/ui/dialog';
 import { 
   User, 
   MapPin, 
@@ -15,7 +21,10 @@ import {
   AlertCircle,
   CheckCircle,
   Edit2,
-  Shield
+  Shield,
+  Eye,
+  X,
+  Download
 } from 'lucide-react';
 
 import {
@@ -31,6 +40,7 @@ import {
   getStudentRequirements,
   calculateCompletionStats,
   getMissingFields,
+  getFieldValue,
   FIELD_IMPORTANCE,
   CATEGORY_INFO
 } from './studentRequirements';
@@ -58,6 +68,7 @@ const editorMap = {
 const ProfileCompletionTracker = ({ studentData, onUpdate, hideMainProgress = false }) => {
   const [editingCategory, setEditingCategory] = useState(null);
   const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [documentPreview, setDocumentPreview] = useState(null);
 
   // Calculate completion statistics
   const stats = useMemo(() => calculateCompletionStats(studentData), [studentData]);
@@ -91,6 +102,58 @@ const ProfileCompletionTracker = ({ studentData, onUpdate, hideMainProgress = fa
     setEditingCategory(null);
   };
 
+  const handleDocumentPreview = (field, fieldInfo) => {
+    const value = getFieldValue(studentData, fieldInfo.fieldPath);
+    
+    if (!value) return;
+    
+    let documents = [];
+    
+    switch (field) {
+      case 'studentPhoto':
+        documents = [{
+          type: 'image',
+          url: value,
+          name: 'Student Photo'
+        }];
+        break;
+      case 'citizenshipDocuments':
+        if (Array.isArray(value)) {
+          documents = value.map((doc, index) => ({
+            type: doc.type || 'document',
+            url: doc.url || doc,
+            name: doc.name || `Citizenship Document ${index + 1}`
+          }));
+        } else if (value) {
+          documents = [{
+            type: 'document',
+            url: value,
+            name: 'Citizenship Document'
+          }];
+        }
+        break;
+      case 'internationalDocuments':
+        if (Array.isArray(value)) {
+          documents = value
+            .filter(doc => doc && doc.url)
+            .map((doc, index) => ({
+              type: doc.type || 'document',
+              url: doc.url,
+              name: doc.name || `International Document ${index + 1}`
+            }));
+        }
+        break;
+    }
+    
+    if (documents.length > 0) {
+      setDocumentPreview({
+        field,
+        fieldLabel: fieldInfo.label,
+        documents
+      });
+    }
+  };
+
   const renderEditor = () => {
     if (!editingCategory) return null;
 
@@ -113,7 +176,7 @@ const ProfileCompletionTracker = ({ studentData, onUpdate, hideMainProgress = fa
     );
   };
 
-  const renderFieldStatus = (field, fieldInfo) => {
+  const renderFieldStatus = (field, fieldInfo, category) => {
     const importanceColors = {
       [FIELD_IMPORTANCE.PASI_REQUIRED]: 'text-red-600',
       [FIELD_IMPORTANCE.REQUIRED]: 'text-orange-600',
@@ -128,26 +191,106 @@ const ProfileCompletionTracker = ({ studentData, onUpdate, hideMainProgress = fa
       [FIELD_IMPORTANCE.OPTIONAL]: 'Optional'
     };
 
+    const getPreviewValue = () => {
+      const value = getFieldValue(studentData, fieldInfo.fieldPath);
+      
+      // Handle different field types
+      if (!value) return null;
+      
+      // Format specific fields
+      switch (field) {
+        case 'birthday':
+          return new Date(value).toLocaleDateString('en-CA');
+        case 'gender':
+          return value.charAt(0).toUpperCase() + value.slice(1);
+        case 'StudentPhone':
+        case 'ParentPhone_x0023_':
+          return value;
+        case 'albertaResident':
+        case 'isLegalGuardian':
+          return value ? 'Yes' : 'No';
+        case 'indigenousIdentification':
+          return value;
+        case 'indigenousStatus':
+          return value || 'Not specified';
+        case 'studentPhoto':
+          return 'Photo uploaded';
+        case 'citizenshipDocuments':
+          if (Array.isArray(value)) {
+            return `${value.length} document${value.length !== 1 ? 's' : ''} uploaded`;
+          }
+          return value ? 'Document uploaded' : null;
+        case 'internationalDocuments':
+          if (Array.isArray(value)) {
+            const validDocs = value.filter(doc => doc && doc.url);
+            return `${validDocs.length} document${validDocs.length !== 1 ? 's' : ''} uploaded`;
+          }
+          return null;
+        case 'address.streetAddress':
+        case 'address.city':
+        case 'address.province':
+        case 'address.postalCode':
+          return value;
+        case 'asn':
+          // Format ASN as ####-####-#
+          if (value && value.length === 9) {
+            return `${value.slice(0, 4)}-${value.slice(4, 8)}-${value.slice(8)}`;
+          }
+          return value;
+        case 'parentRelationship':
+          return value;
+        case 'age':
+          return `${value} years old`;
+        case 'firstName':
+        case 'lastName':
+        case 'preferredFirstName':
+        case 'ParentFirstName':
+        case 'ParentLastName':
+        case 'ParentEmail':
+          return value;
+        default:
+          return value;
+      }
+    };
+
+    const previewValue = getPreviewValue();
+    const isDocument = category === 'documents' && fieldInfo.hasValue;
+
     return (
-      <div className="flex items-center justify-between py-2 px-3 hover:bg-gray-50 rounded">
-        <div className="flex items-center gap-3">
+      <div 
+        className={`flex items-center justify-between py-3 px-3 hover:bg-gray-50 rounded transition-colors ${
+          isDocument ? 'cursor-pointer' : ''
+        }`}
+        onClick={isDocument ? () => handleDocumentPreview(field, fieldInfo) : undefined}
+      >
+        <div className="flex items-center gap-3 flex-1">
           {fieldInfo.hasValue ? (
             <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
           ) : (
             <AlertCircle className={`h-4 w-4 ${importanceColors[fieldInfo.importance]} flex-shrink-0`} />
           )}
-          <div>
-            <span className="text-sm font-medium">{fieldInfo.label}</span>
-            {!fieldInfo.hasValue && (
-              <Badge 
-                variant="outline" 
-                className={`ml-2 text-xs ${importanceColors[fieldInfo.importance]}`}
-              >
-                {importanceLabels[fieldInfo.importance]}
-              </Badge>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{fieldInfo.label}</span>
+              {!fieldInfo.hasValue && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs ${importanceColors[fieldInfo.importance]}`}
+                >
+                  {importanceLabels[fieldInfo.importance]}
+                </Badge>
+              )}
+            </div>
+            {fieldInfo.hasValue && previewValue && (
+              <div className="text-sm text-gray-600 mt-1">
+                {previewValue}
+              </div>
             )}
           </div>
         </div>
+        {isDocument && (
+          <ChevronRight className="h-4 w-4 text-gray-400" />
+        )}
       </div>
     );
   };
@@ -195,7 +338,7 @@ const ProfileCompletionTracker = ({ studentData, onUpdate, hideMainProgress = fa
           <CardContent className="pt-0">
             <div className="border-t pt-4">
               {Object.entries(categoryStats.fields).map(([fieldName, fieldInfo]) => 
-                renderFieldStatus(fieldName, fieldInfo)
+                renderFieldStatus(fieldName, fieldInfo, category)
               )}
               
               {hasEditor && (
@@ -308,6 +451,74 @@ const ProfileCompletionTracker = ({ studentData, onUpdate, hideMainProgress = fa
 
       {/* Editor Modal */}
       {renderEditor()}
+
+      {/* Document Preview Dialog */}
+      <Dialog open={!!documentPreview} onOpenChange={(open) => !open && setDocumentPreview(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>{documentPreview?.fieldLabel}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDocumentPreview(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="overflow-y-auto flex-1 p-4">
+            {documentPreview?.documents.map((doc, index) => (
+              <div key={index} className="mb-4">
+                {doc.type === 'image' ? (
+                  <div className="text-center">
+                    <img 
+                      src={doc.url} 
+                      alt={doc.name}
+                      className="max-w-full rounded-lg shadow-md mx-auto"
+                    />
+                    <p className="text-sm text-gray-600 mt-2">{doc.name}</p>
+                  </div>
+                ) : (
+                  <div className="border rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-8 w-8 text-gray-400" />
+                      <div>
+                        <p className="font-medium">{doc.name}</p>
+                        <p className="text-sm text-gray-600">Document</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(doc.url, '_blank')}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const a = document.createElement('a');
+                          a.href = doc.url;
+                          a.download = doc.name;
+                          a.click();
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
