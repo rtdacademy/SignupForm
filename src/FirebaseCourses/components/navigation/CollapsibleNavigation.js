@@ -211,11 +211,11 @@ const CollapsibleNavigation = ({
                     className={`w-8 h-8 rounded-full ${index === currentUnitIndex ? 'bg-blue-100' : ''}`}
                     onClick={() => onItemSelect(unit.items?.[0]?.itemId)}
                   >
-                    {unit.sequence || index + 1}
+                    {unit.sequence || unit.order || index + 1}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  {unit.name || `Unit ${unit.sequence || index + 1}`}
+                  {unit.name || unit.title || `Unit ${unit.sequence || unit.order || index + 1}`}
                 </TooltipContent>
               </Tooltip>
             ))}
@@ -292,7 +292,7 @@ const CollapsibleNavigation = ({
                     
                     return (
                       <AccordionItem
-                        key={`unit-${unit.sequence || unit.index}`}
+                        key={`unit-${unit.sequence || unit.order || unit.index}`}
                         value={`unit-${unit.index}`}
                         className={
                           isCurrentUnit
@@ -306,7 +306,7 @@ const CollapsibleNavigation = ({
                               className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs
                                 ${isCurrentUnit ? 'bg-purple-600 text-white' : 'bg-blue-500 text-white'}`}
                             >
-                              {unit.sequence || unit.index + 1}
+                              {unit.sequence || unit.order || unit.index + 1}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
@@ -315,7 +315,7 @@ const CollapsibleNavigation = ({
                                     isCurrentUnit ? 'text-purple-800' : 'text-blue-800'
                                   }`}
                                 >
-                                  {unit.name || `Unit ${unit.sequence || unit.index + 1}`}
+                                  {unit.name || unit.title || `Unit ${unit.sequence || unit.order || unit.index + 1}`}
                                 </span>
                                 <span className="text-xs text-gray-500 whitespace-nowrap ml-1">
                                   {unitPercentage}%

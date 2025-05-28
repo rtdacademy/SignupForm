@@ -13,7 +13,7 @@ const admin = require('firebase-admin');
 const { genkit } = require('genkit/beta');
 const { googleAI } = require('@genkit-ai/googleai');
 const { z } = require('zod');
-const { sanitizeEmail } = require('../../../../../utils.js');
+const { sanitizeEmail } = require('../../../utils.js');
 
 // Environment variables
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;

@@ -5,7 +5,7 @@
  * This is a shared cloud function that can be used by any lesson
  * that needs AI-generated questions without creating lesson-specific functions.
  * 
- * Function name: 2_shared_aiQuestion
+ * Function name: course2_shared_aiQuestion
  */
 
 const { onCall } = require('firebase-functions/v2/https');
@@ -13,7 +13,7 @@ const admin = require('firebase-admin');
 const { genkit } = require('genkit/beta');
 const { googleAI } = require('@genkit-ai/googleai');
 const { z } = require('zod');
-const { sanitizeEmail } = require('../../../../../utils.js');
+const { sanitizeEmail } = require('../../../utils.js');
 
 // Environment variables
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -69,7 +69,7 @@ const FALLBACK_QUESTIONS = {
 };
 
 // Main function handler
-exports.2_shared_aiQuestion = onCall({
+exports.course2_shared_aiQuestion = onCall({
   region: 'us-central1',
   timeoutSeconds: 60,
   memory: '512MiB',

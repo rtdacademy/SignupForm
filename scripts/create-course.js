@@ -44,16 +44,11 @@ console.log(`
 
 // Define paths
 const templatePath = path.join(__dirname, '..', 'courses', 'templates', 'course-template');
-const targetCoursePath = path.join(__dirname, '..', 'courses', courseId);
 const srcCoursePath = path.join(__dirname, '..', 'src', 'FirebaseCourses', 'courses', courseId);
 const functionsPath = path.join(__dirname, '..', 'functions', 'courses', courseId);
 const functionsConfigPath = path.join(__dirname, '..', 'functions', 'courses-config', courseId);
 
 // Check if course already exists
-if (fs.existsSync(targetCoursePath)) {
-  console.error(`❌ Error: Course ${courseId} already exists at ${targetCoursePath}`);
-  process.exit(1);
-}
 
 if (fs.existsSync(srcCoursePath)) {
   console.error(`❌ Error: Course ${courseId} already exists at ${srcCoursePath}`);
@@ -73,16 +68,21 @@ if (fs.existsSync(functionsConfigPath)) {
 /**
  * Recursively copy directory with template replacements
  */
-function copyDirectory(src, dest, replacements = {}) {
+function copyDirectory(src, dest, replacements = {}, excludeDirs = []) {
   fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
 
   for (const entry of entries) {
+    // Skip excluded directories
+    if (entry.isDirectory() && excludeDirs.includes(entry.name)) {
+      continue;
+    }
+
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
 
     if (entry.isDirectory()) {
-      copyDirectory(srcPath, destPath, replacements);
+      copyDirectory(srcPath, destPath, replacements, excludeDirs);
     } else {
       let content = fs.readFileSync(srcPath, 'utf8');
       
@@ -130,8 +130,8 @@ function generateFunctionExports(courseId) {
   // Create a valid function prefix (course + courseId for numeric IDs)
   const functionPrefix = /^\d/.test(courseId) ? `course${courseId}` : courseId;
   
-  // Always include shared AI question function
-  exports.push(`exports.${functionPrefix}_shared_aiQuestion = require('./courses/${courseId}/shared/aiQuestions').${functionPrefix}_shared_aiQuestion;`);
+  // Note: Shared AI question functions are now in global courses/shared/ directory
+  // and should be added to functions/index.js manually as they're shared across courses
   
   // Add lesson-specific functions based on what exists in the template
   const templateFunctionsPath = path.join(templatePath, 'functions', 'TEMPLATE_ID');
@@ -153,9 +153,10 @@ function generateFunctionExports(courseId) {
             // Multiple functions in assessments file
             exports.push(`exports.${functionPrefix}_${safeFolderName}_multipleChoice = require('./courses/${courseId}/${folder.name}/assessments').${functionPrefix}_${safeFolderName}_multipleChoice;`);
             exports.push(`exports.${functionPrefix}_${safeFolderName}_aiQuestion = require('./courses/${courseId}/${folder.name}/assessments').${functionPrefix}_${safeFolderName}_aiQuestion;`);
-          } else {
-            // Single function file
-            exports.push(`exports.${functionPrefix}_${safeFolderName}_${baseName} = require('./courses/${courseId}/${folder.name}/${baseName}').${functionPrefix}_${safeFolderName}_${baseName};`);
+          } else if (baseName !== 'fallback-questions') {
+            // Single function file (skip data files like fallback-questions)
+            const safeBaseName = baseName.replace(/-/g, '_');
+            exports.push(`exports.${functionPrefix}_${safeFolderName}_${safeBaseName} = require('./courses/${courseId}/${folder.name}/${baseName}').${functionPrefix}_${safeFolderName}_${safeBaseName};`);
           }
         }
       });
@@ -166,48 +167,154 @@ function generateFunctionExports(courseId) {
 }
 
 /**
+ * Update functions/index.js to include the new course functions
+ */
+function updateFunctionsIndex(courseId) {
+  const functionsIndexPath = path.join(__dirname, '..', 'functions', 'index.js');
+  
+  if (!fs.existsSync(functionsIndexPath)) {
+    console.warn('⚠️  functions/index.js not found, skipping automatic update');
+    return;
+  }
+  
+  const functionPrefix = /^\d/.test(courseId) ? `course${courseId}` : courseId;
+  let indexContent = fs.readFileSync(functionsIndexPath, 'utf8');
+  
+  // Check if course functions are already exported (check for any course function)
+  if (indexContent.includes(`${functionPrefix}_02_core_concepts`)) {
+    console.log('📝 Course functions already exist in functions/index.js');
+    return;
+  }
+  
+  // Generate the function exports for this course
+  const functionExports = generateFunctionExports(courseId);
+  
+  // Add a comment and the exports at the end of the file
+  const newExports = `
+// ${courseId} Course Functions
+${functionExports}`;
+  
+  // Append to the end of the file
+  indexContent += newExports;
+  
+  fs.writeFileSync(functionsIndexPath, indexContent);
+  console.log('✅ Updated functions/index.js with course functions');
+}
+
+/**
+ * Update CourseRouter.js to include the new course
+ */
+function updateCourseRouter(courseId, componentName) {
+  const routerPath = path.join(__dirname, '..', 'src', 'FirebaseCourses', 'CourseRouter.js');
+  
+  if (!fs.existsSync(routerPath)) {
+    console.warn('⚠️  CourseRouter.js not found, skipping automatic update');
+    return;
+  }
+  
+  let routerContent = fs.readFileSync(routerPath, 'utf8');
+  
+  // Check if course is already imported
+  if (routerContent.includes(`const ${componentName} = lazy`)) {
+    console.log('📝 Course already exists in CourseRouter.js');
+    return;
+  }
+  
+  // Add import statement after the last course import
+  const importPattern = /(const Course\w+ = lazy\([^)]+\);)/g;
+  const importMatches = [...routerContent.matchAll(importPattern)];
+  
+  if (importMatches.length > 0) {
+    // Get the last Course import
+    const lastImport = importMatches[importMatches.length - 1];
+    const newImport = `const ${componentName} = lazy(() => import('./courses/${courseId}'));`;
+    routerContent = routerContent.replace(
+      lastImport[0],
+      `${lastImport[0]}\n${newImport}`
+    );
+  } else {
+    // Try to find any existing course import (Course2, Course100, etc.)
+    const anyImportPattern = /(const Course\w+ = lazy\([^)]+\);)/;
+    const anyMatch = routerContent.match(anyImportPattern);
+    if (anyMatch) {
+      const newImport = `const ${componentName} = lazy(() => import('./courses/${courseId}'));`;
+      routerContent = routerContent.replace(
+        anyMatch[0],
+        `${anyMatch[0]}\n${newImport}`
+      );
+    } else {
+      // Add after COM1255Course import as fallback
+      const fallbackPattern = /(const COM1255Course = lazy\([^)]+\);)/;
+      const fallbackMatch = routerContent.match(fallbackPattern);
+      if (fallbackMatch) {
+        const newImport = `const ${componentName} = lazy(() => import('./courses/${courseId}'));`;
+        routerContent = routerContent.replace(
+          fallbackMatch[0],
+          `${fallbackMatch[0]}\n${newImport}`
+        );
+      } else {
+        console.warn('⚠️  Could not find location to add import. Please add manually:');
+        console.warn(`const ${componentName} = lazy(() => import('./courses/${courseId}'));`);
+        return; // Exit early if we can't add the import
+      }
+    }
+  }
+  
+  // Add case statement before default case
+  const defaultCasePattern = /(      default:\s*return <TemplateCourse course={course} \/>;\s*})/;
+  const defaultMatch = routerContent.match(defaultCasePattern);
+  
+  if (defaultMatch) {
+    const newCase = `      case ${courseId}: // ${componentName.replace('Course', '')}
+      case '${courseId}':
+        // Import course structure JSON directly for Firebase courses
+        const courseStructureData${courseId} = require('./courses/${courseId}/course-structure.json');
+        const courseWithStructure${courseId} = {
+          ...course,
+          courseStructure: {
+            title: "${courseTitle}",
+            structure: courseStructureData${courseId}.courseStructure?.units || []
+          }
+        };
+        return (
+          <Suspense fallback={<LoadingCourse />}>
+            <${componentName}
+              course={courseWithStructure${courseId}}
+              activeItemId={currentItemId}
+              onItemSelect={handleItemSelect}
+              isStaffView={isStaffView}
+              devMode={devMode}
+            />
+          </Suspense>
+        );
+      `;
+    
+    routerContent = routerContent.replace(defaultMatch[0], `${newCase}${defaultMatch[0]}`);
+  }
+  
+  fs.writeFileSync(routerPath, routerContent);
+  console.log('✅ Updated CourseRouter.js with new course');
+}
+
+/**
  * Create course-specific directories and copy files
  */
 function createCourse() {
   try {
     // Template replacements
     const functionPrefix = /^\d/.test(courseId) ? `course${courseId}` : courseId;
+    const componentName = `Course${courseId}`;
     const replacements = {
-      'TEMPLATE_ID': courseId,
+      // Order matters! More specific patterns first
+      'TEMPLATE_ID_': functionPrefix + '_', // For function names (handles numeric IDs)
+      'CourseTEMPLATE_ID': componentName,   // For component names
+      'TEMPLATE_ID': courseId,              // For general course ID references
       'Template Course Title': courseTitle,
       'TEMPLATE_DATE': new Date().toISOString().split('T')[0],
       'template_': courseId.toLowerCase() + '_'
     };
     
-    // Add function-specific replacements
-    replacements[`CourseTEMPLATE_ID`] = `Course${courseId}`;
-    
-    // Function name replacements need to handle the numeric prefix
-    Object.keys(replacements).forEach(key => {
-      if (key.includes('TEMPLATE_ID')) {
-        const newKey = key.replace('TEMPLATE_ID', functionPrefix);
-        replacements[newKey] = replacements[key].replace(courseId, functionPrefix);
-      }
-    });
-    
-    // Step 1: Copy course configuration to courses directory
-    console.log('📁 Creating course configuration...');
-    fs.mkdirSync(targetCoursePath, { recursive: true });
-    
-    // Copy config files
-    ['course-config.json', 'course-structure.json', 'README.md'].forEach(file => {
-      const srcFile = path.join(templatePath, file);
-      const destFile = path.join(targetCoursePath, file);
-      let content = fs.readFileSync(srcFile, 'utf8');
-      
-      Object.entries(replacements).forEach(([placeholder, value]) => {
-        content = content.replace(new RegExp(placeholder, 'g'), value);
-      });
-      
-      fs.writeFileSync(destFile, content);
-    });
-    
-    // Step 2: Create frontend course directory in src
+    // Step 1: Create frontend course directory in src
     console.log('📁 Creating frontend course components...');
     fs.mkdirSync(srcCoursePath, { recursive: true });
     
@@ -218,30 +325,59 @@ function createCourse() {
     });
     fs.writeFileSync(path.join(srcCoursePath, 'index.js'), indexContent);
     
-    // Copy course config files to frontend location
-    ['course-config.json', 'course-structure.json'].forEach(file => {
-      const srcFile = path.join(templatePath, file);
-      const destFile = path.join(srcCoursePath, file);
-      let content = fs.readFileSync(srcFile, 'utf8');
-      
-      Object.entries(replacements).forEach(([placeholder, value]) => {
-        content = content.replace(new RegExp(placeholder, 'g'), value);
-      });
-      
-      fs.writeFileSync(destFile, content);
+    // Only copy course-structure.json to frontend (navigation only)
+    const structureFile = path.join(templatePath, 'course-structure.json');
+    const destStructureFile = path.join(srcCoursePath, 'course-structure.json');
+    let structureContent = fs.readFileSync(structureFile, 'utf8');
+    
+    Object.entries(replacements).forEach(([placeholder, value]) => {
+      structureContent = structureContent.replace(new RegExp(placeholder, 'g'), value);
     });
+    
+    fs.writeFileSync(destStructureFile, structureContent);
+    
+    // Create a display-only config for frontend (safe settings only)
+    const templateConfigContent = fs.readFileSync(path.join(templatePath, 'course-config.json'), 'utf8');
+    const fullConfig = JSON.parse(templateConfigContent.replace(/TEMPLATE_ID/g, courseId));
+    
+    // Extract only safe display settings
+    const displayConfig = {
+      courseId: fullConfig.courseId,
+      title: courseTitle,
+      fullTitle: `${courseId} - ${courseTitle}`,
+      description: fullConfig.description,
+      grade: grade,
+      prerequisites: fullConfig.prerequisites || [],
+      instructors: fullConfig.instructors || [],
+      duration: fullConfig.duration,
+      theme: fullConfig.theme,
+      displaySettings: {
+        showProgressBar: true,
+        showGrades: true,
+        enableTextToSpeech: true
+      },
+      metadata: {
+        version: fullConfig.metadata.version,
+        status: fullConfig.metadata.status
+      }
+    };
+    
+    fs.writeFileSync(
+      path.join(srcCoursePath, 'course-display.json'), 
+      JSON.stringify(displayConfig, null, 2)
+    );
     
     // Copy content directory
     const contentSrc = path.join(templatePath, 'content');
     const contentDest = path.join(srcCoursePath, 'content');
     copyDirectory(contentSrc, contentDest, replacements);
     
-    // Step 3: Copy cloud functions
+    // Step 2: Copy cloud functions (exclude shared directory - using global shared)
     console.log('📁 Creating cloud functions...');
     const functionsSrc = path.join(templatePath, 'functions', 'TEMPLATE_ID');
-    copyDirectory(functionsSrc, functionsPath, replacements);
+    copyDirectory(functionsSrc, functionsPath, replacements, ['shared']);
     
-    // Step 3b: Copy course config to functions directory for cloud function access
+    // Step 2b: Copy course config to functions directory for cloud function access
     console.log('📁 Copying course config for cloud functions...');
     fs.mkdirSync(functionsConfigPath, { recursive: true });
     
@@ -254,17 +390,15 @@ function createCourse() {
     });
     fs.writeFileSync(configDest, configContent);
     
-    // Step 4: Rename template files/folders
+    // Step 3: Rename template files/folders
     console.log('📝 Renaming template files...');
     renameTemplateFiles(functionsPath, 'TEMPLATE_ID', courseId);
     
-    // Step 5: Update course configuration
+    // Step 4: Update course configuration
     console.log('⚙️  Finalizing course configuration...');
     
-    // Update all copies of course-config.json
+    // Update backend course-config.json only
     const configPaths = [
-      path.join(targetCoursePath, 'course-config.json'),
-      path.join(srcCoursePath, 'course-config.json'),
       path.join(functionsConfigPath, 'course-config.json')
     ];
     
@@ -284,7 +418,15 @@ function createCourse() {
       }
     });
     
-    // Step 6: Generate helpful output
+    // Step 5: Update CourseRouter.js automatically
+    console.log('📝 Updating CourseRouter.js...');
+    updateCourseRouter(courseId, componentName);
+    
+    // Step 6: Update functions/index.js automatically
+    console.log('📝 Updating functions/index.js...');
+    updateFunctionsIndex(courseId);
+    
+    // Step 7: Generate helpful output
     const functionExports = generateFunctionExports(courseId);
     
     // Fix export naming if courseId starts with a number
@@ -295,7 +437,6 @@ function createCourse() {
       }
       return line;
     }).join('\n');
-    const componentName = `Course${courseId}`;
     const importStatement = `const ${componentName} = lazy(() => import('./courses/${courseId}'));`;
     const routerCase = `      case '${courseId}':
         return (
@@ -314,35 +455,34 @@ function createCourse() {
 ✅ Course ${courseId} created successfully!
 
 📂 Course files created at:
-   Config: ${targetCoursePath}
    Frontend: ${srcCoursePath}
    Functions: ${functionsPath}
+   Config: ${functionsConfigPath}
 
-🔧 Next steps:
+🔧 Automatic setup completed:
+   ✅ CourseRouter.js updated
+   ✅ functions/index.js updated
 
-1. Add to src/FirebaseCourses/CourseRouter.js:
+📝 Note: Shared AI functions are in functions/courses/shared/ 
+   Add them manually to functions/index.js if needed:
+   exports.shared_aiQuestion = require('./courses/shared/aiQuestions').shared_aiQuestion;
    
-   Import at the top:
-   ${importStatement}
-   
-   Add to switch statement:
-${routerCase}
+🔗 Import statement automatically added to CourseRouter.js
 
-2. Add to functions/index.js:
-   
-${exportSteps}
+🚀 Ready to use! Next steps:
 
-3. Deploy functions:
+1. Deploy functions:
    firebase deploy --only functions:${functionPrefix}_*
 
-4. Start development:
+2. Start development:
    npm start
 
-📖 See ${targetCoursePath}/README.md for detailed instructions.
+📖 See the template README for detailed instructions.
 
 💡 Tips:
    - Content folders are numbered for easy ordering
    - Cloud functions follow the naming convention
+   - Shared functions are in functions/courses/shared/ for reuse
    - Start simple, add complexity as needed
    - Check each folder's README for guidance
 `);
@@ -351,15 +491,19 @@ ${exportSteps}
     console.error('❌ Error creating course:', error.message);
     
     // Cleanup on error
-    if (fs.existsSync(targetCoursePath)) {
-      fs.rmSync(targetCoursePath, { recursive: true, force: true });
-    }
     if (fs.existsSync(srcCoursePath)) {
       fs.rmSync(srcCoursePath, { recursive: true, force: true });
     }
     if (fs.existsSync(functionsPath)) {
       fs.rmSync(functionsPath, { recursive: true, force: true });
     }
+    if (fs.existsSync(functionsConfigPath)) {
+      fs.rmSync(functionsConfigPath, { recursive: true, force: true });
+    }
+    
+    // Note: We don't automatically revert CourseRouter.js changes on error
+    // as they may be intentional or the error may not be related
+    console.log('⚠️  Note: CourseRouter.js changes were not reverted. Please check manually if needed.');
     
     process.exit(1);
   }

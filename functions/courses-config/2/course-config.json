@@ -3,8 +3,8 @@
   "title": "Physics 30",
   "fullTitle": "2 - Physics 30",
   "description": "This is a template course description. Replace this with a detailed description of what students will learn in this course.",
-  "credits": 10,
-  "grade": "12",
+  "credits": 1,
+  "grade": "10",
   "prerequisites": [],
   "instructors": [],
   "duration": "1 semester",
@@ -39,8 +39,8 @@
     "notifyOnAnnouncement": true
   },
   "metadata": {
-    "createdDate": "2025-05-28T11:04:26.436Z",
-    "lastModified": "2025-05-28T11:04:26.436Z",
+    "createdDate": "2025-05-28T13:33:55.646Z",
+    "lastModified": "2025-05-28T13:33:55.646Z",
     "version": "1.0.0",
     "status": "draft"
   }

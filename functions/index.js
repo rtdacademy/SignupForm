@@ -152,3 +152,14 @@ exports.updateStudentDocuments = studentPropertiesFunctions.updateStudentDocumen
 exports.COM1255_IntroToELearningQ1 = COM1255IntroToELearning.handleMultipleChoiceQuestion;
 exports.COM1255_IntroToELearningDynamic = COM1255IntroToELearning.handleDynamicQuestion;
 exports.COM1255_BenefitsChallengesAI = COM1255BenefitsChallenges.handleAIQuestion;
+
+
+// 2 Course Functions
+exports.course2_shared_aiQuestion = require('./courses/2/shared/aiQuestions').course2_shared_aiQuestion;
+exports.course2_02_core_concepts_multipleChoice = require('./courses/2/02-core-concepts/assessments').course2_02_core_concepts_multipleChoice;
+exports.course2_02_core_concepts_aiQuestion = require('./courses/2/02-core-concepts/assessments').course2_02_core_concepts_aiQuestion;
+
+// 100 Course Functions
+exports.course100_shared_aiQuestion = require('./courses/100/shared/aiQuestions').course100_shared_aiQuestion;
+exports.course100_02_core_concepts_multipleChoice = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_multipleChoice;
+exports.course100_02_core_concepts_aiQuestion = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_aiQuestion;
