@@ -129,3 +129,6 @@ exports.submitNotificationSurvey = surveySubmissionFunctions.submitNotificationS
 exports.COM1255_IntroToELearningQ1 = COM1255IntroToELearning.handleMultipleChoiceQuestion;
 exports.COM1255_IntroToELearningDynamic = COM1255IntroToELearning.handleDynamicQuestion;
 exports.COM1255_BenefitsChallengesAI = COM1255BenefitsChallenges.handleAIQuestion;
+
+//PHY30
+exports.PHY30_IntroToPhysics = require('./courses/PHY30/content/lessons/IntroToPhysics').default;

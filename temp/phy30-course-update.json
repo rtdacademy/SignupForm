@@ -1,0 +1,30 @@
+{
+    "courses/2/courseDetails":  {
+                                    "courseStructure":  {
+                                                            "courseId":  "PHY30",
+                                                            "title":  "Physics 30",
+                                                            "description":  "Advanced physics concepts including momentum, energy, fields, and modern physics",
+                                                            "structure":  [
+                                                                              {
+                                                                                  "name":  "Unit 1: Momentum and Energy",
+                                                                                  "section":  "1",
+                                                                                  "unitId":  "unit_momentum_energy",
+                                                                                  "items":  [
+                                                                                                {
+                                                                                                    "itemId":  "lesson_1747281754691_113",
+                                                                                                    "title":  "Introduction to Physics",
+                                                                                                    "type":  "lesson",
+                                                                                                    "content":  "lesson_1747281754691_113"
+                                                                                                },
+                                                                                                {
+                                                                                                    "itemId":  "lesson_1747281764415_851",
+                                                                                                    "title":  "Momentum in One Dimension",
+                                                                                                    "type":  "lesson",
+                                                                                                    "content":  "lesson_1747281764415_851"
+                                                                                                }
+                                                                                            ]
+                                                                              }
+                                                                          ]
+                                                        }
+                                }
+}
