@@ -1,5 +1,5 @@
-const { createAIMultipleChoice } = require('../../../../shared/assessment-types/ai-multiple-choice');
-const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../../../../shared/utilities/database-utils');
+const { createAIMultipleChoice } = require('../../../shared/assessment-types/ai-multiple-choice');
+const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../../../shared/utilities/database-utils');
 
 const assessments = {
   assessment1: {
