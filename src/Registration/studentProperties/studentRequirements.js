@@ -133,7 +133,7 @@ export function getStudentRequirements(student) {
 
 /**
  * Merge two requirement objects, with the second overriding the first
- * If a field is set to null in the override, it will be removed from the merged result
+ * If a field is set to null in the override, it will be removed from the merged result       
  */
 function mergeRequirements(base, override) {
   const merged = { ...base };
