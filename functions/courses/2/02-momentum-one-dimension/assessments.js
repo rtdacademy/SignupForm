@@ -86,6 +86,14 @@ exports.course2_02_momentum_one_dimension_aiQuestion = createAIMultipleChoice({
     'Analyze the relationship between impulse and momentum change'
   ],
   
+  // AI Chat Integration Settings
+  // Controls whether the AI chat button appears for students on this assessment
+  enableAIChat: true,
+  
+  // Additional context for AI tutors to understand the assessment focus
+  // This helps AI provide more relevant assistance beyond just the question text
+  aiChatContext: "This assessment focuses on momentum concepts in one dimension. Students are learning about the definition of momentum (p = mv), calculating momentum values, understanding conservation of momentum in collisions, and the relationship between impulse and momentum change. Common student difficulties include confusing momentum with force, incorrect unit usage (kg⋅m/s), and misapplying conservation laws in collision scenarios. AI tutors should emphasize conceptual understanding of momentum as 'quantity of motion' and guide students through step-by-step problem-solving approaches.",
+  
   // Fallback questions in case AI generation fails
   fallbackQuestions: [
     {

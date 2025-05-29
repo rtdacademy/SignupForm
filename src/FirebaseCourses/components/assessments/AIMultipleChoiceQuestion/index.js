@@ -1137,7 +1137,7 @@ You can now:
                 AI-powered
               </span>
             )}
-            {question && (
+            {question && question.enableAIChat !== false && (
               <Button
                 onClick={() => setChatSheetOpen(true)}
                 size="sm"
@@ -1474,6 +1474,7 @@ You can now:
                 allowContentRemoval={false}
                 showResourcesAtTop={false}
                 context={getAIChatContext()}
+                aiChatContext={question.aiChatContext}
               />
             )}
           </div>

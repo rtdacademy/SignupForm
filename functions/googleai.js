@@ -437,6 +437,18 @@ const sendChatMessage = onCall({
     // Always use the agent system when we have questionState context
     let effectiveSystemInstruction = (context?.questionState) ? selectedAgent.system : (systemInstruction || selectedAgent.system);
     
+    // Add additional context about the question if provided
+    if (context?.aiChatContext) {
+      const contextInfo = `
+
+ADDITIONAL QUESTION CONTEXT:
+${context.aiChatContext}
+
+This additional context should inform your understanding of the concepts being tested and help you provide more targeted assistance.`;
+      
+      effectiveSystemInstruction += contextInfo;
+    }
+    
     // Add question-specific information to system instruction (not context)
     if (context?.sessionInfo) {
       // For pre-answer agent, include topic info
