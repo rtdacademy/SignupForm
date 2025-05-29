@@ -1358,6 +1358,7 @@ You can now:
           <div className="w-full md:w-1/2 h-full">
             {question && (
               <GoogleAIChatApp
+                sessionIdentifier={`${courseId}_${assessmentId}`}
                 instructions={getAIChatInstructions()}
                 firstMessage={getAIChatFirstMessage()}
                 showYouTube={false}

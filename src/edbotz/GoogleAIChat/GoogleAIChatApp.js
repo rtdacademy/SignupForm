@@ -969,9 +969,7 @@ const MessageBubble = ({
   );
 };
 
-// Local storage keys
-const STORAGE_KEY_SESSION_ID = 'google_ai_chat_session_id';
-const STORAGE_KEY_MESSAGES = 'google_ai_chat_messages';
+// Local storage keys - these will be updated to use sessionIdentifier inside the component
 
 // Main component
 const GoogleAIChatApp = ({ 
@@ -986,8 +984,13 @@ const GoogleAIChatApp = ({
   predefinedFilesDisplayNames = {}, // Map of file URLs to display names
   allowContentRemoval = true,
   showResourcesAtTop = true, // Whether to show predefined resources at the top
-  context = null // Context object for Genkit API
+  context = null, // Context object for Genkit API
+  sessionIdentifier = 'default' // Unique identifier for this chat session
 }) => {
+  // Generate session-specific localStorage keys
+  const STORAGE_KEY_SESSION_ID = `google_ai_chat_session_id_${sessionIdentifier}`;
+  const STORAGE_KEY_MESSAGES = `google_ai_chat_messages_${sessionIdentifier}`;
+  
   // Load saved session ID from localStorage if available
   const getSavedSessionId = () => {
     try {
