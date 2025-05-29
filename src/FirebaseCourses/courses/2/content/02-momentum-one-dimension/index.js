@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../../../compone
 import { Alert, AlertDescription } from '../../../../../components/ui/alert';
 import { Badge } from '../../../../../components/ui/badge';
 import AIMultipleChoiceQuestion from '../../../../components/assessments/AIMultipleChoiceQuestion';
+import AILongAnswerQuestion from '../../../../components/assessments/AILongAnswerQuestion';
 
 const MomentumOneDimension = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode }) => {
 
@@ -196,6 +197,42 @@ const MomentumOneDimension = ({ course, courseId, courseDisplay, itemConfig, isS
             }}
             onComplete={() => {
               console.log('Assessment completed');
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Long Answer Practice Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>✍️ Explain Your Understanding</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-gray-700">
+            Test your conceptual understanding of momentum with an AI-generated long answer question. 
+            Write a detailed explanation and receive rubric-based feedback on your response.
+          </p>
+
+          {devMode && (
+            <div className="mb-4">
+              <Badge variant="outline" className="text-xs">
+                Function: course2_02_momentum_one_dimension_aiLongAnswer
+              </Badge>
+            </div>
+          )}
+
+          <AILongAnswerQuestion
+            courseId={courseId}
+            assessmentId="momentum_1d_lesson_long_answer"
+            cloudFunctionName="course2_02_momentum_one_dimension_aiLongAnswer"
+            course={course}
+            topic="Momentum in One Dimension"
+            theme="blue"
+            onComplete={() => {
+              console.log('Long answer assessment completed');
+            }}
+            onAttempt={(passedThreshold) => {
+              console.log('Long answer attempt made:', passedThreshold);
             }}
           />
         </CardContent>

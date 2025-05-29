@@ -8,14 +8,27 @@
  */
 
 const { createAIMultipleChoice } = require('../../../shared/assessment-types/ai-multiple-choice');
+const { createAILongAnswer } = require('../../../shared/assessment-types/ai-long-answer');
 const courseConfig = require('../../../courses-config/2/course-config.json');
 
 /**
  * AI-powered multiple choice assessment for momentum in one dimension
  * Function name: course2_02_momentum_one_dimension_aiQuestion
+ * 
+ * CONFIGURATION GUIDE:
+ * All parameters below can be customized. Current values match course defaults from:
+ * functions/courses-config/2/course-config.json -> activityTypes.lesson
+ * 
+ * To override any setting, simply change the value.
+ * To use course defaults, you can comment out the line.
  */
 exports.course2_02_momentum_one_dimension_aiQuestion = createAIMultipleChoice({
-  // Course-specific prompts for different difficulty levels
+  // ===== REQUIRED: Activity Type =====
+  // Determines which settings from course-config.json to use as defaults
+  // Options: 'lesson', 'assignment', 'lab', 'exam'
+  activityType: 'lesson',
+  
+  // ===== REQUIRED: Course-specific prompts =====
   prompts: {
     beginner: `Create a multiple-choice question about basic momentum concepts in one dimension for a Grade 12 Physics 30 student. 
     Focus on:
@@ -49,33 +62,29 @@ exports.course2_02_momentum_one_dimension_aiQuestion = createAIMultipleChoice({
     Use realistic physics scenarios with appropriate values for Grade 12 level.`
   },
   
-  // Hardcoded activity type for security (cannot be manipulated by client)
-  activityType: 'lesson',
+  // ===== ASSESSMENT SETTINGS =====
+  // These use values from course-config.json -> activityTypes.lesson
+  maxAttempts: 999,                    // Maximum attempts allowed (course default: 999)
+  pointsValue: 5,                       // Points for correct answer (course default: 5)
+  showFeedback: true,                   // Show detailed feedback (course default: true)
+  enableHints: true,                    // Enable hint system (course default: true)
+  attemptPenalty: 0,                    // Points deducted per attempt (course default: 0)
+  theme: 'purple',                      // Color theme (course default: 'purple')
+  allowDifficultySelection: false,      // Let students choose difficulty (course default: false)
+  defaultDifficulty: 'intermediate',    // Default difficulty level (course default: 'intermediate')
   
-  // Enable KaTeX formatting for mathematical expressions
-  katexFormatting: true,
+  // ===== AI GENERATION SETTINGS =====
+  // From course-config.json -> activityTypes.lesson.aiSettings
+  aiSettings: {
+    temperature: 0.7,    // AI creativity level 0-1 (course default: 0.7)
+    topP: 0.9,          // Nucleus sampling (course default: 0.9)
+    topK: 40            // Top-K sampling (default: 40)
+  },
   
-  // Assessment settings from course configuration
-  maxAttempts: courseConfig.activityTypes.lesson.maxAttempts,
-  pointsValue: courseConfig.activityTypes.lesson.pointValue,
-  showFeedback: courseConfig.activityTypes.lesson.showDetailedFeedback,
-  enableHints: courseConfig.activityTypes.lesson.enableHints,
-  attemptPenalty: courseConfig.activityTypes.lesson.attemptPenalty,
-  theme: courseConfig.activityTypes.lesson.theme,
-  allowDifficultySelection: courseConfig.activityTypes.lesson.allowDifficultySelection,
+  // ===== FORMATTING OPTIONS =====
+  katexFormatting: true,  // Enable LaTeX math rendering
   
-  // Course creator can override default difficulty for this specific assessment
-  // Priority hierarchy (only for lesson type):
-  // 1. Student's selected difficulty (highest priority)
-  // 2. This defaultDifficulty setting (course creator's override)
-  // 3. courseConfig.activityTypes.lesson.defaultDifficulty (fallback)
-  // Comment out or remove the line below to use courseConfig default
-  // defaultDifficulty: 'intermediate', // Uncomment and change to 'beginner' or 'advanced' to override
-  
-  // AI generation settings from course config
-  aiSettings: courseConfig.activityTypes.lesson.aiSettings,
-  
-  // Physics 30 specific configuration
+  // ===== COURSE METADATA =====
   subject: 'Physics 30',
   gradeLevel: 12,
   topic: 'Momentum in One Dimension',
@@ -86,15 +95,12 @@ exports.course2_02_momentum_one_dimension_aiQuestion = createAIMultipleChoice({
     'Analyze the relationship between impulse and momentum change'
   ],
   
-  // AI Chat Integration Settings
-  // Controls whether the AI chat button appears for students on this assessment
-  enableAIChat: true,
-  
-  // Additional context for AI tutors to understand the assessment focus
-  // This helps AI provide more relevant assistance beyond just the question text
+  // ===== AI CHAT INTEGRATION =====
+  enableAIChat: true,  // Show AI chat button for student support
   aiChatContext: "This assessment focuses on momentum concepts in one dimension. Students are learning about the definition of momentum (p = mv), calculating momentum values, understanding conservation of momentum in collisions, and the relationship between impulse and momentum change. Common student difficulties include confusing momentum with force, incorrect unit usage (kg⋅m/s), and misapplying conservation laws in collision scenarios. AI tutors should emphasize conceptual understanding of momentum as 'quantity of motion' and guide students through step-by-step problem-solving approaches.",
   
-  // Fallback questions in case AI generation fails
+  // ===== FALLBACK QUESTIONS =====
+  // Used when AI generation fails
   fallbackQuestions: [
     {
       questionText: "A 2000 kg car traveling at 15 m/s has what momentum?",
@@ -122,8 +128,200 @@ exports.course2_02_momentum_one_dimension_aiQuestion = createAIMultipleChoice({
     }
   ],
   
-  // Cloud function configuration
-  timeout: 120,
-  memory: '512MiB',
-  region: 'us-central1'
+  // ===== CLOUD FUNCTION SETTINGS =====
+  timeout: 120,         // Function timeout in seconds
+  memory: '512MiB',     // Memory allocation
+  region: 'us-central1' // Deployment region
+});
+
+/**
+ * AI-powered long answer assessment for momentum in one dimension
+ * Function name: course2_02_momentum_one_dimension_aiLongAnswer
+ * 
+ * CONFIGURATION GUIDE:
+ * All parameters below can be customized. Current values match course defaults from:
+ * functions/courses-config/2/course-config.json -> activityTypes.assignment.longAnswer
+ * 
+ * To override any setting, simply change the value.
+ * To use course defaults, you can comment out the line.
+ */
+exports.course2_02_momentum_one_dimension_aiLongAnswer = createAILongAnswer({
+  // ===== REQUIRED: Activity Type =====
+  // Determines which settings from course-config.json to use as defaults
+  // Options: 'lesson', 'assignment', 'lab', 'exam'
+  activityType: 'lesson',
+  
+  // ===== REQUIRED: Course-specific prompts =====
+  prompts: {
+    beginner: `Create a beginner-level long answer question about momentum in one dimension for a Grade 12 Physics 30 student.
+    The question should:
+    - Focus on explaining basic momentum concepts and conservation
+    - Require students to define momentum and explain its properties
+    - Ask for simple examples or applications
+    - Be answerable in 100-200 words
+    
+    Create a clear rubric with 3-4 criteria that assess:
+    - Understanding of momentum definition (p = mv)
+    - Explanation of conservation principle
+    - Use of appropriate examples
+    - Clear communication of ideas`,
+    
+    intermediate: `Create an intermediate-level long answer question about momentum in one dimension for a Grade 12 Physics 30 student.
+    The question should:
+    - Require analysis of a collision scenario
+    - Ask students to explain conservation of momentum with calculations
+    - Include discussion of real-world applications
+    - Be answerable in 150-300 words
+    
+    Create a rubric with 4-5 criteria that assess:
+    - Correct application of momentum formula
+    - Understanding of conservation in collisions
+    - Mathematical reasoning and calculations
+    - Connection to real-world scenarios
+    - Quality of scientific explanation`,
+    
+    advanced: `Create a challenging long answer question about momentum in one dimension for a Grade 12 Physics 30 student.
+    The question should:
+    - Present a complex multi-object collision scenario
+    - Require detailed analysis with multiple steps
+    - Ask for evaluation of different collision types (elastic/inelastic)
+    - Include discussion of energy considerations
+    - Be answerable in 200-400 words
+    
+    Create a rubric with 5-6 criteria that assess:
+    - Advanced problem-solving approach
+    - Correct multi-step calculations
+    - Distinction between collision types
+    - Energy and momentum relationships
+    - Critical thinking and analysis
+    - Scientific communication quality`
+  },
+  
+  // ===== ASSESSMENT SETTINGS =====
+  // These use values from course-config.json -> activityTypes.assignment
+  maxAttempts: 3,                      // Maximum attempts allowed (course default: 3)
+  theme: 'blue',                       // Color theme (course default: 'blue')
+  allowDifficultySelection: true,      // Let students choose difficulty (course default: true)
+  defaultDifficulty: 'beginner',       // Default difficulty level (course default: 'beginner')
+  
+  // ===== LONG ANSWER SPECIFIC SETTINGS =====
+  // From course-config.json -> activityTypes.assignment.longAnswer
+  totalPoints: 10,                     // Total points for rubric (course default: 10)
+  rubricCriteria: 4,                   // Number of rubric criteria (course default: 4)
+  wordLimits: { min: 100, max: 400 }, // Word count limits (course default: 100-400)
+  showRubric: true,                    // Show rubric to students (course default: true)
+  showWordCount: true,                 // Show word counter (course default: true)
+  showHints: false,                    // Show hints button (default: false)
+  
+  // ===== AI GENERATION SETTINGS =====
+  // From course-config.json -> activityTypes.assignment.aiSettings
+  aiSettings: {
+    temperature: 0.7,    // AI creativity level 0-1 (course default: 0.7)
+    topP: 0.9,          // Nucleus sampling (course default: 0.9)
+    topK: 40            // Top-K sampling (default: 40)
+  },
+  
+  // ===== FORMATTING OPTIONS =====
+  katexFormatting: true,  // Enable LaTeX math rendering
+  
+  // ===== COURSE METADATA =====
+  subject: 'Physics 30',
+  gradeLevel: 12,
+  topic: 'Momentum in One Dimension',
+  learningObjectives: [
+    'Explain the concept of momentum and its conservation',
+    'Apply conservation of momentum to analyze collisions',
+    'Distinguish between elastic and inelastic collisions',
+    'Connect momentum concepts to real-world scenarios'
+  ],
+  
+  // ===== AI CHAT INTEGRATION =====
+  enableAIChat: true,  // Show AI chat button for student support
+  aiChatContext: "This long answer assessment focuses on explaining momentum concepts and applying conservation laws. Students often struggle with: 1) Clearly distinguishing between momentum and force, 2) Explaining WHY momentum is conserved in collisions, 3) Connecting mathematical calculations to physical meaning. The rubric emphasizes both conceptual understanding and mathematical application. Guide students to structure their answers to address each rubric criterion.",
+  
+  // ===== FALLBACK QUESTIONS =====
+  // Used when AI generation fails
+  fallbackQuestions: [
+    {
+      questionText: "A 1500 kg car traveling at 20 m/s collides with a stationary 1000 kg car. After the collision, the cars stick together and move as one unit. Explain the principle of conservation of momentum, calculate the final velocity of the combined cars, and discuss what type of collision this represents. Include a discussion of why momentum is conserved in this scenario.",
+      rubric: [
+        {
+          criterion: "Conservation Principle",
+          points: 3,
+          description: "Clearly explains the law of conservation of momentum and why it applies to collisions"
+        },
+        {
+          criterion: "Mathematical Application",
+          points: 3,
+          description: "Correctly calculates initial momentum, final momentum, and final velocity with proper units"
+        },
+        {
+          criterion: "Collision Type Analysis",
+          points: 2,
+          description: "Identifies this as an inelastic collision and explains what that means"
+        },
+        {
+          criterion: "Scientific Communication",
+          points: 2,
+          description: "Presents ideas clearly with proper physics terminology and logical flow"
+        }
+      ],
+      maxPoints: 10,
+      wordLimit: { min: 150, max: 300 },
+      sampleAnswer: `The law of conservation of momentum states that in a closed system with no external forces, the total momentum before a collision equals the total momentum after the collision. This principle applies because momentum is a conserved quantity in isolated systems.
+
+For the given scenario:
+Initial momentum = m₁v₁ + m₂v₂ = (1500 kg)(20 m/s) + (1000 kg)(0 m/s) = 30,000 kg·m/s
+
+Since the cars stick together, they have the same final velocity (v_f):
+Final momentum = (m₁ + m₂)v_f = (1500 + 1000)v_f = 2500v_f
+
+By conservation of momentum:
+30,000 = 2500v_f
+v_f = 12 m/s
+
+This is an inelastic collision because the objects stick together after impact. In inelastic collisions, kinetic energy is not conserved (some is converted to heat, sound, and deformation), but momentum is still conserved. Momentum conservation occurs because the collision forces between the cars are internal to the system—they are equal and opposite (Newton's third law), so they cancel out when considering the total system momentum.`,
+      difficulty: 'intermediate'
+    },
+    {
+      questionText: "Explain the concept of momentum in physics. In your answer, define momentum, describe its key properties, provide an everyday example, and explain why understanding momentum is important in physics.",
+      rubric: [
+        {
+          criterion: "Definition and Formula",
+          points: 3,
+          description: "Correctly defines momentum and states the formula p = mv with units"
+        },
+        {
+          criterion: "Properties of Momentum",
+          points: 2,
+          description: "Identifies momentum as a vector quantity and explains what this means"
+        },
+        {
+          criterion: "Practical Example",
+          points: 3,
+          description: "Provides a clear, relevant everyday example that illustrates momentum"
+        },
+        {
+          criterion: "Importance in Physics",
+          points: 2,
+          description: "Explains why momentum is a fundamental concept in physics"
+        }
+      ],
+      maxPoints: 10,
+      wordLimit: { min: 100, max: 200 },
+      sampleAnswer: `Momentum is defined as the product of an object's mass and velocity, expressed by the formula p = mv, where p is momentum (kg·m/s), m is mass (kg), and v is velocity (m/s).
+
+Momentum is a vector quantity, meaning it has both magnitude and direction. The direction of momentum is always the same as the direction of velocity. This vector nature is crucial when analyzing collisions or interactions between objects.
+
+An everyday example is a bowling ball rolling down a lane. A heavy bowling ball moving at moderate speed has large momentum, making it effective at knocking down pins. A lightweight ball at the same speed would have less momentum and be less effective.
+
+Understanding momentum is fundamental in physics because it is a conserved quantity in isolated systems. This conservation law allows us to predict the outcomes of collisions, analyze particle interactions, and understand everything from car crashes to rocket propulsion. Momentum conservation is one of the most powerful problem-solving tools in physics.`,
+      difficulty: 'beginner'
+    }
+  ],
+  
+  // ===== CLOUD FUNCTION SETTINGS =====
+  timeout: 180,         // Function timeout in seconds (longer for evaluation)
+  memory: '1GiB',       // Memory allocation (more for text processing)
+  region: 'us-central1' // Deployment region
 });

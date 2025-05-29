@@ -471,26 +471,63 @@ IMPORTANT: Help guide the student's thinking about ${context.sessionInfo.topic} 
     // Add detailed submission information for post-answer scenarios
     if (questionState.lastSubmission && context?.sessionInfo) {
       const answerDetails = questionState.answerDetails || {};
-      const questionInfo = `
+      
+      // Handle different question types
+      if (context.sessionInfo.questionType === 'longAnswer') {
+        // Long answer question context
+        const questionInfo = `
 
 CURRENT QUESTION CONTEXT:
 - Course: ${context.sessionInfo.courseId}
 - Topic: ${context.sessionInfo.topic}
+- Question Type: Long Answer
+- Student's answer: "${questionState.lastSubmission.answer}"
+- Word Count: ${questionState.lastSubmission.wordCount || 'Unknown'}
+- Score: ${questionState.lastSubmission.totalScore}/${questionState.lastSubmission.maxScore} (${questionState.lastSubmission.percentage}%)
+- Overall Feedback: "${questionState.lastSubmission.overallFeedback}"
+
+RUBRIC SCORES:
+${questionState.lastSubmission.rubricScores?.map(score => 
+  `- ${score.criterion}: ${score.score}/${score.maxPoints} - ${score.feedback}`
+).join('\n') || 'No rubric scores available'}
+
+STRENGTHS: ${questionState.lastSubmission.strengths?.join(', ') || 'None identified'}
+IMPROVEMENTS: ${questionState.lastSubmission.improvements?.join(', ') || 'None identified'}
+
+IMPORTANT: You can reference their specific answer text and discuss exactly why they earned or lost points on each rubric criterion.`;
+        
+        effectiveSystemInstruction += questionInfo;
+        
+        console.log('Enhanced system instruction with long answer details:', {
+          wordCount: questionState.lastSubmission.wordCount,
+          totalScore: questionState.lastSubmission.totalScore,
+          rubricCount: questionState.lastSubmission.rubricScores?.length
+        });
+        
+      } else {
+        // Multiple choice question context
+        const questionInfo = `
+
+CURRENT QUESTION CONTEXT:
+- Course: ${context.sessionInfo.courseId}
+- Topic: ${context.sessionInfo.topic}
+- Question Type: Multiple Choice
 - Student selected: Option ${questionState.lastSubmission.selectedAnswer?.toUpperCase()} - "${answerDetails.studentAnswerText || 'Unknown option'}"
 - Result: ${questionState.lastSubmission.isCorrect ? 'CORRECT' : 'INCORRECT'}
 - Correct answer: Option ${questionState.lastSubmission.correctOptionId?.toUpperCase()} - "${answerDetails.correctAnswerText || 'Unknown option'}"
 - Feedback given: "${questionState.lastSubmission.feedback}"
 
 IMPORTANT: Use these SPECIFIC details in your response. Reference "Option ${questionState.lastSubmission.selectedAnswer?.toUpperCase()}" and "Option ${questionState.lastSubmission.correctOptionId?.toUpperCase()}" directly.`;
-      
-      effectiveSystemInstruction += questionInfo;
-      
-      console.log('Enhanced system instruction with question details:', {
-        selectedAnswer: questionState.lastSubmission.selectedAnswer,
-        correctAnswer: questionState.lastSubmission.correctOptionId,
-        studentText: answerDetails.studentAnswerText,
-        correctText: answerDetails.correctAnswerText
-      });
+        
+        effectiveSystemInstruction += questionInfo;
+        
+        console.log('Enhanced system instruction with multiple choice details:', {
+          selectedAnswer: questionState.lastSubmission.selectedAnswer,
+          correctAnswer: questionState.lastSubmission.correctOptionId,
+          studentText: answerDetails.studentAnswerText,
+          correctText: answerDetails.correctAnswerText
+        });
+      }
     }
     
     // Log the final effective system instruction for debugging
