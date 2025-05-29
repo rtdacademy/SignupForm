@@ -6,10 +6,9 @@
 3. [Course Creation Workflow](#course-creation-workflow)
 4. [Course Structure and Navigation](#course-structure-and-navigation)
 5. [Assessment System](#assessment-system)
-6. [Security Model](#security-model)
-7. [Development Guide](#development-guide)
-8. [Testing and Deployment](#testing-and-deployment)
-9. [Troubleshooting](#troubleshooting)
+6. [AI Multiple Choice Question System](#ai-multiple-choice-question-system)
+7. [Security Model](#security-model)
+
 
 ## Overview
 
@@ -359,6 +358,527 @@ const VelocityLesson = ({ courseId, itemConfig }) => {
   - optionFeedback: object
 ```
 
+## AI Multiple Choice Question System
+
+### Overview
+
+The AI Multiple Choice Question system provides a secure, flexible way to generate dynamic questions using Google's Gemini AI. It separates sensitive data (correct answers) from student-accessible data and provides extensive customization options.
+
+### Complete Workflow
+
+1. **Frontend Component** (`AIMultipleChoiceQuestion/index.js`)
+   - Displays questions and handles user interactions
+   - Manages UI state (loading, regenerating, submitting)
+   - Communicates with cloud functions for secure operations
+   - Supports LaTeX/KaTeX math rendering
+
+2. **Cloud Function** (`assessments.js`)
+   - Uses the `createAIMultipleChoice` factory function
+   - Defines course-specific prompts and settings
+   - Handles secure operations (generate/evaluate)
+
+3. **Shared Module** (`ai-multiple-choice.js`)
+   - Provides reusable AI question generation logic
+   - Manages database interactions securely
+   - Implements attempt tracking and grade calculation
+
+### Configuration Parameters
+
+#### Frontend Component Props
+
+```jsx
+<AIMultipleChoiceQuestion
+  // Required Props
+  courseId="2"                    // Course identifier
+  assessmentId="momentum_practice" // Unique assessment ID
+  cloudFunctionName="course2_02_momentum_one_dimension_aiQuestion"
+  
+  // Optional Props
+  course={courseObject}           // Course data object
+  topic="Momentum"                // Topic for AI generation
+  theme="purple"                  // UI theme (blue, green, purple, amber)
+  questionClassName=""            // Additional CSS classes
+  optionsClassName=""             // CSS for options container
+  
+  // Callbacks
+  onCorrectAnswer={() => {}}      // Called when answer is correct
+  onAttempt={(isCorrect) => {}}   // Called on each attempt
+  onComplete={() => {}}           // Called when assessment complete
+/>
+```
+
+#### Cloud Function Configuration
+
+```javascript
+exports.course2_02_momentum_one_dimension_aiQuestion = createAIMultipleChoice({
+  // AI Prompts for Different Difficulty Levels
+  prompts: {
+    beginner: "Create a basic question...",
+    intermediate: "Create a moderate question...",
+    advanced: "Create a challenging question..."
+  },
+  
+  // Activity Type (SECURITY: hardcoded, cannot be changed by client)
+  activityType: 'lesson',  // lesson | assignment | lab | exam
+  
+  // Formatting Options
+  katexFormatting: true,   // Enable LaTeX math support
+  
+  // Assessment Settings (can use course config values)
+  maxAttempts: 999,        // Number from config or hardcoded
+  pointsValue: 5,          // Points awarded for correct answer
+  showFeedback: true,      // Show detailed feedback
+  enableHints: true,       // Enable hint system
+  attemptPenalty: 0,       // Points deducted per attempt
+  theme: 'purple',         // Default UI theme
+  
+  // Difficulty Settings
+  allowDifficultySelection: false,  // Let students choose difficulty
+  defaultDifficulty: 'intermediate', // Default difficulty level
+  freeRegenerationOnDifficultyChange: false, // Free regenerate on difficulty change
+  
+  // AI Generation Settings
+  aiSettings: {
+    temperature: 0.7,      // Creativity level (0-1)
+    topP: 0.9,            // Nucleus sampling
+    topK: 40,             // Top-k sampling
+    maxTokens: 1000       // Max response length
+  },
+  
+  // Course Metadata
+  subject: 'Physics 30',
+  gradeLevel: 12,
+  topic: 'Momentum in One Dimension',
+  learningObjectives: [
+    'Define momentum',
+    'Calculate momentum',
+    'Apply conservation laws'
+  ],
+  
+  // Fallback Questions (required for reliability)
+  fallbackQuestions: [
+    {
+      questionText: "A car has momentum of...",
+      options: [
+        { id: 'a', text: '30,000 kg·m/s', feedback: 'Correct!' },
+        { id: 'b', text: '15,000 kg·m/s', feedback: 'Check calculation' }
+      ],
+      correctOptionId: 'a',
+      explanation: 'Momentum = mass × velocity',
+      difficulty: 'beginner'
+    }
+  ],
+  
+  // Cloud Function Settings
+  timeout: 120,           // Function timeout in seconds
+  memory: '512MiB',       // Function memory allocation
+  region: 'us-central1'   // Deployment region
+});
+```
+
+### Course Configuration Hierarchy
+
+The system uses a hierarchical configuration system with these priority levels:
+
+1. **Hardcoded in Assessment Function** (Highest Priority)
+   ```javascript
+   activityType: 'lesson',  // Cannot be overridden
+   maxAttempts: 5          // Specific to this assessment
+   ```
+
+2. **Activity Type Configuration** (`course-config.json`)
+   ```json
+   "activityTypes": {
+     "lesson": {
+       "maxAttempts": 999,
+       "pointValue": 5,
+       "theme": "purple"
+     }
+   }
+   ```
+
+3. **Global Course Settings** (Lowest Priority)
+   ```json
+   "globalSettings": {
+     "enableAIQuestions": true,
+     "showProgressBar": true
+   }
+   ```
+
+### Database Structure
+
+#### Student-Accessible Data
+```javascript
+// /students/{studentKey}/courses/{courseId}/Assessments/{assessmentId}
+{
+  timestamp: 1234567890,
+  questionText: "Calculate the momentum of a 2000 kg car...",
+  options: [
+    { id: 'a', text: '30,000 kg·m/s' },
+    { id: 'b', text: '15,000 kg·m/s' }
+  ],
+  topic: "Momentum",
+  difficulty: "intermediate",
+  generatedBy: "ai",
+  attempts: 2,
+  status: "active",
+  maxAttempts: 999,
+  activityType: "lesson",
+  pointsValue: 5,
+  settings: {
+    showFeedback: true,
+    enableHints: true,
+    allowDifficultySelection: false,
+    theme: "purple"
+  }
+}
+```
+
+#### Secure Server-Only Data
+```javascript
+// /courses_secure/{courseId}/assessments/{assessmentId}
+{
+  correctOptionId: "a",
+  explanation: "Momentum = mass × velocity = 2000 kg × 15 m/s = 30,000 kg·m/s",
+  optionFeedback: {
+    "a": "Correct! You properly applied p = mv",
+    "b": "Remember to multiply mass by velocity",
+    "c": "Check your calculation",
+    "d": "Review the momentum formula"
+  },
+  timestamp: 1234567890
+}
+```
+
+### Creating Custom Cloud Functions
+
+Course creators can create custom assessment functions while maintaining security:
+
+#### Available Database Utilities
+
+The `database-utils.js` module provides essential utilities:
+
+```javascript
+const { 
+  extractParameters,      // Extracts and validates function parameters
+  initializeCourseIfNeeded, // Ensures course structure exists
+  getServerTimestamp,     // Gets server timestamp (works in emulator too)
+  getDatabaseRef,         // Gets typed database references
+  DATABASE_PATHS         // Standard path templates
+} = require('../shared/utilities/database-utils');
+```
+
+**Database Path Types:**
+- `studentAssessment`: `/students/{studentKey}/courses/{courseId}/Assessments/{assessmentId}`
+- `studentGrade`: `/students/{studentKey}/courses/{courseId}/Grades/assessments/{assessmentId}`
+- `courseAssessment`: `/courses/{courseId}/assessments/{assessmentId}`
+- `secureAssessment`: `/courses_secure/{courseId}/assessments/{assessmentId}`
+- `studentCourse`: `/students/{studentKey}/courses/{courseId}`
+
+#### Step-by-Step Custom Function Example
+
+```javascript
+const { onCall } = require('firebase-functions/v2/https');
+const { 
+  extractParameters, 
+  initializeCourseIfNeeded, 
+  getServerTimestamp, 
+  getDatabaseRef 
+} = require('../shared/utilities/database-utils');
+
+exports.course3_custom_assessment = onCall({
+  region: 'us-central1',
+  timeoutSeconds: 60,
+  memory: '256MiB',
+  enforceAppCheck: false
+}, async (data, context) => {
+  // Step 1: Extract and validate parameters
+  // This automatically handles authentication, sanitizes emails, and validates required fields
+  const params = extractParameters(data, context);
+  // Returns: { courseId, assessmentId, operation, answer, topic, difficulty, 
+  //           studentEmail, userId, studentKey, isEmulator }
+  
+  // Step 2: Ensure course structure exists
+  await initializeCourseIfNeeded(params.studentKey, params.courseId);
+  
+  // Step 3: Handle different operations
+  if (params.operation === 'generate') {
+    // Get student assessment reference
+    const assessmentRef = getDatabaseRef(
+      'studentAssessment', 
+      params.studentKey, 
+      params.courseId, 
+      params.assessmentId
+    );
+    
+    // Create your custom question logic
+    const questionData = {
+      timestamp: getServerTimestamp(),
+      questionText: "Your custom question text",
+      options: [
+        { id: 'a', text: 'Option A' },
+        { id: 'b', text: 'Option B' },
+        { id: 'c', text: 'Option C' },
+        { id: 'd', text: 'Option D' }
+      ],
+      attempts: 0,
+      maxAttempts: 3,
+      status: 'active',
+      topic: params.topic,
+      difficulty: params.difficulty
+    };
+    
+    // Save to student's assessment data
+    await assessmentRef.set(questionData);
+    
+    // Store secure data separately (server-only)
+    const secureRef = getDatabaseRef(
+      'secureAssessment',
+      params.courseId,
+      params.assessmentId
+    );
+    
+    await secureRef.set({
+      correctOptionId: 'a',
+      explanation: 'Detailed explanation here',
+      optionFeedback: {
+        'a': 'Correct! Well done.',
+        'b': 'Incorrect. Consider...',
+        'c': 'Not quite. Remember...',
+        'd': 'Try again. Think about...'
+      },
+      timestamp: getServerTimestamp()
+    });
+    
+    return { 
+      success: true, 
+      message: 'Question generated successfully' 
+    };
+  }
+  
+  if (params.operation === 'evaluate') {
+    // Get current assessment data
+    const assessmentRef = getDatabaseRef(
+      'studentAssessment',
+      params.studentKey,
+      params.courseId,
+      params.assessmentId
+    );
+    
+    const snapshot = await assessmentRef.once('value');
+    const assessmentData = snapshot.val();
+    
+    if (!assessmentData) {
+      throw new Error('Assessment not found');
+    }
+    
+    // Get secure data for evaluation
+    const secureRef = getDatabaseRef(
+      'secureAssessment',
+      params.courseId,
+      params.assessmentId
+    );
+    
+    const secureSnapshot = await secureRef.once('value');
+    const secureData = secureSnapshot.val();
+    
+    // Evaluate the answer
+    const isCorrect = params.answer === secureData.correctOptionId;
+    const feedback = secureData.optionFeedback[params.answer] || 'No feedback available';
+    
+    // Update attempts
+    const newAttempts = (assessmentData.attempts || 0) + 1;
+    
+    // Update assessment data
+    await assessmentRef.update({
+      attempts: newAttempts,
+      lastSubmission: {
+        answer: params.answer,
+        isCorrect: isCorrect,
+        feedback: feedback,
+        timestamp: getServerTimestamp()
+      },
+      status: isCorrect ? 'completed' : 'attempted'
+    });
+    
+    // Update grade if correct
+    if (isCorrect) {
+      const gradeRef = getDatabaseRef(
+        'studentGrade',
+        params.studentKey,
+        params.courseId,
+        params.assessmentId
+      );
+      
+      await gradeRef.set(assessmentData.pointsValue || 5);
+    }
+    
+    return {
+      success: true,
+      result: {
+        isCorrect: isCorrect,
+        feedback: feedback,
+        explanation: secureData.explanation
+      }
+    };
+  }
+  
+  throw new Error('Invalid operation');
+});
+```
+
+### Activity Type Inference
+
+If `activityType` is not hardcoded, the system infers it from the assessment ID:
+
+- Contains "assignment", "homework", "hw" → `assignment`
+- Contains "exam", "test", "final" → `exam`
+- Contains "lab", "laboratory", "experiment" → `lab`
+- Default → `lesson`
+
+### Prompt Modules
+
+The system supports conditional prompt modules that enhance AI generation:
+
+#### Available Modules
+
+1. **KaTeX Formatting Module** (`katexFormatting: true`)
+   
+   When enabled, adds these system instructions to the AI:
+   ```
+   - Use LaTeX syntax: $p = mv$ for inline math, $$F = ma$$ for display math
+   - For units with multiplication: $\text{kg}\cdot\text{m/s}$
+   - For fractions: $\frac{1}{2}mv^2$
+   - For Greek letters: $\Delta p$, $\theta$, $\omega$
+   - For subscripts/superscripts: $v_1$, $v_2$, $x^2$
+   - Always wrap units in \text{}: $\text{m/s}$, $\text{kg}$, $\text{N}$
+   ```
+
+#### Creating Custom Prompt Modules
+
+1. Create a new module in `functions/shared/prompt-modules/`:
+   ```javascript
+   // custom-formatting.js
+   const CUSTOM_FORMATTING_PROMPT = `Your custom instructions here...`;
+   
+   module.exports = { CUSTOM_FORMATTING_PROMPT };
+   ```
+
+2. Register in `functions/shared/prompt-modules/index.js`:
+   ```javascript
+   const { CUSTOM_FORMATTING_PROMPT } = require('./custom-formatting');
+   
+   function applyPromptModules(config = {}) {
+     const promptAdditions = [];
+     
+     if (config.katexFormatting === true) {
+       promptAdditions.push(KATEX_FORMATTING_PROMPT);
+     }
+     
+     if (config.customFormatting === true) {
+       promptAdditions.push(CUSTOM_FORMATTING_PROMPT);
+     }
+     
+     return promptAdditions.join('\n\n');
+   }
+   ```
+
+3. Use in your assessment configuration:
+   ```javascript
+   exports.course3_assessment = createAIMultipleChoice({
+     katexFormatting: true,
+     customFormatting: true,
+     // ... other config
+   });
+   ```
+
+### Best Practices
+
+1. **Always Provide Fallback Questions**
+   - Include questions for each difficulty level
+   - Test fallbacks thoroughly
+   - Ensure mathematical notation is correct
+
+2. **Security Considerations**
+   - Never expose correct answers to frontend
+   - Validate all inputs server-side
+   - Use secure database paths for sensitive data
+
+3. **Performance Optimization**
+   - Set appropriate memory limits
+   - Use reasonable token limits for AI
+   - Implement proper error handling
+
+4. **User Experience**
+   - Provide clear feedback messages
+   - Show remaining attempts
+   - Handle loading states gracefully
+
+5. **Testing Strategy**
+   - Test with Gemini API disabled (fallbacks)
+   - Verify attempt tracking
+   - Check grade calculations
+   - Test all difficulty levels
+
+### Example Implementation
+
+Here's a complete example of implementing AI Multiple Choice Questions in a Physics 30 momentum lesson:
+
+```javascript
+// In: functions/courses/2/02-momentum-one-dimension/assessments.js
+const { createAIMultipleChoice } = require('../../../shared/assessment-types/ai-multiple-choice');
+const courseConfig = require('../../../courses-config/2/course-config.json');
+
+exports.course2_02_momentum_one_dimension_aiQuestion = createAIMultipleChoice({
+  prompts: {
+    beginner: `Create a basic momentum question for Grade 12 Physics...`,
+    intermediate: `Create an intermediate momentum question...`,
+    advanced: `Create an advanced momentum question...`
+  },
+  
+  activityType: 'lesson',
+  katexFormatting: true,
+  
+  // Pull settings from course config
+  maxAttempts: courseConfig.activityTypes.lesson.maxAttempts,
+  pointsValue: courseConfig.activityTypes.lesson.pointValue,
+  showFeedback: courseConfig.activityTypes.lesson.showDetailedFeedback,
+  theme: courseConfig.activityTypes.lesson.theme,
+  
+  fallbackQuestions: require('./fallback-questions').MOMENTUM_FALLBACK_QUESTIONS
+});
+
+// In: src/FirebaseCourses/courses/2/content/02-momentum-one-dimension/index.js
+import AIMultipleChoiceQuestion from '../../../../components/assessments/AIMultipleChoiceQuestion';
+
+const MomentumLesson = ({ courseId }) => {
+  return (
+    <div>
+      <h1>Momentum in One Dimension</h1>
+      
+      <AIMultipleChoiceQuestion
+        courseId={courseId}
+        assessmentId="momentum_1d_practice"
+        cloudFunctionName="course2_02_momentum_one_dimension_aiQuestion"
+        topic="Momentum in One Dimension"
+      />
+    </div>
+  );
+};
+```
+
+### Summary
+
+The AI Multiple Choice Question system provides:
+
+1. **Security**: Complete separation of answers from student-accessible data
+2. **Flexibility**: Extensive configuration options at multiple levels
+3. **Reliability**: Fallback questions ensure system always works
+4. **Customization**: Support for custom functions and prompt modules
+5. **User Experience**: Real-time feedback, attempt tracking, and progress indicators
+
+This architecture ensures that course creators can quickly implement secure, AI-powered assessments while maintaining full control over the learning experience.
+
 ## Security Model
 
 ### Frontend Security
@@ -384,218 +904,3 @@ const VelocityLesson = ({ courseId, itemConfig }) => {
 - ✅ Time limits enforced server-side
 - ✅ Grade calculations happen in cloud functions only
 
-## Development Guide
-
-### Step 1: Plan Your Course
-
-1. **Define Structure**: List units, lessons, assignments
-2. **Create Learning Objectives**: Clear goals for each lesson
-3. **Design Assessments**: Types and difficulty levels
-4. **Set Grading Weights**: How much each component counts
-
-### Step 2: Create the Course
-
-```bash
-npm run create-course -- --id=YourCourseId --title="Your Course Title" --grade=12
-```
-
-### Step 3: Customize Structure
-
-Edit `course-structure.json`:
-
-```json
-{
-  "units": [
-    {
-      "unitId": "unit_fundamentals",
-      "name": "Course Fundamentals",
-      "items": [
-        {
-          "itemId": "lesson_introduction",
-          "type": "lesson",
-          "title": "Welcome to the Course",
-          "contentPath": "01-introduction"
-        }
-      ]
-    }
-  ]
-}
-```
-
-### Step 4: Create Content Components
-
-For each lesson in `content/01-introduction/index.js`:
-
-```jsx
-import React from 'react';
-import { Card, CardContent } from '../../../components/ui/card';
-
-const Introduction = ({ courseId, itemConfig }) => {
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <Card>
-        <CardContent className="prose max-w-none">
-          <h1>{itemConfig.title}</h1>
-          <p>Welcome to {courseId}!</p>
-          {/* Your content here */}
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
-
-export default Introduction;
-```
-
-### Step 5: Add Assessments
-
-1. Create assessment function in `functions/courses/{id}/02-lesson/assessments.js`
-2. Add fallback questions in `fallback-questions.js`
-3. Embed in lesson content
-4. Register in `functions/index.js`
-
-### Step 6: Update Course Configuration
-
-Backend config in `functions/courses-config/{id}/course-config.json`:
-
-```json
-{
-  "weights": {
-    "lesson": 0.3,
-    "assignment": 0.4,
-    "exam": 0.3
-  },
-  "settings": {
-    "maxAttempts": 3,
-    "allowLateSubmissions": true
-  }
-}
-```
-
-### Step 7: Test Locally
-
-```bash
-# Start emulators
-firebase emulators:start
-
-# Run React app
-npm start
-```
-
-### Step 8: Deploy
-
-```bash
-# Deploy functions
-firebase deploy --only functions:course3_*
-
-# Deploy hosting
-npm run build
-firebase deploy --only hosting
-```
-
-## Testing and Deployment
-
-### Local Testing Checklist
-
-- [ ] Course loads without errors
-- [ ] Navigation shows all units/lessons
-- [ ] Content displays correctly
-- [ ] Assessments generate questions
-- [ ] Answers evaluate properly
-- [ ] Grades update in database
-- [ ] Progress tracking works
-
-### Production Deployment
-
-1. **Test in Emulators**: Verify all functions work locally
-2. **Deploy Functions First**: `firebase deploy --only functions`
-3. **Test Functions**: Use Firebase console to test
-4. **Deploy Frontend**: `npm run build && firebase deploy --only hosting`
-5. **Verify Production**: Test complete workflow as student
-
-### Monitoring
-
-- Check Firebase Functions logs for errors
-- Monitor Firestore usage for performance
-- Review student feedback for issues
-- Track assessment completion rates
-
-## Troubleshooting
-
-### Common Issues
-
-#### Course Not Loading
-- Verify CourseRouter has case for your courseId
-- Check import statement in CourseRouter
-- Ensure course files exist in correct location
-
-#### Navigation Not Showing
-- Check course-structure.json syntax
-- Verify contentPath matches folder names
-- Ensure all itemIds are unique
-
-#### Assessments Not Working
-- Verify cloud function is deployed
-- Check function naming convention
-- Ensure assessmentId matches in all places
-- Review Firebase Functions logs
-
-#### Grades Not Updating
-- Check database rules allow writes
-- Verify student authentication
-- Ensure pointsValue is set
-- Check Grades path in database
-
-### Debug Commands
-
-```bash
-# View function logs
-firebase functions:log
-
-# Test specific function
-firebase functions:shell
-
-# Check deployment status
-firebase deploy:list
-
-# Run with verbose logging
-npm start -- --verbose
-```
-
-### Getting Help
-
-1. Check example courses (COM1255, Course 2)
-2. Review template files
-3. Search Firebase Functions logs
-4. Test in emulators first
-5. Ask for code review before production
-
-## Best Practices
-
-### Course Design
-- Keep lessons focused (15-20 min each)
-- Mix content types (video, text, interactive)
-- Provide immediate feedback on assessments
-- Use clear, descriptive naming
-
-### Code Quality
-- Follow existing patterns
-- Comment complex logic
-- Handle errors gracefully
-- Test edge cases
-
-### Performance
-- Lazy load course components
-- Optimize images and videos
-- Batch database operations
-- Cache frequently accessed data
-
-### Security
-- Never trust client input
-- Validate all parameters
-- Use server timestamps
-- Log security events
-
----
-
-**Remember**: The course structure lives in JSON files, not the database. This gives you version control, easier testing, and faster development.

@@ -969,9 +969,7 @@ const MessageBubble = ({
   );
 };
 
-// Local storage keys
-const STORAGE_KEY_SESSION_ID = 'google_ai_chat_session_id';
-const STORAGE_KEY_MESSAGES = 'google_ai_chat_messages';
+// Local storage keys - these will be updated to use sessionIdentifier inside the component
 
 // Main component
 const GoogleAIChatApp = ({ 
@@ -986,8 +984,14 @@ const GoogleAIChatApp = ({
   predefinedFilesDisplayNames = {}, // Map of file URLs to display names
   allowContentRemoval = true,
   showResourcesAtTop = true, // Whether to show predefined resources at the top
-  context = null // Context object for Genkit API
+  context = null, // Context object for Genkit API
+  sessionIdentifier = 'default', // Unique identifier for this chat session
+  aiChatContext = null // Additional context for AI chat
 }) => {
+  // Generate session-specific localStorage keys
+  const STORAGE_KEY_SESSION_ID = `google_ai_chat_session_id_${sessionIdentifier}`;
+  const STORAGE_KEY_MESSAGES = `google_ai_chat_messages_${sessionIdentifier}`;
+  
   // Load saved session ID from localStorage if available
   const getSavedSessionId = () => {
     try {
@@ -1623,7 +1627,10 @@ const handleSendMessage = async () => {
         };
       }),
       sessionId: sessionId, // Pass the session ID if we have one
-      context: context // Pass the context object for Genkit API
+      context: {
+        ...context, // Spread existing context if it exists
+        ...(aiChatContext && { aiChatContext }) // Include aiChatContext if provided
+      }
     });
     
     // Now that we have a response, stop the processing animations

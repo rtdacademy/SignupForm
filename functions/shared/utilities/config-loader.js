@@ -180,6 +180,84 @@ async function loadConfig(courseId = null) {
 }
 
 /**
+ * Extracts activity type settings from course configuration
+ * @param {Object} courseConfig - The loaded course configuration
+ * @param {string} activityType - The activity type ('lesson', 'assignment', 'lab', 'exam')
+ * @param {string} assessmentType - Optional assessment type ('longAnswer' for long answer specific settings)
+ * @returns {Object} Settings for the specified activity type
+ */
+function getActivityTypeSettings(courseConfig, activityType, assessmentType = null) {
+  if (!courseConfig?.activityTypes?.[activityType]) {
+    console.warn(`Activity type '${activityType}' not found in course config, using lesson defaults`);
+    activityType = 'lesson';
+  }
+  
+  const activitySettings = courseConfig.activityTypes[activityType];
+  
+  // If requesting long answer specific settings, merge them in
+  if (assessmentType === 'longAnswer' && activitySettings.longAnswer) {
+    return {
+      // Base activity settings
+      maxAttempts: activitySettings.maxAttempts,
+      attemptPenalty: activitySettings.attemptPenalty,
+      pointValue: activitySettings.pointValue,
+      theme: activitySettings.theme,
+      showDetailedFeedback: activitySettings.showDetailedFeedback,
+      enableHints: activitySettings.enableHints,
+      allowDifficultySelection: activitySettings.allowDifficultySelection,
+      defaultDifficulty: activitySettings.defaultDifficulty,
+      aiSettings: activitySettings.aiSettings,
+      
+      // Long answer specific settings
+      totalPoints: activitySettings.longAnswer.totalPoints,
+      rubricCriteria: activitySettings.longAnswer.rubricCriteria,
+      wordLimits: activitySettings.longAnswer.wordLimits,
+      showRubric: activitySettings.longAnswer.showRubric,
+      showWordCount: activitySettings.longAnswer.showWordCount
+    };
+  }
+  
+  // Return base activity settings
+  return {
+    maxAttempts: activitySettings.maxAttempts,
+    attemptPenalty: activitySettings.attemptPenalty,
+    pointValue: activitySettings.pointValue,
+    theme: activitySettings.theme,
+    showDetailedFeedback: activitySettings.showDetailedFeedback,
+    enableHints: activitySettings.enableHints,
+    allowDifficultySelection: activitySettings.allowDifficultySelection,
+    defaultDifficulty: activitySettings.defaultDifficulty,
+    aiSettings: activitySettings.aiSettings
+  };
+}
+
+/**
+ * Gets dynamic word limits based on difficulty level and activity type
+ * @param {Object} courseConfig - The loaded course configuration
+ * @param {string} activityType - The activity type ('lesson', 'assignment', 'lab', 'exam')
+ * @param {string} difficulty - The difficulty level ('beginner', 'intermediate', 'advanced')
+ * @returns {Object} Word limits for the specified difficulty
+ */
+function getWordLimitsForDifficulty(courseConfig, activityType, difficulty) {
+  const settings = getActivityTypeSettings(courseConfig, activityType, 'longAnswer');
+  const baseWordLimits = settings.wordLimits || { min: 50, max: 200 };
+  
+  // Adjust word limits based on difficulty
+  const multipliers = {
+    beginner: { min: 0.8, max: 0.9 },
+    intermediate: { min: 1.0, max: 1.0 },
+    advanced: { min: 1.2, max: 1.3 }
+  };
+  
+  const multiplier = multipliers[difficulty] || multipliers.intermediate;
+  
+  return {
+    min: Math.round(baseWordLimits.min * multiplier.min),
+    max: Math.round(baseWordLimits.max * multiplier.max)
+  };
+}
+
+/**
  * Clears the configuration cache (useful for testing or forcing reload)
  */
 function clearConfigCache() {
@@ -192,5 +270,7 @@ module.exports = {
   loadAssessmentDefaults,
   loadCourseConfig,
   mergeConfigs,
+  getActivityTypeSettings,
+  getWordLimitsForDifficulty,
   clearConfigCache
 };

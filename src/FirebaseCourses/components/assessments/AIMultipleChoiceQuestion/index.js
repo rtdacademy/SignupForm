@@ -4,92 +4,100 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import { useAuth } from '../../../../context/AuthContext';
 import { Button } from '../../../../components/ui/button';
-import { Infinity } from 'lucide-react';
+import { Infinity, MessageCircle } from 'lucide-react';
 import { sanitizeEmail } from '../../../../utils/sanitizeEmail';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '../../../../components/ui/sheet';
+import GoogleAIChatApp from '../../../../edbotz/GoogleAIChat/GoogleAIChatApp';
 
 /**
- * Renders text with LaTeX math support
- * Supports inline math ($...$) and display math ($$...$$)
- * Uses a simple approach that preserves the original LaTeX formatting
+ * Helper function to detect if text contains markdown patterns
  */
-const renderMathText = (text) => {
+const containsMarkdown = (text) => {
+  if (!text) return false;
+  
+  // Look for common markdown patterns including newlines
+  const markdownPatterns = [
+    /^#+\s+.+$/m,                  // Headers: # Header
+    /\*\*.+\*\*/,                  // Bold: **bold**
+    /\*.+\*/,                      // Italic: *italic*
+    /```[\s\S]*```/,               // Code block: ```code```
+    /`[^`]+`/,                     // Inline code: `code`
+    /\[.+\]\(.+\)/,                // Links: [text](url)
+    /\|[^|]+\|[^|]+\|/,            // Tables: |cell|cell|
+    /^\s*>\s+.+$/m,                // Blockquotes: > quote
+    /^\s*-\s+.+$/m,                // Unordered lists: - item
+    /^\s*\d+\.\s+.+$/m,            // Ordered lists: 1. item
+    /!\[.+\]\(.+\)/,               // Images: ![alt](url)
+    /~~.+~~/,                      // Strikethrough: ~~text~~
+    /\$\$.+\$\$/,                  // Math blocks: $$math$$
+    /\$.+\$/,                      // Inline math: $math$
+    /\\[a-zA-Z]+/,                 // LaTeX commands: \alpha, \beta, etc.
+    /\\begin\{/,                   // LaTeX environments: \begin{...}
+    /\\end\{/,                     // LaTeX environments: \end{...}
+    /\\frac\{/,                    // LaTeX fractions: \frac{...}
+    /\\sqrt/,                      // LaTeX square roots: \sqrt{...}
+    /\n/,                          // Newlines - important for preserving line breaks
+  ];
+  
+  // Check for newlines or other markdown patterns
+  return markdownPatterns.some(pattern => pattern.test(text));
+};
+
+/**
+ * Enhanced text rendering that handles both markdown and LaTeX math
+ * Preserves newlines and formats text properly
+ */
+const renderEnhancedText = (text) => {
   if (!text) return text;
   
-  try {
-    const parts = [];
-    let currentIndex = 0;
-    
-    // Simple regex to find math expressions
-    const mathRegex = /(\$\$(.+?)\$\$|\$(.+?)\$)/g;
-    let match;
-    
-    while ((match = mathRegex.exec(text)) !== null) {
-      // Add text before the math expression
-      if (match.index > currentIndex) {
-        const textBefore = text.slice(currentIndex, match.index);
-        if (textBefore) {
-          parts.push(textBefore);
-        }
-      }
-      
-      // Add the math expression
-      const isDisplayMath = match[0].startsWith('$$');
-      const mathContent = isDisplayMath ? match[2] : match[3];
-      
-      try {
-        // Preprocess math content to handle special characters
-        let processedMathContent = mathContent;
-        
-        // Replace various forms of multiplication dots with \cdot
-        // This handles Unicode middle dot (·), bullet operator (•), and similar characters
-        processedMathContent = processedMathContent.replace(/[·•⋅∙]/g, '\\cdot ');
-        
-        // Also handle cases where these might appear in \text{} commands
-        processedMathContent = processedMathContent.replace(/\\text\{([^}]*[·•⋅∙][^}]*)\}/g, (match, textContent) => {
-          const fixedText = textContent.replace(/[·•⋅∙]/g, '\\cdot ');
-          return `\\text{${fixedText}}`;
-        });
-        
-        if (isDisplayMath) {
-          parts.push(<BlockMath key={`display-${match.index}`} math={processedMathContent} />);
-        } else {
-          parts.push(<InlineMath key={`inline-${match.index}`} math={processedMathContent} />);
-        }
-      } catch (e) {
-        console.warn('Error rendering math:', mathContent, e);
-        parts.push(match[0]); // Fallback to original text
-      }
-      
-      currentIndex = match.index + match[0].length;
-    }
-    
-    // Add remaining text after the last math expression
-    if (currentIndex < text.length) {
-      const remainingText = text.slice(currentIndex);
-      if (remainingText) {
-        parts.push(remainingText);
-      }
-    }
-    
-    // If no math was found, return original text
-    if (parts.length === 0) {
-      return text;
-    }
-    
-    // If only one part and it's text, return it directly
-    if (parts.length === 1 && typeof parts[0] === 'string') {
-      return parts[0];
-    }
-    
-    // Return React fragment with all parts
-    return <>{parts}</>;
-    
-  } catch (e) {
-    console.warn('Error in renderMathText:', e);
-    return text;
+  // If text contains markdown patterns or newlines, use ReactMarkdown
+  if (containsMarkdown(text)) {
+    return (
+      <div className="prose prose-sm max-w-none">
+        <ReactMarkdown
+          remarkPlugins={[remarkMath, remarkGfm]}
+          rehypePlugins={[rehypeKatex, rehypeRaw]}
+          components={{
+            // Handle inline code
+            code: ({node, inline, className, children, ...props}) => {
+              if (inline) {
+                return <code className="px-1 py-0.5 rounded text-sm font-mono bg-gray-100 text-gray-800" {...props}>{children}</code>
+              }
+              return <code {...props}>{children}</code>
+            },
+            // Make sure paragraphs preserve spacing
+            p: ({node, ...props}) => <p className="mb-2" {...props} />,
+            // Handle lists
+            ul: ({node, ...props}) => <ul className="my-1 pl-5" {...props} />,
+            ol: ({node, ...props}) => <ol className="my-1 pl-5" {...props} />,
+            li: ({node, ...props}) => <li className="my-0.5" {...props} />,
+          }}
+        >
+          {text}
+        </ReactMarkdown>
+      </div>
+    );
   }
+  
+  // For simple text without markdown, just preserve line breaks
+  return (
+    <div style={{ whiteSpace: 'pre-wrap' }}>
+      {text}
+    </div>
+  );
 };
 
 /**
@@ -131,6 +139,7 @@ const AIMultipleChoiceQuestion = ({
   const [result, setResult] = useState(null);
   const [regenerating, setRegenerating] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
+  const [chatSheetOpen, setChatSheetOpen] = useState(false);
   
   // Refs for debouncing and preventing multiple calls
   const isGeneratingRef = useRef(false);
@@ -541,6 +550,11 @@ const AIMultipleChoiceQuestion = ({
       // But we can also handle the result directly from the response for immediate feedback
       if (result.data?.result) {
         setResult(result.data.result);
+        
+        // Send automatic context update to AI chat if chat sheet is open
+        if (chatSheetOpen) {
+          await sendContextUpdateToAI(result.data.result);
+        }
       }
     } catch (err) {
       console.error("Error submitting answer:", err);
@@ -622,6 +636,457 @@ const AIMultipleChoiceQuestion = ({
     }
   };
 
+  // Send automatic context update to AI chat when question is answered
+  const sendContextUpdateToAI = async (submissionResult) => {
+    if (!question || !submissionResult) return;
+    
+    try {
+      console.log('Sending context update to AI chat:', submissionResult);
+      console.log('Current selectedAnswer state:', selectedAnswer);
+      
+      // Import Firebase functions if needed
+      const functions = getFunctions();
+      const sendChatMessage = httpsCallable(functions, 'sendChatMessage');
+      
+      // Get the current session ID from localStorage (matching GoogleAIChatApp pattern)
+      const sessionIdentifier = `${courseId}_${assessmentId}`;
+      const STORAGE_KEY_SESSION_ID = `google_ai_chat_session_id_${sessionIdentifier}`;
+      let currentSessionId = null;
+      
+      try {
+        currentSessionId = localStorage.getItem(STORAGE_KEY_SESSION_ID);
+      } catch (e) {
+        console.warn("Could not access localStorage for session ID:", e);
+      }
+      
+      // Create context update message based on result
+      const isCorrect = submissionResult.isCorrect;
+      // Use the component's selectedAnswer state if submissionResult.answer is null
+      const actualSelectedAnswer = submissionResult.answer || selectedAnswer;
+      const correctAnswer = submissionResult.correctOptionId;
+      const feedback = submissionResult.feedback;
+      
+      console.log('Using actualSelectedAnswer:', actualSelectedAnswer);
+      
+      // Find the actual answer text
+      const selectedOption = question.options.find(opt => opt.id === actualSelectedAnswer);
+      const correctOption = question.options.find(opt => opt.id === correctAnswer);
+      
+      const contextUpdateMessage = isCorrect 
+        ? `I just answered this question and selected option ${actualSelectedAnswer?.toUpperCase()}: "${selectedOption?.text}" which was correct!`
+        : `I just answered this question and selected option ${actualSelectedAnswer?.toUpperCase()}: "${selectedOption?.text}", but the correct answer was option ${correctAnswer?.toUpperCase()}: "${correctOption?.text}". The feedback said: "${feedback}"`;
+      
+      // Create updated context with the new submission (following Genkit patterns)
+      const baseContext = getAIChatContext();
+      const updatedContext = {
+        ...baseContext,
+        // Update question state for transition
+        questionState: {
+          ...baseContext.questionState,
+          status: 'attempted',
+          hasAttempted: true,
+          // Add transition flags
+          isContextUpdate: true,
+          previousStatus: 'active',
+          newStatus: 'attempted',
+          // Include the fresh submission data
+          lastSubmission: {
+            selectedAnswer: actualSelectedAnswer,
+            isCorrect: isCorrect,
+            feedback: feedback,
+            correctOptionId: correctAnswer,
+            timestamp: Date.now()
+          },
+          // Add answer details for the AI
+          answerDetails: {
+            studentAnswerText: selectedOption?.text,
+            correctAnswerText: correctOption?.text,
+            studentSelectedOption: actualSelectedAnswer?.toUpperCase(),
+            correctOption: correctAnswer?.toUpperCase()
+          }
+        }
+      };
+      
+      console.log('Sending context update with:', {
+        message: contextUpdateMessage,
+        sessionId: currentSessionId,
+        context: updatedContext
+      });
+      
+      // Send the context update message
+      await sendChatMessage({
+        message: contextUpdateMessage,
+        sessionId: currentSessionId, // Use existing session if available
+        context: updatedContext,
+        model: 'gemini-2.0-flash-exp' // Use the same model as the chat
+      });
+      
+      console.log('Context update sent successfully');
+    } catch (error) {
+      console.error('Failed to send context update to AI:', error);
+      // Don't throw - this is optional functionality that shouldn't break the main flow
+    }
+  };
+
+  // Generate AI chat instructions based on question status
+  const getAIChatInstructions = () => {
+    if (!question) return "";
+    
+    const baseInstructions = `You are an educational AI tutor helping a student with a physics question about ${topic || 'this topic'}.`;
+    
+    if (question.status === 'active') {
+      // Student hasn't answered yet - use Socratic method, never give away answer
+      return `${baseInstructions}
+      
+IMPORTANT: The student has NOT yet answered this question. You must:
+1. NEVER directly provide the answer or indicate which option is correct
+2. Use the Socratic method - ask guiding questions to help them think
+3. Help them understand the concepts needed to solve the problem
+4. Encourage them to work through the problem step by step
+5. If they ask for the answer directly, politely remind them that you're here to help them learn by guiding their thinking
+
+The question asks: "${question.questionText}"
+
+Remember: Your goal is to help them learn and understand, not to give them the answer.`;
+    } else if (question.status === 'attempted' || question.status === 'completed' || question.lastSubmission) {
+      // Student has attempted - can discuss answer more freely
+      const isCorrect = question.lastSubmission?.isCorrect;
+      return `${baseInstructions}
+      
+The student has already attempted this question. They selected option ${question.lastSubmission?.answer?.toUpperCase()} and their answer was ${isCorrect ? 'CORRECT' : 'INCORRECT'}.
+
+${isCorrect ? 
+  'Since they got it right, help reinforce their understanding and explore related concepts.' : 
+  'Since they got it wrong, you can now freely discuss why their answer was incorrect and explain the correct answer.'}
+
+The correct answer was option ${question.lastSubmission?.correctOptionId?.toUpperCase()}.
+
+You can now:
+1. Explain why the correct answer is right
+2. Discuss common misconceptions
+3. Provide additional examples
+4. Help them understand the underlying concepts more deeply`;
+    }
+    
+    return baseInstructions;
+  };
+
+  // Generate initial AI chat message based on status
+  const getAIChatFirstMessage = () => {
+    if (!question) return "Hello! I'm here to help you with this question.";
+    
+    if (question.status === 'active') {
+      return "Hello! I see you're working on a momentum question. I'm here to help guide your thinking. What part of the problem would you like to explore first?";
+    } else if (question.lastSubmission) {
+      const isCorrect = question.lastSubmission.isCorrect;
+      if (isCorrect) {
+        return `Great job! You correctly answered that ${question.lastSubmission.answer?.toUpperCase()} was the right choice. Would you like me to explain why this answer is correct, or explore any related concepts?`;
+      } else {
+        return `I see you selected option ${question.lastSubmission.answer?.toUpperCase()}, but that wasn't quite right. The correct answer was option ${question.lastSubmission.correctOptionId?.toUpperCase()}. Would you like me to explain why, or help you understand where your thinking might have gone off track?`;
+      }
+    }
+    
+    return "Hello! I'm here to help you understand this question better. What would you like to know?";
+  };
+
+  // Generate context object for AI chat (following Genkit best practices)
+  const getAIChatContext = () => {
+    if (!question) return null;
+    
+    // Determine if the student has attempted this question
+    const hasAttempted = !!question.lastSubmission || question.status === 'attempted' || question.status === 'completed';
+    
+    // Create proper Genkit context structure
+    const context = {
+      // Auth context (recommended Genkit pattern)
+      auth: {
+        uid: currentUser?.uid,
+        email: currentUser?.email
+      },
+      // Session info
+      sessionInfo: {
+        courseId: courseId,
+        assessmentId: assessmentId,
+        topic: topic || question.topic
+      },
+      // Question state for agent selection (not question content)
+      questionState: {
+        status: question.status,
+        hasAttempted: hasAttempted,
+        attempts: question.attempts,
+        maxAttempts: question.maxAttempts,
+        difficulty: question.difficulty
+      }
+    };
+    
+    // If the student has submitted an answer, include submission state
+    if (question.lastSubmission) {
+      context.questionState.lastSubmission = {
+        selectedAnswer: question.lastSubmission.answer,
+        isCorrect: question.lastSubmission.isCorrect,
+        feedback: question.lastSubmission.feedback,
+        correctOptionId: question.lastSubmission.correctOptionId,
+        timestamp: question.lastSubmission.timestamp
+      };
+      
+      // Add human-readable information for the agents
+      const studentAnswer = question.options.find(opt => opt.id === question.lastSubmission.answer);
+      const correctAnswer = question.options.find(opt => opt.id === question.lastSubmission.correctOptionId);
+      
+      context.questionState.answerDetails = {
+        studentAnswerText: studentAnswer?.text,
+        correctAnswerText: correctAnswer?.text,
+        studentSelectedOption: question.lastSubmission.answer?.toUpperCase(),
+        correctOption: question.lastSubmission.correctOptionId?.toUpperCase()
+      };
+    }
+    
+    return context;
+  };
+
+  // Render the question content (extracted for reuse in Sheet)
+  const renderQuestionContent = () => {
+    if (!question) return null;
+
+    return (
+      <div className="space-y-4">
+        {/* Error display */}
+        {error && (
+          <div className="p-3 rounded bg-red-100 text-red-700 border border-red-300">
+            {error}
+          </div>
+        )}
+
+        {/* Loading state */}
+        {(loading || regenerating) ? (
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-10 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Difficulty Selection for Assignments */}
+            {question.settings?.allowDifficultySelection && (
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Choose Difficulty Level:</h4>
+                <div className="flex gap-2">
+                  {['beginner', 'intermediate', 'advanced'].map(difficulty => (
+                    <button
+                      key={difficulty}
+                      onClick={() => {
+                        setSelectedDifficulty(difficulty);
+                        // If this is a free regeneration on difficulty change, trigger regeneration
+                        if (question.settings?.freeRegenerationOnDifficultyChange && question.difficulty !== difficulty) {
+                          handleRegenerate();
+                        }
+                      }}
+                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                        (selectedDifficulty || question.difficulty) === difficulty
+                          ? 'bg-blue-100 border-blue-300 text-blue-800'
+                          : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                    </button>
+                  ))}
+                </div>
+                {selectedDifficulty && selectedDifficulty !== question.difficulty && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Click "Generate New AI Question" to apply difficulty change
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Question Text */}
+            <div className="text-gray-800 text-lg font-medium">
+              {renderEnhancedText(question.questionText)}
+            </div>
+
+            {/* Options */}
+            <div className="space-y-2.5">
+              {question.options?.map((option, index) => (
+                <motion.div
+                  key={option.id}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  style={{
+                    ...(selectedAnswer === option.id ? {
+                      backgroundColor: `${themeColors.bgLight}`,
+                      borderColor: themeColors.accent,
+                      boxShadow: `0 0 0 1px ${themeColors.accent}`,
+                    } : {}),
+                    borderWidth: '1px',
+                    transition: 'all 0.2s'
+                  }}
+                  className={`flex items-center p-3.5 border rounded-md cursor-pointer ${
+                    selectedAnswer === option.id
+                      ? ``
+                      : 'bg-white hover:bg-gray-50 border-gray-200'
+                  }`}
+                  onClick={() => {
+                    // Only allow selection if there's no result yet (prevent resubmitting the same question)
+                    if (!result) {
+                      setSelectedAnswer(option.id);
+                    }
+                  }}
+                >
+                  <input
+                    type="radio"
+                    id={option.id}
+                    name="multipleChoice"
+                    value={option.id}
+                    checked={selectedAnswer === option.id}
+                    onChange={() => !result && setSelectedAnswer(option.id)}
+                    disabled={result !== null} // Disable after any submission (prevent resubmitting)
+                    className={`mr-3 h-4 w-4 text-${themeColors.name}-600 focus:ring-${themeColors.name}-500`}
+                  />
+                  <div className="text-gray-700 flex-grow cursor-pointer" onClick={() => !result && setSelectedAnswer(option.id)}>
+                    {renderEnhancedText(option.text)}
+                  </div>
+
+                  {/* Show the correct/incorrect icon if there's a result */}
+                  {result?.isCorrect && selectedAnswer === option.id && (
+                    <span className="text-green-600 ml-2">✓</span>
+                  )}
+                  {result?.correctOptionId === option.id && !result.isCorrect && (
+                    <span className="text-green-600 ml-2">✓</span>
+                  )}
+                  {!result?.isCorrect && result?.answer === option.id && result?.answer !== result?.correctOptionId && (
+                    <span className="text-red-600 ml-2">✗</span>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Submit button - only show if not already submitted */}
+            {!result && (
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || !selectedAnswer}
+                style={{
+                  backgroundColor: themeColors.accent,
+                  color: 'white',
+                }}
+                className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md"
+              >
+                {submitting ? 'Submitting...' : 'Submit Answer'}
+              </Button>
+            )}
+
+            {/* Result feedback */}
+            {result && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.2 }}
+                className={`p-4 rounded-md shadow-sm ${
+                  result.isCorrect
+                    ? 'bg-green-50 border border-green-100 text-green-800'
+                    : 'bg-red-50 border border-red-100 text-red-800'
+                }`}
+              >
+                <p className="font-medium text-base mb-1">
+                  {result.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
+                </p>
+                <div className="mb-3 text-sm">
+                  {renderEnhancedText(result.feedback)}
+                </div>
+
+                {/* Additional guidance based on result */}
+                {!result.isCorrect && question.attempts < question.maxAttempts && (
+                  <div className="text-sm mb-2 border-t border-b py-2 mt-2">
+                    <p className="font-medium flex items-center">
+                      {question.maxAttempts > 500 ? 
+                        <>Attempt {question.attempts}</> : 
+                        <>Attempt {question.attempts} of {question.maxAttempts}</>
+                      }
+                      {(question.maxAttempts - question.attempts) > 0 && question.maxAttempts <= 500 && 
+                        <> ({question.maxAttempts - question.attempts} remaining)</>
+                      }
+                      {question.maxAttempts > 500 && 
+                        <> (unlimited <Infinity className="h-3.5 w-3.5 inline-block ml-0.5" />)</>
+                      }
+                    </p>
+                    <p>Review your answer and try again.</p>
+                  </div>
+                )}
+
+                {/* For generating a new AI question */}
+                <div className="mt-4">
+                  {result && !question.maxAttemptsReached && !question.attemptsExhausted && 
+                   question.attempts < question.maxAttempts && (
+                    <>
+                      {/* Show difficulty selection for lesson type activities */}
+                      {question.activityType === 'lesson' ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-3 gap-2">
+                            {['beginner', 'intermediate', 'advanced'].map(difficulty => (
+                              <Button
+                                key={difficulty}
+                                onClick={() => handleRegenerate(difficulty)}
+                                style={{
+                                  backgroundColor: difficulty === question.difficulty ? themeColors.accent : 'white',
+                                  color: difficulty === question.difficulty ? 'white' : themeColors.accent,
+                                  borderColor: themeColors.accent,
+                                }}
+                                className="text-sm font-medium py-2 px-3 rounded border transition-all duration-200 hover:shadow-md"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        /* Regular regenerate button for non-lesson activities */
+                        <Button
+                          onClick={() => handleRegenerate()}
+                          style={{
+                            backgroundColor: themeColors.accent,
+                            color: 'white',
+                          }}
+                          className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:shadow-md"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Generate New AI Question
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Display message when max attempts reached */}
+                  {(question.maxAttemptsReached || question.attemptsExhausted || 
+                    question.attempts >= question.maxAttempts) && (
+                    <div className="text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-md text-sm">
+                      <p className="font-medium mb-1">Maximum attempts reached</p>
+                      <p className="flex items-center">
+                        {question.maxAttempts > 500 ?
+                          <>You have made {question.attempts} attempts for this question and cannot make more.</>
+                         :
+                          <>You have used all {question.attempts} of your {question.maxAttempts} available attempts for this question.</>
+                        }
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   // Animations for components
   const animations = {
     container: {
@@ -654,6 +1119,7 @@ const AIMultipleChoiceQuestion = ({
   };
 
   return (
+    <>
     <div className={`rounded-lg overflow-hidden shadow-lg border ${questionClassName}`} style={{
       backgroundColor: themeColors.bgLight,
       borderColor: themeColors.border
@@ -665,11 +1131,25 @@ const AIMultipleChoiceQuestion = ({
           <h3 className="text-lg font-medium" style={{ color: themeColors.textDark }}>
             {question?.title || 'AI-Generated Question'}
           </h3>
-          {question?.generatedBy === 'ai' && (
-            <span className="text-xs py-1 px-2 rounded bg-purple-100 text-purple-800 font-medium">
-              AI-powered
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {question?.generatedBy === 'ai' && (
+              <span className="text-xs py-1 px-2 rounded bg-purple-100 text-purple-800 font-medium">
+                AI-powered
+              </span>
+            )}
+            {question && question.enableAIChat !== false && (
+              <Button
+                onClick={() => setChatSheetOpen(true)}
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-1"
+                title="Chat with AI about this question"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">Chat with AI</span>
+              </Button>
+            )}
+          </div>
         </div>
         
         {/* Display attempts counter when question is loaded */}
@@ -769,7 +1249,7 @@ const AIMultipleChoiceQuestion = ({
               )}
 
               <div className="text-gray-800 mb-5 text-lg font-medium">
-                {renderMathText(question.questionText)}
+                {renderEnhancedText(question.questionText)}
               </div>
 
               <div className={`space-y-2.5 mb-5 ${optionsClassName}`}>
@@ -812,7 +1292,7 @@ const AIMultipleChoiceQuestion = ({
                       className={`mr-3 h-4 w-4 text-${themeColors.name}-600 focus:ring-${themeColors.name}-500`}
                     />
                     <div className="text-gray-700 flex-grow cursor-pointer" onClick={() => !result && setSelectedAnswer(option.id)}>
-                      {renderMathText(option.text)}
+                      {renderEnhancedText(option.text)}
                     </div>
 
                     {/* Show the correct/incorrect icon if there's a result */}
@@ -861,7 +1341,7 @@ const AIMultipleChoiceQuestion = ({
                     {result.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
                   </p>
                   <div className="mb-3 text-sm">
-                    {renderMathText(result.feedback)}
+                    {renderEnhancedText(result.feedback)}
                   </div>
 
                   {/* Additional guidance based on result */}
@@ -968,6 +1448,40 @@ const AIMultipleChoiceQuestion = ({
         </AnimatePresence>
       </div>
     </div>
+
+    {/* AI Chat Sheet */}
+    <Sheet open={chatSheetOpen} onOpenChange={setChatSheetOpen}>
+      <SheetContent className="w-[90vw] max-w-[90vw] sm:w-[90vw] p-0" side="right">
+        {/* Desktop: Side by side, Mobile: Chat only */}
+        <div className="flex h-screen">
+          {/* Left side - Question (hidden on mobile) */}
+          <div className="hidden md:block md:w-1/2 border-r overflow-y-auto p-6 bg-gray-50">
+            <div className="max-w-2xl mx-auto">
+              <h3 className="text-lg font-semibold mb-4">Current Question</h3>
+              {renderQuestionContent()}
+            </div>
+          </div>
+          
+          {/* Right side - Chat (full width on mobile, half width on desktop) */}
+          <div className="w-full md:w-1/2 h-full">
+            {question && (
+              <GoogleAIChatApp
+                sessionIdentifier={`${courseId}_${assessmentId}`}
+                instructions={null} // Let server-side agent system handle instructions
+                firstMessage={getAIChatFirstMessage()}
+                showYouTube={false}
+                showUpload={false}
+                allowContentRemoval={false}
+                showResourcesAtTop={false}
+                context={getAIChatContext()}
+                aiChatContext={question.aiChatContext}
+              />
+            )}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 };
 

@@ -165,11 +165,139 @@ const ErrorResponseSchema = z.object({
   attemptsRemaining: z.number().min(0).optional(),
 });
 
+//==============================================================================
+// Long Answer Schemas
+//==============================================================================
+
+// Schema for a rubric criterion
+const RubricCriterionSchema = z.object({
+  criterion: z.string().describe('The name/title of this scoring criterion'),
+  points: z.number().min(0).describe('Maximum points for this criterion'),
+  description: z.string().describe('Detailed description of what is expected to earn full points'),
+});
+
+// Schema for AI-generated long answer question
+const AILongAnswerQuestionSchema = z.object({
+  questionText: z.string().describe('The long answer question prompt'),
+  rubric: z.array(RubricCriterionSchema)
+    .min(1)
+    .max(6)
+    .describe('Scoring rubric with 1-6 criteria'),
+  maxPoints: z.number().min(1).describe('Total maximum points (sum of all rubric criteria)'),
+  wordLimit: z.object({
+    min: z.number().min(10).optional().describe('Minimum word count'),
+    max: z.number().min(50).describe('Maximum word count'),
+  }).optional().describe('Word count limits for the answer (will be overridden by configuration)'),
+  sampleAnswer: z.string().describe('A high-quality sample answer that would earn full points'),
+  hints: z.array(z.string()).optional().describe('Optional hints to help students'),
+});
+
+// Schema for rubric score per criterion
+const RubricScoreSchema = z.object({
+  criterion: z.string().describe('The criterion being scored'),
+  score: z.number().min(0).describe('Points earned for this criterion'),
+  maxPoints: z.number().min(0).describe('Maximum possible points for this criterion'),
+  feedback: z.string().max(300).describe('Specific feedback for this criterion (max 300 characters)'),
+});
+
+// Schema for AI evaluation of long answer
+const AILongAnswerEvaluationSchema = z.object({
+  totalScore: z.number().min(0).describe('Total points earned'),
+  maxScore: z.number().min(1).describe('Maximum possible points'),
+  percentage: z.number().min(0).max(100).describe('Score as a percentage'),
+  overallFeedback: z.string().max(500).describe('Overall feedback on the answer (max 500 characters)'),
+  rubricScores: z.array(RubricScoreSchema).describe('Detailed scores per criterion'),
+  strengths: z.array(z.string().max(200)).optional().describe('Key strengths in the answer (each max 200 characters)'),
+  improvements: z.array(z.string().max(200)).optional().describe('Suggested improvements (each max 200 characters)'),
+  suggestions: z.string().max(300).optional().describe('Specific suggestions for improvement (max 300 characters)'),
+});
+
+// Schema for long answer student assessment record
+const StudentLongAnswerAssessmentSchema = z.object({
+  timestamp: z.any(),
+  questionText: z.string(),
+  rubric: z.array(RubricCriterionSchema),
+  maxPoints: z.number().min(1),
+  wordLimit: z.object({
+    min: z.number().optional(),
+    max: z.number(),
+  }),
+  topic: z.string(),
+  difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
+  generatedBy: z.enum(['ai', 'fallback', 'manual']),
+  attempts: z.number().min(0),
+  status: z.enum(['active', 'attempted', 'completed', 'failed']),
+  maxAttempts: z.number().min(1),
+  activityType: z.string(),
+  enableAIChat: z.boolean().optional(),
+  aiChatContext: z.string().optional(),
+  settings: z.object({
+    showRubric: z.boolean().default(true),
+    showWordCount: z.boolean().default(true),
+    showHints: z.boolean().default(false),
+    allowDifficultySelection: z.boolean().default(false),
+    theme: z.string().default('purple'),
+  }),
+  lastSubmission: z.object({
+    timestamp: z.any(),
+    answer: z.string(),
+    wordCount: z.number(),
+    evaluation: AILongAnswerEvaluationSchema,
+  }).optional(),
+});
+
+// Schema for secure long answer data (server-side only)
+const SecureLongAnswerAssessmentSchema = z.object({
+  sampleAnswer: z.string(),
+  hints: z.array(z.string()).optional(),
+  timestamp: z.any(),
+});
+
+// Schema for long answer submission
+const LongAnswerSubmissionSchema = z.object({
+  timestamp: z.any(),
+  answer: z.string(),
+  wordCount: z.number(),
+  evaluation: AILongAnswerEvaluationSchema,
+  attemptNumber: z.number().min(1),
+});
+
+// Schema for long answer function parameters
+const LongAnswerFunctionParametersSchema = z.object({
+  courseId: z.string().min(1),
+  assessmentId: z.string().min(1),
+  operation: z.enum(['generate', 'evaluate']),
+  answer: z.string().optional(),
+  studentEmail: z.string().email().optional(),
+  userId: z.string().optional(),
+  topic: z.string().optional().default('general'),
+  difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional().default('intermediate'),
+});
+
+// Schema for long answer evaluation response
+const LongAnswerEvaluationResponseSchema = z.object({
+  success: z.boolean(),
+  result: AILongAnswerEvaluationSchema,
+  attemptsRemaining: z.number().min(0),
+  attemptsMade: z.number().min(1),
+});
+
 module.exports = {
   // Multiple Choice Schemas
   AnswerOptionSchema,
   AIQuestionSchema,
   FallbackQuestionSchema,
+  
+  // Long Answer Schemas
+  RubricCriterionSchema,
+  AILongAnswerQuestionSchema,
+  RubricScoreSchema,
+  AILongAnswerEvaluationSchema,
+  StudentLongAnswerAssessmentSchema,
+  SecureLongAnswerAssessmentSchema,
+  LongAnswerSubmissionSchema,
+  LongAnswerFunctionParametersSchema,
+  LongAnswerEvaluationResponseSchema,
   
   // Configuration Schemas
   AISettingsSchema,
