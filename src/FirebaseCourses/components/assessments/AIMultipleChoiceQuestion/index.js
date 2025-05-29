@@ -736,6 +736,249 @@ You can now:
     return questionContext;
   };
 
+  // Render the question content (extracted for reuse in Sheet)
+  const renderQuestionContent = () => {
+    if (!question) return null;
+
+    return (
+      <div className="space-y-4">
+        {/* Error display */}
+        {error && (
+          <div className="p-3 rounded bg-red-100 text-red-700 border border-red-300">
+            {error}
+          </div>
+        )}
+
+        {/* Loading state */}
+        {(loading || regenerating) ? (
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="space-y-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-10 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Difficulty Selection for Assignments */}
+            {question.settings?.allowDifficultySelection && (
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Choose Difficulty Level:</h4>
+                <div className="flex gap-2">
+                  {['beginner', 'intermediate', 'advanced'].map(difficulty => (
+                    <button
+                      key={difficulty}
+                      onClick={() => {
+                        setSelectedDifficulty(difficulty);
+                        // If this is a free regeneration on difficulty change, trigger regeneration
+                        if (question.settings?.freeRegenerationOnDifficultyChange && question.difficulty !== difficulty) {
+                          handleRegenerate();
+                        }
+                      }}
+                      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                        (selectedDifficulty || question.difficulty) === difficulty
+                          ? 'bg-blue-100 border-blue-300 text-blue-800'
+                          : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                    </button>
+                  ))}
+                </div>
+                {selectedDifficulty && selectedDifficulty !== question.difficulty && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Click "Generate New AI Question" to apply difficulty change
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Question Text */}
+            <div className="text-gray-800 text-lg font-medium">
+              {renderMathText(question.questionText)}
+            </div>
+
+            {/* Options */}
+            <div className="space-y-2.5">
+              {question.options?.map((option, index) => (
+                <motion.div
+                  key={option.id}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  style={{
+                    ...(selectedAnswer === option.id ? {
+                      backgroundColor: `${themeColors.bgLight}`,
+                      borderColor: themeColors.accent,
+                      boxShadow: `0 0 0 1px ${themeColors.accent}`,
+                    } : {}),
+                    borderWidth: '1px',
+                    transition: 'all 0.2s'
+                  }}
+                  className={`flex items-center p-3.5 border rounded-md cursor-pointer ${
+                    selectedAnswer === option.id
+                      ? ``
+                      : 'bg-white hover:bg-gray-50 border-gray-200'
+                  }`}
+                  onClick={() => {
+                    // Only allow selection if there's no result yet (prevent resubmitting the same question)
+                    if (!result) {
+                      setSelectedAnswer(option.id);
+                    }
+                  }}
+                >
+                  <input
+                    type="radio"
+                    id={option.id}
+                    name="multipleChoice"
+                    value={option.id}
+                    checked={selectedAnswer === option.id}
+                    onChange={() => !result && setSelectedAnswer(option.id)}
+                    disabled={result !== null} // Disable after any submission (prevent resubmitting)
+                    className={`mr-3 h-4 w-4 text-${themeColors.name}-600 focus:ring-${themeColors.name}-500`}
+                  />
+                  <div className="text-gray-700 flex-grow cursor-pointer" onClick={() => !result && setSelectedAnswer(option.id)}>
+                    {renderMathText(option.text)}
+                  </div>
+
+                  {/* Show the correct/incorrect icon if there's a result */}
+                  {result?.isCorrect && selectedAnswer === option.id && (
+                    <span className="text-green-600 ml-2">✓</span>
+                  )}
+                  {result?.correctOptionId === option.id && !result.isCorrect && (
+                    <span className="text-green-600 ml-2">✓</span>
+                  )}
+                  {!result?.isCorrect && result?.answer === option.id && result?.answer !== result?.correctOptionId && (
+                    <span className="text-red-600 ml-2">✗</span>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Submit button - only show if not already submitted */}
+            {!result && (
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || !selectedAnswer}
+                style={{
+                  backgroundColor: themeColors.accent,
+                  color: 'white',
+                }}
+                className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md"
+              >
+                {submitting ? 'Submitting...' : 'Submit Answer'}
+              </Button>
+            )}
+
+            {/* Result feedback */}
+            {result && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.2 }}
+                className={`p-4 rounded-md shadow-sm ${
+                  result.isCorrect
+                    ? 'bg-green-50 border border-green-100 text-green-800'
+                    : 'bg-red-50 border border-red-100 text-red-800'
+                }`}
+              >
+                <p className="font-medium text-base mb-1">
+                  {result.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
+                </p>
+                <div className="mb-3 text-sm">
+                  {renderMathText(result.feedback)}
+                </div>
+
+                {/* Additional guidance based on result */}
+                {!result.isCorrect && question.attempts < question.maxAttempts && (
+                  <div className="text-sm mb-2 border-t border-b py-2 mt-2">
+                    <p className="font-medium flex items-center">
+                      {question.maxAttempts > 500 ? 
+                        <>Attempt {question.attempts}</> : 
+                        <>Attempt {question.attempts} of {question.maxAttempts}</>
+                      }
+                      {(question.maxAttempts - question.attempts) > 0 && question.maxAttempts <= 500 && 
+                        <> ({question.maxAttempts - question.attempts} remaining)</>
+                      }
+                      {question.maxAttempts > 500 && 
+                        <> (unlimited <Infinity className="h-3.5 w-3.5 inline-block ml-0.5" />)</>
+                      }
+                    </p>
+                    <p>Review your answer and try again.</p>
+                  </div>
+                )}
+
+                {/* For generating a new AI question */}
+                <div className="mt-4">
+                  {result && !question.maxAttemptsReached && !question.attemptsExhausted && 
+                   question.attempts < question.maxAttempts && (
+                    <>
+                      {/* Show difficulty selection for lesson type activities */}
+                      {question.activityType === 'lesson' ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-3 gap-2">
+                            {['beginner', 'intermediate', 'advanced'].map(difficulty => (
+                              <Button
+                                key={difficulty}
+                                onClick={() => handleRegenerate(difficulty)}
+                                style={{
+                                  backgroundColor: difficulty === question.difficulty ? themeColors.accent : 'white',
+                                  color: difficulty === question.difficulty ? 'white' : themeColors.accent,
+                                  borderColor: themeColors.accent,
+                                }}
+                                className="text-sm font-medium py-2 px-3 rounded border transition-all duration-200 hover:shadow-md"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        /* Regular regenerate button for non-lesson activities */
+                        <Button
+                          onClick={() => handleRegenerate()}
+                          style={{
+                            backgroundColor: themeColors.accent,
+                            color: 'white',
+                          }}
+                          className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:shadow-md"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Generate New AI Question
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Display message when max attempts reached */}
+                  {(question.maxAttemptsReached || question.attemptsExhausted || 
+                    question.attempts >= question.maxAttempts) && (
+                    <div className="text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-md text-sm">
+                      <p className="font-medium mb-1">Maximum attempts reached</p>
+                      <p className="flex items-center">
+                        {question.maxAttempts > 500 ?
+                          <>You have made {question.attempts} attempts for this question and cannot make more.</>
+                         :
+                          <>You have used all {question.attempts} of your {question.maxAttempts} available attempts for this question.</>
+                        }
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
   // Animations for components
   const animations = {
     container: {
@@ -1100,25 +1343,31 @@ You can now:
 
     {/* AI Chat Sheet */}
     <Sheet open={chatSheetOpen} onOpenChange={setChatSheetOpen}>
-      <SheetContent className="w-full sm:max-w-2xl p-0">
-        <SheetHeader className="px-6 py-4 border-b">
-          <SheetTitle>AI Study Assistant</SheetTitle>
-          <SheetDescription>
-            Chat with AI about this question. The AI will help guide your understanding.
-          </SheetDescription>
-        </SheetHeader>
-        <div className="h-[calc(100vh-120px)]">
-          {question && (
-            <GoogleAIChatApp
-              instructions={getAIChatInstructions()}
-              firstMessage={getAIChatFirstMessage()}
-              showYouTube={false}
-              showUpload={false}
-              allowContentRemoval={false}
-              showResourcesAtTop={false}
-              context={getAIChatContext()}
-            />
-          )}
+      <SheetContent className="w-[90vw] max-w-[90vw] sm:w-[90vw] p-0" side="right">
+        {/* Desktop: Side by side, Mobile: Chat only */}
+        <div className="flex h-screen">
+          {/* Left side - Question (hidden on mobile) */}
+          <div className="hidden md:block md:w-1/2 border-r overflow-y-auto p-6 bg-gray-50">
+            <div className="max-w-2xl mx-auto">
+              <h3 className="text-lg font-semibold mb-4">Current Question</h3>
+              {renderQuestionContent()}
+            </div>
+          </div>
+          
+          {/* Right side - Chat (full width on mobile, half width on desktop) */}
+          <div className="w-full md:w-1/2 h-full">
+            {question && (
+              <GoogleAIChatApp
+                instructions={getAIChatInstructions()}
+                firstMessage={getAIChatFirstMessage()}
+                showYouTube={false}
+                showUpload={false}
+                allowContentRemoval={false}
+                showResourcesAtTop={false}
+                context={getAIChatContext()}
+              />
+            )}
+          </div>
         </div>
       </SheetContent>
     </Sheet>
