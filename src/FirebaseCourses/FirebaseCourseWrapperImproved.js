@@ -44,28 +44,40 @@ const FirebaseCourseWrapper = ({
   
   // Get course data from the course object, either from database or fallback
   const getCourseData = () => {
-    console.log("Course data in wrapper:", course);
-    console.log("Course structure path check:", {
-      detailsStructurePath: course.courseDetails?.courseStructure?.structure,
-      directPath: course.courseStructure,
-      units: course.units
+    console.log("🔍 FirebaseCourseWrapper - Analyzing course data:", course);
+    console.log("🔍 Course structure paths:", {
+      "course.courseStructure": course.courseStructure,
+      "course.courseStructure?.structure": course.courseStructure?.structure,
+      "course.courseStructure?.units": course.courseStructure?.units,
+      "course.courseDetails?.courseStructure?.structure": course.courseDetails?.courseStructure?.structure,
+      "course.courseDetails?.units": course.courseDetails?.units,
+      "course.units": course.units
     });
 
-    // First priority: check courseDetails.courseStructure.structure
-    if (course.courseDetails?.courseStructure?.structure) {
+    // First priority: check direct courseStructure path (JSON file from CourseRouter)
+    if (course.courseStructure?.structure) {
+      console.log("Using courseStructure.structure from JSON file (via CourseRouter)");
+      return {
+        title: course.courseStructure.title || '',
+        structure: course.courseStructure.structure || [],
+        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
+      };
+    }
+    // Also check for nested courseStructure.units pattern
+    else if (course.courseStructure?.units) {
+      console.log("Using courseStructure.units from JSON file (via CourseRouter)");
+      return {
+        title: course.courseStructure.title || course.Course?.Value || '',
+        structure: course.courseStructure.units || [],
+        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
+      };
+    }
+    // Second priority: check courseDetails.courseStructure.structure (database fallback)
+    else if (course.courseDetails?.courseStructure?.structure) {
       console.log("Using courseDetails.courseStructure.structure from database");
       return {
         title: course.courseDetails.courseStructure.title || course.Title || '',
         structure: course.courseDetails.courseStructure.structure,
-        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
-      };
-    }
-    // Second priority: check direct courseStructure path
-    else if (course.courseStructure) {
-      console.log("Using courseStructure from database");
-      return {
-        title: course.courseStructure.title || '',
-        structure: course.courseStructure.structure || [],
         courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
       };
     }
@@ -85,6 +97,7 @@ const FirebaseCourseWrapper = ({
     }
 
     // Fallback: use other course data
+    console.log("⚠️ WARNING: Using fallback - no JSON structure found!");
     return {
       title: course.Course?.Value || course.courseDetails?.Title || '',
       structure: course.courseDetails?.units || [],

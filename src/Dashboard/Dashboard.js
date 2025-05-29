@@ -111,6 +111,7 @@ const Dashboard = () => {
     error, 
     studentExists,
     markNotificationAsSeen,
+    submitSurveyResponse,
     forceRefresh
   } = useStudentData(current_user_email_key);
   
@@ -458,7 +459,9 @@ const Dashboard = () => {
       courses={courses}
       profile={profile}
       markNotificationAsSeen={markNotificationAsSeen}
+      submitSurveyResponse={submitSurveyResponse}
       forceRefresh={forceRefresh}
+      allNotifications={allNotifications}
     />
   )}
 
@@ -555,6 +558,8 @@ const Dashboard = () => {
           <ImportantDatesCard importantDates={importantDates} />
         </CardContent>
       </Card>
+      
+   
     </div>
   </div>
 

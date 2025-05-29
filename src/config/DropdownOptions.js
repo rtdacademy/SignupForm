@@ -70,13 +70,14 @@ export const ALERT_LEVELS = {
 };
 
 export const STATUS_OPTIONS = [
-  //{ value: "Newly Enrolled", color: "#3B82F6", category: "Registration", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.YELLOW.value },
   { 
     value: "Starting on (Date)", 
     color: "#14B8A6", 
     category: "Progress", 
     allowAutoStatusChange: false, 
     alertLevel: ALERT_LEVELS.GREEN,
+   activeFutureArchivedValue: "Registered",
+    activeFutureArchivedValueFinal: "Active",
     tooltip: "Initial status set after student is registered in PASI system"
     
   },
@@ -86,6 +87,8 @@ export const STATUS_OPTIONS = [
     category: "Progress", 
     allowAutoStatusChange: true, 
     alertLevel: ALERT_LEVELS.GREEN,
+    activeFutureArchivedValue: "Active",
+    activeFutureArchivedValueFinal: "Active",
     tooltip: "Student is within 2 lessons of their scheduled progress"
   },
   { 
@@ -94,6 +97,8 @@ export const STATUS_OPTIONS = [
     category: "Progress", 
     allowAutoStatusChange: true, 
     alertLevel: ALERT_LEVELS.GREEN,
+    activeFutureArchivedValue: "Active",
+    activeFutureArchivedValueFinal: "Active",
     tooltip: "Student is 3 or more lessons ahead of schedule"
   },
   { 
@@ -102,15 +107,18 @@ export const STATUS_OPTIONS = [
     category: "Progress", 
     allowAutoStatusChange: false, 
     alertLevel: ALERT_LEVELS.GREEN,
+    activeFutureArchivedValue: "Active",
+    activeFutureArchivedValueFinal: "Active",
     tooltip: "Awaiting teacher review for course completion"
   },
-  //{ value: "Updated Schedule", color: "#6366F1", category: "Auto", allowAutoStatusChange: true, alertLevel: ALERT_LEVELS.GREEN.value },
-  { 
+ { 
     value: "⚠️ Behind", 
     color: "#FCD34D", 
     category: "Progress", 
     allowAutoStatusChange: true, 
     alertLevel: ALERT_LEVELS.YELLOW,
+    activeFutureArchivedValue: "Active",
+    activeFutureArchivedValueFinal: "Active",
     tooltip: "Student is 2-4 lessons behind schedule"
   },
   { 
@@ -119,6 +127,8 @@ export const STATUS_OPTIONS = [
     category: "Progress", 
     allowAutoStatusChange: true, 
     alertLevel: ALERT_LEVELS.RED,
+     activeFutureArchivedValue: "Active",
+    activeFutureArchivedValueFinal: "Active",
     tooltip: "Student is 5 or more lessons behind and at risk of removal"
   },
   { 
@@ -127,13 +137,11 @@ export const STATUS_OPTIONS = [
     category: "Progress", 
     allowAutoStatusChange: true, 
     alertLevel: ALERT_LEVELS.RED,
+     activeFutureArchivedValue: "Active",
+    activeFutureArchivedValueFinal: "Active",
     tooltip: "Student hasn't completed any lessons recently and is at risk of removal"
   },
-  //{ value: "No Orientation Yet", color: "#F59E0B", category: "Schedule-related", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.YELLOW.value },
-  //{ value: "Waiting on Schedule", color: "#8B5CF6", category: "Schedule-related", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.YELLOW.value },
-  //{ value: "On Hold", color: "#EC4899", category: "Schedule-related", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.YELLOW.value },
-  //{ value: "Hasn't Started", color: "#9CA3AF", category: "Schedule-related", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.YELLOW.value },
-  { 
+ { 
     value: "Unenrolled", 
     color: "#DC2626", 
     category: "Final", 
@@ -141,6 +149,7 @@ export const STATUS_OPTIONS = [
     alertLevel: ALERT_LEVELS.PURPLE,
     action: "PENDING_FINALIZATION",
     activeFutureArchivedValue: "Pending",
+    activeFutureArchivedValueFinal: "Archived",
     tooltip: "Student has been removed from the course",
     delay:true
   },
@@ -152,6 +161,7 @@ export const STATUS_OPTIONS = [
     alertLevel: ALERT_LEVELS.PURPLE,
     action: "PENDING_FINALIZATION",
     activeFutureArchivedValue: "Pending",
+    activeFutureArchivedValueFinal: "Archived",
     tooltip: "Student has successfully completed all course requirements",
     delay:true
   },
@@ -161,6 +171,8 @@ export const STATUS_OPTIONS = [
     category: "Other", 
     allowAutoStatusChange: true, 
     alertLevel: ALERT_LEVELS.GREY,
+     activeFutureArchivedValue: "Active",
+    activeFutureArchivedValueFinal: "Active",
     tooltip: "Special case status for students with unique circumstances"
   },
 
@@ -170,6 +182,8 @@ export const STATUS_OPTIONS = [
     category: "Other", 
     allowAutoStatusChange: false, 
     alertLevel: ALERT_LEVELS.GREY,
+    activeFutureArchivedValue: "Active",
+    activeFutureArchivedValueFinal: "Active",
     tooltip: "Student is on temporary pause with scheduled return date",
     delay:true
   },
@@ -179,15 +193,11 @@ export const STATUS_OPTIONS = [
     category: "Other", 
     allowAutoStatusChange: false, 
     activeFutureArchivedValue: "Pending",
+    activeFutureArchivedValueFinal: "Pending",
     alertLevel: ALERT_LEVELS.GREY,
     tooltip: "Student access has been temporarily suspended"
   }
  
-  //{ value: "Default", color: "#6B7280", category: "Progress", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.YELLOW,tooltip: "Default status when no other status applies"},
-
-  //{ value: "✅ Mark Added to PASI", color: "#059669", category: "Administrative", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.PURPLE.value },
-  //{ value: "☑️ Removed From PASI (Funded)", color: "#9333EA", category: "Administrative", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.PURPLE.value },
-  //{ value: "✗ Removed (Not Funded)", color: "#DC2626", category: "Administrative", allowAutoStatusChange: false, alertLevel: ALERT_LEVELS.PURPLE.value }
 ];
 
 export const getStatusColor = (status) => {
@@ -360,15 +370,25 @@ export const COURSE_OPTIONS = [
     courseId: 93,
     pasiCode: "MAT3211"
   },
-   { 
-    value: "Math 31",
-    label: "Math 31 (Calculus)", 
-    courseType: "Math",
+  { 
+    value: "Physics 30",
+    label: "Physics 30", 
+    courseType: "Science",
     grade: 12,
     color: "#10B981",
-    icon: Calculator,
-    courseId: 93,
-    pasiCode: "MAT3211"
+    icon: Beaker,
+    courseId: 2,
+    pasiCode: "SCN3797"
+  },
+  { 
+    value: "COM1255 - E-Learning",
+    label: "COM1255 - E-Learning", 
+    courseType: "Options",
+    grade: 10,
+    color: "#3B82F6",
+    icon: Code,
+    courseId: 1,
+    pasiCode: "COM1255"
   },
 ];
 
@@ -391,6 +411,7 @@ export const COURSE_CODE_TO_ID = {
   "MAT3792": 87,  // Math 30-2
   "MAT3791": 89,  // Math 30-1
   "MAT3211": 93,  // Math 31 (Calculus)
+  "SCN3797": 2,   // Physics 30
 
   // CTS Courses (using first value from the courseId arrays)
   "CSE1210": 1111, // Client-side Scripting 1
@@ -614,6 +635,16 @@ export const PASI_COURSES = [
     courseType: "Math",
     grade: 12,
     courseId: [93]
+  },
+  // New Grade 12 Science Course: Physics 30
+  {
+    pasiCode: "SCN3797",
+    description: "Physics 30",
+    credits: 5,
+    color: "#10B981", // Same as grade 12 theme (green)
+    courseType: "Science",
+    grade: 12,
+    courseId: [2]
   },
 
   // CTS Courses

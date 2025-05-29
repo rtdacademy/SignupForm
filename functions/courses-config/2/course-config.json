@@ -1,0 +1,176 @@
+{
+  "courseId": "2",
+  "title": "Physics 30",
+  "fullTitle": "2 - Physics 30",
+  "description": "This is a template course description. Replace this with a detailed description of what students will learn in this course.",
+  "credits": 1,
+  "grade": "10",
+  "prerequisites": [],
+  "instructors": [],
+  "duration": "1 semester",
+  "contentFolder": "content",
+  "functionsFolder": "functions/2",
+  "weights": {
+    "lesson": 0.15,
+    "assignment": 0.35,
+    "lab": 0.2,
+    "exam": 0.3
+  },
+  "globalSettings": {
+    "allowLateSubmissions": true,
+    "latePenaltyPerDay": 0.1,
+    "maxLateDays": 7,
+    "showProgressBar": true,
+    "showGrades": true,
+    "enableAIQuestions": true,
+    "enableTextToSpeech": true,
+    "enableCollaboration": false,
+    "requireSequentialProgress": false
+  },
+  "activityTypes": {
+    "lesson": {
+      "displayName": "Lesson",
+      "maxAttempts": 999,
+      "attemptPenalty": 0,
+      "pointValue": 5,
+      "theme": "purple",
+      "showDetailedFeedback": true,
+      "enableHints": true,
+      "allowDifficultySelection": false,
+      "defaultDifficulty": "intermediate",
+      "aiSettings": {
+        "temperature": 0.7,
+        "maxTokens": 1000,
+        "topP": 0.9
+      },
+      "longAnswer": {
+        "totalPoints": 5,
+        "rubricCriteria": 3,
+        "wordLimits": { "min": 50, "max": 200 },
+        "showRubric": true,
+        "showWordCount": true
+      }
+    },
+    "assignment": {
+      "displayName": "Assignment",
+      "maxAttempts": 3,
+      "attemptPenalty": 0.2,
+      "pointValue": 10,
+      "theme": "blue",
+      "showDetailedFeedback": true,
+      "enableHints": true,
+      "allowDifficultySelection": true,
+      "defaultDifficulty": "beginner",
+      "freeRegenerationOnDifficultyChange": true,
+      "aiSettings": {
+        "temperature": 0.7,
+        "maxTokens": 1200,
+        "topP": 0.9
+      },
+      "longAnswer": {
+        "totalPoints": 10,
+        "rubricCriteria": 4,
+        "wordLimits": { "min": 50, "max": 300},
+        "showRubric": true,
+        "showWordCount": true
+      }
+    },
+    "lab": {
+      "displayName": "Lab",
+      "maxAttempts": 3,
+      "attemptPenalty": 0.2,
+      "pointValue": 15,
+      "theme": "green",
+      "showDetailedFeedback": true,
+      "enableHints": true,
+      "allowDifficultySelection": false,
+      "defaultDifficulty": "intermediate",
+      "aiSettings": {
+        "temperature": 0.6,
+        "maxTokens": 1200,
+        "topP": 0.8
+      },
+      "longAnswer": {
+        "totalPoints": 15,
+        "rubricCriteria": 5,
+        "wordLimits": { "min": 50, "max": 400 },
+        "showRubric": true,
+        "showWordCount": true
+      }
+    },
+    "exam": {
+      "displayName": "Exam",
+      "maxAttempts": 1,
+      "attemptPenalty": 0,
+      "pointValue": 25,
+      "theme": "red",
+      "showDetailedFeedback": false,
+      "enableHints": false,
+      "allowDifficultySelection": false,
+      "defaultDifficulty": "advanced",
+      "aiSettings": {
+        "temperature": 0.5,
+        "maxTokens": 1500,
+        "topP": 0.8
+      },
+      "longAnswer": {
+        "totalPoints": 5,
+        "rubricCriteria": 5,
+        "wordLimits": { "min": 50, "max": 300 },
+        "showRubric": false,
+        "showWordCount": true
+      }
+    }
+  },
+  "themes": {
+    "lesson": {
+      "primaryColor": "purple",
+      "secondaryColor": "indigo",
+      "accent": "#8b5cf6",
+      "background": "#f5f3ff",
+      "border": "#ddd6fe"
+    },
+    "assignment": {
+      "primaryColor": "blue",
+      "secondaryColor": "sky",
+      "accent": "#3b82f6",
+      "background": "#f0f9ff",
+      "border": "#bfdbfe"
+    },
+    "lab": {
+      "primaryColor": "green",
+      "secondaryColor": "emerald",
+      "accent": "#10b981",
+      "background": "#ecfdf5",
+      "border": "#a7f3d0"
+    },
+    "exam": {
+      "primaryColor": "red",
+      "secondaryColor": "rose",
+      "accent": "#ef4444",
+      "background": "#fef2f2",
+      "border": "#fecaca"
+    },
+    "default": {
+      "primaryColor": "purple",
+      "secondaryColor": "blue",
+      "accent": "#8b5cf6",
+      "background": "#f5f3ff",
+      "border": "#ddd6fe"
+    },
+    "customCSS": ""
+  },
+  "notifications": {
+    "enableEmailNotifications": true,
+    "enableInAppNotifications": true,
+    "notifyOnGrade": true,
+    "notifyOnFeedback": true,
+    "notifyOnAnnouncement": true
+  },
+  "metadata": {
+    "createdDate": "2025-05-28T13:33:55.646Z",
+    "lastModified": "2025-05-28T13:33:55.646Z",
+    "version": "1.0.0",
+    "status": "draft"
+  }
+}

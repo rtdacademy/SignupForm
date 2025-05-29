@@ -42,7 +42,7 @@ import { processPasiLinkCreation, formatSchoolYearWithSlash, processPasiRecordDe
 
 import MissingPasi from '../TeacherDashboard/MissingPasi';
 import MissingYourWay from '../TeacherDashboard/MissingYourWay';
-import { COURSE_OPTIONS, COURSE_CODE_TO_ID, ACTIVE_FUTURE_ARCHIVED_OPTIONS, COURSE_ID_TO_CODE } from '../config/DropdownOptions';
+import { COURSE_OPTIONS, COURSE_CODE_TO_ID, ACTIVE_FUTURE_ARCHIVED_OPTIONS, COURSE_ID_TO_CODE, STATUS_OPTIONS } from '../config/DropdownOptions';
 import { useAuth } from '../context/AuthContext';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { hasPasiRecordForCourse, isRecordActuallyMissing, getPasiCodesForCourseId, filterRelevantMissingPasiRecords, filterRelevantMissingPasiRecordsWithEmailCheck, hasValidAsnEmailAssociation } from '../utils/pasiRecordsUtils';
@@ -72,6 +72,17 @@ const ValidationRules = {
         "✅ Mark Added to PASI",
         "☑️ Removed From PASI (Funded)",
         "Course Completed",
+        "Unenrolled"
+      ]
+    },
+    Registered: {
+      incompatibleStatuses: [
+        "Unenrolled",
+        "Course Completed"
+      ]
+    },
+    Withdrawn: {
+      validStatuses: [
         "Unenrolled"
       ]
     }
@@ -394,13 +405,70 @@ const filteredUnlinkedCount = useMemo(() => {
       // Check Active status incompatibilities
       if (record.status === "Active" && 
           ValidationRules.statusCompatibility.Active.incompatibleStatuses.includes(record.Status_Value)) {
+        record.mismatchType = "status";
+        record.mismatchReason = `PASI status "${record.status}" is incompatible with YourWay status "${record.Status_Value}"`;
         return true;
       }
       
       // Check Completed status validations
       if (record.status === "Completed" && 
           !ValidationRules.statusCompatibility.Completed.validStatuses.includes(record.Status_Value)) {
+        record.mismatchType = "status";
+        record.mismatchReason = `PASI status "${record.status}" requires YourWay status to be one of: ${ValidationRules.statusCompatibility.Completed.validStatuses.join(", ")}`;
         return true;
+      }
+      
+      // Check Registered status incompatibilities
+      if (record.status === "Registered" && 
+          ValidationRules.statusCompatibility.Registered.incompatibleStatuses.includes(record.Status_Value)) {
+        record.mismatchType = "status";
+        record.mismatchReason = `PASI status "${record.status}" is incompatible with YourWay status "${record.Status_Value}"`;
+        return true;
+      }
+      
+      // Check Withdrawn status validations
+      if (record.status === "Withdrawn" && 
+          !ValidationRules.statusCompatibility.Withdrawn.validStatuses.includes(record.Status_Value)) {
+        record.mismatchType = "status";
+        record.mismatchReason = `PASI status "${record.status}" requires YourWay status to be "Unenrolled"`;
+        return true;
+      }
+      
+      // Check ActiveFutureArchived value mismatches
+      const statusOption = STATUS_OPTIONS.find(opt => opt.value === record.Status_Value);
+      if (statusOption && record.ActiveFutureArchived_Value) {
+        let expectedState;
+        
+        // Special handling for "Resuming on (date)" status
+        if (record.Status_Value === "Resuming on (date)" && record.resumingOnDate) {
+          const today = new Date();
+          const resumingDate = new Date(record.resumingOnDate);
+          
+          // If today is before the resuming date, use activeFutureArchivedValue
+          // If today is on or after the resuming date, use activeFutureArchivedValueFinal
+          if (today < resumingDate) {
+            expectedState = statusOption.activeFutureArchivedValue;
+          } else {
+            expectedState = statusOption.activeFutureArchivedValueFinal;
+          }
+        } else {
+          // For all other statuses, use activeFutureArchivedValueFinal
+          expectedState = statusOption.activeFutureArchivedValueFinal;
+        }
+        
+        if (expectedState && record.ActiveFutureArchived_Value) {
+          const actualState = record.ActiveFutureArchived_Value;
+          
+          if (expectedState !== actualState) {
+            record.mismatchType = "state";
+            record.mismatchReason = record.Status_Value === "Resuming on (date)" 
+              ? `YourWay status "${record.Status_Value}" requires ActiveFutureArchived state to be "${expectedState}" ${new Date() < new Date(record.resumingOnDate) ? 'before resuming date' : 'after resuming date'} but it is "${actualState}"`
+              : `YourWay status "${record.Status_Value}" requires ActiveFutureArchived state to be "${expectedState}" but it is "${actualState}"`;
+            record.expectedState = expectedState;
+            record.actualState = actualState;
+            return true;
+          }
+        }
       }
       
       return false;
@@ -443,9 +511,33 @@ const filteredUnlinkedCount = useMemo(() => {
         return r.Term || null;
       };
       
-      // Extract student type and term using our helper functions
+      // Helper function to find period from record
+      const findPeriod = (r) => {
+        // Try direct properties
+        if (r.period) return r.period;
+        if (r.Period) return r.Period;
+        
+        // Try nested structures
+        if (r.summaryData?.Period?.Value) return r.summaryData.Period.Value;
+        
+        return null;
+      };
+      
+      // Helper function to parse exit date
+      const parseExitDate = (dateStr) => {
+        if (!dateStr || dateStr === '-' || dateStr === '') return null;
+        try {
+          return new Date(dateStr);
+        } catch (e) {
+          return null;
+        }
+      };
+      
+      // Extract student type, term, period, and exit date using our helper functions
       const studentType = findStudentType(record);
       const term = findTerm(record);
+      const period = findPeriod(record);
+      const exitDate = parseExitDate(record.exitDate);
       
       // Skip if we couldn't find student type or term
       if (!studentType || !term) {
@@ -467,18 +559,59 @@ const filteredUnlinkedCount = useMemo(() => {
       // Keep track of the values we found for display in the UI
       record.displayStudentType = studentType;
       record.displayTerm = term;
+      record.displayPeriod = period;
+      record.displayExitDate = record.exitDate;
+      
+      // Determine suggested period for display
+      let suggestedPeriod = null;
       
       // Check term conflicts:
       // 1. If 'Summer Student' or 'Summer School', then term must be 'Summer'
       if ((studentType === 'Summer Student' || studentType === 'Summer School') && term !== 'Summer') {
         //console.log(`Found mismatch: ${record.studentName} is ${studentType} but term is ${term}`);
+        suggestedPeriod = 'Summer';
+        record.suggestedPeriod = suggestedPeriod;
         return true;
       }
       
       // 2. If 'Non-Primary' or 'Home Education', then term cannot be 'Summer'
       if ((studentType === 'Non-Primary' || studentType === 'Home Education') && term === 'Summer') {
         //console.log(`Found mismatch: ${record.studentName} is ${studentType} but term is Summer`);
+        suggestedPeriod = 'Full Year';
+        record.suggestedPeriod = suggestedPeriod;
         return true;
+      }
+      
+      // 3. NEW RULE: If Adult Student or International Student AND period is Full Year 
+      // BUT exitDate is between July 15 and August 31, should be Summer
+      if ((studentType === 'Adult Student' || studentType === 'International Student') && 
+          period === 'Full Year' && exitDate) {
+        const year = exitDate.getFullYear();
+        const july15 = new Date(year, 6, 15); // July is month 6 (0-indexed)
+        const august31 = new Date(year, 7, 31); // August is month 7
+        
+        if (exitDate >= july15 && exitDate <= august31) {
+          console.log(`Found mismatch: ${record.studentName} is ${studentType} with Full Year period but exit date ${record.exitDate} is in summer range`);
+          suggestedPeriod = 'Summer';
+          record.suggestedPeriod = suggestedPeriod;
+          return true;
+        }
+      }
+      
+      // 4. NEW RULE: If Adult Student or International Student AND period is Summer 
+      // BUT exitDate is outside July 15 - August 31, should be Full Year
+      if ((studentType === 'Adult Student' || studentType === 'International Student') && 
+          period === 'Summer' && exitDate) {
+        const year = exitDate.getFullYear();
+        const july15 = new Date(year, 6, 15); // July is month 6 (0-indexed)
+        const august31 = new Date(year, 7, 31); // August is month 7
+        
+        if (exitDate < july15 || exitDate > august31) {
+          console.log(`Found mismatch: ${record.studentName} is ${studentType} with Summer period but exit date ${record.exitDate} is outside summer range`);
+          suggestedPeriod = 'Full Year';
+          record.suggestedPeriod = suggestedPeriod;
+          return true;
+        }
       }
       
       return false;

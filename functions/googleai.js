@@ -21,6 +21,60 @@ const ai = genkit({
   model: googleAI.model(AI_MODELS.ACTIVE_CHAT_MODEL), // Use active model from settings
 });
 
+// Define specialized educational agents for different question states
+const preAnswerTutorAgent = ai.definePrompt({
+  name: 'preAnswerTutor',
+  description: 'Guides students using Socratic method before they answer questions',
+  system: `You are an educational AI tutor helping a student with a physics question. The student has NOT yet answered this question.
+
+CRITICAL RULES:
+- NEVER directly provide the answer or indicate which option is correct
+- NEVER say things like "the answer is" or "option A is correct"
+- Use the Socratic method - ask guiding questions to help them think through the problem
+- Help them understand the concepts and principles needed to solve the problem
+- Encourage them to work through the problem step by step
+- If they ask for the answer directly, politely remind them that you're here to help them learn by guiding their thinking
+- Ask questions about what they understand, what forces or principles might be involved, or how they might approach the problem
+- Be encouraging and supportive while maintaining the educational goal of guided discovery`
+});
+
+const postAnswerTutorAgent = ai.definePrompt({
+  name: 'postAnswerTutor', 
+  description: 'Discusses answers and provides explanations after student attempts question',
+  system: `You are an educational AI tutor helping a student with a physics question. The student has already attempted this question.
+
+You have access to their submission details and can reference them directly in your responses. The specific details will be provided in the system instruction.
+
+You can now freely:
+- Reference their specific answer choice by letter (A, B, C, D) and explain why it was right/wrong
+- Discuss why the correct answer is right and explain the reasoning
+- Explain why incorrect answers are wrong and address common misconceptions
+- Provide detailed explanations of the underlying physics concepts
+- Give additional examples to reinforce understanding
+- Help them understand how to approach similar problems in the future
+- Celebrate their success if they got it right, or help them learn from mistakes if they got it wrong
+- Be encouraging and focus on learning and understanding
+
+Always reference their specific answer when relevant to make the conversation personal and educational.`
+});
+
+const transitionAgent = ai.definePrompt({
+  name: 'transitionAgent',
+  description: 'Handles transitions when student moves from pre-answer to post-answer state',
+  system: `You are an educational AI tutor handling the moment when a student has just submitted their answer to a physics question.
+
+The student's submission details will be provided in the system instruction.
+
+Your role:
+- Acknowledge their specific answer choice (e.g., "I see you selected option D") in an encouraging way
+- Provide a brief, natural transition that recognizes they've now answered
+- Then seamlessly move into discussing why their answer was right/wrong and explaining the concepts
+- Keep the transition smooth and supportive - don't make it feel like you're switching personalities
+- Be positive regardless of whether they got it right or wrong
+- Reference their actual selection to make it personal and relevant
+- Focus on the learning opportunity this creates`
+});
+
 // Store active chat instances by session ID
 // In production, you'd want to use a persistent store like Firestore
 const activeChatSessions = new Map();
@@ -336,19 +390,182 @@ const sendChatMessage = onCall({
     let chat;
     let currentSessionId = sessionId;
     
-    // Prepare the system instruction with clear guidance about the greeting
-    const effectiveSystemInstruction = systemInstruction || 
-      `You are a helpful AI assistant. The user has already seen an initial greeting message from you in the chat interface that said: "Hello! I'm your AI assistant. I can help you with a variety of tasks. Would you like to: hear a joke, learn about a topic, or get help with a question? Just let me know how I can assist you today!" DO NOT repeat this greeting or reference it directly - continue the conversation naturally as if you've already exchanged that first message.`;
+    // Extract question state information from context (following Genkit best practices)
+    const questionState = context?.questionState || {};
+    const isContextUpdate = questionState.isContextUpdate || false;
+    const questionStatus = isContextUpdate ? (questionState.newStatus || 'attempted') : (questionState.status || 'active');
+    const hasAttempted = questionState.lastSubmission || questionStatus === 'attempted' || questionState.hasAttempted;
+    const previousStatus = questionState.previousStatus;
+    
+    // Log state detection for debugging
+    console.log('Question state detection:', {
+      isContextUpdate,
+      questionStatus,
+      hasAttempted,
+      previousStatus,
+      contextKeys: Object.keys(context || {}),
+      questionStateKeys: Object.keys(questionState || {}),
+      lastSubmission: questionState.lastSubmission ? {
+        selectedAnswer: questionState.lastSubmission.selectedAnswer,
+        isCorrect: questionState.lastSubmission.isCorrect,
+        correctOptionId: questionState.lastSubmission.correctOptionId
+      } : null
+    });
+    
+    // Select appropriate agent based on state
+    let selectedAgent;
+    let agentName;
+    
+    if (isContextUpdate && (previousStatus !== questionStatus || previousStatus === 'active')) {
+      // This is a transition from unanswered to answered
+      selectedAgent = transitionAgent;
+      agentName = 'transitionAgent';
+      console.log(`🔄 Using transition agent for status change: ${previousStatus} → ${questionStatus}`);
+    } else if (hasAttempted) {
+      // Student has attempted the question - use post-answer agent
+      selectedAgent = postAnswerTutorAgent;
+      agentName = 'postAnswerTutor';
+      console.log('Using post-answer tutor agent (student has attempted question)');
+    } else {
+      // Student hasn't answered yet - use pre-answer agent
+      selectedAgent = preAnswerTutorAgent;
+      agentName = 'preAnswerTutor';
+      console.log('Using pre-answer tutor agent (student has not yet answered)');
+    }
+    
+    // Prepare the system instruction with educational context
+    // Always use the agent system when we have questionState context
+    let effectiveSystemInstruction = (context?.questionState) ? selectedAgent.system : (systemInstruction || selectedAgent.system);
+    
+    // Add additional context about the question if provided
+    if (context?.aiChatContext) {
+      const contextInfo = `
+
+ADDITIONAL QUESTION CONTEXT:
+${context.aiChatContext}
+
+This additional context should inform your understanding of the concepts being tested and help you provide more targeted assistance.`;
+      
+      effectiveSystemInstruction += contextInfo;
+    }
+    
+    // Add question-specific information to system instruction (not context)
+    if (context?.sessionInfo) {
+      // For pre-answer agent, include topic info
+      if (!questionState.lastSubmission) {
+        const topicInfo = `
+
+CURRENT QUESTION CONTEXT:
+- Course: ${context.sessionInfo.courseId}
+- Topic: ${context.sessionInfo.topic}
+- Student has NOT yet answered this question
+- Use Socratic method to guide their thinking
+
+IMPORTANT: Help guide the student's thinking about ${context.sessionInfo.topic} concepts without giving away the answer.`;
+        
+        effectiveSystemInstruction += topicInfo;
+        console.log('Enhanced system instruction for pre-answer scenario');
+      }
+    }
+    
+    // Add detailed submission information for post-answer scenarios
+    if (questionState.lastSubmission && context?.sessionInfo) {
+      const answerDetails = questionState.answerDetails || {};
+      
+      // Handle different question types
+      if (context.sessionInfo.questionType === 'longAnswer') {
+        // Long answer question context
+        const questionInfo = `
+
+CURRENT QUESTION CONTEXT:
+- Course: ${context.sessionInfo.courseId}
+- Topic: ${context.sessionInfo.topic}
+- Question Type: Long Answer
+- Student's answer: "${questionState.lastSubmission.answer}"
+- Word Count: ${questionState.lastSubmission.wordCount || 'Unknown'}
+- Score: ${questionState.lastSubmission.totalScore}/${questionState.lastSubmission.maxScore} (${questionState.lastSubmission.percentage}%)
+- Overall Feedback: "${questionState.lastSubmission.overallFeedback}"
+
+RUBRIC SCORES:
+${questionState.lastSubmission.rubricScores?.map(score => 
+  `- ${score.criterion}: ${score.score}/${score.maxPoints} - ${score.feedback}`
+).join('\n') || 'No rubric scores available'}
+
+STRENGTHS: ${questionState.lastSubmission.strengths?.join(', ') || 'None identified'}
+IMPROVEMENTS: ${questionState.lastSubmission.improvements?.join(', ') || 'None identified'}
+
+IMPORTANT: You can reference their specific answer text and discuss exactly why they earned or lost points on each rubric criterion.`;
+        
+        effectiveSystemInstruction += questionInfo;
+        
+        console.log('Enhanced system instruction with long answer details:', {
+          wordCount: questionState.lastSubmission.wordCount,
+          totalScore: questionState.lastSubmission.totalScore,
+          rubricCount: questionState.lastSubmission.rubricScores?.length
+        });
+        
+      } else {
+        // Multiple choice question context
+        const questionInfo = `
+
+CURRENT QUESTION CONTEXT:
+- Course: ${context.sessionInfo.courseId}
+- Topic: ${context.sessionInfo.topic}
+- Question Type: Multiple Choice
+- Student selected: Option ${questionState.lastSubmission.selectedAnswer?.toUpperCase()} - "${answerDetails.studentAnswerText || 'Unknown option'}"
+- Result: ${questionState.lastSubmission.isCorrect ? 'CORRECT' : 'INCORRECT'}
+- Correct answer: Option ${questionState.lastSubmission.correctOptionId?.toUpperCase()} - "${answerDetails.correctAnswerText || 'Unknown option'}"
+- Feedback given: "${questionState.lastSubmission.feedback}"
+
+IMPORTANT: Use these SPECIFIC details in your response. Reference "Option ${questionState.lastSubmission.selectedAnswer?.toUpperCase()}" and "Option ${questionState.lastSubmission.correctOptionId?.toUpperCase()}" directly.`;
+        
+        effectiveSystemInstruction += questionInfo;
+        
+        console.log('Enhanced system instruction with multiple choice details:', {
+          selectedAnswer: questionState.lastSubmission.selectedAnswer,
+          correctAnswer: questionState.lastSubmission.correctOptionId,
+          studentText: answerDetails.studentAnswerText,
+          correctText: answerDetails.correctAnswerText
+        });
+      }
+    }
+    
+    // Log the final effective system instruction for debugging
+    console.log('Final effective system instruction preview:', effectiveSystemInstruction.substring(0, 200) + '...');
     
     // Check if we have an existing chat session
     if (sessionId && activeChatSessions.has(sessionId)) {
-      chat = activeChatSessions.get(sessionId);
-      console.log(`Using existing chat session: ${sessionId}`);
-    } else {
-      // Create a new session
-      // Session creation is not needed with the new format
+      const existingChat = activeChatSessions.get(sessionId);
       
-      // Create a chat with the correct format for Gemini 2.0
+      // Always create new chat when using agent system if agent has changed or we have questionState
+      if (isContextUpdate || 
+          agentName !== existingChat.lastAgentUsed || 
+          (context?.questionState && !existingChat.lastAgentUsed)) {
+        
+        console.log(`🔄 Creating new chat for agent switch from ${existingChat.lastAgentUsed || 'none'} to ${agentName}`);
+        
+        // Create new chat with the selected agent and enhanced system instruction
+        chat = ai.chat({
+          model: googleAI.model(model),
+          system: effectiveSystemInstruction,
+          config: {
+            temperature: 0.7
+          },
+          context: context
+        });
+        
+        // Store the agent name for future reference
+        chat.lastAgentUsed = agentName;
+        activeChatSessions.set(sessionId, chat);
+      } else {
+        chat = existingChat;
+        console.log(`Using existing chat session: ${sessionId} with agent: ${agentName}`);
+      }
+    } else {
+      // Create a new session with the appropriate agent
+      console.log(`Creating new chat session with agent: ${agentName}`);
+      
+      // Create a chat using the enhanced system instruction
       chat = ai.chat({
         model: googleAI.model(model),
         system: effectiveSystemInstruction,
@@ -358,7 +575,10 @@ const sendChatMessage = onCall({
         context: context // Pass the context to the chat
       });
       
-      console.log("Chat initialized with system instruction");
+      // Store the agent name for future reference
+      chat.lastAgentUsed = agentName;
+      
+      console.log("Chat initialized with specialized agent");
       
       // Generate a new session ID for tracking
       currentSessionId = Date.now().toString();
@@ -478,7 +698,10 @@ const sendChatMessage = onCall({
     return {
       text: responseText,
       streaming: streaming,
-      sessionId: currentSessionId // Return the session ID so client can maintain the conversation
+      sessionId: currentSessionId, // Return the session ID so client can maintain the conversation
+      agentUsed: agentName, // For debugging and logging
+      questionStatus: questionStatus, // Echo back the detected status
+      isTransition: isContextUpdate // Indicate if this was a transition response
     };
   } catch (error) {
     console.error('Error sending chat message:', error);

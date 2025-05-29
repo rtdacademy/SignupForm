@@ -91,6 +91,8 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from '../components/ui/tooltip';
+import SurveyResultsViewer from './SurveyResultsViewer';
+import NotificationResultsViewer from './NotificationResultsViewer';
 import { 
   Loader2, 
   Plus, 
@@ -120,6 +122,7 @@ import {
   Square,
   Triangle,
   GraduationCap,
+  BarChart3,
   Trophy,
   Target,
   Brain,
@@ -354,6 +357,9 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   
   // State for student messaging sheet
   const [messagingSheetOpen, setMessagingSheetOpen] = useState(false);
+  const [surveyResultsSheetOpen, setSurveyResultsSheetOpen] = useState(false);
+  const [selectedSurveyNotification, setSelectedSurveyNotification] = useState(null);
+  const [surveyFilteredStudents, setSurveyFilteredStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [selectedNotification, setSelectedNotification] = useState(null);
   
@@ -368,6 +374,9 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   
   // Track when conditions change to recalculate matched students
   const [conditionsChanged, setConditionsChanged] = useState(false);
+  
+  // Track if any filters have been modified from initial state
+  const [filtersModified, setFiltersModified] = useState(false);
   
   // School year options
   const schoolYearOptions = getSchoolYearOptions();
@@ -442,6 +451,12 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
       return [];
     }
     
+    // If using current form state and filters haven't been modified, return empty array
+    // However, we need to check if we're in edit mode with existing filters
+    if (useCurrentFormState && !filtersModified && !editMode) {
+      return [];
+    }
+    
     // Create a form state object for the utility function if needed
     const formState = useCurrentFormState ? {
       selectedStudentTypes,
@@ -476,7 +491,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   
   // Keep track of student count when conditions change
   useEffect(() => {
-    if (editMode) {
+    if (editMode && filtersModified) {
       updateMatchedStudentCount();
     }
   }, [
@@ -491,6 +506,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     selectedCategories,
     selectedActiveFutureArchivedValues,
     conditionLogic,
+    filtersModified,
     editMode
   ]);
   
@@ -500,6 +516,21 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     setFilteredStudents(students);
     setSelectedNotification(notification);
     setMessagingSheetOpen(true);
+  };
+
+  const handleOpenSurveyResultsSheet = (notification) => {
+    console.log('🔍 [Parent] Opening survey results sheet with notification:', notification);
+    console.log('🔍 [Parent] Notification ID:', notification?.id);
+    console.log('🔍 [Parent] Notification conditions:', notification?.conditions);
+    
+    // Calculate the filtered students using the same logic as messaging
+    const students = filterStudentsByConditions(notification);
+    console.log('🔍 [Parent] Filtered students for survey results:', students);
+    console.log('🔍 [Parent] Number of intended recipients:', students.length);
+    
+    setSurveyFilteredStudents(students);
+    setSelectedSurveyNotification(notification);
+    setSurveyResultsSheetOpen(true);
   };
   
   // Fetch all notifications from Firebase
@@ -579,6 +610,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     setCustomDates([]); // Reset custom dates
     setCurrentNotification(null);
     setEditMode(false);
+    setFiltersModified(false);
   };
   
   // Add a new survey question
@@ -781,6 +813,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
     }
     
     setEditMode(true);
+    setFiltersModified(true); // When editing, we have existing filters
   };
   
   // Sanitize HTML content
@@ -1142,6 +1175,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   // Handle multi-select changes
   const handleMultiSelectChange = (field, value) => {
     setConditionsChanged(true);
+    setFiltersModified(true);
     
     switch (field) {
       case 'studentTypes':
@@ -1235,6 +1269,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   // Handle category selection for notifications
   const handleCategoryChange = (categoryId, teacherEmailKey) => {
     setConditionsChanged(true);
+    setFiltersModified(true);
     
     setSelectedCategories(prevCategories => {
       // Find the teacher entry
@@ -1277,6 +1312,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   // Handle removing a category
   const handleRemoveCategory = (categoryId, teacherEmailKey) => {
     setConditionsChanged(true);
+    setFiltersModified(true);
     
     setSelectedCategories(prevCategories => {
       // Find the teacher entry
@@ -1308,115 +1344,125 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
   };
 
   // Render badges for notification conditions
-  const renderConditionBadges = (notification) => {
+  // Create compact survey results overview
+  const getCompactSurveyResults = (notification) => {
+    if (notification.type !== 'survey' && notification.type !== 'weekly-survey') {
+      return null;
+    }
+
+    const students = filterStudentsByConditions(notification);
+    const totalIntended = students.length;
+    
+    // This is a simplified calculation - in a real implementation, you'd fetch actual results
+    // For now, we'll show intended recipient count and survey question count
+    const questionCount = notification.surveyQuestions?.length || 0;
+    
+    return (
+      <div className="mt-2 p-2 bg-gray-50 rounded-md text-xs">
+        <div className="flex items-center justify-between">
+          <span className="font-medium text-gray-600">Survey Overview</span>
+          <div className="flex items-center space-x-2">
+            <span className="text-blue-600">{totalIntended} recipients</span>
+            <span className="text-gray-400">•</span>
+            <span className="text-purple-600">{questionCount} questions</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const getContentPreviewForTooltip = (notification) => {
+    if (notification.type === 'survey' || notification.type === 'weekly-survey') {
+      const questions = notification.surveyQuestions || [];
+      if (questions.length === 0) {
+        return 'No survey questions defined.';
+      }
+      
+      const questionsList = questions.map((q, index) => 
+        `${index + 1}. ${q.question} (${q.type})`
+      ).join('\n');
+      
+      return `Survey with ${questions.length} question${questions.length === 1 ? '' : 's'}:\n\n${questionsList}`;
+    } else {
+      // For regular notifications, show the content
+      if (!notification.content) {
+        return 'No content preview available.';
+      }
+      
+      // Strip HTML tags and decode HTML entities for tooltip display
+      const div = document.createElement('div');
+      div.innerHTML = notification.content;
+      const textContent = div.textContent || div.innerText || '';
+      
+      // Truncate if too long for tooltip
+      if (textContent.length > 300) {
+        return textContent.substring(0, 300) + '...';
+      }
+      
+      return textContent;
+    }
+  };
+
+  const renderConditionsWithTooltip = (notification) => {
     const conditions = notification.conditions || {};
-    const badges = [];
+    const conditionTexts = [];
     
     if (conditions.studentTypes && conditions.studentTypes.length > 0) {
-      badges.push(
-        <Badge key="studentTypes" variant="outline" className="mr-1 mb-1">
-          {conditions.studentTypes.length} Student {conditions.studentTypes.length === 1 ? 'Type' : 'Types'}
-        </Badge>
-      );
+      conditionTexts.push(`${conditions.studentTypes.length} Student ${conditions.studentTypes.length === 1 ? 'Type' : 'Types'}: ${conditions.studentTypes.join(', ')}`);
     }
     
     if (conditions.diplomaMonths && conditions.diplomaMonths.length > 0) {
-      badges.push(
-        <Badge key="diplomaMonths" variant="outline" className="mr-1 mb-1">
-          {conditions.diplomaMonths.length} Diploma {conditions.diplomaMonths.length === 1 ? 'Month' : 'Months'}
-        </Badge>
-      );
+      conditionTexts.push(`${conditions.diplomaMonths.length} Diploma ${conditions.diplomaMonths.length === 1 ? 'Month' : 'Months'}: ${conditions.diplomaMonths.join(', ')}`);
     }
     
     if (conditions.courses && conditions.courses.length > 0) {
-      badges.push(
-        <Badge key="courses" variant="outline" className="mr-1 mb-1">
-          {conditions.courses.length} {conditions.courses.length === 1 ? 'Course' : 'Courses'}
-        </Badge>
-      );
+      conditionTexts.push(`${conditions.courses.length} ${conditions.courses.length === 1 ? 'Course' : 'Courses'}: ${conditions.courses.join(', ')}`);
     }
     
     if (conditions.schoolYears && conditions.schoolYears.length > 0) {
-      badges.push(
-        <Badge key="schoolYears" variant="outline" className="mr-1 mb-1">
-          {conditions.schoolYears.length} School {conditions.schoolYears.length === 1 ? 'Year' : 'Years'}
-        </Badge>
-      );
+      conditionTexts.push(`${conditions.schoolYears.length} School ${conditions.schoolYears.length === 1 ? 'Year' : 'Years'}: ${conditions.schoolYears.join(', ')}`);
     }
     
-    // Email filtering removed
-    
     if (conditions.categories && conditions.categories.length > 0) {
+      const categoryDetails = conditions.categories.map(teacherCat => {
+        const teacherName = Object.keys(teacherCat)[0];
+        const categories = Object.values(teacherCat)[0];
+        return `${teacherName}: ${categories ? categories.join(', ') : 'No categories'}`;
+      });
       const categoryCount = conditions.categories.reduce((count, teacherCat) => {
         const categories = Object.values(teacherCat)[0];
         return count + (categories ? categories.length : 0);
       }, 0);
-      
-      badges.push(
-        <Badge key="categories" variant="outline" className="mr-1 mb-1 bg-purple-50 text-purple-700 border-purple-200">
-          {categoryCount} {categoryCount === 1 ? 'Category' : 'Categories'}
-        </Badge>
-      );
+      conditionTexts.push(`${categoryCount} ${categoryCount === 1 ? 'Category' : 'Categories'}: ${categoryDetails.join('; ')}`);
     }
     
     if (conditions.scheduleEndDateRange) {
-      badges.push(
-        <Badge key="dateRange" variant="outline" className="mr-1 mb-1">
-          Date Range
-        </Badge>
-      );
+      const start = new Date(conditions.scheduleEndDateRange.start).toLocaleDateString();
+      const end = new Date(conditions.scheduleEndDateRange.end).toLocaleDateString();
+      conditionTexts.push(`Schedule End Date: ${start} to ${end}`);
     }
     
     if (conditions.ageRange) {
-      badges.push(
-        <Badge key="age-range" variant="secondary" className="mr-1 mb-1">
-          Age: {conditions.ageRange.min}-{conditions.ageRange.max}
-        </Badge>
-      );
+      conditionTexts.push(`Age Range: ${conditions.ageRange.min}-${conditions.ageRange.max}`);
     }
 
     if (conditions.activeFutureArchivedValues && conditions.activeFutureArchivedValues.length > 0) {
-      badges.push(
-        <Badge key="active-future-archived" variant="outline" className="mr-1 mb-1">
-          State: {conditions.activeFutureArchivedValues.join(', ')}
-        </Badge>
-      );
+      conditionTexts.push(`Student State: ${conditions.activeFutureArchivedValues.join(', ')}`);
     }
 
-    // Determine display frequency badge
-    const getDisplayFrequencyBadge = () => {
-      // Check for the new displayConfig first
+    // Get frequency text
+    const getFrequencyText = () => {
       if (notification.displayConfig) {
         const frequency = notification.displayConfig.frequency;
         
         if (frequency === 'one-time') {
-          // One-time notification/survey
-          return (
-            <Badge key="one-time" variant="secondary" className="mr-1 mb-1 bg-blue-100 text-blue-800">
-              One-time {notification.type === 'survey' ? `Survey (${notification.surveyQuestions?.length || 0} questions)` : 'Notification'}
-            </Badge>
-          );
+          return `One-time ${notification.type === 'survey' ? `Survey (${notification.surveyQuestions?.length || 0} questions)` : 'Notification'}`;
         } else if (frequency === 'weekly') {
-          // Weekly notification/survey
           const dayOfWeek = notification.displayConfig.dayOfWeek;
           const capitalizedDay = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
-          const badgeText = `Weekly ${notification.type === 'survey' ? 'Survey' : 'Notification'} on ${capitalizedDay}s`;
-          
-          return (
-            <Badge key="weekly" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
-              {badgeText}
-            </Badge>
-          );
+          return `Weekly ${notification.type === 'survey' ? 'Survey' : 'Notification'} on ${capitalizedDay}s`;
         } else if (frequency === 'custom') {
-          // Custom dates notification/survey
-          const badgeText = `${notification.type === 'survey' ? 'Survey' : 'Notification'} on custom dates`;
-          const badge = (
-            <Badge key="custom" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
-              {badgeText}
-            </Badge>
-          );
-          
-          // Add tooltip for custom dates if available
+          let text = `${notification.type === 'survey' ? 'Survey' : 'Notification'} on custom dates`;
           if (notification.displayConfig.dates && notification.displayConfig.dates.length > 0) {
             const dateStrings = notification.displayConfig.dates
               .sort((a, b) => a - b)
@@ -1426,50 +1472,22 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                 year: 'numeric'
               }))
               .join(', ');
-              
-            return (
-              <TooltipProvider key="custom-dates-tooltip">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    {badge}
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Renews on: {dateStrings}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            );
+            text += ` (${dateStrings})`;
           }
-          
-          return badge;
+          return text;
         }
       }
       
-      // For backward compatibility, fallback to renewalConfig
+      // Fallback to renewalConfig
       if (notification.renewalConfig) {
         const method = notification.renewalConfig.method;
         
         if (method === 'day') {
-          // Weekly notification/survey
           const dayOfWeek = notification.renewalConfig.dayOfWeek;
           const capitalizedDay = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
-          const badgeText = `Weekly ${notification.type === 'survey' || notification.type === 'weekly-survey' ? 'Survey' : 'Notification'} on ${capitalizedDay}s`;
-          
-          return (
-            <Badge key="weekly-legacy" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
-              {badgeText}
-            </Badge>
-          );
+          return `Weekly ${notification.type === 'survey' || notification.type === 'weekly-survey' ? 'Survey' : 'Notification'} on ${capitalizedDay}s`;
         } else if (method === 'custom') {
-          // Custom dates notification/survey
-          const badgeText = `${notification.type === 'survey' || notification.type === 'weekly-survey' ? 'Survey' : 'Notification'} on custom dates`;
-          const badge = (
-            <Badge key="custom-legacy" variant="secondary" className="mr-1 mb-1 bg-green-100 text-green-800">
-              {badgeText}
-            </Badge>
-          );
-          
-          // Add tooltip for custom dates if available
+          let text = `${notification.type === 'survey' || notification.type === 'weekly-survey' ? 'Survey' : 'Notification'} on custom dates`;
           if (notification.renewalConfig.dates && notification.renewalConfig.dates.length > 0) {
             const dateStrings = notification.renewalConfig.dates
               .sort((a, b) => a - b)
@@ -1479,46 +1497,51 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                 year: 'numeric'
               }))
               .join(', ');
-              
-            return (
-              <TooltipProvider key="custom-dates-legacy-tooltip">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    {badge}
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Renews on: {dateStrings}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            );
+            text += ` (${dateStrings})`;
           }
-          
-          return badge;
+          return text;
         }
       }
       
-      // Default to one-time notification/survey
-      return (
-        <Badge key="one-time-default" variant="secondary" className="mr-1 mb-1 bg-blue-100 text-blue-800">
-          One-time {notification.type === 'survey' || notification.type === 'weekly-survey' ? 
-            `Survey (${notification.surveyQuestions?.length || 0} questions)` : 'Notification'}
-        </Badge>
-      );
+      return `One-time ${notification.type === 'survey' || notification.type === 'weekly-survey' ? 
+        `Survey (${notification.surveyQuestions?.length || 0} questions)` : 'Notification'}`;
     };
     
-    // Add the display frequency badge
-    badges.push(getDisplayFrequencyBadge());
+    const frequencyText = getFrequencyText();
     
-    return badges.length > 0 ? (
-      <div className="flex flex-wrap mt-1">
-        <Badge variant="secondary" className="mr-1 mb-1">
-          {conditions.logic === 'and' ? 'ALL' : 'ANY'}
-        </Badge>
-        {badges}
-      </div>
-    ) : (
-      <span className="text-gray-500 text-sm">No conditions</span>
+    if (conditionTexts.length === 0) {
+      return (
+        <div className="text-sm text-gray-600">
+          <div className="font-medium">{frequencyText}</div>
+          <div className="text-gray-500">No conditions</div>
+        </div>
+      );
+    }
+    
+    const tooltipContent = [
+      `Logic: ${conditions.logic === 'and' ? 'ALL conditions must be met' : 'ANY condition can be met'}`,
+      `Frequency: ${frequencyText}`,
+      '',
+      'Conditions:',
+      ...conditionTexts.map(text => `• ${text}`)
+    ].join('\n');
+    
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="text-sm text-gray-600 cursor-help">
+              <div className="font-medium">{frequencyText}</div>
+              <div className="text-gray-500">
+                {conditions.logic === 'and' ? 'ALL' : 'ANY'} of {conditionTexts.length} conditions
+              </div>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-md text-left whitespace-pre-line">
+            <p>{tooltipContent}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   };
   
@@ -2299,7 +2322,10 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                         <div className="text-sm font-medium mb-1 text-gray-600">Condition Logic:</div>
                         <Select 
                           value={conditionLogic} 
-                          onValueChange={setConditionLogic}
+                          onValueChange={(value) => {
+                            setConditionLogic(value);
+                            setFiltersModified(true);
+                          }}
                         >
                           <SelectTrigger className="w-80 border-2 font-medium" style={{ 
                             borderColor: conditionLogic === 'and' ? '#2563eb' : '#f59e0b',
@@ -2387,6 +2413,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                   }`}
                                   onClick={() => {
                                     setConditionsChanged(true);
+                                    setFiltersModified(true);
                                     
                                     if (isSelected) {
                                       // Remove if already selected
@@ -2428,6 +2455,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                 size="sm"
                                 onClick={() => {
                                   setConditionsChanged(true);
+                                  setFiltersModified(true);
                                   setSelectedActiveFutureArchivedValues(['Active']);
                                 }}
                               >
@@ -2634,7 +2662,10 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                 <Button 
                                   variant="outline" 
                                   size="sm"
-                                  onClick={() => setSelectedCategories([])}
+                                  onClick={() => {
+                                    setSelectedCategories([]);
+                                    setFiltersModified(true);
+                                  }}
                                   className="border-indigo-300 text-indigo-700 hover:bg-indigo-100"
                                 >
                                   Clear All
@@ -2750,10 +2781,13 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                 id="date-range-start"
                                 type="date" 
                                 value={scheduleEndDateRange.start} 
-                                onChange={(e) => setScheduleEndDateRange({
-                                  ...scheduleEndDateRange,
-                                  start: e.target.value
-                                })}
+                                onChange={(e) => {
+                                  setScheduleEndDateRange({
+                                    ...scheduleEndDateRange,
+                                    start: e.target.value
+                                  });
+                                  setFiltersModified(true);
+                                }}
                                 className="w-full pr-10"
                               />
                               <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -2767,10 +2801,13 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                 id="date-range-end"
                                 type="date" 
                                 value={scheduleEndDateRange.end} 
-                                onChange={(e) => setScheduleEndDateRange({
-                                  ...scheduleEndDateRange,
-                                  end: e.target.value
-                                })}
+                                onChange={(e) => {
+                                  setScheduleEndDateRange({
+                                    ...scheduleEndDateRange,
+                                    end: e.target.value
+                                  });
+                                  setFiltersModified(true);
+                                }}
                                 className="w-full pr-10"
                               />
                               <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -2821,10 +2858,13 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                               min="5"
                               max="100"
                               value={ageRange.min} 
-                              onChange={(e) => setAgeRange({
-                                ...ageRange,
-                                min: e.target.value
-                              })}
+                              onChange={(e) => {
+                                setAgeRange({
+                                  ...ageRange,
+                                  min: e.target.value
+                                });
+                                setFiltersModified(true);
+                              }}
                               placeholder="e.g. 14"
                             />
                           </div>
@@ -2837,10 +2877,13 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                               min="5"
                               max="100" 
                               value={ageRange.max} 
-                              onChange={(e) => setAgeRange({
-                                ...ageRange,
-                                max: e.target.value
-                              })}
+                              onChange={(e) => {
+                                setAgeRange({
+                                  ...ageRange,
+                                  max: e.target.value
+                                });
+                                setFiltersModified(true);
+                              }}
                               placeholder="e.g. 18"
                             />
                           </div>
@@ -2881,22 +2924,48 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                 >
                   Cancel
                 </Button>
-                <Button 
-                  onClick={saveNotification}
-                  disabled={isSaving}
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      {currentNotification ? 'Update' : 'Save'} Notification
-                    </>
+                <div className="flex items-center gap-2">
+                  {filtersModified && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleOpenStudentSelectionDialog}
+                      className="mr-2"
+                    >
+                      <Search className="h-4 w-4 mr-1" />
+                      {matchingStudentCount} student{matchingStudentCount !== 1 ? 's' : ''} selected
+                    </Button>
                   )}
-                </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <Button 
+                            onClick={saveNotification}
+                            disabled={isSaving || !filtersModified}
+                          >
+                            {isSaving ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="mr-2 h-4 w-4" />
+                                {currentNotification ? 'Update' : 'Save'} Notification
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      {!filtersModified && !isSaving && (
+                        <TooltipContent>
+                          <p>Please select at least one filter to target students</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
               </CardFooter>
             </Card>
           ) : (
@@ -2963,10 +3032,8 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-[300px]">Title</TableHead>
-                          <TableHead>Content Preview</TableHead>
                           <TableHead>Conditions</TableHead>
                           <TableHead className="w-[100px]">Status</TableHead>
-                          <TableHead className="w-[100px]">Students</TableHead>
                           <TableHead className="w-[180px]">Last Updated</TableHead>
                           <TableHead className="text-right w-[180px]">Actions</TableHead>
                         </TableRow>
@@ -2978,10 +3045,19 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                           return (
                             <TableRow key={notification.id}>
                               <TableCell className="font-medium">
-                                <div className="flex items-center space-x-2">
-                                  <FileText className="h-4 w-4 text-gray-400" />
-                                  <span>{notification.title}</span>
-                                </div>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="flex items-center space-x-2 cursor-help">
+                                        <FileText className="h-4 w-4 text-gray-400" />
+                                        <span>{notification.title}</span>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-md text-left whitespace-pre-line">
+                                      <p>{getContentPreviewForTooltip(notification)}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                                 <div className="text-xs text-gray-500 mt-1 flex items-center space-x-2">
                                   {/* Use strict boolean check with !! for repeatInterval */}
                                   <Badge variant="outline" className={`
@@ -3024,15 +3100,7 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="text-sm text-gray-700 max-w-xs truncate">
-                                  {notification.type === 'survey' || notification.type === 'weekly-survey'
-                                    ? renderSurveyPreview(notification)
-                                    : truncateContent(notification.content)
-                                  }
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {renderConditionBadges(notification)}
+                                {renderConditionsWithTooltip(notification)}
                               </TableCell>
                               <TableCell>
                                 <Badge 
@@ -3041,26 +3109,6 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                 >
                                   {notification.active ? 'Active' : 'Inactive'}
                                 </Badge>
-                              </TableCell>
-                              <TableCell>
-                                {isLoading && notification.active ? (
-                                  <div className="flex items-center">
-                                    <Badge variant="outline" className="bg-blue-50 border-blue-200 flex items-center gap-1">
-                                      <Loader2 className="h-3 w-3 animate-spin" />
-                                      Refreshing...
-                                    </Badge>
-                                  </div>
-                                ) : (
-                                  <Badge variant="outline" className={`${notification.active 
-                                    ? "bg-blue-50 border-blue-200" 
-                                    : "bg-gray-50 border-gray-200 text-gray-500"}`}
-                                  >
-                                    {typeof matchingStudentCount === 'number' 
-                                      ? `${matchingStudentCount} ${matchingStudentCount === 1 ? 'student' : 'students'}`
-                                      : `${matchingStudentCount}`
-                                    }
-                                  </Badge>
-                                )}
                               </TableCell>
                               <TableCell>
                                 <div className="text-sm">
@@ -3099,6 +3147,16 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
                                   >
                                     <MailPlus className="h-4 w-4" />
                                   </Button>
+                                  {(notification.type === 'survey' || notification.type === 'weekly-survey' || notification.type === 'notification') && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={() => handleOpenSurveyResultsSheet(notification)}
+                                      title={notification.type === 'survey' || notification.type === 'weekly-survey' ? 'View Survey Results' : 'View Notification Status'}
+                                    >
+                                      <BarChart3 className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                   <Button 
                                     variant="ghost" 
                                     size="icon"
@@ -3216,6 +3274,65 @@ function StudentDashboardNotifications({ teacherCategories = {}, categoryTypes =
               Close
             </Button>
           </SheetFooter>
+        </SheetContent>
+      </Sheet>
+      
+      {/* Survey Results Sheet */}
+      <Sheet open={surveyResultsSheetOpen} onOpenChange={setSurveyResultsSheetOpen}>
+        <SheetContent side="right" className="w-[95%] p-0 max-w-screen overflow-hidden flex flex-col">
+          <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
+            <div className="flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
+              <SheetTitle>
+                {selectedSurveyNotification?.type === 'survey' || selectedSurveyNotification?.type === 'weekly-survey' 
+                  ? 'Survey Results' 
+                  : 'Notification Status'
+                }
+              </SheetTitle>
+            </div>
+            <SheetDescription>
+              {selectedSurveyNotification && (
+                <div className="flex flex-wrap items-center mt-1">
+                  <span className="text-sm text-gray-500 mr-2">
+                    {selectedSurveyNotification.type === 'survey' || selectedSurveyNotification.type === 'weekly-survey' 
+                      ? 'Survey:' 
+                      : 'Notification:'
+                    }
+                  </span>
+                  <Badge variant="outline">{selectedSurveyNotification.title}</Badge>
+                  <span className="text-sm text-gray-500 mx-2">•</span>
+                  <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                    {surveyFilteredStudents.length} {surveyFilteredStudents.length === 1 ? 'student' : 'students'} intended
+                  </Badge>
+                  {selectedSurveyNotification.type === 'survey' || selectedSurveyNotification.type === 'weekly-survey' ? (
+                    <>
+                      <span className="text-sm text-gray-500 mx-2">•</span>
+                      <Badge variant="outline">
+                        {selectedSurveyNotification.surveyQuestions?.length || 0} {(selectedSurveyNotification.surveyQuestions?.length || 0) === 1 ? 'question' : 'questions'}
+                      </Badge>
+                    </>
+                  ) : null}
+                </div>
+              )}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-grow overflow-auto p-6">
+            {selectedSurveyNotification && (
+              selectedSurveyNotification.type === 'survey' || selectedSurveyNotification.type === 'weekly-survey' ? (
+                <SurveyResultsViewer 
+                  notificationId={selectedSurveyNotification.id} 
+                  notification={selectedSurveyNotification}
+                  intendedRecipients={surveyFilteredStudents}
+                />
+              ) : (
+                <NotificationResultsViewer 
+                  notificationId={selectedSurveyNotification.id} 
+                  notification={selectedSurveyNotification}
+                  intendedRecipients={surveyFilteredStudents}
+                />
+              )
+            )}
+          </div>
         </SheetContent>
       </Sheet>
       

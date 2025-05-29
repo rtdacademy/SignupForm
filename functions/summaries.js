@@ -49,12 +49,16 @@ const syncProfileToCourseSummariesV2 = onValueWritten({
   }
 
   try {
-    // Define profile fields to sync
+    // Define profile fields to sync (excluding arrays and objects that need special handling)
     const profileFields = [
       'LastSync', 'ParentEmail', 'ParentFirstName', 'ParentLastName', 
       'ParentPhone_x0023_', 'StudentEmail', 'StudentPhone', 'age', 'asn', 
       'birthday', 'firstName', 'lastName', 'originalEmail', 
-      'preferredFirstName', 'gender', 'uid'
+      'preferredFirstName', 'gender', 'uid', 'ParentPermission_x003f_',
+      'albertaResident', 'hasLegalRestrictions', 'howDidYouHear',
+      'indigenousIdentification', 'indigenousStatus', 'internationalDocuments',
+      'isLegalGuardian', 'legalDocumentUrl', 'parentRelationship',
+      'studentPhoto', 'whyApplying'
     ];
 
     // Collect changes by comparing before and after
@@ -97,6 +101,40 @@ const syncProfileToCourseSummariesV2 = onValueWritten({
         for (let i = afterGuardians.length + 1; i <= beforeGuardians.length; i++) {
           changes[`guardianEmail${i}`] = null;
         }
+      }
+    }
+
+    // Check for address changes - sync entire address object
+    const beforeAddress = event.data.before && event.data.before.exists() && event.data.before.child('address').exists() ?
+                         event.data.before.child('address').val() : null;
+    const afterAddress = event.data.after.child('address').exists() ?
+                        event.data.after.child('address').val() : null;
+    
+    if (JSON.stringify(beforeAddress) !== JSON.stringify(afterAddress)) {
+      console.log(`Profile field address changed`);
+      changes['address'] = afterAddress !== null ? afterAddress : null;
+    }
+
+    // Check for citizenshipDocuments changes - sync entire array
+    const beforeCitizenshipDocs = event.data.before && event.data.before.exists() && event.data.before.child('citizenshipDocuments').exists() ?
+                                  event.data.before.child('citizenshipDocuments').val() : null;
+    const afterCitizenshipDocs = event.data.after.child('citizenshipDocuments').exists() ?
+                                 event.data.after.child('citizenshipDocuments').val() : null;
+    
+    if (JSON.stringify(beforeCitizenshipDocs) !== JSON.stringify(afterCitizenshipDocs)) {
+      console.log(`Profile field citizenshipDocuments changed`);
+      // Convert object-based array back to actual array if needed
+      if (afterCitizenshipDocs && typeof afterCitizenshipDocs === 'object' && !Array.isArray(afterCitizenshipDocs)) {
+        // Firebase stores arrays as objects with numeric keys
+        const docsArray = [];
+        Object.keys(afterCitizenshipDocs).forEach(key => {
+          if (!isNaN(key)) {
+            docsArray[parseInt(key)] = afterCitizenshipDocs[key];
+          }
+        });
+        changes['citizenshipDocuments'] = docsArray.filter(doc => doc !== undefined);
+      } else {
+        changes['citizenshipDocuments'] = afterCitizenshipDocs;
       }
     }
 
@@ -352,7 +390,11 @@ const updateStudentCourseSummaryV2 = onValueWritten({
         'LastSync', 'ParentEmail', 'ParentFirstName', 'ParentLastName', 
         'ParentPhone_x0023_', 'StudentEmail', 'StudentPhone', 'age', 'asn', 
         'birthday', 'firstName', 'lastName', 'originalEmail', 
-        'preferredFirstName', 'gender', 'uid'
+        'preferredFirstName', 'gender', 'uid', 'ParentPermission_x003f_',
+        'albertaResident', 'hasLegalRestrictions', 'howDidYouHear',
+        'indigenousIdentification', 'indigenousStatus', 'internationalDocuments',
+        'isLegalGuardian', 'legalDocumentUrl', 'parentRelationship',
+        'studentPhoto', 'whyApplying'
       ];
       
       // Copy profile fields
@@ -367,6 +409,31 @@ const updateStudentCourseSummaryV2 = onValueWritten({
       guardians.forEach((guardian, index) => {
         summaryData[`guardianEmail${index + 1}`] = guardian.email || '';
       });
+      
+      // Handle address fields - sync entire address object
+      if (profileData.address) {
+        summaryData['address'] = profileData.address;
+      } else {
+        summaryData['address'] = null;
+      }
+      
+      // Handle citizenshipDocuments array
+      if (profileData.citizenshipDocuments) {
+        // Convert object-based array to actual array if needed
+        if (typeof profileData.citizenshipDocuments === 'object' && !Array.isArray(profileData.citizenshipDocuments)) {
+          const docsArray = [];
+          Object.keys(profileData.citizenshipDocuments).forEach(key => {
+            if (!isNaN(key)) {
+              docsArray[parseInt(key)] = profileData.citizenshipDocuments[key];
+            }
+          });
+          summaryData['citizenshipDocuments'] = docsArray.filter(doc => doc !== undefined);
+        } else {
+          summaryData['citizenshipDocuments'] = profileData.citizenshipDocuments;
+        }
+      } else {
+        summaryData['citizenshipDocuments'] = null;
+      }
       
       // Merge with detected changes
       summaryData = { ...summaryData, ...changes };
@@ -454,7 +521,11 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
       'LastSync', 'ParentEmail', 'ParentFirstName', 'ParentLastName', 
       'ParentPhone_x0023_', 'StudentEmail', 'StudentPhone', 'age', 'asn', 
       'birthday', 'firstName', 'lastName', 'originalEmail', 
-      'preferredFirstName', 'gender', 'uid'
+      'preferredFirstName', 'gender', 'uid', 'ParentPermission_x003f_',
+      'albertaResident', 'hasLegalRestrictions', 'howDidYouHear',
+      'indigenousIdentification', 'indigenousStatus', 'internationalDocuments',
+      'isLegalGuardian', 'legalDocumentUrl', 'parentRelationship',
+      'studentPhoto', 'whyApplying'
     ];
     
     // Copy profile fields
@@ -469,6 +540,31 @@ const createStudentCourseSummaryOnCourseCreateV2 = onValueCreated({
     guardians.forEach((guardian, index) => {
       summaryData[`guardianEmail${index + 1}`] = guardian.email || '';
     });
+    
+    // Handle address fields - sync entire address object
+    if (profileData.address) {
+      summaryData['address'] = profileData.address;
+    } else {
+      summaryData['address'] = null;
+    }
+    
+    // Handle citizenshipDocuments array
+    if (profileData.citizenshipDocuments) {
+      // Convert object-based array to actual array if needed
+      if (typeof profileData.citizenshipDocuments === 'object' && !Array.isArray(profileData.citizenshipDocuments)) {
+        const docsArray = [];
+        Object.keys(profileData.citizenshipDocuments).forEach(key => {
+          if (!isNaN(key)) {
+            docsArray[parseInt(key)] = profileData.citizenshipDocuments[key];
+          }
+        });
+        summaryData['citizenshipDocuments'] = docsArray.filter(doc => doc !== undefined);
+      } else {
+        summaryData['citizenshipDocuments'] = profileData.citizenshipDocuments;
+      }
+    } else {
+      summaryData['citizenshipDocuments'] = null;
+    }
     
     // Define field mappings to extract from event data
     const fieldMappings = {
@@ -700,7 +796,11 @@ const batchSyncStudentDataV2 = onCall({
               'LastSync', 'ParentEmail', 'ParentFirstName', 'ParentLastName', 
               'ParentPhone_x0023_', 'StudentEmail', 'StudentPhone', 'age', 'asn', 
               'birthday', 'firstName', 'lastName', 'originalEmail', 
-              'preferredFirstName', 'gender', 'uid'
+              'preferredFirstName', 'gender', 'uid', 'ParentPermission_x003f_',
+              'albertaResident', 'hasLegalRestrictions', 'howDidYouHear',
+              'indigenousIdentification', 'indigenousStatus', 'internationalDocuments',
+              'isLegalGuardian', 'legalDocumentUrl', 'parentRelationship',
+              'studentPhoto', 'whyApplying'
             ];
             
             // Copy profile fields
@@ -720,6 +820,31 @@ const batchSyncStudentDataV2 = onCall({
             const currentGuardianCount = guardians.length;
             for (let i = currentGuardianCount + 1; i <= 5; i++) { // Assuming max 5 guardians
               summaryData[`guardianEmail${i}`] = null;
+            }
+            
+            // Handle address fields - sync entire address object
+            if (profileData.address) {
+              summaryData['address'] = profileData.address;
+            } else {
+              summaryData['address'] = null;
+            }
+            
+            // Handle citizenshipDocuments array
+            if (profileData.citizenshipDocuments) {
+              // Convert object-based array to actual array if needed
+              if (typeof profileData.citizenshipDocuments === 'object' && !Array.isArray(profileData.citizenshipDocuments)) {
+                const docsArray = [];
+                Object.keys(profileData.citizenshipDocuments).forEach(key => {
+                  if (!isNaN(key)) {
+                    docsArray[parseInt(key)] = profileData.citizenshipDocuments[key];
+                  }
+                });
+                summaryData['citizenshipDocuments'] = docsArray.filter(doc => doc !== undefined);
+              } else {
+                summaryData['citizenshipDocuments'] = profileData.citizenshipDocuments;
+              }
+            } else {
+              summaryData['citizenshipDocuments'] = null;
             }
             
             // 2. Add course fields

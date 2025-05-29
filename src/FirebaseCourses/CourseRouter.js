@@ -5,6 +5,9 @@ import FirebaseCourseWrapper from './FirebaseCourseWrapperImproved';
 // Using dynamic imports for better code splitting
 const COM1255Course = lazy(() => import('./courses/COM1255'));
 const PHY30Course = lazy(() => import('./courses/PHY30'));
+const Course2 = lazy(() => import('./courses/2'));
+const Course100 = lazy(() => import('./courses/100'));
+
 
 // Default template course component for courses without specific implementations
 const TemplateCourse = ({ course }) => {
@@ -72,18 +75,98 @@ const CourseRouter = ({ course, isStaffView = false, devMode = false }) => {
             />
           </Suspense>
         );
-      default:
+      case 2: // 2
+      case '2':
+        // Import course structure JSON directly for Firebase courses
+        const courseStructureData2 = require('./courses/2/course-structure.json');
+        const courseWithStructure2 = {
+          ...course,
+          courseStructure: {
+            title: "Physics 30",
+            structure: courseStructureData2.courseStructure?.units || []
+          }
+        };
+        return (
+          <Suspense fallback={<LoadingCourse />}>
+            <Course2
+              course={courseWithStructure2}
+              activeItemId={currentItemId}
+              onItemSelect={handleItemSelect}
+              isStaffView={isStaffView}
+              devMode={devMode}
+            />
+          </Suspense>
+        );
+            case 100: // 100
+      case '100':
+        // Import course structure JSON directly for Firebase courses
+        const courseStructureData100 = require('./courses/100/course-structure.json');
+        const courseWithStructure100 = {
+          ...course,
+          courseStructure: {
+            title: "Sample Course",
+            structure: courseStructureData100.courseStructure?.units || []
+          }
+        };
+        return (
+          <Suspense fallback={<LoadingCourse />}>
+            <Course100
+              course={courseWithStructure100}
+              activeItemId={currentItemId}
+              onItemSelect={handleItemSelect}
+              isStaffView={isStaffView}
+              devMode={devMode}
+            />
+          </Suspense>
+        );
+    
+    
+            default:
         return <TemplateCourse course={course} />;
     }
   };
 
+  // Get the enhanced course from renderCourseContent
+  const { content, enhancedCourse } = (() => {
+    const content = renderCourseContent();
+    
+    // Extract the enhanced course based on courseId
+    let enhanced = course;
+    switch(courseId) {
+      case 2:
+      case '2':
+        const courseStructureData2 = require('./courses/2/course-structure.json');
+        enhanced = {
+          ...course,
+          courseStructure: {
+            title: "Physics 30",
+            structure: courseStructureData2.courseStructure?.units || []
+          }
+        };
+        break;
+      case 100:
+      case '100':
+        const courseStructureData100 = require('./courses/100/course-structure.json');
+        enhanced = {
+          ...course,
+          courseStructure: {
+            title: "Sample Course",
+            structure: courseStructureData100.courseStructure?.units || []
+          }
+        };
+        break;
+    }
+    
+    return { content, enhancedCourse: enhanced };
+  })();
+
   return (
     <FirebaseCourseWrapper
-      course={course}
+      course={enhancedCourse}
       activeItemId={currentItemId}
       onItemSelect={handleItemSelect}
     >
-      {renderCourseContent()}
+      {content}
     </FirebaseCourseWrapper>
   );
 };

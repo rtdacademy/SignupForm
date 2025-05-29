@@ -544,18 +544,7 @@ export const getIntervalInMilliseconds = (interval) => {
  * @returns {Object} - Match result with condition results and overall match status
  */
 export const evaluateNotificationMatch = (notification, course, profile, seenNotifications = {}) => {
-  // Debug first notification evaluation
-  if (process.env.NODE_ENV === 'development') {
-    console.log('EVALUATING NOTIFICATION MATCH:', {
-      notificationId: notification.id,
-      notificationTitle: notification.title,
-      notificationType: notification.type,
-      hasRepeatInterval: !!notification.repeatInterval,
-      courseId: course.id,
-      hasConditions: !!notification.conditions,
-      conditionCount: notification.conditions ? Object.keys(notification.conditions).length : 0
-    });
-  }
+
 
   // Determine notification characteristics
   const isSurveyType = notification.type === 'survey' || 
@@ -610,15 +599,29 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
                            notification.type === 'recurring';
   
   // Skip if this is a one-time notification that has been seen
-  if ((isOneTimeType && seenNotifications[notification.id]) ||
-      (isOneTimeType && course.studentDashboardNotificationsResults?.[notification.id]?.completed) ||
-      (notification.type === 'survey' && displayFrequency === 'one-time' && course.studentDashboardNotificationsResults?.[notification.id]?.completed)) {
-    return {
-      isMatch: false,
-      shouldDisplay: false,
-      conditionResults: [],
-      reason: 'Already seen/completed (one-time)'
-    };
+  // For surveys, only check course-specific completion
+  // For regular notifications, check both global and course-specific
+  if (isSurveyType) {
+    // For surveys, ONLY check course-specific completion
+    if (isOneTimeType && course.studentDashboardNotificationsResults?.[notification.id]?.completed) {
+      return {
+        isMatch: false,
+        shouldDisplay: false,
+        conditionResults: [],
+        reason: 'Survey already completed for this course'
+      };
+    }
+  } else {
+    // For regular notifications, check both global seen status and course-specific acknowledgment
+    if ((isOneTimeType && seenNotifications[notification.id]) ||
+        (isOneTimeType && course.studentDashboardNotificationsResults?.[notification.id]?.acknowledged)) {
+      return {
+        isMatch: false,
+        shouldDisplay: false,
+        conditionResults: [],
+        reason: 'Already seen/acknowledged (one-time)'
+      };
+    }
   }
   
   // For repeating notifications/surveys, check if enough time has passed since the last interaction
@@ -656,16 +659,7 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
       }
     }
     
-    // Debug interaction dates in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Notification ${notification.id} last interaction date:`, {
-        lastInteracted,
-        hasResults: !!notificationResults,
-        lastSubmitted: notificationResults?.lastSubmitted,
-        lastSeen: notificationResults?.lastSeen,
-        submissionCount: notificationResults?.submissions ? Object.keys(notificationResults.submissions).length : 0
-      });
-    }
+
     
     if (lastInteracted) {
       const lastInteractedDate = new Date(lastInteracted);
@@ -676,14 +670,6 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
       if (nextRenewalDateField) {
         const storedNextRenewalDate = new Date(nextRenewalDateField);
         
-        // Log the stored renewal date for debugging
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`Found stored next renewal date for ${notification.id}:`, {
-            nextRenewalDate: storedNextRenewalDate.toISOString(),
-            currentDate: currentDate.toISOString(),
-            shouldRenew: currentDate >= storedNextRenewalDate
-          });
-        }
         
         // If we have a renewal date and the current date has reached it, immediately show
         if (currentDate >= storedNextRenewalDate) {
@@ -801,7 +787,24 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
   
   // Check if this survey has already been completed for this specific course
   const notificationResults = course.studentDashboardNotificationsResults?.[notification.id];
-  const surveyCompleted = isSurveyType && notificationResults?.completed === true;
+  
+  // For surveys, we ONLY check the course-specific completion status
+  // This ensures each course can have its own survey completion state
+  let surveyCompleted = false;
+  
+  if (isSurveyType) {
+    // Always check course-specific completion for surveys
+    // This is the key change - we only look at the course-specific result
+    surveyCompleted = notificationResults?.completed === true;
+    
+    // Debug logging for survey completion check
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Survey completion check for ${notification.id} in course ${course.id}:`, {
+        courseSpecificCompleted: notificationResults?.completed,
+        surveyCompleted
+      });
+    }
+  }
   
   // Format conditions for evaluation
   const conditions = notification.conditions || {};

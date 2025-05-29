@@ -7,10 +7,11 @@ import { getVertexAI } from "firebase/vertexai";
 import { getFirestore } from 'firebase/firestore';
 import { getStripePayments } from '@invertase/firestore-stripe-payments';
 import { getStorage } from 'firebase/storage';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDjx3BINgvUwR1CHE80yX1gCBXYl5OMCqs",
-  authDomain: "rtd-academy.firebaseapp.com",
+  authDomain: "yourway.rtdacademy.com",
   databaseURL: "https://rtd-academy-default-rtdb.firebaseio.com",
   projectId: "rtd-academy",
   storageBucket: "rtd-academy.appspot.com",
@@ -29,6 +30,18 @@ export const analytics = getAnalytics(app);
 export const firestore = getFirestore(app);
 export const vertexAI = getVertexAI(app);
 export const storage = getStorage(app);
+
+// Initialize App Check with reCAPTCHA v3
+let appCheck;
+try {
+  appCheck = initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider('6LdlsUkrAAAAAOQysMd45vY2NChKWElYMe0uXGd7'),
+    isTokenAutoRefreshEnabled: true
+  });
+  console.log('App Check initialized successfully');
+} catch (error) {
+  console.error('Error initializing App Check:', error);
+}
 
 // Connect to Firebase emulators based on environment variables
 if (process.env.REACT_APP_USE_FUNCTIONS_EMULATOR === 'true') {
@@ -66,4 +79,5 @@ export const payments = getStripePayments(app, {
   }
 });
 
+export { appCheck };
 export default app;

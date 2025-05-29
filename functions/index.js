@@ -34,6 +34,9 @@ const asnFunctions = require('./asnSync');
 
 // User management
 const archiveStudentDataFunctions = require('./archiveStudentData');
+const profileHistoryFunctions = require('./profileHistory');
+const parentPortalFunctions = require('./parentPortal');
+const studentPropertiesFunctions = require('./studentProperties');
 
 // Edge functions
 const edgeFunctions = require('./edge');
@@ -62,6 +65,8 @@ exports.sendChatMessageV2 = chatFunctions.sendChatMessageV2;
 exports.deleteCategoryForStudentsV2 = categoryFunctions.deleteCategoryForStudentsV2;
 exports.archiveStudentDataV2 = archiveStudentDataFunctions.archiveStudentDataV2;
 exports.restoreStudentDataV2 = archiveStudentDataFunctions.restoreStudentDataV2;
+exports.trackProfileChangesV2 = profileHistoryFunctions.trackProfileChangesV2;
+exports.trackCourseEnrollmentChangesV2 = profileHistoryFunctions.trackCourseEnrollmentChangesV2;
 
 // Course summary and data functions
 exports.syncProfileToCourseSummariesV2 = summaryFunctions.syncProfileToCourseSummariesV2;
@@ -121,6 +126,24 @@ exports.sendChatMessage = googleAIFunctions.sendChatMessage;
 // Notification functions
 exports.submitNotificationSurvey = surveySubmissionFunctions.submitNotificationSurvey;
 
+// Parent Portal functions
+exports.sendParentInvitation = parentPortalFunctions.sendParentInvitation;
+exports.sendParentInvitationOnCreate = parentPortalFunctions.sendParentInvitationOnCreate;
+exports.validateParentInvitation = parentPortalFunctions.validateParentInvitation;
+exports.verifyStudentASN = parentPortalFunctions.verifyStudentASN;
+exports.processParentInvitationRequest = parentPortalFunctions.processParentInvitationRequest;
+exports.acceptParentInvitation = parentPortalFunctions.acceptParentInvitation;
+exports.approveStudentEnrollment = parentPortalFunctions.approveStudentEnrollment;
+exports.getParentDashboardData = parentPortalFunctions.getParentDashboardData;
+
+// Student Properties functions (Parent Portal)
+exports.updateStudentPersonalInfo = studentPropertiesFunctions.updateStudentPersonalInfo;
+exports.updateStudentAddress = studentPropertiesFunctions.updateStudentAddress;
+exports.updateStudentAcademicInfo = studentPropertiesFunctions.updateStudentAcademicInfo;
+exports.updateGuardianInfo = studentPropertiesFunctions.updateGuardianInfo;
+exports.updateStudentStatus = studentPropertiesFunctions.updateStudentStatus;
+exports.updateStudentDocuments = studentPropertiesFunctions.updateStudentDocuments;
+
 //==============================================================================
 // Assessment functions for courses
 //==============================================================================
@@ -130,5 +153,16 @@ exports.COM1255_IntroToELearningQ1 = COM1255IntroToELearning.handleMultipleChoic
 exports.COM1255_IntroToELearningDynamic = COM1255IntroToELearning.handleDynamicQuestion;
 exports.COM1255_BenefitsChallengesAI = COM1255BenefitsChallenges.handleAIQuestion;
 
+
 //PHY30
 exports.PHY30_IntroToPhysics = require('./courses/PHY30/content/lessons/IntroToPhysics').default;
+
+// 2 Course Functions
+exports.course2_shared_aiQuestion = require('./courses/2/shared/aiQuestions').course2_shared_aiQuestion;
+exports.course2_02_momentum_one_dimension_aiQuestion = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_aiQuestion;
+exports.course2_02_momentum_one_dimension_aiLongAnswer = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_aiLongAnswer;
+
+// 100 Course Functions
+exports.course100_02_core_concepts_multipleChoice = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_multipleChoice;
+exports.course100_02_core_concepts_aiQuestion = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_aiQuestion;
+

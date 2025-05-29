@@ -44,7 +44,8 @@ function Header({
   isStaffUser,
   onProfileClick,
   profile,
-  hasIncompleteProfile
+  hasIncompleteProfile,
+  parentInfo
 }) {
   const navigate = useNavigate();
   const { 
@@ -120,6 +121,35 @@ function Header({
                 </div>
               </div>
             </div>
+            
+            {/* Parent Info Display - Only for parent portal */}
+            {parentInfo && portalType === "Parent Portal" && (
+              <div className="ml-6 flex items-center space-x-4 text-sm">
+                <div className="text-gray-300">
+                  <span className="text-gray-400">Parent:</span>
+                  <span className="ml-2 text-white font-medium">{parentInfo.name}</span>
+                </div>
+                <div className="text-gray-300">
+                  <span className="text-gray-400">Email:</span>
+                  <span className="ml-2 text-gray-200">{parentInfo.email}</span>
+                </div>
+                {parentInfo.linkedStudents && parentInfo.linkedStudents.length > 0 && (
+                  <div className="text-gray-300">
+                    <span className="text-gray-400">
+                      {parentInfo.linkedStudents.length === 1 ? 'Student:' : 'Students:'}
+                    </span>
+                    <span className="ml-2 text-gray-200">
+                      {parentInfo.linkedStudents.map((student, index) => (
+                        <span key={index}>
+                          {student.name} ({student.relationship})
+                          {index < parentInfo.linkedStudents.length - 1 && ', '}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* School Year Selector with Refresh Button - Only for staff */}
             {isStaffUser && selectedOption && (

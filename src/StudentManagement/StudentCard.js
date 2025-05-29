@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, History, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore } from 'lucide-react';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { getDatabase, ref, set, get, push, remove, update, runTransaction, serverTimestamp  } from 'firebase/database';
@@ -36,6 +36,7 @@ import PendingFinalizationDialog from './Dialog/PendingFinalizationDialog';
 import ResumingOnDialog from './Dialog/ResumingOnDialog';
 import { toast } from 'sonner';
 import PermissionIndicator from '../context/PermissionIndicator';
+import ProfileHistory from './ProfileHistory';
 
 // Helper function to safely extract values from status objects
 const getSafeValue = (value) => {
@@ -187,10 +188,6 @@ const StudentCard = React.memo(({
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [teacherNames, setTeacherNames] = useState({});
   
-  // State variables for status history dialog
-  const [isStatusHistoryOpen, setIsStatusHistoryOpen] = useState(false);
-  const [statusHistory, setStatusHistory] = useState([]);
-  const [loadingStatusHistory, setLoadingStatusHistory] = useState(false);
 
   // State variable for expanded view
   const [isExpanded, setIsExpanded] = useState(false);
@@ -213,6 +210,10 @@ const StudentCard = React.memo(({
   const [isPendingFinalizationOpen, setIsPendingFinalizationOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState(null);
   const [isResumingOnOpen, setIsResumingOnOpen] = useState(false);
+  
+  // Profile History state
+  const [isProfileHistoryOpen, setIsProfileHistoryOpen] = useState(false);
+  const [hasProfileHistory, setHasProfileHistory] = useState(false);
 
 
   const checkAsnIssues = useMemo(() => {
@@ -271,6 +272,28 @@ const StudentCard = React.memo(({
     fetchTeacherNames();
   }, []);
 
+  // Check if profile history exists
+  useEffect(() => {
+    const checkProfileHistory = async () => {
+      if (!student.id) return;
+      
+      const db = getDatabase();
+      const lastUnderscoreIndex = student.id.lastIndexOf('_');
+      const studentKey = student.id.slice(0, lastUnderscoreIndex);
+      const profileHistoryRef = ref(db, `students/${studentKey}/profileHistory`);
+      
+      try {
+        const snapshot = await get(profileHistoryRef);
+        setHasProfileHistory(snapshot.exists());
+      } catch (error) {
+        console.error("Error checking profile history:", error);
+        setHasProfileHistory(false);
+      }
+    };
+
+    checkProfileHistory();
+  }, [student.id]);
+
  // Add this before your updateStatus function
 const validateActiveFutureArchivedValue = useCallback((value) => {
   if (!value) return true; // No value is valid (not all statuses need to set this)
@@ -307,6 +330,14 @@ const updateStatus = useCallback(async (newStatus) => {
         !validateActiveFutureArchivedValue(selectedStatusOption.activeFutureArchivedValue)) {
       throw new Error(`Invalid ActiveFutureArchived value configured for status: ${newStatus}`);
     }
+
+    // First, set the lastChange tracking info
+    const lastChangeRef = ref(db, `students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`);
+    await set(lastChangeRef, {
+      userEmail: user?.email || 'unknown',
+      timestamp: Date.now(),
+      field: 'Status_Value'
+    });
 
     // Use transaction for course data update
     const courseRef = ref(db, `students/${studentKey}/courses/${courseId}`);
@@ -724,31 +755,6 @@ const handleStatusChange = useCallback(async (newStatus) => {
 
   const isAutoStatusAllowed = useMemo(() => getStatusAllowsAutoStatus(statusValue), [statusValue]);
 
-  const handleOpenStatusHistory = useCallback(async () => {
-    setIsStatusHistoryOpen(true);
-    setLoadingStatusHistory(true);
-
-    const db = getDatabase();
-    const lastUnderscoreIndex = student.id.lastIndexOf('_');
-    const studentKey = student.id.slice(0, lastUnderscoreIndex);
-    const courseId = student.id.slice(lastUnderscoreIndex + 1);
-    const statusLogRef = ref(db, `students/${studentKey}/courses/${courseId}/statusLog`);
-
-    try {
-      const snapshot = await get(statusLogRef);
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const historyArray = Object.values(data).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        setStatusHistory(historyArray);
-      } else {
-        setStatusHistory([]);
-      }
-    } catch (error) {
-      console.error("Error fetching status history:", error);
-    } finally {
-      setLoadingStatusHistory(false);
-    }
-  }, [student.id]);
 
   // Function to determine grade color and icon
   const getGradeColorAndIcon = useCallback((grade) => {
@@ -1343,81 +1349,122 @@ const handleStatusChange = useCallback(async (newStatus) => {
        
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-2 mt-2">
-            {checkAsnIssues && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs text-amber-600 hover:text-amber-700"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsAsnIssuesDialogOpen(true);
-                }}
-              >
-                <AlertTriangle className="w-4 h-4 mr-1" />
-                ASN Issues
-              </Button>
-            )}
+          {(() => {
+            // Calculate number of visible buttons
+            const buttonCount = 
+              (checkAsnIssues ? 1 : 0) +
+              1 + // Chat is always visible
+              (hasProfileHistory ? 1 : 0) +
+              1 + // Emulate is always visible
+              (currentMode === MODES.REGISTRATION ? 1 : 0) +
+              (isColdStorage ? 1 : 0);
+            
+            // Three size tiers based on button count
+            const sizeMode = buttonCount > 4 ? 'small' : buttonCount === 4 ? 'medium' : 'normal';
+            
+            const buttonClass = {
+              small: "text-[10px] px-2 py-1 h-6",
+              medium: "text-[11px] px-2 py-1 h-7",
+              normal: "text-xs"
+            }[sizeMode];
+            
+            const iconClass = {
+              small: "w-3 h-3 mr-0.5",
+              medium: "w-3.5 h-3.5 mr-0.5",
+              normal: "w-4 h-4 mr-1"
+            }[sizeMode];
+            
+            const gapClass = {
+              small: "gap-1",
+              medium: "gap-1.5",
+              normal: "gap-2"
+            }[sizeMode];
+            
+            const useShortLabels = sizeMode !== 'normal';
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={handleOpenChat}
-            >
-              <MessageSquare className="w-4 h-4 mr-1" />
-              Chat
-            </Button>
+            return (
+              <div className={`flex flex-wrap ${gapClass} mt-2`}>
+                {checkAsnIssues && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`${buttonClass} text-amber-600 hover:text-amber-700`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsAsnIssuesDialogOpen(true);
+                    }}
+                  >
+                    <AlertTriangle className={iconClass} />
+                    {useShortLabels ? "ASN" : "ASN Issues"}
+                  </Button>
+                )}
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs"
-              onClick={handleOpenStatusHistory}
-            >
-              <History className="w-4 h-4 mr-1" />
-              Status
-            </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={buttonClass}
+                  onClick={handleOpenChat}
+                >
+                  <MessageSquare className={iconClass} />
+                  Chat
+                </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs text-blue-600 hover:text-blue-700"
-              onClick={(e) => {
-                window.open(`/emulate/${student.StudentEmail}`, 'emulationTab');
-              }}
-            >
-              <UserCheck className="w-4 h-4 mr-1" />
-              Emulate
-            </Button>
+                {hasProfileHistory && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`${buttonClass} text-purple-600 hover:text-purple-700`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsProfileHistoryOpen(true);
+                    }}
+                  >
+                    <FileTextIcon className={iconClass} />
+                    {useShortLabels ? "History" : "History"}
+                  </Button>
+                )}
 
-            {currentMode === MODES.REGISTRATION && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs text-red-600 hover:text-red-700"
-                onClick={(e) => {
-                  setIsRemovalDialogOpen(true);
-                }}
-              >
-                <Trash2 className="w-4 h-4 mr-1" />
-                Remove
-              </Button>
-            )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`${buttonClass} text-blue-600 hover:text-blue-700`}
+                  onClick={(e) => {
+                    window.open(`/emulate/${student.StudentEmail}`, 'emulationTab');
+                  }}
+                >
+                  <UserCheck className={iconClass} />
+                  Emulate
+                </Button>
 
-            {isColdStorage && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs text-green-600 hover:text-green-700"
-                onClick={handleRestoreFromColdStorage}
-                disabled={isRestoring}
-              >
-                <ArchiveRestore className="w-4 h-4 mr-1" />
-                {isRestoring ? 'Restoring...' : 'Restore'}
-              </Button>
-            )}
-          </div>
+                {currentMode === MODES.REGISTRATION && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`${buttonClass} text-red-600 hover:text-red-700`}
+                    onClick={(e) => {
+                      setIsRemovalDialogOpen(true);
+                    }}
+                  >
+                    <Trash2 className={iconClass} />
+                    Remove
+                  </Button>
+                )}
+
+                {isColdStorage && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`${buttonClass} text-green-600 hover:text-green-700`}
+                    onClick={handleRestoreFromColdStorage}
+                    disabled={isRestoring}
+                  >
+                    <ArchiveRestore className={iconClass} />
+                    {isRestoring ? 'Restoring...' : 'Restore'}
+                  </Button>
+                )}
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
@@ -1456,36 +1503,6 @@ const handleStatusChange = useCallback(async (newStatus) => {
         </DialogContent>
       </Dialog>
 
-      {/* Status History Dialog */}
-      <Dialog open={isStatusHistoryOpen} onOpenChange={setIsStatusHistoryOpen}>
-        <DialogContent className="max-w-[90vw] w-[600px] h-[70vh] max-h-[600px] p-4 flex flex-col">
-          <DialogHeader className="mb-4 bg-white">
-            <DialogTitle>
-              Status Update History
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-grow overflow-auto">
-          {loadingStatusHistory ? (
-            <div className="text-center">Loading...</div>
-          ) : statusHistory.length > 0 ? (
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr><th className="px-2 py-1 text-left">Timestamp</th><th className="px-2 py-1 text-left">Status</th><th className="px-2 py-1 text-left">Previous Status</th><th className="px-2 py-1 text-left">Updated By</th><th className="px-2 py-1 text-left">Type</th></tr>
-              </thead>
-              <tbody>
-                {statusHistory.map((logEntry, index) => (
-                  <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : ''}>
-                    <td className="px-2 py-1">{new Date(logEntry.timestamp).toLocaleString()}</td><td className="px-2 py-1">{getSafeValue(logEntry.status)}</td><td className="px-2 py-1">{getSafeValue(logEntry.previousStatus)}</td><td className="px-2 py-1">{logEntry.updatedByType === 'teacher' ? (<>{logEntry.updatedBy.name} ({logEntry.updatedBy.email})</>) : ('Auto Status')}</td><td className="px-2 py-1">{logEntry.bulkUpdate && (<TooltipProvider><Tooltip><TooltipTrigger asChild><div className="inline-flex items-center text-blue-600"><Users className="h-4 w-4" /></div></TooltipTrigger><TooltipContent><p>Part of a bulk update</p></TooltipContent></Tooltip></TooltipProvider>)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="text-center">No status history available.</div>
-          )}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Course Removal Dialog */}
       <Dialog open={isRemovalDialogOpen} onOpenChange={setIsRemovalDialogOpen}>
@@ -1581,6 +1598,20 @@ const handleStatusChange = useCallback(async (newStatus) => {
           setIsResumingOnOpen(false);
         }}
       />
+
+      {/* Profile History Dialog */}
+      <Dialog open={isProfileHistoryOpen} onOpenChange={setIsProfileHistoryOpen}>
+        <DialogContent className="max-w-[90vw] w-[800px] h-[80vh] max-h-[700px] p-4 flex flex-col">
+          <DialogHeader className="mb-4 bg-white">
+            <DialogTitle>
+              Profile Change History - {student.preferredFirstName || student.firstName} {student.lastName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-grow overflow-auto">
+            <ProfileHistory studentEmailKey={student.id.slice(0, student.id.lastIndexOf('_'))} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 });

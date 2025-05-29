@@ -4,15 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
 import { Checkbox } from "../components/ui/checkbox";
-import { AlertTriangle, ArrowRight, Code, Info } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Code, Info, Wrench } from 'lucide-react';
 import PasiRecordDetails from './PasiRecordDetails';
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { toast } from 'sonner';
 import { getDatabase, ref, update } from 'firebase/database';
 import PasiActionButtons from "../components/PasiActionButtons";
-import { STATUS_OPTIONS } from '../config/DropdownOptions';
+import { STATUS_OPTIONS, ACTIVE_FUTURE_ARCHIVED_OPTIONS, getActiveFutureArchivedColor } from '../config/DropdownOptions';
 import { Button } from "../components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 const StatusConflicts = ({ recordsWithStatusMismatch }) => {
   const [sortState, setSortState] = useState({ column: 'studentName', direction: 'asc' });
@@ -44,6 +46,59 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
       });
   };
 
+  // Function to fix state mismatch by updating ActiveFutureArchived value
+  const fixStateMismatch = async (record) => {
+    if (!record.email || !record.courseId || !record.expectedState) {
+      toast.error("Cannot fix state: Missing required data");
+      return;
+    }
+
+    try {
+      const studentKey = sanitizeEmail(record.email);
+      const db = getDatabase();
+      const updates = {};
+      
+      // Update the ActiveFutureArchived/Value for this student course
+      updates[`students/${studentKey}/courses/${record.courseId}/ActiveFutureArchived/Value`] = record.expectedState;
+      
+      await update(ref(db), updates);
+      
+      toast.success(`Updated ActiveFutureArchived state to "${record.expectedState}" for ${record.studentName}`);
+      
+      // You may want to refresh the data here to reflect the changes
+      // This would depend on how your parent component handles data refreshing
+      
+    } catch (error) {
+      console.error("Error updating ActiveFutureArchived state:", error);
+      toast.error(`Failed to update state: ${error.message}`);
+    }
+  };
+
+  // Function to update state via select component
+  const updateState = async (record, newState) => {
+    if (!record.email || !record.courseId) {
+      toast.error("Cannot update state: Missing required data");
+      return;
+    }
+
+    try {
+      const studentKey = sanitizeEmail(record.email);
+      const db = getDatabase();
+      const updates = {};
+      
+      // Update the ActiveFutureArchived/Value for this student course
+      updates[`students/${studentKey}/courses/${record.courseId}/ActiveFutureArchived/Value`] = newState;
+      
+      await update(ref(db), updates);
+      
+      toast.success(`Updated ActiveFutureArchived state to "${newState}" for ${record.studentName}`);
+      
+    } catch (error) {
+      console.error("Error updating ActiveFutureArchived state:", error);
+      toast.error(`Failed to update state: ${error.message}`);
+    }
+  };
+
   // Process records to ensure all properties exist
   const processedRecords = useMemo(() => {
     return recordsWithStatusMismatch.map(record => ({
@@ -54,7 +109,14 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
       courseDescription: record.courseDescription || '',
       status: record.status || '',
       Status_Value: record.Status_Value || '',
+      ActiveFutureArchived_Value: record.ActiveFutureArchived_Value || '',
+      mismatchType: record.mismatchType || 'status',
+      mismatchReason: record.mismatchReason || 'Status mismatch detected',
+      expectedState: record.expectedState || '',
+      actualState: record.actualState || '',
       referenceNumber: record.referenceNumber || '',
+      email: record.email || record.studentEmail || '',
+      courseId: record.courseId || record.CourseID || '',
     }));
   }, [recordsWithStatusMismatch]);
 
@@ -77,7 +139,7 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
     
     return (
       <TableHead 
-        className={`cursor-pointer hover:bg-muted/50 transition-colors text-xs ${className}`}
+        className={`cursor-pointer hover:bg-muted/50 transition-colors text-[11px] ${className}`}
         onClick={() => handleSort(column)}
       >
         <div className="flex items-center">
@@ -170,7 +232,7 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
         <div className="flex justify-between items-center">
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500" />
-            Status Conflicts 
+            Status & State Conflicts 
           </CardTitle>
           <Button 
             variant="outline" 
@@ -206,19 +268,21 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
         )}
 
         {sortedRecords.length > 0 ? (
-          <Table className="text-xs w-full">
+          <Table className="text-[11px] w-full">
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs px-2 py-1 w-8 min-w-8">Checked</TableHead>
-                <SortableHeader column="asn" label="ASN" className="w-20 min-w-20" />
-                <SortableHeader column="studentName" label="Student" className="w-[15%]" />
-                <SortableHeader column="courseCode" label="Course" className="w-[20%]" />
-                <SortableHeader column="status" label="PASI Status" className="w-[15%]" />
-                <TableHead className="text-center w-8 min-w-8">
-                  <ArrowRight className="h-4 w-4 mx-auto" />
+                <TableHead className="text-[11px] px-1 py-1 w-6 min-w-6">✓</TableHead>
+                <SortableHeader column="asn" label="ASN" className="w-16 min-w-16" />
+                <SortableHeader column="studentName" label="Student" className="w-[12%]" />
+                <SortableHeader column="courseCode" label="Course" className="w-24 max-w-24" />
+                <SortableHeader column="status" label="PASI Status" className="w-20 max-w-20" />
+                <TableHead className="text-center w-6 min-w-6">
+                  <ArrowRight className="h-3 w-3 mx-auto" />
                 </TableHead>
-                <SortableHeader column="Status_Value" label="YourWay Status" className="w-[15%]" />
-                <TableHead className="text-xs px-1 py-1 w-36 min-w-36">Actions</TableHead>
+                <SortableHeader column="Status_Value" label="YourWay Status" className="w-[12%]" />
+                <SortableHeader column="ActiveFutureArchived_Value" label="State" className="w-[10%]" />
+                <SortableHeader column="mismatchType" label="Issue" className="w-32 max-w-32" />
+                <TableHead className="text-xs px-1 py-1 w-32 min-w-32">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -227,7 +291,7 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
                 
                 return (
                   <TableRow key={record.id} className="hover:bg-gray-100">
-                    <TableCell className="p-1 w-8">
+                    <TableCell className="p-1 w-6">
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -241,6 +305,7 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
                                   }
                                 }}
                                 aria-label="Mark as checked"
+                                className="h-3 w-3"
                               />
                             </div>
                           </TooltipTrigger>
@@ -265,26 +330,28 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
                       </div>
                     </TableCell>
                     <TableCell 
-                      className="p-1 cursor-pointer truncate w-[20%]" 
+                      className="p-1 cursor-pointer w-24 max-w-24" 
                       onClick={() => handleCellClick(record.courseCode, "Course")}
                     >
-                      <div className="truncate">
-                        {record.courseCode} - {record.courseDescription || 'N/A'}
+                      <div className="truncate" title={`${record.courseCode} - ${record.courseDescription || 'N/A'}`}>
+                        {record.courseCode}
                       </div>
                     </TableCell>
                     <TableCell 
-                      className="p-1 cursor-pointer w-[15%]" 
+                      className="p-1 cursor-pointer w-20 max-w-20" 
                       onClick={() => handleCellClick(record.status, "PASI Status")}
                     >
-                      <Badge variant="secondary" className="bg-amber-100 text-amber-800 whitespace-nowrap">
-                        {record.status}
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-800 text-[10px] px-1 py-0.5">
+                        <div className="truncate" title={record.status}>
+                          {record.status}
+                        </div>
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-center w-8">
-                      <AlertTriangle className="h-4 w-4 text-amber-500 inline-block" />
+                    <TableCell className="text-center w-6">
+                      <AlertTriangle className="h-3 w-3 text-amber-500 inline-block" />
                     </TableCell>
                     <TableCell 
-                      className="p-1 cursor-pointer w-[15%]" 
+                      className="p-1 cursor-pointer w-[12%]" 
                       onClick={() => handleCellClick(record.Status_Value, "YourWay Status")}
                     >
                       <Badge 
@@ -299,7 +366,106 @@ const StatusConflicts = ({ recordsWithStatusMismatch }) => {
                         {record.Status_Value}
                       </Badge>
                     </TableCell>
-                    <TableCell className="p-1 w-36 min-w-36">
+                    <TableCell className="p-1 w-[10%]">
+                      {record.email && record.courseId ? (
+                        <Select
+                          value={record.ActiveFutureArchived_Value || ''}
+                          onValueChange={(newState) => updateState(record, newState)}
+                        >
+                          <SelectTrigger 
+                            className={`h-6 text-[10px] ${
+                              record.mismatchType === 'state' ? 'border-red-300 bg-red-50' : ''
+                            }`}
+                            style={{
+                              backgroundColor: record.mismatchType === 'state' 
+                                ? '#fef2f2' 
+                                : record.ActiveFutureArchived_Value 
+                                  ? `${getActiveFutureArchivedColor(record.ActiveFutureArchived_Value)}15`
+                                  : undefined,
+                              borderColor: record.mismatchType === 'state' 
+                                ? '#fca5a5' 
+                                : record.ActiveFutureArchived_Value 
+                                  ? getActiveFutureArchivedColor(record.ActiveFutureArchived_Value)
+                                  : undefined
+                            }}
+                          >
+                            <SelectValue placeholder="Select state" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ACTIVE_FUTURE_ARCHIVED_OPTIONS.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                <span style={{ color: option.color }}>{option.value}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge 
+                          variant="outline" 
+                          className="text-[10px] px-1 py-0.5"
+                        >
+                          {record.ActiveFutureArchived_Value || 'N/A'}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="p-1 w-32 max-w-32">
+                      <div className="text-[11px]">
+                        <div className="flex items-center justify-between mb-1">
+                          <Badge 
+                            variant={record.mismatchType === 'status' ? 'destructive' : 'secondary'}
+                            className="text-[10px] px-1 py-0.5"
+                          >
+                            {record.mismatchType === 'status' ? 'Status' : 'State'}
+                          </Badge>
+                          {record.mismatchType === 'state' && record.expectedState && record.email && record.courseId && 
+                           record.expectedState !== 'Archived' && record.expectedState !== 'Completed' && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-5 w-5 p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      fixStateMismatch(record);
+                                    }}
+                                  >
+                                    <Wrench className="h-3 w-3 text-blue-500" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Fix state to "{record.expectedState}"</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="text-muted-foreground truncate cursor-help">
+                                {record.mismatchType === 'state' && record.expectedState ? (
+                                  <span>
+                                    Expected: <strong>{record.expectedState}</strong>
+                                  </span>
+                                ) : (
+                                  <span className="truncate">
+                                    {record.mismatchReason.length > 25 
+                                      ? `${record.mismatchReason.substring(0, 25)}...` 
+                                      : record.mismatchReason}
+                                  </span>
+                                )}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              <p className="text-sm">{record.mismatchReason}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </TableCell>
+                    <TableCell className="p-1 w-32 min-w-32">
                       <div className="flex items-center justify-start space-x-1">
                         <div className="flex-shrink-0">
                           <PasiActionButtons 
