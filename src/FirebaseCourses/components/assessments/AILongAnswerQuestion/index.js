@@ -15,11 +15,17 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  Infinity
 } from 'lucide-react';
 import { sanitizeEmail } from '../../../../utils/sanitizeEmail';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 import {
   Sheet,
   SheetContent,
@@ -30,86 +36,81 @@ import {
 import GoogleAIChatApp from '../../../../edbotz/GoogleAIChat/GoogleAIChatApp';
 
 /**
- * Renders text with LaTeX math support
- * Supports inline math ($...$) and display math ($$...$$)
- * Uses a simple approach that preserves the original LaTeX formatting
+ * Helper function to detect if text contains markdown patterns
  */
-const renderMathText = (text) => {
+const containsMarkdown = (text) => {
+  if (!text) return false;
+  
+  // Look for common markdown patterns including newlines
+  const markdownPatterns = [
+    /^#+\s+.+$/m,                  // Headers: # Header
+    /\*\*.+\*\*/,                  // Bold: **bold**
+    /\*.+\*/,                      // Italic: *italic*
+    /```[\s\S]*```/,               // Code block: ```code```
+    /`[^`]+`/,                     // Inline code: `code`
+    /\[.+\]\(.+\)/,                // Links: [text](url)
+    /\|[^|]+\|[^|]+\|/,            // Tables: |cell|cell|
+    /^\s*>\s+.+$/m,                // Blockquotes: > quote
+    /^\s*-\s+.+$/m,                // Unordered lists: - item
+    /^\s*\d+\.\s+.+$/m,            // Ordered lists: 1. item
+    /!\[.+\]\(.+\)/,               // Images: ![alt](url)
+    /~~.+~~/,                      // Strikethrough: ~~text~~
+    /\$\$.+\$\$/,                  // Math blocks: $$math$$
+    /\$.+\$/,                      // Inline math: $math$
+    /\\[a-zA-Z]+/,                 // LaTeX commands: \alpha, \beta, etc.
+    /\\begin\{/,                   // LaTeX environments: \begin{...}
+    /\\end\{/,                     // LaTeX environments: \end{...}
+    /\\frac\{/,                    // LaTeX fractions: \frac{...}
+    /\\sqrt/,                      // LaTeX square roots: \sqrt{...}
+    /\n/,                          // Newlines - important for preserving line breaks
+  ];
+  
+  // Check for newlines or other markdown patterns
+  return markdownPatterns.some(pattern => pattern.test(text));
+};
+
+/**
+ * Enhanced text rendering that handles both markdown and LaTeX math
+ * Preserves newlines and formats text properly
+ */
+const renderEnhancedText = (text) => {
   if (!text) return text;
   
-  try {
-    const parts = [];
-    let currentIndex = 0;
-    
-    // Simple regex to find math expressions
-    const mathRegex = /(\$\$(.+?)\$\$|\$(.+?)\$)/g;
-    let match;
-    
-    while ((match = mathRegex.exec(text)) !== null) {
-      // Add text before the math expression
-      if (match.index > currentIndex) {
-        const textBefore = text.slice(currentIndex, match.index);
-        if (textBefore) {
-          parts.push(textBefore);
-        }
-      }
-      
-      // Add the math expression
-      const isDisplayMath = match[0].startsWith('$$');
-      const mathContent = isDisplayMath ? match[2] : match[3];
-      
-      try {
-        // Preprocess math content to handle special characters
-        let processedMathContent = mathContent;
-        
-        // Replace various forms of multiplication dots with \cdot
-        // This handles Unicode middle dot (·), bullet operator (•), and similar characters
-        processedMathContent = processedMathContent.replace(/[·•⋅∙]/g, '\\cdot ');
-        
-        // Also handle cases where these might appear in \text{} commands
-        processedMathContent = processedMathContent.replace(/\\text\{([^}]*[·•⋅∙][^}]*)\}/g, (match, textContent) => {
-          const fixedText = textContent.replace(/[·•⋅∙]/g, '\\cdot ');
-          return `\\text{${fixedText}}`;
-        });
-        
-        if (isDisplayMath) {
-          parts.push(<BlockMath key={`display-${match.index}`} math={processedMathContent} />);
-        } else {
-          parts.push(<InlineMath key={`inline-${match.index}`} math={processedMathContent} />);
-        }
-      } catch (e) {
-        console.warn('Error rendering math:', mathContent, e);
-        parts.push(match[0]); // Fallback to original text
-      }
-      
-      currentIndex = match.index + match[0].length;
-    }
-    
-    // Add remaining text after the last math expression
-    if (currentIndex < text.length) {
-      const remainingText = text.slice(currentIndex);
-      if (remainingText) {
-        parts.push(remainingText);
-      }
-    }
-    
-    // If no math was found, return original text
-    if (parts.length === 0) {
-      return text;
-    }
-    
-    // If only one part and it's text, return it directly
-    if (parts.length === 1 && typeof parts[0] === 'string') {
-      return parts[0];
-    }
-    
-    // Return React fragment with all parts
-    return <>{parts}</>;
-    
-  } catch (e) {
-    console.warn('Error in renderMathText:', e);
-    return text;
+  // If text contains markdown patterns or newlines, use ReactMarkdown
+  if (containsMarkdown(text)) {
+    return (
+      <div className="prose prose-sm max-w-none">
+        <ReactMarkdown
+          remarkPlugins={[remarkMath, remarkGfm]}
+          rehypePlugins={[rehypeKatex, rehypeRaw]}
+          components={{
+            // Handle inline code
+            code: ({node, inline, className, children, ...props}) => {
+              if (inline) {
+                return <code className="px-1 py-0.5 rounded text-sm font-mono bg-gray-100 text-gray-800" {...props}>{children}</code>
+              }
+              return <code {...props}>{children}</code>
+            },
+            // Make sure paragraphs preserve spacing
+            p: ({node, ...props}) => <p className="mb-2" {...props} />,
+            // Handle lists
+            ul: ({node, ...props}) => <ul className="my-1 pl-5" {...props} />,
+            ol: ({node, ...props}) => <ol className="my-1 pl-5" {...props} />,
+            li: ({node, ...props}) => <li className="my-0.5" {...props} />,
+          }}
+        >
+          {text}
+        </ReactMarkdown>
+      </div>
+    );
   }
+  
+  // For simple text without markdown, just preserve line breaks
+  return (
+    <div style={{ whiteSpace: 'pre-wrap' }}>
+      {text}
+    </div>
+  );
 };
 
 /**
@@ -193,12 +194,12 @@ const RubricDisplay = ({ rubric, showScores = false, rubricScores = [] }) => {
                           )}
                         </div>
                       </div>
-                      <div className="text-xs text-gray-600 mb-2">{renderMathText(criterion.description)}</div>
+                      <div className="text-xs text-gray-600 mb-2">{renderEnhancedText(criterion.description)}</div>
                       
                       {hasScore && score.feedback && (
                         <div className="mt-2 pt-2 border-t border-gray-200">
                           <div className="text-xs text-gray-700">
-                            <span className="font-medium">Feedback:</span> {renderMathText(score.feedback)}
+                            <span className="font-medium">Feedback:</span> {renderEnhancedText(score.feedback)}
                           </div>
                         </div>
                       )}
@@ -755,7 +756,11 @@ You can now:
             <span className="flex items-center">
               Attempts: <span className="font-medium ml-1">{question.attempts || 0}</span> 
               <span className="mx-1">/</span>
-              <span className="font-medium">{question.maxAttempts}</span>
+              {question.maxAttempts && question.maxAttempts > 500 ? (
+                <Infinity className="h-3.5 w-3.5 inline-block text-gray-600" />
+              ) : (
+                <span className="font-medium">{question.maxAttempts}</span>
+              )}
             </span>
             <span className="mx-3">•</span>
             <span>
@@ -803,8 +808,8 @@ You can now:
               transition={{ duration: 0.3 }}
               className="space-y-4"
             >
-              {/* Difficulty Selection */}
-              {question.settings?.allowDifficultySelection && !result && (
+              {/* Difficulty Selection - only show after first attempt */}
+              {question.settings?.allowDifficultySelection && !result && question.attempts > 0 && (
                 <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Choose Difficulty Level:</h4>
                   <div className="flex gap-2">
@@ -832,7 +837,7 @@ You can now:
 
               {/* Question Text */}
               <div className="text-gray-800 text-lg font-medium">
-                {renderMathText(question.questionText)}
+                {renderEnhancedText(question.questionText)}
               </div>
 
               {/* Rubric Display */}
@@ -941,7 +946,7 @@ You can now:
                       {/* Overall Feedback */}
                       <div className="space-y-2">
                         <h4 className="font-medium text-sm">Overall Feedback</h4>
-                        <div className="text-sm text-gray-700">{renderMathText(result.overallFeedback)}</div>
+                        <div className="text-sm text-gray-700">{renderEnhancedText(result.overallFeedback)}</div>
                       </div>
                     </CardContent>
                   </Card>
@@ -961,7 +966,7 @@ You can now:
                             {result.strengths.map((strength, index) => (
                               <li key={index} className="flex items-start gap-1">
                                 <span className="text-green-600 mt-0.5">•</span>
-                                <div>{renderMathText(strength)}</div>
+                                <div>{renderEnhancedText(strength)}</div>
                               </li>
                             ))}
                           </ul>
@@ -982,7 +987,7 @@ You can now:
                             {result.improvements.map((improvement, index) => (
                               <li key={index} className="flex items-start gap-1">
                                 <span className="text-amber-600 mt-0.5">•</span>
-                                <div>{renderMathText(improvement)}</div>
+                                <div>{renderEnhancedText(improvement)}</div>
                               </li>
                             ))}
                           </ul>
@@ -998,7 +1003,7 @@ You can now:
                         <CardTitle className="text-sm">Suggestions for Next Time</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="text-sm text-gray-700">{renderMathText(result.suggestions)}</div>
+                        <div className="text-sm text-gray-700">{renderEnhancedText(result.suggestions)}</div>
                       </CardContent>
                     </Card>
                   )}
@@ -1069,7 +1074,7 @@ You can now:
             <div className="max-w-2xl mx-auto space-y-4">
               <div>
                 <h3 className="text-lg font-semibold mb-2">Question</h3>
-                <div className="text-gray-700">{renderMathText(question?.questionText)}</div>
+                <div className="text-gray-700">{renderEnhancedText(question?.questionText)}</div>
               </div>
               
               {question && (

@@ -232,6 +232,32 @@ function getActivityTypeSettings(courseConfig, activityType, assessmentType = nu
 }
 
 /**
+ * Gets dynamic word limits based on difficulty level and activity type
+ * @param {Object} courseConfig - The loaded course configuration
+ * @param {string} activityType - The activity type ('lesson', 'assignment', 'lab', 'exam')
+ * @param {string} difficulty - The difficulty level ('beginner', 'intermediate', 'advanced')
+ * @returns {Object} Word limits for the specified difficulty
+ */
+function getWordLimitsForDifficulty(courseConfig, activityType, difficulty) {
+  const settings = getActivityTypeSettings(courseConfig, activityType, 'longAnswer');
+  const baseWordLimits = settings.wordLimits || { min: 50, max: 200 };
+  
+  // Adjust word limits based on difficulty
+  const multipliers = {
+    beginner: { min: 0.8, max: 0.9 },
+    intermediate: { min: 1.0, max: 1.0 },
+    advanced: { min: 1.2, max: 1.3 }
+  };
+  
+  const multiplier = multipliers[difficulty] || multipliers.intermediate;
+  
+  return {
+    min: Math.round(baseWordLimits.min * multiplier.min),
+    max: Math.round(baseWordLimits.max * multiplier.max)
+  };
+}
+
+/**
  * Clears the configuration cache (useful for testing or forcing reload)
  */
 function clearConfigCache() {
@@ -245,5 +271,6 @@ module.exports = {
   loadCourseConfig,
   mergeConfigs,
   getActivityTypeSettings,
+  getWordLimitsForDifficulty,
   clearConfigCache
 };

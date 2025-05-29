@@ -9,7 +9,7 @@
 
 const { createAIMultipleChoice } = require('../../../shared/assessment-types/ai-multiple-choice');
 const { createAILongAnswer } = require('../../../shared/assessment-types/ai-long-answer');
-const { getActivityTypeSettings } = require('../../../shared/utilities/config-loader');
+const { getActivityTypeSettings, getWordLimitsForDifficulty } = require('../../../shared/utilities/config-loader');
 const courseConfig = require('../../../courses-config/2/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
@@ -164,48 +164,54 @@ exports.course2_02_momentum_one_dimension_aiLongAnswer = createAILongAnswer({
   
   // ===== REQUIRED: Course-specific prompts =====
   prompts: {
-    beginner: `Create a beginner-level long answer question about momentum in one dimension for a Grade 12 Physics 30 student.
+    beginner: `Create a beginner-level long answer question about momentum theory for a Grade 12 Physics 30 student.
     The question should:
-    - Focus on explaining basic momentum concepts and conservation
-    - Require students to define momentum and explain its properties
-    - Ask for simple examples or applications
-    - Be answerable in 50-200 words
+    - Focus on CONCEPTUAL understanding of momentum and conservation principles
+    - Ask students to EXPLAIN the meaning and significance of momentum in physics
+    - Require discussion of WHY momentum is conserved (theoretical basis)
+    - Ask for real-world examples that illustrate momentum concepts
+    - Minimize mathematical calculations - focus on understanding
+    - Be answerable in ${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'beginner').min}-${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'beginner').max} words
     
     Create a clear rubric with 3-4 criteria that assess:
-    - Understanding of momentum definition (p = mv)
-    - Explanation of conservation principle
-    - Use of appropriate examples
-    - Clear communication of ideas`,
+    - Conceptual understanding of momentum as "quantity of motion"
+    - Explanation of WHY momentum is conserved (Newton's laws connection)
+    - Quality of real-world examples and explanations
+    - Clear scientific communication`,
     
-    intermediate: `Create an intermediate-level long answer question about momentum in one dimension for a Grade 12 Physics 30 student.
+    intermediate: `Create an intermediate-level long answer question about momentum theory for a Grade 12 Physics 30 student.
     The question should:
-    - Require analysis of a collision scenario
-    - Ask students to explain conservation of momentum with calculations
-    - Include discussion of real-world applications
-    - Be answerable in 150-300 words
+    - Focus on THEORETICAL analysis of momentum conservation in collisions
+    - Ask students to EXPLAIN the physics principles behind momentum conservation
+    - Require discussion of the relationship between Newton's laws and momentum conservation
+    - Include analysis of WHY different collision types behave differently
+    - Minimize complex calculations - emphasize conceptual reasoning
+    - Be answerable in ${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'intermediate').min}-${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'intermediate').max} words
     
     Create a rubric with 4-5 criteria that assess:
-    - Correct application of momentum formula
-    - Understanding of conservation in collisions
-    - Mathematical reasoning and calculations
-    - Connection to real-world scenarios
-    - Quality of scientific explanation`,
+    - Understanding of momentum conservation theory
+    - Connection between Newton's laws and momentum conservation
+    - Analysis of collision types from theoretical perspective
+    - Application of concepts to real-world scenarios
+    - Quality of scientific reasoning and explanation`,
     
-    advanced: `Create a challenging long answer question about momentum in one dimension for a Grade 12 Physics 30 student.
+    advanced: `Create a challenging theoretical long answer question about momentum for a Grade 12 Physics 30 student.
     The question should:
-    - Present a complex multi-object collision scenario
-    - Require detailed analysis with multiple steps
-    - Ask for evaluation of different collision types (elastic/inelastic)
-    - Include discussion of energy considerations
-    - Be answerable in 200-400 words
+    - Focus on DEEP theoretical analysis of momentum concepts
+    - Ask students to EVALUATE and COMPARE different theoretical aspects
+    - Require discussion of momentum conservation in various physical contexts
+    - Include analysis of the fundamental nature of momentum as a conserved quantity
+    - Ask for critical thinking about limitations and applications of momentum theory
+    - Minimize computational work - emphasize theoretical understanding
+    - Be answerable in ${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'advanced').min}-${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'advanced').max} words
     
     Create a rubric with 5-6 criteria that assess:
-    - Advanced problem-solving approach
-    - Correct multi-step calculations
-    - Distinction between collision types
-    - Energy and momentum relationships
-    - Critical thinking and analysis
-    - Scientific communication quality`
+    - Advanced theoretical understanding of momentum conservation
+    - Critical analysis of momentum in different physical contexts
+    - Evaluation of the fundamental nature of conservation laws
+    - Synthesis of momentum concepts with broader physics principles
+    - Critical thinking and theoretical reasoning
+    - Sophisticated scientific communication`
   },
   
   // ===== ASSESSMENT SETTINGS =====
@@ -281,7 +287,7 @@ exports.course2_02_momentum_one_dimension_aiLongAnswer = createAILongAnswer({
         }
       ],
       maxPoints: 10,
-      wordLimit: longAnswerDefaults.wordLimits,
+      wordLimit: getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'intermediate'),
       sampleAnswer: `The law of conservation of momentum states that in a closed system with no external forces, the total momentum before a collision equals the total momentum after the collision. This principle applies because momentum is a conserved quantity in isolated systems.
 
 For the given scenario:
@@ -322,7 +328,7 @@ This is an inelastic collision because the objects stick together after impact. 
         }
       ],
       maxPoints: 10,
-      wordLimit: longAnswerDefaults.wordLimits,
+      wordLimit: getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'beginner'),
       sampleAnswer: `Momentum is defined as the product of an object's mass and velocity, expressed by the formula p = mv, where p is momentum (kg·m/s), m is mass (kg), and v is velocity (m/s).
 
 Momentum is a vector quantity, meaning it has both magnitude and direction. The direction of momentum is always the same as the direction of velocity. This vector nature is crucial when analyzing collisions or interactions between objects.

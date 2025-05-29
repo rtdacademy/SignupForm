@@ -8,6 +8,11 @@ import { Infinity, MessageCircle } from 'lucide-react';
 import { sanitizeEmail } from '../../../../utils/sanitizeEmail';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 import {
   Sheet,
   SheetContent,
@@ -18,86 +23,81 @@ import {
 import GoogleAIChatApp from '../../../../edbotz/GoogleAIChat/GoogleAIChatApp';
 
 /**
- * Renders text with LaTeX math support
- * Supports inline math ($...$) and display math ($$...$$)
- * Uses a simple approach that preserves the original LaTeX formatting
+ * Helper function to detect if text contains markdown patterns
  */
-const renderMathText = (text) => {
+const containsMarkdown = (text) => {
+  if (!text) return false;
+  
+  // Look for common markdown patterns including newlines
+  const markdownPatterns = [
+    /^#+\s+.+$/m,                  // Headers: # Header
+    /\*\*.+\*\*/,                  // Bold: **bold**
+    /\*.+\*/,                      // Italic: *italic*
+    /```[\s\S]*```/,               // Code block: ```code```
+    /`[^`]+`/,                     // Inline code: `code`
+    /\[.+\]\(.+\)/,                // Links: [text](url)
+    /\|[^|]+\|[^|]+\|/,            // Tables: |cell|cell|
+    /^\s*>\s+.+$/m,                // Blockquotes: > quote
+    /^\s*-\s+.+$/m,                // Unordered lists: - item
+    /^\s*\d+\.\s+.+$/m,            // Ordered lists: 1. item
+    /!\[.+\]\(.+\)/,               // Images: ![alt](url)
+    /~~.+~~/,                      // Strikethrough: ~~text~~
+    /\$\$.+\$\$/,                  // Math blocks: $$math$$
+    /\$.+\$/,                      // Inline math: $math$
+    /\\[a-zA-Z]+/,                 // LaTeX commands: \alpha, \beta, etc.
+    /\\begin\{/,                   // LaTeX environments: \begin{...}
+    /\\end\{/,                     // LaTeX environments: \end{...}
+    /\\frac\{/,                    // LaTeX fractions: \frac{...}
+    /\\sqrt/,                      // LaTeX square roots: \sqrt{...}
+    /\n/,                          // Newlines - important for preserving line breaks
+  ];
+  
+  // Check for newlines or other markdown patterns
+  return markdownPatterns.some(pattern => pattern.test(text));
+};
+
+/**
+ * Enhanced text rendering that handles both markdown and LaTeX math
+ * Preserves newlines and formats text properly
+ */
+const renderEnhancedText = (text) => {
   if (!text) return text;
   
-  try {
-    const parts = [];
-    let currentIndex = 0;
-    
-    // Simple regex to find math expressions
-    const mathRegex = /(\$\$(.+?)\$\$|\$(.+?)\$)/g;
-    let match;
-    
-    while ((match = mathRegex.exec(text)) !== null) {
-      // Add text before the math expression
-      if (match.index > currentIndex) {
-        const textBefore = text.slice(currentIndex, match.index);
-        if (textBefore) {
-          parts.push(textBefore);
-        }
-      }
-      
-      // Add the math expression
-      const isDisplayMath = match[0].startsWith('$$');
-      const mathContent = isDisplayMath ? match[2] : match[3];
-      
-      try {
-        // Preprocess math content to handle special characters
-        let processedMathContent = mathContent;
-        
-        // Replace various forms of multiplication dots with \cdot
-        // This handles Unicode middle dot (·), bullet operator (•), and similar characters
-        processedMathContent = processedMathContent.replace(/[·•⋅∙]/g, '\\cdot ');
-        
-        // Also handle cases where these might appear in \text{} commands
-        processedMathContent = processedMathContent.replace(/\\text\{([^}]*[·•⋅∙][^}]*)\}/g, (match, textContent) => {
-          const fixedText = textContent.replace(/[·•⋅∙]/g, '\\cdot ');
-          return `\\text{${fixedText}}`;
-        });
-        
-        if (isDisplayMath) {
-          parts.push(<BlockMath key={`display-${match.index}`} math={processedMathContent} />);
-        } else {
-          parts.push(<InlineMath key={`inline-${match.index}`} math={processedMathContent} />);
-        }
-      } catch (e) {
-        console.warn('Error rendering math:', mathContent, e);
-        parts.push(match[0]); // Fallback to original text
-      }
-      
-      currentIndex = match.index + match[0].length;
-    }
-    
-    // Add remaining text after the last math expression
-    if (currentIndex < text.length) {
-      const remainingText = text.slice(currentIndex);
-      if (remainingText) {
-        parts.push(remainingText);
-      }
-    }
-    
-    // If no math was found, return original text
-    if (parts.length === 0) {
-      return text;
-    }
-    
-    // If only one part and it's text, return it directly
-    if (parts.length === 1 && typeof parts[0] === 'string') {
-      return parts[0];
-    }
-    
-    // Return React fragment with all parts
-    return <>{parts}</>;
-    
-  } catch (e) {
-    console.warn('Error in renderMathText:', e);
-    return text;
+  // If text contains markdown patterns or newlines, use ReactMarkdown
+  if (containsMarkdown(text)) {
+    return (
+      <div className="prose prose-sm max-w-none">
+        <ReactMarkdown
+          remarkPlugins={[remarkMath, remarkGfm]}
+          rehypePlugins={[rehypeKatex, rehypeRaw]}
+          components={{
+            // Handle inline code
+            code: ({node, inline, className, children, ...props}) => {
+              if (inline) {
+                return <code className="px-1 py-0.5 rounded text-sm font-mono bg-gray-100 text-gray-800" {...props}>{children}</code>
+              }
+              return <code {...props}>{children}</code>
+            },
+            // Make sure paragraphs preserve spacing
+            p: ({node, ...props}) => <p className="mb-2" {...props} />,
+            // Handle lists
+            ul: ({node, ...props}) => <ul className="my-1 pl-5" {...props} />,
+            ol: ({node, ...props}) => <ol className="my-1 pl-5" {...props} />,
+            li: ({node, ...props}) => <li className="my-0.5" {...props} />,
+          }}
+        >
+          {text}
+        </ReactMarkdown>
+      </div>
+    );
   }
+  
+  // For simple text without markdown, just preserve line breaks
+  return (
+    <div style={{ whiteSpace: 'pre-wrap' }}>
+      {text}
+    </div>
+  );
 };
 
 /**
@@ -905,7 +905,7 @@ You can now:
 
             {/* Question Text */}
             <div className="text-gray-800 text-lg font-medium">
-              {renderMathText(question.questionText)}
+              {renderEnhancedText(question.questionText)}
             </div>
 
             {/* Options */}
@@ -947,7 +947,7 @@ You can now:
                     className={`mr-3 h-4 w-4 text-${themeColors.name}-600 focus:ring-${themeColors.name}-500`}
                   />
                   <div className="text-gray-700 flex-grow cursor-pointer" onClick={() => !result && setSelectedAnswer(option.id)}>
-                    {renderMathText(option.text)}
+                    {renderEnhancedText(option.text)}
                   </div>
 
                   {/* Show the correct/incorrect icon if there's a result */}
@@ -995,7 +995,7 @@ You can now:
                   {result.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
                 </p>
                 <div className="mb-3 text-sm">
-                  {renderMathText(result.feedback)}
+                  {renderEnhancedText(result.feedback)}
                 </div>
 
                 {/* Additional guidance based on result */}
@@ -1249,7 +1249,7 @@ You can now:
               )}
 
               <div className="text-gray-800 mb-5 text-lg font-medium">
-                {renderMathText(question.questionText)}
+                {renderEnhancedText(question.questionText)}
               </div>
 
               <div className={`space-y-2.5 mb-5 ${optionsClassName}`}>
@@ -1292,7 +1292,7 @@ You can now:
                       className={`mr-3 h-4 w-4 text-${themeColors.name}-600 focus:ring-${themeColors.name}-500`}
                     />
                     <div className="text-gray-700 flex-grow cursor-pointer" onClick={() => !result && setSelectedAnswer(option.id)}>
-                      {renderMathText(option.text)}
+                      {renderEnhancedText(option.text)}
                     </div>
 
                     {/* Show the correct/incorrect icon if there's a result */}
@@ -1341,7 +1341,7 @@ You can now:
                     {result.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
                   </p>
                   <div className="mb-3 text-sm">
-                    {renderMathText(result.feedback)}
+                    {renderEnhancedText(result.feedback)}
                   </div>
 
                   {/* Additional guidance based on result */}
