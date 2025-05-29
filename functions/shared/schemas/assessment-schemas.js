@@ -197,7 +197,7 @@ const RubricScoreSchema = z.object({
   criterion: z.string().describe('The criterion being scored'),
   score: z.number().min(0).describe('Points earned for this criterion'),
   maxPoints: z.number().min(0).describe('Maximum possible points for this criterion'),
-  feedback: z.string().describe('Specific feedback for this criterion'),
+  feedback: z.string().max(300).describe('Specific feedback for this criterion (max 300 characters)'),
 });
 
 // Schema for AI evaluation of long answer
@@ -205,11 +205,11 @@ const AILongAnswerEvaluationSchema = z.object({
   totalScore: z.number().min(0).describe('Total points earned'),
   maxScore: z.number().min(1).describe('Maximum possible points'),
   percentage: z.number().min(0).max(100).describe('Score as a percentage'),
-  overallFeedback: z.string().describe('Overall feedback on the answer'),
+  overallFeedback: z.string().max(500).describe('Overall feedback on the answer (max 500 characters)'),
   rubricScores: z.array(RubricScoreSchema).describe('Detailed scores per criterion'),
-  strengths: z.array(z.string()).optional().describe('Key strengths in the answer'),
-  improvements: z.array(z.string()).optional().describe('Suggested improvements'),
-  suggestions: z.string().optional().describe('Specific suggestions for improvement'),
+  strengths: z.array(z.string().max(200)).optional().describe('Key strengths in the answer (each max 200 characters)'),
+  improvements: z.array(z.string().max(200)).optional().describe('Suggested improvements (each max 200 characters)'),
+  suggestions: z.string().max(300).optional().describe('Specific suggestions for improvement (max 300 characters)'),
 });
 
 // Schema for long answer student assessment record

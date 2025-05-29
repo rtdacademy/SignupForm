@@ -31,6 +31,8 @@ import GoogleAIChatApp from '../../../../edbotz/GoogleAIChat/GoogleAIChatApp';
 
 /**
  * Renders text with LaTeX math support
+ * Supports inline math ($...$) and display math ($$...$$)
+ * Uses a simple approach that preserves the original LaTeX formatting
  */
 const renderMathText = (text) => {
   if (!text) return text;
@@ -39,10 +41,12 @@ const renderMathText = (text) => {
     const parts = [];
     let currentIndex = 0;
     
+    // Simple regex to find math expressions
     const mathRegex = /(\$\$(.+?)\$\$|\$(.+?)\$)/g;
     let match;
     
     while ((match = mathRegex.exec(text)) !== null) {
+      // Add text before the math expression
       if (match.index > currentIndex) {
         const textBefore = text.slice(currentIndex, match.index);
         if (textBefore) {
@@ -50,12 +54,23 @@ const renderMathText = (text) => {
         }
       }
       
+      // Add the math expression
       const isDisplayMath = match[0].startsWith('$$');
       const mathContent = isDisplayMath ? match[2] : match[3];
       
       try {
+        // Preprocess math content to handle special characters
         let processedMathContent = mathContent;
+        
+        // Replace various forms of multiplication dots with \cdot
+        // This handles Unicode middle dot (·), bullet operator (•), and similar characters
         processedMathContent = processedMathContent.replace(/[·•⋅∙]/g, '\\cdot ');
+        
+        // Also handle cases where these might appear in \text{} commands
+        processedMathContent = processedMathContent.replace(/\\text\{([^}]*[·•⋅∙][^}]*)\}/g, (match, textContent) => {
+          const fixedText = textContent.replace(/[·•⋅∙]/g, '\\cdot ');
+          return `\\text{${fixedText}}`;
+        });
         
         if (isDisplayMath) {
           parts.push(<BlockMath key={`display-${match.index}`} math={processedMathContent} />);
@@ -64,12 +79,13 @@ const renderMathText = (text) => {
         }
       } catch (e) {
         console.warn('Error rendering math:', mathContent, e);
-        parts.push(match[0]);
+        parts.push(match[0]); // Fallback to original text
       }
       
       currentIndex = match.index + match[0].length;
     }
     
+    // Add remaining text after the last math expression
     if (currentIndex < text.length) {
       const remainingText = text.slice(currentIndex);
       if (remainingText) {
@@ -77,14 +93,17 @@ const renderMathText = (text) => {
       }
     }
     
+    // If no math was found, return original text
     if (parts.length === 0) {
       return text;
     }
     
+    // If only one part and it's text, return it directly
     if (parts.length === 1 && typeof parts[0] === 'string') {
       return parts[0];
     }
     
+    // Return React fragment with all parts
     return <>{parts}</>;
     
   } catch (e) {
@@ -151,17 +170,19 @@ const RubricDisplay = ({ rubric, showScores = false, rubricScores = [] }) => {
                           : 'border-gray-200 bg-gray-50'
                       }`}
                     >
-                      <div className="flex items-start justify-between mb-1">
+                      <div className="flex items-start justify-between mb-2">
                         <h4 className="font-medium text-sm">{criterion.criterion}</h4>
                         <div className="flex items-center gap-2">
                           {hasScore ? (
                             <>
-                              <Badge 
-                                variant={percentage >= 80 ? 'default' : percentage >= 50 ? 'secondary' : 'destructive'}
-                                className="text-xs"
-                              >
-                                {score.score} / {criterion.points}
-                              </Badge>
+                              <div className="text-right">
+                                <div className="text-lg font-bold">
+                                  {score.score} / {criterion.points}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {Math.round(percentage)}%
+                                </div>
+                              </div>
                               {percentage >= 80 && <CheckCircle2 className="w-4 h-4 text-green-600" />}
                               {percentage < 50 && percentage >= 0 && <XCircle className="w-4 h-4 text-red-600" />}
                             </>
@@ -172,13 +193,13 @@ const RubricDisplay = ({ rubric, showScores = false, rubricScores = [] }) => {
                           )}
                         </div>
                       </div>
-                      <p className="text-xs text-gray-600 mb-2">{criterion.description}</p>
+                      <div className="text-xs text-gray-600 mb-2">{renderMathText(criterion.description)}</div>
                       
                       {hasScore && score.feedback && (
                         <div className="mt-2 pt-2 border-t border-gray-200">
-                          <p className="text-xs text-gray-700">
-                            <span className="font-medium">Feedback:</span> {score.feedback}
-                          </p>
+                          <div className="text-xs text-gray-700">
+                            <span className="font-medium">Feedback:</span> {renderMathText(score.feedback)}
+                          </div>
                         </div>
                       )}
                       
@@ -920,7 +941,7 @@ You can now:
                       {/* Overall Feedback */}
                       <div className="space-y-2">
                         <h4 className="font-medium text-sm">Overall Feedback</h4>
-                        <p className="text-sm text-gray-700">{result.overallFeedback}</p>
+                        <div className="text-sm text-gray-700">{renderMathText(result.overallFeedback)}</div>
                       </div>
                     </CardContent>
                   </Card>
@@ -940,7 +961,7 @@ You can now:
                             {result.strengths.map((strength, index) => (
                               <li key={index} className="flex items-start gap-1">
                                 <span className="text-green-600 mt-0.5">•</span>
-                                <span>{strength}</span>
+                                <div>{renderMathText(strength)}</div>
                               </li>
                             ))}
                           </ul>
@@ -961,7 +982,7 @@ You can now:
                             {result.improvements.map((improvement, index) => (
                               <li key={index} className="flex items-start gap-1">
                                 <span className="text-amber-600 mt-0.5">•</span>
-                                <span>{improvement}</span>
+                                <div>{renderMathText(improvement)}</div>
                               </li>
                             ))}
                           </ul>
@@ -977,7 +998,7 @@ You can now:
                         <CardTitle className="text-sm">Suggestions for Next Time</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-gray-700">{result.suggestions}</p>
+                        <div className="text-sm text-gray-700">{renderMathText(result.suggestions)}</div>
                       </CardContent>
                     </Card>
                   )}
@@ -1048,7 +1069,7 @@ You can now:
             <div className="max-w-2xl mx-auto space-y-4">
               <div>
                 <h3 className="text-lg font-semibold mb-2">Question</h3>
-                <p className="text-gray-700">{question?.questionText}</p>
+                <div className="text-gray-700">{renderMathText(question?.questionText)}</div>
               </div>
               
               {question && (

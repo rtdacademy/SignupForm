@@ -351,20 +351,29 @@ TOTAL POINTS: ${question.maxPoints}
 
 Please evaluate the student's answer according to each rubric criterion. For each criterion:
 1. Assign a score from 0 to the maximum points for that criterion
-2. Provide specific feedback explaining why that score was given
+2. Provide specific, concise feedback explaining why that score was given
 3. Reference specific parts of the student's answer when possible
 
 Also provide:
-- Overall feedback summarizing the quality of the answer
-- 2-3 key strengths in the answer (if any)
-- 2-3 specific suggestions for improvement
-- A brief suggestion on how to improve for next time
+- Overall feedback summarizing the quality of the answer (2-3 sentences maximum)
+- 2-3 key strengths in the answer (if any) - be specific and brief
+- 2-3 specific suggestions for improvement - be concise
+- A brief suggestion on how to improve for next time (1-2 sentences maximum)
+
+IMPORTANT: 
+- Keep all feedback concise and specific
+- Do not repeat the same phrases or encouragement multiple times
+- Focus on academic content, not excessive praise
+- Each section should be distinct and not repetitive
+- Limit suggestions to 2-3 sentences maximum
 
 Be fair but thorough in your evaluation. Give partial credit where appropriate.`;
 
     const systemInstructions = `You are an expert ${question.subject || 'subject'} teacher evaluating student work. 
 Be constructive and encouraging while maintaining high standards. 
 Focus on both what the student did well and areas for improvement.
+Provide concise, specific feedback without repetition.
+Avoid excessive praise or repeating the same phrases multiple times.
 ${applyPromptModules({ katexFormatting: true })}`;
 
     console.log("Evaluating student long answer with AI");
@@ -404,6 +413,14 @@ ${applyPromptModules({ katexFormatting: true })}`;
 
   } catch (error) {
     console.error("Error evaluating long answer with AI:", error);
+    console.error("Error details:", error.message);
+    console.error("Error stack:", error.stack);
+    
+    // Try to provide more specific error information
+    if (error.message && error.message.includes('schema')) {
+      console.error("Schema validation error - AI output doesn't match expected structure");
+    }
+    
     return getFallbackEvaluation(question, studentAnswer);
   }
 }
@@ -599,17 +616,22 @@ function createAILongAnswer(courseConfig = {}) {
           throw new Error('Assessment not found');
         }
         
-        // Check max attempts
+        // Check max attempts - but allow the current attempt to be evaluated
         const maxAttempts = assessmentData.maxAttempts || 3;
+        const currentAttempts = assessmentData.attempts || 0;
         
-        if (assessmentData.attempts >= maxAttempts) {
-          console.log(`Security check: Student has exceeded max attempts (${assessmentData.attempts}/${maxAttempts})`);
+        // Only reject if they've ALREADY submitted the maximum number of times
+        // This allows their final attempt to be evaluated
+        if (currentAttempts > maxAttempts) {
+          console.log(`Security check: Student has exceeded max attempts (${currentAttempts}/${maxAttempts})`);
           return {
             success: false,
             error: 'Maximum attempts exceeded',
             attemptsRemaining: 0
           };
         }
+        
+        console.log(`Processing attempt ${currentAttempts + 1} of ${maxAttempts}`);
 
         // Get the secure data
         const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
@@ -640,8 +662,8 @@ function createAILongAnswer(courseConfig = {}) {
         );
 
         // Increment attempts
-        let updatedAttempts = (assessmentData.attempts || 0) + 1;
-        console.log(`Incrementing attempts from ${assessmentData.attempts || 0} to ${updatedAttempts}`);
+        let updatedAttempts = currentAttempts + 1;
+        console.log(`Incrementing attempts from ${currentAttempts} to ${updatedAttempts}`);
         
         const attemptsRemaining = maxAttempts - updatedAttempts;
 
