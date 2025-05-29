@@ -550,6 +550,11 @@ const AIMultipleChoiceQuestion = ({
       // But we can also handle the result directly from the response for immediate feedback
       if (result.data?.result) {
         setResult(result.data.result);
+        
+        // Send automatic context update to AI chat if chat sheet is open
+        if (chatSheetOpen) {
+          await sendContextUpdateToAI(result.data.result);
+        }
       }
     } catch (err) {
       console.error("Error submitting answer:", err);
@@ -631,6 +636,98 @@ const AIMultipleChoiceQuestion = ({
     }
   };
 
+  // Send automatic context update to AI chat when question is answered
+  const sendContextUpdateToAI = async (submissionResult) => {
+    if (!question || !submissionResult) return;
+    
+    try {
+      console.log('Sending context update to AI chat:', submissionResult);
+      console.log('Current selectedAnswer state:', selectedAnswer);
+      
+      // Import Firebase functions if needed
+      const functions = getFunctions();
+      const sendChatMessage = httpsCallable(functions, 'sendChatMessage');
+      
+      // Get the current session ID from localStorage (matching GoogleAIChatApp pattern)
+      const sessionIdentifier = `${courseId}_${assessmentId}`;
+      const STORAGE_KEY_SESSION_ID = `google_ai_chat_session_id_${sessionIdentifier}`;
+      let currentSessionId = null;
+      
+      try {
+        currentSessionId = localStorage.getItem(STORAGE_KEY_SESSION_ID);
+      } catch (e) {
+        console.warn("Could not access localStorage for session ID:", e);
+      }
+      
+      // Create context update message based on result
+      const isCorrect = submissionResult.isCorrect;
+      // Use the component's selectedAnswer state if submissionResult.answer is null
+      const actualSelectedAnswer = submissionResult.answer || selectedAnswer;
+      const correctAnswer = submissionResult.correctOptionId;
+      const feedback = submissionResult.feedback;
+      
+      console.log('Using actualSelectedAnswer:', actualSelectedAnswer);
+      
+      // Find the actual answer text
+      const selectedOption = question.options.find(opt => opt.id === actualSelectedAnswer);
+      const correctOption = question.options.find(opt => opt.id === correctAnswer);
+      
+      const contextUpdateMessage = isCorrect 
+        ? `I just answered this question and selected option ${actualSelectedAnswer?.toUpperCase()}: "${selectedOption?.text}" which was correct!`
+        : `I just answered this question and selected option ${actualSelectedAnswer?.toUpperCase()}: "${selectedOption?.text}", but the correct answer was option ${correctAnswer?.toUpperCase()}: "${correctOption?.text}". The feedback said: "${feedback}"`;
+      
+      // Create updated context with the new submission (following Genkit patterns)
+      const baseContext = getAIChatContext();
+      const updatedContext = {
+        ...baseContext,
+        // Update question state for transition
+        questionState: {
+          ...baseContext.questionState,
+          status: 'attempted',
+          hasAttempted: true,
+          // Add transition flags
+          isContextUpdate: true,
+          previousStatus: 'active',
+          newStatus: 'attempted',
+          // Include the fresh submission data
+          lastSubmission: {
+            selectedAnswer: actualSelectedAnswer,
+            isCorrect: isCorrect,
+            feedback: feedback,
+            correctOptionId: correctAnswer,
+            timestamp: Date.now()
+          },
+          // Add answer details for the AI
+          answerDetails: {
+            studentAnswerText: selectedOption?.text,
+            correctAnswerText: correctOption?.text,
+            studentSelectedOption: actualSelectedAnswer?.toUpperCase(),
+            correctOption: correctAnswer?.toUpperCase()
+          }
+        }
+      };
+      
+      console.log('Sending context update with:', {
+        message: contextUpdateMessage,
+        sessionId: currentSessionId,
+        context: updatedContext
+      });
+      
+      // Send the context update message
+      await sendChatMessage({
+        message: contextUpdateMessage,
+        sessionId: currentSessionId, // Use existing session if available
+        context: updatedContext,
+        model: 'gemini-2.0-flash-exp' // Use the same model as the chat
+      });
+      
+      console.log('Context update sent successfully');
+    } catch (error) {
+      console.error('Failed to send context update to AI:', error);
+      // Don't throw - this is optional functionality that shouldn't break the main flow
+    }
+  };
+
   // Generate AI chat instructions based on question status
   const getAIChatInstructions = () => {
     if (!question) return "";
@@ -692,48 +789,59 @@ You can now:
     return "Hello! I'm here to help you understand this question better. What would you like to know?";
   };
 
-  // Generate context object for AI chat
+  // Generate context object for AI chat (following Genkit best practices)
   const getAIChatContext = () => {
     if (!question) return null;
     
-    // Create a context object with the current question state
-    const questionContext = {
-      assessmentId: assessmentId,
-      courseId: courseId,
-      topic: topic || question.topic,
-      difficulty: question.difficulty,
-      status: question.status,
-      attempts: question.attempts,
-      maxAttempts: question.maxAttempts,
-      questionData: {
-        questionText: question.questionText,
-        options: question.options.map(opt => ({
-          id: opt.id,
-          text: opt.text
-        }))
+    // Determine if the student has attempted this question
+    const hasAttempted = !!question.lastSubmission || question.status === 'attempted' || question.status === 'completed';
+    
+    // Create proper Genkit context structure
+    const context = {
+      // Auth context (recommended Genkit pattern)
+      auth: {
+        uid: currentUser?.uid,
+        email: currentUser?.email
+      },
+      // Session info
+      sessionInfo: {
+        courseId: courseId,
+        assessmentId: assessmentId,
+        topic: topic || question.topic
+      },
+      // Question state for agent selection (not question content)
+      questionState: {
+        status: question.status,
+        hasAttempted: hasAttempted,
+        attempts: question.attempts,
+        maxAttempts: question.maxAttempts,
+        difficulty: question.difficulty
       }
     };
     
-    // If the student has submitted an answer, include that information
+    // If the student has submitted an answer, include submission state
     if (question.lastSubmission) {
-      questionContext.lastSubmission = {
+      context.questionState.lastSubmission = {
         selectedAnswer: question.lastSubmission.answer,
         isCorrect: question.lastSubmission.isCorrect,
         feedback: question.lastSubmission.feedback,
-        correctOptionId: question.lastSubmission.correctOptionId
+        correctOptionId: question.lastSubmission.correctOptionId,
+        timestamp: question.lastSubmission.timestamp
       };
       
-      // If student has attempted, create a simulated first message from them
-      // This will be passed to the AI as if the student asked about their answer
+      // Add human-readable information for the agents
       const studentAnswer = question.options.find(opt => opt.id === question.lastSubmission.answer);
       const correctAnswer = question.options.find(opt => opt.id === question.lastSubmission.correctOptionId);
       
-      questionContext.simulatedStudentMessage = question.lastSubmission.isCorrect ?
-        `I just answered this question and selected "${studentAnswer?.text}" which was correct! Can you help me understand why this is the right answer?` :
-        `I selected "${studentAnswer?.text}" but the correct answer was "${correctAnswer?.text}". The feedback said: "${question.lastSubmission.feedback}". Can you help me understand why I got it wrong?`;
+      context.questionState.answerDetails = {
+        studentAnswerText: studentAnswer?.text,
+        correctAnswerText: correctAnswer?.text,
+        studentSelectedOption: question.lastSubmission.answer?.toUpperCase(),
+        correctOption: question.lastSubmission.correctOptionId?.toUpperCase()
+      };
     }
     
-    return questionContext;
+    return context;
   };
 
   // Render the question content (extracted for reuse in Sheet)
@@ -1359,7 +1467,7 @@ You can now:
             {question && (
               <GoogleAIChatApp
                 sessionIdentifier={`${courseId}_${assessmentId}`}
-                instructions={getAIChatInstructions()}
+                instructions={null} // Let server-side agent system handle instructions
                 firstMessage={getAIChatFirstMessage()}
                 showYouTube={false}
                 showUpload={false}
