@@ -25,7 +25,7 @@ const FirebaseCourseWrapper = ({
   // Debug logging
   console.log("🔄 FirebaseCourseWrapper rendering with course:", course);
   console.log("👤 Current User in wrapper:", currentUser);
-
+  console.log("!!!!!!!!!!!!!!!!!!Course:",course)
   // Sync with external state if provided
   useEffect(() => {
     if (externalActiveItemId && externalActiveItemId !== activeItemId) {

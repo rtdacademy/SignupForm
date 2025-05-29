@@ -1,0 +1,44 @@
+{
+  "courseStructure": {
+    "courseId": "PHY30",
+    "title": "Physics 30",
+    "description": "Advanced physics concepts including momentum, energy, fields, and modern physics",
+    "structure": [
+      {
+        "name": "Unit 1: Momentum and Energy",
+        "section": "1",
+        "unitId": "unit_momentum_energy",
+        "items": [
+          {
+            "itemId": "lesson_1747281754691_113",
+            "title": "Introduction to Physics",
+            "type": "lesson",
+            "content": "lesson_1747281754691_113"
+          },          {
+            "itemId": "lesson_1747281764415_851",
+            "title": "Momentum in One Dimension",
+            "type": "lesson",
+            "content": "lesson_1747281764415_851"
+          },
+          {
+            "itemId": "lesson_1747281779014_814",
+            "title": "Lesson 2 - Momentum in Two Dimensions",
+            "type": "lesson",
+            "content": "lesson_1747281779014_814"
+          },          {
+            "itemId": "assignment_1747281808385_436",
+            "title": "L1-3 Assignment",
+            "type": "assignment",
+            "content": "assignment_1747281808385_436"
+          },
+          {
+            "itemId": "assignment_1747283296776_954",
+            "title": "Lab 1 - Conservation of Momentum",
+            "type": "assignment",
+            "content": "assignment_1747283296776_954"
+          }
+        ]
+      }
+    ]
+  }
+}

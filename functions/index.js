@@ -154,6 +154,9 @@ exports.COM1255_IntroToELearningDynamic = COM1255IntroToELearning.handleDynamicQ
 exports.COM1255_BenefitsChallengesAI = COM1255BenefitsChallenges.handleAIQuestion;
 
 
+//PHY30
+exports.PHY30_IntroToPhysics = require('./courses/PHY30/content/lessons/IntroToPhysics').default;
+
 // 2 Course Functions
 exports.course2_shared_aiQuestion = require('./courses/2/shared/aiQuestions').course2_shared_aiQuestion;
 exports.course2_02_momentum_one_dimension_aiQuestion = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_aiQuestion;
@@ -162,3 +165,4 @@ exports.course2_02_momentum_one_dimension_aiLongAnswer = require('./courses/2/02
 // 100 Course Functions
 exports.course100_02_core_concepts_multipleChoice = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_multipleChoice;
 exports.course100_02_core_concepts_aiQuestion = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_aiQuestion;
+
