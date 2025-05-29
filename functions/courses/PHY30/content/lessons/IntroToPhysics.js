@@ -1,7 +1,7 @@
 // filepath: functions/courses/PHY30/content/lessons/IntroToPhysics.js
 const { onCall } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
-const { getServerTimestamp } = require('../../../../utils');
+const { getServerTimestamp, sanitizeEmail } = require('../../../../utils');
 
 /**
  * Extracts and validates required parameters from the function call
@@ -10,17 +10,64 @@ const { getServerTimestamp } = require('../../../../utils');
  * @returns {Object} Extracted and validated parameters
  */
 function extractParameters(data, context) {
-  if (!data || !data.studentKey || !data.courseId || !data.assessmentId || !data.operation) {
-    throw new Error('Missing required parameters');
+  // Extract the data from the request correctly
+  const {
+    courseId,
+    assessmentId,
+    operation,
+    answer,
+    seed,
+    studentEmail,
+    userId,
+  } = data.data || {};
+
+  // Log the received data for debugging
+  console.log("Data received by function:", data);
+
+  // Only log simple authentication status - avoid stringifying the entire context
+  const authStatus = context?.auth ? "Authenticated" : "Not authenticated";
+  console.log("Function received context:", authStatus);
+
+  // Get authentication info
+  let finalStudentEmail = studentEmail;
+  let finalUserId = userId;
+
+  // If we have authentication context but no studentEmail in the data, use the auth email
+  if (context?.auth?.token?.email && !finalStudentEmail) {
+    finalStudentEmail = context.auth.token.email;
+    console.log("Using email from auth context:", finalStudentEmail);
   }
 
+  // If we have authentication context but no userId in the data, use the auth uid
+  if (context?.auth?.uid && !finalUserId) {
+    finalUserId = context.auth.uid;
+    console.log("Using UID from auth context:", finalUserId);
+  }
+
+  // Validate required parameters
+  if (!courseId || !assessmentId || !operation || !finalStudentEmail) {
+    console.error("Missing required parameters:", {
+      courseId,
+      assessmentId,
+      operation,
+      studentEmail: finalStudentEmail,
+      userId: finalUserId
+    });
+    throw new Error('Missing required parameters: courseId, assessmentId, operation, and studentEmail are required');
+  }
+
+  // Convert email to safe key for database
+  const studentKey = sanitizeEmail(finalStudentEmail);
+
   return {
-    studentKey: data.studentKey,
-    courseId: data.courseId,
-    assessmentId: data.assessmentId,
-    operation: data.operation,
-    answer: data.answer,
-    seed: data.seed
+    studentKey,
+    studentEmail: finalStudentEmail,
+    userId: finalUserId,
+    courseId,
+    assessmentId,
+    operation,
+    answer,
+    seed
   };
 }
 
@@ -159,58 +206,42 @@ exports.default = onCall({
   await initializeCourseIfNeeded(params.studentKey, params.courseId);
 
   const assessmentRef = admin.database()
-    .ref(`students/${params.studentKey}/courses/${params.courseId}/Assessments/${params.assessmentId}`);
-
-  if (params.operation === 'generate') {
+    .ref(`students/${params.studentKey}/courses/${params.courseId}/Assessments/${params.assessmentId}`);  if (params.operation === 'generate') {
     try {
-      // Check if this is a dynamic question or multiple choice
-      const isDynamic = params.assessmentId.includes('dynamic');
+      // Generate dynamic physics question
+      const seed = params.seed || Date.now();
+      const question = generateDynamicQuestion(seed);
       
-      if (isDynamic) {
-        const seed = params.seed || Date.now();
-        const question = generateDynamicQuestion(seed);
-        
-        await assessmentRef.set({
-          ...question,
-          seed,
-          attemptsRemaining: 3,
-          pointsValue: 1
-        });
-        
-        return { 
-          success: true,
-          question: {
-            questionText: question.questionText,
-            parameters: question.parameters,
-            units: question.units
-          }
-        };
-      } else {
-        // Multiple choice question generation
-        const previousVariantIdsSnapshot = await assessmentRef.child('previousVariantIds').once('value');
-        const previousVariantIds = previousVariantIdsSnapshot.val() || [];
-  
-        const unusedVariants = multipleChoiceQuestionVariants.filter(v => !previousVariantIds.includes(v.id));
-        const selectedVariant = unusedVariants.length > 0 
-          ? unusedVariants[Math.floor(Math.random() * unusedVariants.length)]
-          : multipleChoiceQuestionVariants[Math.floor(Math.random() * multipleChoiceQuestionVariants.length)];
-  
-        const question = {
-          ...selectedVariant,
-          variantId: selectedVariant.id,
-          previousVariantIds: [...previousVariantIds, selectedVariant.id],
-          attemptsRemaining: 3,
-          pointsValue: 1
-        };
-  
-        await assessmentRef.set(question);
-        return { success: true, question };
-      }
+      await assessmentRef.set({
+        timestamp: getServerTimestamp(),
+        questionText: question.questionText,
+        parameters: question.parameters,
+        units: question.units,
+        solution: question.solution,
+        tolerance: question.tolerance,
+        seed,
+        attempts: 0,
+        status: 'active',
+        maxAttempts: 5,
+        pointsValue: 1,
+        settings: {
+          showRegenerate: true,
+          showFeedback: true
+        }
+      });
+      
+      return { 
+        success: true,
+        questionGenerated: true,
+        assessmentId: params.assessmentId,
+        questionText: question.questionText,
+        parameters: question.parameters,
+        units: question.units
+      };
     } catch (error) {
       console.error('Error generating question:', error);
       throw new Error('Failed to generate question');
-    }
-  } else if (params.operation === 'submit') {
+    }  } else if (params.operation === 'evaluate') {
     try {
       const assessmentSnapshot = await assessmentRef.once('value');
       const assessmentData = assessmentSnapshot.val();
@@ -219,31 +250,21 @@ exports.default = onCall({
         throw new Error('Assessment not found');
       }
 
-      const attemptsRemaining = assessmentData.attemptsRemaining || 0;
+      const attemptsRemaining = assessmentData.maxAttempts - (assessmentData.attempts || 0);
       if (attemptsRemaining <= 0) {
         return { success: false, error: 'No attempts remaining' };
       }
 
-      let isCorrect;
-      let explanation;
-      
-      // Handle dynamic vs multiple choice questions differently
-      if (assessmentData.solution !== undefined) {
-        // Dynamic question evaluation
-        const studentAnswer = parseFloat(params.answer);
-        if (isNaN(studentAnswer)) {
-          throw new Error('Invalid answer format');
-        }
-        
-        isCorrect = Math.abs(studentAnswer - assessmentData.solution) <= assessmentData.tolerance;
-        explanation = isCorrect
-          ? `Correct! The object travels ${assessmentData.solution} meters.`
-          : `Not quite. Try again by multiplying velocity (${assessmentData.parameters.velocity} m/s) by time (${assessmentData.parameters.time} s).`;
-      } else {
-        // Multiple choice evaluation
-        isCorrect = params.answer === assessmentData.correctOptionId;
-        explanation = assessmentData.explanation;
+      // Dynamic question evaluation
+      const studentAnswer = parseFloat(params.answer);
+      if (isNaN(studentAnswer)) {
+        throw new Error('Invalid answer format');
       }
+      
+      const isCorrect = Math.abs(studentAnswer - assessmentData.solution) <= assessmentData.tolerance;
+      const explanation = isCorrect
+        ? `Correct! The object travels ${assessmentData.solution} meters.`
+        : `Not quite. Try again by multiplying velocity (${assessmentData.parameters.velocity} m/s) by time (${assessmentData.parameters.time} s).`;
 
       const result = {
         isCorrect,
@@ -252,10 +273,11 @@ exports.default = onCall({
       };
 
       await assessmentRef.update({
-        attemptsRemaining: result.attemptsRemaining,
+        attempts: (assessmentData.attempts || 0) + 1,
         lastAttempt: {
           answer: params.answer,
-          timestamp: getServerTimestamp()
+          timestamp: getServerTimestamp(),
+          isCorrect
         }
       });
 
