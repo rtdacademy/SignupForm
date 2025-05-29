@@ -148,6 +148,13 @@ const { applyPromptModules } = require('../prompt-modules');
 // Environment variables
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
+// Log API key status (without exposing the actual key)
+if (!GEMINI_API_KEY) {
+  console.warn("WARNING: GEMINI_API_KEY environment variable is not set. AI features will use fallback mode.");
+} else {
+  console.log("GEMINI_API_KEY is configured (length:", GEMINI_API_KEY.length, "characters)");
+}
+
 // Initialize Genkit with Google AI plugin
 const ai = genkit({
   plugins: [googleAI()],
@@ -418,6 +425,14 @@ ${applyPromptModules({ katexFormatting: true })}`;
       console.error("Schema validation error - AI output doesn't match expected structure");
     }
     
+    // Log the actual error type for better debugging
+    if (error.response) {
+      console.error("API Response error:", error.response.status, error.response.data);
+    }
+    if (error.code) {
+      console.error("Error code:", error.code);
+    }
+    
     return getFallbackEvaluation(question, studentAnswer);
   }
 }
@@ -431,24 +446,39 @@ ${applyPromptModules({ katexFormatting: true })}`;
 function getFallbackEvaluation(question, studentAnswer) {
   const wordCount = studentAnswer.trim().split(/\s+/).filter(word => word.length > 0).length;
   const hasAnswer = wordCount >= (question.wordLimit?.min || 50);
+  const meetsMaxLength = wordCount <= (question.wordLimit?.max || 5000);
   
-  // Simple scoring: give partial credit if answer meets minimum length
-  const baseScore = hasAnswer ? 0.5 : 0.2;
+  // More nuanced scoring based on word count
+  let baseScore = 0.2; // Default minimum score
+  if (hasAnswer && meetsMaxLength) {
+    baseScore = 0.6; // Good faith effort within word limits
+  } else if (hasAnswer) {
+    baseScore = 0.5; // Answer provided but too long
+  }
+  
+  // Create more informative fallback feedback
+  let overallFeedback = "Your answer has been recorded. ";
+  if (!hasAnswer) {
+    overallFeedback = `Your answer is below the minimum word count (${wordCount}/${question.wordLimit?.min || 50} words). `;
+  } else if (!meetsMaxLength) {
+    overallFeedback = `Your answer exceeds the maximum word count (${wordCount}/${question.wordLimit?.max || 500} words). `;
+  }
+  overallFeedback += "AI evaluation is temporarily unavailable. Your instructor will review your submission.";
   
   return {
     totalScore: Math.round(question.maxPoints * baseScore),
     maxScore: question.maxPoints,
     percentage: Math.round(baseScore * 100),
-    overallFeedback: hasAnswer 
-      ? "Your answer has been recorded. Detailed evaluation is currently unavailable."
-      : "Your answer is too short. Please provide a more detailed response.",
+    overallFeedback: overallFeedback,
     rubricScores: question.rubric.map(criterion => ({
       criterion: criterion.criterion,
       score: Math.round(criterion.points * baseScore),
       maxPoints: criterion.points,
-      feedback: "Automated evaluation unavailable. Please consult your instructor."
+      feedback: "Pending instructor review. AI evaluation temporarily unavailable."
     })),
-    suggestions: "For detailed feedback, please contact your instructor."
+    strengths: hasAnswer ? ["Answer submitted within word count requirements"] : [],
+    improvements: !hasAnswer ? ["Ensure your answer meets the minimum word count"] : [],
+    suggestions: "This is a provisional score. Your instructor will provide detailed feedback on your submission."
   };
 }
 

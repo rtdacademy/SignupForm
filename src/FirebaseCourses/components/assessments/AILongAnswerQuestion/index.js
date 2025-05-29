@@ -728,7 +728,7 @@ You can now:
            style={{ backgroundColor: themeColors.bgDark, borderColor: themeColors.border }}>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-lg font-medium" style={{ color: themeColors.textDark }}>
-            {question?.title || 'AI-Generated Long Answer Question'}
+            {question?.title || 'Long Answer Question'}
           </h3>
           <div className="flex items-center gap-2">
             {question?.generatedBy === 'ai' && (
