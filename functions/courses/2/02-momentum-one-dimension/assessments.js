@@ -9,7 +9,18 @@
 
 const { createAIMultipleChoice } = require('../../../shared/assessment-types/ai-multiple-choice');
 const { createAILongAnswer } = require('../../../shared/assessment-types/ai-long-answer');
+const { getActivityTypeSettings } = require('../../../shared/utilities/config-loader');
 const courseConfig = require('../../../courses-config/2/course-config.json');
+
+// ===== ACTIVITY TYPE CONFIGURATION =====
+// Set the activity type for all assessments in this content module
+// Options: 'lesson', 'assignment', 'lab', 'exam'
+// This determines which default settings are used from course-config.json
+const ACTIVITY_TYPE = 'lesson';
+
+// Get the default settings for this activity type
+const activityDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE);
+const longAnswerDefaults = getActivityTypeSettings(courseConfig, ACTIVITY_TYPE, 'longAnswer');
 
 /**
  * AI-powered multiple choice assessment for momentum in one dimension
@@ -24,9 +35,8 @@ const courseConfig = require('../../../courses-config/2/course-config.json');
  */
 exports.course2_02_momentum_one_dimension_aiQuestion = createAIMultipleChoice({
   // ===== REQUIRED: Activity Type =====
-  // Determines which settings from course-config.json to use as defaults
-  // Options: 'lesson', 'assignment', 'lab', 'exam'
-  activityType: 'lesson',
+  // Activity type is set at the top of this file: ACTIVITY_TYPE = '${ACTIVITY_TYPE}'
+  activityType: ACTIVITY_TYPE,
   
   // ===== REQUIRED: Course-specific prompts =====
   prompts: {
@@ -63,22 +73,24 @@ exports.course2_02_momentum_one_dimension_aiQuestion = createAIMultipleChoice({
   },
   
   // ===== ASSESSMENT SETTINGS =====
-  // These use values from course-config.json -> activityTypes.lesson
-  maxAttempts: 999,                    // Maximum attempts allowed (course default: 999)
-  pointsValue: 5,                       // Points for correct answer (course default: 5)
-  showFeedback: true,                   // Show detailed feedback (course default: true)
-  enableHints: true,                    // Enable hint system (course default: true)
-  attemptPenalty: 0,                    // Points deducted per attempt (course default: 0)
-  theme: 'purple',                      // Color theme (course default: 'purple')
-  allowDifficultySelection: false,      // Let students choose difficulty (course default: false)
-  defaultDifficulty: 'intermediate',    // Default difficulty level (course default: 'intermediate')
+  // These use values from course-config.json -> activityTypes[ACTIVITY_TYPE]
+  // Change any value below to override the course default
+  maxAttempts: activityDefaults.maxAttempts,                      // Course default: 999
+  pointsValue: activityDefaults.pointValue,                       // Course default: 5
+  showFeedback: activityDefaults.showDetailedFeedback,           // Course default: true
+  enableHints: activityDefaults.enableHints,                     // Course default: true
+  attemptPenalty: activityDefaults.attemptPenalty,               // Course default: 0
+  theme: activityDefaults.theme,                                 // Course default: 'purple'
+  allowDifficultySelection: activityDefaults.allowDifficultySelection, // Course default: false
+  defaultDifficulty: activityDefaults.defaultDifficulty,         // Course default: 'intermediate'
   
   // ===== AI GENERATION SETTINGS =====
-  // From course-config.json -> activityTypes.lesson.aiSettings
+  // From course-config.json -> activityTypes[ACTIVITY_TYPE].aiSettings
+  // Change any value below to override the course default
   aiSettings: {
-    temperature: 0.7,    // AI creativity level 0-1 (course default: 0.7)
-    topP: 0.9,          // Nucleus sampling (course default: 0.9)
-    topK: 40            // Top-K sampling (default: 40)
+    temperature: activityDefaults.aiSettings.temperature,  // Course default: 0.7
+    topP: activityDefaults.aiSettings.topP,               // Course default: 0.9
+    topK: 40  // Not in config, using assessment system default
   },
   
   // ===== FORMATTING OPTIONS =====
@@ -147,9 +159,8 @@ exports.course2_02_momentum_one_dimension_aiQuestion = createAIMultipleChoice({
  */
 exports.course2_02_momentum_one_dimension_aiLongAnswer = createAILongAnswer({
   // ===== REQUIRED: Activity Type =====
-  // Determines which settings from course-config.json to use as defaults
-  // Options: 'lesson', 'assignment', 'lab', 'exam'
-  activityType: 'lesson',
+  // Activity type is set at the top of this file: ACTIVITY_TYPE = '${ACTIVITY_TYPE}'
+  activityType: ACTIVITY_TYPE,
   
   // ===== REQUIRED: Course-specific prompts =====
   prompts: {
@@ -158,7 +169,7 @@ exports.course2_02_momentum_one_dimension_aiLongAnswer = createAILongAnswer({
     - Focus on explaining basic momentum concepts and conservation
     - Require students to define momentum and explain its properties
     - Ask for simple examples or applications
-    - Be answerable in 100-200 words
+    - Be answerable in 50-200 words
     
     Create a clear rubric with 3-4 criteria that assess:
     - Understanding of momentum definition (p = mv)
@@ -198,27 +209,30 @@ exports.course2_02_momentum_one_dimension_aiLongAnswer = createAILongAnswer({
   },
   
   // ===== ASSESSMENT SETTINGS =====
-  // These use values from course-config.json -> activityTypes.assignment
-  maxAttempts: 3,                      // Maximum attempts allowed (course default: 3)
-  theme: 'blue',                       // Color theme (course default: 'blue')
-  allowDifficultySelection: true,      // Let students choose difficulty (course default: true)
-  defaultDifficulty: 'beginner',       // Default difficulty level (course default: 'beginner')
+  // These use values from course-config.json -> activityTypes[ACTIVITY_TYPE]
+  // Change any value below to override the course default
+  maxAttempts: longAnswerDefaults.maxAttempts,                      // Course default: 999
+  theme: longAnswerDefaults.theme,                                 // Course default: 'purple'
+  allowDifficultySelection: longAnswerDefaults.allowDifficultySelection, // Course default: false
+  defaultDifficulty: longAnswerDefaults.defaultDifficulty,         // Course default: 'intermediate'
   
   // ===== LONG ANSWER SPECIFIC SETTINGS =====
-  // From course-config.json -> activityTypes.assignment.longAnswer
-  totalPoints: 10,                     // Total points for rubric (course default: 10)
-  rubricCriteria: 4,                   // Number of rubric criteria (course default: 4)
-  wordLimits: { min: 100, max: 400 }, // Word count limits (course default: 100-400)
-  showRubric: true,                    // Show rubric to students (course default: true)
-  showWordCount: true,                 // Show word counter (course default: true)
-  showHints: false,                    // Show hints button (default: false)
+  // From course-config.json -> activityTypes[ACTIVITY_TYPE].longAnswer
+  // Change any value below to override the course default
+  totalPoints: longAnswerDefaults.totalPoints,          // Course default: 5
+  rubricCriteria: longAnswerDefaults.rubricCriteria,    // Course default: 3
+  wordLimits: longAnswerDefaults.wordLimits,           // Course default: {min: 50, max: 200}
+  showRubric: longAnswerDefaults.showRubric,           // Course default: true
+  showWordCount: longAnswerDefaults.showWordCount,     // Course default: true
+  showHints: false,                    // Custom override - not using default
   
   // ===== AI GENERATION SETTINGS =====
-  // From course-config.json -> activityTypes.assignment.aiSettings
+  // From course-config.json -> activityTypes[ACTIVITY_TYPE].aiSettings
+  // Change any value below to override the course default
   aiSettings: {
-    temperature: 0.7,    // AI creativity level 0-1 (course default: 0.7)
-    topP: 0.9,          // Nucleus sampling (course default: 0.9)
-    topK: 40            // Top-K sampling (default: 40)
+    temperature: longAnswerDefaults.aiSettings.temperature,  // Course default: 0.7
+    topP: longAnswerDefaults.aiSettings.topP,               // Course default: 0.9
+    topK: 40  // Not in config, using assessment system default
   },
   
   // ===== FORMATTING OPTIONS =====
@@ -267,7 +281,7 @@ exports.course2_02_momentum_one_dimension_aiLongAnswer = createAILongAnswer({
         }
       ],
       maxPoints: 10,
-      wordLimit: { min: 150, max: 300 },
+      wordLimit: longAnswerDefaults.wordLimits,
       sampleAnswer: `The law of conservation of momentum states that in a closed system with no external forces, the total momentum before a collision equals the total momentum after the collision. This principle applies because momentum is a conserved quantity in isolated systems.
 
 For the given scenario:
@@ -308,7 +322,7 @@ This is an inelastic collision because the objects stick together after impact. 
         }
       ],
       maxPoints: 10,
-      wordLimit: { min: 100, max: 200 },
+      wordLimit: longAnswerDefaults.wordLimits,
       sampleAnswer: `Momentum is defined as the product of an object's mass and velocity, expressed by the formula p = mv, where p is momentum (kg·m/s), m is mass (kg), and v is velocity (m/s).
 
 Momentum is a vector quantity, meaning it has both magnitude and direction. The direction of momentum is always the same as the direction of velocity. This vector nature is crucial when analyzing collisions or interactions between objects.

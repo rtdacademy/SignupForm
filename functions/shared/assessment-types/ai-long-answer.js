@@ -195,6 +195,7 @@ async function generateAILongAnswerQuestion(config, topic, difficulty = 'interme
     6. The sample answer should be between ${wordLimits.min} and ${wordLimits.max} words
     7. Ensure the question tests understanding, application, and critical thinking
     8. For physics questions, include opportunities to demonstrate mathematical reasoning where appropriate
+    9. IMPORTANT: Students will be required to write answers between ${wordLimits.min} and ${wordLimits.max} words - design your question and rubric accordingly
     
     RUBRIC DESIGN:
     - Each criterion should focus on a different aspect of the answer
@@ -231,13 +232,8 @@ async function generateAILongAnswerQuestion(config, topic, difficulty = 'interme
         throw new Error("Response doesn't satisfy schema.");
       }
       
-      // Validate and adjust word limits if needed
-      if (!output.wordLimit) {
-        output.wordLimit = wordLimits;
-      } else {
-        output.wordLimit.min = output.wordLimit.min || wordLimits.min;
-        output.wordLimit.max = Math.max(output.wordLimit.max || wordLimits.max, wordLimits.max);
-      }
+      // Enforce configured word limits (don't let AI override these)
+      output.wordLimit = wordLimits;
       
       // Validate total points match configuration
       const actualTotal = output.rubric.reduce((sum, criterion) => sum + criterion.points, 0);
@@ -336,6 +332,7 @@ async function evaluateAILongAnswer(question, studentAnswer, sampleAnswer) {
 
 QUESTION: ${question.questionText}
 
+WORD LIMIT REQUIREMENT: ${question.wordLimit.min}-${question.wordLimit.max} words
 STUDENT ANSWER (${wordCount} words):
 ${studentAnswer}
 

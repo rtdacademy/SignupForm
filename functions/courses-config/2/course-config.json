@@ -70,7 +70,7 @@
       "longAnswer": {
         "totalPoints": 10,
         "rubricCriteria": 4,
-        "wordLimits": { "min": 100, "max": 400 },
+        "wordLimits": { "min": 50, "max": 300},
         "showRubric": true,
         "showWordCount": true
       }
@@ -93,7 +93,7 @@
       "longAnswer": {
         "totalPoints": 15,
         "rubricCriteria": 5,
-        "wordLimits": { "min": 150, "max": 500 },
+        "wordLimits": { "min": 50, "max": 400 },
         "showRubric": true,
         "showWordCount": true
       }
@@ -114,9 +114,9 @@
         "topP": 0.8
       },
       "longAnswer": {
-        "totalPoints": 20,
+        "totalPoints": 5,
         "rubricCriteria": 5,
-        "wordLimits": { "min": 200, "max": 600 },
+        "wordLimits": { "min": 50, "max": 300 },
         "showRubric": false,
         "showWordCount": true
       }

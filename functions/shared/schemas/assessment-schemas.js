@@ -187,7 +187,7 @@ const AILongAnswerQuestionSchema = z.object({
   wordLimit: z.object({
     min: z.number().min(10).optional().describe('Minimum word count'),
     max: z.number().min(50).describe('Maximum word count'),
-  }).describe('Word count limits for the answer'),
+  }).optional().describe('Word count limits for the answer (will be overridden by configuration)'),
   sampleAnswer: z.string().describe('A high-quality sample answer that would earn full points'),
   hints: z.array(z.string()).optional().describe('Optional hints to help students'),
 });
