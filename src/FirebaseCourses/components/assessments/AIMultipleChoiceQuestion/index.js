@@ -4,10 +4,18 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDatabase, ref, onValue } from 'firebase/database';
 import { useAuth } from '../../../../context/AuthContext';
 import { Button } from '../../../../components/ui/button';
-import { Infinity } from 'lucide-react';
+import { Infinity, MessageCircle } from 'lucide-react';
 import { sanitizeEmail } from '../../../../utils/sanitizeEmail';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '../../../../components/ui/sheet';
+import GoogleAIChatApp from '../../../../edbotz/GoogleAIChat/GoogleAIChatApp';
 
 /**
  * Renders text with LaTeX math support
@@ -131,6 +139,7 @@ const AIMultipleChoiceQuestion = ({
   const [result, setResult] = useState(null);
   const [regenerating, setRegenerating] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
+  const [chatSheetOpen, setChatSheetOpen] = useState(false);
   
   // Refs for debouncing and preventing multiple calls
   const isGeneratingRef = useRef(false);
@@ -622,6 +631,111 @@ const AIMultipleChoiceQuestion = ({
     }
   };
 
+  // Generate AI chat instructions based on question status
+  const getAIChatInstructions = () => {
+    if (!question) return "";
+    
+    const baseInstructions = `You are an educational AI tutor helping a student with a physics question about ${topic || 'this topic'}.`;
+    
+    if (question.status === 'active') {
+      // Student hasn't answered yet - use Socratic method, never give away answer
+      return `${baseInstructions}
+      
+IMPORTANT: The student has NOT yet answered this question. You must:
+1. NEVER directly provide the answer or indicate which option is correct
+2. Use the Socratic method - ask guiding questions to help them think
+3. Help them understand the concepts needed to solve the problem
+4. Encourage them to work through the problem step by step
+5. If they ask for the answer directly, politely remind them that you're here to help them learn by guiding their thinking
+
+The question asks: "${question.questionText}"
+
+Remember: Your goal is to help them learn and understand, not to give them the answer.`;
+    } else if (question.status === 'attempted' || question.status === 'completed' || question.lastSubmission) {
+      // Student has attempted - can discuss answer more freely
+      const isCorrect = question.lastSubmission?.isCorrect;
+      return `${baseInstructions}
+      
+The student has already attempted this question. They selected option ${question.lastSubmission?.answer?.toUpperCase()} and their answer was ${isCorrect ? 'CORRECT' : 'INCORRECT'}.
+
+${isCorrect ? 
+  'Since they got it right, help reinforce their understanding and explore related concepts.' : 
+  'Since they got it wrong, you can now freely discuss why their answer was incorrect and explain the correct answer.'}
+
+The correct answer was option ${question.lastSubmission?.correctOptionId?.toUpperCase()}.
+
+You can now:
+1. Explain why the correct answer is right
+2. Discuss common misconceptions
+3. Provide additional examples
+4. Help them understand the underlying concepts more deeply`;
+    }
+    
+    return baseInstructions;
+  };
+
+  // Generate initial AI chat message based on status
+  const getAIChatFirstMessage = () => {
+    if (!question) return "Hello! I'm here to help you with this question.";
+    
+    if (question.status === 'active') {
+      return "Hello! I see you're working on a momentum question. I'm here to help guide your thinking. What part of the problem would you like to explore first?";
+    } else if (question.lastSubmission) {
+      const isCorrect = question.lastSubmission.isCorrect;
+      if (isCorrect) {
+        return `Great job! You correctly answered that ${question.lastSubmission.answer?.toUpperCase()} was the right choice. Would you like me to explain why this answer is correct, or explore any related concepts?`;
+      } else {
+        return `I see you selected option ${question.lastSubmission.answer?.toUpperCase()}, but that wasn't quite right. The correct answer was option ${question.lastSubmission.correctOptionId?.toUpperCase()}. Would you like me to explain why, or help you understand where your thinking might have gone off track?`;
+      }
+    }
+    
+    return "Hello! I'm here to help you understand this question better. What would you like to know?";
+  };
+
+  // Generate context object for AI chat
+  const getAIChatContext = () => {
+    if (!question) return null;
+    
+    // Create a context object with the current question state
+    const questionContext = {
+      assessmentId: assessmentId,
+      courseId: courseId,
+      topic: topic || question.topic,
+      difficulty: question.difficulty,
+      status: question.status,
+      attempts: question.attempts,
+      maxAttempts: question.maxAttempts,
+      questionData: {
+        questionText: question.questionText,
+        options: question.options.map(opt => ({
+          id: opt.id,
+          text: opt.text
+        }))
+      }
+    };
+    
+    // If the student has submitted an answer, include that information
+    if (question.lastSubmission) {
+      questionContext.lastSubmission = {
+        selectedAnswer: question.lastSubmission.answer,
+        isCorrect: question.lastSubmission.isCorrect,
+        feedback: question.lastSubmission.feedback,
+        correctOptionId: question.lastSubmission.correctOptionId
+      };
+      
+      // If student has attempted, create a simulated first message from them
+      // This will be passed to the AI as if the student asked about their answer
+      const studentAnswer = question.options.find(opt => opt.id === question.lastSubmission.answer);
+      const correctAnswer = question.options.find(opt => opt.id === question.lastSubmission.correctOptionId);
+      
+      questionContext.simulatedStudentMessage = question.lastSubmission.isCorrect ?
+        `I just answered this question and selected "${studentAnswer?.text}" which was correct! Can you help me understand why this is the right answer?` :
+        `I selected "${studentAnswer?.text}" but the correct answer was "${correctAnswer?.text}". The feedback said: "${question.lastSubmission.feedback}". Can you help me understand why I got it wrong?`;
+    }
+    
+    return questionContext;
+  };
+
   // Animations for components
   const animations = {
     container: {
@@ -654,6 +768,7 @@ const AIMultipleChoiceQuestion = ({
   };
 
   return (
+    <>
     <div className={`rounded-lg overflow-hidden shadow-lg border ${questionClassName}`} style={{
       backgroundColor: themeColors.bgLight,
       borderColor: themeColors.border
@@ -665,11 +780,25 @@ const AIMultipleChoiceQuestion = ({
           <h3 className="text-lg font-medium" style={{ color: themeColors.textDark }}>
             {question?.title || 'AI-Generated Question'}
           </h3>
-          {question?.generatedBy === 'ai' && (
-            <span className="text-xs py-1 px-2 rounded bg-purple-100 text-purple-800 font-medium">
-              AI-powered
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {question?.generatedBy === 'ai' && (
+              <span className="text-xs py-1 px-2 rounded bg-purple-100 text-purple-800 font-medium">
+                AI-powered
+              </span>
+            )}
+            {question && (
+              <Button
+                onClick={() => setChatSheetOpen(true)}
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-1"
+                title="Chat with AI about this question"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">Chat with AI</span>
+              </Button>
+            )}
+          </div>
         </div>
         
         {/* Display attempts counter when question is loaded */}
@@ -968,6 +1097,32 @@ const AIMultipleChoiceQuestion = ({
         </AnimatePresence>
       </div>
     </div>
+
+    {/* AI Chat Sheet */}
+    <Sheet open={chatSheetOpen} onOpenChange={setChatSheetOpen}>
+      <SheetContent className="w-full sm:max-w-2xl p-0">
+        <SheetHeader className="px-6 py-4 border-b">
+          <SheetTitle>AI Study Assistant</SheetTitle>
+          <SheetDescription>
+            Chat with AI about this question. The AI will help guide your understanding.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="h-[calc(100vh-120px)]">
+          {question && (
+            <GoogleAIChatApp
+              instructions={getAIChatInstructions()}
+              firstMessage={getAIChatFirstMessage()}
+              showYouTube={false}
+              showUpload={false}
+              allowContentRemoval={false}
+              showResourcesAtTop={false}
+              context={getAIChatContext()}
+            />
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 };
 
