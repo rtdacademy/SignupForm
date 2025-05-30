@@ -174,7 +174,7 @@ async function generateAILongAnswerQuestion(config, topic, difficulty = 'interme
     // Check if API key is available
     if (!GEMINI_API_KEY) {
       console.warn("No Gemini API key found. Using fallback question instead.");
-      return getFallbackLongAnswerQuestion(difficulty, fallbackQuestions);
+      return getFallbackLongAnswerQuestion(difficulty, fallbackQuestions, config);
     }
 
     // Get the appropriate prompt template from config
@@ -185,30 +185,37 @@ async function generateAILongAnswerQuestion(config, topic, difficulty = 'interme
     // Apply conditional prompt modules as system instructions
     const systemInstructions = applyPromptModules(config);
     
-    // Determine rubric configuration - use config hierarchy
-    const rubricCriteria = config.rubricCriteria || 3;
-    const totalPoints = config.totalPoints || 10;
+    // Get the rubric for this difficulty level
+    const difficultyRubric = config.rubrics && config.rubrics[difficulty];
+    if (!difficultyRubric) {
+      console.error(`No rubric found for difficulty: ${difficulty}. Using fallback.`);
+      return getFallbackLongAnswerQuestion(difficulty, fallbackQuestions, config);
+    }
+    
+    // Calculate total points from the rubric
+    const totalPoints = difficultyRubric.reduce((sum, criterion) => sum + criterion.points, 0);
+    const rubricCriteria = difficultyRubric.length;
     const wordLimits = config.wordLimits || { min: 50, max: 500 };
     
     // Create clean prompt content focused on the task
     const promptText = `${promptTemplate}
 
-    REQUIREMENTS:
-    1. Create a question that requires a detailed written response
-    2. Design exactly ${rubricCriteria} rubric criteria that cover different aspects of understanding
-    3. Distribute ${totalPoints} total points across the criteria (higher points for more important criteria)
-    4. Make the rubric criteria clear, specific, and measurable
-    5. Write a sample answer that would earn full points on all rubric criteria
-    6. The sample answer should be between ${wordLimits.min} and ${wordLimits.max} words
-    7. Ensure the question tests understanding, application, and critical thinking
-    8. For physics questions, include opportunities to demonstrate mathematical reasoning where appropriate
-    9. IMPORTANT: Students will be required to write answers between ${wordLimits.min} and ${wordLimits.max} words - design your question and rubric accordingly
+    YOU MUST USE THIS EXACT RUBRIC (DO NOT MODIFY):
+    ${difficultyRubric.map((criterion, index) => 
+      `${index + 1}. ${criterion.criterion} (${criterion.points} points): ${criterion.description}`
+    ).join('\n    ')}
     
-    RUBRIC DESIGN:
-    - Each criterion should focus on a different aspect of the answer
-    - Descriptions should explain what is needed for full points
-    - Points should reflect the relative importance of each criterion
-    - Total points across all criteria must equal exactly ${totalPoints}`;
+    Total Points: ${totalPoints}
+
+    REQUIREMENTS:
+    1. Create a question that aligns perfectly with the provided rubric criteria
+    2. The question should naturally lead students to address each rubric point
+    3. Write a sample answer that would earn full points on all rubric criteria
+    4. The sample answer should be between ${wordLimits.min} and ${wordLimits.max} words
+    5. Ensure the question tests the specific skills mentioned in the rubric
+    6. IMPORTANT: Students will be required to write answers between ${wordLimits.min} and ${wordLimits.max} words
+    
+    DO NOT create your own rubric - use the one provided above exactly as given.`;
     
     console.log("Generating AI long answer question with structured output using Genkit");
     
@@ -221,7 +228,7 @@ async function generateAILongAnswerQuestion(config, topic, difficulty = 'interme
           schema: AILongAnswerQuestionSchema
         },
         config: {
-          temperature: config.aiSettings?.temperature || 0.8,
+          temperature: config.aiSettings?.temperature || 0.6, // Lower temperature for more consistent questions
           topP: config.aiSettings?.topP || 0.85,
           topK: config.aiSettings?.topK || 40
         }
@@ -239,15 +246,10 @@ async function generateAILongAnswerQuestion(config, topic, difficulty = 'interme
         throw new Error("Response doesn't satisfy schema.");
       }
       
-      // Enforce configured word limits (don't let AI override these)
+      // Enforce configured word limits and rubric
       output.wordLimit = wordLimits;
-      
-      // Validate total points match configuration
-      const actualTotal = output.rubric.reduce((sum, criterion) => sum + criterion.points, 0);
-      if (actualTotal !== output.maxPoints) {
-        console.warn(`Rubric total (${actualTotal}) doesn't match maxPoints (${output.maxPoints}). Adjusting...`);
-        output.maxPoints = actualTotal;
-      }
+      output.rubric = difficultyRubric;
+      output.maxPoints = totalPoints;
       
       console.log("Successfully generated AI long answer question with rubric:", 
         output.questionText.substring(0, 50) + "...");
@@ -260,11 +262,11 @@ async function generateAILongAnswerQuestion(config, topic, difficulty = 'interme
     } catch (err) {
       console.error("Error with Genkit AI generation:", err.message);
       console.log("Falling back to predefined question due to AI generation error");
-      return getFallbackLongAnswerQuestion(difficulty, fallbackQuestions);
+      return getFallbackLongAnswerQuestion(difficulty, fallbackQuestions, config);
     }
   } catch (error) {
     console.error("Error generating AI long answer question:", error);
-    return getFallbackLongAnswerQuestion(difficulty, fallbackQuestions);
+    return getFallbackLongAnswerQuestion(difficulty, fallbackQuestions, config);
   }
 }
 
@@ -272,9 +274,10 @@ async function generateAILongAnswerQuestion(config, topic, difficulty = 'interme
  * Gets a fallback long answer question from course-specific fallbacks or defaults
  * @param {string} difficulty - The difficulty level
  * @param {Array} fallbackQuestions - Course-specific fallback questions
+ * @param {Object} config - Configuration object with rubrics
  * @returns {Object} A fallback question
  */
-function getFallbackLongAnswerQuestion(difficulty = 'intermediate', fallbackQuestions = []) {
+function getFallbackLongAnswerQuestion(difficulty = 'intermediate', fallbackQuestions = [], config = {}) {
   // First try course-specific fallbacks
   const filteredFallbacks = fallbackQuestions.filter(q => q.difficulty === difficulty);
   const availableFallbacks = filteredFallbacks.length > 0 ? filteredFallbacks : 
@@ -290,27 +293,32 @@ function getFallbackLongAnswerQuestion(difficulty = 'intermediate', fallbackQues
     };
   }
   
-  // If no fallbacks available, return a generic question
+  // If no fallbacks available, try to use rubric from config or return a generic question
+  const difficultyRubric = config.rubrics && config.rubrics[difficulty];
+  const fallbackRubric = difficultyRubric || [
+    {
+      criterion: "Understanding",
+      points: 4,
+      description: "Demonstrates understanding of key concepts"
+    },
+    {
+      criterion: "Application",
+      points: 4,
+      description: "Applies concepts to solve problems"
+    },
+    {
+      criterion: "Communication",
+      points: 2,
+      description: "Communicates ideas clearly"
+    }
+  ];
+  
+  const maxPoints = fallbackRubric.reduce((sum, criterion) => sum + criterion.points, 0);
+  
   return {
     questionText: "This is a placeholder long answer question. Please provide course-specific fallback questions.",
-    rubric: [
-      {
-        criterion: "Understanding",
-        points: 4,
-        description: "Demonstrates understanding of key concepts"
-      },
-      {
-        criterion: "Application",
-        points: 4,
-        description: "Applies concepts to solve problems"
-      },
-      {
-        criterion: "Communication",
-        points: 2,
-        description: "Communicates ideas clearly"
-      }
-    ],
-    maxPoints: 10,
+    rubric: fallbackRubric,
+    maxPoints: maxPoints,
     wordLimit: { min: 50, max: 300 },
     sampleAnswer: "This is a placeholder sample answer. Course developers should provide fallback questions with proper sample answers.",
     generatedBy: 'placeholder'
@@ -322,9 +330,10 @@ function getFallbackLongAnswerQuestion(difficulty = 'intermediate', fallbackQues
  * @param {Object} question - The question object with rubric
  * @param {string} studentAnswer - The student's answer
  * @param {string} sampleAnswer - The sample answer for reference
+ * @param {Object} evaluationGuidance - Course-specific evaluation guidance
  * @returns {Promise<Object>} Evaluation result with scores and feedback
  */
-async function evaluateAILongAnswer(question, studentAnswer, sampleAnswer) {
+async function evaluateAILongAnswer(question, studentAnswer, sampleAnswer, evaluationGuidance = {}) {
   try {
     if (!GEMINI_API_KEY) {
       console.warn("No Gemini API key found. Using fallback evaluation.");
@@ -335,50 +344,63 @@ async function evaluateAILongAnswer(question, studentAnswer, sampleAnswer) {
     const wordCount = studentAnswer.trim().split(/\s+/).filter(word => word.length > 0).length;
     
     // Create evaluation prompt
-    const evaluationPrompt = `You are evaluating a student's answer to the following question:
+    const evaluationPrompt = `Evaluate this Physics 30 student answer using the rubric below.
 
 QUESTION: ${question.questionText}
 
-WORD LIMIT REQUIREMENT: ${question.wordLimit.min}-${question.wordLimit.max} words
 STUDENT ANSWER (${wordCount} words):
 ${studentAnswer}
 
-SAMPLE ANSWER FOR REFERENCE:
-${sampleAnswer}
+RUBRIC:
+${question.rubric.map((criterion, index) => {
+  let rubricText = `${index + 1}. ${criterion.criterion} (${criterion.points} points): ${criterion.description}`;
+  if (criterion.levels) {
+    rubricText += '\n   Scoring Levels:';
+    Object.entries(criterion.levels).forEach(([score, description]) => {
+      rubricText += `\n   - ${score} points: ${description}`;
+    });
+  }
+  return rubricText;
+}).join('\n\n')}
 
-SCORING RUBRIC:
-${question.rubric.map((criterion, index) => 
-  `${index + 1}. ${criterion.criterion} (${criterion.points} points): ${criterion.description}`
-).join('\n')}
+SCORING INSTRUCTIONS:
+- For each criterion, assign ONLY whole number scores (0, 1, 2, or 3) based on the scoring levels provided
+- Match the student's work to the most appropriate level description
+- Do NOT give partial points (no 0.5, 1.5, 2.5, etc.)
+- If scoring levels are provided, you MUST use them to determine the score
+- Provide brief, specific feedback for each criterion (1-2 sentences)
+- Focus on content accuracy AS DEFINED BY THE RUBRIC LEVELS
 
-TOTAL POINTS: ${question.maxPoints}
+After scoring each criterion:
+- Overall feedback: 2 sentences summarizing performance
+- Strengths: List 2-3 specific things done well (if any)
+- Improvements: List 2-3 specific areas to improve
+- Suggestions: ONE concise sentence (max 100 chars) on the most important improvement needed
 
-Please evaluate the student's answer according to each rubric criterion. For each criterion:
-1. Assign a score from 0 to the maximum points for that criterion
-2. Provide specific, concise feedback explaining why that score was given
-3. Reference specific parts of the student's answer when possible
+Be objective and focus on physics content.`;
 
-Also provide:
-- Overall feedback summarizing the quality of the answer (2-3 sentences maximum)
-- 2-3 key strengths in the answer (if any) - be specific and brief
-- 2-3 specific suggestions for improvement - be concise
-- A brief suggestion on how to improve for next time (1-2 sentences maximum)
-
-IMPORTANT: 
-- Keep all feedback concise and specific
-- Do not repeat the same phrases or encouragement multiple times
-- Focus on academic content, not excessive praise
-- Each section should be distinct and not repetitive
-- Limit suggestions to 2-3 sentences maximum
-
-Be fair but thorough in your evaluation. Give partial credit where appropriate.`;
-
-    const systemInstructions = `You are an expert ${question.subject || 'subject'} teacher evaluating student work. 
-Be constructive and encouraging while maintaining high standards. 
-Focus on both what the student did well and areas for improvement.
-Provide concise, specific feedback without repetition.
-Avoid excessive praise or repeating the same phrases multiple times.
-${applyPromptModules({ katexFormatting: true })}`;
+    // Build system instructions with course-specific guidance
+    let systemInstructions = `You are an expert ${question.subject || 'Physics 30'} teacher evaluating student work on ${question.topic || 'physics'}.
+Apply the rubric criteria strictly and consistently.
+Award partial credit only when the answer partially meets the criterion description.
+Be precise with scoring - if a criterion asks for "clear explanation" and the explanation is unclear, do not award full points.`;
+    
+    // Add common mistakes to watch for
+    if (evaluationGuidance.commonMistakes && evaluationGuidance.commonMistakes.length > 0) {
+      systemInstructions += `\n\nCommon student mistakes to watch for:\n${evaluationGuidance.commonMistakes.map(m => `- ${m}`).join('\n')}`;
+    }
+    
+    // Add difficulty-specific scoring notes
+    if (evaluationGuidance.scoringNotes && question.difficulty && evaluationGuidance.scoringNotes[question.difficulty]) {
+      systemInstructions += `\n\nScoring guidance for ${question.difficulty} level: ${evaluationGuidance.scoringNotes[question.difficulty]}`;
+    }
+    
+    // Add scoring reminder if present
+    if (evaluationGuidance.scoringReminder) {
+      systemInstructions += `\n\n${evaluationGuidance.scoringReminder}`;
+    }
+    
+    systemInstructions += `\n${applyPromptModules({ katexFormatting: true })}`;
 
     console.log("Evaluating student long answer with AI");
 
@@ -391,7 +413,7 @@ ${applyPromptModules({ katexFormatting: true })}`;
         schema: AILongAnswerEvaluationSchema
       },
       config: {
-        temperature: 0.3, // Lower temperature for more consistent evaluation
+        temperature: 0.1, // Very low temperature for consistent, deterministic evaluation
         topP: 0.8,
         topK: 40
       }
@@ -401,11 +423,28 @@ ${applyPromptModules({ katexFormatting: true })}`;
       throw new Error("AI evaluation returned no output");
     }
 
+    // Validate and cap individual rubric scores to their maximum points
+    output.rubricScores.forEach((score, index) => {
+      const maxPointsForCriterion = question.rubric[index].points;
+      if (score.score > maxPointsForCriterion) {
+        console.warn(`Score for "${score.criterion}" (${score.score}) exceeds max points (${maxPointsForCriterion}). Capping to maximum.`);
+        score.score = maxPointsForCriterion;
+      }
+      // Ensure maxPoints matches the rubric
+      score.maxPoints = maxPointsForCriterion;
+    });
+    
     // Validate total score matches sum of rubric scores
     const calculatedTotal = output.rubricScores.reduce((sum, score) => sum + score.score, 0);
     if (Math.abs(calculatedTotal - output.totalScore) > 0.1) {
       console.warn(`Total score mismatch: calculated ${calculatedTotal}, reported ${output.totalScore}`);
       output.totalScore = calculatedTotal;
+    }
+    
+    // Ensure total doesn't exceed maxScore from question
+    if (output.totalScore > question.maxPoints) {
+      console.warn(`Total score (${output.totalScore}) exceeds question max points (${question.maxPoints}). Capping to maximum.`);
+      output.totalScore = question.maxPoints;
     }
 
     // Calculate percentage
@@ -592,6 +631,7 @@ function createAILongAnswer(courseConfig = {}) {
           maxPoints: question.maxPoints,
           wordLimit: question.wordLimit,
           topic: params.topic,
+          subject: config.subject || 'Physics 30',
           difficulty: params.difficulty,
           generatedBy: question.generatedBy || 'ai',
           attempts: currentAttempts,
@@ -681,11 +721,12 @@ function createAILongAnswer(courseConfig = {}) {
           throw new Error(`Answer too long. Maximum ${wordLimit.max} words allowed, you wrote ${wordCount} words.`);
         }
 
-        // Evaluate the answer using AI
+        // Evaluate the answer using AI with course-specific guidance
         const evaluation = await evaluateAILongAnswer(
           assessmentData,
           params.answer,
-          secureData.sampleAnswer
+          secureData.sampleAnswer,
+          courseConfig.evaluationGuidance || {}
         );
 
         // Increment attempts

@@ -62,8 +62,8 @@ const CourseRouter = ({ course, isStaffView = false, devMode = false }) => {
               devMode={devMode}
             />
           </Suspense>        );      
-      case 3: // PHY30
-      case '3':
+      case 0: // PHY30
+      case '0':
         return (
           <Suspense fallback={<LoadingCourse />}>
             <PHY30Course

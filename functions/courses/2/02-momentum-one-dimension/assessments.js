@@ -10,6 +10,7 @@
 const { createAIMultipleChoice } = require('../../../shared/assessment-types/ai-multiple-choice');
 const { createAILongAnswer } = require('../../../shared/assessment-types/ai-long-answer');
 const { getActivityTypeSettings, getWordLimitsForDifficulty } = require('../../../shared/utilities/config-loader');
+const { MOMENTUM_RUBRICS } = require('../../../shared/rubrics');
 const courseConfig = require('../../../courses-config/2/course-config.json');
 
 // ===== ACTIVITY TYPE CONFIGURATION =====
@@ -162,56 +163,45 @@ exports.course2_02_momentum_one_dimension_aiLongAnswer = createAILongAnswer({
   // Activity type is set at the top of this file: ACTIVITY_TYPE = '${ACTIVITY_TYPE}'
   activityType: ACTIVITY_TYPE,
   
+  // ===== STANDARD RUBRICS =====
+  // Use the predefined rubrics for consistency
+  rubrics: MOMENTUM_RUBRICS,
+  
   // ===== REQUIRED: Course-specific prompts =====
   prompts: {
-    beginner: `Create a beginner-level long answer question about momentum theory for a Grade 12 Physics 30 student.
-    The question should:
-    - Focus on CONCEPTUAL understanding of momentum and conservation principles
-    - Ask students to EXPLAIN the meaning and significance of momentum in physics
-    - Require discussion of WHY momentum is conserved (theoretical basis)
-    - Ask for real-world examples that illustrate momentum concepts
-    - Minimize mathematical calculations - focus on understanding
-    - Be answerable in ${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'beginner').min}-${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'beginner').max} words
+    beginner: `Create a simple long answer question about momentum for Grade 12 Physics.
     
-    Create a clear rubric with 3-4 criteria that assess:
-    - Conceptual understanding of momentum as "quantity of motion"
-    - Explanation of WHY momentum is conserved (Newton's laws connection)
-    - Quality of real-world examples and explanations
-    - Clear scientific communication`,
+    The question should ask students to:
+    - Define momentum and explain what it means physically
+    - Give one clear real-world example
+    - Explain why momentum is important in physics
     
-    intermediate: `Create an intermediate-level long answer question about momentum theory for a Grade 12 Physics 30 student.
-    The question should:
-    - Focus on THEORETICAL analysis of momentum conservation in collisions
-    - Ask students to EXPLAIN the physics principles behind momentum conservation
-    - Require discussion of the relationship between Newton's laws and momentum conservation
-    - Include analysis of WHY different collision types behave differently
-    - Minimize complex calculations - emphasize conceptual reasoning
-    - Be answerable in ${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'intermediate').min}-${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'intermediate').max} words
+    Word limit: ${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'beginner').min}-${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'beginner').max} words
     
-    Create a rubric with 4-5 criteria that assess:
-    - Understanding of momentum conservation theory
-    - Connection between Newton's laws and momentum conservation
-    - Analysis of collision types from theoretical perspective
-    - Application of concepts to real-world scenarios
-    - Quality of scientific reasoning and explanation`,
+    Use the provided rubric exactly as given - do not modify the criteria or point values.`,
     
-    advanced: `Create a challenging theoretical long answer question about momentum for a Grade 12 Physics 30 student.
-    The question should:
-    - Focus on DEEP theoretical analysis of momentum concepts
-    - Ask students to EVALUATE and COMPARE different theoretical aspects
-    - Require discussion of momentum conservation in various physical contexts
-    - Include analysis of the fundamental nature of momentum as a conserved quantity
-    - Ask for critical thinking about limitations and applications of momentum theory
-    - Minimize computational work - emphasize theoretical understanding
-    - Be answerable in ${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'advanced').min}-${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'advanced').max} words
+    intermediate: `Create a momentum conservation question for Grade 12 Physics.
     
-    Create a rubric with 5-6 criteria that assess:
-    - Advanced theoretical understanding of momentum conservation
-    - Critical analysis of momentum in different physical contexts
-    - Evaluation of the fundamental nature of conservation laws
-    - Synthesis of momentum concepts with broader physics principles
-    - Critical thinking and theoretical reasoning
-    - Sophisticated scientific communication`
+    The question should ask students to:
+    - Explain conservation of momentum in a collision scenario
+    - Calculate the final velocity using given values
+    - Identify the type of collision and explain why
+    
+    Word limit: ${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'intermediate').min}-${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'intermediate').max} words
+    
+    Use the provided rubric exactly as given - do not modify the criteria or point values.`,
+    
+    advanced: `Create a challenging momentum question for Grade 12 Physics.
+    
+    The question should ask students to:
+    - Analyze a complex collision with multiple objects
+    - Compare elastic vs inelastic collisions in the scenario
+    - Calculate key values and explain the physics
+    - Discuss real-world applications
+    
+    Word limit: ${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'advanced').min}-${getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'advanced').max} words
+    
+    Use the provided rubric exactly as given - do not modify the criteria or point values.`
   },
   
   // ===== ASSESSMENT SETTINGS =====
@@ -225,8 +215,8 @@ exports.course2_02_momentum_one_dimension_aiLongAnswer = createAILongAnswer({
   // ===== LONG ANSWER SPECIFIC SETTINGS =====
   // From course-config.json -> activityTypes[ACTIVITY_TYPE].longAnswer
   // Change any value below to override the course default
-  totalPoints: longAnswerDefaults.totalPoints,          // Course default: 5
-  rubricCriteria: longAnswerDefaults.rubricCriteria,    // Course default: 3
+  totalPoints: 12,                                      // Override: Using 12 points for all momentum assessments
+  rubricCriteria: 4,                                    // Override: Using 4 criteria for all levels
   wordLimits: longAnswerDefaults.wordLimits,           // Course default: {min: 50, max: 200}
   showRubric: longAnswerDefaults.showRubric,           // Course default: true
   showWordCount: longAnswerDefaults.showWordCount,     // Course default: true
@@ -259,83 +249,54 @@ exports.course2_02_momentum_one_dimension_aiLongAnswer = createAILongAnswer({
   enableAIChat: true,  // Show AI chat button for student support
   aiChatContext: "This long answer assessment focuses on explaining momentum concepts and applying conservation laws. Students often struggle with: 1) Clearly distinguishing between momentum and force, 2) Explaining WHY momentum is conserved in collisions, 3) Connecting mathematical calculations to physical meaning. The rubric emphasizes both conceptual understanding and mathematical application. Guide students to structure their answers to address each rubric criterion.",
   
+  // ===== EVALUATION GUIDANCE =====
+  evaluationGuidance: {
+    commonMistakes: [
+      "Confusing momentum (p = mv) with kinetic energy (KE = ½mv²)",
+      "Not including units (kg·m/s) or using incorrect units",
+      "Stating momentum is conserved without explaining why (Newton's third law)",
+      "Mixing up elastic vs inelastic collision definitions",
+      "Forgetting momentum is a vector (direction matters)"
+    ],
+    scoringNotes: {
+      beginner: "Use the 4-level rubric (0-3 points per criterion). Focus on conceptual understanding.",
+      intermediate: "Use the 4-level rubric (0-3 points per criterion). Balance conceptual understanding with mathematical accuracy.",
+      advanced: "Use the 4-level rubric (0-3 points per criterion). Expect sophisticated analysis and connections."
+    },
+    scoringReminder: "IMPORTANT: Only assign whole number scores (0, 1, 2, or 3) based on the rubric levels. No partial points."
+  },
+  
   // ===== FALLBACK QUESTIONS =====
   // Used when AI generation fails
   fallbackQuestions: [
     {
-      questionText: "A 1500 kg car traveling at 20 m/s collides with a stationary 1000 kg car. After the collision, the cars stick together and move as one unit. Explain the principle of conservation of momentum, calculate the final velocity of the combined cars, and discuss what type of collision this represents. Include a discussion of why momentum is conserved in this scenario.",
-      rubric: [
-        {
-          criterion: "Conservation Principle",
-          points: 3,
-          description: "Clearly explains the law of conservation of momentum and why it applies to collisions"
-        },
-        {
-          criterion: "Mathematical Application",
-          points: 3,
-          description: "Correctly calculates initial momentum, final momentum, and final velocity with proper units"
-        },
-        {
-          criterion: "Collision Type Analysis",
-          points: 2,
-          description: "Identifies this as an inelastic collision and explains what that means"
-        },
-        {
-          criterion: "Scientific Communication",
-          points: 2,
-          description: "Presents ideas clearly with proper physics terminology and logical flow"
-        }
-      ],
-      maxPoints: 10,
+      questionText: "A 1500 kg car traveling at 20 m/s collides with a stationary 1000 kg car. After the collision, the cars stick together. Explain conservation of momentum, calculate the final velocity, and identify what type of collision this is.",
+      rubric: MOMENTUM_RUBRICS.intermediate,
+      maxPoints: 12,
       wordLimit: getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'intermediate'),
-      sampleAnswer: `The law of conservation of momentum states that in a closed system with no external forces, the total momentum before a collision equals the total momentum after the collision. This principle applies because momentum is a conserved quantity in isolated systems.
+      sampleAnswer: `Conservation of momentum states that total momentum before a collision equals total momentum after, when no external forces act on the system.
 
-For the given scenario:
-Initial momentum = m₁v₁ + m₂v₂ = (1500 kg)(20 m/s) + (1000 kg)(0 m/s) = 30,000 kg·m/s
+Initial momentum: p = m₁v₁ + m₂v₂ = (1500 kg)(20 m/s) + (1000 kg)(0 m/s) = 30,000 kg·m/s
 
-Since the cars stick together, they have the same final velocity (v_f):
-Final momentum = (m₁ + m₂)v_f = (1500 + 1000)v_f = 2500v_f
+After collision, both cars move together at velocity v_f:
+Final momentum: (1500 + 1000)v_f = 2500v_f
 
-By conservation of momentum:
-30,000 = 2500v_f
-v_f = 12 m/s
+By conservation: 30,000 = 2500v_f
+Therefore: v_f = 12 m/s
 
-This is an inelastic collision because the objects stick together after impact. In inelastic collisions, kinetic energy is not conserved (some is converted to heat, sound, and deformation), but momentum is still conserved. Momentum conservation occurs because the collision forces between the cars are internal to the system—they are equal and opposite (Newton's third law), so they cancel out when considering the total system momentum.`,
+This is an inelastic collision because the cars stick together. In inelastic collisions, kinetic energy is lost but momentum is conserved.`,
       difficulty: 'intermediate'
     },
     {
-      questionText: "Explain the concept of momentum in physics. In your answer, define momentum, describe its key properties, provide an everyday example, and explain why understanding momentum is important in physics.",
-      rubric: [
-        {
-          criterion: "Definition and Formula",
-          points: 3,
-          description: "Correctly defines momentum and states the formula p = mv with units"
-        },
-        {
-          criterion: "Properties of Momentum",
-          points: 2,
-          description: "Identifies momentum as a vector quantity and explains what this means"
-        },
-        {
-          criterion: "Practical Example",
-          points: 3,
-          description: "Provides a clear, relevant everyday example that illustrates momentum"
-        },
-        {
-          criterion: "Importance in Physics",
-          points: 2,
-          description: "Explains why momentum is a fundamental concept in physics"
-        }
-      ],
-      maxPoints: 10,
+      questionText: "Define momentum and explain what it means physically. Give one clear real-world example. Explain why momentum is important in physics.",
+      rubric: MOMENTUM_RUBRICS.beginner,
+      maxPoints: 12,
       wordLimit: getWordLimitsForDifficulty(courseConfig, ACTIVITY_TYPE, 'beginner'),
-      sampleAnswer: `Momentum is defined as the product of an object's mass and velocity, expressed by the formula p = mv, where p is momentum (kg·m/s), m is mass (kg), and v is velocity (m/s).
+      sampleAnswer: `Momentum is the product of mass and velocity: p = mv. Units are kg·m/s. It represents the "quantity of motion" an object has - how hard it is to stop.
 
-Momentum is a vector quantity, meaning it has both magnitude and direction. The direction of momentum is always the same as the direction of velocity. This vector nature is crucial when analyzing collisions or interactions between objects.
+Example: A bowling ball has more momentum than a tennis ball at the same speed because of its greater mass. This is why the bowling ball knocks down pins more effectively.
 
-An everyday example is a bowling ball rolling down a lane. A heavy bowling ball moving at moderate speed has large momentum, making it effective at knocking down pins. A lightweight ball at the same speed would have less momentum and be less effective.
-
-Understanding momentum is fundamental in physics because it is a conserved quantity in isolated systems. This conservation law allows us to predict the outcomes of collisions, analyze particle interactions, and understand everything from car crashes to rocket propulsion. Momentum conservation is one of the most powerful problem-solving tools in physics.`,
+Momentum is important because it's conserved in collisions. This conservation law lets us predict outcomes in crashes, explosions, and other interactions. It's a fundamental tool for solving physics problems.`,
       difficulty: 'beginner'
     }
   ],

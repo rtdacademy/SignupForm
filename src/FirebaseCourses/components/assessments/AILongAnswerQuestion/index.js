@@ -114,13 +114,154 @@ const renderEnhancedText = (text) => {
 };
 
 /**
+ * Component to display a single criterion with expandable levels
+ */
+const RubricCriterion = ({ criterion, index, score, hasScore }) => {
+  const [isLevelsExpanded, setIsLevelsExpanded] = useState(false);
+  const percentage = hasScore ? (score.score / criterion.points) * 100 : 0;
+  
+  // Convert levels from array or object format to a consistent format
+  const getLevels = () => {
+    if (!criterion.levels) return null;
+    
+    // If levels is an array, convert to object format
+    if (Array.isArray(criterion.levels)) {
+      const levelsObj = {};
+      criterion.levels.forEach((level, index) => {
+        levelsObj[index] = level;
+      });
+      return levelsObj;
+    }
+    
+    // If it's already an object, return as is
+    return criterion.levels;
+  };
+  
+  const levels = getLevels();
+  
+  return (
+    <div 
+      key={index} 
+      className={`rounded-lg border transition-all ${
+        hasScore 
+          ? percentage >= 80 
+            ? 'border-green-200 bg-green-50' 
+            : percentage >= 50 
+              ? 'border-yellow-200 bg-yellow-50'
+              : 'border-red-200 bg-red-50'
+          : 'border-gray-200 bg-gray-50'
+      }`}
+    >
+      {/* Main criterion header */}
+      <div className="p-3">
+        <div className="flex items-start justify-between mb-2">
+          <h4 className="font-medium text-sm flex-1">{criterion.criterion}</h4>
+          <div className="flex items-center gap-2">
+            {hasScore ? (
+              <>
+                <div className="text-right">
+                  <div className="text-lg font-bold">
+                    {score.score} / {criterion.points}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {Math.round(percentage)}%
+                  </div>
+                </div>
+                {percentage >= 80 && <CheckCircle2 className="w-4 h-4 text-green-600" />}
+                {percentage < 50 && percentage >= 0 && <XCircle className="w-4 h-4 text-red-600" />}
+              </>
+            ) : (
+              <Badge variant="outline" className="text-xs">
+                {criterion.points} points
+              </Badge>
+            )}
+          </div>
+        </div>
+        
+        <div className="text-xs text-gray-600">{renderEnhancedText(criterion.description)}</div>
+        
+        {/* Show levels toggle if levels exist */}
+        {levels && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsLevelsExpanded(!isLevelsExpanded);
+            }}
+            className="mt-2 text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
+          >
+            {isLevelsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {isLevelsExpanded ? 'Hide' : 'Show'} scoring levels
+          </button>
+        )}
+        
+        {hasScore && score.feedback && (
+          <div className="mt-2 pt-2 border-t border-gray-200">
+            <div className="text-xs text-gray-700">
+              <span className="font-medium">Feedback:</span> {renderEnhancedText(score.feedback)}
+            </div>
+          </div>
+        )}
+        
+        {hasScore && (
+          <div className="mt-2">
+            <Progress value={percentage} className="h-1.5" />
+          </div>
+        )}
+      </div>
+      
+      {/* Expandable levels section */}
+      <AnimatePresence>
+        {isLevelsExpanded && levels && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pb-3 space-y-1.5">
+              {Object.keys(levels)
+                .map(Number)
+                .sort((a, b) => b - a) // Sort descending (highest score first)
+                .map((levelScore) => (
+                <div 
+                  key={levelScore}
+                  className={`p-2 rounded text-xs border ${
+                    hasScore && score.score === levelScore
+                      ? 'border-blue-400 bg-blue-50 font-medium'
+                      : 'border-gray-200 bg-white'
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <span className={`font-medium ${
+                      hasScore && score.score === levelScore ? 'text-blue-700' : 'text-gray-600'
+                    }`}>
+                      {levelScore} {levelScore === 1 ? 'point' : 'points'}:
+                    </span>
+                    <span className={
+                      hasScore && score.score === levelScore ? 'text-blue-900' : 'text-gray-700'
+                    }>
+                      {levels[levelScore] || `Level ${levelScore} description not available`}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+/**
  * Component to display the scoring rubric
  */
 const RubricDisplay = ({ rubric, showScores = false, rubricScores = [] }) => {
   const [isExpanded, setIsExpanded] = useState(showScores);
   
-  const getScoreForCriterion = (criterion) => {
-    return rubricScores.find(score => score.criterion === criterion);
+  const getScoreForCriterion = (criterionName) => {
+    return rubricScores.find(score => score.criterion === criterionName);
   };
   
   return (
@@ -156,60 +297,15 @@ const RubricDisplay = ({ rubric, showScores = false, rubricScores = [] }) => {
                 {rubric.map((criterion, index) => {
                   const score = getScoreForCriterion(criterion.criterion);
                   const hasScore = showScores && score;
-                  const percentage = hasScore ? (score.score / criterion.points) * 100 : 0;
                   
                   return (
-                    <div 
-                      key={index} 
-                      className={`p-3 rounded-lg border ${
-                        hasScore 
-                          ? percentage >= 80 
-                            ? 'border-green-200 bg-green-50' 
-                            : percentage >= 50 
-                              ? 'border-yellow-200 bg-yellow-50'
-                              : 'border-red-200 bg-red-50'
-                          : 'border-gray-200 bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-sm">{criterion.criterion}</h4>
-                        <div className="flex items-center gap-2">
-                          {hasScore ? (
-                            <>
-                              <div className="text-right">
-                                <div className="text-lg font-bold">
-                                  {score.score} / {criterion.points}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {Math.round(percentage)}%
-                                </div>
-                              </div>
-                              {percentage >= 80 && <CheckCircle2 className="w-4 h-4 text-green-600" />}
-                              {percentage < 50 && percentage >= 0 && <XCircle className="w-4 h-4 text-red-600" />}
-                            </>
-                          ) : (
-                            <Badge variant="outline" className="text-xs">
-                              {criterion.points} points
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-600 mb-2">{renderEnhancedText(criterion.description)}</div>
-                      
-                      {hasScore && score.feedback && (
-                        <div className="mt-2 pt-2 border-t border-gray-200">
-                          <div className="text-xs text-gray-700">
-                            <span className="font-medium">Feedback:</span> {renderEnhancedText(score.feedback)}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {hasScore && (
-                        <div className="mt-2">
-                          <Progress value={percentage} className="h-1.5" />
-                        </div>
-                      )}
-                    </div>
+                    <RubricCriterion
+                      key={index}
+                      criterion={criterion}
+                      index={index}
+                      score={score}
+                      hasScore={hasScore}
+                    />
                   );
                 })}
               </div>
@@ -230,7 +326,6 @@ const AILongAnswerQuestion = ({
   courseId,
   assessmentId,
   cloudFunctionName,
-  course,
   topic,
 
   // Styling props
