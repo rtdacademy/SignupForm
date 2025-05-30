@@ -75,21 +75,37 @@ const CollapsibleNavigation = ({
     }
   }, [course, unitsList]);
 
-  // Process units by section
+  // Process units by section or course code
   const sectionedUnits = useMemo(() => {
-    // Initialize with empty sections to maintain order
-    const sections = {"": [], "1": [], "2": [], "3": []};
-
     // Try to use course.courseDetails.courseStructure.structure if available and unitsList is empty
     const effectiveUnitsList = unitsList.length > 0 ? unitsList :
       (course?.courseDetails?.courseStructure?.structure || []);
 
+    // Check if this course has multiple course codes
+    const courseCodes = new Set(effectiveUnitsList
+      .map(unit => unit.courseCode)
+      .filter(code => code && code !== 'SECTION2_EXAM' && code !== 'FINAL_EXAM')
+    );
+    const hasMultipleCourses = courseCodes.size > 1;
+
+    // Initialize sections
+    const sections = {"": [], "1": [], "2": [], "3": []};
+
     effectiveUnitsList.forEach((unit, index) => {
-      const section = getUnitSection(unit);
-      if (!sections[section]) {
-        sections[section] = [];
+      let sectionKey;
+      
+      if (hasMultipleCourses && unit.courseCode) {
+        // Use course code as section key for multi-course structures
+        sectionKey = unit.courseCode;
+      } else {
+        // Use traditional section numbering for single-course structures
+        sectionKey = getUnitSection(unit);
       }
-      sections[section].push({...unit, index});
+      
+      if (!sections[sectionKey]) {
+        sections[sectionKey] = [];
+      }
+      sections[sectionKey].push({...unit, index});
     });
 
     // Remove empty sections
@@ -99,7 +115,7 @@ const CollapsibleNavigation = ({
       }
     });
 
-    return sections;
+    return { sections, hasMultipleCourses };
   }, [unitsList, course]);
   
   // Flatten all course items for progress calculations
@@ -246,20 +262,27 @@ const CollapsibleNavigation = ({
       
       <div className="flex-1">
         <div className="p-2">
-          {Object.entries(sectionedUnits)
+          {Object.entries(sectionedUnits.sections)
             .sort(([a, b]) => {
-              // Empty section goes last, then numerical order
+              // Empty section goes last, then sort by section/course code
               if (a === "") return 1;
               if (b === "") return -1;
+              
+              // If using course codes, sort alphabetically
+              if (sectionedUnits.hasMultipleCourses) {
+                return a.localeCompare(b);
+              }
+              
+              // Traditional numerical section sorting
               return a.localeCompare(b);
             })
-            .map(([sectionNumber, sectionUnits]) => (
-              <div key={sectionNumber} className="mb-4">
-                {sectionNumber && (
+            .map(([sectionKey, sectionUnits]) => (
+              <div key={sectionKey} className="mb-4">
+                {sectionKey && (
                   <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 rounded-md mb-2 text-xs">
                     <Award className="w-3 h-3 text-blue-600" />
                     <span className="font-medium text-blue-800">
-                      Section {sectionNumber}
+                      {sectionedUnits.hasMultipleCourses ? sectionKey : `Section ${sectionKey}`}
                     </span>
                   </div>
                 )}
