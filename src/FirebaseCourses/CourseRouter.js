@@ -6,6 +6,7 @@ import FirebaseCourseWrapper from './FirebaseCourseWrapperImproved';
 const COM1255Course = lazy(() => import('./courses/COM1255'));
 const PHY30Course = lazy(() => import('./courses/PHY30'));
 const Course2 = lazy(() => import('./courses/2'));
+const Course3 = lazy(() => import('./courses/3'));
 const Course100 = lazy(() => import('./courses/100'));
 
 
@@ -62,8 +63,8 @@ const CourseRouter = ({ course, isStaffView = false, devMode = false }) => {
               devMode={devMode}
             />
           </Suspense>        );      
-      case 3: // PHY30
-      case '3':
+      case 0: // PHY30
+      case '0':
         return (
           <Suspense fallback={<LoadingCourse />}>
             <PHY30Course
@@ -90,6 +91,28 @@ const CourseRouter = ({ course, isStaffView = false, devMode = false }) => {
           <Suspense fallback={<LoadingCourse />}>
             <Course2
               course={courseWithStructure2}
+              activeItemId={currentItemId}
+              onItemSelect={handleItemSelect}
+              isStaffView={isStaffView}
+              devMode={devMode}
+            />
+          </Suspense>
+        );
+      case 3: // 3
+      case '3':
+        // Import course structure JSON directly for Firebase courses
+        const courseStructureData3 = require('./courses/3/course-structure.json');
+        const courseWithStructure3 = {
+          ...course,
+          courseStructure: {
+            title: "Financial Literacy",
+            structure: courseStructureData3.courseStructure?.units || []
+          }
+        };
+        return (
+          <Suspense fallback={<LoadingCourse />}>
+            <Course3
+              course={courseWithStructure3}
               activeItemId={currentItemId}
               onItemSelect={handleItemSelect}
               isStaffView={isStaffView}
@@ -141,6 +164,17 @@ const CourseRouter = ({ course, isStaffView = false, devMode = false }) => {
           courseStructure: {
             title: "Physics 30",
             structure: courseStructureData2.courseStructure?.units || []
+          }
+        };
+        break;
+      case 3:
+      case '3':
+        const courseStructureData3 = require('./courses/3/course-structure.json');
+        enhanced = {
+          ...course,
+          courseStructure: {
+            title: "Financial Literacy",
+            structure: courseStructureData3.courseStructure?.units || []
           }
         };
         break;

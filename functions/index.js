@@ -162,6 +162,11 @@ exports.course2_shared_aiQuestion = require('./courses/2/shared/aiQuestions').co
 exports.course2_02_momentum_one_dimension_aiQuestion = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_aiQuestion;
 exports.course2_02_momentum_one_dimension_aiLongAnswer = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_aiLongAnswer;
 
+// 3 Course Functions (Financial Literacy)
+exports.course3_shared_aiQuestion = require('./courses/3/shared/aiQuestions').course3_shared_aiQuestion;
+exports.course3_01_intro_ethics_financial_decisions_aiQuestion = require('./courses/3/01-intro-ethics-financial-decisions/assessments').course3_01_intro_ethics_financial_decisions_aiQuestion;
+exports.course3_02_economic_environment_money_aiQuestion = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_money_aiQuestion;
+
 // 100 Course Functions
 exports.course100_02_core_concepts_multipleChoice = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_multipleChoice;
 exports.course100_02_core_concepts_aiQuestion = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_aiQuestion;

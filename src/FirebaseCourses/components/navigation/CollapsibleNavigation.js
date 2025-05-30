@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { 
   BookOpen, 
   ClipboardCheck,
@@ -10,9 +10,8 @@ import {
   PlayCircle,
   ChevronRight,
   ChevronLeft,
-  MenuIcon
+  X
 } from 'lucide-react';
-import { ScrollArea } from '../../../components/ui/scroll-area';
 import { 
   Accordion,
   AccordionItem,
@@ -26,7 +25,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../../components/ui/tooltip';
-import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 
 // Type-specific styling
@@ -62,8 +60,8 @@ const CollapsibleNavigation = ({
   onToggleExpand,
   currentUnitIndex = 0,
   course,
+  isMobile = false,
 }) => {
-  const [expandedUnit, setExpandedUnit] = useState(currentUnitIndex);
 
   // Display debugging information about the course structure
   useEffect(() => {
@@ -77,21 +75,37 @@ const CollapsibleNavigation = ({
     }
   }, [course, unitsList]);
 
-  // Process units by section
+  // Process units by section or course code
   const sectionedUnits = useMemo(() => {
-    // Initialize with empty sections to maintain order
-    const sections = {"": [], "1": [], "2": [], "3": []};
-
     // Try to use course.courseDetails.courseStructure.structure if available and unitsList is empty
     const effectiveUnitsList = unitsList.length > 0 ? unitsList :
       (course?.courseDetails?.courseStructure?.structure || []);
 
+    // Check if this course has multiple course codes
+    const courseCodes = new Set(effectiveUnitsList
+      .map(unit => unit.courseCode)
+      .filter(code => code && code !== 'SECTION2_EXAM' && code !== 'FINAL_EXAM')
+    );
+    const hasMultipleCourses = courseCodes.size > 1;
+
+    // Initialize sections
+    const sections = {"": [], "1": [], "2": [], "3": []};
+
     effectiveUnitsList.forEach((unit, index) => {
-      const section = getUnitSection(unit);
-      if (!sections[section]) {
-        sections[section] = [];
+      let sectionKey;
+      
+      if (hasMultipleCourses && unit.courseCode) {
+        // Use course code as section key for multi-course structures
+        sectionKey = unit.courseCode;
+      } else {
+        // Use traditional section numbering for single-course structures
+        sectionKey = getUnitSection(unit);
       }
-      sections[section].push({...unit, index});
+      
+      if (!sections[sectionKey]) {
+        sections[sectionKey] = [];
+      }
+      sections[sectionKey].push({...unit, index});
     });
 
     // Remove empty sections
@@ -101,7 +115,7 @@ const CollapsibleNavigation = ({
       }
     });
 
-    return sections;
+    return { sections, hasMultipleCourses };
   }, [unitsList, course]);
   
   // Flatten all course items for progress calculations
@@ -133,7 +147,7 @@ const CollapsibleNavigation = ({
     
     // Determine if this is the first incomplete item
     const isNextItem = !isCompleted && 
-      Object.entries(progress).filter(([id, data]) => data.completed).length > 0 &&
+      Object.entries(progress).filter(([, data]) => data.completed).length > 0 &&
       !Object.entries(progress)
         .filter(([id, data]) => !data.completed && id !== item.itemId)
         .some(([id]) => {
@@ -181,16 +195,7 @@ const CollapsibleNavigation = ({
   
   if (!expanded) {
     return (
-      <div className="w-full h-full bg-white border-r border-gray-200 flex flex-col items-center py-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onToggleExpand}
-          className="mb-4"
-        >
-          <MenuIcon className="h-5 w-5" />
-        </Button>
-
+      <div className="w-full bg-white border-r border-gray-200 flex flex-col items-center py-4">
         <Button
           variant="ghost"
           size="sm"
@@ -226,7 +231,7 @@ const CollapsibleNavigation = ({
   }
   
   return (
-    <div className="w-full h-full flex flex-col border-r border-gray-200 bg-white shadow-sm">
+    <div className="w-full flex flex-col border-r border-gray-200 bg-white shadow-sm">
       <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-blue-50 to-indigo-50">
         <h2 className="font-semibold text-base text-blue-800 flex items-center gap-1 truncate">
           <BookOpen className="h-4 w-4 flex-shrink-0" />
@@ -238,7 +243,7 @@ const CollapsibleNavigation = ({
           onClick={onToggleExpand} 
           className="ml-1 flex-shrink-0"
         >
-          <ChevronLeft className="h-4 w-4" />
+          {isMobile ? <X className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </div>
       
@@ -255,22 +260,29 @@ const CollapsibleNavigation = ({
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1">
         <div className="p-2">
-          {Object.entries(sectionedUnits)
+          {Object.entries(sectionedUnits.sections)
             .sort(([a, b]) => {
-              // Empty section goes last, then numerical order
+              // Empty section goes last, then sort by section/course code
               if (a === "") return 1;
               if (b === "") return -1;
+              
+              // If using course codes, sort alphabetically
+              if (sectionedUnits.hasMultipleCourses) {
+                return a.localeCompare(b);
+              }
+              
+              // Traditional numerical section sorting
               return a.localeCompare(b);
             })
-            .map(([sectionNumber, sectionUnits]) => (
-              <div key={sectionNumber} className="mb-4">
-                {sectionNumber && (
+            .map(([sectionKey, sectionUnits]) => (
+              <div key={sectionKey} className="mb-4">
+                {sectionKey && (
                   <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 rounded-md mb-2 text-xs">
                     <Award className="w-3 h-3 text-blue-600" />
                     <span className="font-medium text-blue-800">
-                      Section {sectionNumber}
+                      {sectionedUnits.hasMultipleCourses ? sectionKey : `Section ${sectionKey}`}
                     </span>
                   </div>
                 )}

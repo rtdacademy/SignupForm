@@ -1,0 +1,24 @@
+{
+  "courseId": "3",
+  "title": "Financial Literacy",
+  "fullTitle": "3 - Financial Literacy",
+  "description": "Comprehensive financial education covering personal finance fundamentals, accounting principles, and retail business practices. Students will develop essential money management skills and understand basic accounting cycles.",
+  "grade": "11-12",
+  "prerequisites": ["Math 20-1 or Math 20-2"],
+  "instructors": [],
+  "duration": "1 semester",
+  "theme": {
+    "primaryColor": "green",
+    "secondaryColor": "blue",
+    "customCSS": ""
+  },
+  "displaySettings": {
+    "showProgressBar": true,
+    "showGrades": true,
+    "enableTextToSpeech": true
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "status": "draft"
+  }
+}

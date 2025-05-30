@@ -1,0 +1,614 @@
+{
+  "courseStructure": {
+    "units": [
+      {
+        "unitId": "unit_fin1010_fundamentals",
+        "title": "FIN 1010 - Financial Fundamentals",
+        "name": "Financial Fundamentals",
+        "description": "Introduction to personal finance, ethics, and financial decision-making",
+        "courseCode": "FIN1010",
+        "credits": 1,
+        "section": "1",
+        "sequence": 1,
+        "order": 1,
+        "items": [
+          {
+            "itemId": "lesson_fin1010_intro_ethics",
+            "type": "lesson",
+            "title": "Lesson 1 - Introduction and Ethics in Financial Decision Making",
+            "description": "Explore ethical considerations in financial decisions and introduction to financial literacy",
+            "contentPath": "01-intro-ethics-financial-decisions",
+            "hasCloudFunctions": true,
+            "order": 1,
+            "sequence": 1,
+            "estimatedTime": 60,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1010_economic_environment",
+            "type": "lesson",
+            "title": "Lesson 2 - The Economic Environment and Your Money",
+            "description": "Understanding how economic factors affect personal finances",
+            "contentPath": "02-economic-environment-money",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "sequence": 2,
+            "estimatedTime": 75,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1010_financial_resources",
+            "type": "lesson",
+            "title": "Lesson 3 - Acquiring and Using Financial Resources",
+            "description": "Learn about different financial resources and how to effectively use them",
+            "contentPath": "03-acquiring-using-financial-resources",
+            "hasCloudFunctions": true,
+            "order": 3,
+            "sequence": 3,
+            "estimatedTime": 90,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1010_budgeting",
+            "type": "lesson",
+            "title": "Lesson 4 - Budgeting and Personal Planning",
+            "description": "Master personal budgeting techniques and financial planning strategies",
+            "contentPath": "04-budgeting-personal-planning",
+            "hasCloudFunctions": true,
+            "order": 4,
+            "sequence": 4,
+            "estimatedTime": 90,
+            "required": true
+          },
+          {
+            "itemId": "assignment_fin1010_budget_project",
+            "type": "assignment",
+            "title": "Personal Budget Creation Project",
+            "description": "Create a comprehensive personal budget using learned techniques",
+            "contentPath": "05-personal-budget-project",
+            "hasCloudFunctions": true,
+            "order": 5,
+            "sequence": 5,
+            "estimatedTime": 120,
+            "required": true,
+            "weight": 0.05,
+            "timed": false
+          }
+        ]
+      },
+      {
+        "unitId": "unit_fin1015_accounting_prep",
+        "title": "FIN1015 - Accounting Preparation",
+        "name": "Accounting Preparation",
+        "description": "Foundation concepts and setup for accounting systems",
+        "courseCode": "FIN1015",
+        "credits": 1,
+        "section": "1",
+        "sequence": 2,
+        "order": 2,
+        "items": [
+          {
+            "itemId": "lesson_fin1015_foundations",
+            "type": "lesson",
+            "title": "Lesson 1 - Foundations of Accounting",
+            "description": "Learn fundamental accounting principles and concepts",
+            "contentPath": "06-foundations-of-accounting",
+            "hasCloudFunctions": true,
+            "order": 1,
+            "sequence": 1,
+            "estimatedTime": 90,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1015_setup_system",
+            "type": "lesson",
+            "title": "Lesson 2 - Setting Up an Accounting System",
+            "description": "Project-based lesson on establishing an accounting system",
+            "contentPath": "07-setting-up-accounting-system",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "sequence": 2,
+            "estimatedTime": 120,
+            "required": true
+          },
+          {
+            "itemId": "assignment_fin1015_system_setup",
+            "type": "assignment",
+            "title": "Accounting System Setup Project",
+            "description": "Design and implement a basic accounting system",
+            "contentPath": "08-accounting-system-project",
+            "hasCloudFunctions": true,
+            "order": 3,
+            "sequence": 3,
+            "estimatedTime": 150,
+            "required": true,
+            "weight": 0.04
+          }
+        ]
+      },
+      {
+        "unitId": "unit_fin1020_accounting_cycle1",
+        "title": "FIN1020 - Accounting Cycle 1",
+        "name": "Accounting Cycle 1",
+        "description": "First phase of the complete accounting cycle",
+        "courseCode": "FIN1020",
+        "credits": 1,
+        "section": "2",
+        "sequence": 3,
+        "order": 3,
+        "items": [
+          {
+            "itemId": "lesson_fin1020_balance_sheet",
+            "type": "lesson",
+            "title": "Lesson 1 - Build Your Opening Balance Sheet",
+            "description": "Create and understand opening balance sheets",
+            "contentPath": "09-opening-balance-sheet",
+            "hasCloudFunctions": true,
+            "order": 1,
+            "sequence": 1,
+            "estimatedTime": 75,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1020_accounting_equation",
+            "type": "lesson",
+            "title": "Lesson 2 - Apply the Accounting Equation",
+            "description": "Master the fundamental accounting equation and its applications",
+            "contentPath": "10-accounting-equation",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "sequence": 2,
+            "estimatedTime": 60,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1020_analyze_transactions",
+            "type": "lesson",
+            "title": "Lesson 3 - Analyze Business Transactions",
+            "description": "Learn to analyze and categorize business transactions",
+            "contentPath": "11-analyze-business-transactions",
+            "hasCloudFunctions": true,
+            "order": 3,
+            "sequence": 3,
+            "estimatedTime": 90,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1020_journalize",
+            "type": "lesson",
+            "title": "Lesson 4 - Journalize the Transactions",
+            "description": "Record transactions in journal entries",
+            "contentPath": "12-journalize-transactions",
+            "hasCloudFunctions": true,
+            "order": 4,
+            "sequence": 4,
+            "estimatedTime": 90,
+            "required": true
+          },
+          {
+            "itemId": "assignment_fin1020_journal_practice",
+            "type": "assignment",
+            "title": "Journal Entry Practice Set",
+            "description": "Complete a comprehensive set of journal entries",
+            "contentPath": "13-journal-entry-practice",
+            "hasCloudFunctions": true,
+            "order": 5,
+            "sequence": 5,
+            "estimatedTime": 120,
+            "required": true,
+            "weight": 0.03
+          },
+          {
+            "itemId": "lesson_fin1020_petty_cash",
+            "type": "lesson",
+            "title": "Lesson 5 - Simulate Petty Cash",
+            "description": "Understand and manage petty cash systems",
+            "contentPath": "14-simulate-petty-cash",
+            "hasCloudFunctions": true,
+            "order": 6,
+            "sequence": 6,
+            "estimatedTime": 60,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1020_general_ledger",
+            "type": "lesson",
+            "title": "Lesson 6 - Post to the General Ledger",
+            "description": "Transfer journal entries to the general ledger",
+            "contentPath": "15-post-general-ledger",
+            "hasCloudFunctions": true,
+            "order": 7,
+            "sequence": 7,
+            "estimatedTime": 75,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1020_errors",
+            "type": "lesson",
+            "title": "Lesson 7 - Identify and Correct Errors",
+            "description": "Learn to identify and correct accounting errors",
+            "contentPath": "16-identify-correct-errors",
+            "hasCloudFunctions": true,
+            "order": 8,
+            "sequence": 8,
+            "estimatedTime": 60,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1020_trial_balance",
+            "type": "lesson",
+            "title": "Lesson 8 - Prepare the Trial Balance",
+            "description": "Create and verify trial balances",
+            "contentPath": "17-prepare-trial-balance",
+            "hasCloudFunctions": true,
+            "order": 9,
+            "sequence": 9,
+            "estimatedTime": 75,
+            "required": true
+          },
+          {
+            "itemId": "assignment_fin1020_cycle_project",
+            "type": "assignment",
+            "title": "Complete Accounting Cycle Project",
+            "description": "Apply all steps of the accounting cycle to a business scenario",
+            "contentPath": "18-accounting-cycle-project",
+            "hasCloudFunctions": true,
+            "order": 10,
+            "sequence": 10,
+            "estimatedTime": 180,
+            "required": true,
+            "weight": 0.05
+          }
+        ]
+      },
+      {
+        "unitId": "unit_fin1030_accounting_cycle2",
+        "title": "FIN1030 - Accounting Cycle 2",
+        "name": "Accounting Cycle 2",
+        "description": "Advanced accounting cycle concepts and budgeting",
+        "courseCode": "FIN1030",
+        "credits": 1,
+        "section": "2",
+        "sequence": 4,
+        "order": 4,
+        "items": [
+          {
+            "itemId": "lesson_fin1030_apply_cycle",
+            "type": "lesson",
+            "title": "Lesson 1 - Apply the Steps in the Accounting Cycle",
+            "description": "Comprehensive application of all accounting cycle steps",
+            "contentPath": "19-apply-accounting-cycle-steps",
+            "hasCloudFunctions": true,
+            "order": 1,
+            "sequence": 1,
+            "estimatedTime": 90,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1030_budgets",
+            "type": "lesson",
+            "title": "Lesson 2 - Recognize the Need for Preparing Budgets",
+            "description": "Understand the importance and process of budget preparation",
+            "contentPath": "20-preparing-budgets",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "sequence": 2,
+            "estimatedTime": 75,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1030_competencies",
+            "type": "lesson",
+            "title": "Lesson 3 - Demonstrate Basic Competencies",
+            "description": "Showcase mastery of fundamental accounting skills",
+            "contentPath": "21-basic-competencies",
+            "hasCloudFunctions": true,
+            "order": 3,
+            "sequence": 3,
+            "estimatedTime": 60,
+            "required": true
+          },
+          {
+            "itemId": "assignment_fin1030_budget_analysis",
+            "type": "assignment",
+            "title": "Budget Analysis Assignment",
+            "description": "Create and analyze budgets for various scenarios",
+            "contentPath": "22-budget-analysis-assignment",
+            "hasCloudFunctions": true,
+            "order": 4,
+            "sequence": 4,
+            "estimatedTime": 120,
+            "required": true,
+            "weight": 0.04
+          }
+        ]
+      },
+      {
+        "unitId": "unit_section2_exam",
+        "title": "Section 2 Exam",
+        "name": "Section 2 Exam",
+        "description": "Comprehensive exam for accounting cycles",
+        "courseCode": "SECTION2_EXAM",
+        "credits": 0,
+        "section": "2",
+        "sequence": 5,
+        "order": 5,
+        "items": [
+          {
+            "itemId": "lesson_section2_review",
+            "type": "lesson",
+            "title": "Section 2 Review",
+            "description": "Review of accounting cycles and concepts",
+            "contentPath": "23-section2-review",
+            "hasCloudFunctions": false,
+            "order": 1,
+            "sequence": 1,
+            "estimatedTime": 90,
+            "required": true
+          },
+          {
+            "itemId": "exam_section2",
+            "type": "exam",
+            "title": "Section 2 Exam",
+            "description": "Comprehensive exam covering accounting cycles 1 and 2",
+            "contentPath": "24-section2-exam",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "sequence": 2,
+            "estimatedTime": 120,
+            "required": true,
+            "weight": 0.15
+          }
+        ]
+      },
+      {
+        "unitId": "unit_fin1910_project",
+        "title": "FIN1910 - Financial Project A",
+        "name": "Financial Project A",
+        "description": "Integrated project course connecting multiple financial concepts",
+        "courseCode": "FIN1910",
+        "credits": 1,
+        "section": "3",
+        "sequence": 6,
+        "order": 6,
+        "items": [
+          {
+            "itemId": "lesson_fin1910_connections",
+            "type": "lesson",
+            "title": "Lesson 1 - Identify Course Connections",
+            "description": "Connect project concepts to previous CTS courses",
+            "contentPath": "25-identify-course-connections",
+            "hasCloudFunctions": false,
+            "order": 1,
+            "sequence": 1,
+            "estimatedTime": 45,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1910_proposal",
+            "type": "lesson",
+            "title": "Lesson 2 - Propose the Project",
+            "description": "Develop and present project proposal",
+            "contentPath": "26-propose-project",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "sequence": 2,
+            "estimatedTime": 90,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1910_goals",
+            "type": "lesson",
+            "title": "Lesson 3 - Meet Project Goals",
+            "description": "Execute project plan and meet defined goals",
+            "contentPath": "27-meet-project-goals",
+            "hasCloudFunctions": false,
+            "order": 3,
+            "sequence": 3,
+            "estimatedTime": 180,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1910_demonstrate",
+            "type": "lesson",
+            "title": "Lesson 4 - Demonstrate Competencies",
+            "description": "Showcase project competencies and skills",
+            "contentPath": "28-demonstrate-competencies",
+            "hasCloudFunctions": false,
+            "order": 4,
+            "sequence": 4,
+            "estimatedTime": 60,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin1910_personal",
+            "type": "lesson",
+            "title": "Lesson 5 - Personal Connections and Pathways",
+            "description": "Connect learning to career pathways",
+            "contentPath": "29-personal-connections-pathways",
+            "hasCloudFunctions": false,
+            "order": 5,
+            "sequence": 5,
+            "estimatedTime": 45,
+            "required": true
+          },
+          {
+            "itemId": "assignment_fin1910_final_project",
+            "type": "assignment",
+            "title": "Final Project Submission",
+            "description": "Complete integrated financial project",
+            "contentPath": "30-final-project-submission",
+            "hasCloudFunctions": true,
+            "order": 6,
+            "sequence": 6,
+            "estimatedTime": 240,
+            "required": true,
+            "weight": 0.08
+          }
+        ]
+      },
+      {
+        "unitId": "unit_fin2020_retail1",
+        "title": "FIN2020 - Retail Accounting 1",
+        "name": "Retail Accounting 1",
+        "description": "Introduction to retail accounting procedures",
+        "courseCode": "FIN2020",
+        "credits": 1,
+        "section": "3",
+        "sequence": 7,
+        "order": 7,
+        "items": [
+          {
+            "itemId": "lesson_fin2020_buying_selling",
+            "type": "lesson",
+            "title": "Lesson 1 - Buying and Selling Merchandise",
+            "description": "Explore accounting procedures for merchandise transactions",
+            "contentPath": "31-buying-selling-merchandise",
+            "hasCloudFunctions": true,
+            "order": 1,
+            "sequence": 1,
+            "estimatedTime": 90,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin2020_retail_transactions",
+            "type": "lesson",
+            "title": "Lesson 2 - Retail Business Transactions",
+            "description": "Analyze transactions with accounts receivable and payable",
+            "contentPath": "32-retail-business-transactions",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "sequence": 2,
+            "estimatedTime": 120,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin2020_retail_competencies",
+            "type": "lesson",
+            "title": "Lesson 3 - Demonstrate Basic Competencies",
+            "description": "Apply retail accounting skills",
+            "contentPath": "33-retail-basic-competencies",
+            "hasCloudFunctions": true,
+            "order": 3,
+            "sequence": 3,
+            "estimatedTime": 60,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin2020_life_roles",
+            "type": "lesson",
+            "title": "Lesson 4 - Career Roles in Retail Accounting",
+            "description": "Explore career opportunities in retail accounting",
+            "contentPath": "34-career-roles-retail",
+            "hasCloudFunctions": false,
+            "order": 4,
+            "sequence": 4,
+            "estimatedTime": 45,
+            "required": true
+          },
+          {
+            "itemId": "assignment_fin2020_retail_simulation",
+            "type": "assignment",
+            "title": "Retail Business Simulation",
+            "description": "Complete a retail accounting simulation",
+            "contentPath": "35-retail-business-simulation",
+            "hasCloudFunctions": true,
+            "order": 5,
+            "sequence": 5,
+            "estimatedTime": 150,
+            "required": true,
+            "weight": 0.05
+          }
+        ]
+      },
+      {
+        "unitId": "unit_fin2030_retail2",
+        "title": "FIN2030 - Retail Accounting 2",
+        "name": "Retail Accounting 2",
+        "description": "Advanced retail accounting and closing procedures",
+        "courseCode": "FIN2030",
+        "credits": 1,
+        "section": "3",
+        "sequence": 8,
+        "order": 8,
+        "items": [
+          {
+            "itemId": "lesson_fin2030_closing_cycle",
+            "type": "lesson",
+            "title": "Lesson 1 - Retail Accounting Practices and Closing",
+            "description": "Explore closing procedures for retail businesses",
+            "contentPath": "36-retail-closing-procedures",
+            "hasCloudFunctions": true,
+            "order": 1,
+            "sequence": 1,
+            "estimatedTime": 90,
+            "required": true
+          },
+          {
+            "itemId": "lesson_fin2030_finalize_cycle",
+            "type": "lesson",
+            "title": "Lesson 2 - Finalize the Accounting Cycle",
+            "description": "Complete worksheet to post-closing trial balance",
+            "contentPath": "37-finalize-accounting-cycle",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "sequence": 2,
+            "estimatedTime": 120,
+            "required": true
+          },
+          {
+            "itemId": "assignment_fin2030_comprehensive",
+            "type": "assignment",
+            "title": "Comprehensive Retail Accounting Project",
+            "description": "Complete full retail accounting cycle",
+            "contentPath": "38-comprehensive-retail-project",
+            "hasCloudFunctions": true,
+            "order": 3,
+            "sequence": 3,
+            "estimatedTime": 180,
+            "required": true,
+            "weight": 0.06
+          }
+        ]
+      },
+      {
+        "unitId": "unit_final_exam",
+        "title": "Final Course Assessment",
+        "name": "Final Course Assessment",
+        "description": "Comprehensive final exam and course review",
+        "courseCode": "FINAL_EXAM",
+        "credits": 0,
+        "section": "3",
+        "sequence": 9,
+        "order": 9,
+        "items": [
+          {
+            "itemId": "lesson_course_review",
+            "type": "lesson",
+            "title": "Comprehensive Course Review",
+            "description": "Review all major concepts from the course",
+            "contentPath": "39-comprehensive-course-review",
+            "hasCloudFunctions": false,
+            "order": 1,
+            "sequence": 1,
+            "estimatedTime": 120,
+            "required": true
+          },
+          {
+            "itemId": "exam_final",
+            "type": "exam",
+            "title": "Final Comprehensive Exam",
+            "description": "Final exam covering all course material",
+            "contentPath": "40-final-comprehensive-exam",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "sequence": 2,
+            "estimatedTime": 180,
+            "required": true,
+            "weight": 0.20
+          }
+        ]
+      }
+    ]
+  }
+}
