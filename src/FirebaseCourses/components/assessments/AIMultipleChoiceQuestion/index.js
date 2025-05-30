@@ -132,6 +132,7 @@ const AIMultipleChoiceQuestion = ({
   // Authentication and state
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
+  console.log("Component render - loading state:", loading);
   const [error, setError] = useState(null);
   const [question, setQuestion] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState('');
@@ -239,17 +240,25 @@ const AIMultipleChoiceQuestion = ({
     // Get sanitized email for database path
     const studentEmail = currentUser.email;
     const studentKey = sanitizeEmail(studentEmail);
+    
+    // Check if user is staff (has @rtdacademy.com email)
+    const isStaff = studentEmail && studentEmail.toLowerCase().endsWith('@rtdacademy.com');
 
     // Listen for assessment data in the database
-    const loadAssessment = async () => {
+    let unsubscribeRef = null;
+    
+    const loadAssessment = () => {
       setLoading(true);
       try {
-        console.log(`Creating database ref for question: students/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`);
+        // Use appropriate path based on whether user is staff or student
+        const basePath = isStaff ? 'staff_testing' : 'students';
+        const dbPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`;
+        console.log(`Creating database ref for question: ${dbPath}`);
 
         // Setup firebase database listener
-        const assessmentRef = ref(db, `students/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`);
+        const assessmentRef = ref(db, dbPath);
 
-        const unsubscribe = onValue(assessmentRef, (snapshot) => {
+        unsubscribeRef = onValue(assessmentRef, (snapshot) => {
           const data = snapshot.val();
           if (data) {
             console.log("AI question data received from database:", data);
@@ -339,6 +348,7 @@ const AIMultipleChoiceQuestion = ({
               }
             } else {
               // Normal case, update question data
+              console.log("Setting question data (not expecting new question)");
               setQuestion(enhancedData);
               setLastQuestionTimestamp(data.timestamp || 0);
               
@@ -364,20 +374,19 @@ const AIMultipleChoiceQuestion = ({
                   setError("You've reached the maximum number of attempts for this question.");
                 }
               }
+              console.log("Question set successfully, expectingNewQuestion:", expectingNewQuestion);
             }
           } else {
             console.log("No AI question data found in database, generating new question");
             generateQuestion();
           }
+          console.log("Setting loading to false after processing question data");
           setLoading(false);
         }, (error) => {
           console.error("Error in database listener:", error);
           setError("Failed to load question data");
           setLoading(false);
         });
-
-        // Return cleanup function to unsubscribe from database listener
-        return () => unsubscribe();
       } catch (err) {
         console.error("Error loading assessment:", err);
         setError("Failed to load assessment. Please try refreshing the page.");
@@ -386,13 +395,15 @@ const AIMultipleChoiceQuestion = ({
     };
 
     // Start the database listener
-    const unsubscribePromise = loadAssessment();
+    loadAssessment();
     
     // Cleanup function to unsubscribe when component unmounts
     return () => {
-      unsubscribePromise?.then(unsubscribe => unsubscribe && unsubscribe());
+      if (unsubscribeRef) {
+        unsubscribeRef();
+      }
     };
-  }, [currentUser, courseId, assessmentId, db, expectingNewQuestion, lastQuestionTimestamp]);
+  }, [currentUser, courseId, assessmentId, db]);
 
   // Generate a new question using cloud function with debouncing
   const generateQuestion = async () => {

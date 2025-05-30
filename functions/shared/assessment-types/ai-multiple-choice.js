@@ -405,11 +405,14 @@ function createAIMultipleChoice(courseConfig = {}) {
     const params = extractParameters(data, context);
 
     // Initialize course if needed
-    await initializeCourseIfNeeded(params.studentKey, params.courseId);
+    await initializeCourseIfNeeded(params.studentKey, params.courseId, params.isStaff);
 
     // Reference to the assessment in the database
-    const assessmentRef = getDatabaseRef('studentAssessment', params.studentKey, params.courseId, params.assessmentId);
-    console.log(`Database path: students/${params.studentKey}/courses/${params.courseId}/Assessments/${params.assessmentId}`);
+    const assessmentRef = getDatabaseRef('studentAssessment', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
+    const dbPath = params.isStaff 
+      ? `staff_testing/${params.studentKey}/courses/${params.courseId}/Assessments/${params.assessmentId}`
+      : `students/${params.studentKey}/courses/${params.courseId}/Assessments/${params.assessmentId}`;
+    console.log(`Database path: ${dbPath}`);
 
     // Handle question generation operation
     if (params.operation === 'generate') {
@@ -474,8 +477,6 @@ function createAIMultipleChoice(courseConfig = {}) {
           activityType: activityType,
           pointsValue: config.pointsValue || activityConfig.pointValue || 2,
           attemptPenalty: config.attemptPenalty || activityConfig.attemptPenalty || 0,
-          enableAIChat: config.enableAIChat,
-          aiChatContext: config.aiChatContext,
           settings: {
             showFeedback: config.showFeedback !== false && activityConfig.showDetailedFeedback !== false,
             enableHints: config.enableHints !== false && activityConfig.enableHints !== false,
@@ -485,6 +486,14 @@ function createAIMultipleChoice(courseConfig = {}) {
             freeRegenerationOnDifficultyChange: config.freeRegenerationOnDifficultyChange || activityConfig.freeRegenerationOnDifficultyChange || false
           }
         };
+        
+        // Only add optional properties if they are defined
+        if (config.enableAIChat !== undefined) {
+          questionData.enableAIChat = config.enableAIChat;
+        }
+        if (config.aiChatContext !== undefined) {
+          questionData.aiChatContext = config.aiChatContext;
+        }
         
         // Store public question data in the database (student-accessible)
         await assessmentRef.set(questionData);
@@ -620,7 +629,7 @@ function createAIMultipleChoice(courseConfig = {}) {
 
         // Update the grade if the answer is correct AND we haven't previously recorded a correct grade
         if (result.isCorrect && !wasCorrectOverall) {
-          const gradeRef = getDatabaseRef('studentGrade', params.studentKey, params.courseId, params.assessmentId);
+          const gradeRef = getDatabaseRef('studentGrade', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
 
           // Calculate score based on the pointsValue from settings
           const pointsValue = assessmentData.pointsValue || 2;

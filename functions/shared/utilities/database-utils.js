@@ -90,6 +90,12 @@ function extractParameters(data, context) {
     throw new Error("Missing required parameter: assessmentId");
   }
 
+  // Check if this is a staff member
+  const isStaff = finalStudentEmail && finalStudentEmail.toLowerCase().endsWith('@rtdacademy.com');
+  if (isStaff) {
+    console.log("Staff member detected:", finalStudentEmail);
+  }
+
   // Get the proper studentKey
   let studentKey;
 
@@ -121,7 +127,8 @@ function extractParameters(data, context) {
     studentEmail: finalStudentEmail,
     userId: finalUserId,
     studentKey,
-    isEmulator
+    isEmulator,
+    isStaff
   };
 }
 
@@ -129,28 +136,31 @@ function extractParameters(data, context) {
  * Initializes course structure for a student if it doesn't exist
  * @param {string} studentKey - The sanitized student email
  * @param {string} courseId - The course ID
+ * @param {boolean} isStaff - Whether this is a staff member
  * @returns {Promise<void>}
  */
-async function initializeCourseIfNeeded(studentKey, courseId) {
+async function initializeCourseIfNeeded(studentKey, courseId, isStaff = false) {
   // Make sure courseId is a string
   const safeCoursePath = String(courseId);
 
-  // Check if the student's course path exists - if not, we might need to initialize it
-  const courseRef = admin.database().ref(`students/${studentKey}/courses/${safeCoursePath}`);
+  // For staff, use a different path under staff_testing
+  const basePath = isStaff ? `staff_testing/${studentKey}/courses` : `students/${studentKey}/courses`;
+  const courseRef = admin.database().ref(`${basePath}/${safeCoursePath}`);
 
   try {
-    // Check if the course exists in the database for this student
+    // Check if the course exists in the database for this student/staff
     const courseSnapshot = await courseRef.once('value');
     if (!courseSnapshot.exists()) {
       // Initialize basic course structure if it doesn't exist
-      console.log(`Initializing course structure for ${studentKey} in course ${safeCoursePath}`);
+      console.log(`Initializing course structure for ${studentKey} in course ${safeCoursePath} (${isStaff ? 'staff' : 'student'})`);
       await courseRef.set({
         Initialized: true,
         Assessments: {},
         Grades: {
           assessments: {}
         },
-        timestamp: getServerTimestamp()
+        timestamp: getServerTimestamp(),
+        isStaffTest: isStaff
       });
     }
   } catch (error) {
@@ -163,11 +173,13 @@ async function initializeCourseIfNeeded(studentKey, courseId) {
  * Standard database paths used across assessments
  */
 const DATABASE_PATHS = {
-  studentAssessment: (studentKey, courseId, assessmentId) => 
-    `students/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`,
+  studentAssessment: (studentKey, courseId, assessmentId, isStaff = false) => 
+    isStaff ? `staff_testing/${studentKey}/courses/${courseId}/Assessments/${assessmentId}` 
+            : `students/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`,
   
-  studentGrade: (studentKey, courseId, assessmentId) => 
-    `students/${studentKey}/courses/${courseId}/Grades/assessments/${assessmentId}`,
+  studentGrade: (studentKey, courseId, assessmentId, isStaff = false) => 
+    isStaff ? `staff_testing/${studentKey}/courses/${courseId}/Grades/assessments/${assessmentId}`
+            : `students/${studentKey}/courses/${courseId}/Grades/assessments/${assessmentId}`,
   
   courseAssessment: (courseId, assessmentId) => 
     `courses/${courseId}/assessments/${assessmentId}`,
@@ -175,14 +187,15 @@ const DATABASE_PATHS = {
   secureAssessment: (courseId, assessmentId) => 
     `courses_secure/${courseId}/assessments/${assessmentId}`,
   
-  studentCourse: (studentKey, courseId) => 
-    `students/${studentKey}/courses/${courseId}`
+  studentCourse: (studentKey, courseId, isStaff = false) => 
+    isStaff ? `staff_testing/${studentKey}/courses/${courseId}`
+            : `students/${studentKey}/courses/${courseId}`
 };
 
 /**
  * Gets a database reference for a standard path
  * @param {string} pathType - The type of path (from DATABASE_PATHS)
- * @param {...string} params - Parameters for the path
+ * @param {...any} params - Parameters for the path (including optional isStaff flag)
  * @returns {Object} Firebase database reference
  */
 function getDatabaseRef(pathType, ...params) {

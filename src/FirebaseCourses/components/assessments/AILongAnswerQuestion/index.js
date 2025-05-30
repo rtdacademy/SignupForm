@@ -378,13 +378,19 @@ const AILongAnswerQuestion = ({
 
     const studentEmail = currentUser.email;
     const studentKey = sanitizeEmail(studentEmail);
+    
+    // Check if user is staff (has @rtdacademy.com email)
+    const isStaff = studentEmail && studentEmail.toLowerCase().endsWith('@rtdacademy.com');
 
     const loadAssessment = async () => {
       setLoading(true);
       try {
         console.log(`Loading long answer assessment: ${assessmentId}`);
 
-        const assessmentRef = ref(db, `students/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`);
+        // Use appropriate path based on whether user is staff or student
+        const basePath = isStaff ? 'staff_testing' : 'students';
+        const dbPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`;
+        const assessmentRef = ref(db, dbPath);
 
         const unsubscribe = onValue(assessmentRef, (snapshot) => {
           const data = snapshot.val();
