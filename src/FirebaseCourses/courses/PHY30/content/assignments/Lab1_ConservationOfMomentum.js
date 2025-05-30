@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 /**
  * Lab 1 - Conservation of Momentum for Physics 30
@@ -13,10 +13,10 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
     observations: 'not-started',
     analysis: 'not-started',
     error: 'not-started',
-    conclusion: 'not-started'  });
-  // Track section content
+    conclusion: 'not-started'  });  // Track section content
   const [sectionContent, setSectionContent] = useState({
-    hypothesis: ''
+    hypothesis: '',
+    conclusion: ''
   });
   // Track procedure confirmation
   const [procedureRead, setProcedureRead] = useState(false);
@@ -42,6 +42,11 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
         totalMomentum: {
           before: '',
           after: ''
+        },
+        percentDifference: {
+          difference: '', // before - after
+          average: '', // (before + after) / 2
+          percentage: '' // (difference / average) * 100
         }
       },
       trial2: { 
@@ -60,6 +65,11 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
         totalMomentum: {
           before: '',
           after: ''
+        },
+        percentDifference: {
+          difference: '', // before - after
+          average: '', // (before + after) / 2
+          percentage: '' // (difference / average) * 100
         }
       },
       trial3: { 
@@ -78,6 +88,11 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
         totalMomentum: {
           before: '',
           after: ''
+        },
+        percentDifference: {
+          difference: '', // before - after
+          average: '', // (before + after) / 2
+          percentage: '' // (difference / average) * 100
         }
       }
     },
@@ -104,6 +119,18 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
         totalMomentum2D: {
           beforeX: '', beforeY: '',
           afterX: '', afterY: ''
+        },
+        percentDifference2D: {
+          x: {
+            difference: '', // before - after
+            average: '', // (before + after) / 2
+            percentage: '' // (difference / average) * 100
+          },
+          y: {
+            difference: '', // before - after
+            average: '', // (before + after) / 2
+            percentage: '' // (difference / average) * 100
+          }
         }
       },
       trial2: { 
@@ -128,6 +155,18 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
         totalMomentum2D: {
           beforeX: '', beforeY: '',
           afterX: '', afterY: ''
+        },
+        percentDifference2D: {
+          x: {
+            difference: '', // before - after
+            average: '', // (before + after) / 2
+            percentage: '' // (difference / average) * 100
+          },
+          y: {
+            difference: '', // before - after
+            average: '', // (before + after) / 2
+            percentage: '' // (difference / average) * 100
+          }
         }
       },
       trial3: { 
@@ -152,9 +191,27 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
         totalMomentum2D: {
           beforeX: '', beforeY: '',
           afterX: '', afterY: ''
+        },
+        percentDifference2D: {
+          x: {
+            difference: '', // before - after
+            average: '', // (before + after) / 2
+            percentage: '' // (difference / average) * 100
+          },
+          y: {
+            difference: '', // before - after
+            average: '', // (before + after) / 2
+            percentage: '' // (difference / average) * 100
+          }
         }
       }
     }
+  });
+
+  // State for average percent difference inputs
+  const [averagePercentDifference, setAveragePercentDifference] = useState({
+    oneDimensional: '', // Average of 3 trials for 1D
+    twoDimensional: '' // Average of all 6 values (3 trials × 2 components) for 2D
   });
 
   const [showTrialSelector, setShowTrialSelector] = useState(false);
@@ -201,8 +258,7 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
   const saveAndEnd = () => {
     setLabStarted(false);
     // Here you could also save progress to database
-  };
-  const updateSectionContent = (section, content) => {
+  };  const updateSectionContent = (section, content) => {
     setSectionContent(prev => ({
       ...prev,
       [section]: content
@@ -219,6 +275,10 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
         const hasThen = lowerContent.includes('then');
         const hasBecause = lowerContent.includes('because');
         isCompleted = hasIf && hasThen && hasBecause && content.trim().length > 20;
+      } else if (section === 'conclusion') {
+        // Check for minimum 5 sentences
+        const sentenceCount = countSentences(content);
+        isCompleted = sentenceCount >= 5 && content.trim().length > 100;
       } else {
         isCompleted = content.trim().length > 20;
       }
@@ -234,12 +294,30 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
       }));
     }
   };
-  const getStatusIcon = (status) => {
+
+  // Helper function to count sentences
+  const countSentences = (text) => {
+    if (!text || text.trim().length === 0) return 0;
+    
+    // Remove extra whitespace and normalize the text
+    const normalizedText = text.trim().replace(/\s+/g, ' ');
+    
+    // Split by sentence-ending punctuation (., !, ?)
+    // Use a more sophisticated regex that handles common abbreviations
+    const sentences = normalizedText.split(/[.!?]+/).filter(sentence => {
+      // Filter out empty strings and very short fragments (less than 3 words)
+      const trimmed = sentence.trim();
+      const wordCount = trimmed.split(/\s+/).filter(word => word.length > 0).length;
+      return trimmed.length > 0 && wordCount >= 3;
+    });
+    
+    return sentences.length;
+  };  const getStatusIcon = (status) => {
     switch (status) {
       case 'completed':
-        return <span className="text-green-500">✓</span>;
+        return <span className="text-green-500"></span>;
       case 'in-progress':
-        return <span className="text-yellow-500">⚠</span>;
+        return <span className="text-yellow-500"></span>;
       default:
         return <span className="text-gray-300">○</span>;
     }
@@ -313,6 +391,63 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
     return massKg * speedYCmPerSec; // Y momentum in kg⋅cm/s
   };
 
+  // Calculate percent difference for 1D collisions
+  const calculatePercentDifference1D = (trial) => {
+    const trialKey = `trial${trial}`;
+    const data = trialData['1D'][trialKey];
+    
+    if (!data?.totalMomentum?.before || !data?.totalMomentum?.after) {
+      return { difference: '-', average: '-', percentage: '-' };
+    }
+    
+    const before = parseFloat(data.totalMomentum.before);
+    const after = parseFloat(data.totalMomentum.after);
+    
+    if (isNaN(before) || isNaN(after)) {
+      return { difference: '-', average: '-', percentage: '-' };
+    }
+    
+    const difference = Math.abs(before - after);
+    const average = Math.abs((before + after) / 2);
+    const percentage = average !== 0 ? (difference / average) * 100 : 0;
+    
+    return {
+      difference: difference.toFixed(3),
+      average: average.toFixed(3),
+      percentage: percentage.toFixed(1)
+    };
+  };
+
+  // Calculate percent difference for 2D collisions
+  const calculatePercentDifference2D = (trial, direction) => {
+    const trialKey = `trial${trial}`;
+    const data = trialData['2D'][trialKey];
+    
+    const beforeKey = `before${direction.toUpperCase()}`;
+    const afterKey = `after${direction.toUpperCase()}`;
+    
+    if (!data?.totalMomentum2D?.[beforeKey] || !data?.totalMomentum2D?.[afterKey]) {
+      return { difference: '-', average: '-', percentage: '-' };
+    }
+    
+    const before = parseFloat(data.totalMomentum2D[beforeKey]);
+    const after = parseFloat(data.totalMomentum2D[afterKey]);
+    
+    if (isNaN(before) || isNaN(after)) {
+      return { difference: '-', average: '-', percentage: '-' };
+    }
+    
+    const difference = Math.abs(before - after);
+    const average = Math.abs((before + after) / 2);
+    const percentage = average !== 0 ? (difference / average) * 100 : 0;
+    
+    return {
+      difference: difference.toFixed(3),
+      average: average.toFixed(3),
+      percentage: percentage.toFixed(1)
+    };
+  };
+
   // Momentum validation functions
   const validateMomentum = (userInput, correctValue) => {
     if (!userInput || !correctValue) return false;
@@ -320,8 +455,11 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
     const correct = parseFloat(correctValue);
     if (isNaN(userValue) || isNaN(correct)) return false;
     
-    // Allow 5% tolerance
-    const tolerance = Math.abs(correct * 0.05);
+    // Allow 5% tolerance with a minimum absolute tolerance of 0.01 kg⋅cm/s
+    // This handles cases where momentum is very small or zero
+    const percentageTolerance = Math.abs(correct * 0.05);
+    const minimumTolerance = 0.01;
+    const tolerance = Math.max(percentageTolerance, minimumTolerance);
     return Math.abs(userValue - correct) <= tolerance;
   };  // Function to check observations section progress based on filled input boxes
   const checkObservationsProgress = (updatedTrialData) => {
@@ -440,7 +578,208 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
       
       return updatedData;
     });
-  };// Add trial data to selected trial
+  };
+
+  // Function to update total momentum values in the analysis section
+  const updateAnalysisTotalMomentum = (trial, type, value) => {
+    const trialKey = `trial${trial}`;
+    const collisionType = '1D'; // Analysis is for 1D collisions
+    
+    setTrialData(prev => {
+      const updatedData = {
+        ...prev,
+        [collisionType]: {
+          ...prev[collisionType],
+          [trialKey]: {
+            ...prev[collisionType][trialKey],
+            totalMomentum: {
+              ...prev[collisionType][trialKey]?.totalMomentum,
+              [type]: value
+            }
+          }
+        }
+      };
+      
+      // Check analysis progress after updating data
+      checkAnalysisProgress(updatedData);
+      
+      return updatedData;
+    });
+  };
+
+  // Function to calculate correct total momentum for validation
+  const calculateCorrectTotalMomentum = (trial, type) => {
+    const trialKey = `trial${trial}`;
+    const data = trialData['1D'][trialKey];
+    
+    if (!data) return null;
+    
+    if (type === 'before') {
+      const puck1Momentum = parseFloat(data?.userMomentum?.beforeCollision?.puck1 || '0');
+      const puck2Momentum = parseFloat(data?.userMomentum?.beforeCollision?.puck2 || '0');
+      return puck1Momentum + puck2Momentum;
+    } else if (type === 'after') {
+      const puck1Momentum = parseFloat(data?.userMomentum?.afterCollision?.puck1 || '0');
+      const puck2Momentum = parseFloat(data?.userMomentum?.afterCollision?.puck2 || '0');
+      return puck1Momentum + puck2Momentum;
+    }
+      return null;
+  };
+
+  // Function to update total momentum values in the 2D analysis section
+  const updateAnalysisTotalMomentum2D = (trial, direction, type, value) => {
+    const trialKey = `trial${trial}`;
+    const collisionType = '2D'; // Analysis is for 2D collisions
+    
+    setTrialData(prev => {
+      const updatedData = {
+        ...prev,
+        [collisionType]: {
+          ...prev[collisionType],
+          [trialKey]: {
+            ...prev[collisionType][trialKey],
+            totalMomentum2D: {
+              ...prev[collisionType][trialKey]?.totalMomentum2D,
+              [`${type}${direction}`]: value
+            }
+          }
+        }
+      };
+      
+      // Check analysis progress after updating data
+      checkAnalysisProgress(updatedData);
+      
+      return updatedData;
+    });
+  };
+
+  // Function to calculate correct total momentum for 2D validation
+  const calculateCorrectTotalMomentum2D = (trial, direction, type) => {
+    const trialKey = `trial${trial}`;
+    const data = trialData['2D'][trialKey];
+    
+    if (!data) return null;
+    
+    if (type === 'before') {
+      const puck1Momentum = parseFloat(data?.userMomentum2D?.beforeCollision?.puck1?.[direction.toLowerCase()] || '0');
+      const puck2Momentum = parseFloat(data?.userMomentum2D?.beforeCollision?.puck2?.[direction.toLowerCase()] || '0');
+      return puck1Momentum + puck2Momentum;
+    } else if (type === 'after') {
+      const puck1Momentum = parseFloat(data?.userMomentum2D?.afterCollision?.puck1?.[direction.toLowerCase()] || '0');
+      const puck2Momentum = parseFloat(data?.userMomentum2D?.afterCollision?.puck2?.[direction.toLowerCase()] || '0');
+      return puck1Momentum + puck2Momentum;
+    }
+    
+    return null;
+  };
+
+  // Function to check analysis section progress
+  const checkAnalysisProgress = (updatedTrialData) => {
+    let totalInputBoxes = 0;
+    let filledInputBoxes = 0;
+
+    // Count input boxes for 1D analysis section (3 trials × 2 input boxes per trial = 6 total)
+    ['trial1', 'trial2', 'trial3'].forEach(trialKey => {
+      const trial = updatedTrialData['1D'][trialKey];
+      
+      // Total momentum before and after (2 boxes per trial)
+      totalInputBoxes += 2;
+      if (trial?.totalMomentum?.before?.trim()) filledInputBoxes++;
+      if (trial?.totalMomentum?.after?.trim()) filledInputBoxes++;
+    });
+
+    // Count input boxes for 2D analysis section (3 trials × 4 input boxes per trial = 12 total)
+    ['trial1', 'trial2', 'trial3'].forEach(trialKey => {
+      const trial = updatedTrialData['2D'][trialKey];
+      
+      // Total momentum before and after for X and Y directions (4 boxes per trial)
+      totalInputBoxes += 4;
+      if (trial?.totalMomentum2D?.beforeX?.trim()) filledInputBoxes++;
+      if (trial?.totalMomentum2D?.beforeY?.trim()) filledInputBoxes++;
+      if (trial?.totalMomentum2D?.afterX?.trim()) filledInputBoxes++;
+      if (trial?.totalMomentum2D?.afterY?.trim()) filledInputBoxes++;
+    });
+
+    const completionPercentage = totalInputBoxes > 0 ? (filledInputBoxes / totalInputBoxes) * 100 : 0;
+    
+    // Update section status based on completion percentage
+    let newStatus = 'not-started';
+    if (completionPercentage > 0 && completionPercentage < 100) {
+      newStatus = 'in-progress';
+    } else if (completionPercentage === 100) {
+      newStatus = 'completed';
+    }    setSectionStatus(prev => ({
+      ...prev,
+      analysis: newStatus
+    }));
+
+    return {
+      totalInputBoxes,
+      filledInputBoxes,
+      completionPercentage,
+      status: newStatus
+    };
+  };
+  // Function to check error section progress based on all percent difference inputs (29 total boxes)
+  const checkErrorProgress = (updatedAveragePercentDifference) => {
+    let totalInputBoxes = 29; // 9 (1D table) + 18 (2D table) + 2 (average inputs)
+    let filledInputBoxes = 0;
+
+    // Check 1D percent difference table boxes (9 boxes: 3 trials × 3 fields each)
+    ['trial1', 'trial2', 'trial3'].forEach(trialKey => {
+      const trial = trialData['1D'][trialKey];
+      
+      // Check the 3 input fields for each 1D trial
+      if (trial?.percentDifference1D?.difference?.trim()) filledInputBoxes++;
+      if (trial?.percentDifference1D?.average?.trim()) filledInputBoxes++;
+      if (trial?.percentDifference1D?.percentage?.trim()) filledInputBoxes++;
+    });
+
+    // Check 2D percent difference table boxes (18 boxes: 3 trials × 6 fields each)
+    ['trial1', 'trial2', 'trial3'].forEach(trialKey => {
+      const trial = trialData['2D'][trialKey];
+      
+      // Check the 6 input fields for each 2D trial (x and y components, each with 3 fields)
+      if (trial?.percentDifference2D?.x?.difference?.trim()) filledInputBoxes++;
+      if (trial?.percentDifference2D?.x?.average?.trim()) filledInputBoxes++;
+      if (trial?.percentDifference2D?.x?.percentage?.trim()) filledInputBoxes++;
+      if (trial?.percentDifference2D?.y?.difference?.trim()) filledInputBoxes++;
+      if (trial?.percentDifference2D?.y?.average?.trim()) filledInputBoxes++;
+      if (trial?.percentDifference2D?.y?.percentage?.trim()) filledInputBoxes++;
+    });
+
+    // Check average percent difference inputs (2 boxes)
+    if (updatedAveragePercentDifference?.oneDimensional?.trim()) {
+      filledInputBoxes++;
+    }
+    if (updatedAveragePercentDifference?.twoDimensional?.trim()) {
+      filledInputBoxes++;
+    }
+
+    const completionPercentage = totalInputBoxes > 0 ? (filledInputBoxes / totalInputBoxes) * 100 : 0;
+    
+    // Update section status based on completion percentage
+    let newStatus = 'not-started';
+    if (completionPercentage > 0 && completionPercentage < 100) {
+      newStatus = 'in-progress';
+    } else if (completionPercentage === 100) {
+      newStatus = 'completed';
+    }
+
+    setSectionStatus(prev => ({
+      ...prev,
+      error: newStatus
+    }));
+
+    return {
+      totalInputBoxes,
+      filledInputBoxes,
+      completionPercentage,
+      status: newStatus
+    };
+  };
+
+  // Add trial data to selected trial
   const addDataToTrial = (trialNumber) => {
     if (!simulationState.hasCollided || !simulationState.beforeCollision || !simulationState.afterCollision) {
       showNotification('No collision data available. Please run a simulation first.', 'error');
@@ -493,6 +832,11 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
         totalMomentum: {
           before: '',
           after: ''
+        },
+        percentDifference: {
+          difference: '', // before - after
+          average: '', // (before + after) / 2
+          percentage: '' // (difference / average) * 100
         }
       };
     } else if (currentCollisionType === '2D') {
@@ -557,6 +901,18 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
         totalMomentum2D: {
           beforeX: '', beforeY: '',
           afterX: '', afterY: ''
+        },
+        percentDifference2D: {
+          x: {
+            difference: '', // before - after
+            average: '', // (before + after) / 2
+            percentage: '' // (difference / average) * 100
+          },
+          y: {
+            difference: '', // before - after
+            average: '', // (before + after) / 2
+            percentage: '' // (difference / average) * 100
+          }
         }
       };
     }
@@ -971,6 +1327,136 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
       return () => clearTimeout(timer);
     }
   }, [simulationState.simulationEndTime, simulationState.isRunning]);
+  // Monitor changes in averagePercentDifference to trigger error progress checking
+  React.useEffect(() => {
+    checkErrorProgress(averagePercentDifference);
+  }, [averagePercentDifference]);
+  // Function to update percent difference values for 1D collisions
+  const updatePercentDifference1D = (trial, field, value) => {
+    const trialKey = `trial${trial}`;
+    const collisionType = '1D';
+    
+    setTrialData(prev => {
+      const updatedData = {
+        ...prev,
+        [collisionType]: {
+          ...prev[collisionType],
+          [trialKey]: {
+            ...prev[collisionType][trialKey],
+            percentDifference: {
+              ...prev[collisionType][trialKey]?.percentDifference,
+              [field]: value
+            }
+          }
+        }
+      };
+      
+      // Check error progress after updating data
+      checkErrorProgress(averagePercentDifference);
+      
+      return updatedData;
+    });
+  };
+
+  // Function to update average percent difference for 1D collisions
+  const updateAveragePercentDifference1D = (value) => {
+    setAveragePercentDifference(prev => {
+      const updatedData = {
+        ...prev,
+        oneDimensional: value
+      };
+      
+      // Check error progress after updating data
+      checkErrorProgress(updatedData);
+      
+      return updatedData;
+    });
+  };
+  // Function to update percent difference values for 2D collisions
+  const updatePercentDifference2D = (trial, component, field, value) => {
+    const trialKey = `trial${trial}`;
+    const collisionType = '2D';
+    
+    setTrialData(prev => {
+      const updatedData = {
+        ...prev,
+        [collisionType]: {
+          ...prev[collisionType],
+          [trialKey]: {
+            ...prev[collisionType][trialKey],
+            percentDifference2D: {
+              ...prev[collisionType][trialKey]?.percentDifference2D,
+              [component]: {
+                ...prev[collisionType][trialKey]?.percentDifference2D?.[component],
+                [field]: value
+              }
+            }
+          }
+        }
+      };
+      
+      // Check error progress after updating data
+      checkErrorProgress(averagePercentDifference);
+      
+      return updatedData;
+    });
+  };
+
+  // Function to update average percent difference for 2D collisions
+  const updateAveragePercentDifference2D = (value) => {
+    setAveragePercentDifference(prev => {
+      const updatedData = {
+        ...prev,
+        twoDimensional: value
+      };
+      
+      // Check error progress after updating data
+      checkErrorProgress(updatedData);
+      
+      return updatedData;
+    });
+  };
+
+  // Function to calculate correct average percent difference for 1D validation
+  const calculateCorrectAveragePercentDifference1D = () => {
+    const percentages = [];
+    
+    ['trial1', 'trial2', 'trial3'].forEach(trialKey => {
+      const calculation = calculatePercentDifference1D(parseInt(trialKey.replace('trial', '')));
+      if (calculation.percentage !== '-') {
+        percentages.push(parseFloat(calculation.percentage));
+      }
+    });
+    
+    if (percentages.length === 0) return 0;
+    
+    const average = percentages.reduce((sum, p) => sum + p, 0) / percentages.length;
+    return average.toFixed(2);
+  };
+
+  // Function to calculate correct average percent difference for 2D validation
+  const calculateCorrectAveragePercentDifference2D = () => {
+    const percentages = [];
+    
+    ['trial1', 'trial2', 'trial3'].forEach(trialKey => {
+      const trialNumber = parseInt(trialKey.replace('trial', ''));
+      const xCalculation = calculatePercentDifference2D(trialNumber, 'x');
+      const yCalculation = calculatePercentDifference2D(trialNumber, 'y');
+      
+      if (xCalculation.percentage !== '-') {
+        percentages.push(parseFloat(xCalculation.percentage));
+      }
+      if (yCalculation.percentage !== '-') {
+        percentages.push(parseFloat(yCalculation.percentage));
+      }
+    });
+    
+    if (percentages.length === 0) return 0;
+    
+    const average = percentages.reduce((sum, p) => sum + p, 0) / percentages.length;
+    return average.toFixed(2);
+  };
+
   const scrollToSection = (sectionName) => {
     setCurrentSection(sectionName);
     const element = document.getElementById(`section-${sectionName}`);
@@ -1030,6 +1516,17 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
 
   return (
     <div className="space-y-6">
+      <style dangerouslySetInnerHTML={{__html: `
+        /* Hide number input spinners */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input[type=number] {
+          -moz-appearance: textfield;
+        }
+      `}} />
       <h1 className="text-2xl font-bold">Lab 1 - Conservation of Momentum</h1>      {/* Combined Navigation & Progress */}
       <div className="sticky top-0 z-10 bg-gray-50 border border-gray-200 rounded-lg p-4 shadow-md">
         <div className="flex items-center justify-between">
@@ -1061,9 +1558,8 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                         : currentSection === section.key 
                         ? 'bg-blue-100 border-blue-300 text-blue-700' 
                         : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >                    <span>{section.label}</span>
-                    {sectionStatusValue === 'completed' && <span className="text-green-600">✓</span>}
+                    }`}                  >                    <span>{section.label}</span>
+                    {sectionStatusValue === 'completed' && <span className="text-green-600"></span>}
                   </button>
                 );
               })}
@@ -1125,9 +1621,8 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                 const hasThen = content.includes('then');
                 const hasBecause = content.includes('because');
                 const hasLength = sectionContent.hypothesis.trim().length > 20;
-                
-                if (hasIf && hasThen && hasBecause && hasLength) {
-                  return <span className="text-xs text-green-600">✓ Complete hypothesis format</span>;
+                  if (hasIf && hasThen && hasBecause && hasLength) {
+                  return <span className="text-xs text-green-600">Complete hypothesis format</span>;
                 } else if (sectionContent.hypothesis.trim().length > 0) {
                   const missing = [];
                   if (!hasIf) missing.push('if');
@@ -1186,7 +1681,7 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                 Remember that this lab is fundamentally different from many of the questions you have been working 
                 on for conservation of momentum. Up until now, you have most often used the conservation of 
                 momentum in a situation where you have two objects colliding, but have had no knowledge of one of 
-                the objects' motion at a particular time. You then used conservation of momentum to calculate that 
+                objects' motion at a particular time. You then used conservation of momentum to calculate that 
                 missing motion. <strong>This is not the case in this lab!</strong>
               </p>
               
@@ -1213,7 +1708,7 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
           </div>
 
           {/* Procedure Confirmation */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="border border-blue-200 rounded-lg p-4">
             <div className="flex items-center space-x-3">
               <input
                 type="checkbox"
@@ -1367,7 +1862,7 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
               </div>
             )}{/* Simulation Layout with Data on Left */}
             <div className="flex gap-4">              {/* Data Display Column */}
-              <div className="flex flex-col space-y-4 w-64">                <div className="bg-blue-50 p-3 rounded border text-sm">
+              <div className="flex flex-col space-y-4 w-64">                <div className="p-3 rounded border text-sm">
                   <h4 className="font-semibold text-blue-800 mb-2">Puck 1 (Blue)</h4>
                   {simulationState.hasCollided && simulationState.beforeCollision && (
                     <>                      <div className="mt-2 pt-2 border-t border-blue-200">
@@ -1429,6 +1924,7 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                     <g key={`trail-${dot.timestamp}-${index}`}>
                       {/* Puck 1 trail dot */}
                       <circle 
+ 
                         cx={dot.puck1.x} 
                         cy={dot.puck1.y} 
                         r="2"
@@ -1577,10 +2073,10 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                           <input
                             type="number"
                             step="0.01"
-                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors ${
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
                               data?.userMomentum?.beforeCollision?.puck1 && 
                               validateMomentum(data.userMomentum.beforeCollision.puck1, data?.beforeCollision?.puck1?.momentum)
-                                ? 'bg-green-100 border-green-400' 
+                                ? '' 
                                 : ''
                             }`}
                             value={data?.userMomentum?.beforeCollision?.puck1 || ''}
@@ -1596,10 +2092,10 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                           <input
                             type="number"
                             step="0.01"
-                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors ${
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
                               data?.userMomentum?.beforeCollision?.puck2 && 
                               validateMomentum(data.userMomentum.beforeCollision.puck2, data?.beforeCollision?.puck2?.momentum)
-                                ? 'bg-green-100 border-green-400' 
+                                ? '' 
                                 : ''
                             }`}
                             value={data?.userMomentum?.beforeCollision?.puck2 || ''}
@@ -1615,10 +2111,10 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                           <input
                             type="number"
                             step="0.01"
-                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors ${
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
                               data?.userMomentum?.afterCollision?.puck1 && 
                               validateMomentum(data.userMomentum.afterCollision.puck1, data?.afterCollision?.puck1?.momentum)
-                                ? 'bg-green-100 border-green-400' 
+                                ? '' 
                                 : ''
                             }`}
                             value={data?.userMomentum?.afterCollision?.puck1 || ''}
@@ -1634,10 +2130,10 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                           <input
                             type="number"
                             step="0.01"
-                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors ${
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
                               data?.userMomentum?.afterCollision?.puck2 && 
                               validateMomentum(data.userMomentum.afterCollision.puck2, data?.afterCollision?.puck2?.momentum)
-                                ? 'bg-green-100 border-green-400' 
+                                ? '' 
                                 : ''
                             }`}
                             value={data?.userMomentum?.afterCollision?.puck2 || ''}
@@ -1650,7 +2146,7 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                 </tbody>
               </table>
             </div>
-          </div>          {/* Data Table for 2-D Collisions */}
+          </div>          {/* Data Table for 2D collisions (newly added) */}
           <div className="bg-white border rounded-lg p-4">
             <h3 className="font-semibold text-gray-800 mb-3">2-D Collision Data</h3>
             <p className="text-sm text-gray-600 mb-3">
@@ -1688,14 +2184,14 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                     <th className="border border-gray-300 p-2">Angle (°)</th>
                     <th className="border border-gray-300 p-2">Momentum X (kg⋅cm/s)</th>                    <th className="border border-gray-300 p-2">Momentum Y (kg⋅cm/s)</th>
                   </tr>
-                </thead>
-                <tbody>
+                </thead>                <tbody>
                   {[1, 2, 3].map(trial => {
                     const trialKey = `trial${trial}`;
                     const data = trialData['2D'][trialKey];
                     return (
                       <tr key={trial}>
                         <td className="border border-gray-300 p-2 text-center font-medium">{trial}</td>
+                        
                         {/* Before Collision - Puck 1 */}
                         <td className="border border-gray-300 p-2 text-center">
                           {data?.beforeCollision?.puck1?.spacing || '-'}
@@ -1706,34 +2202,35 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                         <td className="border border-gray-300 p-2 text-center">
                           {data?.beforeCollision?.puck1?.angle || '-'}
                         </td>
-                        <td className="border border-gray-300 p-2 text-center">
+                        <td className="border border-gray-300 p-2">
                           <input
                             type="number"
                             step="0.01"
-                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors ${
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
                               data?.userMomentum2D?.beforeCollision?.puck1?.x && 
                               validateMomentum(data.userMomentum2D.beforeCollision.puck1.x, data?.beforeCollision?.puck1?.momentumX)
-                                ? 'bg-green-100 border-green-400' 
+                                ? '' 
                                 : ''
                             }`}
                             value={data?.userMomentum2D?.beforeCollision?.puck1?.x || ''}
                             onChange={(e) => updateUserMomentum2D(trial, 'beforeCollision', 'puck1', 'x', e.target.value)}
                           />
                         </td>
-                        <td className="border border-gray-300 p-2 text-center">
+                        <td className="border border-gray-300 p-2">
                           <input
                             type="number"
                             step="0.01"
-                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors ${
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
                               data?.userMomentum2D?.beforeCollision?.puck1?.y && 
                               validateMomentum(data.userMomentum2D.beforeCollision.puck1.y, data?.beforeCollision?.puck1?.momentumY)
-                                ? 'bg-green-100 border-green-400' 
+                                ? '' 
                                 : ''
                             }`}
                             value={data?.userMomentum2D?.beforeCollision?.puck1?.y || ''}
                             onChange={(e) => updateUserMomentum2D(trial, 'beforeCollision', 'puck1', 'y', e.target.value)}
                           />
                         </td>
+                        
                         {/* Before Collision - Puck 2 */}
                         <td className="border border-gray-300 p-2 text-center">
                           {data?.beforeCollision?.puck2?.spacing || '-'}
@@ -1744,34 +2241,35 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                         <td className="border border-gray-300 p-2 text-center">
                           {data?.beforeCollision?.puck2?.angle || '-'}
                         </td>
-                        <td className="border border-gray-300 p-2 text-center">
+                        <td className="border border-gray-300 p-2">
                           <input
                             type="number"
                             step="0.01"
-                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors ${
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
                               data?.userMomentum2D?.beforeCollision?.puck2?.x && 
                               validateMomentum(data.userMomentum2D.beforeCollision.puck2.x, data?.beforeCollision?.puck2?.momentumX)
-                                ? 'bg-green-100 border-green-400' 
+                                ? '' 
                                 : ''
                             }`}
                             value={data?.userMomentum2D?.beforeCollision?.puck2?.x || ''}
                             onChange={(e) => updateUserMomentum2D(trial, 'beforeCollision', 'puck2', 'x', e.target.value)}
                           />
                         </td>
-                        <td className="border border-gray-300 p-2 text-center">
+                        <td className="border border-gray-300 p-2">
                           <input
                             type="number"
                             step="0.01"
-                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors ${
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
                               data?.userMomentum2D?.beforeCollision?.puck2?.y && 
                               validateMomentum(data.userMomentum2D.beforeCollision.puck2.y, data?.beforeCollision?.puck2?.momentumY)
-                                ? 'bg-green-100 border-green-400' 
+                                ? '' 
                                 : ''
                             }`}
                             value={data?.userMomentum2D?.beforeCollision?.puck2?.y || ''}
                             onChange={(e) => updateUserMomentum2D(trial, 'beforeCollision', 'puck2', 'y', e.target.value)}
                           />
                         </td>
+                        
                         {/* After Collision - Puck 1 */}
                         <td className="border border-gray-300 p-2 text-center">
                           {data?.afterCollision?.puck1?.spacing || '-'}
@@ -1782,34 +2280,35 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                         <td className="border border-gray-300 p-2 text-center">
                           {data?.afterCollision?.puck1?.angle || '-'}
                         </td>
-                        <td className="border border-gray-300 p-2 text-center">
+                        <td className="border border-gray-300 p-2">
                           <input
                             type="number"
                             step="0.01"
-                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors ${
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
                               data?.userMomentum2D?.afterCollision?.puck1?.x && 
                               validateMomentum(data.userMomentum2D.afterCollision.puck1.x, data?.afterCollision?.puck1?.momentumX)
-                                ? 'bg-green-100 border-green-400' 
+                                ? '' 
                                 : ''
                             }`}
                             value={data?.userMomentum2D?.afterCollision?.puck1?.x || ''}
                             onChange={(e) => updateUserMomentum2D(trial, 'afterCollision', 'puck1', 'x', e.target.value)}
                           />
                         </td>
-                        <td className="border border-gray-300 p-2 text-center">
+                        <td className="border border-gray-300 p-2">
                           <input
                             type="number"
                             step="0.01"
-                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors ${
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
                               data?.userMomentum2D?.afterCollision?.puck1?.y && 
                               validateMomentum(data.userMomentum2D.afterCollision.puck1.y, data?.afterCollision?.puck1?.momentumY)
-                                ? 'bg-green-100 border-green-400' 
+                                ? '' 
                                 : ''
                             }`}
                             value={data?.userMomentum2D?.afterCollision?.puck1?.y || ''}
                             onChange={(e) => updateUserMomentum2D(trial, 'afterCollision', 'puck1', 'y', e.target.value)}
                           />
                         </td>
+                        
                         {/* After Collision - Puck 2 */}
                         <td className="border border-gray-300 p-2 text-center">
                           {data?.afterCollision?.puck2?.spacing || '-'}
@@ -1820,28 +2319,28 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
                         <td className="border border-gray-300 p-2 text-center">
                           {data?.afterCollision?.puck2?.angle || '-'}
                         </td>
-                        <td className="border border-gray-300 p-2 text-center">
+                        <td className="border border-gray-300 p-2">
                           <input
                             type="number"
                             step="0.01"
-                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors ${
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
                               data?.userMomentum2D?.afterCollision?.puck2?.x && 
                               validateMomentum(data.userMomentum2D.afterCollision.puck2.x, data?.afterCollision?.puck2?.momentumX)
-                                ? 'bg-green-100 border-green-400' 
+                                ? '' 
                                 : ''
                             }`}
                             value={data?.userMomentum2D?.afterCollision?.puck2?.x || ''}
                             onChange={(e) => updateUserMomentum2D(trial, 'afterCollision', 'puck2', 'x', e.target.value)}
                           />
                         </td>
-                        <td className="border border-gray-300 p-2 text-center">
+                        <td className="border border-gray-300 p-2">
                           <input
                             type="number"
                             step="0.01"
-                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors ${
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
                               data?.userMomentum2D?.afterCollision?.puck2?.y && 
                               validateMomentum(data.userMomentum2D.afterCollision.puck2.y, data?.afterCollision?.puck2?.momentumY)
-                                ? 'bg-green-100 border-green-400' 
+                                ? '' 
                                 : ''
                             }`}
                             value={data?.userMomentum2D?.afterCollision?.puck2?.y || ''}
@@ -1861,79 +2360,235 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
         <h2 className="text-lg font-semibold mb-4 text-blue-700 flex items-center justify-between">
           <span>Analysis</span>
           {getStatusIcon(sectionStatus.analysis)}
-        </h2>        <div className="space-y-6">
+        </h2>
+        
+        <div className="space-y-6">
           <p className="text-gray-700">
-            Analyze your data to determine whether momentum was conserved in your collision experiments. 
-            Show calculations and compare theoretical expectations with experimental results.
+            Calculate the total momentum before and after collision for each trial. Add the individual momentum values from your observations to find the total system momentum.
           </p>
 
-          {/* 1-D Collision Analysis Table */}
-          <div className="bg-white border rounded-lg p-4">            <h3 className="font-semibold text-gray-800 mb-3">1-D Collision Analysis</h3>
+          {/* 1-D Analysis Table */}
+          <div className="bg-white border rounded-lg p-4">
+            <h3 className="font-semibold text-gray-800 mb-3">1-D Analysis: Total Momentum Calculation</h3>
             <p className="text-sm text-gray-600 mb-3">
-              Calculate the total momentum before and after collision for each trial. The individual momentum values are copied from your student input in the observation data above.
+              Add the momentum values from your 1D observations to calculate total momentum before and after collision.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse border border-gray-300 text-sm">
                 <thead>
                   <tr className="bg-gray-50">
                     <th className="border border-gray-300 p-2">Trial</th>
-                    <th className="border border-gray-300 p-2" colSpan="2">Before Collision - Individual Momentum (kg⋅cm/s)</th>
-                    <th className="border border-gray-300 p-2" colSpan="2">After Collision - Individual Momentum (kg⋅cm/s)</th>
-                    <th className="border border-gray-300 p-2">Total Momentum Before (kg⋅cm/s)</th>
-                    <th className="border border-gray-300 p-2">Total Momentum After (kg⋅cm/s)</th>
+                    <th className="border border-gray-300 p-2">Puck 1 Before (kg⋅cm/s)</th>
+                    <th className="border border-gray-300 p-2">Puck 2 Before (kg⋅cm/s)</th>
+                    <th className="border border-gray-300 p-2">Total Before (kg⋅cm/s)</th>
+                    <th className="border border-gray-300 p-2">Puck 1 After (kg⋅cm/s)</th>
+                    <th className="border border-gray-300 p-2">Puck 2 After (kg⋅cm/s)</th>
+                    <th className="border border-gray-300 p-2">Total After (kg⋅cm/s)</th>
                   </tr>
-                  <tr className="bg-gray-50">
-                    <th className="border border-gray-300 p-2"></th>
-                    <th className="border border-gray-300 p-2">Puck 1</th>
-                    <th className="border border-gray-300 p-2">Puck 2</th>
-                    <th className="border border-gray-300 p-2">Puck 1</th>
-                    <th className="border border-gray-300 p-2">Puck 2</th>
-                    <th className="border border-gray-300 p-2">Calculate</th>
-                    <th className="border border-gray-300 p-2">Calculate</th>
-                  </tr>
-                </thead>                <tbody>
+                </thead>
+                <tbody>
                   {[1, 2, 3].map(trial => {
                     const trialKey = `trial${trial}`;
                     const data = trialData['1D'][trialKey];
+                    
                     return (
                       <tr key={trial}>
-                        <td className="border border-gray-300 p-2 text-center font-medium">{trial}</td>                        {/* Before Collision - Puck 1 Momentum (copied from user input in observations) */}
+                        <td className="border border-gray-300 p-2 text-center font-medium">{trial}</td>
+                        
+                        {/* Values from observations (read-only, copied from user input) */}
                         <td className="border border-gray-300 p-2 text-center bg-gray-50">
                           {data?.userMomentum?.beforeCollision?.puck1 || '-'}
                         </td>
-                        {/* Before Collision - Puck 2 Momentum (copied from user input in observations) */}
                         <td className="border border-gray-300 p-2 text-center bg-gray-50">
                           {data?.userMomentum?.beforeCollision?.puck2 || '-'}
                         </td>
-                        {/* After Collision - Puck 1 Momentum (copied from user input in observations) */}
+                        
+                        {/* Total Before (student calculates) */}
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
+                              data?.totalMomentum?.before && 
+                              validateMomentum(data.totalMomentum.before, calculateCorrectTotalMomentum(trial, 'before'))
+                                ? '' 
+                                : ''
+                            }`}
+                            value={data?.totalMomentum?.before || ''}
+                            onChange={(e) => updateAnalysisTotalMomentum(trial, 'before', e.target.value)}
+                          />
+                        </td>
+                        
+                        {/* Values from observations (read-only, copied from user input) */}
                         <td className="border border-gray-300 p-2 text-center bg-gray-50">
                           {data?.userMomentum?.afterCollision?.puck1 || '-'}
                         </td>
-                        {/* After Collision - Puck 2 Momentum (copied from user input in observations) */}
                         <td className="border border-gray-300 p-2 text-center bg-gray-50">
                           {data?.userMomentum?.afterCollision?.puck2 || '-'}
-                        </td>{/* Total Momentum Before - Student Input */}
+                        </td>
+                        
+                        {/* Total After (student calculates) */}
                         <td className="border border-gray-300 p-2">
-                          <input 
-                            type="number" 
-                            step="0.001"
-                            className="w-full px-2 py-1 border rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors"
-                            onChange={(e) => updateSectionContent('analysis', e.target.value)}
+                          <input
+                            type="number"
+                            step="0.01"
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
+                              data?.totalMomentum?.after && 
+                              validateMomentum(data.totalMomentum.after, calculateCorrectTotalMomentum(trial, 'after'))
+                                ? '' 
+                                : ''
+                            }`}
+                            value={data?.totalMomentum?.after || ''}
+                            onChange={(e) => updateAnalysisTotalMomentum(trial, 'after', e.target.value)}
                           />
                         </td>
-                        {/* Total Momentum After - Student Input */}
-                        <td className="border border-gray-300 p-2">
-                          <input 
-                            type="number" 
-                            step="0.001"
-                            className="w-full px-2 py-1 border rounded border-2 border-dashed border-blue-300 bg-blue-50 focus:border-blue-500 focus:bg-white focus:outline-none transition-colors"
-                            onChange={(e) => updateSectionContent('analysis', e.target.value)}
-                          />                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>            </div>
+              </table>
+            </div>
+          </div>
+
+          {/* 2-D Analysis Table */}
+          <div className="bg-white border rounded-lg p-4">
+            <h3 className="font-semibold text-gray-800 mb-3">2-D Analysis: Total Momentum Components Calculation</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Add the X and Y momentum components from your 2D observations to calculate total momentum components before and after collision.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-300 text-sm">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-300 p-2" rowSpan="2">Trial</th>
+                    <th className="border border-gray-300 p-2" colSpan="6">Before Collision</th>
+                    <th className="border border-gray-300 p-2" colSpan="6">After Collision</th>
+                  </tr>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-300 p-2">Puck 1 X</th>
+                    <th className="border border-gray-300 p-2">Puck 2 X</th>
+                    <th className="border border-gray-300 p-2">Total X</th>
+                    <th className="border border-gray-300 p-2">Puck 1 Y</th>
+                    <th className="border border-gray-300 p-2">Puck 2 Y</th>
+                    <th className="border border-gray-300 p-2">Total Y</th>
+                    <th className="border border-gray-300 p-2">Puck 1 X</th>
+                    <th className="border border-gray-300 p-2">Puck 2 X</th>
+                    <th className="border border-gray-300 p-2">Total X</th>
+                    <th className="border border-gray-300 p-2">Puck 1 Y</th>
+                    <th className="border border-gray-300 p-2">Puck 2 Y</th>
+                    <th className="border border-gray-300 p-2">Total Y</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[1, 2, 3].map(trial => {
+                    const trialKey = `trial${trial}`;
+                    const data = trialData['2D'][trialKey];
+                    
+                    return (
+                      <tr key={trial}>
+                        <td className="border border-gray-300 p-2 text-center font-medium">{trial}</td>
+                        
+                        {/* Before Collision - Values from observations (read-only) */}
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.userMomentum2D?.beforeCollision?.puck1?.x || '-'}
+                        </td>
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.userMomentum2D?.beforeCollision?.puck2?.x || '-'}
+                        </td>
+                        
+                        {/* Total Before X (student calculates) */}
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            className={`w-24 text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
+                              data?.totalMomentum2D?.beforeX && 
+                              validateMomentum(data.totalMomentum2D.beforeX, calculateCorrectTotalMomentum2D(trial, 'X', 'before'))
+                                ? '' 
+                                : ''
+                            }`}
+                            value={data?.totalMomentum2D?.beforeX || ''}
+                            onChange={(e) => updateAnalysisTotalMomentum2D(trial, 'X', 'before', e.target.value)}
+                          />
+                        </td>
+                        
+                        {/* Before Collision Y components */}
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.userMomentum2D?.beforeCollision?.puck1?.y || '-'}
+                        </td>
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.userMomentum2D?.beforeCollision?.puck2?.y || '-'}
+                        </td>
+                        
+                        {/* Total Before Y (student calculates) */}
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            className={`w-24 text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
+                              data?.totalMomentum2D?.beforeY && 
+                              validateMomentum(data.totalMomentum2D.beforeY, calculateCorrectTotalMomentum2D(trial, 'Y', 'before'))
+                                ? '' 
+                                : ''
+                            }`}
+                            value={data?.totalMomentum2D?.beforeY || ''}
+                            onChange={(e) => updateAnalysisTotalMomentum2D(trial, 'Y', 'before', e.target.value)}
+                          />
+                        </td>
+
+                        {/* After Collision - Values from observations (read-only) */}
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.userMomentum2D?.afterCollision?.puck1?.x || '-'}
+                        </td>
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.userMomentum2D?.afterCollision?.puck2?.x || '-'}
+                        </td>
+                        
+                        {/* Total After X (student calculates) */}
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            className={`w-24 text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
+                              data?.totalMomentum2D?.afterX && 
+                              validateMomentum(data.totalMomentum2D.afterX, calculateCorrectTotalMomentum2D(trial, 'X', 'after'))
+                                ? '' 
+                                : ''
+                            }`}
+                            value={data?.totalMomentum2D?.afterX || ''}
+                            onChange={(e) => updateAnalysisTotalMomentum2D(trial, 'X', 'after', e.target.value)}
+                          />
+                        </td>
+
+                        {/* After Collision Y components */}
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.userMomentum2D?.afterCollision?.puck1?.y || '-'}
+                        </td>
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.userMomentum2D?.afterCollision?.puck2?.y || '-'}
+                        </td>
+                        
+                        {/* Total After Y (student calculates) */}
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            className={`w-24 text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
+                              data?.totalMomentum2D?.afterY && 
+                              validateMomentum(data.totalMomentum2D.afterY, calculateCorrectTotalMomentum2D(trial, 'Y', 'after'))
+                                ? '' 
+                                : ''
+                            }`}
+                            value={data?.totalMomentum2D?.afterY || ''}
+                            onChange={(e) => updateAnalysisTotalMomentum2D(trial, 'Y', 'after', e.target.value)}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -1943,11 +2598,277 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
         <h2 className="text-lg font-semibold mb-4 text-blue-700 flex items-center justify-between">
           <span>Error</span>
           {getStatusIcon(sectionStatus.error)}
-        </h2>        <div className="space-y-6">
+        </h2>        
+        <div className="space-y-6">
           <p className="text-gray-700">
-            Identify and analyze potential sources of error in your momentum conservation experiments. 
-            Consider both systematic and random errors that might affect your results.
+            Calculate the percent difference between momentum before and after collision for each trial using the formula: 
+            <strong> Percent Difference = |before - after| / ((before + after)/2) × 100%</strong>
           </p>
+
+          {/* 1-D Percent Difference Table */}
+          <div className="bg-white border rounded-lg p-4">
+            <h3 className="font-semibold text-gray-800 mb-3">1-D Collision Percent Difference</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Calculate percent difference for each trial and find the average. Values are automatically copied from your analysis totals above.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-300 text-sm">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-300 p-2">Trial</th>
+                    <th className="border border-gray-300 p-2">Momentum Before (kg⋅cm/s)</th>
+                    <th className="border border-gray-300 p-2">Momentum After (kg⋅cm/s)</th>
+                    <th className="border border-gray-300 p-2">Difference (Before - After)</th>
+                    <th className="border border-gray-300 p-2">Average ((Before + After)/2)</th>
+                    <th className="border border-gray-300 p-2">Percent Difference (%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[1, 2, 3].map(trial => {
+                    const trialKey = `trial${trial}`;
+                    const data = trialData['1D'][trialKey];
+                    const calculation = calculatePercentDifference1D(trial);
+                    
+                    return (
+                      <tr key={trial}>
+                        <td className="border border-gray-300 p-2 text-center font-medium">{trial}</td>
+                        
+                        {/* Momentum Before (copied from analysis) */}
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.totalMomentum?.before || '-'}
+                        </td>
+                        
+                        {/* Momentum After (copied from analysis) */}
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.totalMomentum?.after || '-'}
+                        </td>
+                          {/* Difference (student input) */}
+                        <td className="border border-gray-300 p-2 text-center">
+                          <input
+                            type="number"
+                            step="0.001"
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
+                              data?.percentDifference?.difference && 
+                              validateMomentum(data.percentDifference.difference, calculatePercentDifference1D(trial).difference)
+                                ? '' 
+                                : ''
+                            }`}
+                            value={data?.percentDifference?.difference || ''}
+                            onChange={(e) => updatePercentDifference1D(trial, 'difference', e.target.value)}
+                            placeholder=""
+                          />
+                        </td>
+                        
+                        {/* Average (student input) */}
+                        <td className="border border-gray-300 p-2 text-center">
+                          <input
+                            type="number"
+                            step="0.001"
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
+                              data?.percentDifference?.average && 
+                              validateMomentum(data.percentDifference.average, calculatePercentDifference1D(trial).average)
+                                ? '' 
+                                : ''
+                            }`}
+                            value={data?.percentDifference?.average || ''}
+                            onChange={(e) => updatePercentDifference1D(trial, 'average', e.target.value)}
+                            placeholder=""
+                          />
+                        </td>
+                        
+                        {/* Percent Difference (student input) */}
+                        <td className="border border-gray-300 p-2 text-center">
+                          <input
+                            type="number"
+                            step="0.1"
+                            className={`w-full text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors ${
+                              data?.percentDifference?.percentage && 
+                              validateMomentum(data.percentDifference.percentage, calculatePercentDifference1D(trial).percentage)
+                                ? '' 
+                                : ''
+                            }`}
+                            value={data?.percentDifference?.percentage || ''}
+                            onChange={(e) => updatePercentDifference1D(trial, 'percentage', e.target.value)}
+                            placeholder=""
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Average Percent Difference Input */}
+            <div className="mt-4 flex items-center justify-center space-x-3">
+              <label className="text-sm font-medium text-gray-700">
+                Average Percent Difference:
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                className={`w-24 px-2 py-1 border rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors text-center ${
+                  averagePercentDifference.oneDimensional && 
+                  validateMomentum(averagePercentDifference.oneDimensional, calculateCorrectAveragePercentDifference1D())
+                    ? '' 
+                    : ''
+                }`}
+                value={averagePercentDifference.oneDimensional}
+                onChange={(e) => updateAveragePercentDifference1D(e.target.value)}
+                placeholder=""
+              />
+              <span className="text-sm text-gray-600">%</span>
+            </div>
+          </div>
+
+          {/* 2-D Percent Difference Table */}
+          <div className="bg-white border rounded-lg p-4">
+            <h3 className="font-semibold text-gray-800 mb-3">2-D Collision Percent Difference</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Calculate percent difference for both X and Y components for each trial. Total momentum values are copied from your 2D analysis table above.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse border border-gray-300 text-sm">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-300 p-2" rowSpan="2">Trial</th>
+                    <th className="border border-gray-300 p-2" colSpan="2">Total Momentum Before<br/>(kg⋅cm/s)</th>
+                    <th className="border border-gray-300 p-2" colSpan="2">Total Momentum After<br/>(kg⋅cm/s)</th>
+                    <th className="border border-gray-300 p-2" colSpan="2">Difference<br/>(Before - After)</th>
+                    <th className="border border-gray-300 p-2" colSpan="2">Average<br/>((Before + After)/2)</th>
+                    <th className="border border-gray-300 p-2" colSpan="2">Percent Difference<br/>(Difference/Average × 100%)</th>
+                  </tr>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-300 p-2">X</th>
+                    <th className="border border-gray-300 p-2">Y</th>
+                    <th className="border border-gray-300 p-2">X</th>
+                    <th className="border border-gray-300 p-2">Y</th>
+                    <th className="border border-gray-300 p-2">X</th>
+                    <th className="border border-gray-300 p-2">Y</th>
+                    <th className="border border-gray-300 p-2">X</th>
+                    <th className="border border-gray-300 p-2">Y</th>
+                    <th className="border border-gray-300 p-2">X</th>
+                    <th className="border border-gray-300 p-2">Y</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[1, 2, 3].map(trial => {
+                    const trialKey = `trial${trial}`;
+                    const data = trialData['2D'][trialKey];
+                    
+                    return (
+                      <tr key={trial}>
+                        <td className="border border-gray-300 p-2 text-center font-medium">{trial}</td>
+                        
+                        {/* Total Momentum Before - From 2D Analysis table (read-only) */}
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.totalMomentum2D?.beforeX || '-'}
+                        </td>
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.totalMomentum2D?.beforeY || '-'}
+                        </td>
+                        
+                        {/* Total Momentum After - From 2D Analysis table (read-only) */}
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.totalMomentum2D?.afterX || '-'}
+                        </td>
+                        <td className="border border-gray-300 p-2 text-center bg-gray-50">
+                          {data?.totalMomentum2D?.afterY || '-'}
+                        </td>
+                        
+                        {/* Difference (Before - After) - Student input */}
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="w-20 text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors"
+                            value={data?.percentDifference2D?.x?.difference || ''}
+                            onChange={(e) => updatePercentDifference2D(trial, 'x', 'difference', e.target.value)}
+                            placeholder=""
+                          />
+                        </td>
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="w-20 text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors"
+                            value={data?.percentDifference2D?.y?.difference || ''}
+                            onChange={(e) => updatePercentDifference2D(trial, 'y', 'difference', e.target.value)}
+                            placeholder=""
+                          />
+                        </td>
+                        
+                        {/* Average ((Before + After)/2) - Student input */}
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="w-20 text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors"
+                            value={data?.percentDifference2D?.x?.average || ''}
+                            onChange={(e) => updatePercentDifference2D(trial, 'x', 'average', e.target.value)}
+                            placeholder=""
+                          />
+                        </td>
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="w-20 text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors"
+                            value={data?.percentDifference2D?.y?.average || ''}
+                            onChange={(e) => updatePercentDifference2D(trial, 'y', 'average', e.target.value)}
+                            placeholder=""
+                          />
+                        </td>
+                        
+                        {/* Percent Difference - Student input */}
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="w-20 text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors"
+                            value={data?.percentDifference2D?.x?.percent || ''}
+                            onChange={(e) => updatePercentDifference2D(trial, 'x', 'percent', e.target.value)}
+                            placeholder=""
+                          />
+                        </td>
+                        <td className="border border-gray-300 p-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="w-20 text-center px-2 py-1 rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors"
+                            value={data?.percentDifference2D?.y?.percent || ''}
+                            onChange={(e) => updatePercentDifference2D(trial, 'y', 'percent', e.target.value)}
+                            placeholder=""
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Average Percent Difference Input for 2D */}
+            <div className="mt-4 flex items-center justify-center space-x-3">
+              <label className="text-sm font-medium text-gray-700">
+                Average Percent Difference (all X & Y values):
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                className={`w-24 px-2 py-1 border rounded border-2 border-dashed border-blue-300 focus:border-blue-500 focus:outline-none transition-colors text-center ${
+                  averagePercentDifference.twoDimensional && 
+                  validateMomentum(averagePercentDifference.twoDimensional, calculateCorrectAveragePercentDifference2D())
+                    ? '' 
+                    : ''
+                }`}
+                value={averagePercentDifference.twoDimensional}
+                onChange={(e) => updateAveragePercentDifference2D(e.target.value)}
+                placeholder=""
+              />
+              <span className="text-sm text-gray-600">%</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1956,11 +2877,41 @@ const Lab1_ConservationOfMomentum = () => {  // Track completion status for each
         <h2 className="text-lg font-semibold mb-4 text-blue-700 flex items-center justify-between">
           <span>Conclusion</span>
           {getStatusIcon(sectionStatus.conclusion)}
-        </h2>        <div className="space-y-6">
-          <p className="text-gray-700">
-            Summarize your findings and draw conclusions about momentum conservation based on your experimental results. 
-            Address the original objective and hypothesis.
-          </p>
+        </h2>
+        
+        <div className="space-y-4">
+          <div className="border border-blue-200 rounded-lg p-4">
+            <p className="text-gray-700 text-sm leading-relaxed">
+              <strong>Instructions:</strong> Write a comprehensive conclusion that addresses the following points:
+            </p>
+            <ul className="mt-2 ml-5 text-sm text-gray-700 list-disc space-y-1">
+              <li>State whether you achieved your objective and answered the question</li>
+              <li>Compare your hypothesis to your results - do they agree?</li>
+              <li>Clearly state your original hypothesis, experimental results, and the magnitude of error</li>
+              <li>Comment on your observations and analysis</li>
+              <li>Suggest any improvements or related experiments</li>
+            </ul>
+            <p className="mt-2 text-sm text-gray-600 italic">
+              Your conclusion must contain at least 5 complete sentences to be marked as complete.
+            </p>
+          </div>
+
+          <div>
+            <textarea
+              value={sectionContent.conclusion}
+              onChange={(e) => updateSectionContent('conclusion', e.target.value)}
+              className="w-full h-48 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+              placeholder="Write your conclusion here..."
+            />
+            
+            {/* Sentence count indicator */}
+            <div className="mt-2 text-sm text-gray-600">
+              Sentences written: {countSentences(sectionContent.conclusion)} / 5 minimum
+              {sectionStatus.conclusion === 'completed' && (
+                <span className="ml-2 text-green-600">✓ Complete</span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
