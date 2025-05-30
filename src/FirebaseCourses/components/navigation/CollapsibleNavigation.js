@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { 
   BookOpen, 
   ClipboardCheck,
@@ -10,9 +10,8 @@ import {
   PlayCircle,
   ChevronRight,
   ChevronLeft,
-  MenuIcon
+  X
 } from 'lucide-react';
-import { ScrollArea } from '../../../components/ui/scroll-area';
 import { 
   Accordion,
   AccordionItem,
@@ -26,7 +25,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../../components/ui/tooltip';
-import { Card, CardContent } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 
 // Type-specific styling
@@ -62,8 +60,8 @@ const CollapsibleNavigation = ({
   onToggleExpand,
   currentUnitIndex = 0,
   course,
+  isMobile = false,
 }) => {
-  const [expandedUnit, setExpandedUnit] = useState(currentUnitIndex);
 
   // Display debugging information about the course structure
   useEffect(() => {
@@ -133,7 +131,7 @@ const CollapsibleNavigation = ({
     
     // Determine if this is the first incomplete item
     const isNextItem = !isCompleted && 
-      Object.entries(progress).filter(([id, data]) => data.completed).length > 0 &&
+      Object.entries(progress).filter(([, data]) => data.completed).length > 0 &&
       !Object.entries(progress)
         .filter(([id, data]) => !data.completed && id !== item.itemId)
         .some(([id]) => {
@@ -181,16 +179,7 @@ const CollapsibleNavigation = ({
   
   if (!expanded) {
     return (
-      <div className="w-full h-full bg-white border-r border-gray-200 flex flex-col items-center py-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onToggleExpand}
-          className="mb-4"
-        >
-          <MenuIcon className="h-5 w-5" />
-        </Button>
-
+      <div className="w-full bg-white border-r border-gray-200 flex flex-col items-center py-4">
         <Button
           variant="ghost"
           size="sm"
@@ -226,7 +215,7 @@ const CollapsibleNavigation = ({
   }
   
   return (
-    <div className="w-full h-full flex flex-col border-r border-gray-200 bg-white shadow-sm">
+    <div className="w-full flex flex-col border-r border-gray-200 bg-white shadow-sm">
       <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-blue-50 to-indigo-50">
         <h2 className="font-semibold text-base text-blue-800 flex items-center gap-1 truncate">
           <BookOpen className="h-4 w-4 flex-shrink-0" />
@@ -238,7 +227,7 @@ const CollapsibleNavigation = ({
           onClick={onToggleExpand} 
           className="ml-1 flex-shrink-0"
         >
-          <ChevronLeft className="h-4 w-4" />
+          {isMobile ? <X className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </div>
       
@@ -255,7 +244,7 @@ const CollapsibleNavigation = ({
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1">
         <div className="p-2">
           {Object.entries(sectionedUnits)
             .sort(([a, b]) => {

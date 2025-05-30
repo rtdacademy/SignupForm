@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FaGraduationCap } from 'react-icons/fa';
-import { BookOpen, ClipboardCheck, MenuIcon } from 'lucide-react';
+import { BookOpen, ClipboardCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
-import { Button } from '../components/ui/button';
 
 // Main wrapper component for all Firebase courses
 // Provides common layout, navigation, and context for course content
@@ -21,11 +20,35 @@ const FirebaseCourseWrapper = ({
   const [activeItemId, setActiveItemId] = useState(null);
   const [progress, setProgress] = useState({});
   const [navExpanded, setNavExpanded] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Debug logging
   console.log("🔄 FirebaseCourseWrapper rendering with course:", course);
   console.log("👤 Current User in wrapper:", currentUser);
   console.log("!!!!!!!!!!!!!!!!!!Course:",course)
+  
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  
+  // Check if device is mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768); // Tailwind's md breakpoint
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    // Start with navigation closed on mobile
+    if (window.innerWidth < 768) {
+      setNavExpanded(false);
+    }
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
   // Sync with external state if provided
   useEffect(() => {
     if (externalActiveItemId && externalActiveItemId !== activeItemId) {
@@ -36,11 +59,19 @@ const FirebaseCourseWrapper = ({
   // Handle internal item selection and propagate to parent if needed
   const handleItemSelect = useCallback((itemId) => {
     setActiveItemId(itemId);
+    
+    // Scroll to top when selecting a new item
+    window.scrollTo(0, 0);
+    
+    // Auto-close navigation on mobile after selection
+    if (isMobile) {
+      setNavExpanded(false);
+    }
 
     if (externalItemSelect) {
       externalItemSelect(itemId);
     }
-  }, [externalItemSelect]);
+  }, [externalItemSelect, isMobile]);
   
   // Get course data from the course object, either from database or fallback
   const getCourseData = () => {
@@ -151,41 +182,11 @@ const FirebaseCourseWrapper = ({
   }, [unitsList, activeItemId]);
 
   return (
-    <div className="flex h-full">
-      {/* Collapsible Navigation - fixed width */}
-      <div className={`${navExpanded ? 'w-80' : 'w-12'} flex-shrink-0 h-full`}>
-        <CollapsibleNavigation
-          courseTitle={courseTitle}
-          unitsList={unitsList}
-          progress={progress}
-          activeItemId={activeItemId}
-          expanded={navExpanded}
-          onToggleExpand={() => setNavExpanded(!navExpanded)}
-          onItemSelect={(itemId) => {
-            handleItemSelect(itemId);
-            setActiveTab('content');
-          }}
-          currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
-          course={course}
-        />
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col h-full">
-        <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
-          <div className="px-4 py-2 flex items-center gap-4">
-            {!navExpanded && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setNavExpanded(true)}
-                className="mr-2"
-              >
-                <MenuIcon className="h-5 w-5" />
-              </Button>
-            )}
-            
-            <button
+    <div className="min-h-screen">
+      {/* Header - full width, sticky */}
+      <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
+        <div className="px-4 py-2 flex items-center gap-4">
+          <button
               className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm ${
                 activeTab === 'content' 
                   ? 'bg-blue-100 text-blue-800' 
@@ -220,10 +221,48 @@ const FirebaseCourseWrapper = ({
               <FaGraduationCap className="h-4 w-4" />
               <span>Grades</span>
             </button>
-          </div>
         </div>
+      </div>
+
+      {/* Content area with navigation */}
+      <div className="flex relative">
+        {/* Mobile overlay backdrop */}
+        {isMobile && navExpanded && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-20"
+            onClick={() => setNavExpanded(false)}
+          />
+        )}
         
-        <main className="p-6 overflow-auto flex-1">
+        {/* Collapsible Navigation - responsive width */}
+        <div className={`
+          ${navExpanded 
+            ? isMobile 
+              ? 'fixed inset-0 z-30 w-full' 
+              : 'w-80' 
+            : 'w-12'
+          } 
+          flex-shrink-0 transition-all duration-300
+        `}>
+          <CollapsibleNavigation
+            courseTitle={courseTitle}
+            unitsList={unitsList}
+            progress={progress}
+            activeItemId={activeItemId}
+            expanded={navExpanded}
+            onToggleExpand={() => setNavExpanded(!navExpanded)}
+            onItemSelect={(itemId) => {
+              handleItemSelect(itemId);
+              setActiveTab('content');
+            }}
+            currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
+            course={course}
+            isMobile={isMobile}
+          />
+        </div>
+
+        {/* Main content */}
+        <main className="flex-1 p-6">
           {activeTab === 'content' && (
             <div className="bg-white rounded-lg shadow">
               {isStaffView && devMode && (
