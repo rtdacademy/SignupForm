@@ -6,7 +6,7 @@ class BuildManager {
   constructor(options = {}) {
     this.isSandbox = options.isSandbox;
     this.isSecondSite = options.isSecondSite;
-    this.memorySize = options.memorySize || 12288; // Default to 12GB
+    this.memorySize = options.memorySize || 2048; // Default to 2GB
     this.maxRetries = options.maxRetries || 3;
     this.currentRetry = 0;
     this.cleanOnly = options.cleanOnly || false;
@@ -119,7 +119,7 @@ class BuildManager {
         : `.env.${this.isSandbox ? 'development' : 'production'}`;
 
       const command = this.isStart
-        ? `env-cmd -f ${envFile} react-scripts start`
+        ? `cross-env NODE_OPTIONS=--max-old-space-size=${this.memorySize} env-cmd -f ${envFile} react-scripts start`
         : `cross-env NODE_OPTIONS=--max-old-space-size=${this.memorySize} GENERATE_SOURCEMAP=false env-cmd -f ${envFile} react-scripts build`;
       
       if (!this.isStart) {
@@ -139,17 +139,8 @@ class BuildManager {
       // Development server errors (start mode)
       if (this.isStart) {
         console.error('Development server crashed:', error.message);
-        console.log('Restarting development server...');
-        
-        // Reset retry counter to prevent stack overflow
-        this.currentRetry = 0;
-        
-        // Wait a moment before restarting
-        setTimeout(() => {
-          return this.execute();
-        }, 2000);
-        
-        return true;
+        console.log('Development server exited. Please restart manually.');
+        return false;
       }
 
       // Build errors (build mode)
@@ -158,7 +149,7 @@ class BuildManager {
       if (this.currentRetry < this.maxRetries - 1) {
         this.currentRetry++;
         // Only increase memory if we're not already at max
-        const newMemory = Math.min(this.memorySize + 2048, 16384); // Cap at 16GB
+        const newMemory = Math.min(this.memorySize + 512, 4096); // Cap at 4GB
         if (newMemory > this.memorySize) {
           this.memorySize = newMemory;
           console.log(`Increasing memory to ${this.memorySize}MB for next attempt...`);
