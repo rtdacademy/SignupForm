@@ -1,10 +1,109 @@
 rules_version = '2';
-
-// Craft rules based on data in your Firestore database
-// allow write: if firestore.get(
-//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
+    // Helper functions remain the same
+    function isRTDStaff() {
+      return request.auth != null && request.auth.token.email.matches('.*@rtdacademy\\.com');
+    }
+    
+    function isAdmin() {
+      return request.auth != null && 
+             root.child('adminEmails').val().includes(request.auth.token.email);
+    }
+    
+    function isValidImageType() {
+      return request.resource.contentType.matches('image/.*') && 
+             (request.resource.contentType == 'image/jpeg' ||
+              request.resource.contentType == 'image/png' ||
+              request.resource.contentType == 'image/webp');
+    }
+    
+    function isValidImageSize() {
+      return request.resource.size <= 5 * 1024 * 1024;
+    }
+    
+    // Updated images path to include delete permission
+    match /images/{imageId}/{fileName} {
+      allow read: if true;  // Anyone can read
+      allow write: if request.auth != null &&  // Must be authenticated
+                     isValidImageType() &&     // Must be valid image type
+                     isValidImageSize();       // Must be under size limit
+      allow delete: if request.auth != null;   // Added delete permission for authenticated users
+    }
+    
+    // Added new rule for Reports directory
+    match /Reports/{fileName} {
+      allow read: if true;  // Anyone can read
+      allow write, delete: if request.auth != null && isRTDStaff();  // Only staff can modify
+    }
+    
+    // Course development code files
+    match /courseDevelopment/{courseId}/{lessonPath}/{fileName} {
+      allow read: if request.auth != null;  // Any authenticated user can read
+      allow write, delete: if request.auth != null && isRTDStaff();  // Only staff can modify
+    }
+    
+    // Rest of your rules remain the same...
+    match /files/{fileId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    match /assistant-files/{assistantId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    match /invoices/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+    
+   match /rtdAcademy/international/{userId}/{document=**} {
+    allow write: if request.auth != null &&
+                request.auth.uid == userId;
+    allow read: if request.auth != null &&
+               (request.auth.uid == userId || isRTDStaff());
+  }
+
+  // Student photo uploads
+  match /rtdAcademy/studentPhotos/{userId}/{document=**} {
+    allow write: if request.auth != null &&
+                request.auth.uid == userId;
+    allow read: if request.auth != null &&
+               (request.auth.uid == userId || isRTDStaff());
+  }
+
+  // Citizenship documents
+  match /rtdAcademy/citizenshipDocs/{userId}/{document=**} {
+    allow write: if request.auth != null &&
+                request.auth.uid == userId;
+    allow read: if request.auth != null &&
+               (request.auth.uid == userId || isRTDStaff());
+  }
+
+  // Legal documents
+  match /rtdAcademy/legalDocuments/{userId}/{document=**} {
+    allow write: if request.auth != null &&
+                request.auth.uid == userId;
+    allow read: if request.auth != null &&
+               (request.auth.uid == userId || isRTDStaff());
+  }
+    
+    match /shared-documents/{allPaths=**} {
+      allow read, write: if request.auth != null && isRTDStaff();
+    }
+    
+    match /personal-documents/{userEmail}/{allPaths=**} {
+      allow read: if request.auth != null && 
+                 (request.auth.token.email == userEmail || isAdmin());
+      allow write: if request.auth != null && 
+                  request.auth.token.email == userEmail;
+    }
+    
+match /coldStorage/{fileName} {
+  allow read, write: if request.auth != null;
+}
+    
     match /{allPaths=**} {
       allow read, write: if false;
     }

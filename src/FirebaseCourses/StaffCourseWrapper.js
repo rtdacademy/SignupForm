@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
-import { getDatabase, ref, get } from 'firebase/database';
+import { getDatabase, ref, get, set } from 'firebase/database';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
-import { FaWrench, FaGraduationCap } from 'react-icons/fa';
+import { FaWrench, FaGraduationCap, FaCode } from 'react-icons/fa';
 import { BookOpen, ClipboardCheck } from 'lucide-react';
 import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
@@ -14,6 +16,394 @@ const PHY30Course = lazy(() => import('./courses/PHY30'));
 const Course2 = lazy(() => import('./courses/2'));
 const Course3 = lazy(() => import('./courses/3'));
 const Course100 = lazy(() => import('./courses/100'));
+
+// Code Editor Panel Component
+const CodeEditorPanel = ({ courseId, currentUser, activeItemId, unitsList, onClose }) => {
+  const [currentLessonPath, setCurrentLessonPath] = useState('');
+  const [reactCode, setReactCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
+  const [existingContent, setExistingContent] = useState(null);
+  const [currentLessonInfo, setCurrentLessonInfo] = useState(null);
+
+  // Find the current lesson based on activeItemId
+  useEffect(() => {
+    if (!activeItemId || !unitsList) {
+      setCurrentLessonPath('');
+      setCurrentLessonInfo(null);
+      return;
+    }
+
+    // Find the lesson item in the course structure
+    let foundLesson = null;
+    for (const unit of unitsList) {
+      if (unit.items) {
+        foundLesson = unit.items.find(item => item.itemId === activeItemId);
+        if (foundLesson) break;
+      }
+    }
+
+    if (foundLesson && foundLesson.contentPath) {
+      setCurrentLessonPath(foundLesson.contentPath);
+      setCurrentLessonInfo(foundLesson);
+    } else {
+      setCurrentLessonPath('');
+      setCurrentLessonInfo(null);
+    }
+  }, [activeItemId, unitsList]);
+
+  // Load existing code when lesson path changes
+  useEffect(() => {
+    if (currentLessonPath) {
+      loadCode();
+    }
+  }, [currentLessonPath, courseId]);
+
+  const saveCode = async () => {
+    if (!reactCode.trim()) {
+      setError('Please enter some React code before saving.');
+      return;
+    }
+
+    if (!currentLessonPath) {
+      setError('No lesson selected. Please select a lesson from the navigation first.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('Starting code save process...');
+      console.log('User:', currentUser?.email);
+      console.log('Course ID:', courseId);
+      console.log('Lesson Path:', currentLessonPath);
+      
+      // Transform JSX to React.createElement if needed
+      let processedCode = reactCode;
+      const containsJSX = reactCode.includes('<') && reactCode.includes('>');
+      
+      if (containsJSX) {
+        console.log('JSX detected, transforming...');
+        try {
+          const functions = getFunctions();
+          const transformJSX = httpsCallable(functions, 'transformJSXCode');
+          const result = await transformJSX({ jsxCode: reactCode });
+          
+          if (result.data.success) {
+            processedCode = result.data.transformedCode;
+            console.log('JSX transformed successfully');
+          } else {
+            throw new Error(`JSX transformation failed: ${result.data.error}`);
+          }
+        } catch (transformError) {
+          console.warn('Backend JSX transformation failed, saving original code:', transformError);
+          // Continue with original code - the frontend will attempt transformation
+        }
+      }
+      
+      // Create a file from the code string
+      const timestamp = Date.now();
+      const fileName = `${currentLessonPath}-v${timestamp}.js`;
+      const codeBlob = new Blob([processedCode], { type: 'text/javascript' });
+      const codeFile = new File([codeBlob], fileName, { type: 'text/javascript' });
+      
+      // Upload to Firebase Storage
+      const storage = getStorage();
+      const storagePath = `courseDevelopment/${courseId}/${currentLessonPath}/${fileName}`;
+      const fileRef = storageRef(storage, storagePath);
+      
+      console.log('Storage path:', storagePath);
+      
+      // Upload the file
+      const snapshot = await uploadBytes(fileRef, codeFile);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      console.log('File uploaded successfully to storage:', downloadURL);
+      
+      // Update database metadata only
+      const db = getDatabase();
+      const dbPath = `courseDevelopment/${courseId}/${currentLessonPath}`;
+      const metadataRef = ref(db, dbPath);
+      
+      // Load existing metadata to preserve version history
+      const existingSnapshot = await get(metadataRef);
+      const existingData = existingSnapshot.exists() ? existingSnapshot.val() : {};
+      const existingVersions = existingData.versions || [];
+      
+      const metadataUpdate = {
+        enabled: true,
+        currentFile: fileName,
+        currentFileUrl: downloadURL,
+        metadata: {
+          lastModified: new Date().toISOString(),
+          modifiedBy: currentUser?.email || 'unknown',
+          version: timestamp,
+          lessonTitle: currentLessonInfo?.title || currentLessonPath,
+          contentType: 'lesson'
+        },
+        versions: [
+          ...existingVersions,
+          {
+            fileName: fileName,
+            uploadedAt: new Date().toISOString(),
+            version: timestamp,
+            url: downloadURL,
+            modifiedBy: currentUser?.email || 'unknown'
+          }
+        ]
+      };
+      
+      await set(metadataRef, metadataUpdate);
+      
+      console.log('Metadata saved successfully to database');
+      setSaved(true);
+      
+      // Auto-close developer mode after successful save
+      setTimeout(() => {
+        setSaved(false);
+        if (onClose) {
+          onClose(); // This will turn off dev mode and switch to content tab
+        }
+      }, 2000); // Show success message for 2 seconds, then close
+      
+    } catch (err) {
+      console.error('Detailed error saving code:', err);
+      console.error('Error code:', err.code);
+      console.error('Error message:', err.message);
+      setError(`Failed to save code: ${err.message} (Code: ${err.code || 'unknown'})`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCode = async () => {
+    if (!currentLessonPath || !courseId) return;
+    
+    try {
+      const db = getDatabase();
+      const metadataRef = ref(db, `courseDevelopment/${courseId}/${currentLessonPath}`);
+      const snapshot = await get(metadataRef);
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setExistingContent(data);
+        
+        // Load the code using Firebase Function (bypasses CORS)
+        if (data.currentFile) {
+          console.log('Loading code via function:', data.currentFile);
+          const functions = getFunctions();
+          const loadCourseCode = httpsCallable(functions, 'loadCourseCode');
+          
+          try {
+            const result = await loadCourseCode({
+              courseId: courseId,
+              lessonPath: currentLessonPath,
+              fileName: data.currentFile
+            });
+            
+            if (result.data.success) {
+              setReactCode(result.data.code);
+            } else {
+              throw new Error('Function returned error');
+            }
+          } catch (functionError) {
+            console.error('Error loading from function:', functionError);
+            throw new Error('Failed to load code via function');
+          }
+        } else {
+          // Fallback for old format (if reactCode is still stored in database)
+          setReactCode(data.reactCode || '');
+        }
+        setError(null);
+      } else {
+        setExistingContent(null);
+        setReactCode('');
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Error loading code:', err);
+      setError('Failed to load code: ' + err.message);
+    }
+  };
+
+  const validateCode = (code) => {
+    // Basic validation for dangerous patterns
+    const forbiddenPatterns = [
+      /fetch\s*\(/i,
+      /window\./i,
+      /document\./i,
+      /localStorage/i,
+      /sessionStorage/i,
+      /eval\s*\(/i,
+      /new\s+Function\s*\(/i
+    ];
+    
+    const dangerous = forbiddenPatterns.find(pattern => pattern.test(code));
+    if (dangerous) {
+      return `Code contains potentially dangerous pattern: ${dangerous}`;
+    }
+    return null;
+  };
+
+  const handleCodeChange = (e) => {
+    const newCode = e.target.value;
+    setReactCode(newCode);
+    setSaved(false);
+    
+    // Validate code
+    const validation = validateCode(newCode);
+    if (validation) {
+      setError(validation);
+    } else {
+      setError(null);
+    }
+  };
+
+  // Show message if no lesson is selected
+  if (!currentLessonPath || !currentLessonInfo) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+          <h3 className="font-medium text-blue-800 mb-2">📌 Select a Lesson to Edit</h3>
+          <p className="text-sm text-blue-700">
+            Use the navigation on the left to select a lesson, then return to this Code Editor tab to edit its content.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="font-medium text-yellow-800 mb-2">🚧 Course Development Mode</h3>
+            <p className="text-sm text-yellow-700 mb-2">
+              Paste React component code below. Use React.createElement syntax (JSX support coming soon). No imports or exports needed.
+            </p>
+            <p className="text-xs text-yellow-600">
+              <strong>Security Note:</strong> Only use trusted code. Avoid fetch, window, document, localStorage, and eval.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-yellow-600 hover:text-yellow-800 ml-4 text-sm underline"
+          >
+            Exit Code Editor
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 p-3 rounded-md">
+          <p className="text-sm text-red-700">⚠️ {error}</p>
+        </div>
+      )}
+
+      {/* Current Lesson Info */}
+      <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+        <h4 className="font-medium text-green-800 mb-1">📝 Currently Editing:</h4>
+        <p className="text-green-700 font-medium">{currentLessonInfo.title}</p>
+        <p className="text-xs text-green-600 mt-1">
+          Path: {currentLessonPath} | Type: {currentLessonInfo.type}
+        </p>
+      </div>
+
+      {/* Existing Content Info */}
+      {existingContent && (
+        <div className="bg-blue-50 border border-blue-200 p-3 rounded-md">
+          <p className="text-sm text-blue-800">
+            📄 <strong>Existing Content Found</strong> | 
+            Last modified: {new Date(existingContent.metadata?.lastModified).toLocaleString()} 
+            by {existingContent.metadata?.modifiedBy}
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            Status: {existingContent.enabled ? '✅ Enabled' : '❌ Disabled'}
+          </p>
+        </div>
+      )}
+
+      {/* Code Editor */}
+      <div>
+        <label className="block text-sm font-medium mb-2">React Component Code:</label>
+        <textarea
+          value={reactCode}
+          onChange={handleCodeChange}
+          placeholder={`Paste your React component code here...
+
+Example (React.createElement syntax):
+const IntroEthicsFinancialDecisions = ({ course, courseId, itemConfig, isStaffView, devMode }) => {
+  return React.createElement('div', { className: 'space-y-8' },
+    React.createElement(Card, null,
+      React.createElement(CardHeader, null,
+        React.createElement(CardTitle, null, 'Your Custom Content')
+      ),
+      React.createElement(CardContent, null,
+        React.createElement('p', null, 'This is dynamically rendered from storage!')
+      )
+    )
+  );
+};
+
+// No export needed - component will be found automatically`}
+          className="w-full h-96 p-4 font-mono text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Available components (no imports needed): React, Card, CardContent, CardHeader, CardTitle, Alert, AlertDescription, Badge, AIMultipleChoiceQuestion
+        </p>
+        <p className="text-xs text-blue-600 mt-1">
+          💡 Use SAMPLE_REACT_CODE.js as a reference for the React.createElement syntax.
+        </p>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-3 items-center">
+        <Button 
+          onClick={saveCode} 
+          disabled={loading || !!error || !currentLessonPath}
+          className="bg-green-600 hover:bg-green-700"
+        >
+          {loading ? 'Saving...' : 'Save to Storage'}
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={loadCode}
+          disabled={loading}
+        >
+          Reload from Storage
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={onClose}
+          className="border-red-300 text-red-600 hover:bg-red-50"
+        >
+          Exit Code Editor
+        </Button>
+        {saved && (
+          <span className="text-green-600 text-sm flex items-center">
+            ✓ Saved successfully - Closing in 2 seconds...
+          </span>
+        )}
+      </div>
+
+      {/* Instructions */}
+      <div className="bg-gray-50 border border-gray-200 p-4 rounded-md">
+        <h4 className="font-medium text-gray-800 mb-2">📚 Instructions:</h4>
+        <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside">
+          <li>Select a lesson from the navigation on the left</li>
+          <li>Return to this Code Editor tab</li>
+          <li>Paste your React component code (must export default)</li>
+          <li>Click "Save to Storage" to store the code file</li>
+          <li>View the lesson in "Content" tab to see your changes</li>
+          <li>Use the toggle in the lesson to switch between manual and UI-generated versions</li>
+        </ol>
+      </div>
+    </div>
+  );
+};
 
 /**
  * Staff course wrapper with enhanced permissions and features
@@ -315,6 +705,12 @@ const StaffCourseWrapper = () => {
     setDevMode(!devMode);
   };
 
+  // Handle closing code editor (turn off dev mode and switch to content)
+  const handleCloseCodeEditor = () => {
+    setDevMode(false);
+    setActiveTab('content');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -405,6 +801,20 @@ const StaffCourseWrapper = () => {
               <FaGraduationCap className="h-4 w-4" />
               <span>Grades</span>
             </button>
+            
+            {devMode && (
+              <button
+                className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm ${
+                  activeTab === 'codeEditor' 
+                    ? 'bg-yellow-100 text-yellow-800' 
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+                onClick={() => setActiveTab('codeEditor')}
+              >
+                <FaCode className="h-4 w-4" />
+                <span>Code Editor</span>
+              </button>
+            )}
         </div>
       </div>
 
@@ -558,6 +968,19 @@ const StaffCourseWrapper = () => {
                   </table>
                 </div>
               </div>
+            </div>
+          )}
+          
+          {activeTab === 'codeEditor' && devMode && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h1 className="text-xl font-bold mb-4">Course Code Editor</h1>
+              <CodeEditorPanel 
+                courseId={courseId} 
+                currentUser={currentUser} 
+                activeItemId={activeItemId}
+                unitsList={unitsList}
+                onClose={handleCloseCodeEditor}
+              />
             </div>
           )}
           

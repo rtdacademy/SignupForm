@@ -48,6 +48,9 @@ const googleAIFunctions = require('./googleai');
 // Student dashboard notifications
 const surveySubmissionFunctions = require('./surveySubmissions');
 
+// Course code loader
+const courseCodeLoaderFunctions = require('./courseCodeLoader');
+
 // Assessment functions - Course-specific
 const COM1255IntroToELearning = require('./courses/COM1255/lessons/IntroToELearning');
 const COM1255BenefitsChallenges = require('./courses/COM1255/lessons/BenefitsChallenges');
@@ -125,6 +128,12 @@ exports.sendChatMessage = googleAIFunctions.sendChatMessage;
 
 // Notification functions
 exports.submitNotificationSurvey = surveySubmissionFunctions.submitNotificationSurvey;
+
+// Course code loader functions
+exports.loadCourseCode = courseCodeLoaderFunctions.loadCourseCode;
+
+// JSX transformation functions
+exports.transformJSXCode = require('./jsxTransformer').transformJSXCode;
 
 // Parent Portal functions
 exports.sendParentInvitation = parentPortalFunctions.sendParentInvitation;
