@@ -5,11 +5,13 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'fire
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import { FaWrench, FaGraduationCap, FaCode } from 'react-icons/fa';
 import { BookOpen, ClipboardCheck } from 'lucide-react';
 import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
-import SimpleCodeEditor from './components/codeEditor/SimpleCodeEditor';
+// Lazy load code editor to reduce initial bundle size
+const SimpleCodeEditor = lazy(() => import('./components/codeEditor/SimpleCodeEditor'));
 
 // Import course components - same as CourseRouter
 const COM1255Course = lazy(() => import('./courses/COM1255'));
@@ -47,6 +49,7 @@ const StaffCourseWrapper = () => {
   const [progress, setProgress] = useState({});
   const [navExpanded, setNavExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [codeEditorOpen, setCodeEditorOpen] = useState(false);
 
   // Loading component for Suspense fallback
   const LoadingCourse = () => (
@@ -107,56 +110,58 @@ const StaffCourseWrapper = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Enhanced course with structure data (similar to CourseRouter logic)
-  const getEnhancedCourse = useCallback(() => {
+  // Enhanced course with structure data - moved require statements outside component to prevent memory leaks
+  const getEnhancedCourse = useMemo(() => {
     if (!course) return null;
 
-    switch(courseId) {
-      case '2':
-      case 2:
-        const courseStructureData2 = require('./courses/2/course-structure.json');
-        return {
-          ...course,
-          courseStructure: {
-            title: "Physics 30",
-            structure: courseStructureData2.courseStructure?.units || []
-          }
-        };
-      case '3':
-      case 3:
-        const courseStructureData3 = require('./courses/3/course-structure.json');
-        return {
-          ...course,
-          courseStructure: {
-            title: "Financial Literacy",
-            structure: courseStructureData3.courseStructure?.units || []
-          }
-        };
-      case '100':
-      case 100:
-        const courseStructureData100 = require('./courses/100/course-structure.json');
-        return {
-          ...course,
-          courseStructure: {
-            title: "Sample Course",
-            structure: courseStructureData100.courseStructure?.units || []
-          }
-        };
-      default:
-        return course;
+    try {
+      switch(courseId) {
+        case '2':
+        case 2:
+          const courseStructureData2 = require('./courses/2/course-structure.json');
+          return {
+            ...course,
+            courseStructure: {
+              title: "Physics 30",
+              structure: courseStructureData2.courseStructure?.units || []
+            }
+          };
+        case '3':
+        case 3:
+          const courseStructureData3 = require('./courses/3/course-structure.json');
+          return {
+            ...course,
+            courseStructure: {
+              title: "Financial Literacy",
+              structure: courseStructureData3.courseStructure?.units || []
+            }
+          };
+        case '100':
+        case 100:
+          const courseStructureData100 = require('./courses/100/course-structure.json');
+          return {
+            ...course,
+            courseStructure: {
+              title: "Sample Course",
+              structure: courseStructureData100.courseStructure?.units || []
+            }
+          };
+        default:
+          return course;
+      }
+    } catch (error) {
+      console.warn('Error loading course structure:', error);
+      return course;
     }
   }, [course, courseId]);
 
-  // Get course data (similar to FirebaseCourseWrapper)
-  const getCourseData = useCallback(() => {
-    const enhancedCourse = getEnhancedCourse();
+  // Get course data (memoized to prevent unnecessary re-calculations)
+  const courseData = useMemo(() => {
+    const enhancedCourse = getEnhancedCourse;
     if (!enhancedCourse) return { title: '', structure: [], courseWeights: {} };
-
-    console.log("🔍 StaffCourseWrapper - Analyzing course data:", enhancedCourse);
 
     // First priority: check direct courseStructure path (JSON file)
     if (enhancedCourse.courseStructure?.structure) {
-      console.log("Using courseStructure.structure from JSON file");
       return {
         title: enhancedCourse.courseStructure.title || '',
         structure: enhancedCourse.courseStructure.structure || [],
@@ -165,7 +170,6 @@ const StaffCourseWrapper = () => {
     }
     // Also check for nested courseStructure.units pattern
     else if (enhancedCourse.courseStructure?.units) {
-      console.log("Using courseStructure.units from JSON file");
       return {
         title: enhancedCourse.courseStructure.title || enhancedCourse.Course?.Value || '',
         structure: enhancedCourse.courseStructure.units || [],
@@ -174,15 +178,12 @@ const StaffCourseWrapper = () => {
     }
 
     // Fallback: use other course data
-    console.log("⚠️ WARNING: Using fallback - no JSON structure found!");
     return {
       title: enhancedCourse.Course?.Value || enhancedCourse.courseDetails?.Title || '',
       structure: enhancedCourse.courseDetails?.units || [],
       courseWeights: enhancedCourse.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
     };
   }, [getEnhancedCourse]);
-
-  const courseData = getCourseData();
   const courseTitle = courseData.title;
   const unitsList = courseData.structure || [];
   const courseWeights = courseData.courseWeights || { lesson: 0.2, assignment: 0.4, exam: 0.4 };
@@ -364,14 +365,16 @@ const StaffCourseWrapper = () => {
     }
   }, [courseId]);
 
-  // Flatten all course items for progress tracking
+  // Flatten all course items for progress tracking (with length check to prevent memory issues)
   const allCourseItems = useMemo(() => {
+    if (!unitsList.length) return [];
+    
     const items = [];
-    unitsList.forEach(unit => {
-      if (unit.items && Array.isArray(unit.items)) {
+    for (const unit of unitsList) {
+      if (unit.items && Array.isArray(unit.items) && unit.items.length > 0) {
         items.push(...unit.items);
       }
-    });
+    }
     return items;
   }, [unitsList]);
 
@@ -404,86 +407,107 @@ const StaffCourseWrapper = () => {
     );
   }, [unitsList, activeItemId]);
 
-  // Render course content directly (similar to CourseRouter logic)
-  const renderCourseContent = () => {
-    const enhancedCourse = getEnhancedCourse();
+  // Render course content with memoization for better memory management
+  const renderCourseContent = useMemo(() => {
+    const enhancedCourse = getEnhancedCourse;
     
-    switch(courseId) {
-      case '1':
-      case 1:
-        return (
-          <Suspense fallback={<LoadingCourse />}>
-            <COM1255Course
-              course={enhancedCourse}
-              activeItemId={activeItemId}
-              onItemSelect={handleItemSelect}
-              isStaffView={true}
-              devMode={devMode}
-            />
-          </Suspense>
-        );
-      case '0':
-      case 0:
-        return (
-          <Suspense fallback={<LoadingCourse />}>
-            <PHY30Course
-              course={enhancedCourse}
-              activeItemId={activeItemId}
-              onItemSelect={handleItemSelect}
-              isStaffView={true}
-              devMode={devMode}
-            />
-          </Suspense>
-        );
-      case '2':
-      case 2:
-        return (
-          <Suspense fallback={<LoadingCourse />}>
-            <Course2
-              course={enhancedCourse}
-              activeItemId={activeItemId}
-              onItemSelect={handleItemSelect}
-              isStaffView={true}
-              devMode={devMode}
-            />
-          </Suspense>
-        );
-      case '3':
-      case 3:
-        return (
-          <Suspense fallback={<LoadingCourse />}>
-            <Course3
-              course={enhancedCourse}
-              activeItemId={activeItemId}
-              onItemSelect={handleItemSelect}
-              isStaffView={true}
-              devMode={devMode}
-            />
-          </Suspense>
-        );
-      case '100':
-      case 100:
-        return (
-          <Suspense fallback={<LoadingCourse />}>
-            <Course100
-              course={enhancedCourse}
-              activeItemId={activeItemId}
-              onItemSelect={handleItemSelect}
-              isStaffView={true}
-              devMode={devMode}
-            />
-          </Suspense>
-        );
-      default:
-        return (
-          <div className="p-8">
-            <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
-              <p className="text-amber-600">Course content for ID {courseId} is being developed. Check back soon!</p>
-            </div>
+    if (!enhancedCourse) {
+      return (
+        <div className="p-8">
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
+            <p className="text-amber-600">Loading course...</p>
           </div>
-        );
+        </div>
+      );
     }
-  };
+    
+    try {
+      switch(courseId) {
+        case '1':
+        case 1:
+          return (
+            <Suspense fallback={<LoadingCourse />}>
+              <COM1255Course
+                course={enhancedCourse}
+                activeItemId={activeItemId}
+                onItemSelect={handleItemSelect}
+                isStaffView={true}
+                devMode={devMode}
+              />
+            </Suspense>
+          );
+        case '0':
+        case 0:
+          return (
+            <Suspense fallback={<LoadingCourse />}>
+              <PHY30Course
+                course={enhancedCourse}
+                activeItemId={activeItemId}
+                onItemSelect={handleItemSelect}
+                isStaffView={true}
+                devMode={devMode}
+              />
+            </Suspense>
+          );
+        case '2':
+        case 2:
+          return (
+            <Suspense fallback={<LoadingCourse />}>
+              <Course2
+                course={enhancedCourse}
+                activeItemId={activeItemId}
+                onItemSelect={handleItemSelect}
+                isStaffView={true}
+                devMode={devMode}
+              />
+            </Suspense>
+          );
+        case '3':
+        case 3:
+          return (
+            <Suspense fallback={<LoadingCourse />}>
+              <Course3
+                course={enhancedCourse}
+                activeItemId={activeItemId}
+                onItemSelect={handleItemSelect}
+                isStaffView={true}
+                devMode={devMode}
+              />
+            </Suspense>
+          );
+        case '100':
+        case 100:
+          return (
+            <Suspense fallback={<LoadingCourse />}>
+              <Course100
+                course={enhancedCourse}
+                activeItemId={activeItemId}
+                onItemSelect={handleItemSelect}
+                isStaffView={true}
+                devMode={devMode}
+              />
+            </Suspense>
+          );
+        default:
+          return (
+            <div className="p-8">
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
+                <p className="text-amber-600">Course content for ID {courseId} is being developed. Check back soon!</p>
+              </div>
+            </div>
+          );
+      }
+    } catch (error) {
+      console.error('Error rendering course content:', error);
+      return (
+        <div className="p-8">
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-red-600">Error loading course content. Please refresh the page.</p>
+          </div>
+        </div>
+      );
+    }
+  }, [getEnhancedCourse, courseId, activeItemId, handleItemSelect, devMode]);
 
   // Toggle developer mode
   const handleToggleDevMode = () => {
@@ -590,11 +614,17 @@ const StaffCourseWrapper = () => {
             {devMode && (
               <button
                 className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm ${
-                  activeTab === 'codeEditor' 
+                  codeEditorOpen 
                     ? 'bg-yellow-100 text-yellow-800' 
                     : 'text-gray-600 hover:bg-gray-50'
                 }`}
-                onClick={() => setActiveTab('codeEditor')}
+                onClick={() => {
+                  setCodeEditorOpen(true);
+                  // Load existing code for the currently selected lesson when opening editor
+                  if (currentLessonInfo?.contentPath) {
+                    loadExistingCode(currentLessonInfo.contentPath);
+                  }
+                }}
               >
                 <FaCode className="h-4 w-4" />
                 <span>Code Editor</span>
@@ -652,7 +682,7 @@ const StaffCourseWrapper = () => {
                   </span>
                 </div>
               )}
-              {renderCourseContent()}
+              {renderCourseContent}
             </div>
           )}
           
@@ -756,17 +786,6 @@ const StaffCourseWrapper = () => {
             </div>
           )}
           
-          {activeTab === 'codeEditor' && devMode && (
-            <div className="bg-white rounded-lg shadow h-full flex flex-col">
-              <SimpleCodeEditor
-                initialCode={reactCode}
-                onSave={handleSaveCode}
-                onCodeChange={setReactCode}
-                loading={codeLoading}
-                currentLessonInfo={currentLessonInfo}
-              />
-            </div>
-          )}
           
           {activeTab === 'grades' && (
             <div className="bg-white rounded-lg shadow p-6">
@@ -884,6 +903,39 @@ const StaffCourseWrapper = () => {
           )}
         </main>
       </div>
+
+      {/* Full-screen Code Editor Sheet */}
+      <Sheet open={codeEditorOpen} onOpenChange={setCodeEditorOpen}>
+        <SheetContent 
+          side="right" 
+          className="w-full h-full max-w-none p-0 overflow-hidden flex flex-col"
+        >
+          <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
+            <SheetTitle className="flex items-center gap-2">
+              <FaCode className="h-5 w-5" />
+              Code Editor
+              {currentLessonInfo && (
+                <span className="text-sm font-normal text-gray-600">
+                  - {currentLessonInfo.title || currentLessonInfo.contentPath}
+                </span>
+              )}
+            </SheetTitle>
+          </SheetHeader>
+          
+          <div className="flex-1 overflow-hidden">
+            <Suspense fallback={<div className="p-4 text-center">Loading code editor...</div>}>
+              <SimpleCodeEditor
+                initialCode={reactCode}
+                onSave={handleSaveCode}
+                onCodeChange={setReactCode}
+                loading={codeLoading}
+                currentLessonInfo={currentLessonInfo}
+                isFullScreen={true}
+              />
+            </Suspense>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

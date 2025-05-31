@@ -155,7 +155,10 @@
     "import:database": "firebase database:set / database-export.json",
     "genkit:ui": "cd functions && GENKIT_ENV=dev npx genkit start -o -- node local-dev-server.js",
     "genkit:dev": "cd functions && node local-dev-server.js",
-    "start:main:functions-genkit": "concurrently \"npm run start:emulators:functions-only\" \"npm run genkit:ui\" \"REACT_APP_USE_FUNCTIONS_EMULATOR=true npm run start:main\""
+    "start:main:functions-genkit": "concurrently \"npm run start:emulators:functions-only\" \"npm run genkit:ui\" \"REACT_APP_USE_FUNCTIONS_EMULATOR=true npm run start:main\"",
+    "wsl:memory:fix": "bash scripts/wsl-memory-fix.sh",
+    "analyze:bundle": "node scripts/analyze-bundle.js",
+    "start:main:functions-emulator:clean": "npm run wsl:memory:fix && npm run start:main:functions-emulator"
   },
   "browserslist": [
     ">0.2%",
