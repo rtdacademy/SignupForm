@@ -5,13 +5,12 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'fire
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import { FaWrench, FaGraduationCap, FaCode } from 'react-icons/fa';
 import { BookOpen, ClipboardCheck } from 'lucide-react';
 import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
-// Lazy load code editor to reduce initial bundle size
-const SimpleCodeEditor = lazy(() => import('./components/codeEditor/SimpleCodeEditor'));
+// Import code editor components directly to avoid chunk loading issues
+import CodeEditorSheet from './components/codeEditor/CodeEditorSheet';
 
 // Import course components - same as CourseRouter
 const COM1255Course = lazy(() => import('./courses/COM1255'));
@@ -42,6 +41,7 @@ const StaffCourseWrapper = () => {
   const [saved, setSaved] = useState(false);
   const [codeError, setCodeError] = useState(null);
   const [currentLessonInfo, setCurrentLessonInfo] = useState(null);
+  const [codeEditorOpen, setCodeEditorOpen] = useState(false);
   
   // UI state (similar to FirebaseCourseWrapper)
   const [activeTab, setActiveTab] = useState('content');
@@ -49,7 +49,6 @@ const StaffCourseWrapper = () => {
   const [progress, setProgress] = useState({});
   const [navExpanded, setNavExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
-  const [codeEditorOpen, setCodeEditorOpen] = useState(false);
 
   // Loading component for Suspense fallback
   const LoadingCourse = () => (
@@ -514,11 +513,6 @@ const StaffCourseWrapper = () => {
     setDevMode(!devMode);
   };
 
-  // Handle closing code editor (turn off dev mode and switch to content)
-  const handleCloseCodeEditor = () => {
-    setDevMode(false);
-    setActiveTab('content');
-  };
 
   if (courseLoading) {
     return (
@@ -612,12 +606,10 @@ const StaffCourseWrapper = () => {
             </button>
             
             {devMode && (
-              <button
-                className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm ${
-                  codeEditorOpen 
-                    ? 'bg-yellow-100 text-yellow-800' 
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
+              <Button
+                variant="outline"
+                size="sm"
+                className="px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm"
                 onClick={() => {
                   setCodeEditorOpen(true);
                   // Load existing code for the currently selected lesson when opening editor
@@ -627,8 +619,8 @@ const StaffCourseWrapper = () => {
                 }}
               >
                 <FaCode className="h-4 w-4" />
-                <span>Code Editor</span>
-              </button>
+                <span>Open Code Editor</span>
+              </Button>
             )}
         </div>
       </div>
@@ -665,7 +657,7 @@ const StaffCourseWrapper = () => {
               setActiveTab('content');
             }}
             currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
-            course={getEnhancedCourse()}
+            course={getEnhancedCourse}
             isMobile={isMobile}
           />
         </div>
@@ -901,41 +893,30 @@ const StaffCourseWrapper = () => {
               </div>
             </div>
           )}
+          
         </main>
       </div>
 
-      {/* Full-screen Code Editor Sheet */}
-      <Sheet open={codeEditorOpen} onOpenChange={setCodeEditorOpen}>
-        <SheetContent 
-          side="right" 
-          className="w-full h-full max-w-none p-0 overflow-hidden flex flex-col"
-        >
-          <SheetHeader className="px-6 py-4 border-b flex-shrink-0">
-            <SheetTitle className="flex items-center gap-2">
-              <FaCode className="h-5 w-5" />
-              Code Editor
-              {currentLessonInfo && (
-                <span className="text-sm font-normal text-gray-600">
-                  - {currentLessonInfo.title || currentLessonInfo.contentPath}
-                </span>
-              )}
-            </SheetTitle>
-          </SheetHeader>
-          
-          <div className="flex-1 overflow-hidden">
-            <Suspense fallback={<div className="p-4 text-center">Loading code editor...</div>}>
-              <SimpleCodeEditor
-                initialCode={reactCode}
-                onSave={handleSaveCode}
-                onCodeChange={setReactCode}
-                loading={codeLoading}
-                currentLessonInfo={currentLessonInfo}
-                isFullScreen={true}
-              />
-            </Suspense>
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Code Editor Sheet */}
+      {devMode && (
+        <CodeEditorSheet
+          initialCode={reactCode}
+          onSave={handleSaveCode}
+          onCodeChange={setReactCode}
+          loading={codeLoading}
+          saved={saved}
+          error={codeError}
+          currentLessonInfo={currentLessonInfo}
+          courseProps={{
+            course: getEnhancedCourse,
+            courseId: courseId,
+            isStaffView: true,
+            devMode: devMode
+          }}
+          isOpen={codeEditorOpen}
+          onOpenChange={setCodeEditorOpen}
+        />
+      )}
     </div>
   );
 };

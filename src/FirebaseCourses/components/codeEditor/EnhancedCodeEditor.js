@@ -5,6 +5,7 @@ import { autocompletion } from '@codemirror/autocomplete';
 import { searchKeymap } from '@codemirror/search';
 import { keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
+import { oneDark } from '@codemirror/theme-one-dark';
 
 const EnhancedCodeEditor = ({ 
   value, 
@@ -94,32 +95,35 @@ const EnhancedCodeEditor = ({
   }, [onChange]);
 
   return (
-    <div className="border border-gray-300 rounded-md overflow-hidden">
-      <CodeMirror
-        value={value}
-        onChange={handleChange}
-        extensions={extensions}
-        theme="light"
-        readOnly={readOnly}
-        placeholder={placeholder}
-        basicSetup={{
-          lineNumbers: true,
-          foldGutter: true,
-          dropCursor: false,
-          allowMultipleSelections: false,
-          indentOnInput: true,
-          bracketMatching: true,
-          closeBrackets: true,
-          autocompletion: true,
-          highlightSelectionMatches: true,
-          searchKeymap: true
-        }}
-        style={{
-          height: height,
-          fontSize: '14px',
-          fontFamily: '"JetBrains Mono", "Fira Code", "Monaco", "Consolas", monospace'
-        }}
-      />
+    <div className="h-full flex flex-col border border-gray-600 rounded-md">
+      <div className="flex-1 min-h-0 relative">
+        <CodeMirror
+          value={value}
+          onChange={handleChange}
+          extensions={extensions}
+          theme={oneDark}
+          readOnly={readOnly}
+          placeholder={placeholder}
+          basicSetup={{
+            lineNumbers: true,
+            foldGutter: true,
+            dropCursor: false,
+            allowMultipleSelections: false,
+            indentOnInput: true,
+            bracketMatching: true,
+            closeBrackets: true,
+            autocompletion: true,
+            highlightSelectionMatches: true,
+            searchKeymap: true
+          }}
+          height="100%"
+          style={{
+            fontSize: '14px',
+            fontFamily: '"JetBrains Mono", "Fira Code", "Monaco", "Consolas", monospace',
+            height: '100%'
+          }}
+        />
+      </div>
     </div>
   );
 };

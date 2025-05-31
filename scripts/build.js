@@ -5,7 +5,7 @@ async function main() {
   const options = {
     isSandbox: args.includes('--sandbox'),
     isSecondSite: args.includes('--second-site'),
-    memorySize: 4096, // Starting with 4GB for large project
+    memorySize: 3072, // Reduced to 3GB to fit within system limits
     maxRetries: 3,
     cleanOnly: args.includes('--clean-only'),
     isStart: args.includes('--start')

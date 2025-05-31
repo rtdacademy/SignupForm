@@ -1,18 +1,27 @@
-# PowerShell script to create .wslconfig
-# Run this from Windows PowerShell (not WSL)
+# PowerShell script to configure WSL memory settings
+# Run this in PowerShell as Administrator on Windows
+
+$wslConfigPath = "$env:USERPROFILE\.wslconfig"
 
 $configContent = @"
 [wsl2]
-memory=6GB
+memory=8GB
+swap=2GB
 processors=4
-swap=1GB
-localhostForwarding=true
 "@
 
-$configPath = "$env:USERPROFILE\.wslconfig"
-Write-Host "Creating .wslconfig at: $configPath"
-$configContent | Out-File -FilePath $configPath -Encoding UTF8
+Write-Host "Creating .wslconfig file at: $wslConfigPath"
+Set-Content -Path $wslConfigPath -Value $configContent
 
-Write-Host "✅ .wslconfig created successfully!"
-Write-Host "⚠️  Please restart WSL with: wsl --shutdown"
-Write-Host "Then restart your terminal and try again."
+Write-Host "WSL configuration updated:"
+Write-Host "- Memory: 8GB (increased from default)"
+Write-Host "- Swap: 2GB (increased from 1GB)"
+Write-Host "- Processors: 4"
+Write-Host ""
+Write-Host "To apply changes:"
+Write-Host "1. Run: wsl --shutdown"
+Write-Host "2. Wait 10 seconds"
+Write-Host "3. Restart WSL/Ubuntu"
+Write-Host ""
+Write-Host "Current .wslconfig contents:"
+Get-Content $wslConfigPath

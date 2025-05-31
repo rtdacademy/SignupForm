@@ -6,7 +6,7 @@ class BuildManager {
   constructor(options = {}) {
     this.isSandbox = options.isSandbox;
     this.isSecondSite = options.isSecondSite;
-    this.memorySize = options.memorySize || 2048; // Default to 2GB
+    this.memorySize = options.memorySize || 4096; // Default to 4GB for this large project
     this.maxRetries = options.maxRetries || 3;
     this.currentRetry = 0;
     this.cleanOnly = options.cleanOnly || false;
@@ -250,9 +250,10 @@ class BuildManager {
         ? `.env.${this.isSandbox ? 'development' : 'production'}.second`
         : `.env.${this.isSandbox ? 'development' : 'production'}`;
 
+      const nodeOptions = `--max-old-space-size=${this.memorySize}`;
       const command = this.isStart
-        ? `cross-env NODE_OPTIONS=--max-old-space-size=${this.memorySize} env-cmd -f ${envFile} react-scripts start`
-        : `cross-env NODE_OPTIONS=--max-old-space-size=${this.memorySize} GENERATE_SOURCEMAP=false env-cmd -f ${envFile} react-scripts build`;
+        ? `cross-env NODE_OPTIONS="${nodeOptions}" env-cmd -f ${envFile} react-scripts start`
+        : `cross-env NODE_OPTIONS="${nodeOptions}" GENERATE_SOURCEMAP=false env-cmd -f ${envFile} react-scripts build`;
       
       if (!this.isStart) {
         console.log(`\nExecuting build (Attempt ${this.currentRetry + 1}/${this.maxRetries}):`);
@@ -265,7 +266,7 @@ class BuildManager {
 
       if (this.isStart) {
         // For start mode, use spawn to allow monitoring
-        const child = spawn('npx', ['cross-env', `NODE_OPTIONS=--max-old-space-size=${this.memorySize}`, 'env-cmd', '-f', envFile, 'react-scripts', 'start'], {
+        const child = spawn('npx', ['cross-env', `NODE_OPTIONS=${nodeOptions}`, 'env-cmd', '-f', envFile, 'react-scripts', 'start'], {
           stdio: 'inherit',
           shell: true
         });
@@ -318,7 +319,7 @@ class BuildManager {
       if (this.currentRetry < this.maxRetries - 1) {
         this.currentRetry++;
         // Only increase memory if we're not already at max
-        const newMemory = Math.min(this.memorySize + 512, 4096); // Cap at 4GB
+        const newMemory = Math.min(this.memorySize + 1024, 8192); // Cap at 8GB
         if (newMemory > this.memorySize) {
           this.memorySize = newMemory;
           console.log(`Increasing memory to ${this.memorySize}MB for next attempt...`);

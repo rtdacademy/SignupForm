@@ -1,4 +1,7 @@
 {
-    "IDX.aI.enableInlineCompletion": true,
-    "IDX.aI.enableCodebaseIndexing": true
+  "typescript.tsserver.maxTsServerMemory": 256,
+  "typescript.disableAutomaticTypeAcquisition": true,
+  "typescript.validate.enable": false,
+  "javascript.validate.enable": false,
+  "typescript.surveys.enabled": false
 }
