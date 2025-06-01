@@ -6,7 +6,7 @@ class BuildManager {
   constructor(options = {}) {
     this.isSandbox = options.isSandbox;
     this.isSecondSite = options.isSecondSite;
-    this.memorySize = options.memorySize || 4096; // Default to 4GB for this large project
+    this.memorySize = options.memorySize || 8192; // Default to 8GB for this large project
     this.maxRetries = options.maxRetries || 3;
     this.currentRetry = 0;
     this.cleanOnly = options.cleanOnly || false;

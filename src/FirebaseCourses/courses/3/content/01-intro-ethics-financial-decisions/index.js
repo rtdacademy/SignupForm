@@ -3,7 +3,7 @@ import { getDatabase, ref, get } from 'firebase/database';
 
 // Import both versions
 import ManualContent from './manual';
-import UiGeneratedContent from './uiGenerated';
+import UiGeneratedContent from '../../../../components/content/UiGeneratedContent';
 
 const IntroEthicsFinancialDecisions = (props) => {
   const { course, courseId, itemConfig, isStaffView, devMode } = props;

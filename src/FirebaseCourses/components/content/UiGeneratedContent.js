@@ -3,11 +3,15 @@ import { getDatabase, ref, get } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Import all the components that teachers might need
-import { Card, CardContent, CardHeader, CardTitle } from '../../../../../components/ui/card';
-import { Alert, AlertDescription } from '../../../../../components/ui/alert';
-import { Badge } from '../../../../../components/ui/badge';
-import AIMultipleChoiceQuestion from '../../../../components/assessments/AIMultipleChoiceQuestion';
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
+import { Alert, AlertDescription } from '../../../components/ui/alert';
+import { Badge } from '../../../components/ui/badge';
+import AIMultipleChoiceQuestion from '../assessments/AIMultipleChoiceQuestion';
 
+/**
+ * Generic UiGeneratedContent component for displaying dynamically generated course content
+ * Can be used across any course and lesson by providing the appropriate props
+ */
 const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode }) => {
   const [DynamicComponent, setDynamicComponent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,7 +25,12 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
         
         // Load metadata from database
         const db = getDatabase();
-        const lessonPath = itemConfig?.contentPath || '01-intro-ethics-financial-decisions';
+        const lessonPath = itemConfig?.contentPath;
+        
+        if (!lessonPath) {
+          throw new Error('No contentPath provided in itemConfig');
+        }
+        
         const metadataRef = ref(db, `courseDevelopment/${courseId}/${lessonPath}`);
         const snapshot = await get(metadataRef);
         
@@ -36,9 +45,13 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
           throw new Error('UI-generated content is disabled');
         }
         
-        // Load the code using Firebase Function (bypasses CORS)
+        // Load the transformed code directly from database
         let reactCode;
-        if (data.currentFile) {
+        if (data.code) {
+          console.log('Loading transformed code from new database structure');
+          reactCode = data.code;
+        } else if (data.currentFile) {
+          // Fallback to old system if needed
           console.log('Loading code via function:', data.currentFile);
           const functions = getFunctions();
           const loadCourseCode = httpsCallable(functions, 'loadCourseCode');
@@ -97,62 +110,9 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
       
       let processedCode = codeString;
       
-      // Always load Babel first to check if it works
-      console.log('Loading Babel...');
-      try {
-        // Check if Babel is already loaded
-        if (!window.Babel) {
-          const script = document.createElement('script');
-          script.src = 'https://unpkg.com/@babel/standalone@7/babel.min.js';
-          document.head.appendChild(script);
-          
-          await new Promise((resolve, reject) => {
-            script.onload = resolve;
-            script.onerror = reject;
-            // Timeout after 10 seconds
-            setTimeout(() => reject(new Error('Babel load timeout')), 10000);
-          });
-        }
-        
-        if (!window.Babel) {
-          throw new Error('Babel not available after loading');
-        }
-        
-        console.log('Babel loaded successfully');
-        console.log('Babel version:', window.Babel.version);
-        console.log('Available presets:', Object.keys(window.Babel.availablePresets || {}));
-      } catch (babelError) {
-        console.error('Failed to load Babel:', babelError);
-        throw new Error(`Babel loading failed: ${babelError.message}`);
-      }
-      
-      // Transform JSX to React.createElement format
-      try {
-        console.log('Attempting to transform JSX with Babel...');
-        console.log('Input code preview:', processedCode.substring(0, 300));
-        
-        const transformed = window.Babel.transform(processedCode, {
-          presets: [
-            ['react', { 
-              runtime: 'classic',
-              pragma: 'React.createElement'
-            }]
-          ],
-          plugins: [
-            ['transform-react-jsx', {
-              pragma: 'React.createElement'
-            }]
-          ]
-        });
-        
-        processedCode = transformed.code;
-        console.log('JSX transformed successfully');
-        console.log('Transformed code preview:', processedCode.substring(0, 500));
-      } catch (transformError) {
-        console.error('Babel JSX transformation failed:', transformError);
-        console.log('Original code that failed:', processedCode.substring(0, 500));
-        throw new Error(`JSX transformation failed: ${transformError.message}`);
-      }
+      // Code is already transformed, no need for Babel transformation
+      console.log('Code is already transformed to React.createElement format');
+      console.log('Processed code preview:', processedCode.substring(0, 500));
       
       // Strip out import/export statements
       processedCode = preprocessCode(processedCode);
@@ -309,7 +269,9 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
                 {JSON.stringify({
                   hasReactCode: !!codeData.reactCode,
                   hasCurrentFile: !!codeData.currentFile,
-                  enabled: codeData.enabled
+                  enabled: codeData.enabled,
+                  contentPath: itemConfig?.contentPath,
+                  courseId: courseId
                 }, null, 2)}
               </pre>
             </details>

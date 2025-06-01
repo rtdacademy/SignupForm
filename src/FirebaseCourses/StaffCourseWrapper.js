@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { getDatabase, ref, get, set } from 'firebase/database';
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
@@ -187,13 +186,37 @@ const StaffCourseWrapper = () => {
   const unitsList = courseData.structure || [];
   const courseWeights = courseData.courseWeights || { lesson: 0.2, assignment: 0.4, exam: 0.4 };
 
-  // Handle internal item selection
+  // Load existing code directly from Realtime Database (only on lesson switch)
+  const loadExistingCode = useCallback(async (lessonPath) => {
+    if (!lessonPath || !courseId) return;
+    
+    try {
+      const db = getDatabase();
+      const codeRef = ref(db, `courseDevelopment/${courseId}/${lessonPath}`);
+      const snapshot = await get(codeRef);
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        // Load original code for editing, fall back to transformed code if no original
+        setReactCode(data.originalCode || data.code || '');
+      } else {
+        // No existing code
+        setReactCode('');
+      }
+    } catch (err) {
+      console.warn('Error loading existing code:', err);
+      setReactCode('');
+    }
+  }, [courseId]);
+
+  // Handle internal item selection - stabilized function reference
   const handleItemSelect = useCallback((itemId) => {
     setActiveItemId(itemId);
     
-    // Find the lesson info for the code editor
+    // Find the lesson info for the code editor using current courseData
     let foundLesson = null;
-    for (const unit of unitsList) {
+    const currentUnits = courseData.structure || [];
+    for (const unit of currentUnits) {
       if (unit.items) {
         foundLesson = unit.items.find(item => item.itemId === itemId);
         if (foundLesson) break;
@@ -213,9 +236,9 @@ const StaffCourseWrapper = () => {
     if (isMobile) {
       setNavExpanded(false);
     }
-  }, [isMobile, unitsList]);
+  }, [isMobile, courseData.structure, loadExistingCode]); // Stable dependencies
 
-  // Handle code saving
+  // Handle code saving directly to Realtime Database
   const handleSaveCode = useCallback(async (code) => {
     if (!code.trim()) {
       setCodeError('Please enter some code before saving.');
@@ -231,12 +254,12 @@ const StaffCourseWrapper = () => {
     setCodeError(null);
     
     try {
-      // Transform JSX to React.createElement if needed
+      // Transform JSX using cloud function before saving
       let processedCode = code;
       const containsJSX = code.includes('<') && code.includes('>');
       
       if (containsJSX) {
-        console.log('JSX detected, transforming...');
+        console.log('JSX detected, transforming via cloud function...');
         try {
           const functions = getFunctions();
           const transformJSX = httpsCallable(functions, 'transformJSXCode');
@@ -244,155 +267,86 @@ const StaffCourseWrapper = () => {
           
           if (result.data.success) {
             processedCode = result.data.transformedCode;
-            console.log('JSX transformed successfully');
+            console.log('JSX transformed successfully via cloud function');
+            console.log('Original code length:', code.length, 'Transformed code length:', processedCode.length);
           } else {
-            throw new Error(`JSX transformation failed: ${result.data.error}`);
+            console.warn('Cloud function JSX transformation failed:', result.data.error);
+            // Continue with original code
           }
         } catch (transformError) {
-          console.warn('Backend JSX transformation failed, saving original code:', transformError);
-          // Continue with original code - the frontend will attempt transformation
+          console.warn('Error calling JSX transformation function:', transformError);
+          // Continue with original code
         }
       }
       
-      // Create a file from the code string
-      const timestamp = Date.now();
-      const fileName = `${currentLessonInfo.contentPath}-v${timestamp}.js`;
-      const codeBlob = new Blob([processedCode], { type: 'text/javascript' });
-      const codeFile = new File([codeBlob], fileName, { type: 'text/javascript' });
-      
-      // Upload to Firebase Storage
-      const storage = getStorage();
-      const storagePath = `courseDevelopment/${courseId}/${currentLessonInfo.contentPath}/${fileName}`;
-      const fileRef = storageRef(storage, storagePath);
-      
-      // Upload the file
-      const snapshot = await uploadBytes(fileRef, codeFile);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      
-      // Update database metadata
       const db = getDatabase();
-      const dbPath = `courseDevelopment/${courseId}/${currentLessonInfo.contentPath}`;
-      const metadataRef = ref(db, dbPath);
+      const codeRef = ref(db, `courseDevelopment/${courseId}/${currentLessonInfo.contentPath}`);
       
-      // Load existing metadata to preserve version history
-      const existingSnapshot = await get(metadataRef);
-      const existingData = existingSnapshot.exists() ? existingSnapshot.val() : {};
-      const existingVersions = existingData.versions || [];
-      
-      const metadataUpdate = {
-        enabled: true,
-        currentFile: fileName,
-        currentFileUrl: downloadURL,
-        metadata: {
-          lastModified: new Date().toISOString(),
-          modifiedBy: currentUser?.email || 'unknown',
-          version: timestamp,
-          lessonTitle: currentLessonInfo?.title || currentLessonInfo.contentPath,
-          contentType: 'lesson'
-        },
-        versions: [
-          ...existingVersions,
-          {
-            fileName: fileName,
-            uploadedAt: new Date().toISOString(),
-            version: timestamp,
-            url: downloadURL,
-            modifiedBy: currentUser?.email || 'unknown'
-          }
-        ]
+      const codeData = {
+        code: processedCode, // Store the transformed code
+        originalCode: code, // Keep original for editing
+        lastModified: new Date().toISOString(),
+        modifiedBy: currentUser?.email || 'unknown',
+        lessonTitle: currentLessonInfo?.title || currentLessonInfo.contentPath,
+        contentType: 'lesson',
+        enabled: true
       };
       
-      await set(metadataRef, metadataUpdate);
+      await set(codeRef, codeData);
+      
+      // Update local state to match what was saved - this ensures UI stays in sync
+      setReactCode(code);
       
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
       
     } catch (err) {
-      console.error('Detailed error saving code:', err);
+      console.error('Error saving code:', err);
       setCodeError(`Failed to save code: ${err.message}`);
     } finally {
       setCodeLoading(false);
     }
   }, [currentLessonInfo, courseId, currentUser]);
 
-  // Load existing code from database/storage
-  const loadExistingCode = useCallback(async (lessonPath) => {
-    if (!lessonPath || !courseId) return;
-    
-    try {
-      const db = getDatabase();
-      const metadataRef = ref(db, `courseDevelopment/${courseId}/${lessonPath}`);
-      const snapshot = await get(metadataRef);
-      
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        
-        // Load the code using Firebase Function
-        if (data.currentFile) {
-          console.log('Loading existing code via function:', data.currentFile);
-          const functions = getFunctions();
-          const loadCourseCode = httpsCallable(functions, 'loadCourseCode');
-          
-          try {
-            const result = await loadCourseCode({
-              courseId: courseId,
-              lessonPath: lessonPath,
-              fileName: data.currentFile
-            });
-            
-            if (result.data.success) {
-              setReactCode(result.data.code);
-            } else {
-              console.warn('Could not load existing code');
-              setReactCode('');
-            }
-          } catch (functionError) {
-            console.warn('Error loading existing code:', functionError);
-            setReactCode('');
-          }
-        } else {
-          // Fallback for old format
-          setReactCode(data.reactCode || '');
-        }
-      } else {
-        // No existing code
-        setReactCode('');
-      }
-    } catch (err) {
-      console.warn('Error loading existing code:', err);
-      setReactCode('');
-    }
-  }, [courseId]);
 
-  // Flatten all course items for progress tracking (with length check to prevent memory issues)
+  // Flatten all course items for progress tracking - memoized more efficiently
   const allCourseItems = useMemo(() => {
-    if (!unitsList.length) return [];
+    if (!unitsList || !Array.isArray(unitsList) || unitsList.length === 0) return [];
     
-    const items = [];
-    for (const unit of unitsList) {
-      if (unit.items && Array.isArray(unit.items) && unit.items.length > 0) {
+    return unitsList.reduce((items, unit) => {
+      if (unit?.items && Array.isArray(unit.items)) {
         items.push(...unit.items);
       }
-    }
-    return items;
+      return items;
+    }, []);
   }, [unitsList]);
 
-  // Simulate progress data - in a real app, this would come from Firebase
+  // Simulate progress data - stabilized to prevent cascading re-renders
+  const progressInitialized = useRef(false);
   useEffect(() => {
-    // Mock progress data
-    const mockProgress = {};
-    unitsList.forEach((unit) => {
-      if (unit.items) {
-        unit.items.forEach((item, idx) => {
-          // Mark first item in each unit as completed for demo purposes
-          if (idx === 0) {
-            mockProgress[item.itemId] = { completed: true, completedAt: new Date().toISOString() };
-          }
-        });
-      }
-    });
-    setProgress(mockProgress);
-  }, [unitsList]);
+    // Only initialize progress once when course data is first available
+    if (!progressInitialized.current && unitsList.length > 0) {
+      // Mock progress data
+      const mockProgress = {};
+      unitsList.forEach((unit) => {
+        if (unit.items) {
+          unit.items.forEach((item, idx) => {
+            // Mark first item in each unit as completed for demo purposes
+            if (idx === 0) {
+              mockProgress[item.itemId] = { completed: true, completedAt: new Date().toISOString() };
+            }
+          });
+        }
+      });
+      setProgress(mockProgress);
+      progressInitialized.current = true;
+    }
+  }, [unitsList.length]); // Only depend on the length, not the units themselves
+
+  // Reset progress initialization flag when course changes
+  useEffect(() => {
+    progressInitialized.current = false;
+  }, [courseId]);
 
   // Get current unit index
   const currentUnitIndex = useMemo(() => {
@@ -537,27 +491,27 @@ const StaffCourseWrapper = () => {
   return (
     <div className="flex flex-col h-screen">
       {/* Staff toolbar - fixed at the top */}
-      <div className="bg-gray-800 text-white p-2 z-50 flex items-center justify-between flex-shrink-0">
+      <div className="bg-gray-800 text-white px-2 py-1 z-50 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center">
-          <span className="font-medium mr-4">{course.Title || `Course #${courseId}`}</span>
+          <span className="font-medium mr-3 text-sm">{course.Title || `Course #${courseId}`}</span>
           <Button
             variant={devMode ? "default" : "default"}
             size="sm"
-            className={devMode
+            className={`px-2 py-1 text-xs ${devMode
               ? "bg-yellow-600 hover:bg-yellow-700 text-white"
               : "bg-blue-700 hover:bg-blue-800 text-white"
-            }
+            }`}
             onClick={handleToggleDevMode}
           >
-            <FaWrench className="mr-2" />
-            {devMode ? 'Developer Mode Active' : 'Enable Developer Mode'}
+            <FaWrench className="mr-1 h-3 w-3" />
+            {devMode ? 'Dev Mode' : 'Dev Mode'}
           </Button>
 
           {devMode && (
-            <div className="ml-4 flex items-center text-sm">
-              <span className="bg-green-600 text-white px-2 py-0.5 rounded">Staff</span>
-              <span className="mx-2">|</span>
-              <span className="text-yellow-300 font-medium">{currentUser?.email}</span>
+            <div className="ml-2 flex items-center text-xs">
+              <span className="bg-green-600 text-white px-1 py-0.5 rounded text-xs">Staff</span>
+              <span className="mx-1">|</span>
+              <span className="text-yellow-300 font-medium truncate max-w-32">{currentUser?.email}</span>
             </div>
           )}
         </div>
@@ -568,40 +522,40 @@ const StaffCourseWrapper = () => {
 
       {/* Header - full width, sticky */}
       <div className="bg-white shadow-sm border-b border-gray-200 flex-shrink-0 z-20">
-        <div className="px-4 py-2 flex items-center gap-4">
+        <div className="px-3 py-1 flex items-center gap-2">
           <button
-              className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm ${
+              className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 text-xs ${
                 activeTab === 'content' 
                   ? 'bg-blue-100 text-blue-800' 
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
               onClick={() => setActiveTab('content')}
             >
-              <BookOpen className="h-4 w-4" />
+              <BookOpen className="h-3 w-3" />
               <span>Content</span>
             </button>
             
             <button
-              className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm ${
+              className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 text-xs ${
                 activeTab === 'progress' 
                   ? 'bg-blue-100 text-blue-800' 
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
               onClick={() => setActiveTab('progress')}
             >
-              <ClipboardCheck className="h-4 w-4" />
+              <ClipboardCheck className="h-3 w-3" />
               <span>Progress</span>
             </button>
             
             <button
-              className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm ${
+              className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 text-xs ${
                 activeTab === 'grades' 
                   ? 'bg-blue-100 text-blue-800' 
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
               onClick={() => setActiveTab('grades')}
             >
-              <FaGraduationCap className="h-4 w-4" />
+              <FaGraduationCap className="h-3 w-3" />
               <span>Grades</span>
             </button>
             
@@ -609,17 +563,20 @@ const StaffCourseWrapper = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm"
+                className="px-2 py-1 rounded-md transition-colors flex items-center gap-1 text-xs"
                 onClick={() => {
+                  console.log('🔄 StaffCourseWrapper: Code Editor button clicked');
+                  console.log('🔄 StaffCourseWrapper: setCodeEditorOpen(true)');
                   setCodeEditorOpen(true);
                   // Load existing code for the currently selected lesson when opening editor
                   if (currentLessonInfo?.contentPath) {
+                    console.log('🔄 StaffCourseWrapper: About to call loadExistingCode from code editor button');
                     loadExistingCode(currentLessonInfo.contentPath);
                   }
                 }}
               >
-                <FaCode className="h-4 w-4" />
-                <span>Open Code Editor</span>
+                <FaCode className="h-3 w-3" />
+                <span>Code Editor</span>
               </Button>
             )}
         </div>
@@ -663,14 +620,14 @@ const StaffCourseWrapper = () => {
         </div>
 
         {/* Main content - this will be scrollable */}
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-auto p-2">
           {activeTab === 'content' && (
             <div className="bg-white rounded-lg shadow">
               {devMode && (
-                <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-sm">
-                  <span className="font-medium text-yellow-800">Staff Developer Mode:</span>
-                  <span className="ml-2 text-yellow-700">
-                    You have enhanced permissions and can directly interact with the database for testing questions.
+                <div className="bg-yellow-50 border-b border-yellow-200 px-3 py-1 text-xs">
+                  <span className="font-medium text-yellow-800">Dev Mode:</span>
+                  <span className="ml-1 text-yellow-700">
+                    Enhanced permissions active
                   </span>
                 </div>
               )}

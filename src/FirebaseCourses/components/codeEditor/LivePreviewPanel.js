@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Button } from '../../../components/ui/button';
 import { RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
+import { getDatabase, ref, get } from 'firebase/database';
 
 // Import components that will be available to the dynamic components
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -12,16 +13,27 @@ import AILongAnswerQuestion from '../assessments/AILongAnswerQuestion';
 const LivePreviewPanel = ({ 
   jsxCode, 
   courseProps = {},
-  autoRefresh = true,
-  refreshDelay = 800,
+  courseId,
+  currentLessonInfo,
   onError,
   onSuccess 
 }) => {
+  console.log('🔄 LivePreviewPanel mounting/re-mounting');
+  
   const [DynamicComponent, setDynamicComponent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [hasRun, setHasRun] = useState(false);
+  const [renderKey, setRenderKey] = useState(0);
+  
+  useEffect(() => {
+    console.log('🎯 LivePreviewPanel mounted');
+    return () => {
+      console.log('💀 LivePreviewPanel unmounting');
+    };
+  }, []);
 
   // Default course props for preview
   const defaultProps = useMemo(() => ({
@@ -34,11 +46,12 @@ const LivePreviewPanel = ({
     ...courseProps
   }), [courseProps]);
 
-  // Transform JSX code to executable React component
+  // Create React component directly from code (no Babel needed)
   const transformAndCreateComponent = useCallback(async (code) => {
     if (!code || !code.trim()) {
       setDynamicComponent(null);
       setError(null);
+      setHasRun(false);
       return;
     }
 
@@ -46,41 +59,49 @@ const LivePreviewPanel = ({
     setError(null);
 
     try {
-      // Check if Babel is available (loaded by uiGenerated.js)
-      if (!window.Babel) {
-        throw new Error('Babel not loaded. Please ensure the page has fully loaded.');
-      }
+      console.log('Creating component directly from code (no transformation needed)');
 
-      // Transform JSX to React.createElement
-      const transformed = window.Babel.transform(code, {
-        presets: [
-          ['react', { 
-            runtime: 'classic',
-            pragma: 'React.createElement'
-          }]
-        ],
-        plugins: []
-      });
-
-      let processedCode = transformed.code;
-
-      // Remove import/export statements
-      const lines = processedCode.split('\n');
+      // Clean up the code - remove import/export statements
+      const lines = code.split('\n');
       const cleanLines = lines.filter(line => {
         const trimmed = line.trim();
         return !trimmed.startsWith('import ') && 
                !trimmed.startsWith('export ') && 
                !trimmed.startsWith('//');
       });
-      processedCode = cleanLines.join('\n');
+      const processedCode = cleanLines.join('\n');
 
-      // Extract component name
-      const componentNameMatch = processedCode.match(/const\s+(\w+)\s*=|function\s+(\w+)\s*\(/);
-      const componentName = componentNameMatch?.[1] || componentNameMatch?.[2];
+      // Extract component name - try multiple patterns
+      let componentName = null;
+      
+      // Try different patterns to find component name
+      const patterns = [
+        /const\s+(\w+)\s*=/, // const MyComponent = 
+        /function\s+(\w+)\s*\(/, // function MyComponent(
+        /(\w+)\s*=\s*\({/, // MyComponent = ({  (arrow function)
+        /(\w+)\s*=\s*\(\s*{/, // MyComponent = ( {  (with spaces)
+      ];
+      
+      for (const pattern of patterns) {
+        const match = processedCode.match(pattern);
+        if (match && match[1]) {
+          componentName = match[1];
+          break;
+        }
+      }
+      
+      // If still no component name found, try to extract from original code before transformation
+      if (!componentName) {
+        const originalMatch = code.match(/const\s+(\w+)\s*=|function\s+(\w+)\s*\(/);
+        componentName = originalMatch?.[1] || originalMatch?.[2];
+      }
       
       if (!componentName) {
+        console.log('Could not find component name in:', processedCode.substring(0, 500));
         throw new Error('Could not find component name. Make sure you define a component like: const MyComponent = ({ props }) => { ... }');
       }
+      
+      console.log('Found component name:', componentName);
 
       // Create the component function
       const componentCode = `
@@ -115,33 +136,58 @@ const LivePreviewPanel = ({
 
       setDynamicComponent(() => Component);
       setLastUpdate(Date.now());
+      setHasRun(true);
+      setRenderKey(prev => prev + 1); // Force re-render
+      console.log('✅ Component set successfully, hasRun=true, Component=', Component);
+      console.log('🎯 Render state:', { DynamicComponent: !!Component, error: null, hasRun: true });
       onSuccess?.();
       
     } catch (err) {
       console.error('Preview transformation error:', err);
       setError(err.message);
       setDynamicComponent(null);
+      setHasRun(true);
       onError?.(err);
     } finally {
       setLoading(false);
     }
   }, [onError, onSuccess]);
 
-  // Auto-refresh with debounce
-  useEffect(() => {
-    if (!autoRefresh) return;
+  // Manual run/refresh - loads transformed code from database
+  const handleRunCode = useCallback(async () => {
+    if (!courseId || !currentLessonInfo?.contentPath) {
+      setError('No lesson selected');
+      return;
+    }
 
-    const timeoutId = setTimeout(() => {
-      transformAndCreateComponent(jsxCode);
-    }, refreshDelay);
+    setLoading(true);
+    setError(null);
 
-    return () => clearTimeout(timeoutId);
-  }, [jsxCode, autoRefresh, refreshDelay, transformAndCreateComponent]);
-
-  // Manual refresh
-  const handleManualRefresh = useCallback(() => {
-    transformAndCreateComponent(jsxCode);
-  }, [jsxCode, transformAndCreateComponent]);
+    try {
+      // Load the transformed code from database
+      const db = getDatabase();
+      const codeRef = ref(db, `courseDevelopment/${courseId}/${currentLessonInfo.contentPath}`);
+      const snapshot = await get(codeRef);
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const transformedCode = data.code; // Use the pre-transformed code
+        
+        if (transformedCode) {
+          console.log('Loading transformed code from database for preview');
+          await transformAndCreateComponent(transformedCode);
+        } else {
+          throw new Error('No transformed code found in database. Please save your code first.');
+        }
+      } else {
+        throw new Error('No code found in database. Please save your code first.');
+      }
+    } catch (err) {
+      console.error('Error loading code for preview:', err);
+      setError(err.message);
+      setLoading(false);
+    }
+  }, [courseId, currentLessonInfo, transformAndCreateComponent]);
 
   // Toggle fullscreen
   const toggleFullscreen = useCallback(() => {
@@ -197,13 +243,14 @@ const LivePreviewPanel = ({
         
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
-            onClick={handleManualRefresh}
-            disabled={loading}
-            className="h-8"
+            onClick={handleRunCode}
+            disabled={loading || !jsxCode?.trim()}
+            className="h-8 bg-green-600 hover:bg-green-700"
           >
-            <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3 w-3 mr-1 ${loading ? 'animate-spin' : ''}`} />
+            Run
           </Button>
           <Button
             variant="outline"
@@ -224,29 +271,33 @@ const LivePreviewPanel = ({
               <strong>Preview Error:</strong> {error}
               <br />
               <small className="text-red-600">
-                Fix the JSX syntax and the preview will update automatically.
+                Fix the JSX syntax and click 'Run' to try again.
               </small>
             </AlertDescription>
           </Alert>
         )}
 
-        {!jsxCode?.trim() && !loading && (
+        {!hasRun && !loading && (
           <div className="flex items-center justify-center h-full text-center">
             <div className="text-gray-500">
               <div className="text-4xl mb-2">👨‍💻</div>
-              <p className="text-lg font-medium">Start Writing JSX</p>
-              <p className="text-sm">Your component will appear here in real-time</p>
+              <p className="text-lg font-medium">Write Your JSX Code</p>
+              <p className="text-sm">Click the "Run" button to see your component preview</p>
             </div>
           </div>
         )}
 
-        {DynamicComponent && !error && (
-          <ErrorBoundary>
-            <div className="min-h-full">
-              <DynamicComponent {...defaultProps} />
-            </div>
-          </ErrorBoundary>
-        )}
+        {(() => {
+          console.log('🔍 Render check:', { DynamicComponent: !!DynamicComponent, error, hasRun, renderKey });
+          return DynamicComponent && !error && hasRun && (
+            <ErrorBoundary key={renderKey}>
+              <div className="min-h-full">
+                {console.log('🎨 About to render component with props:', defaultProps)}
+                <DynamicComponent {...defaultProps} />
+              </div>
+            </ErrorBoundary>
+          );
+        })()}
 
         {loading && (
           <div className="flex items-center justify-center h-full">
@@ -260,11 +311,7 @@ const LivePreviewPanel = ({
 
       {/* Footer */}
       <div className="border-t border-gray-200 px-3 py-2 bg-gray-50 text-xs text-gray-500">
-        {autoRefresh ? (
-          <span>🔄 Auto-refresh enabled ({refreshDelay}ms delay)</span>
-        ) : (
-          <span>🔄 Manual refresh mode</span>
-        )}
+        <span>⚡ Manual run mode - Click "Run" to preview</span>
         {lastUpdate && (
           <span className="ml-4">Last updated: {new Date(lastUpdate).toLocaleTimeString()}</span>
         )}

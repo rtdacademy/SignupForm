@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, memo, useRef, useEffect } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { autocompletion } from '@codemirror/autocomplete';
@@ -15,8 +15,20 @@ const EnhancedCodeEditor = ({
   placeholder = "// Start writing your JSX component here...",
   height = "600px"
 }) => {
+  // Use internal state to avoid controlled component cursor jumping issue
+  const [internalValue, setInternalValue] = React.useState(value || '');
+  const isControlledUpdate = useRef(false);
   
-  // React/JSX autocompletion suggestions
+  // Update internal value when external value changes (but not from internal changes)
+  useEffect(() => {
+    if (value !== internalValue && !isControlledUpdate.current) {
+      setInternalValue(value || '');
+      currentValueRef.current = value || ''; // Keep ref in sync for save functionality
+    }
+    isControlledUpdate.current = false;
+  }, [value, internalValue]);
+  
+  // React/JSX autocompletion suggestions - moved outside component for stability
   const reactCompletions = useMemo(() => {
     const suggestions = [
       // React hooks
@@ -75,30 +87,38 @@ const EnhancedCodeEditor = ({
         key: 'Ctrl-s',
         mac: 'Cmd-s',
         run: () => {
+          // On save, notify parent with current value for the first time
+          onChange?.(currentValueRef.current);
           onSave?.();
           return true;
         }
       }
-    ]), [onSave]
+    ]), [onSave, onChange]
   );
 
-  // Extensions for CodeMirror
+  // Extensions for CodeMirror - stable references for better performance
   const extensions = useMemo(() => [
     javascript({ jsx: true, typescript: false }),
     reactCompletions,
     customKeymap,
   ], [reactCompletions, customKeymap]);
 
-  // Handle code changes
+  // Store current value in ref for save functionality
+  const currentValueRef = useRef(value || '');
+  
+  // Handle code changes - NEVER notify parent during typing
   const handleChange = useCallback((val) => {
-    onChange?.(val);
-  }, [onChange]);
+    isControlledUpdate.current = true;
+    setInternalValue(val);
+    currentValueRef.current = val;
+    // DO NOT call onChange here - only call it on save
+  }, [internalValue]);
 
   return (
     <div className="h-full flex flex-col border border-gray-600 rounded-md">
       <div className="flex-1 min-h-0 relative">
         <CodeMirror
-          value={value}
+          value={internalValue}
           onChange={handleChange}
           extensions={extensions}
           theme={oneDark}
@@ -128,4 +148,5 @@ const EnhancedCodeEditor = ({
   );
 };
 
-export default EnhancedCodeEditor;
+// Memoize the component to prevent unnecessary re-renders
+export default memo(EnhancedCodeEditor);

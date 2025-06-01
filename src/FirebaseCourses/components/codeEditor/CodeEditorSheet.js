@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, memo } from 'react';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../../../components/ui/resizable';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
@@ -12,8 +12,8 @@ import {
 import { Code, Eye, Save, RotateCcw, Palette } from 'lucide-react';
 import { FaCode as FaCodeIcon } from 'react-icons/fa';
 import EnhancedCodeEditor from './EnhancedCodeEditor';
-import LivePreviewPanel from './LivePreviewPanel';
-import TemplateSelector from './templates/TemplateSelector';
+import UiGeneratedContent from '../content/UiGeneratedContent';
+import TemplateGallery from './templates/TemplateGallery';
 
 const CodeEditorSheet = ({
   initialCode = '',
@@ -28,17 +28,26 @@ const CodeEditorSheet = ({
   onOpenChange
 }) => {
   const [jsxCode, setJsxCode] = useState(initialCode);
-  const [autoRefresh, setAutoRefresh] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileTab, setMobileTab] = useState('editor'); // 'editor' | 'preview'
-  const [showTemplates, setShowTemplates] = useState(false);
+  const [templateGalleryOpen, setTemplateGalleryOpen] = useState(false);
   const [previewError, setPreviewError] = useState(null);
   const [previewSuccess, setPreviewSuccess] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Update local code when initialCode changes
+  // Update local code when initialCode changes (only when actually different)
   useEffect(() => {
-    setJsxCode(initialCode);
-  }, [initialCode]);
+    if (initialCode !== jsxCode) {
+      setJsxCode(initialCode);
+    }
+  }, [initialCode]); // Removed jsxCode dependency to prevent circular updates
+
+  // Refresh preview when code is saved
+  useEffect(() => {
+    if (saved) {
+      setRefreshKey(prev => prev + 1);
+    }
+  }, [saved]);
 
   // Check for mobile viewport
   useEffect(() => {
@@ -51,29 +60,28 @@ const CodeEditorSheet = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Handle code changes
+  // Handle code changes - this should ONLY be called on save now
   const handleCodeChange = useCallback((newCode) => {
     setJsxCode(newCode);
     onCodeChange?.(newCode);
   }, [onCodeChange]);
 
-  // Handle save
+  // Handle save - ensure parent gets the latest code
   const handleSave = useCallback(() => {
+    onCodeChange?.(jsxCode); // Make sure parent has the latest code
     onSave?.(jsxCode);
-  }, [onSave, jsxCode]);
+  }, [onSave, onCodeChange, jsxCode]);
 
-  // Handle template selection
-  const handleTemplateSelect = useCallback((templateCode) => {
-    setJsxCode(templateCode);
-    onCodeChange?.(templateCode);
-    setShowTemplates(false);
-  }, [onCodeChange]);
+  // Handle template gallery
+  const handleOpenTemplateGallery = useCallback(() => {
+    setTemplateGalleryOpen(true);
+  }, []);
 
-  // Reset code
+  // Reset code - let save handle parent notification
   const handleReset = useCallback(() => {
     setJsxCode(initialCode);
-    onCodeChange?.(initialCode);
-  }, [initialCode, onCodeChange]);
+    // Don't notify parent immediately - let them save when ready
+  }, [initialCode]);
 
   // Handle preview feedback
   const handlePreviewError = useCallback((error) => {
@@ -146,38 +154,45 @@ const CodeEditorSheet = ({
         {mobileTab === 'editor' ? (
           <div className="h-full flex flex-col">
             {/* Mobile Editor Toolbar */}
-            <div className="p-2 border-b border-gray-200 bg-white flex-shrink-0">
-              <div className="flex items-center gap-2 mb-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowTemplates(!showTemplates)}
-                  className="h-7"
-                >
-                  <Palette className="h-3 w-3 mr-1" />
-                  Templates
-                </Button>
-                {jsxCode !== initialCode && (
+            <div className="p-2 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Code className="h-4 w-4 text-gray-600" />
+                  <span className="text-sm font-medium text-gray-700">JSX Editor</span>
+                </div>
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleReset}
+                    onClick={handleOpenTemplateGallery}
                     className="h-7"
                   >
-                    <RotateCcw className="h-3 w-3 mr-1" />
-                    Reset
+                    <Palette className="h-3 w-3 mr-1" />
+                    Templates
                   </Button>
-                )}
+                  {jsxCode !== initialCode && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleReset}
+                      className="h-7"
+                    >
+                      <RotateCcw className="h-3 w-3 mr-1" />
+                      Reset
+                    </Button>
+                  )}
+                  <Button
+                    onClick={handleSave}
+                    disabled={loading}
+                    size="sm"
+                    className="h-7"
+                  >
+                    <Save className="h-3 w-3 mr-1" />
+                    Save
+                  </Button>
+                </div>
               </div>
               
-              {showTemplates && (
-                <div className="border border-gray-200 rounded-md max-h-40 overflow-auto">
-                  <TemplateSelector 
-                    onSelect={handleTemplateSelect}
-                    compact={true}
-                  />
-                </div>
-              )}
             </div>
             
             {/* Mobile Editor */}
@@ -192,15 +207,30 @@ const CodeEditorSheet = ({
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-hidden">
-            <LivePreviewPanel
-              jsxCode={jsxCode}
-              courseProps={courseProps}
-              autoRefresh={true}
-              refreshDelay={500}
-              onError={handlePreviewError}
-              onSuccess={handlePreviewSuccess}
-            />
+          <div className="flex flex-col h-full">
+            {/* Mobile Preview Header */}
+            <div className="flex items-center justify-between p-2 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4 text-gray-600" />
+                <span className="text-sm font-medium text-gray-700">Live Preview</span>
+              </div>
+              <div className="text-xs text-gray-500">
+                Auto-refresh on save
+              </div>
+            </div>
+            
+            {/* Mobile Scrollable Preview Content */}
+            <div className="flex-1 overflow-auto p-4 bg-white">
+              <UiGeneratedContent
+                key={refreshKey}
+                course={courseProps.course}
+                courseId={courseProps?.courseId}
+                courseDisplay={courseProps.courseDisplay}
+                itemConfig={currentLessonInfo}
+                isStaffView={courseProps.isStaffView}
+                devMode={courseProps.devMode}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -228,70 +258,16 @@ const CodeEditorSheet = ({
   // Desktop Layout Content
   const DesktopContent = () => (
     <div className="flex flex-col h-full">
-      {/* Desktop Header */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <h2 className="font-semibold text-gray-800">Code Editor</h2>
-          {currentLessonInfo && (
-            <Badge variant="outline" className="text-xs">
-              📝 {currentLessonInfo.title}
-            </Badge>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowTemplates(!showTemplates)}
-            className="h-8"
-          >
-            <Palette className="h-3 w-3 mr-1" />
-            Templates
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            className="h-8"
-          >
-            {autoRefresh ? '🔄 Auto' : '⏸️ Manual'}
-          </Button>
-          
-          {jsxCode !== initialCode && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReset}
-              className="h-8"
-            >
-              <RotateCcw className="h-3 w-3 mr-1" />
-              Reset
-            </Button>
-          )}
-          
-          <Button
-            onClick={handleSave}
-            disabled={loading}
-            size="sm"
-            className="h-8"
-          >
-            <Save className="h-3 w-3 mr-1" />
-            {loading ? 'Saving...' : 'Save Code'}
-          </Button>
-        </div>
+      {/* Desktop Header - Simplified */}
+      <div className="flex items-center gap-3 p-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+        <h2 className="font-semibold text-gray-800">Code Editor</h2>
+        {currentLessonInfo && (
+          <Badge variant="outline" className="text-xs">
+            📝 {currentLessonInfo.title}
+          </Badge>
+        )}
       </div>
 
-      {/* Templates Panel */}
-      {showTemplates && (
-        <div className="border-b border-gray-200 bg-white p-3 max-h-60 overflow-auto flex-shrink-0">
-          <TemplateSelector 
-            onSelect={handleTemplateSelect}
-            onClose={() => setShowTemplates(false)}
-          />
-        </div>
-      )}
 
       {/* Resizable Panels */}
       <div className="flex-1 overflow-hidden">
@@ -305,8 +281,42 @@ const CodeEditorSheet = ({
                   <Code className="h-4 w-4 text-gray-600" />
                   <span className="text-sm font-medium text-gray-700">JSX Editor</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                  <span>Ctrl+S to save</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOpenTemplateGallery}
+                    className="h-7"
+                  >
+                    <Palette className="h-3 w-3 mr-1" />
+                    Templates
+                  </Button>
+                  
+                  {jsxCode !== initialCode && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleReset}
+                      className="h-7"
+                    >
+                      <RotateCcw className="h-3 w-3 mr-1" />
+                      Reset
+                    </Button>
+                  )}
+                  
+                  <Button
+                    onClick={handleSave}
+                    disabled={loading}
+                    size="sm"
+                    className="h-7"
+                  >
+                    <Save className="h-3 w-3 mr-1" />
+                    {loading ? 'Saving...' : 'Save'}
+                  </Button>
+                  
+                  <div className="flex items-center gap-2 text-xs text-gray-500 ml-2">
+                    <span>Ctrl+S to save</span>
+                  </div>
                 </div>
               </div>
               
@@ -328,15 +338,30 @@ const CodeEditorSheet = ({
 
           {/* Preview Panel */}
           <ResizablePanel defaultSize={50} minSize={30}>
-            <div className="h-full overflow-hidden">
-              <LivePreviewPanel
-                jsxCode={jsxCode}
-                courseProps={courseProps}
-                autoRefresh={autoRefresh}
-                refreshDelay={800}
-                onError={handlePreviewError}
-                onSuccess={handlePreviewSuccess}
-              />
+            <div className="flex flex-col h-full">
+              {/* Preview Header */}
+              <div className="flex items-center justify-between p-2 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-gray-600" />
+                  <span className="text-sm font-medium text-gray-700">Live Preview</span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  Auto-refresh on save
+                </div>
+              </div>
+              
+              {/* Scrollable Preview Content */}
+              <div className="flex-1 overflow-auto p-4 bg-white">
+                <UiGeneratedContent
+                  key={refreshKey}
+                  course={courseProps.course}
+                  courseId={courseProps?.courseId}
+                  courseDisplay={courseProps.courseDisplay}
+                  itemConfig={currentLessonInfo}
+                  isStaffView={courseProps.isStaffView}
+                  devMode={courseProps.devMode}
+                />
+              </div>
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -351,11 +376,9 @@ const CodeEditorSheet = ({
           <span>
             📝 {jsxCode.length} characters
           </span>
-          {autoRefresh && (
-            <span className="text-blue-600">
-              🔄 Auto-refresh enabled
-            </span>
-          )}
+          <span className="text-gray-600">
+            🔄 Auto-refresh on save
+          </span>
         </div>
         
         <div className="flex items-center gap-2">
@@ -385,31 +408,30 @@ const CodeEditorSheet = ({
   );
 
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent 
-        side="bottom" 
-        className="h-screen w-full p-0 max-w-none"
-      >
-        <div className="h-full flex flex-col">
-          <SheetHeader className="p-4 border-b border-gray-200 flex-shrink-0">
-            <SheetTitle className="flex items-center gap-2">
-              <FaCodeIcon className="h-4 w-4" />
-              Code Editor
-              {currentLessonInfo && (
-                <span className="text-sm font-normal text-gray-500">
-                  - {currentLessonInfo.title}
-                </span>
-              )}
-            </SheetTitle>
-          </SheetHeader>
-          
-          <div className="flex-1 overflow-hidden">
-            {isMobile ? <MobileContent /> : <DesktopContent />}
+    <>
+      <Sheet open={isOpen} onOpenChange={onOpenChange}>
+        <SheetContent 
+          side="bottom" 
+          className="h-screen w-full p-0 max-w-none"
+        >
+          <div className="h-full flex flex-col">
+        
+            
+            <div className="flex-1 overflow-hidden">
+              {isMobile ? <MobileContent /> : <DesktopContent />}
+            </div>
           </div>
-        </div>
-      </SheetContent>
-    </Sheet>
+        </SheetContent>
+      </Sheet>
+
+      {/* Template Gallery */}
+      <TemplateGallery 
+        isOpen={templateGalleryOpen}
+        onOpenChange={setTemplateGalleryOpen}
+      />
+    </>
   );
 };
 
-export default CodeEditorSheet;
+// Memoize component to prevent unnecessary re-renders
+export default memo(CodeEditorSheet);
