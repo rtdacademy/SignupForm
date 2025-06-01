@@ -13,20 +13,11 @@ const EnhancedCodeEditor = ({
   onSave,
   readOnly = false,
   placeholder = "// Start writing your JSX component here...",
-  height = "600px"
+  height = "600px",
+  editorKey // Add this prop to force re-initialization when switching sections
 }) => {
-  // Use internal state to avoid controlled component cursor jumping issue
-  const [internalValue, setInternalValue] = React.useState(value || '');
-  const isControlledUpdate = useRef(false);
-  
-  // Update internal value when external value changes (but not from internal changes)
-  useEffect(() => {
-    if (value !== internalValue && !isControlledUpdate.current) {
-      setInternalValue(value || '');
-      currentValueRef.current = value || ''; // Keep ref in sync for save functionality
-    }
-    isControlledUpdate.current = false;
-  }, [value, internalValue]);
+  // Use key-based re-rendering to avoid cursor jumping
+  // This completely re-mounts the component when editorKey changes
   
   // React/JSX autocompletion suggestions - moved outside component for stability
   const reactCompletions = useMemo(() => {
@@ -87,8 +78,7 @@ const EnhancedCodeEditor = ({
         key: 'Ctrl-s',
         mac: 'Cmd-s',
         run: () => {
-          // On save, notify parent with current value for the first time
-          onChange?.(currentValueRef.current);
+          // On save, trigger save immediately (content already synced via onChange)
           onSave?.();
           return true;
         }
@@ -106,19 +96,19 @@ const EnhancedCodeEditor = ({
   // Store current value in ref for save functionality
   const currentValueRef = useRef(value || '');
   
-  // Handle code changes - NEVER notify parent during typing
+  // Handle code changes - update ref and notify parent without causing re-renders
   const handleChange = useCallback((val) => {
-    isControlledUpdate.current = true;
-    setInternalValue(val);
     currentValueRef.current = val;
-    // DO NOT call onChange here - only call it on save
-  }, [internalValue]);
+    // Call onChange immediately but parent won't re-render editor due to key-based mounting
+    onChange?.(val);
+  }, [onChange]);
 
   return (
     <div className="h-full flex flex-col border border-gray-600 rounded-md">
       <div className="flex-1 min-h-0 relative">
         <CodeMirror
-          value={internalValue}
+          key={editorKey} // Re-mount component when section changes
+          value={value || ''} // Use controlled pattern but only re-render on section switch
           onChange={handleChange}
           extensions={extensions}
           theme={oneDark}

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { getDatabase, ref, get, set } from 'firebase/database';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getDatabase, ref, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { FaWrench, FaGraduationCap, FaCode } from 'react-icons/fa';
@@ -9,7 +8,7 @@ import { BookOpen, ClipboardCheck } from 'lucide-react';
 import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
 // Import code editor components directly to avoid chunk loading issues
-import CodeEditorSheet from './components/codeEditor/CodeEditorSheet';
+import ModernSectionEditor from './components/codeEditor/ModernSectionEditor';
 
 // Import course components - same as CourseRouter
 const COM1255Course = lazy(() => import('./courses/COM1255'));
@@ -35,10 +34,6 @@ const StaffCourseWrapper = () => {
   const [devMode, setDevMode] = useState(false);
   
   // Code editor state
-  const [reactCode, setReactCode] = useState('');
-  const [codeLoading, setCodeLoading] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [codeError, setCodeError] = useState(null);
   const [currentLessonInfo, setCurrentLessonInfo] = useState(null);
   const [codeEditorOpen, setCodeEditorOpen] = useState(false);
   
@@ -186,28 +181,6 @@ const StaffCourseWrapper = () => {
   const unitsList = courseData.structure || [];
   const courseWeights = courseData.courseWeights || { lesson: 0.2, assignment: 0.4, exam: 0.4 };
 
-  // Load existing code directly from Realtime Database (only on lesson switch)
-  const loadExistingCode = useCallback(async (lessonPath) => {
-    if (!lessonPath || !courseId) return;
-    
-    try {
-      const db = getDatabase();
-      const codeRef = ref(db, `courseDevelopment/${courseId}/${lessonPath}`);
-      const snapshot = await get(codeRef);
-      
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        // Load original code for editing, fall back to transformed code if no original
-        setReactCode(data.originalCode || data.code || '');
-      } else {
-        // No existing code
-        setReactCode('');
-      }
-    } catch (err) {
-      console.warn('Error loading existing code:', err);
-      setReactCode('');
-    }
-  }, [courseId]);
 
   // Handle internal item selection - stabilized function reference
   const handleItemSelect = useCallback((itemId) => {
@@ -224,10 +197,6 @@ const StaffCourseWrapper = () => {
     }
     setCurrentLessonInfo(foundLesson);
     
-    // Load existing code for the selected lesson
-    if (foundLesson?.contentPath) {
-      loadExistingCode(foundLesson.contentPath);
-    }
     
     // Scroll to top when selecting a new item
     window.scrollTo(0, 0);
@@ -236,77 +205,8 @@ const StaffCourseWrapper = () => {
     if (isMobile) {
       setNavExpanded(false);
     }
-  }, [isMobile, courseData.structure, loadExistingCode]); // Stable dependencies
+  }, [isMobile, courseData.structure]); // Stable dependencies
 
-  // Handle code saving directly to Realtime Database
-  const handleSaveCode = useCallback(async (code) => {
-    if (!code.trim()) {
-      setCodeError('Please enter some code before saving.');
-      return;
-    }
-
-    if (!currentLessonInfo?.contentPath) {
-      setCodeError('No lesson selected. Please select a lesson from the navigation first.');
-      return;
-    }
-
-    setCodeLoading(true);
-    setCodeError(null);
-    
-    try {
-      // Transform JSX using cloud function before saving
-      let processedCode = code;
-      const containsJSX = code.includes('<') && code.includes('>');
-      
-      if (containsJSX) {
-        console.log('JSX detected, transforming via cloud function...');
-        try {
-          const functions = getFunctions();
-          const transformJSX = httpsCallable(functions, 'transformJSXCode');
-          const result = await transformJSX({ jsxCode: code });
-          
-          if (result.data.success) {
-            processedCode = result.data.transformedCode;
-            console.log('JSX transformed successfully via cloud function');
-            console.log('Original code length:', code.length, 'Transformed code length:', processedCode.length);
-          } else {
-            console.warn('Cloud function JSX transformation failed:', result.data.error);
-            // Continue with original code
-          }
-        } catch (transformError) {
-          console.warn('Error calling JSX transformation function:', transformError);
-          // Continue with original code
-        }
-      }
-      
-      const db = getDatabase();
-      const codeRef = ref(db, `courseDevelopment/${courseId}/${currentLessonInfo.contentPath}`);
-      
-      const codeData = {
-        code: processedCode, // Store the transformed code
-        originalCode: code, // Keep original for editing
-        lastModified: new Date().toISOString(),
-        modifiedBy: currentUser?.email || 'unknown',
-        lessonTitle: currentLessonInfo?.title || currentLessonInfo.contentPath,
-        contentType: 'lesson',
-        enabled: true
-      };
-      
-      await set(codeRef, codeData);
-      
-      // Update local state to match what was saved - this ensures UI stays in sync
-      setReactCode(code);
-      
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-      
-    } catch (err) {
-      console.error('Error saving code:', err);
-      setCodeError(`Failed to save code: ${err.message}`);
-    } finally {
-      setCodeLoading(false);
-    }
-  }, [currentLessonInfo, courseId, currentUser]);
 
 
   // Flatten all course items for progress tracking - memoized more efficiently
@@ -489,7 +389,7 @@ const StaffCourseWrapper = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-full">
       {/* Staff toolbar - fixed at the top */}
       <div className="bg-gray-800 text-white px-2 py-1 z-50 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center">
@@ -561,29 +461,20 @@ const StaffCourseWrapper = () => {
             
             {devMode && (
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
                 className="px-2 py-1 rounded-md transition-colors flex items-center gap-1 text-xs"
-                onClick={() => {
-                  console.log('🔄 StaffCourseWrapper: Code Editor button clicked');
-                  console.log('🔄 StaffCourseWrapper: setCodeEditorOpen(true)');
-                  setCodeEditorOpen(true);
-                  // Load existing code for the currently selected lesson when opening editor
-                  if (currentLessonInfo?.contentPath) {
-                    console.log('🔄 StaffCourseWrapper: About to call loadExistingCode from code editor button');
-                    loadExistingCode(currentLessonInfo.contentPath);
-                  }
-                }}
+                onClick={() => setCodeEditorOpen(true)}
               >
                 <FaCode className="h-3 w-3" />
-                <span>Code Editor</span>
+                <span>Section Editor</span>
               </Button>
             )}
         </div>
       </div>
 
       {/* Content area with navigation - this div will handle the scrolling */}
-      <div className="flex flex-1 relative overflow-hidden">
+      <div className="flex flex-1 relative min-h-0">
         {/* Mobile overlay backdrop */}
         {isMobile && navExpanded && (
           <div 
@@ -620,7 +511,7 @@ const StaffCourseWrapper = () => {
         </div>
 
         {/* Main content - this will be scrollable */}
-        <main className="flex-1 overflow-auto p-2">
+        <main className="flex-1 overflow-auto p-2 pb-8 min-h-0">
           {activeTab === 'content' && (
             <div className="bg-white rounded-lg shadow">
               {devMode && (
@@ -854,24 +745,20 @@ const StaffCourseWrapper = () => {
         </main>
       </div>
 
-      {/* Code Editor Sheet */}
+      {/* Code Editor */}
       {devMode && (
-        <CodeEditorSheet
-          initialCode={reactCode}
-          onSave={handleSaveCode}
-          onCodeChange={setReactCode}
-          loading={codeLoading}
-          saved={saved}
-          error={codeError}
-          currentLessonInfo={currentLessonInfo}
+        <ModernSectionEditor
           courseProps={{
             course: getEnhancedCourse,
             courseId: courseId,
             isStaffView: true,
             devMode: devMode
           }}
+          currentLessonInfo={currentLessonInfo}
           isOpen={codeEditorOpen}
           onOpenChange={setCodeEditorOpen}
+          courseId={courseId}
+          currentUser={currentUser}
         />
       )}
     </div>

@@ -135,6 +135,10 @@ exports.loadCourseCode = courseCodeLoaderFunctions.loadCourseCode;
 // JSX transformation functions
 exports.transformJSXCode = require('./jsxTransformer').transformJSXCode;
 
+// Section management functions
+exports.manageCourseSection = require('./manageCourseSection').manageCourseSection;
+exports.debugLesson = require('./debugLesson').debugLesson;
+
 // Parent Portal functions
 exports.sendParentInvitation = parentPortalFunctions.sendParentInvitation;
 exports.sendParentInvitationOnCreate = parentPortalFunctions.sendParentInvitationOnCreate;

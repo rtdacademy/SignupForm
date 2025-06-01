@@ -17,6 +17,161 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [codeData, setCodeData] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Function to create a wrapper component that renders all sections individually
+  const createMultiSectionWrapper = (lessonData, lessonInfo) => {
+    const sections = lessonData.sections || {};
+    const sectionOrder = lessonData.sectionOrder || Object.keys(sections);
+    const orderedSections = sectionOrder.map(id => sections[id]).filter(Boolean);
+    
+    console.log(`🏗️ Creating multi-section wrapper for ${orderedSections.length} sections`);
+    
+    return ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode }) => {
+      const [sectionComponents, setSectionComponents] = React.useState([]);
+      const [sectionsLoading, setSectionsLoading] = React.useState(true);
+      const [sectionErrors, setSectionErrors] = React.useState({});
+
+      React.useEffect(() => {
+        const loadAllSections = async () => {
+          console.log(`📚 Loading ${orderedSections.length} individual sections...`);
+          const loadedComponents = [];
+          const errors = {};
+
+          for (let i = 0; i < orderedSections.length; i++) {
+            const section = orderedSections[i];
+            try {
+              console.log(`📝 Processing section ${i + 1}/${orderedSections.length}: "${section.title}"`);
+              
+              // Use transformed code if available, fallback to original
+              const sectionCode = section.code || section.originalCode || '';
+              
+              if (!sectionCode.trim()) {
+                console.warn(`⚠️ Section "${section.title}" has no code, creating placeholder`);
+                // Create a placeholder component
+                const PlaceholderComponent = ({ course, courseId, isStaffView, devMode }) => 
+                  React.createElement('div', { className: 'section-container mb-6' },
+                    React.createElement(Card, { className: 'mb-6' },
+                      React.createElement(CardHeader, null,
+                        React.createElement(CardTitle, null, section.title)
+                      ),
+                      React.createElement(CardContent, null,
+                        React.createElement('p', { className: 'text-gray-500 italic' }, 
+                          isStaffView ? 'Section content not yet created. Use the editor to add content.' : 'Content coming soon...'
+                        )
+                      )
+                    )
+                  );
+                
+                loadedComponents.push({
+                  id: section.id,
+                  title: section.title,
+                  component: PlaceholderComponent,
+                  order: i
+                });
+                continue;
+              }
+
+              // Create individual section component
+              const SectionComponent = await createDynamicComponent(sectionCode);
+              loadedComponents.push({
+                id: section.id,
+                title: section.title,
+                component: SectionComponent,
+                order: i
+              });
+              
+              console.log(`✅ Section "${section.title}" loaded successfully`);
+            } catch (sectionError) {
+              console.error(`❌ Error loading section "${section.title}":`, sectionError);
+              errors[section.id] = sectionError.message;
+              
+              // Create error component for this section
+              const ErrorComponent = () => 
+                React.createElement('div', { className: 'section-container mb-6' },
+                  React.createElement(Alert, { className: 'mb-6' },
+                    React.createElement(AlertDescription, null,
+                      React.createElement('strong', null, `Error in section "${section.title}": `),
+                      sectionError.message
+                    )
+                  )
+                );
+              
+              loadedComponents.push({
+                id: section.id,
+                title: section.title,
+                component: ErrorComponent,
+                order: i,
+                hasError: true
+              });
+            }
+          }
+
+          setSectionComponents(loadedComponents);
+          setSectionErrors(errors);
+          setSectionsLoading(false);
+          
+          console.log(`🎉 Multi-section loading complete: ${loadedComponents.length} sections loaded`);
+        };
+
+        loadAllSections();
+      }, []);
+
+      if (sectionsLoading) {
+        return React.createElement('div', { className: 'flex items-center justify-center p-8' },
+          React.createElement('div', { className: 'animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600' }),
+          React.createElement('p', { className: 'ml-3' }, `Loading ${orderedSections.length} sections...`)
+        );
+      }
+
+      // Render all sections in a lesson container
+      return React.createElement('div', { className: 'lesson-container' },
+        // Lesson header
+        React.createElement('div', { className: 'lesson-header mb-8' },
+          React.createElement('h1', { className: 'text-3xl font-bold text-gray-900' }, 
+            lessonInfo?.title || 'Multi-Section Lesson'
+          ),
+          devMode && React.createElement(Badge, { variant: 'outline', className: 'mt-2' },
+            `Multi-Section Lesson • ${sectionComponents.length} sections`
+          )
+        ),
+        
+        // Sections container
+        React.createElement('div', { className: 'lesson-sections space-y-6' },
+          ...sectionComponents.map(({ id, component: SectionComponent, hasError }) =>
+            React.createElement('div', { 
+              key: id, 
+              className: `section-wrapper ${hasError ? 'section-error' : ''}` 
+            },
+              React.createElement(SectionComponent, {
+                course: course,
+                courseId: courseId,
+                courseDisplay: courseDisplay,
+                itemConfig: itemConfig,
+                isStaffView: isStaffView,
+                devMode: devMode
+              })
+            )
+          )
+        ),
+        
+        // Debug info for staff
+        devMode && React.createElement('div', { className: 'mt-8 p-4 bg-blue-50 border border-blue-200 rounded-md' },
+          React.createElement('p', { className: 'text-sm text-blue-800' },
+            React.createElement('strong', null, '🔧 Multi-Section Debug: '),
+            `${sectionComponents.length} sections rendered individually • `,
+            `${Object.keys(sectionErrors).length} errors`
+          ),
+          Object.keys(sectionErrors).length > 0 && React.createElement('details', { className: 'mt-2' },
+            React.createElement('summary', { className: 'cursor-pointer text-sm text-red-600' }, 'Section Errors'),
+            React.createElement('pre', { className: 'mt-2 text-xs bg-white p-2 rounded overflow-auto' },
+              JSON.stringify(sectionErrors, null, 2)
+            )
+          )
+        )
+      );
+    };
+  };
 
   useEffect(() => {
     const loadDynamicComponent = async () => {
@@ -45,10 +200,24 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
           throw new Error('UI-generated content is disabled');
         }
         
-        // Load the transformed code directly from database
+        // Handle multi-section structure - use direct section rendering instead of combined code
+        if (data.sections && Object.keys(data.sections).length > 0) {
+          console.log('🔄 Loading multi-section lesson with direct section rendering');
+          console.log(`📊 Found ${Object.keys(data.sections).length} sections`);
+          
+          // Create a wrapper component that renders all sections
+          const MultiSectionWrapper = createMultiSectionWrapper(data, itemConfig);
+          setDynamicComponent(() => MultiSectionWrapper);
+          return; // Skip the single component creation
+        }
+        
+        // Handle single component or legacy structure
         let reactCode;
-        if (data.code) {
-          console.log('Loading transformed code from new database structure');
+        if (data.mainComponent?.code) {
+          console.log('Loading single combined component');
+          reactCode = data.mainComponent.code;
+        } else if (data.code) {
+          console.log('Loading transformed code from database structure');
           reactCode = data.code;
         } else if (data.currentFile) {
           // Fallback to old system if needed
@@ -80,6 +249,28 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
           }
         }
         
+        // Check if code contains JSX and transform if needed
+        const containsJSX = reactCode.includes('<') && reactCode.includes('>') && !reactCode.includes('React.createElement');
+        if (containsJSX) {
+          console.warn('⚠️ JSX detected in code, attempting transformation...');
+          try {
+            const functions = getFunctions();
+            const transformJSX = httpsCallable(functions, 'transformJSXCode');
+            const result = await transformJSX({ jsxCode: reactCode });
+            
+            if (result.data.success) {
+              console.log('✅ Fallback JSX transformation successful');
+              reactCode = result.data.transformedCode;
+            } else {
+              console.error('❌ Fallback JSX transformation failed:', result.data.error);
+              throw new Error(`JSX transformation failed: ${result.data.error}`);
+            }
+          } catch (transformError) {
+            console.error('❌ Fallback transformation error:', transformError);
+            throw new Error(`Failed to transform JSX in UiGeneratedContent: ${transformError.message}`);
+          }
+        }
+        
         // Create the dynamic component
         const component = await createDynamicComponent(reactCode);
         setDynamicComponent(() => component);
@@ -93,7 +284,7 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
     };
 
     loadDynamicComponent();
-  }, [courseId, itemConfig]);
+  }, [courseId, itemConfig, refreshKey]);
 
   // Function to safely create a React component from code string
   const createDynamicComponent = async (codeString) => {
@@ -267,7 +458,10 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
               <summary className="cursor-pointer text-sm text-blue-600">Debug Info</summary>
               <pre className="mt-2 text-xs bg-white p-2 rounded overflow-auto">
                 {JSON.stringify({
-                  hasReactCode: !!codeData.reactCode,
+                  isMultiSection: !!codeData.sections,
+                  sectionCount: codeData.sections ? Object.keys(codeData.sections).length : 0,
+                  hasMainComponent: !!codeData.mainComponent?.code,
+                  hasLegacyCode: !!codeData.reactCode || !!codeData.code,
                   hasCurrentFile: !!codeData.currentFile,
                   enabled: codeData.enabled,
                   contentPath: itemConfig?.contentPath,
@@ -307,9 +501,14 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
       {devMode && codeData && (
         <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-md">
           <p className="text-sm text-blue-800">
-            🚧 <strong>UI-Generated Content</strong> | 
-            Last modified: {new Date(codeData.metadata?.lastModified).toLocaleString()} by {codeData.metadata?.modifiedBy}
+            🚧 <strong>{codeData.sections ? 'Multi-Section Lesson' : 'UI-Generated Content'}</strong> | 
+            Last modified: {new Date(codeData.lastModified || codeData.metadata?.lastModified).toLocaleString()} by {codeData.modifiedBy || codeData.metadata?.modifiedBy}
           </p>
+          {codeData.sections && (
+            <p className="text-xs text-blue-600 mt-1">
+              Contains {Object.keys(codeData.sections).length} sections • Generated: {new Date(codeData.mainComponent?.lastGenerated).toLocaleString()}
+            </p>
+          )}
         </div>
       )}
     </ErrorBoundary>
