@@ -1,0 +1,52 @@
+{
+  "codeExamples/ai-chat/physics-tutor": {
+    "id": "physics-tutor",
+    "title": "Physics AI Tutor",
+    "category": "AI Chat",
+    "description": "Subject-specific AI tutor for physics lessons with comprehensive configuration",
+    "tags": ["ai", "chat", "physics", "tutor", "education"],
+    "difficulty": "advanced",
+    "imports": [
+      "import { GoogleAIChatApp } from '../../../edbotz/GoogleAIChat/GoogleAIChatApp';",
+      "import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';"
+    ],
+    "code": "const PhysicsTutorSection = ({ course, courseId, isStaffView, devMode }) => {\n  const instructions = \"You are a physics tutor specialized in helping students understand physics concepts. Focus on clear explanations, real-world examples, and step-by-step problem solving. Encourage questions and provide supportive feedback.\";\n  \n  const firstMessage = \"Hello! I'm your physics tutor. I can help you with mechanics, electricity, magnetism, waves, thermodynamics, and modern physics. What physics topic would you like to explore today?\";\n  \n  const context = {\n    subject: \"Physics\",\n    gradeLevel: \"High School\",\n    currentTopic: \"Mechanics\",\n    courseId: courseId\n  };\n\n  const aiChatContext = \"This is a physics lesson. The student is learning about fundamental physics concepts and may need help with problem-solving, understanding theory, or connecting concepts to real-world applications.\";\n\n  return (\n    <div className=\"physics-tutor-section mb-6\">\n      <Card className=\"mb-4\">\n        <CardHeader>\n          <CardTitle className=\"flex items-center gap-2\">\n            🔬 Physics AI Tutor\n          </CardTitle>\n        </CardHeader>\n        <CardContent>\n          <p className=\"text-gray-600 mb-4\">\n            Get personalized help with physics concepts, problem-solving, and homework questions.\n          </p>\n          \n          <GoogleAIChatApp \n            instructions={instructions}\n            firstMessage={firstMessage}\n            showYouTube={true}\n            showUpload={true}\n            YouTubeURL=\"https://www.youtube.com/watch?v=ZM8ECpBuQYE\"\n            YouTubeDisplayName=\"Physics Fundamentals Overview\"\n            predefinedFiles={[\n              \"gs://your-bucket/physics-formulas.pdf\",\n              \"gs://your-bucket/physics-reference-sheet.pdf\"\n            ]}\n            predefinedFilesDisplayNames={{\n              \"gs://your-bucket/physics-formulas.pdf\": \"Physics Formula Reference\",\n              \"gs://your-bucket/physics-reference-sheet.pdf\": \"Quick Reference Guide\"\n            }}\n            allowContentRemoval={false}\n            showResourcesAtTop={true}\n            context={context}\n            sessionIdentifier={`physics-tutor-${courseId}`}\n            aiChatContext={aiChatContext}\n          />\n        </CardContent>\n      </Card>\n    </div>\n  );\n};\n\nexport default PhysicsTutorSection;",
+    "createdAt": "2025-01-06T10:00:00Z",
+    "updatedAt": "2025-01-06T10:00:00Z",
+    "createdBy": "system",
+    "isPublic": true
+  },
+  "codeExamples/ai-chat/math-helper": {
+    "id": "math-helper",
+    "title": "Math Problem Solver",
+    "category": "AI Chat",
+    "description": "AI assistant specialized in mathematics with step-by-step problem solving",
+    "tags": ["ai", "chat", "math", "problem-solving", "step-by-step"],
+    "difficulty": "intermediate",
+    "imports": [
+      "import { GoogleAIChatApp } from '../../../edbotz/GoogleAIChat/GoogleAIChatApp';"
+    ],
+    "code": "const MathHelperSection = ({ course, courseId, isStaffView, devMode }) => {\n  const instructions = \"You are a mathematics tutor that excels at breaking down complex problems into manageable steps. Always show your work, explain reasoning, and help students understand the 'why' behind mathematical concepts.\";\n  \n  const firstMessage = \"Hi! I'm your math assistant. I can help you solve problems step-by-step, explain concepts, and practice different types of mathematical problems. What math topic can I help you with?\";\n\n  return (\n    <div className=\"math-helper-section mb-6\">\n      <GoogleAIChatApp \n        instructions={instructions}\n        firstMessage={firstMessage}\n        showYouTube={true}\n        showUpload={true}\n        allowContentRemoval={true}\n        showResourcesAtTop={false}\n        sessionIdentifier={`math-helper-${courseId}`}\n        aiChatContext=\"Mathematics lesson - focus on problem-solving and conceptual understanding\"\n      />\n    </div>\n  );\n};\n\nexport default MathHelperSection;",
+    "createdAt": "2025-01-06T10:00:00Z",
+    "updatedAt": "2025-01-06T10:00:00Z",
+    "createdBy": "system",
+    "isPublic": true
+  },
+  "codeExamples/ai-chat/writing-assistant": {
+    "id": "writing-assistant",
+    "title": "Writing Assistant",
+    "category": "AI Chat",
+    "description": "AI assistant for improving writing skills, grammar, and essay structure",
+    "tags": ["ai", "chat", "writing", "grammar", "essays"],
+    "difficulty": "intermediate",
+    "imports": [
+      "import { GoogleAIChatApp } from '../../../edbotz/GoogleAIChat/GoogleAIChatApp';",
+      "import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';"
+    ],
+    "code": "const WritingAssistantSection = ({ course, courseId, isStaffView, devMode }) => {\n  const instructions = \"You are a writing tutor who helps students improve their writing skills. Provide constructive feedback on grammar, structure, clarity, and style. Help students develop their ideas and express them effectively. Be encouraging and supportive.\";\n  \n  const firstMessage = \"Hello! I'm your writing assistant. I can help you with essays, creative writing, grammar, and improving your writing style. What would you like to work on today?\";\n\n  return (\n    <div className=\"writing-assistant-section mb-6\">\n      <Card>\n        <CardHeader>\n          <CardTitle>✍️ Writing Assistant</CardTitle>\n        </CardHeader>\n        <CardContent>\n          <GoogleAIChatApp \n            instructions={instructions}\n            firstMessage={firstMessage}\n            showYouTube={false}\n            showUpload={true}\n            allowContentRemoval={true}\n            showResourcesAtTop={false}\n            sessionIdentifier={`writing-assistant-${courseId}`}\n            aiChatContext=\"Writing assistance - focus on grammar, structure, and clarity\"\n          />\n        </CardContent>\n      </Card>\n    </div>\n  );\n};\n\nexport default WritingAssistantSection;",
+    "createdAt": "2025-01-06T10:00:00Z",
+    "updatedAt": "2025-01-06T10:00:00Z",
+    "createdBy": "system",
+    "isPublic": true
+  }
+}

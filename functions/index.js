@@ -137,6 +137,7 @@ exports.transformJSXCode = require('./jsxTransformer').transformJSXCode;
 
 // Section management functions
 exports.manageCourseSection = require('./manageCourseSection').manageCourseSection;
+exports.manageCodeExamples = require('./manageCodeExamples').manageCodeExamples;
 exports.debugLesson = require('./debugLesson').debugLesson;
 
 // Auto-transform functions

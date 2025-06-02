@@ -10,11 +10,12 @@ import {
   SheetHeader, 
   SheetTitle 
 } from '../../../components/ui/sheet';
-import { Code, Eye, Save, Plus, RefreshCw, HelpCircle, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import EnhancedCodeEditor from './EnhancedCodeEditor';
+import { Code, Eye, Save, Plus, RefreshCw, HelpCircle, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, BookOpen } from 'lucide-react';
+import CodeMirrorWrapper from './CodeMirrorWrapper';
 import UiGeneratedContent from '../content/UiGeneratedContent';
 import SectionManager from './SectionManager';
 import AssessmentConfigForm from './AssessmentConfigForm';
+import CodeExamplesSheet from './CodeExamplesSheet';
 
 const SimplifiedMultiSectionCodeEditor = ({
   courseProps = {},
@@ -36,6 +37,7 @@ const SimplifiedMultiSectionCodeEditor = ({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [editorResetKey, setEditorResetKey] = useState(0);
   
   // UI state
   const [isMobile, setIsMobile] = useState(false);
@@ -44,6 +46,7 @@ const SimplifiedMultiSectionCodeEditor = ({
   const [sectionsCollapsed, setSectionsCollapsed] = useState(false);
   const [missingConfigs, setMissingConfigs] = useState([]);
   const [configCheckLoading, setConfigCheckLoading] = useState(false);
+  const [showExamplesSheet, setShowExamplesSheet] = useState(false);
 
   // Initialize cloud function
   const functions = getFunctions();
@@ -84,9 +87,11 @@ const SimplifiedMultiSectionCodeEditor = ({
   // Ref for the sections panel to detect outside clicks
   const sectionsPanelRef = useRef(null);
   
-  // Handler to capture editor content changes (but not update state)
+  // Handler to capture editor content changes
   const handleEditorChange = useCallback((newContent) => {
+    // Update both ref and state
     currentEditorContent.current = newContent;
+    setSectionCode(newContent);
     console.log(`📝 Editor content updated: ${newContent?.length || 0} chars`);
   }, []);
 
@@ -118,7 +123,21 @@ const SimplifiedMultiSectionCodeEditor = ({
       lastLoadedSectionId.current = null;
       setShowAssessmentConfig(false);
     }
-  }, [selectedSectionId, sections]);
+  }, [selectedSectionId]); // Remove sections from dependencies to prevent reload on section updates
+
+  // Separate effect to handle initial section load when sections data arrives
+  useEffect(() => {
+    if (selectedSectionId && sections.length > 0 && !lastLoadedSectionId.current) {
+      const section = sections.find(s => s.id === selectedSectionId);
+      if (section) {
+        setSectionCode(section.originalCode || '');
+        setSectionTitle(section.title || '');
+        currentEditorContent.current = section.originalCode || '';
+        lastLoadedSectionId.current = selectedSectionId;
+        console.log(`📝 Initial load of section "${section.title}"`);
+      }
+    }
+  }, [sections, selectedSectionId]);
 
   const loadLessonData = async () => {
     try {
@@ -264,18 +283,18 @@ const SimplifiedMultiSectionCodeEditor = ({
       });
 
       if (result.data.success) {
-        // Update local state with server response
-        setSections(result.data.sections);
-        setSectionOrder(result.data.sectionOrder);
+        // DON'T update sections state - keep the local editor content
+        // This prevents the editor from reverting to the old content
         
         // Show success
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
         
-        // Refresh preview
+        // Refresh preview only
         setRefreshKey(prev => prev + 1);
         
         console.log(`✅ ${result.data.message}`);
+        console.log(`📝 Keeping local editor content - not syncing from server`);
       } else {
         throw new Error(result.data.error || 'Save operation failed');
       }
@@ -452,6 +471,51 @@ const SimplifiedMultiSectionCodeEditor = ({
     setShowAssessmentConfig(false);
   }, []);
 
+  // Handle code insertion from examples
+  const handleInsertCode = useCallback(async ({ code, imports, title }) => {
+    // Extract existing imports from current code
+    const currentCode = currentEditorContent.current || sectionCode;
+    const existingImports = [];
+    const importRegex = /^import\s+.+from\s+['"].*['"];?\s*$/gm;
+    let match;
+    while ((match = importRegex.exec(currentCode)) !== null) {
+      existingImports.push(match[0].trim());
+    }
+    
+    // Filter out duplicate imports
+    const newImports = imports.filter(imp => 
+      !existingImports.some(existing => existing.includes(imp))
+    );
+    
+    // Construct the new code
+    let newCode = currentCode;
+    if (newImports.length > 0) {
+      // Add new imports at the top
+      const codeWithoutImports = currentCode.replace(importRegex, '').trim();
+      newCode = [...existingImports, ...newImports].join('\n') + '\n\n' + codeWithoutImports;
+    }
+    
+    // Add the example code at the end
+    newCode = newCode.trim() + '\n\n' + code;
+    
+    // Update the ref first
+    currentEditorContent.current = newCode;
+    
+    // Force update the editor by setting state with a new key
+    // This is a workaround for the CodeMirror React sync issue
+    setSectionCode(newCode);
+    
+    // Optionally update the section title if it's empty
+    if (!sectionTitle.trim() && title) {
+      setSectionTitle(title);
+    }
+    
+    // Automatically save after inserting code
+    setTimeout(async () => {
+      await handleSaveSection();
+    }, 100); // Small delay to ensure state updates are processed
+  }, [sectionCode, sectionTitle, handleSaveSection]);
+
   // Component to show missing assessment configurations
   const MissingConfigsWarning = () => (
     <div className="flex flex-col items-center justify-center h-full p-6 text-center">
@@ -576,18 +640,27 @@ const SimplifiedMultiSectionCodeEditor = ({
                     placeholder="Section title..."
                     className="mb-2"
                   />
-                  <Button
-                    onClick={handleSaveSection}
-                    disabled={loading}
-                    size="sm"
-                    className="w-full"
-                  >
-                    <Save className="h-3 w-3 mr-1" />
-                    {loading ? 'Saving...' : 'Save'}
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowExamplesSheet(true)}
+                    >
+                      <BookOpen className="h-3 w-3 mr-1" />
+                      Examples
+                    </Button>
+                    <Button
+                      onClick={handleSaveSection}
+                      disabled={loading}
+                      size="sm"
+                    >
+                      <Save className="h-3 w-3 mr-1" />
+                      {loading ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  <EnhancedCodeEditor
+                  <CodeMirrorWrapper
                     value={sectionCode}
                     onChange={handleEditorChange}
                     onSave={handleSaveSection}
@@ -736,15 +809,26 @@ const SimplifiedMultiSectionCodeEditor = ({
                     </Badge>
                   )}
                 </div>
-                {!showAssessmentConfig && (
-                  <Button
-                    onClick={handleSaveSection}
-                    disabled={loading || !selectedSectionId}
-                    size="sm"
-                  >
-                    <Save className="h-3 w-3 mr-1" />
-                    {loading ? 'Saving...' : 'Save'}
-                  </Button>
+                {!showAssessmentConfig && selectedSectionId && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowExamplesSheet(true)}
+                      className="h-8"
+                    >
+                      <BookOpen className="h-3 w-3 mr-1" />
+                      Examples
+                    </Button>
+                    <Button
+                      onClick={handleSaveSection}
+                      disabled={loading || !selectedSectionId}
+                      size="sm"
+                    >
+                      <Save className="h-3 w-3 mr-1" />
+                      {loading ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
                 )}
               </div>
               
@@ -764,7 +848,7 @@ const SimplifiedMultiSectionCodeEditor = ({
                     </div>
                   ) : (
                     // Code Editor Mode
-                    <EnhancedCodeEditor
+                    <CodeMirrorWrapper
                       value={sectionCode}
                       onChange={handleEditorChange}
                       onSave={handleSaveSection}
@@ -862,15 +946,24 @@ const SimplifiedMultiSectionCodeEditor = ({
   );
 
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-screen w-full p-0 max-w-none">
-        <div className="h-full flex flex-col">
-          <div className="flex-1 overflow-hidden">
-            {isMobile ? <MobileContent /> : <DesktopContent />}
+    <>
+      <Sheet open={isOpen} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="h-screen w-full p-0 max-w-none">
+          <div className="h-full flex flex-col">
+            <div className="flex-1 overflow-hidden">
+              {isMobile ? <MobileContent /> : <DesktopContent />}
+            </div>
           </div>
-        </div>
-      </SheetContent>
-    </Sheet>
+        </SheetContent>
+      </Sheet>
+      
+      <CodeExamplesSheet
+        isOpen={showExamplesSheet}
+        onOpenChange={setShowExamplesSheet}
+        currentSectionCode={sectionCode}
+        onInsertCode={handleInsertCode}
+      />
+    </>
   );
 };
 
