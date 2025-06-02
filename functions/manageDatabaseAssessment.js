@@ -11,7 +11,7 @@
  * 
  * DATABASE SCHEMA:
  * ================
- * /courses/{courseId}/lessons/{lessonPath}/assessments/{assessmentId}
+ * /courses_secure/{courseId}/assessmentConfig/{lessonPath}/{assessmentId}
  * {
  *   id: string,
  *   title: string,
@@ -33,49 +33,142 @@
 
 const { onCall } = require('firebase-functions/v2/https');
 const { getDatabase } = require('firebase-admin/database');
-// Temporarily commented out imports that might be causing issues
-// const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('./shared/utilities/database-utils');
-// const { createAIMultipleChoice } = require('./shared/assessment-types/ai-multiple-choice');
-// const { createAILongAnswer } = require('./shared/assessment-types/ai-long-answer');
+const { createAIMultipleChoice } = require('./shared/assessment-types/ai-multiple-choice');
+const { createAILongAnswer } = require('./shared/assessment-types/ai-long-answer');
 
-// Temporarily commented out until imports are fixed
-/*
+/**
+ * Load assessment configuration from database
+ */
 async function getAssessmentConfig(courseId, lessonPath, assessmentId) {
-  // ... implementation
+  try {
+    const db = getDatabase();
+    const configRef = db.ref(`courses_secure/${courseId}/assessmentConfig/${lessonPath}/${assessmentId}`);
+    const snapshot = await configRef.once('value');
+    
+    if (!snapshot.exists()) {
+      throw new Error(`Assessment configuration not found: ${courseId}/${lessonPath}/${assessmentId}`);
+    }
+    
+    const config = snapshot.val();
+    console.log(`✅ Loaded assessment config for ${assessmentId}:`, {
+      type: config.type,
+      title: config.title,
+      status: config.status
+    });
+    
+    return config;
+  } catch (error) {
+    console.error(`❌ Error loading assessment config:`, error);
+    throw error;
+  }
 }
-*/
 
-// Temporarily commented out until imports are fixed
-/*
-async function handleAIMultipleChoice(config, data, context, operation) {
-  // ... implementation
+/**
+ * Handle AI Multiple Choice assessment operations using the shared module
+ */
+async function handleAIMultipleChoice(config, data, context) {
+  console.log('🔷 Handling AI Multiple Choice assessment using shared module');
+  
+  try {
+    // Create an assessment handler using the shared module with database configuration
+    console.log('📋 Configuration loaded from database:', {
+      type: config.configuration.type,
+      activityType: config.configuration.activityType,
+      hasPrompts: !!config.configuration.prompts,
+      hasFallbacks: !!config.configuration.fallbackQuestions
+    });
+    
+    const cloudFunction = createAIMultipleChoice(config.configuration);
+    
+    // Call the cloud function directly - Firebase v2 onCall functions can be called directly
+    // The function expects the same data structure as the original call
+    const result = await cloudFunction({ data: data }, context);
+    
+    console.log('✅ Assessment handled by shared module:', result?.success ? 'SUCCESS' : 'FAILED');
+    return result;
+    
+  } catch (error) {
+    console.error('❌ Error in handleAIMultipleChoice:', error);
+    throw error;
+  }
 }
 
-async function handleAILongAnswer(config, data, context, operation) {
-  // ... implementation  
+/**
+ * Handle AI Long Answer assessment operations using the shared module
+ */
+async function handleAILongAnswer(config, data, context) {
+  console.log('🔶 Handling AI Long Answer assessment using shared module');
+  
+  try {
+    // Create an assessment handler using the shared module with database configuration
+    console.log('📋 Configuration loaded from database:', {
+      type: config.configuration.type,
+      activityType: config.configuration.activityType,
+      hasPrompts: !!config.configuration.prompts,
+      hasRubrics: !!config.configuration.rubrics
+    });
+    
+    const cloudFunction = createAILongAnswer(config.configuration);
+    
+    // Call the cloud function directly 
+    const result = await cloudFunction({ data: data }, context);
+    
+    console.log('✅ Long Answer assessment handled by shared module:', result?.success ? 'SUCCESS' : 'FAILED');
+    return result;
+    
+  } catch (error) {
+    console.error('❌ Error in handleAILongAnswer:', error);
+    throw error;
+  }
 }
-*/
 
-// Temporarily commented out until imports are fixed
-/*
-function createGenericAssessmentHandler(operation) {
-  // ... implementation
-}
-*/
-
-// Simplified version to test basic functionality
-exports.generateDatabaseAssessment = onCall(async (request) => {
+/**
+ * Main database-driven assessment function
+ */
+exports.generateDatabaseAssessment = onCall({
+  region: 'us-central1',
+  timeoutSeconds: 120,
+  memory: '512MiB',
+  enforceAppCheck: false,
+}, async (request) => {
   try {
     const data = request.data;
-    console.log('🎯 generateDatabaseAssessment called with data:', data);
+    const context = request;
     
-    // Just return success for now to test CORS
-    return {
-      success: true,
-      message: 'generateDatabaseAssessment function works!',
-      operation: data.operation || 'generate',
-      receivedData: data
-    };
+    console.log('🎯 generateDatabaseAssessment called with data:', {
+      courseId: data.courseId,
+      lessonPath: data.lessonPath,
+      assessmentId: data.assessmentId,
+      operation: data.operation,
+      difficulty: data.difficulty
+    });
+    
+    // Validate required parameters
+    if (!data.courseId || !data.lessonPath || !data.assessmentId) {
+      throw new Error('courseId, lessonPath, and assessmentId are required');
+    }
+    
+    // Load assessment configuration from database
+    const assessmentConfig = await getAssessmentConfig(data.courseId, data.lessonPath, data.assessmentId);
+    
+    // Check if assessment is active
+    if (assessmentConfig.status !== 'active') {
+      throw new Error(`Assessment is not active (status: ${assessmentConfig.status})`);
+    }
+    
+    // Route to appropriate assessment handler based on type
+    switch (assessmentConfig.type) {
+      case 'ai-multiple-choice':
+        console.log('🎯 Routing to AI Multiple Choice handler');
+        return await handleAIMultipleChoice(assessmentConfig, data, context);
+        
+      case 'ai-long-answer':
+        console.log('🎯 Routing to AI Long Answer handler');
+        return await handleAILongAnswer(assessmentConfig, data, context);
+        
+      default:
+        throw new Error(`Unknown assessment type: ${assessmentConfig.type}`);
+    }
     
   } catch (error) {
     console.error('❌ Error in generateDatabaseAssessment:', error);
