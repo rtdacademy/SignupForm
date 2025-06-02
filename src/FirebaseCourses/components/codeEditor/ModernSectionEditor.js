@@ -10,10 +10,11 @@ import {
   SheetHeader, 
   SheetTitle 
 } from '../../../components/ui/sheet';
-import { Code, Eye, Save, Plus, RefreshCw } from 'lucide-react';
+import { Code, Eye, Save, Plus, RefreshCw, HelpCircle } from 'lucide-react';
 import EnhancedCodeEditor from './EnhancedCodeEditor';
 import UiGeneratedContent from '../content/UiGeneratedContent';
 import SectionManager from './SectionManager';
+import AssessmentConfigForm from './AssessmentConfigForm';
 
 const SimplifiedMultiSectionCodeEditor = ({
   courseProps = {},
@@ -39,6 +40,7 @@ const SimplifiedMultiSectionCodeEditor = ({
   // UI state
   const [isMobile, setIsMobile] = useState(false);
   const [mobileTab, setMobileTab] = useState('sections');
+  const [showAssessmentConfig, setShowAssessmentConfig] = useState(false);
 
   // Initialize cloud function
   const functions = getFunctions();
@@ -81,6 +83,16 @@ const SimplifiedMultiSectionCodeEditor = ({
         setSectionTitle(section.title || '');
         currentEditorContent.current = section.originalCode || '';
         lastLoadedSectionId.current = selectedSectionId;
+        
+        // Check if this is an assessment section to show config form
+        console.log('🔍 Section type check:', { 
+          sectionId: section.id,
+          sectionType: section.type, 
+          assessmentType: section.assessmentType,
+          shouldShowConfig: section.type === 'assessment' 
+        });
+        setShowAssessmentConfig(section.type === 'assessment');
+        
         console.log(`📝 Loaded section "${section.title}" for editing (section switch)`);
       }
     } else if (!selectedSectionId) {
@@ -88,6 +100,7 @@ const SimplifiedMultiSectionCodeEditor = ({
       setSectionTitle('');
       currentEditorContent.current = '';
       lastLoadedSectionId.current = null;
+      setShowAssessmentConfig(false);
     }
   }, [selectedSectionId, sections]);
 
@@ -249,6 +262,73 @@ const SimplifiedMultiSectionCodeEditor = ({
     setSectionOrder(newOrder);
   }, []);
 
+  // Handle assessment configuration save
+  const handleAssessmentConfigSave = useCallback(async (config) => {
+    if (!selectedSectionId || !currentLessonInfo?.contentPath) {
+      setError('No assessment selected or lesson path missing');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const section = sections.find(s => s.id === selectedSectionId);
+      if (!section || section.type !== 'assessment') {
+        throw new Error('Selected section is not an assessment');
+      }
+
+      console.log(`💾 Saving assessment configuration for "${section.title}"`);
+
+      // Call the database assessment config management function
+      const manageDatabaseAssessmentConfig = httpsCallable(functions, 'manageDatabaseAssessmentConfig');
+      
+      const functionParams = {
+        action: 'save',
+        courseId: courseId,
+        lessonPath: currentLessonInfo?.contentPath,
+        assessmentId: section.assessmentId,
+        configuration: {
+          title: section.title,
+          type: section.assessmentType,
+          ...config
+        }
+      };
+      
+      console.log('🔧 Function parameters:', functionParams);
+      
+      const result = await manageDatabaseAssessmentConfig(functionParams);
+
+      if (result.data.success) {
+        // Update the section with the new config
+        const updatedSections = sections.map(s => 
+          s.id === selectedSectionId 
+            ? { ...s, assessmentConfig: config }
+            : s
+        );
+        setSections(updatedSections);
+        
+        // Show success
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+        
+        console.log(`✅ Assessment configuration saved successfully`);
+      } else {
+        throw new Error(result.data.error || 'Failed to save assessment configuration');
+      }
+    } catch (err) {
+      console.error('❌ Error saving assessment configuration:', err);
+      setError(`Failed to save assessment configuration: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedSectionId, sections, currentLessonInfo, courseId, functions]);
+
+  // Handle assessment config cancel
+  const handleAssessmentConfigCancel = useCallback(() => {
+    setShowAssessmentConfig(false);
+  }, []);
+
   // Mobile Layout
   const MobileContent = () => (
     <div className="flex flex-col h-full">
@@ -269,7 +349,7 @@ const SimplifiedMultiSectionCodeEditor = ({
           disabled={!selectedSectionId}
         >
           <Code className="h-3 w-3 mr-1" />
-          Edit
+          {showAssessmentConfig ? 'Config' : 'Edit'}
         </Button>
         <Button
           variant={mobileTab === 'preview' ? 'default' : 'ghost'}
@@ -293,38 +373,65 @@ const SimplifiedMultiSectionCodeEditor = ({
             onSectionUpdate={handleSectionUpdate}
             onSectionDelete={handleSectionDelete}
             onSectionReorder={handleSectionReorder}
+            lessonPath={currentLessonInfo?.contentPath}
           />
         )}
         
         {mobileTab === 'editor' && selectedSectionId && (
           <div className="flex flex-col h-full">
-            <div className="p-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
-              <Input
-                value={sectionTitle}
-                onChange={(e) => setSectionTitle(e.target.value)}
-                placeholder="Section title..."
-                className="mb-2"
-              />
-              <Button
-                onClick={handleSaveSection}
-                disabled={loading}
-                size="sm"
-                className="w-full"
-              >
-                <Save className="h-3 w-3 mr-1" />
-                {loading ? 'Saving...' : 'Save'}
-              </Button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <EnhancedCodeEditor
-                value={sectionCode}
-                onChange={handleEditorChange}
-                onSave={handleSaveSection}
-                height="100%"
-                placeholder={`Write JSX for ${sectionTitle || 'this section'}...`}
-                editorKey={selectedSectionId}
-              />
-            </div>
+            {showAssessmentConfig ? (
+              // Assessment Configuration Mode
+              <div className="flex-1 overflow-auto p-4">
+                <AssessmentConfigForm
+                  assessmentType={sections.find(s => s.id === selectedSectionId)?.assessmentType}
+                  config={sections.find(s => s.id === selectedSectionId)?.assessmentConfig || {}}
+                  onChange={(config) => {
+                    // Update local state immediately for responsive UI
+                    const updatedSections = sections.map(s => 
+                      s.id === selectedSectionId 
+                        ? { ...s, assessmentConfig: config }
+                        : s
+                    );
+                    setSections(updatedSections);
+                  }}
+                  onSave={handleAssessmentConfigSave}
+                  onCancel={handleAssessmentConfigCancel}
+                  loading={loading}
+                  title={`Configure ${sectionTitle}`}
+                />
+              </div>
+            ) : (
+              // Code Editor Mode
+              <>
+                <div className="p-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+                  <Input
+                    value={sectionTitle}
+                    onChange={(e) => setSectionTitle(e.target.value)}
+                    placeholder="Section title..."
+                    className="mb-2"
+                  />
+                  <Button
+                    onClick={handleSaveSection}
+                    disabled={loading}
+                    size="sm"
+                    className="w-full"
+                  >
+                    <Save className="h-3 w-3 mr-1" />
+                    {loading ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <EnhancedCodeEditor
+                    value={sectionCode}
+                    onChange={handleEditorChange}
+                    onSave={handleSaveSection}
+                    height="100%"
+                    placeholder={`Write JSX for ${sectionTitle || 'this section'}...`}
+                    editorKey={selectedSectionId}
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
         
@@ -383,6 +490,7 @@ const SimplifiedMultiSectionCodeEditor = ({
               onSectionUpdate={handleSectionUpdate}
               onSectionDelete={handleSectionDelete}
               onSectionReorder={handleSectionReorder}
+              lessonPath={currentLessonInfo?.contentPath}
             />
           </ResizablePanel>
 
@@ -392,35 +500,70 @@ const SimplifiedMultiSectionCodeEditor = ({
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between p-2 border-b border-gray-200 bg-gray-50 flex-shrink-0">
                 <div className="flex items-center gap-2 flex-1">
-                  <Code className="h-4 w-4 text-gray-600" />
+                  {showAssessmentConfig ? (
+                    <HelpCircle className="h-4 w-4 text-blue-600" />
+                  ) : (
+                    <Code className="h-4 w-4 text-gray-600" />
+                  )}
                   <Input
                     value={sectionTitle}
                     onChange={(e) => setSectionTitle(e.target.value)}
                     placeholder="Section title..."
                     className="text-sm max-w-48"
-                    disabled={!selectedSectionId}
+                    disabled={!selectedSectionId || showAssessmentConfig}
                   />
+                  {showAssessmentConfig && (
+                    <Badge variant="secondary" className="text-xs">
+                      Assessment Config
+                    </Badge>
+                  )}
                 </div>
-                <Button
-                  onClick={handleSaveSection}
-                  disabled={loading || !selectedSectionId}
-                  size="sm"
-                >
-                  <Save className="h-3 w-3 mr-1" />
-                  {loading ? 'Saving...' : 'Save'}
-                </Button>
+                {!showAssessmentConfig && (
+                  <Button
+                    onClick={handleSaveSection}
+                    disabled={loading || !selectedSectionId}
+                    size="sm"
+                  >
+                    <Save className="h-3 w-3 mr-1" />
+                    {loading ? 'Saving...' : 'Save'}
+                  </Button>
+                )}
               </div>
               
               <div className="flex-1 overflow-hidden">
                 {selectedSectionId ? (
-                  <EnhancedCodeEditor
-                    value={sectionCode}
-                    onChange={handleEditorChange}
-                    onSave={handleSaveSection}
-                    height="100%"
-                    placeholder={`Write JSX for ${sectionTitle || 'this section'}...`}
-                    editorKey={selectedSectionId}
-                  />
+                  showAssessmentConfig ? (
+                    // Assessment Configuration Mode
+                    <div className="h-full overflow-auto p-4">
+                      <AssessmentConfigForm
+                        assessmentType={sections.find(s => s.id === selectedSectionId)?.assessmentType}
+                        config={sections.find(s => s.id === selectedSectionId)?.assessmentConfig || {}}
+                        onChange={(config) => {
+                          // Update local state immediately for responsive UI
+                          const updatedSections = sections.map(s => 
+                            s.id === selectedSectionId 
+                              ? { ...s, assessmentConfig: config }
+                              : s
+                          );
+                          setSections(updatedSections);
+                        }}
+                        onSave={handleAssessmentConfigSave}
+                        onCancel={handleAssessmentConfigCancel}
+                        loading={loading}
+                        title={`Configure ${sectionTitle}`}
+                      />
+                    </div>
+                  ) : (
+                    // Code Editor Mode
+                    <EnhancedCodeEditor
+                      value={sectionCode}
+                      onChange={handleEditorChange}
+                      onSave={handleSaveSection}
+                      height="100%"
+                      placeholder={`Write JSX for ${sectionTitle || 'this section'}...`}
+                      editorKey={selectedSectionId}
+                    />
+                  )
                 ) : (
                   <div className="flex items-center justify-center h-full text-gray-500">
                     <div className="text-center">

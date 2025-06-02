@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { getDatabase, ref, get } from 'firebase/database';
+import React, { useState, useEffect, useRef } from 'react';
+import { getDatabase, ref, get, onValue, off } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Import all the components that teachers might need
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
 import AIMultipleChoiceQuestion from '../assessments/AIMultipleChoiceQuestion';
+import AILongAnswerQuestion from '../assessments/AILongAnswerQuestion';
 
 /**
  * Generic UiGeneratedContent component for displaying dynamically generated course content
@@ -17,6 +18,8 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [codeData, setCodeData] = useState(null);
+  const [pendingSections, setPendingSections] = useState(new Set()); // Track sections waiting for auto-transform
+  const listenerRef = useRef(null); // Track the database listener for cleanup
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Function to create a wrapper component that renders all sections individually
@@ -43,11 +46,59 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
             try {
               console.log(`📝 Processing section ${i + 1}/${orderedSections.length}: "${section.title}"`);
               
-              // Use transformed code if available, fallback to original
-              const sectionCode = section.code || section.originalCode || '';
+              // Debug: Log what code is available
+              console.log(`🔍 Section "${section.title}" code availability:`, {
+                hasCode: !!section.code,
+                codeLength: section.code?.length || 0,
+                hasOriginalCode: !!section.originalCode,
+                originalCodeLength: section.originalCode?.length || 0,
+                sectionType: section.type,
+                autoTransformed: section.autoTransformed
+              });
+              
+              // Check if section is pending auto-transform
+              const isPending = section.originalCode && (!section.code || !section.code.trim());
+              
+              if (isPending) {
+                console.log(`⏳ Section "${section.title}" is pending auto-transform, showing loading state`);
+                // Create a pending/loading component
+                const PendingComponent = ({ course, courseId, isStaffView, devMode }) => 
+                  React.createElement('div', { className: 'section-container mb-6' },
+                    React.createElement(Card, { className: 'mb-6 border-blue-200' },
+                      React.createElement(CardHeader, null,
+                        React.createElement(CardTitle, { className: 'flex items-center' },
+                          React.createElement('div', { className: 'animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent mr-2' }),
+                          section.title
+                        )
+                      ),
+                      React.createElement(CardContent, null,
+                        React.createElement('p', { className: 'text-blue-600 italic' }, 
+                          'Processing section content...'
+                        ),
+                        isStaffView && React.createElement('p', { className: 'text-xs text-gray-500 mt-2' }, 
+                          'Auto-transform is converting JSX to React elements'
+                        )
+                      )
+                    )
+                  );
+                
+                loadedComponents.push({
+                  id: section.id,
+                  title: section.title,
+                  component: PendingComponent,
+                  order: i,
+                  pending: true
+                });
+                continue;
+              }
+              
+              // Use transformed code if available, fallback to original (but avoid JSX)
+              const sectionCode = (section.code && section.code.trim()) ? section.code : '';
+              
+              console.log(`✅ Using ${section.code && section.code.trim() ? 'transformed' : 'fallback'} code for "${section.title}" (${sectionCode.length} chars)`);
               
               if (!sectionCode.trim()) {
-                console.warn(`⚠️ Section "${section.title}" has no code, creating placeholder`);
+                console.warn(`⚠️ Section "${section.title}" has no usable code, creating placeholder`);
                 // Create a placeholder component
                 const PlaceholderComponent = ({ course, courseId, isStaffView, devMode }) => 
                   React.createElement('div', { className: 'section-container mb-6' },
@@ -174,11 +225,18 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
   };
 
   useEffect(() => {
-    const loadDynamicComponent = async () => {
+    // Clean up any existing listener
+    if (listenerRef.current) {
+      off(listenerRef.current);
+      listenerRef.current = null;
+    }
+
+    const setupRealtimeListener = () => {
       try {
         setLoading(true);
+        setError(null);
         
-        // Load metadata from database
+        // Load metadata from database with real-time listener
         const db = getDatabase();
         const lessonPath = itemConfig?.contentPath;
         
@@ -187,103 +245,149 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
         }
         
         const metadataRef = ref(db, `courseDevelopment/${courseId}/${lessonPath}`);
-        const snapshot = await get(metadataRef);
         
-        if (!snapshot.exists()) {
-          throw new Error('No UI-generated content found in database');
-        }
+        // Set up real-time listener
+        listenerRef.current = metadataRef;
         
-        const data = snapshot.val();
-        setCodeData(data);
-        
-        if (!data.enabled) {
-          throw new Error('UI-generated content is disabled');
-        }
-        
-        // Handle multi-section structure - use direct section rendering instead of combined code
-        if (data.sections && Object.keys(data.sections).length > 0) {
-          console.log('🔄 Loading multi-section lesson with direct section rendering');
-          console.log(`📊 Found ${Object.keys(data.sections).length} sections`);
-          
-          // Create a wrapper component that renders all sections
-          const MultiSectionWrapper = createMultiSectionWrapper(data, itemConfig);
-          setDynamicComponent(() => MultiSectionWrapper);
-          return; // Skip the single component creation
-        }
-        
-        // Handle single component or legacy structure
-        let reactCode;
-        if (data.mainComponent?.code) {
-          console.log('Loading single combined component');
-          reactCode = data.mainComponent.code;
-        } else if (data.code) {
-          console.log('Loading transformed code from database structure');
-          reactCode = data.code;
-        } else if (data.currentFile) {
-          // Fallback to old system if needed
-          console.log('Loading code via function:', data.currentFile);
-          const functions = getFunctions();
-          const loadCourseCode = httpsCallable(functions, 'loadCourseCode');
-          
+        const unsubscribe = onValue(metadataRef, async (snapshot) => {
           try {
-            const result = await loadCourseCode({
-              courseId: courseId,
-              lessonPath: lessonPath,
-              fileName: data.currentFile
-            });
-            
-            if (result.data.success) {
-              reactCode = result.data.code;
-            } else {
-              throw new Error('Function returned error');
+            if (!snapshot.exists()) {
+              throw new Error('No UI-generated content found in database');
             }
-          } catch (functionError) {
-            console.error('Error loading from function:', functionError);
-            throw new Error('Failed to load code via function');
-          }
-        } else {
-          // Fallback for old format (if reactCode is still stored in database)
-          reactCode = data.reactCode;
-          if (!reactCode) {
-            throw new Error('No code found in storage or database');
-          }
-        }
-        
-        // Check if code contains JSX and transform if needed
-        const containsJSX = reactCode.includes('<') && reactCode.includes('>') && !reactCode.includes('React.createElement');
-        if (containsJSX) {
-          console.warn('⚠️ JSX detected in code, attempting transformation...');
-          try {
-            const functions = getFunctions();
-            const transformJSX = httpsCallable(functions, 'transformJSXCode');
-            const result = await transformJSX({ jsxCode: reactCode });
             
-            if (result.data.success) {
-              console.log('✅ Fallback JSX transformation successful');
-              reactCode = result.data.transformedCode;
-            } else {
-              console.error('❌ Fallback JSX transformation failed:', result.data.error);
-              throw new Error(`JSX transformation failed: ${result.data.error}`);
+            const data = snapshot.val();
+            setCodeData(data);
+            
+            if (!data.enabled) {
+              throw new Error('UI-generated content is disabled');
             }
-          } catch (transformError) {
-            console.error('❌ Fallback transformation error:', transformError);
-            throw new Error(`Failed to transform JSX in UiGeneratedContent: ${transformError.message}`);
+            
+            console.log('📡 Real-time update received for lesson:', lessonPath);
+            
+            // Handle multi-section structure - use direct section rendering instead of combined code
+            if (data.sections && Object.keys(data.sections).length > 0) {
+              console.log('🔄 Loading multi-section lesson with direct section rendering');
+              console.log(`📊 Found ${Object.keys(data.sections).length} sections`);
+              
+              // Track which sections are still pending auto-transform
+              const sectionsArray = Object.values(data.sections);
+              const pendingSectionIds = new Set();
+              
+              sectionsArray.forEach(section => {
+                // Section is pending if it has originalCode but no transformed code
+                if (section.originalCode && (!section.code || !section.code.trim())) {
+                  pendingSectionIds.add(section.id);
+                  console.log(`⏳ Section "${section.title}" is pending auto-transform`);
+                } else if (section.code && section.code.trim()) {
+                  console.log(`✅ Section "${section.title}" has transformed code`);
+                }
+              });
+              
+              setPendingSections(pendingSectionIds);
+              
+              // Create a wrapper component that renders all sections
+              const MultiSectionWrapper = createMultiSectionWrapper(data, itemConfig);
+              setDynamicComponent(() => MultiSectionWrapper);
+              setLoading(false);
+              return; // Skip the single component creation
+            }
+            
+            // Handle single component or legacy structure
+            let reactCode;
+            if (data.mainComponent?.code) {
+              console.log('Loading single combined component');
+              reactCode = data.mainComponent.code;
+            } else if (data.code) {
+              console.log('Loading transformed code from database structure');
+              reactCode = data.code;
+            } else if (data.currentFile) {
+              // Fallback to old system if needed
+              console.log('Loading code via function:', data.currentFile);
+              const functions = getFunctions();
+              const loadCourseCode = httpsCallable(functions, 'loadCourseCode');
+              
+              try {
+                const result = await loadCourseCode({
+                  courseId: courseId,
+                  lessonPath: lessonPath,
+                  fileName: data.currentFile
+                });
+                
+                if (result.data.success) {
+                  reactCode = result.data.code;
+                } else {
+                  throw new Error('Function returned error');
+                }
+              } catch (functionError) {
+                console.error('Error loading from function:', functionError);
+                throw new Error('Failed to load code via function');
+              }
+            } else {
+              // Fallback for old format (if reactCode is still stored in database)
+              reactCode = data.reactCode;
+              if (!reactCode) {
+                throw new Error('No code found in storage or database');
+              }
+            }
+            
+            // Check if code contains JSX and transform if needed
+            const containsJSX = reactCode.includes('<') && reactCode.includes('>') && !reactCode.includes('React.createElement');
+            if (containsJSX) {
+              console.warn('⚠️ JSX detected in code, attempting transformation...');
+              try {
+                const functions = getFunctions();
+                const transformJSX = httpsCallable(functions, 'transformJSXCode');
+                const result = await transformJSX({ jsxCode: reactCode });
+                
+                if (result.data.success) {
+                  console.log('✅ Fallback JSX transformation successful');
+                  reactCode = result.data.transformedCode;
+                } else {
+                  console.error('❌ Fallback JSX transformation failed:', result.data.error);
+                  throw new Error(`JSX transformation failed: ${result.data.error}`);
+                }
+              } catch (transformError) {
+                console.error('❌ Fallback transformation error:', transformError);
+                throw new Error(`Failed to transform JSX in UiGeneratedContent: ${transformError.message}`);
+              }
+            }
+            
+            // Create the dynamic component
+            const component = await createDynamicComponent(reactCode);
+            setDynamicComponent(() => component);
+            setLoading(false);
+            
+          } catch (err) {
+            console.error('Error loading dynamic component:', err);
+            setError(err.message);
+            setLoading(false);
           }
-        }
+        }, (error) => {
+          console.error('Firebase listener error:', error);
+          setError(`Database connection error: ${error.message}`);
+          setLoading(false);
+        });
         
-        // Create the dynamic component
-        const component = await createDynamicComponent(reactCode);
-        setDynamicComponent(() => component);
+        // Store unsubscribe function for cleanup
+        listenerRef.current = unsubscribe;
         
       } catch (err) {
-        console.error('Error loading dynamic component:', err);
+        console.error('Error setting up real-time listener:', err);
         setError(err.message);
-      } finally {
         setLoading(false);
       }
     };
 
-    loadDynamicComponent();
+    setupRealtimeListener();
+    
+    // Cleanup function
+    return () => {
+      if (listenerRef.current && typeof listenerRef.current === 'function') {
+        console.log('🧹 Cleaning up Firebase real-time listener');
+        listenerRef.current(); // Call unsubscribe function
+        listenerRef.current = null;
+      }
+    };
   }, [courseId, itemConfig, refreshKey]);
 
   // Function to safely create a React component from code string
@@ -322,7 +426,7 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
       try {
         // Use eval instead of Function constructor for better error messages
         const componentCode = `
-          (function(React, useState, useEffect, Card, CardContent, CardHeader, CardTitle, Alert, AlertDescription, Badge, AIMultipleChoiceQuestion) {
+          (function(React, useState, useEffect, Card, CardContent, CardHeader, CardTitle, Alert, AlertDescription, Badge, AIMultipleChoiceQuestion, AILongAnswerQuestion) {
             ${processedCode}
             return ${componentName};
           })
@@ -342,7 +446,8 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
           Alert,
           AlertDescription,
           Badge,
-          AIMultipleChoiceQuestion
+          AIMultipleChoiceQuestion,
+          AILongAnswerQuestion
         );
       } catch (evalError) {
         console.error('Component creation failed:', evalError);

@@ -226,35 +226,14 @@ exports.manageCourseSection = onCall(async (request) => {
         const snapshot = await lessonRef.get();
         const currentData = snapshot.exists() ? snapshot.val() : {};
         
-        // Transform JSX if needed
-        let transformedCode = sectionData.originalCode;
-        const containsJSX = sectionData.originalCode?.includes('<') && sectionData.originalCode?.includes('>');
+        // Note: JSX transformation is now handled automatically by database trigger
+        // when originalCode is updated. No manual transformation needed here.
         
-        if (containsJSX && Babel) {
-          logger.info('Transforming JSX for section:', sectionData.title);
-          try {
-            const result = Babel.transform(sectionData.originalCode, {
-              presets: [
-                ['react', { 
-                  runtime: 'classic',
-                  pragma: 'React.createElement'
-                }]
-              ]
-            });
-            transformedCode = result.code;
-            logger.info('JSX transformation successful');
-          } catch (transformError) {
-            logger.error('JSX transformation failed:', transformError);
-            throw new Error(`JSX transformation failed: ${transformError.message}`);
-          }
-        }
-
         // Update section data
         const updatedSection = {
           id: sectionId,
           title: sectionData.title,
           originalCode: sectionData.originalCode,
-          code: transformedCode,
           lastModified: new Date().toISOString(),
           modifiedBy: userEmail || 'unknown'
         };
@@ -274,11 +253,12 @@ exports.manageCourseSection = onCall(async (request) => {
           sectionOrder.push(sectionId);
         }
 
-        // Generate combined component
-        const combinedCode = combineSections(sections, sectionOrder, lessonTitle);
+        // Note: Combined code generation is now handled automatically by database trigger
+        // when sections/originalCode is updated. No manual generation needed here.
 
-        // Save to database atomically
+        // Save lesson data - the database trigger will handle combined code generation
         const lessonData = {
+          ...currentData, // Preserve existing data
           lessonTitle: lessonTitle,
           lastModified: new Date().toISOString(),
           modifiedBy: userEmail || 'unknown',
@@ -288,26 +268,17 @@ exports.manageCourseSection = onCall(async (request) => {
             acc[section.id] = section;
             return acc;
           }, {}),
-          sectionOrder,
-          
-          mainComponent: {
-            code: combinedCode,
-            lastGenerated: new Date().toISOString()
-          },
-          
-          code: combinedCode,
-          originalCode: combinedCode
+          sectionOrder
         };
 
         await lessonRef.set(lessonData);
 
-        logger.info(`Section "${sectionData.title}" saved successfully`);
+        logger.info(`Section "${sectionData.title}" saved successfully - auto-transform will handle JSX and combined code`);
 
         return {
           success: true,
           sections,
           sectionOrder,
-          combinedCode,
           updatedSection,
           message: `Section "${sectionData.title}" saved successfully`
         };
@@ -320,8 +291,8 @@ exports.manageCourseSection = onCall(async (request) => {
 
         const newSectionId = `section_${Date.now()}`;
         const newSection = {
+          ...sectionData, // Copy all fields from sectionData
           id: newSectionId,
-          title: sectionData.title,
           originalCode: sectionData.originalCode || `// ${sectionData.title} Section\nconst ${toComponentName(sectionData.title)} = ({ course, courseId, isStaffView, devMode }) => {\n  return (\n    <div className="section-container mb-6">\n      <Card className="mb-6">\n        <CardHeader>\n          <CardTitle>${sectionData.title}</CardTitle>\n        </CardHeader>\n        <CardContent>\n          <p>Add your content here...</p>\n        </CardContent>\n      </Card>\n    </div>\n  );\n};\n\nexport default ${toComponentName(sectionData.title)};`,
           code: '',
           createdAt: new Date().toISOString(),
@@ -337,22 +308,18 @@ exports.manageCourseSection = onCall(async (request) => {
         const sectionOrder = currentData.sectionOrder || [];
         sectionOrder.push(newSectionId);
 
-        // Generate combined component
-        const combinedCode = combineSections(sections, sectionOrder, lessonTitle);
+        // Note: Combined code generation is now handled automatically by database trigger
+        // when sections/originalCode is updated. No manual generation needed here.
 
-        // Save to database
+        // Save to database - the database trigger will handle combined code generation
         const lessonData = {
           ...currentData,
+          enabled: true, // Enable UI-generated content
           sections: sections.reduce((acc, section) => {
             acc[section.id] = section;
             return acc;
           }, {}),
           sectionOrder,
-          mainComponent: {
-            code: combinedCode,
-            lastGenerated: new Date().toISOString()
-          },
-          code: combinedCode,
           lastModified: new Date().toISOString(),
           modifiedBy: userEmail || 'unknown'
         };
@@ -363,7 +330,6 @@ exports.manageCourseSection = onCall(async (request) => {
           success: true,
           sections,
           sectionOrder,
-          combinedCode,
           newSection,
           message: `Section "${sectionData.title}" created successfully`
         };

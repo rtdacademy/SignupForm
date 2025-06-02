@@ -139,6 +139,17 @@ exports.transformJSXCode = require('./jsxTransformer').transformJSXCode;
 exports.manageCourseSection = require('./manageCourseSection').manageCourseSection;
 exports.debugLesson = require('./debugLesson').debugLesson;
 
+// Auto-transform functions
+exports.autoTransformSectionCode = require('./autoTransformSections').autoTransformSectionCode;
+
+// Database-driven assessment functions
+exports.generateDatabaseAssessment = require('./manageDatabaseAssessment').generateDatabaseAssessment;
+exports.manageDatabaseAssessmentConfig = require('./manageDatabaseAssessment').manageDatabaseAssessmentConfig;
+
+// Test function to verify CORS
+exports.testDatabaseAssessment = require('./testDatabaseAssessment').testDatabaseAssessment;
+exports.generateDatabaseAssessmentSimple = require('./generateDatabaseAssessmentSimple').generateDatabaseAssessmentSimple;
+
 // Parent Portal functions
 exports.sendParentInvitation = parentPortalFunctions.sendParentInvitation;
 exports.sendParentInvitationOnCreate = parentPortalFunctions.sendParentInvitationOnCreate;
