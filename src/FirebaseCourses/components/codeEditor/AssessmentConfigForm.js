@@ -19,7 +19,6 @@ import { Trash2, Plus, AlertCircle, Save } from 'lucide-react';
 const AssessmentConfigForm = ({
   assessmentType,
   config = {},
-  onChange,
   onSave,
   onCancel,
   loading = false,
@@ -51,7 +50,7 @@ const AssessmentConfigForm = ({
     current[keys[keys.length - 1]] = value;
     
     setLocalConfig(newConfig);
-    onChange?.(newConfig);
+    // Only update parent on save, not on every keystroke
   };
 
   // Validate configuration

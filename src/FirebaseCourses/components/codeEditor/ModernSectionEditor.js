@@ -10,7 +10,7 @@ import {
   SheetHeader, 
   SheetTitle 
 } from '../../../components/ui/sheet';
-import { Code, Eye, Save, Plus, RefreshCw, HelpCircle } from 'lucide-react';
+import { Code, Eye, Save, Plus, RefreshCw, HelpCircle, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import EnhancedCodeEditor from './EnhancedCodeEditor';
 import UiGeneratedContent from '../content/UiGeneratedContent';
 import SectionManager from './SectionManager';
@@ -41,11 +41,15 @@ const SimplifiedMultiSectionCodeEditor = ({
   const [isMobile, setIsMobile] = useState(false);
   const [mobileTab, setMobileTab] = useState('sections');
   const [showAssessmentConfig, setShowAssessmentConfig] = useState(false);
+  const [sectionsCollapsed, setSectionsCollapsed] = useState(false);
+  const [missingConfigs, setMissingConfigs] = useState([]);
+  const [configCheckLoading, setConfigCheckLoading] = useState(false);
 
   // Initialize cloud function
   const functions = getFunctions();
   const manageCourseSection = httpsCallable(functions, 'manageCourseSection');
   const debugLesson = httpsCallable(functions, 'debugLesson');
+  const manageDatabaseAssessmentConfig = httpsCallable(functions, 'manageDatabaseAssessmentConfig');
 
   // Load lesson data when opened
   useEffect(() => {
@@ -62,11 +66,23 @@ const SimplifiedMultiSectionCodeEditor = ({
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Removed click outside to collapse - users must use buttons
+
+  // Check assessment configurations whenever sections change
+  useEffect(() => {
+    if (sections.length > 0 && courseId && currentLessonInfo?.contentPath) {
+      checkAssessmentConfigurations();
+    }
+  }, [sections, courseId, currentLessonInfo?.contentPath]);
+
   // Track last loaded section to prevent unnecessary reloads
   const lastLoadedSectionId = useRef(null);
   
   // Ref to store the latest content from editor
   const currentEditorContent = useRef('');
+  
+  // Ref for the sections panel to detect outside clicks
+  const sectionsPanelRef = useRef(null);
   
   // Handler to capture editor content changes (but not update state)
   const handleEditorChange = useCallback((newContent) => {
@@ -147,6 +163,72 @@ const SimplifiedMultiSectionCodeEditor = ({
       setError(`Failed to load lesson: ${err.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkAssessmentConfigurations = async () => {
+    try {
+      setConfigCheckLoading(true);
+      const assessmentSections = sections.filter(section => section.type === 'assessment');
+      
+      if (assessmentSections.length === 0) {
+        setMissingConfigs([]);
+        return;
+      }
+
+      console.log(`🔍 Checking configurations for ${assessmentSections.length} assessment sections...`);
+
+      const missing = [];
+      
+      for (const section of assessmentSections) {
+        if (!section.assessmentId) {
+          missing.push({
+            sectionId: section.id,
+            sectionTitle: section.title,
+            reason: 'Missing assessment ID'
+          });
+          continue;
+        }
+
+        try {
+          const result = await manageDatabaseAssessmentConfig({
+            action: 'load',
+            courseId: courseId,
+            lessonPath: currentLessonInfo?.contentPath,
+            assessmentId: section.assessmentId
+          });
+
+          if (!result.data.success || !result.data.configuration) {
+            missing.push({
+              sectionId: section.id,
+              sectionTitle: section.title,
+              assessmentId: section.assessmentId,
+              reason: 'Database configuration not found'
+            });
+          }
+        } catch (error) {
+          console.warn(`Config check failed for ${section.title}:`, error);
+          missing.push({
+            sectionId: section.id,
+            sectionTitle: section.title,
+            assessmentId: section.assessmentId,
+            reason: 'Failed to check configuration'
+          });
+        }
+      }
+
+      setMissingConfigs(missing);
+      
+      if (missing.length > 0) {
+        console.log(`⚠️ Found ${missing.length} assessment sections with missing configurations:`, missing);
+      } else {
+        console.log(`✅ All assessment configurations are complete`);
+      }
+    } catch (error) {
+      console.error('❌ Error checking assessment configurations:', error);
+      setError(`Failed to check assessment configurations: ${error.message}`);
+    } finally {
+      setConfigCheckLoading(false);
     }
   };
 
@@ -258,9 +340,47 @@ const SimplifiedMultiSectionCodeEditor = ({
     }
   }, [selectedSectionId, sections]);
 
-  const handleSectionReorder = useCallback((newOrder) => {
-    setSectionOrder(newOrder);
-  }, []);
+  const handleSectionReorder = useCallback(async (newOrder) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log(`🔄 Reordering sections: [${newOrder.join(', ')}]`);
+
+      // Update local state immediately for responsive UI
+      setSectionOrder(newOrder);
+
+      // Persist to database
+      const result = await manageCourseSection({
+        action: 'reorderSections',
+        courseId,
+        lessonPath: currentLessonInfo.contentPath,
+        newSectionOrder: newOrder,
+        userEmail: currentUser?.email
+      });
+
+      if (result.data.success) {
+        // Update with server response to ensure consistency
+        setSections(result.data.sections);
+        setSectionOrder(result.data.sectionOrder);
+        
+        // Refresh preview to show new order
+        setRefreshKey(prev => prev + 1);
+        
+        console.log(`✅ ${result.data.message}`);
+      } else {
+        throw new Error(result.data.error || 'Failed to reorder sections');
+      }
+    } catch (err) {
+      console.error('❌ Error reordering sections:', err);
+      setError(`Failed to reorder sections: ${err.message}`);
+      
+      // Revert to previous order on error
+      loadLessonData();
+    } finally {
+      setLoading(false);
+    }
+  }, [currentLessonInfo, courseId, currentUser, manageCourseSection, loadLessonData]);
 
   // Handle assessment configuration save
   const handleAssessmentConfigSave = useCallback(async (config) => {
@@ -312,6 +432,9 @@ const SimplifiedMultiSectionCodeEditor = ({
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
         
+        // Recheck configurations after successful save
+        await checkAssessmentConfigurations();
+        
         console.log(`✅ Assessment configuration saved successfully`);
       } else {
         throw new Error(result.data.error || 'Failed to save assessment configuration');
@@ -328,6 +451,58 @@ const SimplifiedMultiSectionCodeEditor = ({
   const handleAssessmentConfigCancel = useCallback(() => {
     setShowAssessmentConfig(false);
   }, []);
+
+  // Component to show missing assessment configurations
+  const MissingConfigsWarning = () => (
+    <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+      <div className="max-w-md">
+        <div className="mb-4">
+          <HelpCircle className="h-16 w-16 mx-auto text-orange-500" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          Assessment Configurations Required
+        </h3>
+        <p className="text-gray-600 mb-4">
+          Before the live preview can be displayed, all assessment sections need their database configurations completed.
+        </p>
+        
+        {configCheckLoading ? (
+          <div className="mb-4">
+            <RefreshCw className="h-5 w-5 animate-spin mx-auto text-blue-500" />
+            <p className="text-sm text-gray-500 mt-2">Checking configurations...</p>
+          </div>
+        ) : (
+          <div className="mb-4">
+            <p className="text-sm font-medium text-orange-600 mb-2">
+              Missing configurations for {missingConfigs.length} section{missingConfigs.length !== 1 ? 's' : ''}:
+            </p>
+            <ul className="text-sm text-gray-700 space-y-1">
+              {missingConfigs.map((config, index) => (
+                <li key={index} className="flex items-center justify-between p-2 bg-orange-50 rounded">
+                  <span className="font-medium">{config.sectionTitle}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedSectionId(config.sectionId);
+                      setShowAssessmentConfig(true);
+                    }}
+                    className="ml-2"
+                  >
+                    Configure
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        
+        <p className="text-xs text-gray-500">
+          Select an assessment section and use the configuration form to complete the setup.
+        </p>
+      </div>
+    </div>
+  );
 
   // Mobile Layout
   const MobileContent = () => (
@@ -385,15 +560,6 @@ const SimplifiedMultiSectionCodeEditor = ({
                 <AssessmentConfigForm
                   assessmentType={sections.find(s => s.id === selectedSectionId)?.assessmentType}
                   config={sections.find(s => s.id === selectedSectionId)?.assessmentConfig || {}}
-                  onChange={(config) => {
-                    // Update local state immediately for responsive UI
-                    const updatedSections = sections.map(s => 
-                      s.id === selectedSectionId 
-                        ? { ...s, assessmentConfig: config }
-                        : s
-                    );
-                    setSections(updatedSections);
-                  }}
                   onSave={handleAssessmentConfigSave}
                   onCancel={handleAssessmentConfigCancel}
                   loading={loading}
@@ -437,23 +603,41 @@ const SimplifiedMultiSectionCodeEditor = ({
         
         {mobileTab === 'preview' && (
           <div className="flex flex-col h-full">
-            <div className="p-2 border-b border-gray-200 bg-gray-50 flex items-center justify-between flex-shrink-0">
-              <span className="text-sm font-medium">Combined Preview</span>
-              <Button size="sm" variant="outline" onClick={() => setRefreshKey(prev => prev + 1)}>
+            <div className={`p-2 border-b border-gray-200 flex items-center justify-between flex-shrink-0 ${missingConfigs.length > 0 ? 'bg-orange-50' : 'bg-gray-50'}`}>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Combined Preview</span>
+                {missingConfigs.length > 0 && (
+                  <Badge variant="destructive" className="text-xs">
+                    {missingConfigs.length} config{missingConfigs.length !== 1 ? 's' : ''} missing
+                  </Badge>
+                )}
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => {
+                  setRefreshKey(prev => prev + 1);
+                  checkAssessmentConfigurations();
+                }}
+              >
                 <RefreshCw className="h-3 w-3 mr-1" />
                 Refresh
               </Button>
             </div>
             <div className="flex-1 overflow-auto p-4 bg-white">
-              <UiGeneratedContent
-                key={refreshKey}
-                course={courseProps.course}
-                courseId={courseProps?.courseId}
-                courseDisplay={courseProps.courseDisplay}
-                itemConfig={currentLessonInfo}
-                isStaffView={courseProps.isStaffView}
-                devMode={courseProps.devMode}
-              />
+              {missingConfigs.length > 0 ? (
+                <MissingConfigsWarning />
+              ) : (
+                <UiGeneratedContent
+                  key={refreshKey}
+                  course={courseProps.course}
+                  courseId={courseProps?.courseId}
+                  courseDisplay={courseProps.courseDisplay}
+                  itemConfig={currentLessonInfo}
+                  isStaffView={courseProps.isStaffView}
+                  devMode={courseProps.devMode}
+                />
+              )}
             </div>
           </div>
         )}
@@ -480,26 +664,60 @@ const SimplifiedMultiSectionCodeEditor = ({
 
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="h-full">
-          <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
-            <SectionManager
-              sections={sections}
-              sectionOrder={sectionOrder}
-              selectedSectionId={selectedSectionId}
-              onSectionSelect={setSelectedSectionId}
-              onSectionCreate={handleSectionCreate}
-              onSectionUpdate={handleSectionUpdate}
-              onSectionDelete={handleSectionDelete}
-              onSectionReorder={handleSectionReorder}
-              lessonPath={currentLessonInfo?.contentPath}
-            />
-          </ResizablePanel>
+          {!sectionsCollapsed && (
+            <>
+              <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
+                <div ref={sectionsPanelRef}>
+                  <SectionManager
+                    sections={sections}
+                    sectionOrder={sectionOrder}
+                    selectedSectionId={selectedSectionId}
+                    onSectionSelect={setSelectedSectionId}
+                    onSectionCreate={handleSectionCreate}
+                    onSectionUpdate={handleSectionUpdate}
+                    onSectionDelete={handleSectionDelete}
+                    onSectionReorder={handleSectionReorder}
+                    lessonPath={currentLessonInfo?.contentPath}
+                  />
+                </div>
+              </ResizablePanel>
 
-          <ResizableHandle withHandle />
+              <ResizableHandle withHandle />
+            </>
+          )}
 
-          <ResizablePanel defaultSize={40} minSize={30}>
+          {/* Expand Button - when collapsed */}
+          {sectionsCollapsed && (
+            <div className="relative">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setSectionsCollapsed(false)}
+                className="absolute left-3 top-3 z-10 shadow-lg border-2 border-blue-200 bg-blue-600 hover:bg-blue-700"
+                title="Show sections panel"
+              >
+                <PanelLeftOpen className="h-4 w-4 mr-2" />
+                Show Sections
+              </Button>
+            </div>
+          )}
+
+          <ResizablePanel defaultSize={sectionsCollapsed ? 65 : 40} minSize={30}>
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between p-2 border-b border-gray-200 bg-gray-50 flex-shrink-0">
                 <div className="flex items-center gap-2 flex-1">
+                  {!sectionsCollapsed && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSectionsCollapsed(true)}
+                      className="h-8 px-3 border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700"
+                      title="Hide sections panel"
+                    >
+                      <PanelLeftClose className="h-4 w-4 mr-1" />
+                      Hide
+                    </Button>
+                  )}
                   {showAssessmentConfig ? (
                     <HelpCircle className="h-4 w-4 text-blue-600" />
                   ) : (
@@ -538,15 +756,6 @@ const SimplifiedMultiSectionCodeEditor = ({
                       <AssessmentConfigForm
                         assessmentType={sections.find(s => s.id === selectedSectionId)?.assessmentType}
                         config={sections.find(s => s.id === selectedSectionId)?.assessmentConfig || {}}
-                        onChange={(config) => {
-                          // Update local state immediately for responsive UI
-                          const updatedSections = sections.map(s => 
-                            s.id === selectedSectionId 
-                              ? { ...s, assessmentConfig: config }
-                              : s
-                          );
-                          setSections(updatedSections);
-                        }}
                         onSave={handleAssessmentConfigSave}
                         onCancel={handleAssessmentConfigCancel}
                         loading={loading}
@@ -579,17 +788,25 @@ const SimplifiedMultiSectionCodeEditor = ({
 
           <ResizableHandle withHandle />
 
-          <ResizablePanel defaultSize={35} minSize={25}>
+          <ResizablePanel defaultSize={sectionsCollapsed ? 35 : 35} minSize={25}>
             <div className="flex flex-col h-full">
-              <div className="flex items-center justify-between p-2 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+              <div className={`flex items-center justify-between p-2 border-b border-gray-200 flex-shrink-0 ${missingConfigs.length > 0 ? 'bg-orange-50' : 'bg-gray-50'}`}>
                 <div className="flex items-center gap-2">
                   <Eye className="h-4 w-4 text-gray-600" />
                   <span className="text-sm font-medium text-gray-700">Live Preview</span>
+                  {missingConfigs.length > 0 && (
+                    <Badge variant="destructive" className="text-xs">
+                      {missingConfigs.length} config{missingConfigs.length !== 1 ? 's' : ''} missing
+                    </Badge>
+                  )}
                 </div>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setRefreshKey(prev => prev + 1)}
+                  onClick={() => {
+                    setRefreshKey(prev => prev + 1);
+                    checkAssessmentConfigurations();
+                  }}
                 >
                   <RefreshCw className="h-3 w-3 mr-1" />
                   Refresh
@@ -597,15 +814,19 @@ const SimplifiedMultiSectionCodeEditor = ({
               </div>
               
               <div className="flex-1 overflow-auto p-4 bg-white">
-                <UiGeneratedContent
-                  key={refreshKey}
-                  course={courseProps.course}
-                  courseId={courseProps?.courseId}
-                  courseDisplay={courseProps.courseDisplay}
-                  itemConfig={currentLessonInfo}
-                  isStaffView={courseProps.isStaffView}
-                  devMode={courseProps.devMode}
-                />
+                {missingConfigs.length > 0 ? (
+                  <MissingConfigsWarning />
+                ) : (
+                  <UiGeneratedContent
+                    key={refreshKey}
+                    course={courseProps.course}
+                    courseId={courseProps?.courseId}
+                    courseDisplay={courseProps.courseDisplay}
+                    itemConfig={currentLessonInfo}
+                    isStaffView={courseProps.isStaffView}
+                    devMode={courseProps.devMode}
+                  />
+                )}
               </div>
             </div>
           </ResizablePanel>

@@ -335,6 +335,52 @@ exports.manageCourseSection = onCall(async (request) => {
         };
       }
 
+      case 'reorderSections': {
+        const { newSectionOrder } = request.data;
+        
+        if (!newSectionOrder || !Array.isArray(newSectionOrder)) {
+          throw new Error('newSectionOrder array is required for reorderSections');
+        }
+
+        // Get current lesson data
+        const snapshot = await lessonRef.get();
+        if (!snapshot.exists()) {
+          throw new Error('Lesson not found');
+        }
+
+        const currentData = snapshot.val();
+        
+        // Validate that all section IDs in newSectionOrder actually exist
+        const existingSections = currentData.sections ? Object.keys(currentData.sections) : [];
+        const invalidIds = newSectionOrder.filter(id => !existingSections.includes(id));
+        
+        if (invalidIds.length > 0) {
+          throw new Error(`Invalid section IDs: ${invalidIds.join(', ')}`);
+        }
+
+        // Update the section order
+        const lessonData = {
+          ...currentData,
+          sectionOrder: newSectionOrder,
+          lastModified: new Date().toISOString(),
+          modifiedBy: userEmail || 'unknown'
+        };
+
+        await lessonRef.set(lessonData);
+
+        // Return the current sections in the new order
+        const sections = currentData.sections ? Object.values(currentData.sections) : [];
+
+        logger.info(`Sections reordered successfully: [${newSectionOrder.join(', ')}]`);
+
+        return {
+          success: true,
+          sections,
+          sectionOrder: newSectionOrder,
+          message: 'Section order updated successfully'
+        };
+      }
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
