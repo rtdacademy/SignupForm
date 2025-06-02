@@ -1,6 +1,50 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* CodeMirror 6 height and scroll fixes */
+.cm-editor {
+  flex: 1;
+  height: 100% !important;
+  position: relative;
+}
+
+.cm-scroller {
+  position: absolute !important;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow-y: auto !important;
+}
+
+.cm-content {
+  white-space: pre-wrap;
+  word-break: normal;
+  word-wrap: break-word;
+}
+
+/* OneDark theme specific styling */
+.cm-editor.cm-focused {
+  outline: none;
+}
+
+.cm-editor .cm-scroller::-webkit-scrollbar {
+  width: 12px;
+}
+
+.cm-editor .cm-scroller::-webkit-scrollbar-track {
+  background: #282c34;
+}
+
+.cm-editor .cm-scroller::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 6px;
+}
+
+.cm-editor .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
  
 @layer base {
   :root {

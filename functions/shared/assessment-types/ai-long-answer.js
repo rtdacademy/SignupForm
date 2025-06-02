@@ -545,6 +545,229 @@ function inferActivityTypeFromAssessmentId(assessmentId) {
 }
 
 /**
+ * Core business logic for AI Long Answer assessments
+ * This can be called directly by other systems without Firebase wrapper
+ */
+class AILongAnswerCore {
+  constructor(config = {}) {
+    this.config = config;
+  }
+
+  async handleGenerate(params) {
+    // Load and merge configurations
+    const globalConfig = await loadConfig();
+    
+    // SECURITY: Use hardcoded activity type from course config
+    const activityType = this.config.activityType || inferActivityTypeFromAssessmentId(params.assessmentId) || 'assignment';
+    
+    console.log(`Using activity type: ${activityType} (Source: ${this.config.activityType ? 'hardcoded' : 'inferred'})`);
+    
+    // Get activity-specific configuration
+    const activityConfig = this.config.activityTypes?.[activityType] || this.config.activityTypes?.assignment || {};
+    
+    // Get long answer specific settings from activity config
+    const longAnswerDefaults = activityConfig.longAnswer || {};
+    
+    const config = {
+      ...globalConfig.questionTypes?.longAnswer?.ai_generated || {},
+      ...activityConfig,
+      ...longAnswerDefaults, // Apply long answer defaults from course config
+      ...this.config // Allow courseConfig to override if needed
+    };
+
+    // Initialize course if needed
+    await initializeCourseIfNeeded(params.studentKey, params.courseId, params.isStaff);
+
+    // Reference to the assessment in the database
+    const assessmentRef = getDatabaseRef('studentAssessment', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
+    console.log(`Database path: ${params.isStaff ? 'staff_testing' : 'students'}/${params.studentKey}/courses/${params.courseId}/Assessments/${params.assessmentId}`);
+
+    // Check if this is a regeneration or a new assessment
+    const existingAssessmentSnapshot = await assessmentRef.once('value');
+    const existingAssessment = existingAssessmentSnapshot.val();
+    const isRegeneration = !!existingAssessment;
+    
+    // Initialize the attempts counter
+    let currentAttempts = 0;
+    if (existingAssessment) {
+      currentAttempts = existingAssessment.attempts || 0;
+    }
+    
+    console.log(`This is a ${isRegeneration ? 'regeneration' : 'new question'} request. Current attempts: ${currentAttempts}`);
+    
+    // Determine max attempts - use the same value as course config for multiple choice
+    let maxAttempts = config.maxAttempts || activityConfig.maxAttempts || 3; // Default 3 for long answer
+    
+    console.log(`Max attempts allowed: ${maxAttempts}`);
+    
+    // Verify the student hasn't exceeded the max attempts
+    if (isRegeneration && currentAttempts >= maxAttempts) {
+      console.log(`Security check: Student has exceeded max attempts (${currentAttempts}/${maxAttempts})`);
+      throw new Error(`Maximum attempts (${maxAttempts}) reached for this assessment.`);
+    }
+    
+    // Generate the AI long answer question
+    console.log(`Generating AI long answer question on topic: ${params.topic}, difficulty: ${params.difficulty}`);
+    const question = await generateAILongAnswerQuestion(
+      config,
+      params.topic,
+      params.difficulty,
+      this.config.fallbackQuestions || []
+    );
+    
+    // Create the final question data object to save
+    const questionData = {
+      timestamp: getServerTimestamp(),
+      questionText: question.questionText,
+      rubric: question.rubric,
+      maxPoints: question.maxPoints,
+      wordLimit: question.wordLimit,
+      topic: params.topic,
+      subject: config.subject || 'Physics 30',
+      difficulty: params.difficulty,
+      generatedBy: question.generatedBy || 'ai',
+      attempts: currentAttempts,
+      status: 'active',
+      maxAttempts: maxAttempts,
+      activityType: activityType,
+      enableAIChat: config.enableAIChat,
+      aiChatContext: config.aiChatContext,
+      settings: {
+        showRubric: config.showRubric !== undefined ? config.showRubric : (longAnswerDefaults.showRubric !== undefined ? longAnswerDefaults.showRubric : true),
+        showWordCount: config.showWordCount !== undefined ? config.showWordCount : (longAnswerDefaults.showWordCount !== undefined ? longAnswerDefaults.showWordCount : true),
+        showHints: config.showHints === true || activityConfig.enableHints === true,
+        allowDifficultySelection: config.allowDifficultySelection || activityConfig.allowDifficultySelection || false,
+        theme: config.theme || activityConfig.theme || 'purple',
+      }
+    };
+    
+    // Store public question data in the database (student-accessible)
+    await assessmentRef.set(questionData);
+
+    // Store the secure data separately (server-side only)
+    const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
+    
+    await secureRef.set({
+      sampleAnswer: question.sampleAnswer,
+      hints: question.hints || [],
+      timestamp: getServerTimestamp()
+    });
+
+    return {
+      success: true,
+      questionGenerated: true,
+      assessmentId: params.assessmentId,
+      generatedBy: question.generatedBy
+    };
+  }
+
+  async handleEvaluate(params) {
+    // Initialize course if needed
+    await initializeCourseIfNeeded(params.studentKey, params.courseId, params.isStaff);
+
+    // Reference to the assessment in the database
+    const assessmentRef = getDatabaseRef('studentAssessment', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
+    
+    // Get the existing question data
+    const assessmentSnapshot = await assessmentRef.once('value');
+    const assessmentData = assessmentSnapshot.val();
+
+    if (!assessmentData) {
+      throw new Error('Assessment not found');
+    }
+    
+    // Check max attempts - but allow the current attempt to be evaluated
+    const maxAttempts = assessmentData.maxAttempts || 3;
+    const currentAttempts = assessmentData.attempts || 0;
+    
+    // Only reject if they've ALREADY submitted the maximum number of times
+    // This allows their final attempt to be evaluated
+    if (currentAttempts > maxAttempts) {
+      console.log(`Security check: Student has exceeded max attempts (${currentAttempts}/${maxAttempts})`);
+      return {
+        success: false,
+        error: 'Maximum attempts exceeded',
+        attemptsRemaining: 0
+      };
+    }
+    
+    console.log(`Processing attempt ${currentAttempts + 1} of ${maxAttempts}`);
+
+    // Get the secure data
+    const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
+    const secureSnapshot = await secureRef.once('value');
+    const secureData = secureSnapshot.val();
+
+    if (!secureData || !secureData.sampleAnswer) {
+      throw new Error('Secure assessment data not found');
+    }
+
+    // Validate answer length
+    const wordCount = params.answer.trim().split(/\s+/).filter(word => word.length > 0).length;
+    const wordLimit = assessmentData.wordLimit || { min: 50, max: 500 };
+    
+    if (wordCount < (wordLimit.min || 0)) {
+      throw new Error(`Answer too short. Minimum ${wordLimit.min} words required, you wrote ${wordCount} words.`);
+    }
+    
+    if (wordCount > (wordLimit.max || 5000)) {
+      throw new Error(`Answer too long. Maximum ${wordLimit.max} words allowed, you wrote ${wordCount} words.`);
+    }
+
+    // Evaluate the answer using AI with course-specific guidance
+    const evaluation = await evaluateAILongAnswer(
+      assessmentData,
+      params.answer,
+      secureData.sampleAnswer,
+      this.config.evaluationGuidance || {}
+    );
+
+    // Increment attempts
+    let updatedAttempts = currentAttempts + 1;
+    console.log(`Incrementing attempts from ${currentAttempts} to ${updatedAttempts}`);
+    
+    const attemptsRemaining = maxAttempts - updatedAttempts;
+
+    // Prepare the submission record
+    const submission = {
+      timestamp: getServerTimestamp(),
+      answer: params.answer,
+      wordCount: wordCount,
+      evaluation: evaluation,
+      attemptNumber: updatedAttempts
+    };
+
+    // Update assessment data in the database
+    const updates = {
+      attempts: updatedAttempts,
+      status: evaluation.percentage >= 70 ? 'completed' : (attemptsRemaining > 0 ? 'attempted' : 'failed'),
+      lastSubmission: submission
+    };
+
+    // Add submission to history
+    await assessmentRef.child('submissions').push(submission);
+
+    // Update the assessment
+    await assessmentRef.update(updates);
+
+    // Update the grade
+    const gradeRef = getDatabaseRef('studentGrade', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
+    
+    // For long answer, we might want to store the percentage or scaled score
+    const gradeValue = evaluation.totalScore; // Or use evaluation.percentage / 10 for a 0-10 scale
+    
+    await gradeRef.set(gradeValue);
+
+    return {
+      success: true,
+      result: evaluation,
+      attemptsRemaining: attemptsRemaining,
+      attemptsMade: updatedAttempts
+    };
+  }
+}
+
+/**
  * Factory function to create an AI Long Answer assessment handler
  * @param {Object} courseConfig - Course-specific configuration
  * @returns {Function} Cloud function handler
@@ -555,118 +778,19 @@ function createAILongAnswer(courseConfig = {}) {
     timeoutSeconds: courseConfig.timeout || 120, // Longer timeout for evaluation
     memory: courseConfig.memory || '1GiB', // More memory for text processing
     enforceAppCheck: false,
-  }, async (data, context) => {
-    // Load and merge configurations
-    const globalConfig = await loadConfig();
-    
-    // SECURITY: Use hardcoded activity type from course config
-    const activityType = courseConfig.activityType || inferActivityTypeFromAssessmentId(data.assessmentId) || 'assignment';
-    
-    console.log(`Using activity type: ${activityType} (Source: ${courseConfig.activityType ? 'hardcoded' : 'inferred'})`);
-    
-    // Get activity-specific configuration
-    const activityConfig = courseConfig.activityTypes?.[activityType] || courseConfig.activityTypes?.assignment || {};
-    
-    // Get long answer specific settings from activity config
-    const longAnswerDefaults = activityConfig.longAnswer || {};
-    
-    const config = {
-      ...globalConfig.questionTypes?.longAnswer?.ai_generated || {},
-      ...activityConfig,
-      ...longAnswerDefaults, // Apply long answer defaults from course config
-      ...courseConfig // Allow courseConfig to override if needed
-    };
-
+  }, async (request) => {
+    const data = request.data;
+    const context = request;
     // Extract and validate parameters
-    const params = extractParameters(data, context, LongAnswerFunctionParametersSchema);
-
-    // Initialize course if needed
-    await initializeCourseIfNeeded(params.studentKey, params.courseId);
-
-    // Reference to the assessment in the database
-    const assessmentRef = getDatabaseRef('studentAssessment', params.studentKey, params.courseId, params.assessmentId);
-    console.log(`Database path: students/${params.studentKey}/courses/${params.courseId}/Assessments/${params.assessmentId}`);
+    const params = extractParameters(data, context);
+    
+    // Create core handler instance
+    const coreHandler = new AILongAnswerCore(courseConfig);
 
     // Handle question generation operation
     if (params.operation === 'generate') {
       try {
-        // Check if this is a regeneration or a new assessment
-        const existingAssessmentSnapshot = await assessmentRef.once('value');
-        const existingAssessment = existingAssessmentSnapshot.val();
-        const isRegeneration = !!existingAssessment;
-        
-        // Initialize the attempts counter
-        let currentAttempts = 0;
-        if (existingAssessment) {
-          currentAttempts = existingAssessment.attempts || 0;
-        }
-        
-        console.log(`This is a ${isRegeneration ? 'regeneration' : 'new question'} request. Current attempts: ${currentAttempts}`);
-        
-        // Determine max attempts - use the same value as course config for multiple choice
-        let maxAttempts = config.maxAttempts || activityConfig.maxAttempts || 3; // Default 3 for long answer
-        
-        console.log(`Max attempts allowed: ${maxAttempts}`);
-        
-        // Verify the student hasn't exceeded the max attempts
-        if (isRegeneration && currentAttempts >= maxAttempts) {
-          console.log(`Security check: Student has exceeded max attempts (${currentAttempts}/${maxAttempts})`);
-          throw new Error(`Maximum attempts (${maxAttempts}) reached for this assessment.`);
-        }
-        
-        // Generate the AI long answer question
-        console.log(`Generating AI long answer question on topic: ${params.topic}, difficulty: ${params.difficulty}`);
-        const question = await generateAILongAnswerQuestion(
-          config,
-          params.topic,
-          params.difficulty,
-          courseConfig.fallbackQuestions || []
-        );
-        
-        // Create the final question data object to save
-        const questionData = {
-          timestamp: getServerTimestamp(),
-          questionText: question.questionText,
-          rubric: question.rubric,
-          maxPoints: question.maxPoints,
-          wordLimit: question.wordLimit,
-          topic: params.topic,
-          subject: config.subject || 'Physics 30',
-          difficulty: params.difficulty,
-          generatedBy: question.generatedBy || 'ai',
-          attempts: currentAttempts,
-          status: 'active',
-          maxAttempts: maxAttempts,
-          activityType: activityType,
-          enableAIChat: config.enableAIChat,
-          aiChatContext: config.aiChatContext,
-          settings: {
-            showRubric: config.showRubric !== undefined ? config.showRubric : (longAnswerDefaults.showRubric !== undefined ? longAnswerDefaults.showRubric : true),
-            showWordCount: config.showWordCount !== undefined ? config.showWordCount : (longAnswerDefaults.showWordCount !== undefined ? longAnswerDefaults.showWordCount : true),
-            showHints: config.showHints === true || activityConfig.enableHints === true,
-            allowDifficultySelection: config.allowDifficultySelection || activityConfig.allowDifficultySelection || false,
-            theme: config.theme || activityConfig.theme || 'purple',
-          }
-        };
-        
-        // Store public question data in the database (student-accessible)
-        await assessmentRef.set(questionData);
-
-        // Store the secure data separately (server-side only)
-        const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
-        
-        await secureRef.set({
-          sampleAnswer: question.sampleAnswer,
-          hints: question.hints || [],
-          timestamp: getServerTimestamp()
-        });
-
-        return {
-          success: true,
-          questionGenerated: true,
-          assessmentId: params.assessmentId,
-          generatedBy: question.generatedBy
-        };
+        return await coreHandler.handleGenerate(params);
       } catch (error) {
         console.error("Error generating AI long answer question:", error);
         throw new Error('Error generating question: ' + error.message);
@@ -675,102 +799,7 @@ function createAILongAnswer(courseConfig = {}) {
     // Handle answer evaluation operation
     else if (params.operation === 'evaluate') {
       try {
-        // Get the existing question data
-        const assessmentSnapshot = await assessmentRef.once('value');
-        const assessmentData = assessmentSnapshot.val();
-
-        if (!assessmentData) {
-          throw new Error('Assessment not found');
-        }
-        
-        // Check max attempts - but allow the current attempt to be evaluated
-        const maxAttempts = assessmentData.maxAttempts || 3;
-        const currentAttempts = assessmentData.attempts || 0;
-        
-        // Only reject if they've ALREADY submitted the maximum number of times
-        // This allows their final attempt to be evaluated
-        if (currentAttempts > maxAttempts) {
-          console.log(`Security check: Student has exceeded max attempts (${currentAttempts}/${maxAttempts})`);
-          return {
-            success: false,
-            error: 'Maximum attempts exceeded',
-            attemptsRemaining: 0
-          };
-        }
-        
-        console.log(`Processing attempt ${currentAttempts + 1} of ${maxAttempts}`);
-
-        // Get the secure data
-        const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
-        const secureSnapshot = await secureRef.once('value');
-        const secureData = secureSnapshot.val();
-
-        if (!secureData || !secureData.sampleAnswer) {
-          throw new Error('Secure assessment data not found');
-        }
-
-        // Validate answer length
-        const wordCount = params.answer.trim().split(/\s+/).filter(word => word.length > 0).length;
-        const wordLimit = assessmentData.wordLimit || { min: 50, max: 500 };
-        
-        if (wordCount < (wordLimit.min || 0)) {
-          throw new Error(`Answer too short. Minimum ${wordLimit.min} words required, you wrote ${wordCount} words.`);
-        }
-        
-        if (wordCount > (wordLimit.max || 5000)) {
-          throw new Error(`Answer too long. Maximum ${wordLimit.max} words allowed, you wrote ${wordCount} words.`);
-        }
-
-        // Evaluate the answer using AI with course-specific guidance
-        const evaluation = await evaluateAILongAnswer(
-          assessmentData,
-          params.answer,
-          secureData.sampleAnswer,
-          courseConfig.evaluationGuidance || {}
-        );
-
-        // Increment attempts
-        let updatedAttempts = currentAttempts + 1;
-        console.log(`Incrementing attempts from ${currentAttempts} to ${updatedAttempts}`);
-        
-        const attemptsRemaining = maxAttempts - updatedAttempts;
-
-        // Prepare the submission record
-        const submission = {
-          timestamp: getServerTimestamp(),
-          answer: params.answer,
-          wordCount: wordCount,
-          evaluation: evaluation,
-          attemptNumber: updatedAttempts
-        };
-
-        // Update assessment data in the database
-        const updates = {
-          attempts: updatedAttempts,
-          status: evaluation.percentage >= 70 ? 'completed' : (attemptsRemaining > 0 ? 'attempted' : 'failed'),
-          lastSubmission: submission
-        };
-
-        // Add submission to history
-        await assessmentRef.child('submissions').push(submission);
-
-        // Update the assessment
-        await assessmentRef.update(updates);
-
-        // Update the grade
-        const gradeRef = getDatabaseRef('studentGrade', params.studentKey, params.courseId, params.assessmentId);
-        
-        // For long answer, we might want to store the percentage or scaled score
-        const gradeValue = evaluation.totalScore; // Or use evaluation.percentage / 10 for a 0-10 scale
-        
-        await gradeRef.set(gradeValue);
-
-        return {
-          success: true,
-          result: evaluation,
-          attemptsRemaining: attemptsRemaining,
-          attemptsMade: updatedAttempts
-        };
+        return await coreHandler.handleEvaluate(params);
       } catch (error) {
         console.error("Error evaluating answer:", error);
         throw new Error('Error evaluating answer: ' + error.message);
@@ -783,5 +812,6 @@ function createAILongAnswer(courseConfig = {}) {
 }
 
 module.exports = {
-  createAILongAnswer
+  createAILongAnswer,
+  AILongAnswerCore
 };

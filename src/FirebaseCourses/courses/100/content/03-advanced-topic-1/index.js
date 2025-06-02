@@ -7,7 +7,12 @@ import LessonContent, {
 } from '../../../../components/content/LessonContent';
 import { AIMultipleChoiceQuestion } from '../../../../components/assessments';
 import { SimpleReadAloudText as ReadAloudText } from '../../../../components/TextToSpeech';
-import { getCloudFunctionName } from '../index';
+// Helper function to generate cloud function names based on conventions
+const getCloudFunctionName = (courseId, folderName, functionType) => {
+  // Replace hyphens with underscores for valid function names
+  const safeFolderName = folderName.replace(/-/g, '_');
+  return `${courseId}_${safeFolderName}_${functionType}`;
+};
 
 /**
  * Advanced Topic 1 Lesson Component

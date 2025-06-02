@@ -48,6 +48,9 @@ const googleAIFunctions = require('./googleai');
 // Student dashboard notifications
 const surveySubmissionFunctions = require('./surveySubmissions');
 
+// Course code loader
+const courseCodeLoaderFunctions = require('./courseCodeLoader');
+
 // Assessment functions - Course-specific
 const COM1255IntroToELearning = require('./courses/COM1255/lessons/IntroToELearning');
 const COM1255BenefitsChallenges = require('./courses/COM1255/lessons/BenefitsChallenges');
@@ -125,6 +128,27 @@ exports.sendChatMessage = googleAIFunctions.sendChatMessage;
 
 // Notification functions
 exports.submitNotificationSurvey = surveySubmissionFunctions.submitNotificationSurvey;
+
+// Course code loader functions
+exports.loadCourseCode = courseCodeLoaderFunctions.loadCourseCode;
+
+// JSX transformation functions
+exports.transformJSXCode = require('./jsxTransformer').transformJSXCode;
+
+// Section management functions
+exports.manageCourseSection = require('./manageCourseSection').manageCourseSection;
+exports.debugLesson = require('./debugLesson').debugLesson;
+
+// Auto-transform functions
+exports.autoTransformSectionCode = require('./autoTransformSections').autoTransformSectionCode;
+
+// Database-driven assessment functions
+exports.generateDatabaseAssessment = require('./manageDatabaseAssessment').generateDatabaseAssessment;
+exports.manageDatabaseAssessmentConfig = require('./manageDatabaseAssessment').manageDatabaseAssessmentConfig;
+
+// Test function to verify CORS
+exports.testDatabaseAssessment = require('./testDatabaseAssessment').testDatabaseAssessment;
+exports.generateDatabaseAssessmentSimple = require('./generateDatabaseAssessmentSimple').generateDatabaseAssessmentSimple;
 
 // Parent Portal functions
 exports.sendParentInvitation = parentPortalFunctions.sendParentInvitation;

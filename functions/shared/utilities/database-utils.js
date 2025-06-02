@@ -34,6 +34,8 @@ function getServerTimestamp() {
  */
 function extractParameters(data, context) {
   // Extract the data from the request correctly
+  // Handle both direct data and nested data.data (for different calling patterns)
+  const actualData = data.data || data;
   const {
     courseId,
     assessmentId,
@@ -43,7 +45,7 @@ function extractParameters(data, context) {
     userId,
     topic = 'general',
     difficulty = 'intermediate',
-  } = data.data || {};
+  } = actualData;
 
   // Log the received data for debugging
   console.log("Data received by function:", data);

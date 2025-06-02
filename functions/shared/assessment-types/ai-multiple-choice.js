@@ -371,38 +371,35 @@ function inferActivityTypeFromAssessmentId(assessmentId) {
 }
 
 /**
- * Factory function to create an AI Multiple Choice assessment handler
- * @param {Object} courseConfig - Course-specific configuration
- * @returns {Function} Cloud function handler
+ * Core business logic for AI Multiple Choice assessments
+ * This can be called directly by other systems without Firebase wrapper
  */
-function createAIMultipleChoice(courseConfig = {}) {
-  return onCall({
-    region: courseConfig.region || 'us-central1',
-    timeoutSeconds: courseConfig.timeout || 60,
-    memory: courseConfig.memory || '512MiB',
-    enforceAppCheck: false,
-  }, async (data, context) => {
+class AIMultipleChoiceCore {
+  constructor(config = {}) {
+    this.config = config;
+  }
+
+  async handleGenerate(params) {
+    const { courseConfig } = this;
+    
     // Load and merge configurations
     const globalConfig = await loadConfig();
     
     // SECURITY: Use hardcoded activity type from course config (cannot be manipulated by client)
     // Priority: courseConfig.activityType (hardcoded) > inferred from assessmentId > fallback to lesson
-    const activityType = courseConfig.activityType || inferActivityTypeFromAssessmentId(data.assessmentId) || 'lesson';
+    const activityType = this.config.activityType || inferActivityTypeFromAssessmentId(params.assessmentId) || 'lesson';
     
     // Log the activity type being used for debugging
-    console.log(`Using activity type: ${activityType} (Source: ${courseConfig.activityType ? 'hardcoded' : 'inferred'})`);
+    console.log(`Using activity type: ${activityType} (Source: ${this.config.activityType ? 'hardcoded' : 'inferred'})`);
     
     // Get activity-specific configuration
-    const activityConfig = courseConfig.activityTypes?.[activityType] || courseConfig.activityTypes?.lesson || {};
+    const activityConfig = this.config.activityTypes?.[activityType] || this.config.activityTypes?.lesson || {};
     
     const config = {
       ...globalConfig.questionTypes?.multipleChoice?.ai_generated || {},
       ...activityConfig,
-      ...courseConfig
+      ...this.config
     };
-
-    // Extract and validate parameters
-    const params = extractParameters(data, context);
 
     // Initialize course if needed
     await initializeCourseIfNeeded(params.studentKey, params.courseId, params.isStaff);
@@ -414,110 +411,263 @@ function createAIMultipleChoice(courseConfig = {}) {
       : `students/${params.studentKey}/courses/${params.courseId}/Assessments/${params.assessmentId}`;
     console.log(`Database path: ${dbPath}`);
 
+    // Check if this is a regeneration or a new assessment
+    const existingAssessmentSnapshot = await assessmentRef.once('value');
+    const existingAssessment = existingAssessmentSnapshot.val();
+    const isRegeneration = !!existingAssessment;
+    
+    // Initialize the attempts counter
+    let currentAttempts = 0;
+    if (existingAssessment) {
+      currentAttempts = existingAssessment.attempts || 0;
+    }
+    
+    console.log(`This is a ${isRegeneration ? 'regeneration' : 'new question'} request. Current attempts: ${currentAttempts}`);
+    
+    // Look up course settings to get max attempts
+    const courseRef = getDatabaseRef('courseAssessment', params.courseId, params.assessmentId);
+    const courseAssessmentSnapshot = await courseRef.once('value');
+    const courseAssessmentData = courseAssessmentSnapshot.val();
+    
+    // Determine max attempts from hierarchy: courseConfig > activityConfig > courseAssessmentData > defaults
+    let maxAttempts = config.maxAttempts || activityConfig.maxAttempts || 9999;
+    if (courseAssessmentData && courseAssessmentData.maxAttempts) {
+      maxAttempts = courseAssessmentData.maxAttempts;
+    }
+    
+    console.log(`Max attempts configuration: courseConfig=${config.maxAttempts}, activityConfig=${activityConfig.maxAttempts}, final=${maxAttempts}`);
+    
+    console.log(`Max attempts allowed: ${maxAttempts}`);
+    
+    // Verify the student hasn't exceeded the max attempts
+    if (isRegeneration && currentAttempts >= maxAttempts) {
+      console.log(`Security check: Student has exceeded max attempts (${currentAttempts}/${maxAttempts})`);
+      throw new Error(`Maximum attempts (${maxAttempts}) reached for this assessment. No more regenerations allowed.`);
+    }
+    
+    // Generate the AI question using course-specific config
+    console.log(`Generating AI question on topic: ${params.topic}, difficulty: ${params.difficulty}`);
+    const question = await generateAIQuestion(
+      config,
+      params.topic,
+      params.difficulty,
+      this.config.fallbackQuestions || []
+    );
+    
+    // Prepare the question data
+    const randomizedOptions = shuffleArray([...question.options]);
+    
+    // Create the final question data object to save
+    const questionData = {
+      timestamp: getServerTimestamp(),
+      questionText: question.questionText,
+      options: randomizedOptions.map(opt => ({ id: opt.id, text: opt.text })),
+      topic: params.topic,
+      difficulty: params.difficulty,
+      generatedBy: question.generatedBy || 'ai',
+      attempts: currentAttempts,
+      status: 'active',
+      maxAttempts: maxAttempts,
+      activityType: activityType,
+      pointsValue: config.pointsValue || activityConfig.pointValue || 2,
+      attemptPenalty: config.attemptPenalty || activityConfig.attemptPenalty || 0,
+      settings: {
+        showFeedback: config.showFeedback !== false && activityConfig.showDetailedFeedback !== false,
+        enableHints: config.enableHints !== false && activityConfig.enableHints !== false,
+        allowDifficultySelection: config.allowDifficultySelection || activityConfig.allowDifficultySelection || false,
+        theme: config.theme || activityConfig.theme || 'purple',
+        defaultDifficulty: config.defaultDifficulty || activityConfig.defaultDifficulty || 'intermediate',
+        freeRegenerationOnDifficultyChange: config.freeRegenerationOnDifficultyChange || activityConfig.freeRegenerationOnDifficultyChange || false
+      }
+    };
+    
+    // Only add optional properties if they are defined
+    if (config.enableAIChat !== undefined) {
+      questionData.enableAIChat = config.enableAIChat;
+    }
+    if (config.aiChatContext !== undefined) {
+      questionData.aiChatContext = config.aiChatContext;
+    }
+    
+    // Store public question data in the database (student-accessible)
+    await assessmentRef.set(questionData);
+
+    // Store the secure data in a completely separate database node (server-side only)
+    const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
+    
+    await secureRef.set({
+      correctOptionId: question.correctOptionId,
+      explanation: question.explanation,
+      // Store option feedback for each ID
+      optionFeedback: question.options.reduce((obj, opt) => {
+        obj[opt.id] = opt.feedback || "";
+        return obj;
+      }, {}),
+      timestamp: getServerTimestamp()
+    });
+
+    return {
+      success: true,
+      questionGenerated: true,
+      assessmentId: params.assessmentId,
+      generatedBy: question.generatedBy
+    };
+  }
+
+  async handleEvaluate(params) {
+    // Initialize course if needed
+    await initializeCourseIfNeeded(params.studentKey, params.courseId, params.isStaff);
+
+    // Reference to the assessment in the database
+    const assessmentRef = getDatabaseRef('studentAssessment', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
+    
+    // Get the existing question data
+    const assessmentSnapshot = await assessmentRef.once('value');
+    const assessmentData = assessmentSnapshot.val();
+
+    if (!assessmentData) {
+      throw new Error('Assessment not found');
+    }
+    
+    // Verify max attempts from course settings
+    const courseRef = getDatabaseRef('courseAssessment', params.courseId, params.assessmentId);
+    const courseAssessmentSnapshot = await courseRef.once('value');
+    const courseAssessmentData = courseAssessmentSnapshot.val();
+    
+    // Use course-specific max attempts if available, otherwise use assessment value
+    const maxAttemptsFromSettings = (courseAssessmentData && courseAssessmentData.maxAttempts) ? 
+      courseAssessmentData.maxAttempts : assessmentData.maxAttempts;
+      
+    // Security check: Always use the smaller value between saved assessment maxAttempts and 
+    // course settings maxAttempts to prevent manipulation
+    const secureMaxAttempts = Math.min(
+      assessmentData.maxAttempts || 9999,
+      maxAttemptsFromSettings || 9999
+    );
+    
+    console.log(`Secure max attempts check: Assessment has ${assessmentData.attempts} attempts. ` + 
+      `Max allowed attempts: ${secureMaxAttempts} ` + 
+      `(Assessment value: ${assessmentData.maxAttempts}, Course settings value: ${maxAttemptsFromSettings})`);
+
+    // Check if the student has exceeded the max attempts
+    if (assessmentData.attempts >= secureMaxAttempts) {
+      console.log(`Security check: Student has exceeded verified max attempts (${assessmentData.attempts}/${secureMaxAttempts})`);
+      return {
+        success: false,
+        error: 'Maximum attempts exceeded',
+        attemptsRemaining: 0
+      };
+    }
+
+    // Get the secure data
+    const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
+    const secureSnapshot = await secureRef.once('value');
+    const secureData = secureSnapshot.val();
+
+    if (!secureData || !secureData.correctOptionId) {
+      throw new Error('Secure assessment data not found');
+    }
+
+    // Reconstruct the complete question for evaluation
+    const completeQuestion = {
+      questionText: assessmentData.questionText,
+      options: assessmentData.options.map(opt => ({
+        id: opt.id,
+        text: opt.text,
+        feedback: secureData.optionFeedback ? secureData.optionFeedback[opt.id] : ""
+      })),
+      correctOptionId: secureData.correctOptionId,
+      explanation: secureData.explanation
+    };
+
+    // Evaluate the answer
+    const result = evaluateAIQuestionAnswer(completeQuestion, params.answer);
+
+    // Increment the attempts counter 
+    let updatedAttempts = (assessmentData.attempts || 0) + 1;
+    console.log(`Incrementing attempts from ${assessmentData.attempts || 0} to ${updatedAttempts} on answer submission`);
+    
+    // Use secure maxAttempts value from earlier validation
+    const attemptsRemaining = secureMaxAttempts - updatedAttempts;
+
+    // Prepare the submission record
+    const submission = {
+      timestamp: getServerTimestamp(),
+      answer: params.answer,
+      isCorrect: result.isCorrect,
+      attemptNumber: updatedAttempts
+    };
+
+    // Check if this question was previously marked correct overall
+    const wasCorrectOverall = assessmentData.correctOverall || false;
+
+    // Update assessment data in the database
+    const updates = {
+      attempts: updatedAttempts,
+      status: result.isCorrect ? 'completed' : (attemptsRemaining > 0 ? 'attempted' : 'failed'),
+      // Track whether the question has ever been answered correctly
+      correctOverall: wasCorrectOverall || result.isCorrect,
+      lastSubmission: {
+        timestamp: getServerTimestamp(),
+        answer: params.answer,
+        isCorrect: result.isCorrect,
+        feedback: result.feedback,
+        correctOptionId: result.correctOptionId,
+      }
+    };
+
+    // Add submission to the history
+    await assessmentRef.child('submissions').push(submission);
+
+    // Update the assessment
+    await assessmentRef.update(updates);
+
+    // Update the grade if the answer is correct AND we haven't previously recorded a correct grade
+    if (result.isCorrect && !wasCorrectOverall) {
+      const gradeRef = getDatabaseRef('studentGrade', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
+
+      // Calculate score based on the pointsValue from settings
+      const pointsValue = assessmentData.pointsValue || 2;
+
+      // No penalty for attempts - full points for getting it correct
+      const finalScore = pointsValue;
+
+      await gradeRef.set(finalScore);
+    }
+
+    return {
+      success: true,
+      result: result,
+      attemptsRemaining: attemptsRemaining,
+      attemptsMade: updatedAttempts
+    };
+  }
+}
+
+/**
+ * Factory function to create an AI Multiple Choice assessment handler
+ * @param {Object} courseConfig - Course-specific configuration
+ * @returns {Function} Cloud function handler
+ */
+function createAIMultipleChoice(courseConfig = {}) {
+  return onCall({
+    region: courseConfig.region || 'us-central1',
+    timeoutSeconds: courseConfig.timeout || 60,
+    memory: courseConfig.memory || '512MiB',
+    enforceAppCheck: false,
+  }, async (request) => {
+    const data = request.data;
+    const context = request;
+    // Extract and validate parameters
+    const params = extractParameters(data, context);
+    
+    // Create core handler instance
+    const coreHandler = new AIMultipleChoiceCore(courseConfig);
+
     // Handle question generation operation
     if (params.operation === 'generate') {
       try {
-        // Check if this is a regeneration or a new assessment
-        const existingAssessmentSnapshot = await assessmentRef.once('value');
-        const existingAssessment = existingAssessmentSnapshot.val();
-        const isRegeneration = !!existingAssessment;
-        
-        // Initialize the attempts counter
-        let currentAttempts = 0;
-        if (existingAssessment) {
-          currentAttempts = existingAssessment.attempts || 0;
-        }
-        
-        console.log(`This is a ${isRegeneration ? 'regeneration' : 'new question'} request. Current attempts: ${currentAttempts}`);
-        
-        // Look up course settings to get max attempts
-        const courseRef = getDatabaseRef('courseAssessment', params.courseId, params.assessmentId);
-        const courseAssessmentSnapshot = await courseRef.once('value');
-        const courseAssessmentData = courseAssessmentSnapshot.val();
-        
-        // Determine max attempts from hierarchy: courseConfig > activityConfig > courseAssessmentData > defaults
-        let maxAttempts = config.maxAttempts || activityConfig.maxAttempts || 9999;
-        if (courseAssessmentData && courseAssessmentData.maxAttempts) {
-          maxAttempts = courseAssessmentData.maxAttempts;
-        }
-        
-        console.log(`Max attempts configuration: courseConfig=${config.maxAttempts}, activityConfig=${activityConfig.maxAttempts}, final=${maxAttempts}`);
-        
-        console.log(`Max attempts allowed: ${maxAttempts}`);
-        
-        // Verify the student hasn't exceeded the max attempts
-        if (isRegeneration && currentAttempts >= maxAttempts) {
-          console.log(`Security check: Student has exceeded max attempts (${currentAttempts}/${maxAttempts})`);
-          throw new Error(`Maximum attempts (${maxAttempts}) reached for this assessment. No more regenerations allowed.`);
-        }
-        
-        // Generate the AI question using course-specific config
-        console.log(`Generating AI question on topic: ${params.topic}, difficulty: ${params.difficulty}`);
-        const question = await generateAIQuestion(
-          config,
-          params.topic,
-          params.difficulty,
-          courseConfig.fallbackQuestions || []
-        );
-        
-        // Prepare the question data
-        const randomizedOptions = shuffleArray([...question.options]);
-        
-        // Create the final question data object to save
-        const questionData = {
-          timestamp: getServerTimestamp(),
-          questionText: question.questionText,
-          options: randomizedOptions.map(opt => ({ id: opt.id, text: opt.text })),
-          topic: params.topic,
-          difficulty: params.difficulty,
-          generatedBy: question.generatedBy || 'ai',
-          attempts: currentAttempts,
-          status: 'active',
-          maxAttempts: maxAttempts,
-          activityType: activityType,
-          pointsValue: config.pointsValue || activityConfig.pointValue || 2,
-          attemptPenalty: config.attemptPenalty || activityConfig.attemptPenalty || 0,
-          settings: {
-            showFeedback: config.showFeedback !== false && activityConfig.showDetailedFeedback !== false,
-            enableHints: config.enableHints !== false && activityConfig.enableHints !== false,
-            allowDifficultySelection: config.allowDifficultySelection || activityConfig.allowDifficultySelection || false,
-            theme: config.theme || activityConfig.theme || 'purple',
-            defaultDifficulty: config.defaultDifficulty || activityConfig.defaultDifficulty || 'intermediate',
-            freeRegenerationOnDifficultyChange: config.freeRegenerationOnDifficultyChange || activityConfig.freeRegenerationOnDifficultyChange || false
-          }
-        };
-        
-        // Only add optional properties if they are defined
-        if (config.enableAIChat !== undefined) {
-          questionData.enableAIChat = config.enableAIChat;
-        }
-        if (config.aiChatContext !== undefined) {
-          questionData.aiChatContext = config.aiChatContext;
-        }
-        
-        // Store public question data in the database (student-accessible)
-        await assessmentRef.set(questionData);
-
-        // Store the secure data in a completely separate database node (server-side only)
-        const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
-        
-        await secureRef.set({
-          correctOptionId: question.correctOptionId,
-          explanation: question.explanation,
-          // Store option feedback for each ID
-          optionFeedback: question.options.reduce((obj, opt) => {
-            obj[opt.id] = opt.feedback || "";
-            return obj;
-          }, {}),
-          timestamp: getServerTimestamp()
-        });
-
-        return {
-          success: true,
-          questionGenerated: true,
-          assessmentId: params.assessmentId,
-          generatedBy: question.generatedBy
-        };
+        return await coreHandler.handleGenerate(params);
       } catch (error) {
         console.error("Error generating AI question:", error);
         throw new Error('Error generating question: ' + error.message);
@@ -526,126 +676,7 @@ function createAIMultipleChoice(courseConfig = {}) {
     // Handle answer evaluation operation
     else if (params.operation === 'evaluate') {
       try {
-        // Get the existing question data
-        const assessmentSnapshot = await assessmentRef.once('value');
-        const assessmentData = assessmentSnapshot.val();
-
-        if (!assessmentData) {
-          throw new Error('Assessment not found');
-        }
-        
-        // Verify max attempts from course settings
-        const courseRef = getDatabaseRef('courseAssessment', params.courseId, params.assessmentId);
-        const courseAssessmentSnapshot = await courseRef.once('value');
-        const courseAssessmentData = courseAssessmentSnapshot.val();
-        
-        // Use course-specific max attempts if available, otherwise use assessment value
-        const maxAttemptsFromSettings = (courseAssessmentData && courseAssessmentData.maxAttempts) ? 
-          courseAssessmentData.maxAttempts : assessmentData.maxAttempts;
-          
-        // Security check: Always use the smaller value between saved assessment maxAttempts and 
-        // course settings maxAttempts to prevent manipulation
-        const secureMaxAttempts = Math.min(
-          assessmentData.maxAttempts || 9999,
-          maxAttemptsFromSettings || 9999
-        );
-        
-        console.log(`Secure max attempts check: Assessment has ${assessmentData.attempts} attempts. ` + 
-          `Max allowed attempts: ${secureMaxAttempts} ` + 
-          `(Assessment value: ${assessmentData.maxAttempts}, Course settings value: ${maxAttemptsFromSettings})`);
-
-        // Check if the student has exceeded the max attempts
-        if (assessmentData.attempts >= secureMaxAttempts) {
-          console.log(`Security check: Student has exceeded verified max attempts (${assessmentData.attempts}/${secureMaxAttempts})`);
-          return {
-            success: false,
-            error: 'Maximum attempts exceeded',
-            attemptsRemaining: 0
-          };
-        }
-
-        // Get the secure data
-        const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
-        const secureSnapshot = await secureRef.once('value');
-        const secureData = secureSnapshot.val();
-
-        if (!secureData || !secureData.correctOptionId) {
-          throw new Error('Secure assessment data not found');
-        }
-
-        // Reconstruct the complete question for evaluation
-        const completeQuestion = {
-          questionText: assessmentData.questionText,
-          options: assessmentData.options.map(opt => ({
-            id: opt.id,
-            text: opt.text,
-            feedback: secureData.optionFeedback ? secureData.optionFeedback[opt.id] : ""
-          })),
-          correctOptionId: secureData.correctOptionId,
-          explanation: secureData.explanation
-        };
-
-        // Evaluate the answer
-        const result = evaluateAIQuestionAnswer(completeQuestion, params.answer);
-
-        // Increment the attempts counter 
-        let updatedAttempts = (assessmentData.attempts || 0) + 1;
-        console.log(`Incrementing attempts from ${assessmentData.attempts || 0} to ${updatedAttempts} on answer submission`);
-        
-        // Use secure maxAttempts value from earlier validation
-        const attemptsRemaining = secureMaxAttempts - updatedAttempts;
-
-        // Prepare the submission record
-        const submission = {
-          timestamp: getServerTimestamp(),
-          answer: params.answer,
-          isCorrect: result.isCorrect,
-          attemptNumber: updatedAttempts
-        };
-
-        // Check if this question was previously marked correct overall
-        const wasCorrectOverall = assessmentData.correctOverall || false;
-
-        // Update assessment data in the database
-        const updates = {
-          attempts: updatedAttempts,
-          status: result.isCorrect ? 'completed' : (attemptsRemaining > 0 ? 'attempted' : 'failed'),
-          // Track whether the question has ever been answered correctly
-          correctOverall: wasCorrectOverall || result.isCorrect,
-          lastSubmission: {
-            timestamp: getServerTimestamp(),
-            answer: params.answer,
-            isCorrect: result.isCorrect,
-            feedback: result.feedback,
-            correctOptionId: result.correctOptionId,
-          }
-        };
-
-        // Add submission to the history
-        await assessmentRef.child('submissions').push(submission);
-
-        // Update the assessment
-        await assessmentRef.update(updates);
-
-        // Update the grade if the answer is correct AND we haven't previously recorded a correct grade
-        if (result.isCorrect && !wasCorrectOverall) {
-          const gradeRef = getDatabaseRef('studentGrade', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
-
-          // Calculate score based on the pointsValue from settings
-          const pointsValue = assessmentData.pointsValue || 2;
-
-          // No penalty for attempts - full points for getting it correct
-          const finalScore = pointsValue;
-
-          await gradeRef.set(finalScore);
-        }
-
-        return {
-          success: true,
-          result: result,
-          attemptsRemaining: attemptsRemaining,
-          attemptsMade: updatedAttempts
-        };
+        return await coreHandler.handleEvaluate(params);
       } catch (error) {
         console.error("Error evaluating answer:", error);
         throw new Error('Error evaluating answer: ' + error.message);
@@ -658,5 +689,6 @@ function createAIMultipleChoice(courseConfig = {}) {
 }
 
 module.exports = {
-  createAIMultipleChoice
+  createAIMultipleChoice,
+  AIMultipleChoiceCore
 };

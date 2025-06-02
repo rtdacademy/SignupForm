@@ -27,14 +27,12 @@ import {
   Download
 } from 'lucide-react';
 
-import {
-  PersonalInfoEditor,
-  AddressEditor,
-  AcademicInfoEditor,
-  GuardianInfoEditor,
-  StatusEditor,
-  DocumentsEditor
-} from './index';
+import PersonalInfoEditor from './PersonalInfoEditor';
+import AddressEditor from './AddressEditor';
+import AcademicInfoEditor from './AcademicInfoEditor';
+import GuardianInfoEditor from './GuardianInfoEditor';
+import StatusEditor from './StatusEditor';
+import DocumentsEditor from './DocumentsEditor';
 
 import {
   getStudentRequirements,

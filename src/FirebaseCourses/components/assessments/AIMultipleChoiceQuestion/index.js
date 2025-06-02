@@ -116,6 +116,7 @@ const AIMultipleChoiceQuestion = ({
   courseId,                // Course identifier
   assessmentId,            // Unique identifier for this assessment
   cloudFunctionName,       // Name of the cloud function to call
+  lessonPath,              // Lesson path (required for database assessments)
   course,                  // Course object (optional - not used for database access anymore)
   topic,                   // Topic for question generation (optional)
 
@@ -472,6 +473,11 @@ const AIMultipleChoiceQuestion = ({
         topic: topicFromData,
         difficulty: difficultyFromData
       };
+      
+      // Add lessonPath for database assessments
+      if (cloudFunctionName === 'generateDatabaseAssessment' && lessonPath) {
+        functionParams.lessonPath = lessonPath;
+      }
 
       console.log(`Calling cloud function ${cloudFunctionName} to generate AI question`, functionParams);
 
@@ -544,6 +550,11 @@ const AIMultipleChoiceQuestion = ({
         topic: topicFromData,
         difficulty: difficultyFromData
       };
+      
+      // Add lessonPath for database assessments
+      if (cloudFunctionName === 'generateDatabaseAssessment' && lessonPath) {
+        functionParams.lessonPath = lessonPath;
+      }
 
       console.log(`Calling cloud function ${cloudFunctionName} to evaluate AI question answer`, functionParams);
 
