@@ -144,16 +144,7 @@
     "start:main:functions-genkit": "concurrently \"npm run start:emulators:functions-only\" \"npm run genkit:ui\" \"REACT_APP_USE_FUNCTIONS_EMULATOR=true npm run start:main\"",
     "wsl:memory:fix": "bash scripts/wsl-memory-fix.sh",
     "analyze:bundle": "node scripts/analyze-bundle.js",
-    "start:main:functions-emulator:clean": "npm run wsl:memory:fix && npm run start:main:functions-emulator",
-    "kyle:win:start:main": "powershell.exe -Command \"wsl --cd /home/kyle_/projects/SignupForm npm run start:main\"",
-    "kyle:win:start:main:functions-emulator": "powershell.exe -Command \"wsl --cd /home/kyle_/projects/SignupForm npm run start:main:functions-emulator\"",
-    "kyle:win:start:second": "powershell.exe -Command \"wsl --cd /home/kyle_/projects/SignupForm npm run start:second\"",
-    "kyle:hybrid:start:main": "/mnt/c/Program\\ Files/nodejs/node.exe scripts/build.js --start",
-    "kyle:hybrid:start:main:functions-emulator": "REACT_APP_USE_FUNCTIONS_EMULATOR=true /mnt/c/Program\\ Files/nodejs/node.exe scripts/build.js --start",
-    "kyle:no-hmr:start:main": "FAST_REFRESH=false /mnt/c/Program\\ Files/nodejs/node.exe scripts/build.js --start",
-    "kyle:no-hmr:start:main:functions-emulator": "FAST_REFRESH=false REACT_APP_USE_FUNCTIONS_EMULATOR=true /mnt/c/Program\\ Files/nodejs/node.exe scripts/build.js --start",
-    "kyle:powershell:start": "powershell.exe -Command \"cd '\\\\wsl$\\\\Ubuntu\\\\home\\\\kyle_\\\\projects\\\\SignupForm'; $env:NODE_OPTIONS='--max-old-space-size=16384'; $env:FAST_REFRESH='false'; $env:GENERATE_SOURCEMAP='false'; npm start\"",
-    "kyle:powershell:start:functions-emulator": "powershell.exe -Command \"cd '\\\\wsl$\\\\Ubuntu\\\\home\\\\kyle_\\\\projects\\\\SignupForm'; $env:NODE_OPTIONS='--max-old-space-size=16384'; $env:FAST_REFRESH='false'; $env:GENERATE_SOURCEMAP='false'; $env:REACT_APP_USE_FUNCTIONS_EMULATOR='true'; npm start\""
+    "start:main:functions-emulator:clean": "npm run wsl:memory:fix && npm run start:main:functions-emulator"
   },
   "browserslist": [
     ">0.2%",

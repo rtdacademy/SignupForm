@@ -33,8 +33,9 @@
 
 const { onCall } = require('firebase-functions/v2/https');
 const { getDatabase } = require('firebase-admin/database');
-const { createAIMultipleChoice } = require('./shared/assessment-types/ai-multiple-choice');
-const { createAILongAnswer } = require('./shared/assessment-types/ai-long-answer');
+const { AIMultipleChoiceCore } = require('./shared/assessment-types/ai-multiple-choice');
+const { AILongAnswerCore } = require('./shared/assessment-types/ai-long-answer');
+const { extractParameters } = require('./shared/utilities/database-utils');
 
 /**
  * Load assessment configuration from database
@@ -78,11 +79,21 @@ async function handleAIMultipleChoice(config, data, context) {
       hasFallbacks: !!config.configuration.fallbackQuestions
     });
     
-    const cloudFunction = createAIMultipleChoice(config.configuration);
+    // Create core handler instance with the database configuration
+    const coreHandler = new AIMultipleChoiceCore(config.configuration);
     
-    // Call the cloud function directly - Firebase v2 onCall functions can be called directly
-    // The function expects the same data structure as the original call
-    const result = await cloudFunction({ data: data }, context);
+    // Extract and validate parameters in the same way the original function does
+    const params = extractParameters(data, context);
+    
+    // Call the appropriate core method based on operation
+    let result;
+    if (params.operation === 'generate') {
+      result = await coreHandler.handleGenerate(params);
+    } else if (params.operation === 'evaluate') {
+      result = await coreHandler.handleEvaluate(params);
+    } else {
+      throw new Error('Invalid operation. Supported operations are "generate" and "evaluate".');
+    }
     
     console.log('✅ Assessment handled by shared module:', result?.success ? 'SUCCESS' : 'FAILED');
     return result;
@@ -108,10 +119,21 @@ async function handleAILongAnswer(config, data, context) {
       hasRubrics: !!config.configuration.rubrics
     });
     
-    const cloudFunction = createAILongAnswer(config.configuration);
+    // Create core handler instance with the database configuration
+    const coreHandler = new AILongAnswerCore(config.configuration);
     
-    // Call the cloud function directly 
-    const result = await cloudFunction({ data: data }, context);
+    // Extract and validate parameters in the same way the original function does
+    const params = extractParameters(data, context);
+    
+    // Call the appropriate core method based on operation
+    let result;
+    if (params.operation === 'generate') {
+      result = await coreHandler.handleGenerate(params);
+    } else if (params.operation === 'evaluate') {
+      result = await coreHandler.handleEvaluate(params);
+    } else {
+      throw new Error('Invalid operation. Supported operations are "generate" and "evaluate".');
+    }
     
     console.log('✅ Long Answer assessment handled by shared module:', result?.success ? 'SUCCESS' : 'FAILED');
     return result;
