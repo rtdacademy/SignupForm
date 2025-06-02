@@ -134,6 +134,7 @@ const { googleAI } = require('@genkit-ai/googleai');
 const { z } = require('zod');
 const { loadConfig } = require('../utilities/config-loader');
 const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../utilities/database-utils');
+const { storeSubmission, createMultipleChoiceSubmissionRecord } = require('../utilities/submission-storage');
 const { AIQuestionSchema } = require('../schemas/assessment-schemas');
 const { applyPromptModules } = require('../prompt-modules');
 
@@ -493,7 +494,7 @@ class AIMultipleChoiceCore {
     await assessmentRef.set(questionData);
 
     // Store the secure data in a completely separate database node (server-side only)
-    const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
+    const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId, params.studentKey);
     
     await secureRef.set({
       correctOptionId: question.correctOptionId,
@@ -560,7 +561,7 @@ class AIMultipleChoiceCore {
     }
 
     // Get the secure data
-    const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
+    const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId, params.studentKey);
     const secureSnapshot = await secureRef.once('value');
     const secureData = secureSnapshot.val();
 
@@ -590,18 +591,27 @@ class AIMultipleChoiceCore {
     // Use secure maxAttempts value from earlier validation
     const attemptsRemaining = secureMaxAttempts - updatedAttempts;
 
-    // Prepare the submission record
-    const submission = {
-      timestamp: getServerTimestamp(),
-      answer: params.answer,
-      isCorrect: result.isCorrect,
-      attemptNumber: updatedAttempts
-    };
+    // Create comprehensive submission record for Cloud Storage
+    const submissionRecord = createMultipleChoiceSubmissionRecord(
+      params,
+      assessmentData,
+      result,
+      updatedAttempts
+    );
+
+    // Store detailed submission in Cloud Storage
+    let submissionPath = null;
+    try {
+      submissionPath = await storeSubmission(submissionRecord);
+    } catch (storageError) {
+      console.warn(`⚠️ Failed to store submission in Cloud Storage: ${storageError.message}`);
+      // Continue with assessment - storage failure shouldn't block student progress
+    }
 
     // Check if this question was previously marked correct overall
     const wasCorrectOverall = assessmentData.correctOverall || false;
 
-    // Update assessment data in the database
+    // Update assessment data in the database (minimal data, just tracking)
     const updates = {
       attempts: updatedAttempts,
       status: result.isCorrect ? 'completed' : (attemptsRemaining > 0 ? 'attempted' : 'failed'),
@@ -613,11 +623,9 @@ class AIMultipleChoiceCore {
         isCorrect: result.isCorrect,
         feedback: result.feedback,
         correctOptionId: result.correctOptionId,
+        submissionPath: submissionPath // Reference to Cloud Storage file
       }
     };
-
-    // Add submission to the history
-    await assessmentRef.child('submissions').push(submission);
 
     // Update the assessment
     await assessmentRef.update(updates);
@@ -633,6 +641,17 @@ class AIMultipleChoiceCore {
       const finalScore = pointsValue;
 
       await gradeRef.set(finalScore);
+    }
+
+    // Clean up secure data if assessment is completed or all attempts exhausted
+    if (result.isCorrect || attemptsRemaining <= 0) {
+      try {
+        await secureRef.remove();
+        console.log(`🗑️ Cleaned up secure assessment data for ${result.isCorrect ? 'completed' : 'failed'} assessment: ${params.assessmentId}`);
+      } catch (cleanupError) {
+        console.warn(`⚠️ Failed to cleanup secure data for ${params.assessmentId}:`, cleanupError.message);
+        // Don't throw error - cleanup failure shouldn't affect the assessment result
+      }
     }
 
     return {

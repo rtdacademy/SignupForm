@@ -119,7 +119,7 @@ exports.course100_02_core_concepts_multipleChoice = onCall({
   
   // Get database references using shared utilities
   const assessmentRef = getDatabaseRef('studentAssessment', params.studentKey, params.courseId, params.assessmentId);
-  const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
+  const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId, params.studentKey);
 
   if (params.operation === 'generate') {
     const questionData = PREDEFINED_QUESTIONS[params.assessmentId];

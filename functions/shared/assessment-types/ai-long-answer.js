@@ -138,6 +138,7 @@ const { googleAI } = require('@genkit-ai/googleai');
 const { z } = require('zod');
 const { loadConfig } = require('../utilities/config-loader');
 const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../utilities/database-utils');
+const { storeSubmission, createLongAnswerSubmissionRecord } = require('../utilities/submission-storage');
 const { 
   AILongAnswerQuestionSchema, 
   AILongAnswerEvaluationSchema,
@@ -645,7 +646,7 @@ class AILongAnswerCore {
     await assessmentRef.set(questionData);
 
     // Store the secure data separately (server-side only)
-    const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
+    const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId, params.studentKey);
     
     await secureRef.set({
       sampleAnswer: question.sampleAnswer,
@@ -694,7 +695,7 @@ class AILongAnswerCore {
     console.log(`Processing attempt ${currentAttempts + 1} of ${maxAttempts}`);
 
     // Get the secure data
-    const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId);
+    const secureRef = getDatabaseRef('secureAssessment', params.courseId, params.assessmentId, params.studentKey);
     const secureSnapshot = await secureRef.once('value');
     const secureData = secureSnapshot.val();
 
@@ -728,24 +729,38 @@ class AILongAnswerCore {
     
     const attemptsRemaining = maxAttempts - updatedAttempts;
 
-    // Prepare the submission record
-    const submission = {
-      timestamp: getServerTimestamp(),
-      answer: params.answer,
-      wordCount: wordCount,
-      evaluation: evaluation,
-      attemptNumber: updatedAttempts
-    };
+    // Create comprehensive submission record for Cloud Storage
+    const submissionRecord = createLongAnswerSubmissionRecord(
+      params,
+      assessmentData,
+      evaluation,
+      updatedAttempts,
+      wordCount
+    );
 
-    // Update assessment data in the database
+    // Store detailed submission in Cloud Storage
+    let submissionPath = null;
+    try {
+      submissionPath = await storeSubmission(submissionRecord);
+    } catch (storageError) {
+      console.warn(`⚠️ Failed to store submission in Cloud Storage: ${storageError.message}`);
+      // Continue with assessment - storage failure shouldn't block student progress
+    }
+
+    // Update assessment data in the database (minimal data, just tracking)
     const updates = {
       attempts: updatedAttempts,
       status: evaluation.percentage >= 70 ? 'completed' : (attemptsRemaining > 0 ? 'attempted' : 'failed'),
-      lastSubmission: submission
+      lastSubmission: {
+        timestamp: getServerTimestamp(),
+        answer: params.answer.substring(0, 100) + (params.answer.length > 100 ? '...' : ''), // Truncated for database
+        wordCount: wordCount,
+        totalScore: evaluation.totalScore,
+        maxScore: evaluation.maxScore,
+        percentage: evaluation.percentage,
+        submissionPath: submissionPath // Reference to Cloud Storage file
+      }
     };
-
-    // Add submission to history
-    await assessmentRef.child('submissions').push(submission);
 
     // Update the assessment
     await assessmentRef.update(updates);
@@ -757,6 +772,18 @@ class AILongAnswerCore {
     const gradeValue = evaluation.totalScore; // Or use evaluation.percentage / 10 for a 0-10 scale
     
     await gradeRef.set(gradeValue);
+
+    // Clean up secure data if assessment is completed or all attempts exhausted
+    const isCompleted = evaluation.percentage >= 70; // Long answer considers 70%+ as completed
+    if (isCompleted || attemptsRemaining <= 0) {
+      try {
+        await secureRef.remove();
+        console.log(`🗑️ Cleaned up secure assessment data for ${isCompleted ? 'completed' : 'failed'} long answer assessment: ${params.assessmentId}`);
+      } catch (cleanupError) {
+        console.warn(`⚠️ Failed to cleanup secure data for ${params.assessmentId}:`, cleanupError.message);
+        // Don't throw error - cleanup failure shouldn't affect the assessment result
+      }
+    }
 
     return {
       success: true,

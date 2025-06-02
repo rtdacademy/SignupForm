@@ -186,8 +186,8 @@ const DATABASE_PATHS = {
   courseAssessment: (courseId, assessmentId) => 
     `courses/${courseId}/assessments/${assessmentId}`,
   
-  secureAssessment: (courseId, assessmentId) => 
-    `courses_secure/${courseId}/assessments/${assessmentId}`,
+  secureAssessment: (courseId, assessmentId, studentKey) => 
+    `courses_secure/${courseId}/assessments/${assessmentId}/${studentKey}`,
   
   studentCourse: (studentKey, courseId, isStaff = false) => 
     isStaff ? `staff_testing/${studentKey}/courses/${courseId}`
