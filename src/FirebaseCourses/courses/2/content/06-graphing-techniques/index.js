@@ -815,6 +815,227 @@ const GraphingTechniques = ({ course, courseId = '2' }) => {
 
       <TextSection>
         <div className="mb-6">
+          <button
+            onClick={() => setIsExample3Open(!isExample3Open)}
+            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+          >
+            <h3 className="text-xl font-semibold">Example 3 - Work Done from Power-Time Data</h3>
+            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
+          </button>
+
+          {isExample3Open && (
+            <div className="mt-4">
+              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+                <p className="mb-4">
+                  The following data relating power and time was obtained for an object. What is the work done on the object?
+                </p>
+                
+                <div className="bg-white p-4 rounded border border-gray-100">
+                  {/* Data Table */}
+                  <div className="mb-6 overflow-x-auto">
+                    <table className="w-full max-w-md mx-auto border-collapse">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="border border-gray-300 px-4 py-2 text-left">Power (W)</th>
+                          <th className="border border-gray-300 px-4 py-2 text-left">Time (s)</th>
+                          <th className="border border-gray-300 px-4 py-2 text-left">1/t (s⁻¹)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr><td className="border border-gray-300 px-4 py-2">50</td><td className="border border-gray-300 px-4 py-2">2</td><td className="border border-gray-300 px-4 py-2">0.50</td></tr>
+                        <tr><td className="border border-gray-300 px-4 py-2">25</td><td className="border border-gray-300 px-4 py-2">4</td><td className="border border-gray-300 px-4 py-2">0.25</td></tr>
+                        <tr><td className="border border-gray-300 px-4 py-2">17</td><td className="border border-gray-300 px-4 py-2">6</td><td className="border border-gray-300 px-4 py-2">0.17</td></tr>
+                        <tr><td className="border border-gray-300 px-4 py-2">13</td><td className="border border-gray-300 px-4 py-2">8</td><td className="border border-gray-300 px-4 py-2">0.13</td></tr>
+                        <tr><td className="border border-gray-300 px-4 py-2">10</td><td className="border border-gray-300 px-4 py-2">10</td><td className="border border-gray-300 px-4 py-2">0.10</td></tr>
+                        <tr><td className="border border-gray-300 px-4 py-2">8</td><td className="border border-gray-300 px-4 py-2">12</td><td className="border border-gray-300 px-4 py-2">0.08</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <p className="font-medium text-gray-700 mb-4">Solution:</p>
+                  
+                  <ol className="list-decimal pl-6 space-y-4">
+                    <li>
+                      <strong>Analyze the relationship:</strong>
+                      <p className="mt-2 ml-4">
+                        A quick survey of the data indicates that there is an inverse relationship between power 
+                        and time (i.e., the greater the power, the less time is required).
+                      </p>
+                    </li>
+                    
+                    <li>
+                      <strong>Find the equation that relates P, t, and W:</strong>
+                      <div className="mt-2 text-center">
+                        <BlockMath>{'W = P \\times t'}</BlockMath>
+                      </div>
+                    </li>
+                    
+                    <li>
+                      <strong>Graph P vs t (for illustration):</strong>
+                      <div className="mt-3 mb-3 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                        <svg width="100%" height="325" viewBox="0 0 400 325" className="border border-gray-400 bg-white rounded">
+                          {/* Grid lines */}
+                          <defs>
+                            <pattern id="grid1" width="25" height="25" patternUnits="userSpaceOnUse">
+                              <path d="M 25 0 L 0 0 0 25" fill="none" stroke="#f0f0f0" strokeWidth="1"/>
+                            </pattern>
+                          </defs>
+                          <rect width="400" height="325" fill="url(#grid1)" />
+                          
+                          {/* Axes */}
+                          <line x1="50" y1="275" x2="350" y2="275" stroke="#333" strokeWidth="2"/>
+                          <line x1="50" y1="275" x2="50" y2="25" stroke="#333" strokeWidth="2"/>
+                          
+                          {/* Axis labels */}
+                          <text x="200" y="310" fontSize="14" textAnchor="middle">t (s)</text>
+                          <text x="20" y="150" fontSize="14" textAnchor="middle" transform="rotate(-90 20 150)">P (W)</text>
+                          
+                          {/* Time axis values */}
+                          <text x="50" y="290" fontSize="12" textAnchor="middle">0</text>
+                          <text x="100" y="290" fontSize="12" textAnchor="middle">2</text>
+                          <text x="150" y="290" fontSize="12" textAnchor="middle">4</text>
+                          <text x="200" y="290" fontSize="12" textAnchor="middle">6</text>
+                          <text x="250" y="290" fontSize="12" textAnchor="middle">8</text>
+                          <text x="300" y="290" fontSize="12" textAnchor="middle">10</text>
+                          <text x="350" y="290" fontSize="12" textAnchor="middle">12</text>
+                          
+                          {/* Power axis values */}
+                          <text x="40" y="280" fontSize="12" textAnchor="end">0</text>
+                          <text x="40" y="230" fontSize="12" textAnchor="end">10</text>
+                          <text x="40" y="180" fontSize="12" textAnchor="end">20</text>
+                          <text x="40" y="130" fontSize="12" textAnchor="end">30</text>
+                          <text x="40" y="80" fontSize="12" textAnchor="end">40</text>
+                          <text x="40" y="30" fontSize="12" textAnchor="end">50</text>
+                          
+                          {/* Data points (scattered) */}
+                          <circle cx="100" cy="30" r="4" fill="#2563eb"/>  {/* (2, 50) */}
+                          <circle cx="150" cy="152.5" r="4" fill="#2563eb"/> {/* (4, 25) */}
+                          <circle cx="200" cy="191.7" r="4" fill="#2563eb"/> {/* (6, 17) */}
+                          <circle cx="250" cy="211.3" r="4" fill="#2563eb"/> {/* (8, 13) */}
+                          <circle cx="300" cy="226" r="4" fill="#2563eb"/> {/* (10, 10) */}
+                          <circle cx="350" cy="235.8" r="4" fill="#2563eb"/> {/* (12, 8) */}
+                          
+                          {/* Best fit curve P = 100/t - smooth hyperbola */}
+                          <path d="M 100,30 C 106,55 112.5,80 125,111.8 C 137.5,132 150,152.5 162.5,166 C 175,180 187.5,187 200,193.2 C 212.5,199 225,205.4 237.5,209.5 C 250,213.8 262.5,217.2 275,220.6 C 287.5,223.3 300,226 312.5,228.3 C 325,230.6 337.5,232.4 350,234.2 Q 365,237 380,239" 
+                                fill="none" stroke="#ef4444" strokeWidth="2" strokeDasharray="5,3"/>
+                          
+                          <text x="200" y="20" fontSize="13" textAnchor="middle" fontWeight="bold">P vs t (Inverse Relationship)</text>
+                        </svg>
+                      </div>
+                      <p className="text-sm text-gray-600 text-center">
+                        Since P and t are in an inverse relationship, a graph of P vs t produces a curve, not a line.
+                      </p>
+                    </li>
+                    
+                    <li>
+                      <strong>Transform to linear relationship:</strong>
+                      <p className="mt-2 ml-4 mb-3">
+                        To produce a linear relationship from an inverse relationship, we invert one of the 
+                        variables and then graph the result. The equation becomes:
+                      </p>
+                      <div className="text-center mb-3">
+                        <BlockMath>{'W = P \\times t \\quad \\Rightarrow \\quad P = W \\times \\frac{1}{t}'}</BlockMath>
+                      </div>
+                      <p className="ml-4">
+                        Where P is the vertical axis, 1/t is the horizontal axis, and slope = W
+                      </p>
+                    </li>
+                    
+                    <li>
+                      <strong>Graph P vs 1/t:</strong>
+                      <div className="mt-3 mb-3 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                        <svg width="100%" height="300" viewBox="0 0 400 300" className="border border-gray-400 bg-white rounded">
+                          {/* Grid lines */}
+                          <defs>
+                            <pattern id="grid2" width="40" height="25" patternUnits="userSpaceOnUse">
+                              <path d="M 40 0 L 0 0 0 25" fill="none" stroke="#f0f0f0" strokeWidth="1"/>
+                            </pattern>
+                          </defs>
+                          <rect width="400" height="300" fill="url(#grid2)" />
+                          
+                          {/* Axes */}
+                          <line x1="50" y1="250" x2="350" y2="250" stroke="#333" strokeWidth="2"/>
+                          <line x1="50" y1="250" x2="50" y2="30" stroke="#333" strokeWidth="2"/>
+                          
+                          {/* Axis labels */}
+                          <text x="200" y="285" fontSize="14" textAnchor="middle">1/t (s⁻¹)</text>
+                          <text x="20" y="140" fontSize="14" textAnchor="middle" transform="rotate(-90 20 140)">P (W)</text>
+                          
+                          {/* 1/t axis values */}
+                          <text x="50" y="265" fontSize="12" textAnchor="middle">0</text>
+                          <text x="90" y="265" fontSize="12" textAnchor="middle">0.1</text>
+                          <text x="130" y="265" fontSize="12" textAnchor="middle">0.2</text>
+                          <text x="170" y="265" fontSize="12" textAnchor="middle">0.3</text>
+                          <text x="210" y="265" fontSize="12" textAnchor="middle">0.4</text>
+                          <text x="250" y="265" fontSize="12" textAnchor="middle">0.5</text>
+                          <text x="290" y="265" fontSize="12" textAnchor="middle">0.6</text>
+                          
+                          {/* Power axis values */}
+                          <text x="40" y="255" fontSize="12" textAnchor="end">0</text>
+                          <text x="40" y="205" fontSize="12" textAnchor="end">10</text>
+                          <text x="40" y="155" fontSize="12" textAnchor="end">20</text>
+                          <text x="40" y="105" fontSize="12" textAnchor="end">30</text>
+                          <text x="40" y="55" fontSize="12" textAnchor="end">40</text>
+                          <text x="40" y="35" fontSize="12" textAnchor="end">50</text>
+                          
+                          {/* Data points */}
+                          <circle cx="250" cy="50" r="4" fill="#22c55e"/> {/* (0.50, 50) */}
+                          <circle cx="170" cy="125" r="4" fill="#22c55e"/> {/* (0.25, 25) */}
+                          <circle cx="118" cy="165" r="4" fill="#22c55e"/> {/* (0.17, 17) */}
+                          <circle cx="102" cy="186" r="4" fill="#22c55e"/> {/* (0.13, 13) */}
+                          <circle cx="90" cy="200" r="4" fill="#22c55e"/>  {/* (0.10, 10) */}
+                          <circle cx="82" cy="210" r="4" fill="#22c55e"/>  {/* (0.08, 8) */}
+                          
+                          {/* Best fit line */}
+                          <line x1="50" y1="250" x2="260" y2="40" stroke="#22c55e" strokeWidth="2"/>
+                          
+                          {/* Slope calculation visualization */}
+                          <line x1="90" y1="200" x2="250" y2="200" stroke="#666" strokeWidth="1" strokeDasharray="3,3"/>
+                          <line x1="250" y1="200" x2="250" y2="50" stroke="#666" strokeWidth="1" strokeDasharray="3,3"/>
+                          
+                          <text x="170" y="215" fontSize="11" fill="#666">Δ(1/t) = 0.4</text>
+                          <text x="260" y="125" fontSize="11" fill="#666">ΔP = 40</text>
+                          
+                          <text x="200" y="20" fontSize="13" textAnchor="middle" fontWeight="bold">P vs 1/t (Linear Relationship)</text>
+                        </svg>
+                      </div>
+                    </li>
+                    
+                    <li>
+                      <strong>Calculate the work done (W):</strong>
+                      <div className="mt-2 ml-4">
+                        <p className="mb-2">From the graph, we calculate the slope:</p>
+                        <div className="text-center mb-3">
+                          <BlockMath>{'\\text{slope} = \\frac{\\Delta P}{\\Delta(1/t)} = \\frac{40\\text{ W}}{0.4\\text{ s}^{-1}} = 100\\text{ W}\\times\\text{s}'}</BlockMath>
+                        </div>
+                        <p>Since slope = W:</p>
+                        <div className="text-center">
+                          <BlockMath>{'W = 100\\text{ W}\\times\\text{s} = 100\\text{ J}'}</BlockMath>
+                        </div>
+                      </div>
+                    </li>
+                  </ol>
+
+                  <div className="mt-6 pt-4 border-t border-gray-200">
+                    <p className="font-semibold text-gray-800">Answer:</p>
+                    <p className="text-lg mt-2">
+                      The work done on the object is <InlineMath>{'W = 100\\text{ J}'}</InlineMath>
+                    </p>
+                    <p className="text-sm text-gray-600 mt-3">
+                      This example demonstrates how to analyze inverse relationships by transforming them into 
+                      linear relationships, making it easier to extract meaningful physical quantities from the data.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </TextSection>
+
+      <TextSection>
+        <div className="mb-6">
           <h3 className="text-xl font-semibold text-green-800 mb-4">Practice Problems</h3>
           <div className="bg-green-50 p-6 rounded-lg border border-green-200">
             {/* Problem Counter and Indicators */}
