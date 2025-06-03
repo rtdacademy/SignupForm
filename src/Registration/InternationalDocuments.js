@@ -16,6 +16,10 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
   const [selectedDocumentType, setSelectedDocumentType] = useState('');
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  
+  // Separate existing documents from new ones
+  const existingDocuments = documents.filter(doc => doc.fromProfile);
+  const newDocuments = documents.filter(doc => !doc.fromProfile);
 
   // Document type options for international students
   const documentTypes = [
@@ -208,14 +212,29 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
       <CardContent className="space-y-4">
         <Alert className="bg-blue-50 border-blue-200">
           <AlertDescription className="text-blue-800">
-            Please upload <strong>ONE</strong> of the following documents:
-            <ul className="list-disc pl-5 mt-2">
-              <li>Valid Passport</li>
-              <li>Birth Certificate or National ID Card</li>
-              <li>Study Permit or Work Permit</li>
-              <li>Other Government Issued ID</li>
-            </ul>
-            <p className="mt-2 font-medium">Note: Only one document is required for verification.</p>
+            {existingDocuments.length > 0 ? (
+              <>
+                <p className="font-medium mb-2">You have previously uploaded documents. You may add additional documents if needed.</p>
+                <p>Accepted document types:</p>
+                <ul className="list-disc pl-5 mt-1">
+                  <li>Valid Passport</li>
+                  <li>Birth Certificate or National ID Card</li>
+                  <li>Study Permit or Work Permit</li>
+                  <li>Other Government Issued ID</li>
+                </ul>
+              </>
+            ) : (
+              <>
+                Please upload <strong>ONE</strong> of the following documents:
+                <ul className="list-disc pl-5 mt-2">
+                  <li>Valid Passport</li>
+                  <li>Birth Certificate or National ID Card</li>
+                  <li>Study Permit or Work Permit</li>
+                  <li>Other Government Issued ID</li>
+                </ul>
+                <p className="mt-2 font-medium">Note: Only one document is required for verification.</p>
+              </>
+            )}
           </AlertDescription>
         </Alert>
 
@@ -245,35 +264,63 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
           </select>
         </div>
 
-        {/* Uploaded Documents List */}
-        {documents.length > 0 && (
+        {/* Existing Documents from Profile */}
+        {existingDocuments.length > 0 && (
           <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-700">Uploaded Documents:</p>
-            {documents.map((doc, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+            <p className="text-sm font-medium text-gray-700">Previously Uploaded Documents:</p>
+            {existingDocuments.map((doc, index) => (
+              <div key={`existing-${index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-green-500" />
                     <span className="text-sm text-gray-700">{doc.name || `Document ${index + 1}`}</span>
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">From Profile</span>
                   </div>
                   <span className="text-xs text-gray-500 ml-6">{doc.typeLabel || doc.type}</span>
                 </div>
-                <button
-                  onClick={() => handleRemoveDocument(index)}
-                  className="text-red-500 hover:text-red-700 transition-colors"
-                  type="button"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <div className="text-xs text-gray-500">Cannot be removed</div>
               </div>
             ))}
-            <Alert className="bg-green-50 border-green-200">
-              <Check className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                Document requirement satisfied. You have uploaded {documents.length} document{documents.length > 1 ? 's' : ''}.
-              </AlertDescription>
-            </Alert>
           </div>
+        )}
+        
+        {/* New Documents */}
+        {newDocuments.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-700">{existingDocuments.length > 0 ? 'Additional Documents:' : 'Uploaded Documents:'}</p>
+            {newDocuments.map((doc, index) => {
+              const actualIndex = existingDocuments.length + index;
+              return (
+                <div key={`new-${index}`} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-green-500" />
+                      <span className="text-sm text-gray-700">{doc.name || `Document ${actualIndex + 1}`}</span>
+                    </div>
+                    <span className="text-xs text-gray-500 ml-6">{doc.typeLabel || doc.type}</span>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveDocument(actualIndex)}
+                    className="text-red-500 hover:text-red-700 transition-colors"
+                    type="button"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        
+        {/* Success Message */}
+        {documents.length > 0 && (
+          <Alert className="bg-green-50 border-green-200">
+            <Check className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">
+              Document requirement satisfied. You have uploaded {documents.length} document{documents.length > 1 ? 's' : ''}.
+              {existingDocuments.length > 0 && ` (${existingDocuments.length} from profile, ${newDocuments.length} new)`}
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Upload Options */}
@@ -292,7 +339,7 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
                 ) : (
                   <Upload className="h-4 w-4 mr-2" />
                 )}
-                Choose Files
+                {existingDocuments.length > 0 ? 'Add More Files' : 'Choose Files'}
               </Button>
               
               <Button
@@ -303,7 +350,7 @@ const InternationalDocuments = forwardRef(({ onUploadComplete, initialDocuments 
                 onClick={startCamera}
               >
                 <Camera className="h-4 w-4 mr-2" />
-                Use Camera
+                {existingDocuments.length > 0 ? 'Add with Camera' : 'Use Camera'}
               </Button>
             </div>
             {!selectedDocumentType && (

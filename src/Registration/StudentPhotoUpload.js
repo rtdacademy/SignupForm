@@ -170,7 +170,11 @@ const StudentPhotoUpload = forwardRef(({ onUploadComplete, initialPhoto = null, 
       <CardContent className="space-y-4">
         <Alert className="bg-blue-50 border-blue-200">
           <AlertDescription className="text-blue-800">
-            Please upload a recent headshot photo of the student. This will be used for identification purposes.
+            {initialPhoto ? (
+              <>You have an existing student photo. You can update it with a more recent photo if needed.</>
+            ) : (
+              <>Please upload a recent headshot photo of the student. This will be used for identification purposes.</>
+            )}
           </AlertDescription>
         </Alert>
 
@@ -183,19 +187,30 @@ const StudentPhotoUpload = forwardRef(({ onUploadComplete, initialPhoto = null, 
 
         <div className="space-y-4">
           {preview && (
-            <div className="relative inline-block">
-              <img 
-                src={preview} 
-                alt="Student photo preview" 
-                className="w-32 h-32 object-cover rounded-lg border-2 border-gray-300"
-              />
-              <button
-                onClick={handleRemove}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                type="button"
-              >
-                <X className="h-4 w-4" />
-              </button>
+            <div className="space-y-2">
+              <div className="relative inline-block">
+                <img 
+                  src={preview} 
+                  alt="Student photo preview" 
+                  className="w-32 h-32 object-cover rounded-lg border-2 border-gray-300"
+                />
+                {initialPhoto && preview === initialPhoto && (
+                  <div className="absolute -top-2 -left-2 bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full border border-blue-300">
+                    From Profile
+                  </div>
+                )}
+                <button
+                  onClick={handleRemove}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                  type="button"
+                  title={initialPhoto && preview === initialPhoto ? "Update photo" : "Remove photo"}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {initialPhoto && preview === initialPhoto && (
+                <p className="text-sm text-gray-600">This is your existing photo. Click the X to update it.</p>
+              )}
             </div>
           )}
 
@@ -213,7 +228,7 @@ const StudentPhotoUpload = forwardRef(({ onUploadComplete, initialPhoto = null, 
                 ) : (
                   <Upload className="h-4 w-4 mr-2" />
                 )}
-                Choose File
+                {initialPhoto ? 'Choose New File' : 'Choose File'}
               </Button>
               
               <Button
@@ -224,7 +239,7 @@ const StudentPhotoUpload = forwardRef(({ onUploadComplete, initialPhoto = null, 
                 onClick={startCamera}
               >
                 <Camera className="h-4 w-4 mr-2" />
-                Use Camera
+                {initialPhoto ? 'Take New Photo' : 'Use Camera'}
               </Button>
               
               <input
