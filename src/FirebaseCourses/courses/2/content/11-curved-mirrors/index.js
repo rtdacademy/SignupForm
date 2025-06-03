@@ -19,6 +19,10 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
   const [isPlaneMirrorsOpen, setIsPlaneMirrorsOpen] = useState(false);
   const [isSphericalMirrorsOpen, setIsSphericalMirrorsOpen] = useState(false);
   const [isImageFormationOpen, setIsImageFormationOpen] = useState(false);
+  const [isSignConventionsOpen, setIsSignConventionsOpen] = useState(false);
+  const [isExample1Open, setIsExample1Open] = useState(false);
+  const [isExample2Open, setIsExample2Open] = useState(false);
+  const [isExample3Open, setIsExample3Open] = useState(false);
   
   // Animation states
   const [objectDistance, setObjectDistance] = useState(100); // Distance from mirror
@@ -1387,10 +1391,10 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
                                 <line x1="460" y1="70" x2="505" y2="70" stroke="#3B82F6" strokeWidth="3" />
                                 
                                 {/* Reflected through focal point - diverging */}
-                                <line x1="505" y1="70" x2="350" y2="200" stroke="#3B82F6" strokeWidth="3" strokeDasharray="5,5" />
+                                <line x1="505" y1="70" x2="350" y2="125" stroke="#3B82F6" strokeWidth="3" strokeDasharray="5,5" />
                                 
                                 {/* Virtual extension behind mirror */}
-                                <line x1="505" y1="70" x2="660" y2="-60" stroke="#3B82F6" strokeWidth="2" strokeDasharray="3,3" opacity="0.5" />
+                                <line x1="505" y1="70" x2="660" y2="-0" stroke="#3B82F6" strokeWidth="2" strokeDasharray="3,3" opacity="0.5" />
                               </>
                             )}
                             
@@ -1398,6 +1402,8 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
                               <>
                                 {/* Ray 2: Toward focal point (Green) */}
                                 <line x1="460" y1="70" x2="494" y2="40" stroke="#22C55E" strokeWidth="3" />
+                                {/* Extension showing ray passes through F */}
+                                <line x1="460" y1="70" x2="355" y2="160" stroke="#22C55E" strokeWidth="3" />
                                 
                                 {/* Reflected parallel to axis */}
                                 <line x1="494" y1="40" x2="50" y2="40" stroke="#22C55E" strokeWidth="3" strokeDasharray="5,5" />
@@ -1410,8 +1416,10 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
                             {rayDiagramStep >= 3 && (
                               <>
                                 {/* Ray 3: Through center of curvature (Purple) */}
-                                <line x1="460" y1="70" x2="350" y2="100" stroke="#A855F7" strokeWidth="3" />
-                                <line x1="350" y1="100" x2="50" y2="200" stroke="#A855F7" strokeWidth="3" />
+                                <line x1="505" y1="58" x2="50" y2="180" stroke="#A855F7" strokeWidth="3" />
+                                
+                                {/* Virtual extension behind mirror */}
+                                <line x1="500" y1="60" x2="600" y2="30" stroke="#A855F7" strokeWidth="2" strokeDasharray="3,3" opacity="0.5" />
                               </>
                             )}
                             
@@ -1419,10 +1427,9 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
                               <>
                                 {/* Virtual image formation - behind mirror, upright and larger */}
                                 <g>
-                                  <line x1="580" y1="100" x2="580" y2="20" stroke="#FF6B6B" strokeWidth="3" strokeDasharray="3,3" opacity="0.7" />
-                                  <polygon points="577,23 580,20 583,23" fill="#FF6B6B" opacity="0.7" />
+                                  <line x1="570" y1="100" x2="570" y2="40" stroke="#FF6B6B" strokeWidth="3" strokeDasharray="3,3" opacity="0.7" />
+                                  <polygon points="567,43 570,40 573,43" fill="#FF6B6B" opacity="0.7" />
                                   <text x="580" y="140" fontSize="12" fill="#FF6B6B" textAnchor="middle" fontWeight="bold">Virtual Image</text>
-                                  <text x="580" y="153" fontSize="10" fill="#FF6B6B" textAnchor="middle">(upright, magnified)</text>
                                 </g>
                               </>
                             )}
@@ -1469,11 +1476,493 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
                     )}
                     
                     {selectedDiagram === 6 && (
-                      <div className="text-center py-12">
-                        <h4 className="font-semibold text-gray-800 mb-4">Case 6: Any Position (Convex)</h4>
-                        <span className="text-gray-500">Animation coming soon...</span>
-                      </div>
+                      <>
+                        <h4 className="font-semibold text-gray-800 mb-4 text-center">Case 6: Any Position (Convex)</h4>
+                        
+                        <div className="space-y-4">
+                          <svg width="100%" height="300" viewBox="0 0 700 200" className="border border-gray-300 bg-white rounded">
+                            {/* Principal axis */}
+                            <line x1="50" y1="100" x2="650" y2="100" stroke="#999" strokeWidth="2" strokeDasharray="5,5" />
+                            <text x="580" y="85" fontSize="12" fill="#666" textAnchor="start">Principal axis</text>
+                            
+                            {/* Mirror surface - convex */}
+                            <path d="M 400 20 A 150 150 0 0 0 400 180" stroke="#4A4A4A" strokeWidth="4" fill="none" />
+                            
+                            {/* Center of curvature (virtual, behind mirror) */}
+                            <circle cx="550" cy="100" r="3" fill="#333" strokeDasharray="3,3" />
+                            <text x="550" y="88" fontSize="12" fill="#333" textAnchor="middle" fontWeight="bold">C</text>
+                            
+                            {/* Focal point (virtual, behind mirror) */}
+                            <circle cx="475" cy="100" r="3" fill="#FF6B6B" strokeDasharray="3,3" />
+                            <text x="475" y="88" fontSize="12" fill="#FF6B6B" textAnchor="middle" fontWeight="bold">F</text>
+                            
+                            {/* Object (arrow) on left side */}
+                            <g>
+                              <line x1="200" y1="100" x2="200" y2="50" stroke="#000" strokeWidth="3" />
+                              <polygon points="197,53 200,50 203,53" fill="#000" />
+                              <text x="200" y="120" fontSize="12" fill="#000" textAnchor="middle" fontWeight="bold">Object</text>
+                            </g>
+                            
+                            {rayDiagramStep >= 1 && (
+                              <>
+                                {/* Ray 1: Parallel to principal axis (Blue) */}
+                                <line x1="200" y1="50" x2="385" y2="50" stroke="#3B82F6" strokeWidth="3" />
+                                
+                                {/* Reflected - appears to come from F */}
+                                <line x1="385" y1="50" x2="50" y2="-150" stroke="#3B82F6" strokeWidth="3" strokeDasharray="5,5" />
+                                
+                                {/* Virtual extension from F to mirror */}
+                                <line x1="475" y1="100" x2="385" y2="50" stroke="#3B82F6" strokeWidth="2" strokeDasharray="3,3" opacity="0.5" />
+                              </>
+                            )}
+                            
+                            {rayDiagramStep >= 2 && (
+                              <>
+                                {/* Ray 2: Toward focal point (Green) */}
+                                <line x1="200" y1="50" x2="380" y2="83" stroke="#22C55E" strokeWidth="3" />
+                              
+                                {/* Reflected parallel to axis */}
+                                <line x1="380" y1="83" x2="50" y2="83" stroke="#22C55E" strokeWidth="3" strokeDasharray="5,5" />
+                                
+                                {/* Virtual extension showing path to F */}
+                                <line x1="380" y1="83" x2="475" y2="100" stroke="#22C55E" strokeWidth="2" strokeDasharray="3,3" opacity="0.5" />
+                                {/* Virtual extension showing path to F */}
+                                <line x1="510" y1="83" x2="380" y2="83" stroke="#22C55E" strokeWidth="2" strokeDasharray="3,3" opacity="0.5" />
+                              
+                              </>
+                            )}
+                            
+                            {rayDiagramStep >= 3 && (
+                              <>
+                                {/* Ray 3: Toward center of curvature (Purple) */}
+                                <line x1="200" y1="50" x2="383" y2="73" stroke="#A855F7" strokeWidth="3" />
+                                
+                                {/* Reflected back */}
+                                <line x1="100" y1="38" x2="383" y2="73" stroke="#A855F7" strokeWidth="3" strokeDasharray="5,5" />
+                                
+                                {/* Virtual extension through C */}
+                                <line x1="383" y1="73" x2="550" y2="100" stroke="#A855F7" strokeWidth="2" strokeDasharray="3,3" opacity="0.5" />
+                              </>
+                            )}
+                            
+                            {rayDiagramStep >= 4 && (
+                              <>
+                                {/* Virtual image formation - behind mirror, upright and smaller */}
+                                <g>
+                                  <line x1="445" y1="100" x2="445" y2="85" stroke="#FF6B6B" strokeWidth="3" strokeDasharray="3,3" opacity="0.7" />
+                                  <polygon points="442,85 445,80 448,85" fill="#FF6B6B" opacity="0.7" />
+                                  <text x="430" y="115" fontSize="12" fill="#FF6B6B" textAnchor="middle" fontWeight="bold">Virtual Image</text>
+                                
+                                </g>
+                              </>
+                            )}
+                          </svg>
+                          
+                          {/* Step explanation */}
+                          <div className="bg-gray-50 p-4 rounded text-sm">
+                            {rayDiagramStep === 0 && (
+                              <span><strong>Setup:</strong> Object placed in front of a convex mirror. The image will always be virtual, upright, and diminished.</span>
+                            )}
+                            {rayDiagramStep === 1 && (
+                              <span><strong>Ray 1 (Blue):</strong> The ray parallel to the principal axis reflects as if coming from the virtual focal point F.</span>
+                            )}
+                            {rayDiagramStep === 2 && (
+                              <span><strong>Ray 2 (Green):</strong> The ray aimed toward the virtual focal point reflects parallel to the principal axis.</span>
+                            )}
+                            {rayDiagramStep === 3 && (
+                              <span><strong>Ray 3 (Purple):</strong> The ray aimed toward the virtual center of curvature reflects back along the same angle.</span>
+                            )}
+                            {rayDiagramStep === 4 && (
+                              <span><strong>Image Formation:</strong> The reflected rays diverge. Extending them backward shows a <strong>virtual</strong>, <strong>upright</strong>, <strong>diminished</strong> image behind the mirror.</span>
+                            )}
+                          </div>
+                          
+                          {/* Controls */}
+                          <div className="flex justify-center space-x-3">
+                            <button
+                              onClick={() => setRayDiagramStep(Math.max(0, rayDiagramStep - 1))}
+                              disabled={rayDiagramStep === 0}
+                              className="px-4 py-2 bg-blue-200 hover:bg-blue-300 disabled:bg-gray-100 disabled:cursor-not-allowed rounded text-sm font-medium"
+                            >
+                              Previous
+                            </button>
+                            <button
+                              onClick={() => setRayDiagramStep(Math.min(4, rayDiagramStep + 1))}
+                              disabled={rayDiagramStep === 4}
+                              className="px-4 py-2 bg-blue-200 hover:bg-blue-300 disabled:bg-gray-100 disabled:cursor-not-allowed rounded text-sm font-medium"
+                            >
+                              Next
+                            </button>
+                          </div>
+                        </div>
+                      </>
                     )}
+                  </div>
+                </div>
+
+                {/* Drawing Tips Section */}
+                <div className="mt-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h5 className="font-semibold text-gray-700 mb-3">✏️ Quick Drawing Tips</h5>
+                  
+                  <ul className="space-y-2 text-sm text-gray-700">
+                    <li>• <strong>Always use a ruler</strong> for drawing light rays - even small inaccuracies can lead to the wrong image location</li>
+                    <li>• <strong>Make your diagrams large</strong> - it's much easier to be accurate with bigger drawings</li>
+                    <li>• <strong>Use dashed lines for virtual rays</strong> - any ray or image behind the mirror should be dashed to show it's virtual</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sign Conventions and Calculations Section */}
+        <div className="mb-6">
+          <button
+            onClick={() => setIsSignConventionsOpen(!isSignConventionsOpen)}
+            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+          >
+            <h3 className="text-xl font-semibold">Sign Conventions and Mirror Calculations</h3>
+            <span className="text-blue-600">{isSignConventionsOpen ? '▼' : '▶'}</span>
+          </button>
+
+          {isSignConventionsOpen && (
+            <div className="mt-4">
+              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                <p className="mb-4">
+                  As we saw above, real images exist in real space and are always inverted, while virtual
+                  images exist as images "within" the mirror and are always erect. In order to use the
+                  equations properly it is necessary to have the proper signs for each variable. The
+                  proper signs for each kind of image, object and mirror is given below.
+                </p>
+
+                {/* Sign Convention Table */}
+                <div className="bg-white p-4 rounded border border-gray-300 mb-6">
+                  <h5 className="font-semibold text-gray-700 mb-3">Sign Conventions</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <div className="mb-3">
+                        <span className="font-semibold text-gray-700">f (focal length):</span>
+                        <ul className="ml-4 mt-1 text-sm">
+                          <li>• (+) for concave mirror</li>
+                          <li>• (−) for convex mirror</li>
+                        </ul>
+                      </div>
+                      <div className="mb-3">
+                        <span className="font-semibold text-gray-700">d<sub>o</sub> (object distance):</span>
+                        <ul className="ml-4 mt-1 text-sm">
+                          <li>• always (+)</li>
+                        </ul>
+                      </div>
+                      <div className="mb-3">
+                        <span className="font-semibold text-gray-700">d<sub>i</sub> (image distance):</span>
+                        <ul className="ml-4 mt-1 text-sm">
+                          <li>• (+) for a real image</li>
+                          <li>• (−) for a virtual image</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mb-3">
+                        <span className="font-semibold text-gray-700">h<sub>o</sub> (object height):</span>
+                        <ul className="ml-4 mt-1 text-sm">
+                          <li>• always (+)</li>
+                        </ul>
+                      </div>
+                      <div className="mb-3">
+                        <span className="font-semibold text-gray-700">h<sub>i</sub> (image height):</span>
+                        <ul className="ml-4 mt-1 text-sm">
+                          <li>• (+) for a virtual image</li>
+                          <li>• (−) for a real image</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Reference Box */}
+                <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <strong className="text-blue-800">Virtual image:</strong>
+                      <ul className="ml-4 mt-1">
+                        <li>⇒ d<sub>i</sub> is negative</li>
+                        <li>⇒ always erect</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <strong className="text-blue-800">Real image:</strong>
+                      <ul className="ml-4 mt-1">
+                        <li>⇒ d<sub>i</sub> is positive</li>
+                        <li>⇒ always inverted</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Example Problem Section */}
+        <div className="mb-6">
+          <button
+            onClick={() => setIsExample1Open(!isExample1Open)}
+            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+          >
+            <h3 className="text-xl font-semibold">Example 1: Converging Mirror Problem</h3>
+            <span className="text-blue-600">{isExample1Open ? '▼' : '▶'}</span>
+          </button>
+
+          {isExample1Open && (
+            <div className="mt-4">
+              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+                <p className="mb-4">
+                  A 5.0 cm tall object is placed 60 cm away from a converging mirror that has an 80 cm
+                  radius of curvature. Describe the image formed.
+                </p>
+                
+                <div className="bg-white p-4 rounded border border-gray-100">
+                  <p className="font-medium text-gray-700 mb-4">Solution:</p>
+                  
+                  <ol className="list-decimal pl-6 space-y-3">
+                    <li>
+                      <strong>Given information:</strong>
+                      <ul className="list-disc pl-6 mt-1">
+                        <li>Object height: h<sub>o</sub> = 5.0 cm</li>
+                        <li>Object distance: d<sub>o</sub> = 60 cm</li>
+                        <li>Radius of curvature: R = 80 cm</li>
+                        <li>Mirror type: converging (concave)</li>
+                      </ul>
+                    </li>
+                    
+                    <li>
+                      <strong>Find the focal length:</strong>
+                      <div className="mt-2 text-center">
+                        <BlockMath>{"f = \\frac{R}{2} = \\frac{80\\text{ cm}}{2} = +40\\text{ cm}"}</BlockMath>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">The focal length is positive for a converging mirror.</p>
+                    </li>
+                    
+                    <li>
+                      <strong>Apply the mirror equation:</strong>
+                      <div className="mt-2 text-center">
+                        <BlockMath>{"\\frac{1}{f} = \\frac{1}{d_o} + \\frac{1}{d_i}"}</BlockMath>
+                      </div>
+                      <p className="mt-2">Substituting known values:</p>
+                      <div className="text-center">
+                        <BlockMath>{"\\frac{1}{40} = \\frac{1}{60} + \\frac{1}{d_i}"}</BlockMath>
+                      </div>
+                      <p className="mt-2">Solving for d<sub>i</sub>:</p>
+                      <div className="text-center">
+                        <BlockMath>{"\\frac{1}{d_i} = \\frac{1}{40} - \\frac{1}{60} = \\frac{3-2}{120} = \\frac{1}{120}"}</BlockMath>
+                        <BlockMath>{"d_i = +120\\text{ cm}"}</BlockMath>
+                      </div>
+                    </li>
+                    
+                    <li>
+                      <strong>Calculate magnification:</strong>
+                      <div className="mt-2 text-center">
+                        <BlockMath>{"m = -\\frac{d_i}{d_o} = -\\frac{120}{60} = -2"}</BlockMath>
+                      </div>
+                    </li>
+                    
+                    <li>
+                      <strong>Find image height:</strong>
+                      <div className="mt-2 text-center">
+                        <BlockMath>{"h_i = m \\times h_o = (-2) \\times (5.0\\text{ cm}) = -10\\text{ cm}"}</BlockMath>
+                      </div>
+                    </li>
+                  </ol>
+                  
+                  <div className="mt-6">
+                    <p className="font-semibold text-gray-700 mb-2">Answer:</p>
+                    <p className="text-gray-700">
+                      The image is <strong>real</strong> (d<sub>i</sub> = +120 cm), <strong>inverted</strong> (h<sub>i</sub> = -10 cm), 
+                      and <strong>magnified</strong> (2× larger than the object). The image is located 120 cm from the mirror.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Example 2 Problem Section */}
+        <div className="mb-6">
+          <button
+            onClick={() => setIsExample2Open(!isExample2Open)}
+            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+          >
+            <h3 className="text-xl font-semibold">Example 2: Diverging Mirror Problem</h3>
+            <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
+          </button>
+
+          {isExample2Open && (
+            <div className="mt-4">
+              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+                <p className="mb-4">
+                  A 5.0 cm tall object is placed 60 cm away from a diverging mirror that has an 80 cm
+                  radius of curvature. Describe the image formed.
+                </p>
+                
+                <div className="bg-white p-4 rounded border border-gray-100">
+                  <p className="font-medium text-gray-700 mb-4">Solution:</p>
+                  
+                  <ol className="list-decimal pl-6 space-y-3">
+                    <li>
+                      <strong>Given information:</strong>
+                      <ul className="list-disc pl-6 mt-1">
+                        <li>Object height: h<sub>o</sub> = 5.0 cm</li>
+                        <li>Object distance: d<sub>o</sub> = 60 cm</li>
+                        <li>Radius of curvature: R = 80 cm</li>
+                        <li>Mirror type: diverging (convex)</li>
+                      </ul>
+                    </li>
+                    
+                    <li>
+                      <strong>Find the focal length:</strong>
+                      <div className="mt-2 text-center">
+                        <BlockMath>{"f = \\frac{R}{2} = \\frac{80\\text{ cm}}{2} = 40\\text{ cm}"}</BlockMath>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">For a diverging mirror, the focal length is negative:</p>
+                      <div className="text-center">
+                        <BlockMath>{"f = -40\\text{ cm}"}</BlockMath>
+                      </div>
+                    </li>
+                    
+                    <li>
+                      <strong>Apply the mirror equation:</strong>
+                      <div className="mt-2 text-center">
+                        <BlockMath>{"\\frac{1}{f} = \\frac{1}{d_o} + \\frac{1}{d_i}"}</BlockMath>
+                      </div>
+                      <p className="mt-2">Substituting known values:</p>
+                      <div className="text-center">
+                        <BlockMath>{"\\frac{1}{-40} = \\frac{1}{60} + \\frac{1}{d_i}"}</BlockMath>
+                      </div>
+                      <p className="mt-2">Solving for d<sub>i</sub>:</p>
+                      <div className="text-center">
+                        <BlockMath>{"\\frac{1}{d_i} = \\frac{1}{-40} - \\frac{1}{60} = \\frac{-3-2}{120} = \\frac{-5}{120} = \\frac{-1}{24}"}</BlockMath>
+                        <BlockMath>{"d_i = -24\\text{ cm}"}</BlockMath>
+                      </div>
+                    </li>
+                    
+                    <li>
+                      <strong>Calculate magnification:</strong>
+                      <div className="mt-2 text-center">
+                        <BlockMath>{"m = -\\frac{d_i}{d_o} = -\\frac{(-24)}{60} = +0.4"}</BlockMath>
+                      </div>
+                    </li>
+                    
+                    <li>
+                      <strong>Find image height:</strong>
+                      <div className="mt-2 text-center">
+                        <BlockMath>{"h_i = m \\times h_o = (0.4) \\times (5.0\\text{ cm}) = 2.0\\text{ cm}"}</BlockMath>
+                      </div>
+                    </li>
+                  </ol>
+                  
+                  <div className="mt-6">
+                    <p className="font-semibold text-gray-700 mb-2">Answer:</p>
+                    <p className="text-gray-700">
+                      The negative d<sub>i</sub> means that the image is <strong>virtual</strong> and <strong>erect</strong>. 
+                      (All virtual images are erect.) The image is 2.0 cm tall, i.e., <strong>diminished</strong> (0.4× the size of the object). 
+                      The virtual image is located 24 cm behind the mirror.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Example 3 Problem Section */}
+        <div className="mb-6">
+          <button
+            onClick={() => setIsExample3Open(!isExample3Open)}
+            className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
+          >
+            <h3 className="text-xl font-semibold">Example 3: Finding Mirror Type and Focal Length</h3>
+            <span className="text-blue-600">{isExample3Open ? '▼' : '▶'}</span>
+          </button>
+
+          {isExample3Open && (
+            <div className="mt-4">
+              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                <h4 className="font-semibold text-gray-800 mb-3">Problem:</h4>
+                <p className="mb-4">
+                  The erect image of an object is one-third the size of the object. If the object is 20 cm
+                  from the mirror, what kind of mirror is it and what is the focal length?
+                </p>
+                
+                <div className="bg-white p-4 rounded border border-gray-100">
+                  <p className="font-medium text-gray-700 mb-4">Solution:</p>
+                  
+                  <ol className="list-decimal pl-6 space-y-3">
+                    <li>
+                      <strong>Given information:</strong>
+                      <ul className="list-disc pl-6 mt-1">
+                        <li>Image is erect (upright)</li>
+                        <li>Image size is 1/3 of object size</li>
+                        <li>Object distance: d<sub>o</sub> = 20 cm</li>
+                      </ul>
+                    </li>
+                    
+                    <li>
+                      <strong>Determine mirror type:</strong>
+                      <p className="mt-2">The image is erect (i.e., virtual) and smaller (i.e., d<sub>i</sub> is less than d<sub>o</sub>). 
+                      The only way this can happen is with a <strong>convex (diverging) mirror</strong>.</p>
+                      <p className="text-sm text-gray-600 mt-1">Note: A virtual image is always larger for a concave 
+                      (converging) mirror and is always smaller for a convex (diverging) mirror.</p>
+                    </li>
+                    
+                    <li>
+                      <strong>Find magnification:</strong>
+                      <p className="mt-2">Since the image is 1/3 the size of the object and erect:</p>
+                      <div className="mt-2 text-center">
+                        <BlockMath>{"m = +\\frac{1}{3}"}</BlockMath>
+                      </div>
+                    </li>
+                    
+                    <li>
+                      <strong>Calculate image distance:</strong>
+                      <p className="mt-2">Using the magnification formula:</p>
+                      <div className="mt-2 text-center">
+                        <BlockMath>{"m = -\\frac{d_i}{d_o}"}</BlockMath>
+                      </div>
+                      <p className="mt-2">Substituting known values:</p>
+                      <div className="text-center">
+                        <BlockMath>{"+\\frac{1}{3} = -\\frac{d_i}{20}"}</BlockMath>
+                      </div>
+                      <p className="mt-2">Solving for d<sub>i</sub>:</p>
+                      <div className="text-center">
+                        <BlockMath>{"d_i = -\\frac{20}{3} = -6.67\\text{ cm}"}</BlockMath>
+                      </div>
+                    </li>
+                    
+                    <li>
+                      <strong>Calculate focal length:</strong>
+                      <p className="mt-2">Using the mirror equation:</p>
+                      <div className="mt-2 text-center">
+                        <BlockMath>{"\\frac{1}{f} = \\frac{1}{d_o} + \\frac{1}{d_i}"}</BlockMath>
+                      </div>
+                      <p className="mt-2">Substituting known values:</p>
+                      <div className="text-center">
+                        <BlockMath>{"\\frac{1}{f} = \\frac{1}{20} + \\frac{1}{-6.67} = \\frac{1}{20} - \\frac{3}{20} = \\frac{1-3}{20} = \\frac{-2}{20}"}</BlockMath>
+                      </div>
+                      <p className="mt-2">Therefore:</p>
+                      <div className="text-center">
+                        <BlockMath>{"f = -10\\text{ cm}"}</BlockMath>
+                      </div>
+                    </li>
+                  </ol>
+                  
+                  <div className="mt-6">
+                    <p className="font-semibold text-gray-700 mb-2">Answer:</p>
+                    <p className="text-gray-700">
+                      The mirror is a <strong>diverging (convex) mirror</strong> with a focal length of <strong>f = -10 cm</strong>.
+                    </p>
                   </div>
                 </div>
               </div>
