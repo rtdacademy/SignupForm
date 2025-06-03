@@ -89,11 +89,10 @@ const SimplifiedMultiSectionCodeEditor = ({
   // Ref for the sections panel to detect outside clicks
   const sectionsPanelRef = useRef(null);
   
-  // Handler to capture editor content changes
+  // Handler to capture editor content changes - now just updates the ref
   const handleEditorChange = useCallback((newContent) => {
-    // Update both ref and state
+    // Only update the ref to track latest content - don't update state to prevent re-renders
     currentEditorContent.current = newContent;
-    setSectionCode(newContent);
     console.log(`📝 Editor content updated: ${newContent?.length || 0} chars`);
   }, []);
 
@@ -285,8 +284,16 @@ const SimplifiedMultiSectionCodeEditor = ({
       });
 
       if (result.data.success) {
-        // DON'T update sections state - keep the local editor content
-        // This prevents the editor from reverting to the old content
+        // Update the sections state with the new content to keep data in sync
+        // But don't change the editor state - it already has the correct content
+        setSections(prev => prev.map(section => 
+          section.id === selectedSectionId 
+            ? { ...section, originalCode: codeToSave, title: sectionTitle }
+            : section
+        ));
+        
+        // Also update the local state to reflect what was saved
+        setSectionCode(codeToSave);
         
         // Show success
         setSaved(true);
@@ -296,7 +303,7 @@ const SimplifiedMultiSectionCodeEditor = ({
         setRefreshKey(prev => prev + 1);
         
         console.log(`✅ ${result.data.message}`);
-        console.log(`📝 Keeping local editor content - not syncing from server`);
+        console.log(`📝 Updated sections state with saved content`);
       } else {
         throw new Error(result.data.error || 'Save operation failed');
       }

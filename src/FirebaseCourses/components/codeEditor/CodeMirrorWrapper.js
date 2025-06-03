@@ -7,7 +7,7 @@ import { keymap, EditorView } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { oneDark } from '@codemirror/theme-one-dark';
 
-// This wrapper properly handles CodeMirror state updates to prevent focus loss
+// This wrapper manages local state until save to prevent cursor focus loss
 const CodeMirrorWrapper = ({ 
   value, 
   onChange, 
@@ -19,8 +19,7 @@ const CodeMirrorWrapper = ({
 }) => {
   const viewRef = useRef(null);
   const [localValue, setLocalValue] = useState(value || '');
-  const timeoutRef = useRef(null);
-  const isExternalUpdate = useRef(false);
+  const lastSectionId = useRef(sectionId);
   
   // Extensions configuration - memoized for performance
   const extensions = useMemo(() => [
@@ -71,47 +70,38 @@ const CodeMirrorWrapper = ({
     })
   ], [onSave]);
 
-  // Debounced onChange to prevent race conditions
-  const debouncedOnChange = useCallback((val) => {
-    // Clear existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    
-    // Update local value immediately for responsive UI
+  // Simple onChange that only updates local state and notifies parent immediately
+  const handleChange = useCallback((val) => {
     setLocalValue(val);
-    
-    // Debounce the parent callback to prevent race conditions
-    timeoutRef.current = setTimeout(() => {
-      onChange?.(val);
-    }, 16); // ~1 frame delay
+    // Notify parent immediately but don't interfere with local editing
+    onChange?.(val);
   }, [onChange]);
 
-  // Handle external value updates (switching sections, inserting examples)
+  // Only sync with external value when section changes or explicit external update
   useEffect(() => {
-    if (value !== localValue && !isExternalUpdate.current) {
-      isExternalUpdate.current = true;
+    // Section changed - sync with new section's value
+    if (sectionId !== lastSectionId.current) {
       setLocalValue(value || '');
-      
-      // Reset flag after update
-      setTimeout(() => {
-        isExternalUpdate.current = false;
-      }, 0);
+      lastSectionId.current = sectionId;
+      return;
     }
-  }, [value, localValue]);
+    
+    // External value update (like code insertion) - only if significantly different
+    // But don't update if the values are very similar (like after a save operation)
+    if (value && value !== localValue) {
+      const lengthDiff = Math.abs(value.length - localValue.length);
+      const isSignificantChange = lengthDiff > 50; // Higher threshold to avoid save-induced updates
+      
+      if (isSignificantChange) {
+        console.log(`🔄 External update detected: ${lengthDiff} char difference`);
+        setLocalValue(value);
+      }
+    }
+  }, [value, sectionId, localValue]);
   
   // Capture the editor view reference  
   const onCreateEditor = useCallback((view) => {
     viewRef.current = view;
-  }, []);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
   }, []);
 
   return (
@@ -120,7 +110,7 @@ const CodeMirrorWrapper = ({
         <CodeMirror
           key={sectionId} // Only remount when section changes
           value={localValue}
-          onChange={debouncedOnChange}
+          onChange={handleChange}
           onCreateEditor={onCreateEditor}
           extensions={extensions}
           theme={oneDark}
