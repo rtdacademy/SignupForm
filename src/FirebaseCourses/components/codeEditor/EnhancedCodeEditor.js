@@ -56,6 +56,8 @@ const EnhancedCodeEditor = ({
       override: [
         (context) => {
           const word = context.matchBefore(/\w*/);
+
+          
           if (!word || (word.from === word.to && !context.explicit)) return null;
           
           return {
