@@ -11,6 +11,7 @@ import {
   SheetTitle 
 } from '../../../components/ui/sheet';
 import { Code, Eye, Save, Plus, RefreshCw, HelpCircle, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, BookOpen } from 'lucide-react';
+import { useToast } from '../../../components/hooks/use-toast';
 import CodeMirrorWrapper from './CodeMirrorWrapper';
 import UiGeneratedContent from '../content/UiGeneratedContent';
 import SectionManager from './SectionManager';
@@ -37,7 +38,6 @@ const SimplifiedMultiSectionCodeEditor = ({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [editorResetKey, setEditorResetKey] = useState(0);
   
   // UI state
   const [isMobile, setIsMobile] = useState(false);
@@ -47,6 +47,8 @@ const SimplifiedMultiSectionCodeEditor = ({
   const [missingConfigs, setMissingConfigs] = useState([]);
   const [configCheckLoading, setConfigCheckLoading] = useState(false);
   const [showExamplesSheet, setShowExamplesSheet] = useState(false);
+
+  const { toast } = useToast();
 
   // Initialize cloud function
   const functions = getFunctions();
@@ -498,11 +500,8 @@ const SimplifiedMultiSectionCodeEditor = ({
     // Add the example code at the end
     newCode = newCode.trim() + '\n\n' + code;
     
-    // Update the ref first
+    // Update both ref and state to ensure consistency
     currentEditorContent.current = newCode;
-    
-    // Force update the editor by setting state with a new key
-    // This is a workaround for the CodeMirror React sync issue
     setSectionCode(newCode);
     
     // Optionally update the section title if it's empty
@@ -510,11 +509,16 @@ const SimplifiedMultiSectionCodeEditor = ({
       setSectionTitle(title);
     }
     
-    // Automatically save after inserting code
-    setTimeout(async () => {
-      await handleSaveSection();
-    }, 100); // Small delay to ensure state updates are processed
-  }, [sectionCode, sectionTitle, handleSaveSection]);
+    // Don't automatically save - let the user decide when to save
+    // This prevents potential state sync issues
+    console.log(`📝 Inserted example "${title}" - ${newCode.length} chars total`);
+    
+    // Show a brief indication that code was inserted
+    toast({
+      title: "Code inserted",
+      description: `Example "${title}" has been added to your editor`
+    });
+  }, [sectionCode, sectionTitle, toast]);
 
   // Component to show missing assessment configurations
   const MissingConfigsWarning = () => (
@@ -666,7 +670,7 @@ const SimplifiedMultiSectionCodeEditor = ({
                     onSave={handleSaveSection}
                     height="100%"
                     placeholder={`Write JSX for ${sectionTitle || 'this section'}...`}
-                    editorKey={selectedSectionId}
+                    sectionId={selectedSectionId}
                   />
                 </div>
               </>
@@ -854,7 +858,7 @@ const SimplifiedMultiSectionCodeEditor = ({
                       onSave={handleSaveSection}
                       height="100%"
                       placeholder={`Write JSX for ${sectionTitle || 'this section'}...`}
-                      editorKey={selectedSectionId}
+                      sectionId={selectedSectionId}
                     />
                   )
                 ) : (

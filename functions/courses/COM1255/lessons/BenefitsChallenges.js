@@ -434,6 +434,7 @@ exports.handleAIQuestion = onCall({
   memory: '512MiB',
   // Don't enforce app check in emulator mode
   enforceAppCheck: false,
+  secrets: ['GEMINI_API_KEY']
 }, async (data, context) => {
   // Extract and validate parameters
   const params = extractParameters(data, context);

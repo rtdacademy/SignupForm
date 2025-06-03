@@ -198,8 +198,8 @@ export default MarkdownViewerSection;`,
     imports: [
       "import React, { useState } from 'react';",
       "import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';",
-      "import { Button } from '../../../../components/ui/button';",
-      "import { ChevronLeft, ChevronRight, Play, Maximize2 } from 'lucide-react';"
+      "import { Button } from '../../../../components/ui/button';"
+      // Note: Lucide React icons (ChevronLeft, ChevronRight, Play, Maximize2) are available globally in UiGeneratedContent
     ],
     code: `const MediaGallerySection = ({ course, courseId, isStaffView, devMode }) => {
   const [currentIndex, setCurrentIndex] = useState(0);

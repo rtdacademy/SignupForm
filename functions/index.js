@@ -132,13 +132,13 @@ exports.submitNotificationSurvey = surveySubmissionFunctions.submitNotificationS
 // Course code loader functions
 exports.loadCourseCode = courseCodeLoaderFunctions.loadCourseCode;
 
-// JSX transformation functions
-exports.transformJSXCode = require('./jsxTransformer').transformJSXCode;
+// JSX transformation is now handled automatically by autoTransformSectionCode trigger
+// No manual transformation endpoint needed
 
 // Section management functions
 exports.manageCourseSection = require('./manageCourseSection').manageCourseSection;
 exports.manageCodeExamples = require('./manageCodeExamples').manageCodeExamples;
-exports.debugLesson = require('./debugLesson').debugLesson;
+//exports.debugLesson = require('./debugLesson').debugLesson;
 
 // Auto-transform functions
 exports.autoTransformSectionCode = require('./autoTransformSections').autoTransformSectionCode;
@@ -148,8 +148,8 @@ exports.generateDatabaseAssessment = require('./manageDatabaseAssessment').gener
 exports.manageDatabaseAssessmentConfig = require('./manageDatabaseAssessment').manageDatabaseAssessmentConfig;
 
 // Test function to verify CORS
-exports.testDatabaseAssessment = require('./testDatabaseAssessment').testDatabaseAssessment;
-exports.generateDatabaseAssessmentSimple = require('./generateDatabaseAssessmentSimple').generateDatabaseAssessmentSimple;
+//exports.testDatabaseAssessment = require('./testDatabaseAssessment').testDatabaseAssessment;
+//exports.generateDatabaseAssessmentSimple = require('./generateDatabaseAssessmentSimple').generateDatabaseAssessmentSimple;
 
 // Parent Portal functions
 exports.sendParentInvitation = parentPortalFunctions.sendParentInvitation;
@@ -176,19 +176,19 @@ exports.updateStudentDocuments = studentPropertiesFunctions.updateStudentDocumen
 // COM1255 - E-Learning
 exports.COM1255_IntroToELearningQ1 = COM1255IntroToELearning.handleMultipleChoiceQuestion;
 exports.COM1255_IntroToELearningDynamic = COM1255IntroToELearning.handleDynamicQuestion;
-exports.COM1255_BenefitsChallengesAI = COM1255BenefitsChallenges.handleAIQuestion;
+//exports.COM1255_BenefitsChallengesAI = COM1255BenefitsChallenges.handleAIQuestion;
 
 
 //PHY30
 exports.PHY30_IntroToPhysics = require('./courses/PHY30/content/lessons/IntroToPhysics').default;
 
 // 2 Course Functions
-exports.course2_shared_aiQuestion = require('./courses/2/shared/aiQuestions').course2_shared_aiQuestion;
+//exports.course2_shared_aiQuestion = require('./courses/2/shared/aiQuestions').course2_shared_aiQuestion;
 exports.course2_02_momentum_one_dimension_aiQuestion = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_aiQuestion;
 exports.course2_02_momentum_one_dimension_aiLongAnswer = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_aiLongAnswer;
 
 // 3 Course Functions (Financial Literacy)
-exports.course3_shared_aiQuestion = require('./courses/3/shared/aiQuestions').course3_shared_aiQuestion;
+//exports.course3_shared_aiQuestion = require('./courses/3/shared/aiQuestions').course3_shared_aiQuestion;
 exports.course3_01_intro_ethics_financial_decisions_aiQuestion = require('./courses/3/01-intro-ethics-financial-decisions/assessments').course3_01_intro_ethics_financial_decisions_aiQuestion;
 exports.course3_02_economic_environment_money_aiQuestion = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_money_aiQuestion;
 
