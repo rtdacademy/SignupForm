@@ -289,21 +289,38 @@ exports.manageCourseSection = onCall(async (request) => {
           throw new Error('sectionData is required for createSection');
         }
 
+        if (!sectionData.title || !sectionData.title.trim()) {
+          throw new Error('Section title is required');
+        }
+
+        // Get current data to check for duplicates
+        const snapshot = await lessonRef.get();
+        const currentData = snapshot.exists() ? snapshot.val() : {};
+        const existingSections = currentData.sections ? Object.values(currentData.sections) : [];
+
+        // Check for duplicate section names (case-insensitive)
+        const normalizedNewTitle = sectionData.title.trim().toLowerCase();
+        const duplicateSection = existingSections.find(section => 
+          section.title.trim().toLowerCase() === normalizedNewTitle
+        );
+
+        if (duplicateSection) {
+          throw new Error(`A section named "${duplicateSection.title}" already exists. Please choose a different name.`);
+        }
+
         const newSectionId = `section_${Date.now()}`;
         const newSection = {
           ...sectionData, // Copy all fields from sectionData
           id: newSectionId,
+          title: sectionData.title.trim(), // Ensure title is trimmed
           originalCode: sectionData.originalCode || `// ${sectionData.title} Section\nconst ${toComponentName(sectionData.title)} = ({ course, courseId, isStaffView, devMode }) => {\n  return (\n    <div className="section-container mb-6">\n      <Card className="mb-6">\n        <CardHeader>\n          <CardTitle>${sectionData.title}</CardTitle>\n        </CardHeader>\n        <CardContent>\n          <p>Add your content here...</p>\n        </CardContent>\n      </Card>\n    </div>\n  );\n};\n\nexport default ${toComponentName(sectionData.title)};`,
           code: '',
           createdAt: new Date().toISOString(),
           modifiedBy: userEmail || 'unknown'
         };
 
-        // Get current data and add new section
-        const snapshot = await lessonRef.get();
-        const currentData = snapshot.exists() ? snapshot.val() : {};
-        const sections = currentData.sections ? Object.values(currentData.sections) : [];
-        sections.push(newSection);
+        // Add new section to the existing sections
+        const sections = [...existingSections, newSection];
 
         const sectionOrder = currentData.sectionOrder || [];
         sectionOrder.push(newSectionId);
