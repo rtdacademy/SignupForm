@@ -2,12 +2,166 @@ const { onValueWritten } = require('firebase-functions/v2/database');
 const { logger } = require('firebase-functions');
 const { getDatabase } = require('firebase-admin/database');
 
+// Import the centralized import map
+const { importMap } = require('./utils/importMaps');
+
 // This would require @babel/standalone to be installed in functions
 let Babel;
 try {
   Babel = require('@babel/standalone');
 } catch (error) {
   logger.warn('Babel not installed in functions, JSX transformation will fail');
+}
+
+/**
+ * Parse import statements and extract what components are used
+ */
+function parseImports(jsxCode) {
+  const imports = [];
+  const usedComponents = new Set();
+  
+  // Match import statements
+  const importRegex = /import\s+(?:(\w+)|{([^}]+)}|\*\s+as\s+(\w+))\s+from\s+['"]([^'"]+)['"]/g;
+  let match;
+  
+  while ((match = importRegex.exec(jsxCode)) !== null) {
+    const [fullMatch, defaultImport, namedImports, namespaceImport, source] = match;
+    
+    const importInfo = {
+      source,
+      defaultImport: defaultImport || null,
+      namedImports: namedImports ? namedImports.split(',').map(n => n.trim()) : [],
+      namespaceImport: namespaceImport || null,
+      fullMatch
+    };
+    
+    imports.push(importInfo);
+    
+    // Track what's actually imported
+    if (defaultImport) usedComponents.add(defaultImport);
+    if (namedImports) {
+      namedImports.split(',').forEach(imp => {
+        const name = imp.trim().split(' as ')[0].trim();
+        usedComponents.add(name);
+      });
+    }
+  }
+  
+  return { imports, usedComponents };
+}
+
+/**
+ * Generate metadata about required imports for runtime
+ */
+function generateImportMetadata(imports, jsxCode) {
+  const metadata = {
+    requiredComponents: {},
+    requiredIcons: [],
+    customImports: []
+  };
+  
+  imports.forEach(imp => {
+    // Handle Lucide React icons
+    if (imp.source.includes('lucide-react')) {
+      imp.namedImports.forEach(icon => {
+        if (importMap['lucide-react'].includes(icon)) {
+          metadata.requiredIcons.push(icon);
+        }
+      });
+    }
+    // Handle UI components - normalize path variations (including @/ notation)
+    else if (imp.source.includes('components/ui/') || imp.source.startsWith('@/components/ui/')) {
+      let componentFile;
+      
+      if (imp.source.startsWith('@/components/ui/')) {
+        // Handle @/components/ui/badge notation
+        componentFile = imp.source.replace('@/components/ui/', '');
+        logger.info(`🔄 Converting shadcn "@" notation: "${imp.source}" → standard path`);
+      } else {
+        // Handle relative path variations like ../../../components/ui/badge
+        componentFile = imp.source.split('components/ui/')[1];
+      }
+      
+      // Create the standardized path that matches our importMap
+      const normalizedSource = `../../../components/ui/${componentFile}`;
+      
+      if (importMap[normalizedSource]) {
+        imp.namedImports.forEach(comp => {
+          metadata.requiredComponents[comp] = normalizedSource;
+        });
+        logger.info(`✅ Mapped UI components from "${imp.source}" to "${normalizedSource}": [${imp.namedImports.join(', ')}]`);
+      } else {
+        logger.warn(`⚠️ UI component source not found in importMap: ${normalizedSource}`);
+        logger.warn('Available UI sources:', Object.keys(importMap).filter(k => k.includes('components/ui')));
+      }
+    }
+    // Handle assessment components
+    else if (imp.source.includes('assessments/')) {
+      if (imp.defaultImport) {
+        metadata.requiredComponents[imp.defaultImport] = imp.source;
+      }
+    }
+    // Handle other imports - only add if we have valid data
+    else {
+      // Clean the import object to remove any undefined values
+      const cleanImport = {
+        source: imp.source,
+        ...(imp.defaultImport && { defaultImport: imp.defaultImport }),
+        ...(imp.namedImports && imp.namedImports.length > 0 && { namedImports: imp.namedImports }),
+        ...(imp.namespaceImport && { namespaceImport: imp.namespaceImport }),
+        fullMatch: imp.fullMatch
+      };
+      metadata.customImports.push(cleanImport);
+    }
+  });
+  
+  return metadata;
+}
+
+/**
+ * Transform JSX code and extract import metadata
+ */
+function transformJSXCode(jsxCode) {
+  if (!jsxCode) {
+    throw new Error('No JSX code provided');
+  }
+  
+  if (!Babel) {
+    throw new Error('Babel not available for JSX transformation');
+  }
+  
+  logger.info('Starting enhanced JSX transformation...');
+  
+  // Parse imports before transformation
+  const { imports, usedComponents } = parseImports(jsxCode);
+  const importMetadata = generateImportMetadata(imports, jsxCode);
+  
+  // Remove import statements for transformation
+  let codeWithoutImports = jsxCode;
+  imports.forEach(imp => {
+    codeWithoutImports = codeWithoutImports.replace(imp.fullMatch, '');
+  });
+  
+  // Transform JSX to React.createElement
+  const result = Babel.transform(codeWithoutImports, {
+    presets: [
+      ['react', { 
+        runtime: 'classic',
+        pragma: 'React.createElement'
+      }]
+    ]
+  });
+  
+  logger.info('JSX transformation completed successfully');
+  logger.info('Import metadata:', importMetadata);
+  
+  return {
+    success: true,
+    transformedCode: result.code,
+    originalCode: jsxCode,
+    importMetadata: importMetadata,
+    usedComponents: Array.from(usedComponents)
+  };
 }
 
 // Note: We define our own utility functions since they're not exported from manageCourseSection
@@ -194,31 +348,41 @@ exports.autoTransformSectionCode = onValueWritten({
     
     // Transform JSX if it contains JSX syntax
     let transformedCode = originalCode;
+    let importMetadata = null;
     const containsJSX = originalCode.includes('<') && originalCode.includes('>');
     
     if (containsJSX && Babel) {
-      logger.info('🔧 Transforming JSX code...');
+      logger.info('🔧 Transforming JSX code with import extraction...');
+      
       try {
-        const result = Babel.transform(originalCode, {
-          presets: [
-            ['react', { 
-              runtime: 'classic',
-              pragma: 'React.createElement'
-            }]
-          ]
-        });
-        transformedCode = result.code;
-        logger.info('✅ JSX transformation successful');
+        // Use the integrated transformation function
+        const result = transformJSXCode(originalCode);
+        
+        if (result.success) {
+          transformedCode = result.transformedCode;
+          importMetadata = result.importMetadata;
+          logger.info('✅ JSX transformation successful with import metadata');
+          logger.info('📦 Import metadata:', JSON.stringify(importMetadata));
+        }
       } catch (transformError) {
-        logger.error('❌ JSX transformation failed:', transformError);
+        logger.error('❌ JSX transformation error:', transformError);
         // Continue with original code if transformation fails
+        transformedCode = originalCode;
       }
     }
     
-    // Update the section's transformed code
-    await sectionRef.child('code').set(transformedCode);
-    await sectionRef.child('lastModified').set(new Date().toISOString());
-    await sectionRef.child('autoTransformed').set(true);
+    // Update the section's transformed code and metadata
+    const updates = {
+      code: transformedCode,
+      lastModified: new Date().toISOString(),
+      autoTransformed: true
+    };
+    
+    if (importMetadata) {
+      updates.importMetadata = importMetadata;
+    }
+    
+    await sectionRef.update(updates);
     
     logger.info('📝 Updated section with transformed code');
     

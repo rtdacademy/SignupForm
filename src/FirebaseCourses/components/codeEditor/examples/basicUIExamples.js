@@ -87,8 +87,8 @@ export default TabbedContentSection;`,
       "import React, { useState } from 'react';",
       "import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';",
       "import { Progress } from '../../../../components/ui/progress';",
-      "import { Button } from '../../../../components/ui/button';",
-      "import { CheckCircle, Circle } from 'lucide-react';"
+      "import { Button } from '../../../../components/ui/button';"
+      // Note: Lucide React icons (CheckCircle, Circle) are available globally in UiGeneratedContent
     ],
     code: `const ProgressTrackerSection = ({ course, courseId, isStaffView, devMode }) => {
   const [completedSteps, setCompletedSteps] = useState([]);
@@ -185,10 +185,10 @@ export default ProgressTrackerSection;`,
     tags: ['grid', 'cards', 'layout', 'information'],
     difficulty: 'beginner',
     imports: [
-      "import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';",
-      "import { BookOpen, Clock, Target, Award } from 'lucide-react';"
+      "import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';"
     ],
     code: `const InfoCardsGridSection = ({ course, courseId, isStaffView, devMode }) => {
+  // Note: Lucide React icons (BookOpen, Clock, Target, Award) are available globally in UiGeneratedContent execution scope
   const infoCards = [
     {
       icon: BookOpen,
@@ -257,8 +257,8 @@ export default InfoCardsGridSection;`,
     imports: [
       "import React, { useState } from 'react';",
       "import { Alert, AlertDescription, AlertTitle } from '../../../../components/ui/alert';",
-      "import { Button } from '../../../../components/ui/button';",
-      "import { X, Info, AlertCircle, CheckCircle } from 'lucide-react';"
+      "import { Button } from '../../../../components/ui/button';"
+      // Note: Lucide React icons (X, Info, AlertCircle, CheckCircle) are available globally in UiGeneratedContent
     ],
     code: `const AlertBannerSection = ({ course, courseId, isStaffView, devMode }) => {
   const [showAlert, setShowAlert] = useState(true);
@@ -347,8 +347,8 @@ export default AlertBannerSection;`,
     tags: ['stats', 'metrics', 'dashboard', 'data'],
     difficulty: 'intermediate',
     imports: [
-      "import { Card, CardContent } from '../../../../components/ui/card';",
-      "import { TrendingUp, Users, BookOpen, Trophy } from 'lucide-react';"
+      "import { Card, CardContent } from '../../../../components/ui/card';"
+      // Note: Lucide React icons (TrendingUp, Users, BookOpen, Trophy) are available globally in UiGeneratedContent
     ],
     code: `const StatsDisplaySection = ({ course, courseId, isStaffView, devMode }) => {
   const stats = [

@@ -11,6 +11,7 @@ import {
   SheetTitle 
 } from '../../../components/ui/sheet';
 import { Code, Eye, Save, Plus, RefreshCw, HelpCircle, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, BookOpen } from 'lucide-react';
+import { useToast } from '../../../components/hooks/use-toast';
 import CodeMirrorWrapper from './CodeMirrorWrapper';
 import UiGeneratedContent from '../content/UiGeneratedContent';
 import SectionManager from './SectionManager';
@@ -37,7 +38,6 @@ const SimplifiedMultiSectionCodeEditor = ({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [editorResetKey, setEditorResetKey] = useState(0);
   
   // UI state
   const [isMobile, setIsMobile] = useState(false);
@@ -47,6 +47,8 @@ const SimplifiedMultiSectionCodeEditor = ({
   const [missingConfigs, setMissingConfigs] = useState([]);
   const [configCheckLoading, setConfigCheckLoading] = useState(false);
   const [showExamplesSheet, setShowExamplesSheet] = useState(false);
+
+  const { toast } = useToast();
 
   // Initialize cloud function
   const functions = getFunctions();
@@ -87,11 +89,10 @@ const SimplifiedMultiSectionCodeEditor = ({
   // Ref for the sections panel to detect outside clicks
   const sectionsPanelRef = useRef(null);
   
-  // Handler to capture editor content changes
+  // Handler to capture editor content changes - now just updates the ref
   const handleEditorChange = useCallback((newContent) => {
-    // Update both ref and state
+    // Only update the ref to track latest content - don't update state to prevent re-renders
     currentEditorContent.current = newContent;
-    setSectionCode(newContent);
     console.log(`📝 Editor content updated: ${newContent?.length || 0} chars`);
   }, []);
 
@@ -283,8 +284,16 @@ const SimplifiedMultiSectionCodeEditor = ({
       });
 
       if (result.data.success) {
-        // DON'T update sections state - keep the local editor content
-        // This prevents the editor from reverting to the old content
+        // Update the sections state with the new content to keep data in sync
+        // But don't change the editor state - it already has the correct content
+        setSections(prev => prev.map(section => 
+          section.id === selectedSectionId 
+            ? { ...section, originalCode: codeToSave, title: sectionTitle }
+            : section
+        ));
+        
+        // Also update the local state to reflect what was saved
+        setSectionCode(codeToSave);
         
         // Show success
         setSaved(true);
@@ -294,7 +303,7 @@ const SimplifiedMultiSectionCodeEditor = ({
         setRefreshKey(prev => prev + 1);
         
         console.log(`✅ ${result.data.message}`);
-        console.log(`📝 Keeping local editor content - not syncing from server`);
+        console.log(`📝 Updated sections state with saved content`);
       } else {
         throw new Error(result.data.error || 'Save operation failed');
       }
@@ -498,11 +507,8 @@ const SimplifiedMultiSectionCodeEditor = ({
     // Add the example code at the end
     newCode = newCode.trim() + '\n\n' + code;
     
-    // Update the ref first
+    // Update both ref and state to ensure consistency
     currentEditorContent.current = newCode;
-    
-    // Force update the editor by setting state with a new key
-    // This is a workaround for the CodeMirror React sync issue
     setSectionCode(newCode);
     
     // Optionally update the section title if it's empty
@@ -510,11 +516,16 @@ const SimplifiedMultiSectionCodeEditor = ({
       setSectionTitle(title);
     }
     
-    // Automatically save after inserting code
-    setTimeout(async () => {
-      await handleSaveSection();
-    }, 100); // Small delay to ensure state updates are processed
-  }, [sectionCode, sectionTitle, handleSaveSection]);
+    // Don't automatically save - let the user decide when to save
+    // This prevents potential state sync issues
+    console.log(`📝 Inserted example "${title}" - ${newCode.length} chars total`);
+    
+    // Show a brief indication that code was inserted
+    toast({
+      title: "Code inserted",
+      description: `Example "${title}" has been added to your editor`
+    });
+  }, [sectionCode, sectionTitle, toast]);
 
   // Component to show missing assessment configurations
   const MissingConfigsWarning = () => (
@@ -666,7 +677,7 @@ const SimplifiedMultiSectionCodeEditor = ({
                     onSave={handleSaveSection}
                     height="100%"
                     placeholder={`Write JSX for ${sectionTitle || 'this section'}...`}
-                    editorKey={selectedSectionId}
+                    sectionId={selectedSectionId}
                   />
                 </div>
               </>
@@ -854,7 +865,7 @@ const SimplifiedMultiSectionCodeEditor = ({
                       onSave={handleSaveSection}
                       height="100%"
                       placeholder={`Write JSX for ${sectionTitle || 'this section'}...`}
-                      editorKey={selectedSectionId}
+                      sectionId={selectedSectionId}
                     />
                   )
                 ) : (
