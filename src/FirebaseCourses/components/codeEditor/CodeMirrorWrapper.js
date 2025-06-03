@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
 import { autocompletion } from '@codemirror/autocomplete';
@@ -7,7 +7,7 @@ import { keymap, EditorView } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
 import { oneDark } from '@codemirror/theme-one-dark';
 
-// This wrapper properly handles CodeMirror state updates to prevent reverting
+// This wrapper manages local state until save to prevent cursor focus loss
 const CodeMirrorWrapper = ({ 
   value, 
   onChange, 
@@ -15,14 +15,14 @@ const CodeMirrorWrapper = ({
   readOnly = false,
   placeholder = "// Start writing your JSX component here...",
   height = "600px",
-  editorKey // Force re-mount when switching sections
+  sectionId // Only remount when switching sections, not for content updates
 }) => {
-  const editorRef = useRef(null);
   const viewRef = useRef(null);
-  const skipNextUpdate = useRef(false);
+  const [localValue, setLocalValue] = useState(value || '');
+  const lastSectionId = useRef(sectionId);
   
-  // Extensions configuration
-  const extensions = [
+  // Extensions configuration - memoized for performance
+  const extensions = useMemo(() => [
     javascript({ jsx: true }),
     keymap.of([
       indentWithTab,
@@ -67,58 +67,49 @@ const CodeMirrorWrapper = ({
           validFor: /^[\w$]*$/
         };
       }]
-    }),
-    // Add view update listener to prevent external updates when typing
-    EditorView.updateListener.of((update) => {
-      if (update.docChanged && !skipNextUpdate.current) {
-        const newDoc = update.state.doc.toString();
-        onChange?.(newDoc);
-      }
-      skipNextUpdate.current = false;
     })
-  ];
-  
-  const handleChange = useCallback((val, viewUpdate) => {
-    // Mark that this change came from user input
-    skipNextUpdate.current = false;
+  ], [onSave]);
+
+  // Simple onChange that only updates local state and notifies parent immediately
+  const handleChange = useCallback((val) => {
+    setLocalValue(val);
+    // Notify parent immediately but don't interfere with local editing
     onChange?.(val);
   }, [onChange]);
-  
-  // Handle external value updates (e.g., from inserting examples)
+
+  // Only sync with external value when section changes or explicit external update
   useEffect(() => {
-    if (viewRef.current && value !== undefined) {
-      const currentDoc = viewRef.current.state.doc.toString();
+    // Section changed - sync with new section's value
+    if (sectionId !== lastSectionId.current) {
+      setLocalValue(value || '');
+      lastSectionId.current = sectionId;
+      return;
+    }
+    
+    // External value update (like code insertion) - only if significantly different
+    // But don't update if the values are very similar (like after a save operation)
+    if (value && value !== localValue) {
+      const lengthDiff = Math.abs(value.length - localValue.length);
+      const isSignificantChange = lengthDiff > 50; // Higher threshold to avoid save-induced updates
       
-      // Only update if the content is actually different
-      if (currentDoc !== value) {
-        skipNextUpdate.current = true;
-        
-        // Use a transaction to update the document
-        viewRef.current.dispatch({
-          changes: {
-            from: 0,
-            to: currentDoc.length,
-            insert: value
-          },
-          // Preserve selection if possible
-          selection: viewRef.current.state.selection
-        });
+      if (isSignificantChange) {
+        console.log(`🔄 External update detected: ${lengthDiff} char difference`);
+        setLocalValue(value);
       }
     }
-  }, [value]);
+  }, [value, sectionId, localValue]);
   
-  // Capture the editor view reference
+  // Capture the editor view reference  
   const onCreateEditor = useCallback((view) => {
     viewRef.current = view;
-    editorRef.current = view;
   }, []);
 
   return (
     <div className="h-full flex flex-col border border-gray-600 rounded-md">
       <div className="flex-1 min-h-0 relative">
         <CodeMirror
-          key={editorKey} // Force remount on section change
-          value={value}
+          key={sectionId} // Only remount when section changes
+          value={localValue}
           onChange={handleChange}
           onCreateEditor={onCreateEditor}
           extensions={extensions}
@@ -149,4 +140,5 @@ const CodeMirrorWrapper = ({
   );
 };
 
-export default CodeMirrorWrapper;
+export default React.memo(CodeMirrorWrapper);
+

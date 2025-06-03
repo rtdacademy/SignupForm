@@ -127,6 +127,9 @@ const CodeExamplesSheet = ({
       title: selectedExample.title
     });
 
+    // Clear the selected example and close the sheet
+    setSelectedExample(null);
+    setEditableCode('');
     onOpenChange(false);
     
     toast({

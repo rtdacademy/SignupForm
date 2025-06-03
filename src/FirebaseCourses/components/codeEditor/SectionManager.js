@@ -166,12 +166,39 @@ const SectionManager = ({
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [draggedIndex, setDraggedIndex] = useState(null);
+  const [validationError, setValidationError] = useState('');
 
   // Get ordered sections
   const orderedSections = sectionOrder.map(id => sections.find(s => s.id === id)).filter(Boolean);
 
+  // Validate section name for duplicates
+  const validateSectionName = (title, excludeId = null) => {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      return 'Section title is required';
+    }
+    
+    const normalizedTitle = trimmedTitle.toLowerCase();
+    const duplicate = sections.find(s => 
+      s.id !== excludeId && s.title.trim().toLowerCase() === normalizedTitle
+    );
+    
+    if (duplicate) {
+      return `A section named "${duplicate.title}" already exists`;
+    }
+    
+    return '';
+  };
+
   const handleCreateSection = () => {
     if (!newSectionTitle.trim()) return;
+    
+    // Validate for duplicates
+    const error = validateSectionName(newSectionTitle);
+    if (error) {
+      setValidationError(error);
+      return;
+    }
     
     console.log('🔧 Creating section with:', { 
       title: newSectionTitle.trim(), 
@@ -215,6 +242,7 @@ const SectionManager = ({
     setNewSectionTitle('');
     setSectionType(SECTION_TYPES.CONTENT); // Reset to default
     setAssessmentType(ASSESSMENT_TYPES.AI_MULTIPLE_CHOICE); // Reset to default
+    setValidationError(''); // Clear any validation errors
   };
 
   const handleEditSection = (section) => {
@@ -225,14 +253,23 @@ const SectionManager = ({
   const handleSaveEdit = () => {
     if (!editingTitle.trim()) return;
     
+    // Validate for duplicates (exclude current section being edited)
+    const error = validateSectionName(editingTitle, editingSectionId);
+    if (error) {
+      setValidationError(error);
+      return;
+    }
+    
     onSectionUpdate(editingSectionId, { title: editingTitle.trim() });
     setEditingSectionId(null);
     setEditingTitle('');
+    setValidationError(''); // Clear any validation errors
   };
 
   const handleCancelEdit = () => {
     setEditingSectionId(null);
     setEditingTitle('');
+    setValidationError(''); // Clear any validation errors
   };
 
   const handleDragStart = (e, index) => {
@@ -312,9 +349,16 @@ const SectionManager = ({
           <Input
             placeholder={sectionType === SECTION_TYPES.CONTENT ? "Section title..." : "Assessment title..."}
             value={newSectionTitle}
-            onChange={(e) => setNewSectionTitle(e.target.value)}
+            onChange={(e) => {
+              setNewSectionTitle(e.target.value);
+              setValidationError(''); // Clear error as user types
+            }}
             onKeyPress={(e) => e.key === 'Enter' && handleCreateSection()}
+            className={validationError ? 'border-red-500' : ''}
           />
+          {validationError && (
+            <p className="text-xs text-red-500 mt-1">{validationError}</p>
+          )}
           <Button 
             onClick={handleCreateSection}
             disabled={!newSectionTitle.trim()}
@@ -357,16 +401,24 @@ const SectionManager = ({
                       
                       {editingSectionId === section.id ? (
                         <div className="flex items-center flex-1 space-x-2">
-                          <Input
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') handleSaveEdit();
-                              if (e.key === 'Escape') handleCancelEdit();
-                            }}
-                            className="text-sm"
-                            autoFocus
-                          />
+                          <div className="flex-1">
+                            <Input
+                              value={editingTitle}
+                              onChange={(e) => {
+                                setEditingTitle(e.target.value);
+                                setValidationError(''); // Clear error as user types
+                              }}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') handleSaveEdit();
+                                if (e.key === 'Escape') handleCancelEdit();
+                              }}
+                              className={`text-sm ${validationError ? 'border-red-500' : ''}`}
+                              autoFocus
+                            />
+                            {validationError && (
+                              <p className="text-xs text-red-500 mt-1 absolute">{validationError}</p>
+                            )}
+                          </div>
                           <Button size="sm" variant="ghost" onClick={handleSaveEdit}>
                             <Check className="h-3 w-3" />
                           </Button>

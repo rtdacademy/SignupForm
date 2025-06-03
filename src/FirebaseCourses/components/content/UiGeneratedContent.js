@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getDatabase, ref, get, onValue, off } from 'firebase/database';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 
-// Import all the components that teachers might need
+// Import the dynamic component loader
+import { loadRequiredImports, getCachedImports } from './DynamicComponentLoader';
+
+// Keep some core components always loaded for better performance
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Badge } from '../../../components/ui/badge';
-import AIMultipleChoiceQuestion from '../assessments/AIMultipleChoiceQuestion';
-import AILongAnswerQuestion from '../assessments/AILongAnswerQuestion';
 
 /**
  * Generic UiGeneratedContent component for displaying dynamically generated course content
@@ -123,8 +123,8 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
                 continue;
               }
 
-              // Create individual section component
-              const SectionComponent = await createDynamicComponent(sectionCode);
+              // Create individual section component with import metadata
+              const SectionComponent = await createDynamicComponent(sectionCode, section.importMetadata);
               loadedComponents.push({
                 id: section.id,
                 title: section.title,
@@ -330,30 +330,16 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
               }
             }
             
-            // Check if code contains JSX and transform if needed
+            // Verify code is already transformed (should not contain JSX)
             const containsJSX = reactCode.includes('<') && reactCode.includes('>') && !reactCode.includes('React.createElement');
             if (containsJSX) {
-              console.warn('⚠️ JSX detected in code, attempting transformation...');
-              try {
-                const functions = getFunctions();
-                const transformJSX = httpsCallable(functions, 'transformJSXCode');
-                const result = await transformJSX({ jsxCode: reactCode });
-                
-                if (result.data.success) {
-                  console.log('✅ Fallback JSX transformation successful');
-                  reactCode = result.data.transformedCode;
-                } else {
-                  console.error('❌ Fallback JSX transformation failed:', result.data.error);
-                  throw new Error(`JSX transformation failed: ${result.data.error}`);
-                }
-              } catch (transformError) {
-                console.error('❌ Fallback transformation error:', transformError);
-                throw new Error(`Failed to transform JSX in UiGeneratedContent: ${transformError.message}`);
-              }
+              console.error('❌ Raw JSX detected in supposedly transformed code');
+              throw new Error('Code contains untransformed JSX. The auto-transformation may have failed. Please save the section again to trigger re-transformation.');
             }
             
-            // Create the dynamic component
-            const component = await createDynamicComponent(reactCode);
+            // Create the dynamic component with import metadata if available
+            const importMetadata = data.importMetadata || null;
+            const component = await createDynamicComponent(reactCode, importMetadata);
             setDynamicComponent(() => component);
             setLoading(false);
             
@@ -391,10 +377,11 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
   }, [courseId, itemConfig, refreshKey]);
 
   // Function to safely create a React component from code string
-  const createDynamicComponent = async (codeString) => {
+  const createDynamicComponent = async (codeString, importMetadata = null) => {
     try {
       console.log('=== Starting component creation ===');
       console.log('Code length:', codeString?.length);
+      console.log('Import metadata:', importMetadata);
       console.log('First 200 chars:', codeString?.substring(0, 200));
       
       // Check if codeString is valid
@@ -419,36 +406,53 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
       }
       console.log('Component name:', componentName);
       
+      // Load required imports based on metadata or use default
+      let imports;
+      if (importMetadata) {
+        console.log('Loading dynamic imports based on metadata...');
+        imports = await getCachedImports(importMetadata);
+      } else {
+        console.log('No import metadata, using fallback static imports...');
+        // Fallback to importing all icons for backward compatibility
+        const LucideIcons = await import('lucide-react');
+        const AIMultipleChoiceQuestion = (await import('../assessments/AIMultipleChoiceQuestion')).default;
+        const AILongAnswerQuestion = (await import('../assessments/AILongAnswerQuestion')).default;
+        
+        imports = {
+          React,
+          useState: React.useState,
+          useEffect: React.useEffect,
+          Card, CardContent, CardHeader, CardTitle,
+          Alert, AlertDescription,
+          Badge,
+          AIMultipleChoiceQuestion,
+          AILongAnswerQuestion,
+          // Include all Lucide icons for backward compatibility
+          ...LucideIcons
+        };
+      }
+      
       // Create a function that returns the component
       console.log('Creating component function...');
       let Component;
       
       try {
-        // Use eval instead of Function constructor for better error messages
+        // Build the parameter names and values from imports
+        const paramNames = Object.keys(imports).join(', ');
+        const paramValues = Object.values(imports);
+        
+        // Use eval to create the component with dynamic imports
         const componentCode = `
-          (function(React, useState, useEffect, Card, CardContent, CardHeader, CardTitle, Alert, AlertDescription, Badge, AIMultipleChoiceQuestion, AILongAnswerQuestion) {
+          (function(${paramNames}) {
             ${processedCode}
             return ${componentName};
           })
         `;
         
-        console.log('Evaluating component code...');
+        console.log('Evaluating component code with', Object.keys(imports).length, 'imports');
         const createComponent = eval(componentCode);
         
-        Component = createComponent(
-          React,
-          React.useState,
-          React.useEffect,
-          Card,
-          CardContent,
-          CardHeader,
-          CardTitle,
-          Alert,
-          AlertDescription,
-          Badge,
-          AIMultipleChoiceQuestion,
-          AILongAnswerQuestion
-        );
+        Component = createComponent(...paramValues);
       } catch (evalError) {
         console.error('Component creation failed:', evalError);
         console.error('Processed code that failed:', processedCode);

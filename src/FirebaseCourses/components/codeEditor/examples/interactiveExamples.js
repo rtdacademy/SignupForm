@@ -11,8 +11,8 @@ export const interactiveExamples = {
       "import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';",
       "import { Button } from '../../../../components/ui/button';",
       "import { RadioGroup, RadioGroupItem } from '../../../../components/ui/radio-group';",
-      "import { Label } from '../../../../components/ui/label';",
-      "import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';"
+      "import { Label } from '../../../../components/ui/label';"
+      // Note: Lucide React icons (CheckCircle, XCircle, AlertCircle) are available globally in UiGeneratedContent
     ],
     code: `const InteractiveQuizSection = ({ course, courseId, isStaffView, devMode }) => {
   const [selectedAnswer, setSelectedAnswer] = useState('');
@@ -219,8 +219,8 @@ export default InteractiveQuizSection;`,
       "import React, { useState } from 'react';",
       "import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';",
       "import { Button } from '../../../../components/ui/button';",
-      "import { Badge } from '../../../../components/ui/badge';",
-      "import { RefreshCw, CheckCircle } from 'lucide-react';"
+      "import { Badge } from '../../../../components/ui/badge';"
+      // Note: Lucide React icons (RefreshCw, CheckCircle) are available globally in UiGeneratedContent
     ],
     code: `const DragDropMatchingSection = ({ course, courseId, isStaffView, devMode }) => {
   const [matches, setMatches] = useState({});
@@ -391,8 +391,8 @@ export default DragDropMatchingSection;`,
       "import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';",
       "import { Input } from '../../../../components/ui/input';",
       "import { Label } from '../../../../components/ui/label';",
-      "import { Button } from '../../../../components/ui/button';",
-      "import { Calculator, Info } from 'lucide-react';"
+      "import { Button } from '../../../../components/ui/button';"
+      // Note: Lucide React icons (Calculator, Info) are available globally in UiGeneratedContent
     ],
     code: `const InteractiveCalculatorSection = ({ course, courseId, isStaffView, devMode }) => {
   const [values, setValues] = useState({
@@ -566,8 +566,8 @@ export default InteractiveCalculatorSection;`,
     imports: [
       "import React, { useState } from 'react';",
       "import { Card, CardContent } from '../../../../components/ui/card';",
-      "import { Button } from '../../../../components/ui/button';",
-      "import { ChevronLeft, ChevronRight, RotateCw, Eye } from 'lucide-react';"
+      "import { Button } from '../../../../components/ui/button';"
+      // Note: Lucide React icons (ChevronLeft, ChevronRight, RotateCw, Eye) are available globally in UiGeneratedContent
     ],
     code: `const FlashcardsSection = ({ course, courseId, isStaffView, devMode }) => {
   const [currentCard, setCurrentCard] = useState(0);
