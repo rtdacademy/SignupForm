@@ -381,6 +381,62 @@ exports.manageCourseSection = onCall(async (request) => {
         };
       }
 
+      case 'deleteSection': {
+        const { sectionId } = request.data;
+        
+        if (!sectionId) {
+          throw new Error('sectionId is required for deleteSection');
+        }
+
+        // Get current lesson data
+        const snapshot = await lessonRef.get();
+        if (!snapshot.exists()) {
+          throw new Error('Lesson not found');
+        }
+
+        const currentData = snapshot.val();
+        const sections = currentData.sections ? { ...currentData.sections } : {};
+        const sectionOrder = currentData.sectionOrder ? [...currentData.sectionOrder] : [];
+
+        // Check if section exists
+        if (!sections[sectionId]) {
+          throw new Error(`Section with ID ${sectionId} not found`);
+        }
+
+        // Get section title for logging
+        const deletedSectionTitle = sections[sectionId].title;
+
+        // Delete the section
+        delete sections[sectionId];
+
+        // Remove from section order
+        const updatedSectionOrder = sectionOrder.filter(id => id !== sectionId);
+
+        // Update the lesson data
+        const lessonData = {
+          ...currentData,
+          sections,
+          sectionOrder: updatedSectionOrder,
+          lastModified: new Date().toISOString(),
+          modifiedBy: userEmail || 'unknown'
+        };
+
+        await lessonRef.set(lessonData);
+
+        // Return the updated sections
+        const remainingSections = Object.values(sections);
+
+        logger.info(`Section "${deletedSectionTitle}" (${sectionId}) deleted successfully`);
+
+        return {
+          success: true,
+          sections: remainingSections,
+          sectionOrder: updatedSectionOrder,
+          message: `Section "${deletedSectionTitle}" deleted successfully`,
+          deletedSectionId: sectionId
+        };
+      }
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }

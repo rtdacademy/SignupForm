@@ -264,8 +264,27 @@ const SimplifiedMultiSectionCodeEditor = ({
 
       // Use the current editor content (from ref) instead of state
       const codeToSave = currentEditorContent.current || sectionCode;
+      
+      // Get the current section to compare with saved content
+      const currentSection = sections.find(s => s.id === selectedSectionId);
+      const originalCode = currentSection?.originalCode || '';
+      const originalTitle = currentSection?.title || '';
+      
+      // Check if content has actually changed
+      const codeChanged = codeToSave !== originalCode;
+      const titleChanged = sectionTitle !== originalTitle;
+      
+      if (!codeChanged && !titleChanged) {
+        console.log('📝 No changes detected, skipping save operation');
+        setLoading(false);
+        // Show a brief "No changes" message
+        setSaved(true);
+        setTimeout(() => setSaved(false), 1500);
+        return;
+      }
 
       console.log(`💾 Saving section "${sectionTitle}" via cloud function...`);
+      console.log(`📝 Code changed: ${codeChanged}, Title changed: ${titleChanged}`);
       console.log(`📝 State code length: ${sectionCode?.length || 0}`);
       console.log(`📝 Editor ref code length: ${currentEditorContent.current?.length || 0}`);
       console.log(`📝 Using code length: ${codeToSave?.length || 0}`);
@@ -358,15 +377,73 @@ const SimplifiedMultiSectionCodeEditor = ({
     }
   }, [selectedSectionId]);
 
-  const handleSectionDelete = useCallback((sectionId) => {
-    setSections(prev => prev.filter(s => s.id !== sectionId));
-    setSectionOrder(prev => prev.filter(id => id !== sectionId));
-    
-    if (selectedSectionId === sectionId) {
-      const remainingSections = sections.filter(s => s.id !== sectionId);
-      setSelectedSectionId(remainingSections.length > 0 ? remainingSections[0].id : null);
+  const handleSectionDelete = useCallback(async (sectionId) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Find the section to get its title for logging
+      const sectionToDelete = sections.find(s => s.id === sectionId);
+      if (!sectionToDelete) {
+        throw new Error('Section not found');
+      }
+
+      console.log(`🗑️ Deleting section "${sectionToDelete.title}" via cloud function...`);
+
+      const result = await manageCourseSection({
+        action: 'deleteSection',
+        courseId,
+        lessonPath: currentLessonInfo.contentPath,
+        sectionId,
+        lessonTitle: currentLessonInfo.title,
+        userEmail: currentUser?.email
+      });
+
+      if (result.data.success) {
+        // Update local state with the response from the server
+        setSections(result.data.sections);
+        setSectionOrder(result.data.sectionOrder);
+        
+        // Update selected section if the deleted one was selected
+        if (selectedSectionId === sectionId) {
+          const remainingSections = result.data.sections;
+          if (remainingSections.length > 0) {
+            setSelectedSectionId(remainingSections[0].id);
+          } else {
+            setSelectedSectionId(null);
+          }
+        }
+        
+        // Refresh the preview
+        setRefreshKey(prev => prev + 1);
+        
+        console.log(`✅ ${result.data.message}`);
+      } else {
+        throw new Error(result.data.error || 'Delete operation failed');
+      }
+    } catch (err) {
+      console.error('❌ Error deleting section:', err);
+      setError(`Failed to delete section: ${err.message}`);
+      
+      // Revert local state on error by reloading from database
+      try {
+        const reloadResult = await manageCourseSection({
+          action: 'loadLesson',
+          courseId,
+          lessonPath: currentLessonInfo.contentPath
+        });
+        
+        if (reloadResult.data.success) {
+          setSections(reloadResult.data.sections);
+          setSectionOrder(reloadResult.data.sectionOrder);
+        }
+      } catch (reloadErr) {
+        console.error('Failed to reload sections after delete error:', reloadErr);
+      }
+    } finally {
+      setLoading(false);
     }
-  }, [selectedSectionId, sections]);
+  }, [selectedSectionId, sections, currentLessonInfo, courseId, currentUser]);
 
   const handleSectionReorder = useCallback(async (newOrder) => {
     try {
@@ -645,12 +722,15 @@ const SimplifiedMultiSectionCodeEditor = ({
               // Code Editor Mode
               <>
                 <div className="p-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
-                  <Input
-                    value={sectionTitle}
-                    onChange={(e) => setSectionTitle(e.target.value)}
-                    placeholder="Section title..."
-                    className="mb-2"
-                  />
+                  <div className="flex items-center gap-2 mb-2">
+                    <Code className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                    <Input
+                      value={sectionTitle}
+                      onChange={(e) => setSectionTitle(e.target.value)}
+                      placeholder="Section title..."
+                      className="flex-1"
+                    />
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant="outline"
@@ -662,11 +742,11 @@ const SimplifiedMultiSectionCodeEditor = ({
                     </Button>
                     <Button
                       onClick={handleSaveSection}
-                      disabled={loading}
+                      disabled={loading || !selectedSectionId}
                       size="sm"
                     >
                       <Save className="h-3 w-3 mr-1" />
-                      {loading ? 'Saving...' : 'Save'}
+                      {loading ? 'Saving...' : saved ? 'Saved!' : 'Save'}
                     </Button>
                   </div>
                 </div>
@@ -789,7 +869,7 @@ const SimplifiedMultiSectionCodeEditor = ({
           <ResizablePanel defaultSize={sectionsCollapsed ? 65 : 40} minSize={30}>
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between p-2 border-b border-gray-200 bg-gray-50 flex-shrink-0">
-                <div className="flex items-center gap-2 flex-1">
+                <div className="flex items-center gap-2">
                   {!sectionsCollapsed && (
                     <Button
                       variant="outline"
@@ -802,45 +882,47 @@ const SimplifiedMultiSectionCodeEditor = ({
                       Hide
                     </Button>
                   )}
-                  {showAssessmentConfig ? (
-                    <HelpCircle className="h-4 w-4 text-blue-600" />
-                  ) : (
-                    <Code className="h-4 w-4 text-gray-600" />
-                  )}
-                  <Input
-                    value={sectionTitle}
-                    onChange={(e) => setSectionTitle(e.target.value)}
-                    placeholder="Section title..."
-                    className="text-sm max-w-48"
-                    disabled={!selectedSectionId || showAssessmentConfig}
-                  />
                   {showAssessmentConfig && (
                     <Badge variant="secondary" className="text-xs">
                       Assessment Config
                     </Badge>
                   )}
                 </div>
-                {!showAssessmentConfig && selectedSectionId && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowExamplesSheet(true)}
-                      className="h-8"
-                    >
-                      <BookOpen className="h-3 w-3 mr-1" />
-                      Examples
-                    </Button>
-                    <Button
-                      onClick={handleSaveSection}
-                      disabled={loading || !selectedSectionId}
-                      size="sm"
-                    >
-                      <Save className="h-3 w-3 mr-1" />
-                      {loading ? 'Saving...' : 'Save'}
-                    </Button>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  {showAssessmentConfig ? (
+                    <HelpCircle className="h-4 w-4 text-blue-600" />
+                  ) : (
+                    <Code className="h-4 w-4 text-gray-600" />
+                  )}
+                  {!showAssessmentConfig && selectedSectionId && (
+                    <>
+                      <Input
+                        value={sectionTitle}
+                        onChange={(e) => setSectionTitle(e.target.value)}
+                        placeholder="Section title..."
+                        className="text-sm w-48"
+                        disabled={!selectedSectionId || showAssessmentConfig}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowExamplesSheet(true)}
+                        className="h-8"
+                      >
+                        <BookOpen className="h-3 w-3 mr-1" />
+                        Examples
+                      </Button>
+                      <Button
+                        onClick={handleSaveSection}
+                        disabled={loading || !selectedSectionId}
+                        size="sm"
+                      >
+                        <Save className="h-3 w-3 mr-1" />
+                        {loading ? 'Saving...' : saved ? 'Saved!' : 'Save'}
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
               
               <div className="flex-1 overflow-hidden">
