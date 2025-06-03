@@ -319,43 +319,34 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
                       <div className="mt-2 ml-4">
                         <p>Force: <InlineMath>{'F = 17.0\\text{ N}'}</InlineMath></p>
                         <p>Time: <InlineMath>{'\\Delta t = 0.025\\text{ s}'}</InlineMath></p>
+                        <p>Find: Change in momentum (<InlineMath>{'\\Delta p'}</InlineMath>)</p>
                       </div>
                     </li>
                     
                     <li>
-                      <strong>Apply the impulse-momentum theorem:</strong>
-                      <div className="mt-2 text-center">
-                        <BlockMath>{'\\Delta p = F\\Delta t'}</BlockMath>
+                      <strong>Equation:</strong>
+                      <div className="text-center mt-2">
+                        <BlockMath>{'F\\Delta t = \\Delta p'}</BlockMath>
                       </div>
                     </li>
                     
                     <li>
-                      <strong>Substitute the given values:</strong>
-                      <div className="mt-2 text-center">
-                        <BlockMath>{'\\Delta p = (17.0\\text{ N})(0.025\\text{ s})'}</BlockMath>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Calculate the result:</strong>
-                      <div className="mt-2 text-center">
-                        <BlockMath>{'\\Delta p = 0.425\\text{ N}\\cdot\\text{s}'}</BlockMath>
-                      </div>
-                      <p className="mt-2 text-center">or</p>
-                      <div className="mt-2 text-center">
-                        <BlockMath>{'\\Delta p = 0.425\\text{ kg}\\cdot\\text{m/s}'}</BlockMath>
+                      <strong>Substitute and solve:</strong>
+                      <div className="mt-2 ml-4">
+                        <div className="text-center">
+                          <BlockMath>{'\\Delta p = F\\Delta t = (17.0\\text{ N})(0.025\\text{ s})'}</BlockMath>
+                        </div>
+                        <div className="text-center">
+                          <BlockMath>{'\\Delta p = 0.43\\text{ N}\\cdot\\text{s} = 0.43\\text{ kg}\\cdot\\text{m/s}'}</BlockMath>
+                        </div>
                       </div>
                     </li>
                   </ol>
-
+                  
                   <div className="mt-6 pt-4 border-t border-gray-200">
                     <p className="font-semibold text-gray-800">Answer:</p>
                     <p className="text-lg mt-2">
-                      The change in momentum is <InlineMath>{'\\Delta p = 0.425\\text{ kg}\\cdot\\text{m/s}'}</InlineMath>
-                    </p>
-                    <p className="text-sm text-gray-600 mt-3">
-                      Note that the unit N·s is equivalent to kg·m/s. Why? Impulse (<InlineMath>{'F\\Delta t'}</InlineMath>) is equal 
-                      to change in momentum (<InlineMath>{'\\Delta p'}</InlineMath>).
+                      The change in momentum is <InlineMath>{'0.43\\text{ kg}\\cdot\\text{m/s}'}</InlineMath>
                     </p>
                   </div>
                 </div>
@@ -371,7 +362,7 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
             onClick={() => setIsExample2Open(!isExample2Open)}
             className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
           >
-            <h3 className="text-xl font-semibold">Example 2 - Collision and Momentum Conservation</h3>
+            <h3 className="text-xl font-semibold">Example 2 - Puck Collision Problem</h3>
             <span className="text-blue-600">{isExample2Open ? '▼' : '▶'}</span>
           </button>
 
@@ -384,169 +375,188 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
                   stationary 8.00 kg puck. The 5.00 kg puck rebounds with a speed of 2.50 m/s.
                 </p>
                 
+                {/* Visual diagram of the collision */}
+                <div className="mb-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                  <h5 className="font-semibold text-gray-800 mb-3">Collision Diagram:</h5>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Before collision */}
+                    <div className="bg-white p-4 rounded border border-gray-300">
+                      <h6 className="font-semibold text-center mb-3">Before Collision</h6>
+                      <svg width="100%" height="120" viewBox="0 0 300 120" className="border border-gray-200 bg-blue-50 rounded">
+                        {/* Puck 1 - moving */}
+                        <circle cx="80" cy="60" r="25" fill="#FF6B6B" stroke="#D63031" strokeWidth="2"/>
+                        <text x="80" y="65" fontSize="12" textAnchor="middle" fill="white" fontWeight="bold">5.00kg</text>
+                        
+                        {/* Puck 2 - stationary */}
+                        <circle cx="220" cy="60" r="30" fill="#74B9FF" stroke="#0984E3" strokeWidth="2"/>
+                        <text x="220" y="65" fontSize="12" textAnchor="middle" fill="white" fontWeight="bold">8.00kg</text>
+                        
+                        {/* Velocity arrow for puck 1 */}
+                        <line x1="110" y1="60" x2="140" y2="60" stroke="#00B894" strokeWidth="3"/>
+                        <polygon points="135,56 150,60 135,64" fill="#00B894"/>
+                        <text x="130" y="45" fontSize="10" textAnchor="middle" fill="#00B894" fontWeight="bold">10.0 m/s</text>
+                        
+                        {/* Velocity label for puck 2 */}
+                        <text x="220" y="95" fontSize="10" textAnchor="middle" fill="#636E72">v = 0 m/s</text>
+                      </svg>
+                    </div>
+                    
+                    {/* After collision */}
+                    <div className="bg-white p-4 rounded border border-gray-300">
+                      <h6 className="font-semibold text-center mb-3">After Collision</h6>
+                      <svg width="100%" height="120" viewBox="0 0 300 120" className="border border-gray-200 bg-green-50 rounded">
+                        {/* Puck 1 - rebounds */}
+                        <circle cx="80" cy="60" r="25" fill="#FF6B6B" stroke="#D63031" strokeWidth="2"/>
+                        <text x="80" y="65" fontSize="12" textAnchor="middle" fill="white" fontWeight="bold">5.00kg</text>
+                        
+                        {/* Puck 2 - moving */}
+                        <circle cx="220" cy="60" r="30" fill="#74B9FF" stroke="#0984E3" strokeWidth="2"/>
+                        <text x="220" y="65" fontSize="12" textAnchor="middle" fill="white" fontWeight="bold">8.00kg</text>
+                        
+                        {/* Velocity arrow for puck 1 (backwards) */}
+                        <line x1="70" y1="60" x2="40" y2="60" stroke="#E17055" strokeWidth="3"/>
+                        <polygon points="45,56 30,60 45,64" fill="#E17055"/>
+                        <text x="50" y="45" fontSize="10" textAnchor="middle" fill="#E17055" fontWeight="bold">2.50 m/s</text>
+                        
+                        {/* Velocity arrow for puck 2 (forward) */}
+                        <line x1="250" y1="60" x2="280" y2="60" stroke="#00B894" strokeWidth="3"/>
+                        <polygon points="275,56 290,60 275,64" fill="#00B894"/>
+                        <text x="270" y="45" fontSize="10" textAnchor="middle" fill="#00B894" fontWeight="bold">v₈ = ?</text>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="bg-white p-4 rounded border border-gray-100">
-                  <h5 className="font-semibold text-gray-700 mb-4">Part A: What is the final velocity of the 8.00 kg puck?</h5>
+                  <h5 className="font-semibold text-gray-800 mb-4">Part A: What is the final velocity of the 8.00 kg puck?</h5>
                   
-                  <p className="font-medium text-gray-700 mb-4">Solution:</p>
-                  
-                  {/* Vector Diagrams */}
-                  <div className="mb-6 p-4 bg-gray-50 rounded border overflow-hidden">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {/* Before Collision */}
-                      <div className="text-center">
-                        <h6 className="font-medium text-gray-700 mb-3">Before Collision</h6>
-                        <svg width="100%" height="120" viewBox="0 0 300 120" className="border border-gray-300 bg-white rounded max-w-full">
-                          <defs>
-                            <marker id="arrowBefore" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                              <polygon points="0 0, 8 3, 0 6" fill="#000"/>
-                            </marker>
-                          </defs>
-                          
-                          {/* Red puck (5.00 kg) moving right */}
-                          <circle cx="80" cy="60" r="25" fill="#dc2626" stroke="#b91c1c" strokeWidth="2"/>
-                          <text x="80" y="65" fontSize="12" fill="white" textAnchor="middle" fontWeight="bold">5.00 kg</text>
-                          
-                          {/* Velocity vector for red puck */}
-                          <line x1="105" y1="60" x2="155" y2="60" stroke="#000" strokeWidth="3" markerEnd="url(#arrowBefore)"/>
-                          <text x="130" y="50" fontSize="11" fill="#000" textAnchor="middle">10.0 m/s</text>
-                          
-                          {/* Blue puck (8.00 kg) stationary */}
-                          <circle cx="220" cy="60" r="30" fill="#2563eb" stroke="#1d4ed8" strokeWidth="2"/>
-                          <text x="220" y="65" fontSize="12" fill="white" textAnchor="middle" fontWeight="bold">8.00 kg</text>
-                          <text x="220" y="105" fontSize="11" fill="#666" textAnchor="middle">at rest</text>
-                        </svg>
-                      </div>
-                      
-                      {/* After Collision */}
-                      <div className="text-center">
-                        <h6 className="font-medium text-gray-700 mb-3">After Collision</h6>
-                        <svg width="100%" height="120" viewBox="0 0 300 120" className="border border-gray-300 bg-white rounded max-w-full">
-                          <defs>
-                            <marker id="arrowAfter1" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                              <polygon points="0 0, 8 3, 0 6" fill="#000"/>
-                            </marker>
-                            <marker id="arrowAfter2" markerWidth="8" markerHeight="6" refX="1" refY="3" orient="auto">
-                              <polygon points="0 0, 8 3, 0 6" fill="#000"/>
-                            </marker>
-                          </defs>
-                          
-                          {/* Red puck (5.00 kg) moving left */}
-                          <circle cx="80" cy="60" r="25" fill="#dc2626" stroke="#b91c1c" strokeWidth="2"/>
-                          <text x="80" y="65" fontSize="12" fill="white" textAnchor="middle" fontWeight="bold">5.00 kg</text>
-                          
-                          {/* Velocity vector for red puck (left) */}
-                          <line x1="55" y1="60" x2="20" y2="60" stroke="#000" strokeWidth="3" markerEnd="url(#arrowAfter2)"/>
-                          <text x="37" y="50" fontSize="11" fill="#000" textAnchor="middle">2.50 m/s</text>
-                          
-                          {/* Blue puck (8.00 kg) moving right */}
-                          <circle cx="220" cy="60" r="30" fill="#2563eb" stroke="#1d4ed8" strokeWidth="2"/>
-                          <text x="220" y="65" fontSize="12" fill="white" textAnchor="middle" fontWeight="bold">8.00 kg</text>
-                          
-                          {/* Velocity vector for blue puck */}
-                          <line x1="250" y1="60" x2="290" y2="60" stroke="#000" strokeWidth="3" markerEnd="url(#arrowAfter1)"/>
-                          <text x="270" y="50" fontSize="11" fill="#000" textAnchor="middle">? m/s</text>
-                        </svg>
-                      </div>
-                    </div>
+                  <p className="mb-3">
+                    <strong>Conservation of Momentum:</strong>
+                  </p>
+                  <div className="text-center mb-3">
+                    <BlockMath>{'\\sum p_{\\text{before}} = \\sum p_{\\text{after}}'}</BlockMath>
+                  </div>
+                  <div className="text-center mb-4">
+                    <BlockMath>{'m_5v_5 + m_8v_8 = m_5v_5\' + m_8v_8\''}</BlockMath>
                   </div>
                   
-                  <ol className="list-decimal pl-6 space-y-3">
-                    <li>
-                      <strong>Given:</strong>
-                      <div className="mt-2 ml-4">
-                        <p>Mass of puck 1: <InlineMath>{'m_5 = 5.00\\text{ kg}'}</InlineMath></p>
-                        <p>Initial velocity of puck 1: <InlineMath>{'v_5 = +10.0\\text{ m/s}'}</InlineMath> (to the right)</p>
-                        <p>Final velocity of puck 1: <InlineMath>{'v\'_5 = -2.50\\text{ m/s}'}</InlineMath> (rebounds to the left)</p>
-                        <p>Mass of puck 2: <InlineMath>{'m_8 = 8.00\\text{ kg}'}</InlineMath></p>
-                        <p>Initial velocity of puck 2: <InlineMath>{'v_8 = 0\\text{ m/s}'}</InlineMath> (stationary)</p>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Apply conservation of momentum:</strong>
-                      <div className="mt-2 text-center">
-                        <BlockMath>{'\\sum p_{\\text{before}} = \\sum p_{\\text{after}}'}</BlockMath>
-                        <BlockMath>{'m_5v_5 + m_8v_8 = m_5v\'_5 + m_8v\'_8'}</BlockMath>
-                      </div>
-                    </li>
-                    
-                    <li>
-                      <strong>Solve for the final velocity of the 8.00 kg puck:</strong>
-                      <div className="mt-2 text-center">
-                        <BlockMath>{'v\'_8 = \\frac{m_5v_5 + m_8v_8 - m_5v\'_5}{m_8}'}</BlockMath>
-                        <BlockMath>{'v\'_8 = \\frac{(5.00\\text{ kg})(+10.0\\text{ m/s}) + 0 - (5.00\\text{ kg})(-2.50\\text{ m/s})}{8.00\\text{ kg}}'}</BlockMath>
-                        <BlockMath>{'v\'_8 = \\frac{50.0 + 0 + 12.5}{8.00}\\text{ m/s}'}</BlockMath>
-                        <BlockMath>{'v\'_8 = +7.8125\\text{ m/s or } 7.81\\text{ m/s east}'}</BlockMath>
-                      </div>
-                    </li>
-                  </ol>
-
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <h5 className="font-semibold text-gray-700 mb-4">Part B: What is the change in momentum of each puck?</h5>
-                    
-                    <p className="font-medium text-gray-700 mb-4">Solution:</p>
-                    
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="font-medium mb-2">For the 5.00 kg puck:</p>
-                        <div className="text-center">
-                          <BlockMath>{'\\Delta p_5 = m_5\\Delta v = m_5(v\'_5 - v_5)'}</BlockMath>
-                          <BlockMath>{'\\Delta p_5 = 5.00\\text{ kg}(-2.50 - (+10.0))\\text{ m/s}'}</BlockMath>
-                          <BlockMath>{'\\Delta p_5 = -62.5\\text{ kg}\\cdot\\text{m/s}'}</BlockMath>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <p className="font-medium mb-2">For the 8.00 kg puck:</p>
-                        <div className="text-center">
-                          <BlockMath>{'\\Delta p_8 = m_8\\Delta v = m_8(v\'_8 - v_8)'}</BlockMath>
-                          <BlockMath>{'\\Delta p_8 = 8.00\\text{ kg}(+7.8125 - 0)\\text{ m/s}'}</BlockMath>
-                          <BlockMath>{'\\Delta p_8 = +62.5\\text{ kg}\\cdot\\text{m/s}'}</BlockMath>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <p className="text-sm text-gray-600 mt-4">
-                      Note that the changes in momentum are the same value, but for one object it is positive and 
-                      the other is negative. This is a consequence of the conservation of momentum – i.e. the total 
-                      change in momentum is zero:
-                    </p>
-                    <div className="text-center mt-2">
-                      <BlockMath>{'\\Delta p_{\\text{total}} = \\Delta p_5 + \\Delta p_8 = (-62.5) + (+62.5) = 0\\text{ kg}\\cdot\\text{m/s}'}</BlockMath>
-                    </div>
+                  <p className="mb-2">
+                    <strong>Substitute known values:</strong>
+                  </p>
+                  <div className="text-center mb-4">
+                    <BlockMath>{'5.00\\text{ kg}(+10.0\\text{ m/s}) + 8.00\\text{ kg}(0) = 5.00\\text{ kg}(-2.50\\text{ m/s}) + 8.00\\text{ kg}(v_8\')'}</BlockMath>
                   </div>
-
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <h5 className="font-semibold text-gray-700 mb-4">Part C: If the interaction lasted for 3.0 ms, what average force acted on each mass?</h5>
-                    
-                    <p className="font-medium text-gray-700 mb-4">Solution:</p>
-                    
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="font-medium mb-2">Force on the 5.00 kg puck:</p>
-                        <div className="text-center">
-                          <BlockMath>{'F\\Delta t = \\Delta(mv)'}</BlockMath>
-                          <BlockMath>{'F_5 = \\frac{\\Delta(mv)}{\\Delta t}'}</BlockMath>
-                          <BlockMath>{'F_5 = \\frac{5.00\\text{ kg}(-2.50 - (+10.0))\\text{ m/s}}{0.0030\\text{ s}}'}</BlockMath>
-                          <BlockMath>{'F_5 = -2.08 \\times 10^4\\text{ N}'}</BlockMath>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <p className="font-medium mb-2">Force on the 8.00 kg puck:</p>
-                        <div className="text-center">
-                          <BlockMath>{'F\\Delta t = \\Delta(mv)'}</BlockMath>
-                          <BlockMath>{'F_8 = \\frac{\\Delta(mv)}{\\Delta t}'}</BlockMath>
-                          <BlockMath>{'F_8 = \\frac{8.00\\text{ kg}(+7.8125 - 0)\\text{ m/s}}{0.0030\\text{ s}}'}</BlockMath>
-                          <BlockMath>{'F_8 = +2.08 \\times 10^4\\text{ N}'}</BlockMath>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <p className="text-sm text-gray-600 mt-4">
-                      Note that the forces are equal and opposite – i.e. Newton's 3rd Law of Motion.
-                    </p>
+                  
+                  <p className="mb-2">
+                    <strong>Solve for v₈':</strong>
+                  </p>
+                  <div className="text-center mb-2">
+                    <BlockMath>{'50.0 + 0 = -12.5 + 8.00v_8\''}</BlockMath>
                   </div>
+                  <div className="text-center mb-4">
+                    <BlockMath>{'v_8\' = \\frac{50.0 + 12.5}{8.00} = \\frac{62.5}{8.00} = 7.8125\\text{ m/s}'}</BlockMath>
+                  </div>
+                  
+                  <p className="font-semibold text-gray-800 border-t pt-3">
+                    Answer A: The final velocity of the 8.00 kg puck is <InlineMath>{'7.8125\\text{ m/s}'}</InlineMath> to the right (east).
+                  </p>
+                </div>
+                
+                <div className="bg-white p-4 rounded border border-gray-100 mt-4">
+                  <h5 className="font-semibold text-gray-800 mb-4">Part B: What is the change in momentum of each puck?</h5>
+                  
+                  <p className="mb-3">
+                    <strong>For the 5.00 kg puck:</strong>
+                  </p>
+                  <div className="text-center mb-2">
+                    <BlockMath>{'\\Delta p_5 = m_5(v_f - v_i)'}</BlockMath>
+                  </div>
+                  <div className="text-center mb-2">
+                    <BlockMath>{'\\Delta p_5 = 5.00\\text{ kg}(-2.50 - (+10.0))\\text{ m/s}'}</BlockMath>
+                  </div>
+                  <div className="text-center mb-4">
+                    <BlockMath>{'\\Delta p_5 = -62.5\\text{ kg}\\cdot\\text{m/s}'}</BlockMath>
+                  </div>
+                  
+                  <p className="mb-3">
+                    <strong>For the 8.00 kg puck:</strong>
+                  </p>
+                  <div className="text-center mb-2">
+                    <BlockMath>{'\\Delta p_8 = m_8(v_f - v_i)'}</BlockMath>
+                  </div>
+                  <div className="text-center mb-2">
+                    <BlockMath>{'\\Delta p_8 = 8.00\\text{ kg}(+7.8125 - 0)\\text{ m/s}'}</BlockMath>
+                  </div>
+                  <div className="text-center mb-4">
+                    <BlockMath>{'\\Delta p_8 = +62.5\\text{ kg}\\cdot\\text{m/s}'}</BlockMath>
+                  </div>
+                  
+                  <p className="mb-2">
+                    <strong>Important Note:</strong> The changes in momentum are equal in magnitude but opposite in direction. This demonstrates conservation of momentum:
+                  </p>
+                  <div className="text-center mb-4">
+                    <BlockMath>{'\\Delta p_{\\text{total}} = \\Delta p_5 + \\Delta p_8 = (-62.5) + (+62.5) = 0'}</BlockMath>
+                  </div>
+                  
+                  <p className="font-semibold text-gray-800 border-t pt-3">
+                    Answer B: <br/>
+                    5.00 kg puck: <InlineMath>{'-62.5\\text{ kg}\\cdot\\text{m/s}'}</InlineMath><br/>
+                    8.00 kg puck: <InlineMath>{'+62.5\\text{ kg}\\cdot\\text{m/s}'}</InlineMath>
+                  </p>
+                </div>
+                
+                <div className="bg-white p-4 rounded border border-gray-100 mt-4">
+                  <h5 className="font-semibold text-gray-800 mb-4">Part C: If the interaction lasted for 3.0 ms, what average force acted on each mass?</h5>
+                  
+                  <p className="mb-3">
+                    <strong>Using the Impulse-Momentum Theorem:</strong>
+                  </p>
+                  <div className="text-center mb-4">
+                    <BlockMath>{'F\\Delta t = \\Delta p \\Rightarrow F = \\frac{\\Delta p}{\\Delta t}'}</BlockMath>
+                  </div>
+                  
+                  <p className="mb-3">
+                    <strong>Force on 5.00 kg puck:</strong>
+                  </p>
+                  <div className="text-center mb-2">
+                    <BlockMath>{'F_5 = \\frac{\\Delta p_5}{\\Delta t}'}</BlockMath>
+                  </div>
+                  <div className="text-center mb-2">
+                    <BlockMath>{'F_5 = \\frac{-62.5\\text{ kg}\\cdot\\text{m/s}}{0.0030\\text{ s}}'}</BlockMath>
+                  </div>
+                  <div className="text-center mb-4">
+                    <BlockMath>{'F_5 = -20833\\text{ N}'}</BlockMath>
+                  </div>
+                  
+                  <p className="mb-3">
+                    <strong>Force on 8.00 kg puck:</strong>
+                  </p>
+                  <div className="text-center mb-2">
+                    <BlockMath>{'F_8 = \\frac{\\Delta p_8}{\\Delta t}'}</BlockMath>
+                  </div>
+                  <div className="text-center mb-2">
+                    <BlockMath>{'F_8 = \\frac{+62.5\\text{ kg}\\cdot\\text{m/s}}{0.0030\\text{ s}}'}</BlockMath>
+                  </div>
+                  <div className="text-center mb-4">
+                    <BlockMath>{'F_8 = +20833\\text{ N}'}</BlockMath>
+                  </div>
+                  
+                  <p className="mb-4">
+                    <strong>Newton's 3rd Law:</strong> Note that the forces are equal in magnitude but opposite in direction. This demonstrates Newton's 3rd Law of Motion: for every action, there is an equal and opposite reaction.
+                  </p>
+                  
+                  <p className="font-semibold text-gray-800 border-t pt-3">
+                    Answer C: <br/>
+                    Force on 5.00 kg puck: <InlineMath>{'20833\\text{ N}'}</InlineMath> to the left<br/>
+                    Force on 8.00 kg puck: <InlineMath>{'20833\\text{ N}'}</InlineMath> to the right
+                  </p>
+                </div>
+                
+                <div className="mt-4 p-3 bg-gray-100 rounded border border-gray-300">
+                  <p className="text-sm text-gray-700">
+                    <strong>Reference:</strong> Refer to Pearson pages 454 to 467 for a discussion about impulse and change in momentum.
+                  </p>
                 </div>
               </div>
             </div>
@@ -664,264 +674,141 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
           {isExample3Open && (
             <div className="mt-4">
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <p className="mb-4">
-                  In the real world, the change in momentum of an object is rarely due to a constant force 
-                  that does not change over time. For example, consider a golf ball bouncing off of a 
-                  floor. When the ball strikes the floor the force builds up over time and reaches a 
-                  maximum when the ball is at its greatest compression. As the ball rebounds from the 
-                  floor, the force decreases to zero over time.
-                </p>
-
-                {/* Ball Bouncing Animation */}
-                <div className="mb-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
-                  <h4 className="font-semibold text-gray-800 mb-3 text-center">Golf Ball Bouncing Off Floor</h4>
+                <div className="bg-white p-4 rounded border border-gray-100">
+                  <p className="mb-4">
+                    In the real world, the change in momentum of an object is rarely due to a constant force 
+                    that does not change over time. For example, consider a golf ball bouncing off of a 
+                    floor. When the ball strikes the floor the force builds up over time and reaches a 
+                    maximum when the ball is at its greatest compression. As the ball rebounds from the 
+                    floor, the force decreases to zero over time.
+                  </p>
                   
-                  <div className="flex flex-col items-center">
-                    {/* Animation Display */}
-                    <div className="relative w-full max-w-md mb-4">
-                      <svg width="100%" height="200" viewBox="0 0 400 200" className="border border-gray-400 bg-white rounded">
-                        {/* Floor */}
-                        <rect x="0" y="160" width="400" height="40" fill="#8b7355" />
-                        <line x1="0" y1="160" x2="400" y2="160" stroke="#654321" strokeWidth="2" />
-                        
-                        {/* Define arrow markers */}
-                        <defs>
-                          <marker id="velocityArrowDown" markerWidth="8" markerHeight="6" refX="4" refY="3" orient="auto">
-                            <polygon points="0 0, 8 3, 0 6" fill="#2563eb" />
-                          </marker>
-                          <marker id="velocityArrowUp" markerWidth="8" markerHeight="6" refX="4" refY="3" orient="auto">
-                            <polygon points="0 0, 8 3, 0 6" fill="#2563eb" />
-                          </marker>
-                        </defs>
-                        
-                        {/* Ball */}
-                        <ellipse 
-                          cx="200" 
-                          cy={160 - getBallState(animationTime).y} 
-                          rx={20}
-                          ry={20 - getBallState(animationTime).compression * 10}
-                          fill="#f8f8f8" 
-                          stroke="#333" 
-                          strokeWidth="1"
-                        />
-                        
-                        {/* Dimples on golf ball (only when not compressed) */}
-                        {getBallState(animationTime).compression < 0.3 && (
-                          <>
-                            <circle cx="195" cy={155 - getBallState(animationTime).y} r="2" fill="#ddd" />
-                            <circle cx="205" cy={155 - getBallState(animationTime).y} r="2" fill="#ddd" />
-                            <circle cx="200" cy={165 - getBallState(animationTime).y} r="2" fill="#ddd" />
-                          </>
-                        )}
-                        
-                        {/* Velocity arrows */}
-                        {getBallState(animationTime).arrow === 'down' && (
-                          <>
-                            <line 
-                              x1="200" 
-                              y1={130 - getBallState(animationTime).y} 
-                              x2="200" 
-                              y2={90 - getBallState(animationTime).y} 
-                              stroke="#2563eb" 
-                              strokeWidth="3" 
-                              markerEnd="url(#velocityArrowDown)"
-                            />
-                            <text x="210" y={110 - getBallState(animationTime).y} fontSize="12" fill="#2563eb">v</text>
-                          </>
-                        )}
-                        
-                        {getBallState(animationTime).arrow === 'up' && (
-                          <>
-                            <line 
-                              x1="200" 
-                              y1={190 - getBallState(animationTime).y} 
-                              x2="200" 
-                              y2={230 - getBallState(animationTime).y} 
-                              stroke="#2563eb" 
-                              strokeWidth="3" 
-                              markerEnd="url(#velocityArrowUp)"
-                            />
-                            <text x="210" y={210 - getBallState(animationTime).y} fontSize="12" fill="#2563eb">v</text>
-                          </>
-                        )}
-                        
-                        {/* Time display */}
-                        <text x="10" y="20" fontSize="14" fill="#333" fontWeight="bold">
-                          t = {animationTime === 5 ? '0.006' : (animationTime * 0.001).toFixed(3)} s
-                        </text>
-                      </svg>
-                    </div>
-                    
-                    {/* Controls */}
-                    <div className="flex items-center space-x-4 mb-3">
-                      <button
-                        onClick={() => setIsPlaying(!isPlaying)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                      >
-                        {isPlaying ? 'Stop' : 'Play'}
-                      </button>
+                  <h5 className="font-semibold text-gray-800 mb-4">Golf ball bouncing off floor</h5>
+                  
+                  {/* Golf ball animation sequence */}
+                  <div className="mb-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
+                    <div className="grid grid-cols-5 gap-2">
+                      {/* t = 0.000s */}
+                      <div className="text-center">
+                        <svg width="100%" height="80" viewBox="0 0 60 80" className="bg-white rounded border">
+                          {/* Ground */}
+                          <rect x="0" y="70" width="60" height="10" fill="#8B5A2B"/>
+                          {/* Ball - in air */}
+                          <circle cx="30" cy="20" r="8" fill="#FFD93D" stroke="#F39C12" strokeWidth="1"/>
+                        </svg>
+                        <p className="text-xs mt-1">t = 0.000 s</p>
+                      </div>
                       
-                      <button
-                        onClick={() => {
-                          setIsPlaying(false);
-                          setAnimationTime((prev) => (prev - 1 + 6) % 6);
-                        }}
-                        disabled={isPlaying}
-                        className={`px-4 py-2 rounded transition-colors ${
-                          isPlaying 
-                            ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                            : 'bg-green-600 text-white hover:bg-green-700'
-                        }`}
-                      >
-                        ← Step
-                      </button>
+                      {/* t = 0.001s */}
+                      <div className="text-center">
+                        <svg width="100%" height="80" viewBox="0 0 60 80" className="bg-white rounded border">
+                          {/* Ground */}
+                          <rect x="0" y="70" width="60" height="10" fill="#8B5A2B"/>
+                          {/* Ball - touching ground */}
+                          <circle cx="30" cy="62" r="8" fill="#FFD93D" stroke="#F39C12" strokeWidth="1"/>
+                        </svg>
+                        <p className="text-xs mt-1">t = 0.001 s</p>
+                      </div>
                       
-                      <button
-                        onClick={() => {
-                          setIsPlaying(false);
-                          setAnimationTime((prev) => (prev + 1) % 6);
-                        }}
-                        disabled={isPlaying}
-                        className={`px-4 py-2 rounded transition-colors ${
-                          isPlaying 
-                            ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                            : 'bg-green-600 text-white hover:bg-green-700'
-                        }`}
-                      >
-                        Step →
-                      </button>
-                    </div>
-                    
-                    {/* Time indicators */}
-                    <div className="flex space-x-2">
-                      {[0, 1, 2, 3, 4, 5].map((time) => (
-                        <button
-                          key={time}
-                          onClick={() => {
-                            setIsPlaying(false);
-                            setAnimationTime(time);
-                          }}
-                          className={`w-16 h-8 text-xs rounded transition-colors ${
-                            animationTime === time 
-                              ? 'bg-blue-600 text-white' 
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          {time === 5 ? '0.006s' : `${(time * 0.001).toFixed(3)}s`}
-                        </button>
-                      ))}
+                      {/* t = 0.002s */}
+                      <div className="text-center">
+                        <svg width="100%" height="80" viewBox="0 0 60 80" className="bg-white rounded border">
+                          {/* Ground */}
+                          <rect x="0" y="70" width="60" height="10" fill="#8B5A2B"/>
+                          {/* Ball - compressed */}
+                          <ellipse cx="30" cy="66" rx="10" ry="4" fill="#FFD93D" stroke="#F39C12" strokeWidth="1"/>
+                        </svg>
+                        <p className="text-xs mt-1">t = 0.002 s</p>
+                      </div>
+                      
+                      {/* t = 0.003s */}
+                      <div className="text-center">
+                        <svg width="100%" height="80" viewBox="0 0 60 80" className="bg-white rounded border">
+                          {/* Ground */}
+                          <rect x="0" y="70" width="60" height="10" fill="#8B5A2B"/>
+                          {/* Ball - round again */}
+                          <circle cx="30" cy="62" r="8" fill="#FFD93D" stroke="#F39C12" strokeWidth="1"/>
+                        </svg>
+                        <p className="text-xs mt-1">t = 0.003 s</p>
+                      </div>
+                      
+                      {/* t = 0.004s */}
+                      <div className="text-center">
+                        <svg width="100%" height="80" viewBox="0 0 60 80" className="bg-white rounded border">
+                          {/* Ground */}
+                          <rect x="0" y="70" width="60" height="10" fill="#8B5A2B"/>
+                          {/* Ball - in air again */}
+                          <circle cx="30" cy="20" r="8" fill="#FFD93D" stroke="#F39C12" strokeWidth="1"/>
+                        </svg>
+                        <p className="text-xs mt-1">t = 0.004 s</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="mt-6 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-indigo-800 mb-3">Force-Time Analysis:</h4>
-                  <p className="text-indigo-900 mb-4">
+                  
+                  <p className="mb-4">
                     A force-time diagram showing the impulse acting on the ball will look something like the following:
                   </p>
                   
-                  {/* Force-Time Graphs */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {/* Left graph: Curved force-time for golf ball */}
-                    <div className="bg-white p-4 rounded border border-indigo-300">
-                      <h5 className="text-center font-medium text-gray-700 mb-3">Force-Time Graph for Golf Ball</h5>
-                      <svg width="100%" height="250" viewBox="0 0 300 250" className="border border-gray-300">
-                        {/* Grid lines first */}
-                        <line x1="40" y1="160" x2="260" y2="160" stroke="#ddd" strokeWidth="1" strokeDasharray="2,2"/>
-                        <line x1="40" y1="120" x2="260" y2="120" stroke="#ddd" strokeWidth="1" strokeDasharray="2,2"/>
-                        <line x1="40" y1="80" x2="260" y2="80" stroke="#ddd" strokeWidth="1" strokeDasharray="2,2"/>
-                        <line x1="40" y1="40" x2="260" y2="40" stroke="#ddd" strokeWidth="1" strokeDasharray="2,2"/>
+                  {/* Force-Time Graphs Comparison */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    {/* Golf ball force-time graph */}
+                    <div className="bg-gray-50 p-4 rounded border">
+                      <h6 className="font-semibold text-center mb-3">Force-Time Graph for Golf Ball</h6>
+                      <svg width="100%" height="200" viewBox="0 0 300 200" className="border border-gray-300 bg-white rounded">
+                        {/* Grid */}
+                        <defs>
+                          <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f0f0f0" strokeWidth="1"/>
+                          </pattern>
+                        </defs>
+                        <rect width="300" height="200" fill="url(#smallGrid)" />
                         
-                        {/* Curved force profile - normal distribution-like curve with rounded top */}
-                        <path
-                          d="M 40 200 C 60 200 80 195 95 160 C 105 135 115 95 125 80 Q 130 75 135 80 C 145 95 155 135 165 160 C 180 195 200 200 220 200 L 220 200 L 40 200 Z"
-                          fill="rgba(59, 130, 246, 0.3)"
-                          stroke="#3b82f6"
-                          strokeWidth="3"
-                        />
+                        {/* Normal curve force line - realistic golf ball bounce */}
+                        <path d="M 30 180 C 80 180, 120 40, 150 40 C 180 40, 220 180, 270 180" fill="none" stroke="#E74C3C" strokeWidth="3"/>
                         
-                        {/* Area label */}
-                        <text x="130" y="130" fontSize="13" fill="#3b82f6" textAnchor="middle" fontWeight="bold">
-                          Area = Impulse
-                        </text>
-                        <text x="130" y="145" fontSize="11" fill="#3b82f6" textAnchor="middle">
-                          J = F∆t
-                        </text>
+                        {/* Shaded area under curve */}
+                        <path d="M 30 180 C 80 180, 120 40, 150 40 C 180 40, 220 180, 270 180 L 270 180 L 30 180 Z" fill="rgba(231, 76, 60, 0.2)"/>
                         
-                        {/* Axes - drawn last to appear on top */}
-                        <line x1="40" y1="200" x2="260" y2="200" stroke="#333" strokeWidth="2"/>
-                        <line x1="40" y1="200" x2="40" y2="30" stroke="#333" strokeWidth="2"/>
+                        {/* Axes */}
+                        <line x1="30" y1="180" x2="280" y2="180" stroke="#333" strokeWidth="2"/>
+                        <line x1="30" y1="180" x2="30" y2="20" stroke="#333" strokeWidth="2"/>
                         
-                        {/* Axis labels */}
-                        <text x="150" y="235" fontSize="14" textAnchor="middle">Time (ms)</text>
-                        <text x="10" y="115" fontSize="14" textAnchor="middle" transform="rotate(-90 10 115)">Force (N)</text>
-                        
-                        {/* Time axis markings */}
-                        <text x="40" y="215" fontSize="11" textAnchor="middle">0</text>
-                        <text x="100" y="215" fontSize="11" textAnchor="middle">1</text>
-                        <text x="160" y="215" fontSize="11" textAnchor="middle">2</text>
-                        <text x="220" y="215" fontSize="11" textAnchor="middle">3</text>
-                        
-                        {/* Force axis markings */}
-                        <text x="30" y="205" fontSize="11" textAnchor="end">0</text>
-                        <text x="30" y="165" fontSize="11" textAnchor="end">500</text>
-                        <text x="30" y="125" fontSize="11" textAnchor="end">1000</text>
-                        <text x="30" y="85" fontSize="11" textAnchor="end">1500</text>
-                        <text x="30" y="45" fontSize="11" textAnchor="end">2000</text>
+                        {/* Labels */}
+                        <text x="285" y="185" fontSize="12">t</text>
+                        <text x="20" y="15" fontSize="12">F</text>
+                        <text x="150" y="195" fontSize="10" textAnchor="middle">Time</text>
+                        <text x="15" y="100" fontSize="10" textAnchor="middle" transform="rotate(-90 15 100)">Force</text>
                       </svg>
                     </div>
                     
-                    {/* Right graph: Rectangular force-time for comparison */}
-                    <div className="bg-white p-4 rounded border border-indigo-300">
-                      <h5 className="text-center font-medium text-gray-700 mb-3">Force-Time for Constant Force (for comparison)</h5>
-                      <svg width="100%" height="250" viewBox="0 0 300 250" className="border border-gray-300">
-                        {/* Grid lines first */}
-                        <line x1="40" y1="160" x2="260" y2="160" stroke="#ddd" strokeWidth="1" strokeDasharray="2,2"/>
-                        <line x1="40" y1="120" x2="260" y2="120" stroke="#ddd" strokeWidth="1" strokeDasharray="2,2"/>
-                        <line x1="40" y1="80" x2="260" y2="80" stroke="#ddd" strokeWidth="1" strokeDasharray="2,2"/>
-                        <line x1="40" y1="40" x2="260" y2="40" stroke="#ddd" strokeWidth="1" strokeDasharray="2,2"/>
+                    {/* Constant force graph for comparison */}
+                    <div className="bg-gray-50 p-4 rounded border">
+                      <h6 className="font-semibold text-center mb-3">Force-Time for Constant Force<br/>(for comparison)</h6>
+                      <svg width="100%" height="200" viewBox="0 0 300 200" className="border border-gray-300 bg-white rounded">
+                        {/* Grid */}
+                        <rect width="300" height="200" fill="url(#smallGrid)" />
                         
-                        {/* Rectangular force profile - extends across full time range */}
-                        <rect x="40" y="80" width="220" height="120" fill="rgba(34, 197, 94, 0.3)" stroke="#22c55e" strokeWidth="3"/>
+                        {/* Rectangular force profile */}
+                        <polyline points="30,180 30,80 270,80 270,180" fill="none" stroke="#2980B9" strokeWidth="3"/>
                         
-                        {/* Area label */}
-                        <text x="150" y="130" fontSize="13" fill="#22c55e" textAnchor="middle" fontWeight="bold">
-                          Area = Impulse
-                        </text>
-                        <text x="150" y="145" fontSize="11" fill="#22c55e" textAnchor="middle">
-                          J = F∆t = 600N × 0.03s
-                        </text>
-                        <text x="150" y="160" fontSize="11" fill="#22c55e" textAnchor="middle">
-                          = 18 N·s
-                        </text>
+                        {/* Shaded area under rectangle */}
+                        <rect x="30" y="80" width="240" height="100" fill="rgba(41, 128, 185, 0.2)"/>
                         
-                        {/* Axes - drawn last to appear on top */}
-                        <line x1="40" y1="200" x2="260" y2="200" stroke="#333" strokeWidth="2"/>
-                        <line x1="40" y1="200" x2="40" y2="30" stroke="#333" strokeWidth="2"/>
+                        {/* Axes */}
+                        <line x1="30" y1="180" x2="280" y2="180" stroke="#333" strokeWidth="2"/>
+                        <line x1="30" y1="180" x2="30" y2="20" stroke="#333" strokeWidth="2"/>
                         
-                        {/* Axis labels */}
-                        <text x="150" y="235" fontSize="14" textAnchor="middle">Time (s)</text>
-                        <text x="10" y="115" fontSize="14" textAnchor="middle" transform="rotate(-90 10 115)">Force (N)</text>
-                        
-                        {/* Time axis markings */}
-                        <text x="40" y="215" fontSize="11" textAnchor="middle">0</text>
-                        <text x="100" y="215" fontSize="11" textAnchor="middle">0.01</text>
-                        <text x="160" y="215" fontSize="11" textAnchor="middle">0.02</text>
-                        <text x="220" y="215" fontSize="11" textAnchor="middle">0.03</text>
-                        
-                        {/* Force axis markings */}
-                        <text x="30" y="205" fontSize="11" textAnchor="end">0</text>
-                        <text x="30" y="165" fontSize="11" textAnchor="end">200</text>
-                        <text x="30" y="125" fontSize="11" textAnchor="end">400</text>
-                        <text x="30" y="85" fontSize="11" textAnchor="end">600</text>
-                        <text x="30" y="45" fontSize="11" textAnchor="end">800</text>
+                        {/* Labels */}
+                        <text x="285" y="185" fontSize="12">t</text>
+                        <text x="20" y="15" fontSize="12">F</text>
+                        <text x="150" y="195" fontSize="10" textAnchor="middle">Time</text>
+                        <text x="15" y="100" fontSize="10" textAnchor="middle" transform="rotate(-90 15 100)">Force</text>
                       </svg>
                     </div>
                   </div>
                   
-                  <p className="text-sm text-indigo-800 mt-4 text-center italic">
-                    The impulse may be found by calculating the area under the force–time graph. Notice how different force profiles 
-                    can produce the same total impulse (area).
+                  <p className="font-semibold text-gray-800">
+                    The impulse may be found by calculating the area under the force–time graph.
                   </p>
                 </div>
               </div>
@@ -936,7 +823,7 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
             onClick={() => setIsExample4Open(!isExample4Open)}
             className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
           >
-            <h3 className="text-xl font-semibold">Example 3 - Force on a Ball as a Function of Time</h3>
+            <h3 className="text-xl font-semibold">Example 4 - Force on a Ball as a Function of Time</h3>
             <span className="text-blue-600">{isExample4Open ? '▼' : '▶'}</span>
           </button>
 
