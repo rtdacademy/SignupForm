@@ -480,6 +480,90 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
     );
   };
 
+  // Function to render parent approval status for under-18 students
+  const renderParentApprovalStatus = () => {
+    // Check if student is under 18 from profile
+    const isUnder18 = profile && profile.age && profile.age < 18;
+    
+    // If student is 18 or older, don't show parent approval status
+    if (!isUnder18) return null;
+    
+    // Check for parent approval status from the course data
+    const courseParentApproval = course.parentApproval;
+    
+    // Check for parent approval status from the profile data
+    const profileParentApproval = profile.parentApprovalStatus;
+    
+    // Determine the approval status and message
+    let approvalStatus = null;
+    let statusMessage = null;
+    let statusColor = null;
+    let statusIcon = null;
+    
+    // First check course-specific approval
+    if (courseParentApproval) {
+      if (courseParentApproval.approved) {
+        approvalStatus = 'approved';
+        statusMessage = `Parent permission granted for this course by ${courseParentApproval.approvedBy}`;
+        statusColor = 'green';
+        statusIcon = FaCheckCircle;
+      } else if (courseParentApproval.required) {
+        approvalStatus = 'pending';
+        statusMessage = 'Parent permission required for this course. An email has been sent to your parent/guardian.';
+        statusColor = 'amber';
+        statusIcon = FaClock;
+      }
+    }
+    // Then check profile-level approval status
+    else if (profileParentApproval) {
+      if (profileParentApproval.status === 'approved') {
+        approvalStatus = 'approved';
+        statusMessage = `Parent account linked and approved by ${profileParentApproval.linkedParentEmail || profileParentApproval.approvedBy}`;
+        statusColor = 'green';
+        statusIcon = FaCheckCircle;
+      } else if (profileParentApproval.required && profileParentApproval.status === 'pending') {
+        approvalStatus = 'pending';
+        statusMessage = 'Parent permission pending. An email has been sent to your parent/guardian.';
+        statusColor = 'amber';
+        statusIcon = FaClock;
+      }
+    }
+    
+    // If no approval info found but student is under 18, show a general message
+    if (!approvalStatus && isUnder18) {
+      approvalStatus = 'pending';
+      statusMessage = 'Parent permission may be required. Please ensure your parent/guardian information is up to date.';
+      statusColor = 'blue';
+      statusIcon = AlertCircle;
+    }
+    
+    // Don't render anything if there's no status to show
+    if (!approvalStatus) return null;
+    
+    const Icon = statusIcon;
+    const colors = {
+      green: 'bg-green-50 border-green-200 text-green-700',
+      amber: 'bg-amber-50 border-amber-200 text-amber-700',
+      blue: 'bg-blue-50 border-blue-200 text-blue-700'
+    };
+    
+    const iconColors = {
+      green: 'text-green-500',
+      amber: 'text-amber-500',
+      blue: 'text-blue-500'
+    };
+    
+    return (
+      <Alert className={`mb-4 ${colors[statusColor]}`}>
+        <Icon className={`h-4 w-4 ${iconColors[statusColor]}`} />
+        <AlertDescription>
+          <p className="font-medium mb-1">Parent Permission Status</p>
+          <p className="text-sm">{statusMessage}</p>
+        </AlertDescription>
+      </Alert>
+    );
+  };
+
   // Function to log course details to console with emoji
   const logCourseDetails = () => {
     console.log(`🎓 Course Details for "${courseName}" (ID: ${courseId}):`, {
@@ -583,6 +667,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
 
             {renderRegistrationMessage()}
             {renderTrialMessage()}
+            {renderParentApprovalStatus()}
             
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="flex items-center gap-2">

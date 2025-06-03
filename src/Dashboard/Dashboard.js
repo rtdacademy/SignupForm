@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { FaPlusCircle } from 'react-icons/fa';
-import { NotebookPen } from 'lucide-react';
+import { NotebookPen, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import FormDialog from '../Registration/FormDialog';
 import WelcomeDialog from './WelcomeDialog';
 import MigrationWelcomeDialog from '../migration/MigrationWelcomeSheet';
@@ -455,14 +456,42 @@ const Dashboard = () => {
 
   {/* Add the NotificationCenter here */}
   {studentExists && (
-    <NotificationCenter
-      courses={courses}
-      profile={profile}
-      markNotificationAsSeen={markNotificationAsSeen}
-      submitSurveyResponse={submitSurveyResponse}
-      forceRefresh={forceRefresh}
-      allNotifications={allNotifications}
-    />
+    <div className="flex items-center gap-4 mb-6">
+      <NotificationCenter
+        courses={courses}
+        profile={profile}
+        markNotificationAsSeen={markNotificationAsSeen}
+        submitSurveyResponse={submitSurveyResponse}
+        forceRefresh={forceRefresh}
+        allNotifications={allNotifications}
+      />
+      
+      {/* Parent Account Indicator */}
+      {profile && profile.age && profile.age < 18 && profile.parentApprovalStatus && (
+        <div className="flex items-center gap-2 text-sm">
+          {profile.parentApprovalStatus.status === 'approved' ? (
+            <>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <span className="text-gray-600">
+                Parent account linked
+                {profile.parentApprovalStatus.linkedParentEmail && (
+                  <span className="text-gray-500 ml-1">
+                    ({profile.parentApprovalStatus.linkedParentEmail})
+                  </span>
+                )}
+              </span>
+            </>
+          ) : profile.parentApprovalStatus.status === 'pending' && profile.parentApprovalStatus.required ? (
+            <>
+              <Clock className="h-4 w-4 text-amber-600" />
+              <span className="text-gray-600">
+                Parent approval pending
+              </span>
+            </>
+          ) : null}
+        </div>
+      )}
+    </div>
   )}
 
   {/* Check if all available courses are required courses */}

@@ -3497,8 +3497,20 @@ const NonPrimaryStudentForm = forwardRef(({
               ) : (
                 <div className="space-y-6">
                   <h4 className="text-md font-medium">Parent/Guardian Information (Required)</h4>
+                  <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4">
+                    <div className="flex items-start">
+                      <InfoIcon className="h-5 w-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="text-amber-800 font-medium mb-1">Important: Parent Permission Required</p>
+                        <p className="text-amber-700">
+                          As you are under 18, your parent/guardian will receive an email and will need to give permission for you to take this course. 
+                          You will be able to start the course in the meantime, but we will require parent permission before you will be added to the Alberta Education system.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                   <p className="text-sm text-gray-600">
-                    As you are under 18, parent/guardian information is required.
+                    Please provide your parent or guardian's contact information below.
                   </p>
 
                   {/* Parent Relationship */}
@@ -3667,10 +3679,17 @@ const NonPrimaryStudentForm = forwardRef(({
                             : null
                         }
                       />
-                      <p className="text-sm text-gray-500">
-                        Your parent/guardian will receive an email and will need to grant permission for you to join the course.
-                        Please ensure that the parent email is correct.
-                      </p>
+                      {formData.parentEmail && !errors.parentEmail && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mt-2">
+                          <div className="flex items-start">
+                            <InfoIcon className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+                            <div className="text-xs text-blue-700">
+                              <p className="font-medium">Email will be sent to: {formData.parentEmail}</p>
+                              <p className="mt-1">Your parent/guardian will receive an email requesting permission for you to enroll in this course.</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
