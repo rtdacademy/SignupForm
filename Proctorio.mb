@@ -1,0 +1,345 @@
+# Proctorio API Documentation
+
+## Overview
+
+Proctorio API provides a simple way for learning platforms to integrate proctoring into exams. The following documentation provides you with instructions on how to generate two separate URLs. The Candidate URL is used for taking the exam that will be supervised by Proctorio and the Reviewer URL is used for generating the Review Center, with the attempts taken.
+
+**Base URL:** `https://getproctorio.com`  
+**Schemes:** HTTPS  
+**Authorization:** API
+
+---
+
+## Endpoints
+
+### POST /v2/candidate/launch
+
+Creates a Candidate URL.
+
+**Parameters:**
+- **Content Type:** `application/json`
+- **Response Type:** `application/json`
+
+**Request Body:**
+```json
+{
+  "launch_url": "string",
+  "exam_start": "string",
+  "exam_take": "string",
+  "exam_end": "string",
+  "expire": 0,
+  "exam_settings": {
+    "record_video": true,
+    "record_audio": true,
+    "record_screen": true,
+    "record_web_traffic": true,
+    "record_desk": 0,
+    "verify_video": true,
+    "verify_audio": true,
+    "verify_desktop": true,
+    "verify_id": 0,
+    "verify_signature": true,
+    "full_screen": 0,
+    "disable_clipboard": true,
+    "tabs": 0,
+    "close_tabs": true,
+    "one_screen": true,
+    "disable_printing": true,
+    "block_downloads": true,
+    "clear_cache": true,
+    "disable_right_click": true,
+    "calculator": 0,
+    "whiteboard": true
+  },
+  "redirect_url": "string",
+  "attempt_id": "string",
+  "domain": "string",
+  "user_id": "string",
+  "exam_tag": "string",
+  "section_id": "string",
+  "roster_url": "string"
+}
+```
+
+**Responses:**
+
+| Code | Description |
+|------|-------------|
+| 200 | Indicates success and returns a Candidate URL (string) |
+| 400 | Indicates bad request |
+| 401 | Indicates unauthorized response |
+
+**400 Response Format:**
+```json
+[
+  {
+    "memberNames": ["string"],
+    "errorMessage": "string"
+  }
+]
+```
+
+---
+
+### POST /v2/reviewer/launch
+
+Creates a Reviewer URL.
+
+**Parameters:**
+- **Content Type:** `application/json`
+- **Response Type:** `application/json`
+
+**Request Body:**
+```json
+{
+  "expire": 0,
+  "behavior_settings": {
+    "frame_metrics": {
+      "navigating_away": 0,
+      "keystrokes": 0,
+      "copy_paste": 0,
+      "browser_resize": 0,
+      "audio_levels": 0,
+      "head_movement": 0,
+      "multiple_faces": 0,
+      "leaving_room": 0
+    },
+    "exam_metrics": {
+      "navigating_away": true,
+      "keystrokes": true,
+      "copy_paste": true,
+      "browser_resize": true,
+      "audio_levels": true,
+      "head_movement": true,
+      "multiple_faces": true,
+      "mouse_movement": true,
+      "scrolling": true,
+      "clicking": true,
+      "exam_duration": true,
+      "start_time": true,
+      "end_time": true,
+      "exam_collusion": true
+    }
+  },
+  "exam_settings": {
+    "record_video": true,
+    "record_audio": true,
+    "record_screen": true,
+    "record_web_traffic": true,
+    "record_desk": 0,
+    "verify_video": true,
+    "verify_audio": true,
+    "verify_desktop": true,
+    "verify_id": 0,
+    "verify_signature": true,
+    "full_screen": 0,
+    "disable_clipboard": true,
+    "tabs": 0,
+    "close_tabs": true,
+    "one_screen": true,
+    "disable_printing": true,
+    "block_downloads": true,
+    "clear_cache": true,
+    "disable_right_click": true,
+    "calculator": 0,
+    "whiteboard": true
+  },
+  "domain": "string",
+  "user_id": "string",
+  "exam_tag": "string",
+  "section_id": "string",
+  "roster_url": "string"
+}
+```
+
+**Responses:**
+
+| Code | Description |
+|------|-------------|
+| 200 | Indicates success and returns a Reviewer URL (string) |
+| 400 | Indicates bad request |
+| 401 | Indicates unauthorized response |
+
+---
+
+### POST /v2/live/launch
+
+Creates a Live Proctor URL.
+
+---
+
+## Data Models
+
+### candidateLaunchRequestV2
+
+| Field | Type | Required | Constraints | Description |
+|-------|------|----------|-------------|-------------|
+| launch_url | string | Yes | maxLength: 600, minLength: 1 | Must contain a valid absolute URL, that fully launches to the exam start page with no additional authentication. The "launch_url" value should be included in the "exam_start" regex pattern, alongside any of the redirects. |
+| exam_start | string | Yes | maxLength: 600, minLength: 1 | Regular expression to match the exam start page. Any pages before this will be considered pre-exam pages and will be ignored. This is the URL that the Candidate is on before they begin the exam. The "launch_url" value should be included in the "exam_start" regex pattern, alongside any of the redirects. |
+| exam_take | string | Yes | maxLength: 1000, minLength: 1 | Must be a regular expression to match the in-exam page URLs (the URL of the exam), and any redirects. In cases where there are questions on multiple pages, this is important. Anything else visited that does not match this or the exam_end parameter will be considered leaving the exam and the session will be considered complete. |
+| exam_end | string | Yes | maxLength: 600, minLength: 1 | Must be a regular expression to match the exam end page (the URL the Candidate is taken to once the exam has been completed) and any possible redirect. This triggers the end of the proctoring session and considers that the exam has been submitted. |
+| expire | integer | No | maximum: 18000, minimum: 1 | Number of seconds before the Candidate URL is no longer valid. The default value for this parameter is 18000 seconds. If a value is not passed, the default value will be applied. Must be an integer value. |
+| exam_settings | examSettingsRequestV2 | Yes | - | The exam settings control the lockdown, recording, and verification requirements for the exam. |
+| redirect_url | string | No | maxLength: 600, minLength: 1 | The redirect_url parameter is optional. If provided, the Candidate will be redirected to this URL after successfully submitting the exam. |
+| attempt_id | string | No | maxLength: 36, minLength: 1, pattern: ^[a-zA-Z0-9-]*$ | The unique identifier for a specific attempt of the Candidate. Must contain an alphanumeric (hyphens also acceptable) value. |
+| domain | string | No | maxLength: 100, minLength: 1 | The "domain" parameter is optional. By utilizing "domain", the exam pages as well as the Reviewer Center will load with your desired domain. |
+| user_id | string | Yes | maxLength: 36, minLength: 1, pattern: ^[a-zA-Z0-9-]*$ | Must contain an alphanumeric (hyphens also acceptable) value, unique to this specific user. |
+| exam_tag | string | No | maxLength: 100, minLength: 1, pattern: ^(?!goodbye$\|support$\|update$\|setup$\|invalid$).* | This is the exam ID tag and will be added to the end of the URL. The exam_tag can't contain spacing and it can't contain NON-ASCII characters. |
+| section_id | string | No | maxLength: 100, minLength: 1 | Represents a course ID or a section ID value. This parameter is optional. It provides a more granular sorting of the exams. |
+| roster_url | string | No | maxLength: 600, minLength: 1 | Roster endpoint URL. Http Method: GET. The response should be a JSON stringified array. |
+
+#### PostMessage Method for Single-Page Applications
+
+In case URLs don't reflect the exam state (Single-page applications), the postMessage method can be used to communicate the exam state to the Proctorio extension:
+
+**For exam_take state:**
+```javascript
+window.top.postMessage(
+  ["exam_state_change", "exam_take"],
+  "https://getproctorio.com"
+);
+```
+
+**For exam_end state:**
+```javascript
+window.top.postMessage(
+  ["exam_state_change", "exam_end"],
+  "https://getproctorio.com"
+);
+```
+
+When using the postMessage method, the corresponding parameter should have a "post_message_notification" value.
+
+### examSettingsRequestV2
+
+The exam settings control the lockdown, recording, and verification requirements for the exam. Every exam is different; some may allow the Candidates to use other websites or applications, while others will prevent these functions.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| record_video | boolean | Requires the Candidate to have a webcam and will record the video for the entire duration of the exam. |
+| record_audio | boolean | Requires the Candidate to have a microphone and will record audio for the entire exam duration of the exam. |
+| record_screen | boolean | Will capture and record the full desktop screen for the entire duration of the exam. |
+| record_web_traffic | boolean | Will capture screenshots and URLs of any websites visited during the exam. |
+| record_desk | integer | **0** - Setting is turned off.<br>**1** - Requires desk scan at start and random intervals during exam. Requires: record_video, verify_video.<br>**2** - Requires desk scan at start only. Requires: record_video, verify_video. |
+| verify_video | boolean | Will ensure that the webcam is working and it is not virtualized or broken. Requires: record_video. |
+| verify_audio | boolean | Will ensure that the microphone is working and it is not virtualized or muted. Requires: record_audio. |
+| verify_desktop | boolean | Will ensure that the desktop recording is working and is being properly recorded. Requires: record_screen. |
+| verify_id | integer | **0** - Setting is turned off.<br>**1** - Requires photo ID prior to exam (automatically scanned).<br>**2** - Requires photo ID prior to exam (reviewed by Proctorio agent). Requires: record_video, verify_video. |
+| verify_signature | boolean | Requires the Candidate to sign an agreement before exam start. |
+| full_screen | integer | **0** - Setting is turned off.<br>**1** - Forces fullscreen, 15-second cumulative navigate-away limit.<br>**2** - Forces fullscreen, 30-second cumulative navigate-away limit.<br>**3** - Forces fullscreen, instant removal on navigate-away.<br>Requires: close_tabs, one_screen, tabs=1. |
+| disable_clipboard | boolean | Disables copy/paste functionality. |
+| tabs | integer | **0** - Setting is turned off.<br>**1** - Disables new tabs or windows during exam.<br>**2** - Disables new tabs or windows except embedded exam page links. |
+| close_tabs | boolean | Forces all other tabs and windows to be closed before the exam starts. |
+| one_screen | boolean | Forces the Candidate to disable all but one monitor before starting the exam and prevents them from connecting additional monitors during the exam. |
+| disable_printing | boolean | Disables printing exam content to prevent exam distribution. |
+| block_downloads | boolean | Prevents the Candidate from downloading files through the browser. |
+| clear_cache | boolean | Empties system temporary files after the exam is submitted. |
+| disable_right_click | boolean | Disables right click functionalities. |
+| calculator | integer | **0** - Setting is turned off.<br>**1** - Provides basic calculator.<br>**2** - Provides scientific calculator.<br>**3** - Provides graphing calculator. |
+| whiteboard | boolean | Provides the Candidate with a scratch pad and drawing tools on-screen. |
+
+### behaviorSettingsV2Request
+
+Behavior settings determines the suspicion of each recorded action and configure exam analytics. Behavior settings should reflect the type of exam given (e.g., allowing head movement on an open-note exam) to achieve the desired results in the Proctorio Review Center.
+
+#### frameMetricsV2Request
+
+The severity of each metric sets the weight of a suspicious behavior in relation to the other behaviors. These metrics are calculated with each image. Each characteristic is derived for every image, regardless if the setting is enabled or not. The severity of these metrics is set when generating the Reviewer URL, but that can be changed at any time by the Reviewer in the Proctorio Review Center, which will result in a re-calculation of the suspicion level. The weight can be set from 0 to 5. If set to 0, then this is considered "off," and the behaviors will not count towards the suspicion level or be shown in the Incident Log.
+
+| Field | Type | Range | Description |
+|-------|------|-------|-------------|
+| navigating_away | integer | 0-5 | Depending on the weight of this frame metric, Proctorio will flag when the candidate leaves the exam page. |
+| keystrokes | integer | 0-5 | Depending on the weight of this frame metric, Proctorio will flag anytime the candidate types within the exam window. |
+| copy_paste | integer | 0-5 | Depending on the weight of this frame metric, Proctorio will flag when the candidate copies, cuts, or pastes within the exam window. |
+| browser_resize | integer | 0-5 | Depending on the weight of this frame metric, Proctorio will flag when the candidate changes the browser size while taking an exam. |
+| audio_levels | integer | 0-5 | Depending on the weight of this frame metric, Proctorio will flag when the ambient noise reaches a level above the white noise of the exam environment. |
+| head_movement | integer | 0-5 | Depending on the weight of this frame metric, Proctorio will flag when the candidate moves their head away from the exam window. |
+| multiple_faces | integer | 0-5 | Depending on the weight of this frame metric, Proctorio will flag when multiple people look at an exam. |
+| leaving_room | integer | 0-5 | Depending on the weight of this frame metric, Proctorio will flag candidates who didn't interact with the keyboard and mouse for 20-30 seconds and whose face isn't clearly visible in the video feed. |
+
+#### examMetricsV2Request
+
+Exam Metrics are calculated based on particular behavior in comparison to the rest of the group and are factored into the suspicion level. Candidates with significantly different behaviors than the rest of the group will be highlighted.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| navigating_away | boolean | Abnormal amounts of navigating away will highlight the candidates who are using external applications or materials differently than the rest of the group. |
+| keystrokes | boolean | Abnormal amount of keystrokes will highlight the candidates who are relying on copy and paste or struggling with free response questions. |
+| copy_paste | boolean | Abnormal amount of copy/paste activity will highlight the candidates who may have taken material from the exam or brought answers into the exam repeatedly. |
+| browser_resize | boolean | Abnormal amount of browser resize will highlight the candidates who may have had notes or other material hidden behind the exam window. |
+| audio_levels | boolean | Abnormal changes in audio levels will highlight the candidates that had significant changes in audio activity throughout the exam. |
+| head_movement | boolean | Abnormal amount of head movement will highlight the candidates who looked away from the camera significantly more or significantly less than the rest of the group. |
+| multiple_faces | boolean | Abnormal number of detected faces will highlight the candidates who may have received help from someone during the exam. |
+| mouse_movement | boolean | Abnormal amount of mouse movement will highlight the candidates who interacted with the exam page less than the rest of the group. |
+| scrolling | boolean | Abnormal amount of scrolling will highlight the candidates who interacted with the exam page less than the rest of the group. |
+| clicking | boolean | Abnormal amount of clicking will highlight the candidates who interacted with the exam page less than the rest of the group. |
+| exam_duration | boolean | Abnormal exam duration will highlight the candidates who have finished significantly faster or significantly slower than the rest of the group. |
+| start_time | boolean | Start Times will highlight the candidates whose LMS start time does not match the Proctorio start time. |
+| end_time | boolean | End Times will highlight the candidates whose LMS end time does not match the Proctorio end time. |
+| exam_collusion | boolean | Exam Collusion will highlight the candidates who took the exam at the same time on the same network. |
+
+### reviewerLaunchRequestV2
+
+| Field | Type | Required | Constraints | Description |
+|-------|------|----------|-------------|-------------|
+| expire | integer | No | maximum: 3600, minimum: 1 | Number of seconds before the Reviewer URL is no longer valid. The default value for this parameter is 3600 seconds. If a value is not passed, the default value will be applied. Must be an integer value. |
+| behavior_settings | behaviorSettingsV2Request | No | - | Behavior settings determines the suspicion of each recorded action and configure exam analytics. |
+| exam_settings | examSettingsRequestV2 | Yes | - | The exam settings control the lockdown, recording, and verification requirements for the exam. |
+| domain | string | No | maxLength: 100, minLength: 1 | The "domain" parameter is optional. By utilizing "domain", the exam pages as well as the Reviewer Center will load with your desired domain. |
+| user_id | string | Yes | maxLength: 36, minLength: 1, pattern: ^[a-zA-Z0-9-]*$ | Must contain an alphanumeric (hyphens also acceptable) value, unique to this specific user. |
+| exam_tag | string | No | maxLength: 100, minLength: 1, pattern: ^(?!goodbye$\|support$\|update$\|setup$\|invalid$).* | This is the exam ID tag and will be added to the end of the URL. |
+| section_id | string | No | maxLength: 100, minLength: 1 | Represents a course ID or a section ID value. This parameter is optional. |
+| roster_url | string | No | maxLength: 600, minLength: 1 | Roster endpoint URL. Http Method: GET. |
+
+### liveLaunchRequestV2
+
+| Field | Type | Required | Constraints | Description |
+|-------|------|----------|-------------|-------------|
+| expire | integer | No | maximum: 3600, minimum: 1 | Number of seconds before the Proctor URL is no longer valid. The default value for this parameter is 3600 seconds. |
+| exam_name | string | No | maxLength: 100, minLength: 1 | Represents the name of the exam that is being reviewed or proctored. It allows easier navigation if reviewing or proctoring multiple exams at the same time. |
+| behavior_settings | behaviorSettingsV2Request | No | - | Behavior settings determines the suspicion of each recorded action and configure exam analytics. |
+| user_id | string | Yes | maxLength: 36, minLength: 1, pattern: ^[a-zA-Z0-9-]*$ | Must contain an alphanumeric (hyphens also acceptable) value, unique to this specific user. |
+| exam_tag | string | No | maxLength: 100, minLength: 1, pattern: ^(?!goodbye$\|support$\|update$\|setup$\|invalid$).* | This is the exam ID tag and will be added to the end of the URL. |
+| section_id | string | No | maxLength: 100, minLength: 1 | Represents a course ID or a section ID value. This parameter is optional. |
+| roster_url | string | No | maxLength: 600, minLength: 1 | Roster endpoint URL. Http Method: GET. |
+
+### validationResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| memberNames | array[string] | Names of the members that failed validation |
+| errorMessage | string | Description of the validation error |
+
+---
+
+## Additional Information
+
+### Domain Parameter
+
+The "domain" parameter is optional. By utilizing "domain", the exam pages as well as the Reviewer Center will load with your desired domain.
+
+The URL will no longer point to the https://getproctorio.com page. Instead, the Candidates/Reviewers will be directed to the new route you provided in the parameter, example: https://yourdomain.com.
+
+This allows the utilization of additional cross-origin security mechanisms, which use the SameSite cookies or X-Frame-Options: SAMEORIGIN header. It will also provide the ability to prevent data loss in session or local storage related to storage partitioning browser functionality.
+
+The https://getproctorio.com page has the following functionalities:
+- Check if a Candidate/Reviewer has the supported browser installed.
+- Check if a Candidate/Reviewer has the Proctorio extension installed.
+
+To keep these functionalities, a link to https://getproctorio.com with content describing the recommended of getproctorio.com is necessary on the institution's page.
+
+### Roster URL
+
+Roster endpoint URL. Http Method: GET. The response should be a JSON stringified array. For example: `[["id1","name1"],["id2","name2"]]`
+
+The "id" value should correspond to the "userId" parameter, be unique to the Candidate, and non-repeatable within the roster.
+
+The roster endpoint is validated by Proctorio, so that means that if an invalid endpoint is provided or if "userId" doesn't match any "id" value inside the array, the attempts will be marked as "Unmatched" in the Review Center.
+
+The roster_url is only fetched by the end user accessing the Review Center or the Exam Agreement page, client-side, not by Proctorio directly. That means that it can be secured with the session for that particular user. This is intentional, and as such there is no need for the PII to be passed to Proctorio at any point, whether that be a Candidate Launch request or a Reviewer Launch request.
+
+### Section ID
+
+The "section_id" parameter is dependent upon the "roster_url" parameter, and it can't be used without it.
+
+That means that exams that have the same "exam_tag" but different "section_id", will be treated like different exams.
