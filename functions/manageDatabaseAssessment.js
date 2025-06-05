@@ -38,20 +38,47 @@ const { AILongAnswerCore } = require('./shared/assessment-types/ai-long-answer')
 const { extractParameters } = require('./shared/utilities/database-utils');
 
 /**
- * Load assessment configuration from database
+ * Load assessment configuration from database, with auto-creation for new assessments
  */
-async function getAssessmentConfig(courseId, lessonPath, assessmentId) {
+async function getAssessmentConfig(courseId, lessonPath, assessmentId, operation = 'generate') {
   try {
     const db = getDatabase();
     const configRef = db.ref(`courses_secure/${courseId}/assessmentConfig/${lessonPath}/${assessmentId}`);
     const snapshot = await configRef.once('value');
     
     if (!snapshot.exists()) {
-      throw new Error(`Assessment configuration not found: ${courseId}/${lessonPath}/${assessmentId}`);
+      // If config doesn't exist and this is a generate operation, create a default config
+      if (operation === 'generate' || operation === 'create') {
+        console.log(`🆕 Creating default assessment config for: ${courseId}/${lessonPath}/${assessmentId}`);
+        
+        const defaultConfig = {
+          type: 'ai-multiple-choice', // Default to multiple choice
+          title: `Assessment for ${lessonPath}`,
+          status: 'active',
+          createdAt: Date.now(),
+          configuration: {
+            type: 'ai-multiple-choice',
+            activityType: 'assessment',
+            prompts: {
+              systemPrompt: `Generate educational assessment questions for ${lessonPath}.`,
+              questionPrompt: 'Create a multiple choice question about the key concepts.'
+            },
+            fallbackQuestions: []
+          }
+        };
+        
+        // Save the default config to database
+        await configRef.set(defaultConfig);
+        console.log(`✅ Created default assessment config for ${assessmentId}`);
+        
+        return defaultConfig;
+      } else {
+        throw new Error(`Assessment configuration not found: ${courseId}/${lessonPath}/${assessmentId}`);
+      }
     }
     
     const config = snapshot.val();
-    console.log(`✅ Loaded assessment config for ${assessmentId}:`, {
+    console.log(`✅ Loaded existing assessment config for ${assessmentId}:`, {
       type: config.type,
       title: config.title,
       status: config.status
@@ -170,8 +197,8 @@ exports.generateDatabaseAssessment = onCall({
       throw new Error('courseId, lessonPath, and assessmentId are required');
     }
     
-    // Load assessment configuration from database
-    const assessmentConfig = await getAssessmentConfig(data.courseId, data.lessonPath, data.assessmentId);
+    // Load assessment configuration from database (with auto-creation if needed)
+    const assessmentConfig = await getAssessmentConfig(data.courseId, data.lessonPath, data.assessmentId, data.operation);
     
     // Check if assessment is active
     if (assessmentConfig.status !== 'active') {

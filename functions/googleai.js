@@ -1,31 +1,34 @@
 // Import 2nd gen Firebase Functions
 const { onCall } = require('firebase-functions/v2/https');
+const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const { genkit } = require('genkit/beta'); // Beta package is needed for chat
 const { googleAI } = require('@genkit-ai/googleai');
 const fetch = require('node-fetch');
 const AI_MODELS = require('./aiSettings');
 
+// Define the secret for GEMINI API key
+const geminiApiKey = defineSecret('GEMINI_API_KEY');
+
 // Initialize Firebase Admin SDK if not already initialized
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-// Environment variables should be set in Firebase Cloud Functions
-// Try to get the API key from different sources
-//const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// Function to initialize AI instance with API key
+function initializeAI(apiKey) {
+  return genkit({
+    plugins: [googleAI({ apiKey })],
+    model: googleAI.model(AI_MODELS.ACTIVE_CHAT_MODEL), // Use active model from settings
+  });
+}
 
-// Configure genkit with Google AI plugin
-const ai = genkit({
-  plugins: [googleAI()],
-  model: googleAI.model(AI_MODELS.ACTIVE_CHAT_MODEL), // Use active model from settings
-});
-
-// Define specialized educational agents for different question states
-const preAnswerTutorAgent = ai.definePrompt({
-  name: 'preAnswerTutor',
-  description: 'Guides students using Socratic method before they answer questions',
-  system: `You are an educational AI tutor helping a student with a physics question. The student has NOT yet answered this question.
+// Function to get specialized educational agents
+function getEducationalAgents(ai) {
+  const preAnswerTutorAgent = ai.definePrompt({
+    name: 'preAnswerTutor',
+    description: 'Guides students using Socratic method before they answer questions',
+    system: `You are an educational AI tutor helping a student with a physics question. The student has NOT yet answered this question.
 
 CRITICAL RULES:
 - NEVER directly provide the answer or indicate which option is correct
@@ -36,12 +39,12 @@ CRITICAL RULES:
 - If they ask for the answer directly, politely remind them that you're here to help them learn by guiding their thinking
 - Ask questions about what they understand, what forces or principles might be involved, or how they might approach the problem
 - Be encouraging and supportive while maintaining the educational goal of guided discovery`
-});
+  });
 
-const postAnswerTutorAgent = ai.definePrompt({
-  name: 'postAnswerTutor', 
-  description: 'Discusses answers and provides explanations after student attempts question',
-  system: `You are an educational AI tutor helping a student with a physics question. The student has already attempted this question.
+  const postAnswerTutorAgent = ai.definePrompt({
+    name: 'postAnswerTutor', 
+    description: 'Discusses answers and provides explanations after student attempts question',
+    system: `You are an educational AI tutor helping a student with a physics question. The student has already attempted this question.
 
 You have access to their submission details and can reference them directly in your responses. The specific details will be provided in the system instruction.
 
@@ -74,6 +77,9 @@ Your role:
 - Reference their actual selection to make it personal and relevant
 - Focus on the learning opportunity this creates`
 });
+
+  return { preAnswerTutorAgent, postAnswerTutorAgent, transitionAgent };
+}
 
 // Store active chat instances by session ID
 // In production, you'd want to use a persistent store like Firestore
@@ -192,12 +198,16 @@ const generateContent = onCall({
   concurrency: 10,
   memory: '1GiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"],
+  secrets: [geminiApiKey] // Bind the secret to this function
 }, async (request) => {
   // Data is in request.data for V2 functions
   const data = request.data;
 
   try {
+    // Initialize AI instance with the secret API key
+    const ai = initializeAI(geminiApiKey.value());
+    
     // Log the incoming data for debugging (safely)
     console.log("Received data:", safeStringify(data));
     
@@ -236,11 +246,15 @@ const startChatSession = onCall({
   concurrency: 10,
   memory: '1GiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"],
+  secrets: [geminiApiKey] // Bind the secret to this function
 }, async (request) => {
   const data = request.data;
 
   try {
+    // Initialize AI instance with the secret API key
+    const ai = initializeAI(geminiApiKey.value());
+    
     console.log("Starting chat session with data:", safeStringify(data));
     
     const { 
@@ -336,11 +350,16 @@ const sendChatMessage = onCall({
   concurrency: 10,
   memory: '2GiB', // Increased memory for video and document processing
   timeoutSeconds: 120, // Increased timeout for video and document processing
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"],
+  secrets: [geminiApiKey] // Bind the secret to this function
 }, async (request) => {
   const data = request.data;
 
   try {
+    // Initialize AI instance with the secret API key
+    const ai = initializeAI(geminiApiKey.value());
+    const { preAnswerTutorAgent, postAnswerTutorAgent, transitionAgent } = getEducationalAgents(ai);
+    
     // Log the incoming data but safely handle circular references
     console.log("Received chat message data:", safeStringify(data));
     

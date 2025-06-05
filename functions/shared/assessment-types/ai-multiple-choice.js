@@ -141,11 +141,13 @@ const { applyPromptModules } = require('../prompt-modules');
 // Environment variables
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Initialize Genkit with Google AI plugin
-const ai = genkit({
-  plugins: [googleAI()],
-  model: googleAI.model('gemini-2.0-flash'),
-});
+// Function to initialize AI with API key
+function initializeAI(apiKey) {
+  return genkit({
+    plugins: [googleAI({ apiKey })],
+    model: googleAI.model('gemini-2.0-flash'),
+  });
+}
 
 /**
  * Shuffles an array in place

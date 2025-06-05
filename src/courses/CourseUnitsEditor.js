@@ -3,6 +3,7 @@ import { FaInfoCircle, FaPlus, FaTrash } from 'react-icons/fa';
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import IMathASSetup from './IMathASSetup';
+import SecureAssessmentSetup from './SecureAssessmentSetup';
 import { ref, query, orderByChild, equalTo, get } from 'firebase/database';
 import { database } from '../firebase';
 import PermissionIndicator from '../context/PermissionIndicator';
@@ -99,10 +100,18 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
     const currentItem = newUnits[unitIndex].items[itemIndex];
 
     // Generate a new itemId if the type field is being changed
-    const updates = { [field]: value };
+    let updates = { [field]: value };
 
     if (field === 'type' && value !== currentItem.type) {
       updates.itemId = generateUniqueId(value);
+    }
+
+    // Handle secure assessment data updates
+    if (field === 'secure' && typeof value === 'object') {
+      // Spread the secure data fields directly into the item
+      updates = {
+        ...value
+      };
     }
 
     newUnits[unitIndex] = {
@@ -403,6 +412,15 @@ const CourseUnitsEditor = ({ courseId, units, onUnitsChange, isEditing }) => {
                     <IMathASSetup
                       item={item}
                       courseId={courseId}
+                      unitIndex={unitIndex}
+                      itemIndex={itemIndex}
+                      onItemChange={handleItemChange}
+                      isEditing={isEditing}
+                    />
+
+                    {/* Secure Assessment Setup */}
+                    <SecureAssessmentSetup
+                      item={item}
                       unitIndex={unitIndex}
                       itemIndex={itemIndex}
                       onItemChange={handleItemChange}

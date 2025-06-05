@@ -151,16 +151,18 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // Log API key status (without exposing the actual key)
 if (!GEMINI_API_KEY) {
-  console.warn("WARNING: GEMINI_API_KEY environment variable is not set. AI features will use fallback mode.");
+  console.log("GEMINI_API_KEY not found in environment - will be provided via Firebase secrets in function calls");
 } else {
   console.log("GEMINI_API_KEY is configured (length:", GEMINI_API_KEY.length, "characters)");
 }
 
-// Initialize Genkit with Google AI plugin
-const ai = genkit({
-  plugins: [googleAI()],
-  model: googleAI.model('gemini-2.0-flash'),
-});
+// Function to initialize AI with API key
+function initializeAI(apiKey) {
+  return genkit({
+    plugins: [googleAI({ apiKey })],
+    model: googleAI.model('gemini-2.0-flash'),
+  });
+}
 
 /**
  * Uses Genkit with structured outputs to generate a long answer question with rubric
