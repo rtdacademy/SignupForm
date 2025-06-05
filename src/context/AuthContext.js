@@ -108,7 +108,6 @@ export function AuthProvider({ children }) {
     '/your-way',
     '/get-started',
     '/policies-reports',
-    '/education-plan',
     '/google-ai-chat',
     '/parent-login'
   ].map(route => route.toLowerCase());

@@ -264,11 +264,7 @@ const EducationPlan = () => {
           <p className="text-lg text-gray-600 mb-8">
             Third Year of Three-Year Education Plan
           </p>
-          <div className="space-y-2 text-gray-600">
-            <p>Prepared for Alberta Education</p>
-            <p>In accordance with the Education Assurance Framework</p>
-            <p>Submitted: [DATE]</p>
-          </div>
+        
         </div>
       </Card>
       

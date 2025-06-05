@@ -110,7 +110,7 @@ const RequiredAEAMResults = () => {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold">Required Alberta Education Assurance Measures - Overall Summary</h2>
           <a 
-            href="https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/EZk-0CSamfNCkyT9rpyitSgB-vGumsR-ixehdQv4ej-G3g?e=pjtFtc"
+            href="https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/EZk-0CSamfNCkyT9rpyitSgBk5o9uP5x8GOO4NuXvlKbrw?e=bSuELL"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 text-blue-600 hover:text-blue-800"

@@ -161,7 +161,7 @@ const AERR2324 = () => {
               For detailed financial information, please view our complete audited financial statements:
             </p>
             <a
-              href="https://rtdacademy.sharepoint.com/:f:/s/RTDMathAcademy/Ep-6WVc_xu5PjrvcgB76gGYBUxrF3BHnY015dg_U6Dv0Ag?e=RIiRqB"
+              href="https://rtdacademy.sharepoint.com/:x:/s/RTDAdministration/EUqGdEbJ1ctAot-nMl6DIjYBJKTu7n67VG_cBC6Oq1fUsQ?e=e78plp"
               className="text-blue-600 hover:text-blue-800 text-sm"
               target="_blank"
               rel="noopener noreferrer"
