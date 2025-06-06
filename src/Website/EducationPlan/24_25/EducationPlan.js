@@ -36,7 +36,10 @@ import IndigenousEducation from './Components/IndigenousEducation';
 // Section VII: Performance Measures
 import PerformanceMeasures from './Components/PerformanceMeasures';
 
-// Section VIII: Conclusion
+// Section VIII: Budget Summary
+import BudgetSummary from './Components/BudgetSummary';
+
+// Section IX: Conclusion
 import ConclusionFutureDirection from './Components/ConclusionFutureDirection';
 
 // Supporting Components
@@ -117,7 +120,13 @@ const EducationPlan = () => {
       ]
     },
     {
-      title: "VII. Conclusion",
+      title: "VII. Budget",
+      items: [
+        { name: "Budget Summary", ref: budgetRef }
+      ]
+    },
+    {
+      title: "VIII. Conclusion",
       items: [
         { name: "Future Direction", ref: conclusionRef }
       ]
@@ -366,7 +375,12 @@ const EducationPlan = () => {
           <PerformanceMeasures />
         </div>
 
-        {/* Section VII: Conclusion */}
+        {/* Section VII: Budget Summary */}
+        <div ref={budgetRef}>
+          <BudgetSummary />
+        </div>
+
+        {/* Section VIII: Conclusion */}
         <div ref={conclusionRef}>
           <ConclusionFutureDirection />
         </div>

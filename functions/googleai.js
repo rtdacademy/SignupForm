@@ -1,26 +1,26 @@
 // Import 2nd gen Firebase Functions
 const { onCall } = require('firebase-functions/v2/https');
-const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const { genkit } = require('genkit/beta'); // Beta package is needed for chat
 const { googleAI } = require('@genkit-ai/googleai');
 const fetch = require('node-fetch');
 const AI_MODELS = require('./aiSettings');
 
-// Define the secret for GEMINI API key
-const geminiApiKey = defineSecret('GEMINI_API_KEY');
-
 // Initialize Firebase Admin SDK if not already initialized
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-// Function to initialize AI instance with API key
-function initializeAI(apiKey) {
-  return genkit({
-    plugins: [googleAI({ apiKey })],
-    model: googleAI.model(AI_MODELS.ACTIVE_CHAT_MODEL), // Use active model from settings
-  });
+// Lazy initialization of AI instance to avoid timeouts during deployment
+let aiInstance = null;
+
+function initializeAI() {
+  if (!aiInstance) {
+    aiInstance = genkit({
+      plugins: [googleAI()], // No need to pass API key - Genkit reads from environment
+    });
+  }
+  return aiInstance;
 }
 
 // Function to get specialized educational agents
@@ -198,15 +198,14 @@ const generateContent = onCall({
   concurrency: 10,
   memory: '1GiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"],
-  secrets: [geminiApiKey] // Bind the secret to this function
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
 }, async (request) => {
   // Data is in request.data for V2 functions
   const data = request.data;
 
   try {
-    // Initialize AI instance with the secret API key
-    const ai = initializeAI(geminiApiKey.value());
+    // Initialize AI instance - Genkit reads API key from environment
+    const ai = initializeAI();
     
     // Log the incoming data for debugging (safely)
     console.log("Received data:", safeStringify(data));
@@ -247,13 +246,12 @@ const startChatSession = onCall({
   memory: '1GiB',
   timeoutSeconds: 60,
   cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"],
-  secrets: [geminiApiKey] // Bind the secret to this function
 }, async (request) => {
   const data = request.data;
 
   try {
-    // Initialize AI instance with the secret API key
-    const ai = initializeAI(geminiApiKey.value());
+    // Initialize AI instance - Genkit reads API key from environment
+    const ai = initializeAI();
     
     console.log("Starting chat session with data:", safeStringify(data));
     
@@ -351,13 +349,12 @@ const sendChatMessage = onCall({
   memory: '2GiB', // Increased memory for video and document processing
   timeoutSeconds: 120, // Increased timeout for video and document processing
   cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"],
-  secrets: [geminiApiKey] // Bind the secret to this function
 }, async (request) => {
   const data = request.data;
 
   try {
-    // Initialize AI instance with the secret API key
-    const ai = initializeAI(geminiApiKey.value());
+    // Initialize AI instance - Genkit reads API key from environment
+    const ai = initializeAI();
     const { preAnswerTutorAgent, postAnswerTutorAgent, transitionAgent } = getEducationalAgents(ai);
     
     // Log the incoming data but safely handle circular references
