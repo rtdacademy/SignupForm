@@ -138,6 +138,21 @@ const EducationPlan = () => {
 
   return (
     <div className="max-w-7xl mx-auto p-6 md:pl-16">
+      {/* Permalink Header */}
+      <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 text-center mb-6">
+        <p className="text-sm text-blue-800">
+          <strong>Permanent Link:</strong> This Education Plan is permanently accessible at{' '}
+          <a 
+            href="https://yourway.rtdacademy.com/education-plan/2025-26" 
+            className="text-blue-700 underline hover:text-blue-900"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            yourway.rtdacademy.com/education-plan/2025-26
+          </a>
+        </p>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

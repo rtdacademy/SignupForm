@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card } from "../../../../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -109,15 +110,111 @@ const RequiredAEAMResults = () => {
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold">Required Alberta Education Assurance Measures - Overall Summary</h2>
-          <a 
-            href="https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/EZk-0CSamfNCkyT9rpyitSgBk5o9uP5x8GOO4NuXvlKbrw?e=bSuELL"
+          <div className="flex gap-3">
+       
+          </div>
+        </div>
+        
+        <div className="mb-6 bg-green-50 border-l-4 border-green-400 p-4">
+          <h3 className="text-sm font-medium text-green-800 mb-2">Official Data Sources</h3>
+          <p className="text-sm text-green-700">
+            All AEAM data below is sourced directly from official Alberta Education APORI reports. 
+            The following charts and visualizations provide comprehensive analysis of our performance across all required measures.
+          </p>
+          <a
+            href="https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/EWwoTaNnMXdBvLLOvcVlnOABofgUMpi_r3UN9gFV5mOmgw?e=9qx0aS"
+            className="text-sm text-green-600 hover:text-green-800 underline"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
           >
-            <Link size={16} />
-            <span className="text-sm">View Full AEAM Report</span>
+            View Official APORI School Report (PDF)
           </a>
+        </div>
+
+        {/* AEAM Charts Section */}
+        <div className="space-y-6 mb-8">
+          <h3 className="text-xl font-semibold">Alberta Education Assurance Measures - Visual Analysis</h3>
+          
+          <Tabs defaultValue="trends" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="trends">Performance Trends & Analysis</TabsTrigger>
+              <TabsTrigger value="summary">Overall AEAM Summary</TabsTrigger>
+            </TabsList>
+
+            {/* Performance Trends Tab - Default View */}
+            <TabsContent value="trends" className="space-y-8">
+              {/* Historical Trends Chart */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-medium">Historical Trend Analysis</h4>
+                <div className="bg-white border rounded-lg p-4">
+                  <img 
+                    src="/aerr-images/DiplomaResultsHistory.png" 
+                    alt="RTD Academy Diploma Results Historical Trends"
+                    className="w-full max-w-4xl mx-auto"
+                  />
+                  <div className="mt-4 bg-green-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      This historical trend chart illustrates RTD Academy's significant improvement in diploma examination results over our operational years. The visual representation clearly shows our upward trajectory, with Acceptable Standard achievement rising from 50.0% to 60.9%, and Standard of Excellence improving from 11.1% to 16.7%. These trend lines demonstrate the positive impact of our enhanced support systems and targeted interventions. The increase in student numbers from 18 to 138 writers also reflects our growing capacity to serve Alberta students through our asynchronous model.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Course-Specific Results */}
+              <div className="space-y-4">
+                <h4 className="text-lg font-medium">Course-Specific Diploma Results</h4>
+                
+                {/* Math 30-1 */}
+                <div className="bg-white border rounded-lg p-4">
+                  <h5 className="font-medium mb-3">Mathematics 30-1 Performance</h5>
+                  <img 
+                    src="/aerr-images/30_1.png" 
+                    alt="Mathematics 30-1 Diploma Results"
+                    className="w-full max-w-4xl mx-auto"
+                  />
+                  <div className="mt-4 bg-orange-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      Mathematics 30-1 represents our largest diploma examination cohort with 68 writers in 2023-24. The visual charts show our performance compared to provincial averages, with notable improvement from 38.5% to 58.8% at Acceptable Standard. The gap between school-awarded marks (97.1% Acceptable, 51.5% Excellence) and diploma results indicates an area of focus for our continued improvement efforts. We are implementing structured interventions including 'Rock the Diploma' preparation sessions and enhanced assessment alignment to better prepare students for provincial examinations.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Math 30-2 */}
+                <div className="bg-white border rounded-lg p-4">
+                  <h5 className="font-medium mb-3">Mathematics 30-2 Performance</h5>
+                  <img 
+                    src="/aerr-images/30_2.png" 
+                    alt="Mathematics 30-2 Diploma Results"
+                    className="w-full max-w-4xl mx-auto"
+                  />
+                  <div className="mt-4 bg-purple-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      Mathematics 30-2 shows strong performance with 69 writers achieving 63.8% at Acceptable Standard and 18.8% at Standard of Excellence. The visual comparison with provincial averages demonstrates that while we trail provincial results, our school shows consistent improvement. The alignment between school-awarded marks (95.7% Acceptable, 53.6% Excellence) and diploma results is closer than in Math 30-1, suggesting our assessment practices in this course better prepare students for diploma examinations. This course represents a success story in our mathematics program.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Overall Summary Tab - Hidden by default */}
+            <TabsContent value="summary" className="space-y-4">
+              <div className="space-y-4">
+                <h4 className="text-lg font-medium">Overall AEAM Performance Summary</h4>
+                <div className="bg-white border rounded-lg p-4">
+                  <img 
+                    src="/aerr-images/Overall Summary.png" 
+                    alt="RTD Academy Overall AEAM Performance Summary"
+                    className="w-full max-w-4xl mx-auto"
+                  />
+                  <div className="mt-4 bg-blue-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      This table presents RTD Academy's performance across all Alberta Education Assurance Measures. As a non-primary school serving grades 10-12, many standard measures (PATs, Early Years Literacy, etc.) are not applicable to our institution. The key applicable measures for our school are the Diploma Examination results, where we show 60.9% at Acceptable Standard and 16.7% at Standard of Excellence. While our Acceptable Standard achievement is evaluated as 'Very Low' compared to provincial averages, our improvement trajectory and maintained performance demonstrate our ongoing commitment to enhancing student outcomes.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
         
         <div className="overflow-x-auto">
