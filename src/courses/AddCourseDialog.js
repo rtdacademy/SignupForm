@@ -26,6 +26,7 @@ const AddCourseDialog = () => {
   const [courseTitle, setCourseTitle] = useState('');
   const [courseType, setCourseType] = useState('');
   const [courseVersion, setCourseVersion] = useState('original');
+  const [courseId, setCourseId] = useState('');
   const [error, setError] = useState('');
   const [existingCourseIds, setExistingCourseIds] = useState(new Set());
   const [nextAvailableId, setNextAvailableId] = useState('');
@@ -46,9 +47,14 @@ const AddCourseDialog = () => {
           );
           setExistingCourseIds(ids);
 
-          // Calculate next available ID
+          // Calculate next available ID for suggestion
           const nextId = findNextAvailableId(ids, 1);
           setNextAvailableId(nextId.toString());
+          
+          // Set suggested ID as default if courseId is empty
+          if (!courseId) {
+            setCourseId(nextId.toString());
+          }
         }
       };
       fetchCourseIds();
@@ -65,10 +71,22 @@ const AddCourseDialog = () => {
   };
 
   const validateForm = () => {
-    // Only validate the required fields since courseId is now automatic
     if (!courseTitle.trim()) return 'Course title is required';
     if (!courseType) return 'Course type is required';
     if (!courseVersion) return 'Course version is required';
+    if (!courseId.trim()) return 'Course ID is required';
+    
+    // Validate course ID is numeric
+    const numericId = parseInt(courseId);
+    if (isNaN(numericId) || numericId <= 0) {
+      return 'Course ID must be a positive number';
+    }
+    
+    // Check for duplicate course ID
+    if (existingCourseIds.has(numericId)) {
+      return `Course ID ${courseId} already exists. Please choose a different ID.`;
+    }
+    
     return '';
   };
 
@@ -81,7 +99,7 @@ const AddCourseDialog = () => {
 
     try {
       const db = getDatabase();
-      const courseRef = ref(db, `courses/${nextAvailableId}`);
+      const courseRef = ref(db, `courses/${courseId}`);
 
       // Basic course structure
       const courseData = {
@@ -90,7 +108,7 @@ const AddCourseDialog = () => {
         modernCourse: courseVersion === 'modern',
         firebaseCourse: courseVersion === 'firebase',
         Active: 'Current',
-        LMSCourseID: nextAvailableId,
+        LMSCourseID: courseId,
         units: [],
         Created: new Date().toISOString(),
         Modified: new Date().toISOString()
@@ -103,6 +121,7 @@ const AddCourseDialog = () => {
       setCourseTitle('');
       setCourseType('');
       setCourseVersion('original');
+      setCourseId('');
       setError('');
       setOpen(false);
     } catch (error) {
@@ -122,7 +141,7 @@ const AddCourseDialog = () => {
         <DialogHeader>
           <DialogTitle>Create New Course</DialogTitle>
           <DialogDescription>
-            Enter the details for your new course. The course ID will be automatically assigned.
+            Enter the details for your new course. Choose a unique course ID number.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -130,9 +149,15 @@ const AddCourseDialog = () => {
             <Label htmlFor="courseId" className="text-right">
               Course ID
             </Label>
-            <div className="col-span-3 text-sm text-gray-500 border border-gray-200 bg-gray-100 rounded p-2">
-              Will be assigned automatically: {nextAvailableId || 'Loading...'}
-            </div>
+            <Input
+              id="courseId"
+              type="number"
+              min="1"
+              value={courseId}
+              onChange={(e) => setCourseId(e.target.value)}
+              placeholder={`Suggested: ${nextAvailableId || '...'}`}
+              className="col-span-3"
+            />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="title" className="text-right">
@@ -192,7 +217,7 @@ const AddCourseDialog = () => {
           <Button
             type="submit"
             onClick={handleCreateCourse}
-            disabled={!courseTitle || !courseType}
+            disabled={!courseTitle || !courseType || !courseId}
           >
             Create Course
           </Button>

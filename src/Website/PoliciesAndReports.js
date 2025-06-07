@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "../components/ui/sheet";
 import AERR2324 from './AERR/23_24/AERR2324';
+import EducationPlan from './EducationPlan/24_25/EducationPlan';
+import MobileDevicePolicy from './Policies/MobileDevicePolicy';
+import ConflictOfInterestPolicy from './Policies/ConflictOfInterestPolicy';
 import { 
   Shield, 
   AlertTriangle, 
@@ -14,7 +18,10 @@ import {
   FileText,
   Calculator,
   BookOpen,
-  ArrowLeft
+  ArrowLeft,
+  TrendingUp,
+  Target,
+  Smartphone
 } from 'lucide-react';
 
 const handleBackClick = () => {
@@ -33,6 +40,33 @@ const PolicyLink = ({ icon: Icon, title, href }) => (
     </a>
   </Button>
 );
+
+const PolicyCard = ({ icon: Icon, title, children }) => {
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button 
+          variant="outline" 
+          className="w-full flex items-center justify-start gap-3 p-6 h-auto hover:bg-gray-50"
+        >
+          <Icon className="h-6 w-6 flex-shrink-0" />
+          <span className="text-left">{title}</span>
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-full max-w-4xl h-full overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <Icon className="h-5 w-5" />
+            {title}
+          </SheetTitle>
+        </SheetHeader>
+        <div className="mt-2">
+          {children}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+};
 
 const DocumentLink = ({ icon: Icon, title, href, date }) => (
   <Button 
@@ -55,6 +89,36 @@ const DocumentLink = ({ icon: Icon, title, href, date }) => (
   </Button>
 );
 
+const AssuranceDocumentCard = ({ icon: Icon, title, description, children, triggerContent }) => {
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button 
+          variant="outline" 
+          className="w-full flex items-center justify-start gap-3 p-6 h-auto hover:bg-gray-50"
+        >
+          <Icon className="h-6 w-6 flex-shrink-0 text-blue-600" />
+          <div className="flex flex-col items-start">
+            <span className="font-semibold">{title}</span>
+            <span className="text-sm text-gray-500">{description}</span>
+          </div>
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-full max-w-none h-full overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <Icon className="h-5 w-5" />
+            {title}
+          </SheetTitle>
+        </SheetHeader>
+        <div className="mt-6">
+          {children}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+};
+
 const PoliciesAndReports = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -76,10 +140,9 @@ const PoliciesAndReports = () => {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="policies" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="policies">Policies</TabsTrigger>
-                <TabsTrigger value="aerr">AERR 23/24</TabsTrigger>
-                <TabsTrigger value="documents">Documents</TabsTrigger>
+                <TabsTrigger value="assurance-documents">Assurance Documents</TabsTrigger>
               </TabsList>
               
               <TabsContent value="policies">
@@ -121,44 +184,68 @@ const PoliciesAndReports = () => {
                       title="Safety for Field Trips"
                       href="https://rtdacademy.sharepoint.com/:w:/s/RTDAdministration/Eecl8T_Ivb9GnH4fSo_EuFMB2RliovzepfEhgqs0jmRC9g?e=7EZxkx"
                     />
+                    <PolicyCard 
+                      icon={Smartphone}
+                      title="Personal Mobile Device & Cell Phone Policy"
+                    >
+                      <MobileDevicePolicy />
+                    </PolicyCard>
+                    <PolicyCard 
+                      icon={Scale}
+                      title="Conflict of Interest Policy"
+                    >
+                      <ConflictOfInterestPolicy />
+                    </PolicyCard>
                   </div>
                 </div>
               </TabsContent>
               
-              <TabsContent value="aerr">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Annual Education Results Report 2023-24</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <AERR2324 />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="documents">
+              <TabsContent value="assurance-documents">
                 <div className="space-y-6">
-                  <h2 className="text-xl font-semibold mb-4">Important Documents</h2>
-                  <div className="grid grid-cols-1 gap-4">
-                    <DocumentLink 
-                      icon={BookOpen}
-                      title="Education Plan"
-                      href="https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/EYYUkFuBkcZLlnpBU2WwSD8B3XTunO3WRUVEjQJMQiJhQg?e=Q9R8T4"
-                      date="Current"
-                    />
-                    <DocumentLink 
-                      icon={Calculator}
-                      title="Budget 2024-2025"
-                      href="https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/EdmbZ58KeCVPpvn4rl9MZHQBgnIfNnnrCki8Be24DWwwQA?e=tny7Yr"
-                      date="2024-2025"
-                    />
-                    <DocumentLink 
-                      icon={FileText}
-                      title="Previous AERR (2022-2023)"
-                      href="https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/ERJtO6M-KIdHqCj8ivnzGRYBl9P0JV05CGUyYToBLaVyew?e=xDC9uc"
-                      date="2022-2023"
-                    />
+                  <h2 className="text-xl font-semibold mb-4">Assurance Documents</h2>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Education Plan 2024-2025 */}
+                    <AssuranceDocumentCard
+                      icon={Target}
+                      title="Education Plan 2024-2025"
+                      description="Three-year educational priorities and strategies"
+                    >
+                      <EducationPlan />
+                    </AssuranceDocumentCard>
+
+                    {/* Annual Education Results Report 2023-24 */}
+                    <AssuranceDocumentCard
+                      icon={TrendingUp}
+                      title="Annual Education Results Report 2023-24"
+                      description="Student achievement and performance results"
+                    >
+                      <AERR2324 />
+                    </AssuranceDocumentCard>
                   </div>
+
+                  {/* Additional Documents */}
+                  <Card className="mt-8">
+                    <CardHeader>
+                      <CardTitle>Additional Documents</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 gap-4">
+                        <DocumentLink 
+                          icon={Calculator}
+                          title="Budget 2024-2025"
+                          href="https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/EdmbZ58KeCVPpvn4rl9MZHQBgnIfNnnrCki8Be24DWwwQA?e=tny7Yr"
+                          date="2024-2025"
+                        />
+                        <DocumentLink 
+                          icon={FileText}
+                          title="Previous AERR (2022-2023)"
+                          href="https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/ERY5DqsMvRBAvlKbt-wrSYsBmjGNOGhD8FIuv0JMcm_ECA?e=eOrt38"
+                          date="2022-2023"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </TabsContent>
             </Tabs>

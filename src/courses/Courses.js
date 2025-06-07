@@ -35,6 +35,8 @@ import AddCourseDialog from './AddCourseDialog';
 import DeleteCourseDialog from './DeleteCourseDialog';
 import CourseWeightingDialog from './CourseWeightingDialog';
 import ImprovedEmailManager from './ImprovedEmailManager';
+import FirebaseCourseConfig from './FirebaseCourseConfig';
+import FirebaseCourseStructure from './FirebaseCourseStructure';
 
 // Import UI kit Select components for single–value selects
 import {
@@ -363,6 +365,22 @@ function Courses({
     { value: 'Old', label: 'Old' },
     { value: 'Not Used', label: 'Not Used' },
     { value: 'Custom', label: 'Custom' },
+  ];
+
+  const firebaseActiveOptions = [
+    { value: 'Current', label: 'Current' },
+    { value: 'Required', label: 'Required' },
+    { value: 'Not Used', label: 'Not Used' },
+    { value: 'Development', label: 'Development' },
+  ];
+
+  const gradeOptions = [
+    { value: '7', label: '7' },
+    { value: '8', label: '8' },
+    { value: '9', label: '9' },
+    { value: '10', label: '10' },
+    { value: '11', label: '11' },
+    { value: '12', label: '12' },
   ];
 
   const diplomaCourseOptions = [
@@ -873,440 +891,735 @@ function Courses({
               </div>
             </div>
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
-              <div className="flex flex-wrap -mx-2">
-                {/* Course Name */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Course Name
-                  </label>
-                  <input
-                    type="text"
-                    name="Title"
-                    value={courseData.Title || ''}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className={inputClass}
-                  />
-                </div>
-
-                {/* Email Restrictions */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Restrictions
-                  </label>
-                  <ImprovedEmailManager
-                    courseId={selectedCourseId}
-                    allowedEmails={courseData.allowedEmails || []}
-                    isEditing={isEditing}
-                    onUpdate={handleAllowedEmailsUpdate}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {courseData.allowedEmails && courseData.allowedEmails.length > 0
-                      ? `Restricted to ${courseData.allowedEmails.length} email${courseData.allowedEmails.length === 1 ? '' : 's'}`
-                      : 'Available to all students'}
-                  </p>
-                </div>
-
-                {/* LMS Course ID  */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    LMS Course ID
-                  </label>
-                  <input
-                    type="text"
-                    name="LMSCourseID"
-                    value={courseData.LMSCourseID || ''}
-                    disabled
-                    className={`mt-1 block w-full p-2 border border-gray-200 bg-gray-100 rounded-md shadow-sm text-sm`}
-                  />
-                </div>
-                
-                {/* Course Version */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Course Version
-                  </label>
-                  <Select
-                    name="CourseVersion"
-                    value={
-                      courseData.firebaseCourse ? "firebase" :
-                      courseData.modernCourse ? "modern" : "original"
-                    }
-                    onValueChange={(value) => {
-                      const updatedData = {
-                        ...courseData,
-                        modernCourse: value === "modern",
-                        firebaseCourse: value === "firebase"
-                      };
-                      onCourseUpdate(updatedData);
-                      const db = getDatabase();
-                      const courseRef = ref(db, `courses/${selectedCourseId}`);
-                      update(courseRef, {
-                        modernCourse: value === "modern",
-                        firebaseCourse: value === "firebase"
-                      })
-                        .then(() => console.log('Updated Course Version'))
-                        .catch((error) => alert('Error updating course version'));
-                    }}
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select course version" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="original">Original</SelectItem>
-                      <SelectItem value="modern">Modern</SelectItem>
-                      <SelectItem value="firebase">Firebase</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Active */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Active
-                  </label>
-                  <Select
-                    name="Active"
-                    value={courseData.Active}
-                    onValueChange={(value) => handleSelectChange(value, "Active")}
-                    disabled={!isEditing}
-                    >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select active status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {activeOptions.map(option => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {courseData.Active === 'Custom' && (
+              {courseData.firebaseCourse ? (
+                // Simplified Firebase Course Form
+                <div className="flex flex-wrap -mx-2">
+                  {/* Course Name */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Course Name
+                    </label>
                     <input
                       type="text"
-                      name="ActiveCustom"
-                      value={courseData.ActiveCustom || ''}
+                      name="Title"
+                      value={courseData.Title || ''}
                       onChange={handleInputChange}
                       disabled={!isEditing}
-                      className={`${inputClass} mt-2`}
-                      placeholder="Enter custom value"
+                      className={inputClass}
                     />
-                  )}
-                </div>
+                  </div>
 
-                {/* Show Stats Switch */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                    <span>Show Course Statistics</span>
-                    <Switch
-                      checked={courseData.showStats || false}
-                      onCheckedChange={handleStatsChange}
+                  {/* Development emails */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Development emails
+                    </label>
+                    <ImprovedEmailManager
+                      courseId={selectedCourseId}
+                      allowedEmails={courseData.allowedEmails || []}
+                      isEditing={isEditing}
+                      onUpdate={handleAllowedEmailsUpdate}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {courseData.allowedEmails && courseData.allowedEmails.length > 0
+                        ? `Restricted to ${courseData.allowedEmails.length} email${courseData.allowedEmails.length === 1 ? '' : 's'}`
+                        : 'Available to all students'}
+                    </p>
+                  </div>
+
+                  {/* Course ID */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Course ID
+                    </label>
+                    <input
+                      type="text"
+                      name="LMSCourseID"
+                      value={courseData.LMSCourseID || ''}
+                      disabled
+                      className={`mt-1 block w-full p-2 border border-gray-200 bg-gray-100 rounded-md shadow-sm text-sm`}
+                    />
+                  </div>
+                
+                  {/* Active */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Active
+                    </label>
+                    <Select
+                      name="Active"
+                      value={courseData.Active}
+                      onValueChange={(value) => handleSelectChange(value, "Active")}
                       disabled={!isEditing}
-                      className="ml-2"
-                    />
-                  </label>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enable to display course statistics to students
-                  </p>
-                </div>
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select active status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {firebaseActiveOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* LTI Links Switch - NEW FEATURE */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                    <span>LTI Links Complete</span>
-                    <Switch
-                      checked={courseData.ltiLinksComplete || false}
-                      onCheckedChange={handleLtiLinksChange}
+                  {/* Minimum Completion Months */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Minimum Completion Months
+                    </label>
+                    <input
+                      type="number"
+                      name="minCompletionMonths"
+                      value={courseData.minCompletionMonths || ''}
+                      onChange={handleNumberInputChange}
                       disabled={!isEditing}
-                      className="ml-2"
+                      className={inputClass}
+                      min="0"
+                      step="1"
+                      placeholder="Enter minimum months"
                     />
-                  </label>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Indicate that all LTI links have been created for this course
-                  </p>
-                </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Minimum number of months required to complete this course
+                    </p>
+                  </div>
 
-                {/* Course Credits - NEW FIELD */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Course Credits
-                  </label>
-                  <input
-                    type="number"
-                    name="courseCredits"
-                    value={courseData.courseCredits || ''}
-                    onChange={handleNumberInputChange}
-                    disabled={!isEditing}
-                    className={inputClass}
-                    min="0"
-                    step="1"
-                    placeholder="Enter number of credits"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enter the number of credits this course is worth
-                  </p>
-                </div>
+                  {/* Recommended Completion Months */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Recommended Completion Months
+                    </label>
+                    <input
+                      type="number"
+                      name="recommendedCompletionMonths"
+                      value={courseData.recommendedCompletionMonths || ''}
+                      onChange={handleNumberInputChange}
+                      disabled={!isEditing}
+                      className={inputClass}
+                      min="0"
+                      step="1"
+                      placeholder="Enter recommended months"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Recommended time frame to complete this course
+                    </p>
+                  </div>
 
-                {/* Minimum Completion Months - NEW FIELD */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Minimum Completion Months
-                  </label>
-                  <input
-                    type="number"
-                    name="minCompletionMonths"
-                    value={courseData.minCompletionMonths || ''}
-                    onChange={handleNumberInputChange}
-                    disabled={!isEditing}
-                    className={inputClass}
-                    min="0"
-                    step="1"
-                    placeholder="Enter minimum months"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Minimum number of months required to complete this course
-                  </p>
-                </div>
+                  {/* Diploma Course */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Diploma Course
+                    </label>
+                    <Select
+                      name="DiplomaCourse"
+                      value={courseData.DiplomaCourse}
+                      onValueChange={(value) => handleSelectChange(value, "DiplomaCourse")}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select Diploma Course" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {diplomaCourseOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                {/* Recommended Completion Months - NEW FIELD */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Recommended Completion Months
-                  </label>
-                  <input
-                    type="number"
-                    name="recommendedCompletionMonths"
-                    value={courseData.recommendedCompletionMonths || ''}
-                    onChange={handleNumberInputChange}
-                    disabled={!isEditing}
-                    className={inputClass}
-                    min="0"
-                    step="1"
-                    placeholder="Enter recommended months"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Recommended time frame to complete this course
-                  </p>
-                </div>
-
-                {/* Diploma Course */}
-                <div className="w-full px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Diploma Course
-                  </label>
-                  <div className="flex space-x-4 items-start">
-                    <div className="w-1/3">
-                      <Select
-                        name="DiplomaCourse"
-                        value={courseData.DiplomaCourse}
-                        onValueChange={(value) => handleSelectChange(value, "DiplomaCourse")}
+                  {/* Course Type */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Course Type
+                    </label>
+                    <Select
+                      name="CourseType"
+                      value={courseData.CourseType || ''}
+                      onValueChange={(value) => handleSelectChange(value, "CourseType")}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select course type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Math">Math</SelectItem>
+                        <SelectItem value="Science">Science</SelectItem>
+                        <SelectItem value="Option">Option</SelectItem>
+                        <SelectItem value="Custom">Custom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {courseData.CourseType === 'Custom' && (
+                      <input
+                        type="text"
+                        name="CourseTypeCustom"
+                        value={courseData.CourseTypeCustom || ''}
+                        onChange={handleInputChange}
                         disabled={!isEditing}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Diploma Course" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {diplomaCourseOptions.map(option => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {courseData.DiplomaCourse === 'Yes' && (
-                      <Sheet>
-                        <SheetTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            type="button"
-                            disabled={!isEditing}
-                            className="flex-shrink-0"
-                          >
-                            <FaClock className="mr-2" /> Manage Diploma Times
-                          </Button>
-                        </SheetTrigger>
-                        <SheetContent 
-                          side="right" 
-                          className="w-[400px] sm:w-[540px]"
-                          description="Manage diploma exam times for this course"
-                        >
-                          <SheetHeader>
-                            <SheetTitle>Diploma Times Management</SheetTitle>
-                            <SheetDescription>
-                              Add and manage diploma exam times for this course. Each time can have a specific date, time, month, and confirmation status.
-                            </SheetDescription>
-                          </SheetHeader>
-                          <ScrollArea className="h-[calc(100vh-200px)] mt-6">
-                            <div className="pr-4">
-                              <DiplomaTimes
-                                courseId={selectedCourseId}
-                                diplomaTimes={courseData.diplomaTimes || []}
-                                isEditing={isEditing}
-                              />
-                            </div>
-                          </ScrollArea>
-                        </SheetContent>
-                      </Sheet>
+                        className={`${inputClass} mt-2`}
+                        placeholder="Enter custom value"
+                      />
                     )}
                   </div>
-                </div>
 
-                {/* Course Type */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Course Type
-                  </label>
-                  <Select
-                    name="CourseType"
-                    value={courseData.CourseType || ''}
-                    onValueChange={(value) => handleSelectChange(value, "CourseType")}
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select course type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Math">Math</SelectItem>
-                      <SelectItem value="Science">Science</SelectItem>
-                      <SelectItem value="Option">Option</SelectItem>
-                      <SelectItem value="Custom">Custom</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {courseData.CourseType === 'Custom' && (
-                    <input
-                      type="text"
-                      name="CourseTypeCustom"
-                      value={courseData.CourseTypeCustom || ''}
+                  {/* Grade */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Grade
+                    </label>
+                    <Select
+                      name="grade"
+                      value={courseData.grade || ''}
+                      onValueChange={(value) => handleSelectChange(value, "grade")}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select grade" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {gradeOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Course Description */}
+                  <div className="w-full px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Course Description
+                    </label>
+                    <Textarea
+                      name="description"
+                      value={courseData.description || ''}
                       onChange={handleInputChange}
                       disabled={!isEditing}
-                      className={`${inputClass} mt-2`}
-                      placeholder="Enter custom value"
+                      className={inputClass}
+                      placeholder="Enter course description"
+                      rows={4}
                     />
-                  )}
-                </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Provide a detailed description of the course that will be visible to students.
+                    </p>
+                  </div>
 
-                {/* Number of Hours to Complete */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Number of Hours to Complete
-                  </label>
-                  <input
-                    type="number"
-                    name="NumberOfHours"
-                    value={courseData.NumberOfHours || ''}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className={inputClass}
-                    min="0"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Specify the total number of hours required to complete the course.
-                  </p>
-                </div>
+                  {/* Allow Student-to-Student Chats */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                      <span>Allow Student-to-Student Chats</span>
+                      <Switch
+                        checked={courseData.allowStudentChats || false}
+                        onCheckedChange={handleSwitchChange}
+                        disabled={!isEditing}
+                        className="ml-2"
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      When enabled, students can chat with other students in this course.
+                    </p>
+                  </div>
 
-                {/* Grade */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Grade
-                  </label>
-                  <input
-                    type="text"
-                    name="grade"
-                    value={courseData.grade || ''}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className={inputClass}
-                    placeholder="Enter grade"
-                  />
-                </div>
+                  {/* Teachers (Using ReactSelect for multi-select) */}
+                  <div className="w-full md:w-1/2 lg:w-2/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Teachers
+                    </label>
+                    <p className="text-xs text-gray-500 mb-2">
+                      The first teacher in the list will have primary assignment
+                    </p>
+                    <ReactSelect
+                      isMulti
+                      name="Teachers"
+                      options={staffMembers}
+                      value={staffMembers.filter(
+                        (staff) =>
+                          courseData.Teachers &&
+                          courseData.Teachers.includes(staff.value)
+                      )}
+                      onChange={handleMultiSelectChange}
+                      isDisabled={!isEditing}
+                      className="mt-1"
+                    />
+                  </div>
 
-                {/* Course Description */}
-                <div className="w-full px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Course Description
-                  </label>
-                  <Textarea
-                    name="description"
-                    value={courseData.description || ''}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className={inputClass}
-                    placeholder="Enter course description"
-                    rows={4}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Provide a detailed description of the course that will be visible to students.
-                  </p>
+                  {/* Support Staff (Using ReactSelect for multi-select) */}
+                  <div className="w-full md:w-1/2 lg:w-2/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Support Staff
+                    </label>
+                    <ReactSelect
+                      isMulti
+                      name="SupportStaff"
+                      options={staffMembers}
+                      value={staffMembers.filter(
+                        (staff) =>
+                          courseData.SupportStaff &&
+                          courseData.SupportStaff.includes(staff.value)
+                      )}
+                      onChange={handleMultiSelectChange}
+                      isDisabled={!isEditing}
+                      className="mt-1"
+                    />
+                  </div>
                 </div>
-
-                {/* Allow Student-to-Student Chats */}
-                <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                  <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                    <span>Allow Student-to-Student Chats</span>
-                    <Switch
-                      checked={courseData.allowStudentChats || false}
-                      onCheckedChange={handleSwitchChange}
+              ) : (
+                // Original Complex Course Form
+                <div className="flex flex-wrap -mx-2">
+                  {/* Course Name */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Course Name
+                    </label>
+                    <input
+                      type="text"
+                      name="Title"
+                      value={courseData.Title || ''}
+                      onChange={handleInputChange}
                       disabled={!isEditing}
-                      className="ml-2"
+                      className={inputClass}
                     />
-                  </label>
-                  <p className="text-xs text-gray-500 mt-1">
-                    When enabled, students can chat with other students in this course.
-                  </p>
-                </div>
+                  </div>
 
-                {/* Teachers (Using ReactSelect for multi-select) */}
-                <div className="w-full md:w-1/2 lg:w-2/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Teachers
-                  </label>
-                  <ReactSelect
-                    isMulti
-                    name="Teachers"
-                    options={staffMembers}
-                    value={staffMembers.filter(
-                      (staff) =>
-                        courseData.Teachers &&
-                        courseData.Teachers.includes(staff.value)
+                  {/* Email Restrictions */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Restrictions
+                    </label>
+                    <ImprovedEmailManager
+                      courseId={selectedCourseId}
+                      allowedEmails={courseData.allowedEmails || []}
+                      isEditing={isEditing}
+                      onUpdate={handleAllowedEmailsUpdate}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {courseData.allowedEmails && courseData.allowedEmails.length > 0
+                        ? `Restricted to ${courseData.allowedEmails.length} email${courseData.allowedEmails.length === 1 ? '' : 's'}`
+                        : 'Available to all students'}
+                    </p>
+                  </div>
+
+                  {/* LMS Course ID  */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      LMS Course ID
+                    </label>
+                    <input
+                      type="text"
+                      name="LMSCourseID"
+                      value={courseData.LMSCourseID || ''}
+                      disabled
+                      className={`mt-1 block w-full p-2 border border-gray-200 bg-gray-100 rounded-md shadow-sm text-sm`}
+                    />
+                  </div>
+
+                  {/* Course Version */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Course Version
+                    </label>
+                    <Select
+                      name="CourseVersion"
+                      value={
+                        courseData.firebaseCourse ? "firebase" :
+                        courseData.modernCourse ? "modern" : "original"
+                      }
+                      onValueChange={(value) => {
+                        const updatedData = {
+                          ...courseData,
+                          modernCourse: value === "modern",
+                          firebaseCourse: value === "firebase"
+                        };
+                        onCourseUpdate(updatedData);
+                        const db = getDatabase();
+                        const courseRef = ref(db, `courses/${selectedCourseId}`);
+                        update(courseRef, {
+                          modernCourse: value === "modern",
+                          firebaseCourse: value === "firebase"
+                        })
+                          .then(() => console.log('Updated Course Version'))
+                          .catch((error) => alert('Error updating course version'));
+                      }}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select course version" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="original">Original</SelectItem>
+                        <SelectItem value="modern">Modern</SelectItem>
+                        <SelectItem value="firebase">Firebase</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Active */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Active
+                    </label>
+                    <Select
+                      name="Active"
+                      value={courseData.Active}
+                      onValueChange={(value) => handleSelectChange(value, "Active")}
+                      disabled={!isEditing}
+                      >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select active status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {courseData.Active === 'Custom' && (
+                      <input
+                        type="text"
+                        name="ActiveCustom"
+                        value={courseData.ActiveCustom || ''}
+                        onChange={handleInputChange}
+                        disabled={!isEditing}
+                        className={`${inputClass} mt-2`}
+                        placeholder="Enter custom value"
+                      />
                     )}
-                    onChange={handleMultiSelectChange}
-                    isDisabled={!isEditing}
-                    className="mt-1"
-                  />
-                </div>
+                  </div>
 
-                {/* Support Staff (Using ReactSelect for multi-select) */}
-                <div className="w-full md:w-1/2 lg=w-2/3 px-2 mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Support Staff
-                  </label>
-                  <ReactSelect
-                    isMulti
-                    name="SupportStaff"
-                    options={staffMembers}
-                    value={staffMembers.filter(
-                      (staff) =>
-                        courseData.SupportStaff &&
-                        courseData.SupportStaff.includes(staff.value)
+                  {/* Show Stats Switch */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                      <span>Show Course Statistics</span>
+                      <Switch
+                        checked={courseData.showStats || false}
+                        onCheckedChange={handleStatsChange}
+                        disabled={!isEditing}
+                        className="ml-2"
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Enable to display course statistics to students
+                    </p>
+                  </div>
+
+                  {/* LTI Links Switch - NEW FEATURE */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                      <span>LTI Links Complete</span>
+                      <Switch
+                        checked={courseData.ltiLinksComplete || false}
+                        onCheckedChange={handleLtiLinksChange}
+                        disabled={!isEditing}
+                        className="ml-2"
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Indicate that all LTI links have been created for this course
+                    </p>
+                  </div>
+
+                  {/* Course Credits - NEW FIELD */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Course Credits
+                    </label>
+                    <input
+                      type="number"
+                      name="courseCredits"
+                      value={courseData.courseCredits || ''}
+                      onChange={handleNumberInputChange}
+                      disabled={!isEditing}
+                      className={inputClass}
+                      min="0"
+                      step="1"
+                      placeholder="Enter number of credits"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Enter the number of credits this course is worth
+                    </p>
+                  </div>
+
+                  {/* Minimum Completion Months - NEW FIELD */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Minimum Completion Months
+                    </label>
+                    <input
+                      type="number"
+                      name="minCompletionMonths"
+                      value={courseData.minCompletionMonths || ''}
+                      onChange={handleNumberInputChange}
+                      disabled={!isEditing}
+                      className={inputClass}
+                      min="0"
+                      step="1"
+                      placeholder="Enter minimum months"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Minimum number of months required to complete this course
+                    </p>
+                  </div>
+
+                  {/* Recommended Completion Months - NEW FIELD */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Recommended Completion Months
+                    </label>
+                    <input
+                      type="number"
+                      name="recommendedCompletionMonths"
+                      value={courseData.recommendedCompletionMonths || ''}
+                      onChange={handleNumberInputChange}
+                      disabled={!isEditing}
+                      className={inputClass}
+                      min="0"
+                      step="1"
+                      placeholder="Enter recommended months"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Recommended time frame to complete this course
+                    </p>
+                  </div>
+
+                  {/* Diploma Course */}
+                  <div className="w-full px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Diploma Course
+                    </label>
+                    <div className="flex space-x-4 items-start">
+                      <div className="w-1/3">
+                        <Select
+                          name="DiplomaCourse"
+                          value={courseData.DiplomaCourse}
+                          onValueChange={(value) => handleSelectChange(value, "DiplomaCourse")}
+                          disabled={!isEditing}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Diploma Course" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {diplomaCourseOptions.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {courseData.DiplomaCourse === 'Yes' && (
+                        <Sheet>
+                          <SheetTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              type="button"
+                              disabled={!isEditing}
+                              className="flex-shrink-0"
+                            >
+                              <FaClock className="mr-2" /> Manage Diploma Times
+                            </Button>
+                          </SheetTrigger>
+                          <SheetContent 
+                            side="right" 
+                            className="w-[400px] sm:w-[540px]"
+                            description="Manage diploma exam times for this course"
+                          >
+                            <SheetHeader>
+                              <SheetTitle>Diploma Times Management</SheetTitle>
+                              <SheetDescription>
+                                Add and manage diploma exam times for this course. Each time can have a specific date, time, month, and confirmation status.
+                              </SheetDescription>
+                            </SheetHeader>
+                            <ScrollArea className="h-[calc(100vh-200px)] mt-6">
+                              <div className="pr-4">
+                                <DiplomaTimes
+                                  courseId={selectedCourseId}
+                                  diplomaTimes={courseData.diplomaTimes || []}
+                                  isEditing={isEditing}
+                                />
+                              </div>
+                            </ScrollArea>
+                          </SheetContent>
+                        </Sheet>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Course Type */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Course Type
+                    </label>
+                    <Select
+                      name="CourseType"
+                      value={courseData.CourseType || ''}
+                      onValueChange={(value) => handleSelectChange(value, "CourseType")}
+                      disabled={!isEditing}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select course type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Math">Math</SelectItem>
+                        <SelectItem value="Science">Science</SelectItem>
+                        <SelectItem value="Option">Option</SelectItem>
+                        <SelectItem value="Custom">Custom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {courseData.CourseType === 'Custom' && (
+                      <input
+                        type="text"
+                        name="CourseTypeCustom"
+                        value={courseData.CourseTypeCustom || ''}
+                        onChange={handleInputChange}
+                        disabled={!isEditing}
+                        className={`${inputClass} mt-2`}
+                        placeholder="Enter custom value"
+                      />
                     )}
-                    onChange={handleMultiSelectChange}
-                    isDisabled={!isEditing}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
+                  </div>
 
-              {/* Course Units Editor */}
+                  {/* Number of Hours to Complete */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Number of Hours to Complete
+                    </label>
+                    <input
+                      type="number"
+                      name="NumberOfHours"
+                      value={courseData.NumberOfHours || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className={inputClass}
+                      min="0"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Specify the total number of hours required to complete the course.
+                    </p>
+                  </div>
+
+                  {/* Grade */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Grade
+                    </label>
+                    <input
+                      type="text"
+                      name="grade"
+                      value={courseData.grade || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className={inputClass}
+                      placeholder="Enter grade"
+                    />
+                  </div>
+
+                  {/* Course Description */}
+                  <div className="w-full px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Course Description
+                    </label>
+                    <Textarea
+                      name="description"
+                      value={courseData.description || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className={inputClass}
+                      placeholder="Enter course description"
+                      rows={4}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Provide a detailed description of the course that will be visible to students.
+                    </p>
+                  </div>
+
+                  {/* Allow Student-to-Student Chats */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                      <span>Allow Student-to-Student Chats</span>
+                      <Switch
+                        checked={courseData.allowStudentChats || false}
+                        onCheckedChange={handleSwitchChange}
+                        disabled={!isEditing}
+                        className="ml-2"
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      When enabled, students can chat with other students in this course.
+                    </p>
+                  </div>
+
+                  {/* Teachers (Using ReactSelect for multi-select) */}
+                  <div className="w-full md:w-1/2 lg:w-2/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Teachers
+                    </label>
+                    <ReactSelect
+                      isMulti
+                      name="Teachers"
+                      options={staffMembers}
+                      value={staffMembers.filter(
+                        (staff) =>
+                          courseData.Teachers &&
+                          courseData.Teachers.includes(staff.value)
+                      )}
+                      onChange={handleMultiSelectChange}
+                      isDisabled={!isEditing}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  {/* Support Staff (Using ReactSelect for multi-select) */}
+                  <div className="w-full md:w-1/2 lg:w-2/3 px-2 mb-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Support Staff
+                    </label>
+                    <ReactSelect
+                      isMulti
+                      name="SupportStaff"
+                      options={staffMembers}
+                      value={staffMembers.filter(
+                        (staff) =>
+                          courseData.SupportStaff &&
+                          courseData.SupportStaff.includes(staff.value)
+                      )}
+                      onChange={handleMultiSelectChange}
+                      isDisabled={!isEditing}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Course Content - Different displays for Firebase vs regular courses */}
               <div className="mt-8">
-                <CourseUnitsEditor
-                  courseId={selectedCourseId}
-                  units={courseData.units || []}
-                  onUnitsChange={handleUnitsChange}
-                  isEditing={isEditing}
-                />
+                {courseData.firebaseCourse ? (
+                  // Firebase Course - Show read-only configuration and structure
+                  <div className="space-y-8">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Firebase Course Configuration</h3>
+                      <FirebaseCourseConfig courseId={selectedCourseId} />
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Course Structure</h3>
+                      <FirebaseCourseStructure courseId={selectedCourseId} />
+                    </div>
+                  </div>
+                ) : (
+                  // Regular Course - Show editable units
+                  <CourseUnitsEditor
+                    courseId={selectedCourseId}
+                    units={courseData.units || []}
+                    onUnitsChange={handleUnitsChange}
+                    isEditing={isEditing}
+                  />
+                )}
               </div>
             </form>
           </div>

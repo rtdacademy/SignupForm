@@ -51,9 +51,8 @@ const surveySubmissionFunctions = require('./surveySubmissions');
 // Course code loader
 const courseCodeLoaderFunctions = require('./courseCodeLoader');
 
-// Assessment functions - Course-specific
-const COM1255IntroToELearning = require('./courses/COM1255/lessons/IntroToELearning');
-const COM1255BenefitsChallenges = require('./courses/COM1255/lessons/BenefitsChallenges');
+// Course configuration functions
+const courseConfigFunctions = require('./courseConfig');
 
 //==============================================================================
 // Export functions by category
@@ -132,6 +131,9 @@ exports.submitNotificationSurvey = surveySubmissionFunctions.submitNotificationS
 // Course code loader functions
 exports.loadCourseCode = courseCodeLoaderFunctions.loadCourseCode;
 
+// Course configuration functions
+exports.getCourseConfigV2 = courseConfigFunctions.getCourseConfigV2;
+
 // JSX transformation is now handled automatically by autoTransformSectionCode trigger
 // No manual transformation endpoint needed
 
@@ -173,10 +175,6 @@ exports.updateStudentDocuments = studentPropertiesFunctions.updateStudentDocumen
 // Assessment functions for courses
 //==============================================================================
 
-// COM1255 - E-Learning
-exports.COM1255_IntroToELearningQ1 = COM1255IntroToELearning.handleMultipleChoiceQuestion;
-exports.COM1255_IntroToELearningDynamic = COM1255IntroToELearning.handleDynamicQuestion;
-//exports.COM1255_BenefitsChallengesAI = COM1255BenefitsChallenges.handleAIQuestion;
 
 
 //PHY30

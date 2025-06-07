@@ -11,21 +11,24 @@ if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
-// Environment variables should be set in Firebase Cloud Functions
-// Try to get the API key from different sources
-//const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// Lazy initialization of AI instance to avoid timeouts during deployment
+let aiInstance = null;
 
-// Configure genkit with Google AI plugin
-const ai = genkit({
-  plugins: [googleAI()],
-  model: googleAI.model(AI_MODELS.ACTIVE_CHAT_MODEL), // Use active model from settings
-});
+function initializeAI() {
+  if (!aiInstance) {
+    aiInstance = genkit({
+      plugins: [googleAI()], // No need to pass API key - Genkit reads from environment
+    });
+  }
+  return aiInstance;
+}
 
-// Define specialized educational agents for different question states
-const preAnswerTutorAgent = ai.definePrompt({
-  name: 'preAnswerTutor',
-  description: 'Guides students using Socratic method before they answer questions',
-  system: `You are an educational AI tutor helping a student with a physics question. The student has NOT yet answered this question.
+// Function to get specialized educational agents
+function getEducationalAgents(ai) {
+  const preAnswerTutorAgent = ai.definePrompt({
+    name: 'preAnswerTutor',
+    description: 'Guides students using Socratic method before they answer questions',
+    system: `You are an educational AI tutor helping a student with a physics question. The student has NOT yet answered this question.
 
 CRITICAL RULES:
 - NEVER directly provide the answer or indicate which option is correct
@@ -36,12 +39,12 @@ CRITICAL RULES:
 - If they ask for the answer directly, politely remind them that you're here to help them learn by guiding their thinking
 - Ask questions about what they understand, what forces or principles might be involved, or how they might approach the problem
 - Be encouraging and supportive while maintaining the educational goal of guided discovery`
-});
+  });
 
-const postAnswerTutorAgent = ai.definePrompt({
-  name: 'postAnswerTutor', 
-  description: 'Discusses answers and provides explanations after student attempts question',
-  system: `You are an educational AI tutor helping a student with a physics question. The student has already attempted this question.
+  const postAnswerTutorAgent = ai.definePrompt({
+    name: 'postAnswerTutor', 
+    description: 'Discusses answers and provides explanations after student attempts question',
+    system: `You are an educational AI tutor helping a student with a physics question. The student has already attempted this question.
 
 You have access to their submission details and can reference them directly in your responses. The specific details will be provided in the system instruction.
 
@@ -74,6 +77,9 @@ Your role:
 - Reference their actual selection to make it personal and relevant
 - Focus on the learning opportunity this creates`
 });
+
+  return { preAnswerTutorAgent, postAnswerTutorAgent, transitionAgent };
+}
 
 // Store active chat instances by session ID
 // In production, you'd want to use a persistent store like Firestore
@@ -198,6 +204,9 @@ const generateContent = onCall({
   const data = request.data;
 
   try {
+    // Initialize AI instance - Genkit reads API key from environment
+    const ai = initializeAI();
+    
     // Log the incoming data for debugging (safely)
     console.log("Received data:", safeStringify(data));
     
@@ -236,11 +245,14 @@ const startChatSession = onCall({
   concurrency: 10,
   memory: '1GiB',
   timeoutSeconds: 60,
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"],
 }, async (request) => {
   const data = request.data;
 
   try {
+    // Initialize AI instance - Genkit reads API key from environment
+    const ai = initializeAI();
+    
     console.log("Starting chat session with data:", safeStringify(data));
     
     const { 
@@ -336,11 +348,15 @@ const sendChatMessage = onCall({
   concurrency: 10,
   memory: '2GiB', // Increased memory for video and document processing
   timeoutSeconds: 120, // Increased timeout for video and document processing
-  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"]
+  cors: ["https://yourway.rtdacademy.com", "http://localhost:3000"],
 }, async (request) => {
   const data = request.data;
 
   try {
+    // Initialize AI instance - Genkit reads API key from environment
+    const ai = initializeAI();
+    const { preAnswerTutorAgent, postAnswerTutorAgent, transitionAgent } = getEducationalAgents(ai);
+    
     // Log the incoming data but safely handle circular references
     console.log("Received chat message data:", safeStringify(data));
     

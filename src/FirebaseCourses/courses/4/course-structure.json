@@ -1,0 +1,240 @@
+{
+  "courseStructure": {
+    "units": [
+      {
+        "unitId": "unit_1_orientation",
+        "title": "Unit 1: Course Orientation & Introduction",
+        "description": "Getting started with RTD Academy and understanding course expectations",
+        "order": 1,
+        "items": [
+          {
+            "itemId": "lesson_welcome",
+            "type": "lesson",
+            "title": "Welcome to RTD Academy",
+            "description": "Introduction to RTD Academy, mission, and learning environment",
+            "contentPath": "01-welcome-rtd-academy",
+            "hasCloudFunctions": false,
+            "order": 1,
+            "estimatedTime": 30,
+            "required": true
+          },
+          {
+            "itemId": "lesson_learning_plans",
+            "type": "lesson",
+            "title": "Learning Plans, Course Completion & Diploma Exam Policies",
+            "description": "Understanding learning plans, completion requirements, and diploma exam procedures",
+            "contentPath": "02-learning-plans-completion-policies",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "estimatedTime": 45,
+            "required": true,
+            "assessments": [
+              {
+                "assessmentId": "learning_plans_quiz",
+                "type": "ai_multiple_choice",
+                "title": "Learning Plans & Policies Quiz",
+                "cloudFunctionName": "course4_02_learning_plans_completion_policies_aiQuestion",
+                "required": true
+              }
+            ]
+          },
+          {
+            "itemId": "lesson_time_management",
+            "type": "lesson",
+            "title": "Time Management & Staying Active in Your Course",
+            "description": "Strategies for effective time management and maintaining course engagement",
+            "contentPath": "03-time-management-staying-active",
+            "hasCloudFunctions": true,
+            "order": 3,
+            "estimatedTime": 40,
+            "required": true,
+            "assessments": [
+              {
+                "assessmentId": "time_management_check",
+                "type": "ai_multiple_choice",
+                "title": "Time Management Strategies",
+                "cloudFunctionName": "course4_03_time_management_staying_active_aiQuestion",
+                "required": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "unitId": "unit_2_expectations_conduct",
+        "title": "Unit 2: Expectations & Digital Conduct",
+        "description": "Understanding conduct expectations and digital citizenship responsibilities",
+        "order": 2,
+        "items": [
+          {
+            "itemId": "lesson_conduct_expectations",
+            "type": "lesson",
+            "title": "Conduct Expectations & Alberta Education Responsibilities",
+            "description": "Student conduct expectations and Alberta Education requirements",
+            "contentPath": "04-conduct-expectations-responsibilities",
+            "hasCloudFunctions": true,
+            "order": 1,
+            "estimatedTime": 35,
+            "required": true,
+            "assessments": [
+              {
+                "assessmentId": "conduct_expectations_quiz",
+                "type": "ai_multiple_choice",
+                "title": "Conduct & Responsibilities Quiz",
+                "cloudFunctionName": "course4_04_conduct_expectations_responsibilities_aiQuestion",
+                "required": true
+              }
+            ]
+          },
+          {
+            "itemId": "lesson_digital_citizenship",
+            "type": "lesson",
+            "title": "Digital Citizenship & Online Safety",
+            "description": "Best practices for digital citizenship and maintaining online safety",
+            "contentPath": "05-digital-citizenship-online-safety",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "estimatedTime": 50,
+            "required": true,
+            "assessments": [
+              {
+                "assessmentId": "digital_citizenship_quiz",
+                "type": "ai_multiple_choice",
+                "title": "Digital Citizenship & Safety",
+                "cloudFunctionName": "course4_05_digital_citizenship_online_safety_aiQuestion",
+                "required": true
+              }
+            ]
+          },
+          {
+            "itemId": "lesson_communication_tools",
+            "type": "lesson",
+            "title": "Communication Tools & Etiquette",
+            "description": "Effective use of communication tools and proper online etiquette",
+            "contentPath": "06-communication-tools-etiquette",
+            "hasCloudFunctions": true,
+            "order": 3,
+            "estimatedTime": 40,
+            "required": true,
+            "assessments": [
+              {
+                "assessmentId": "communication_etiquette_check",
+                "type": "ai_multiple_choice",
+                "title": "Communication & Etiquette",
+                "cloudFunctionName": "course4_06_communication_tools_etiquette_aiQuestion",
+                "required": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "unitId": "unit_3_technology_tools",
+        "title": "Unit 3: Technology & Support Tools",
+        "description": "Technology readiness, assistive tools, and technical requirements",
+        "order": 3,
+        "items": [
+          {
+            "itemId": "lesson_technology_readiness",
+            "type": "lesson",
+            "title": "Technology Readiness & Assistive Tools",
+            "description": "Ensuring technology readiness and understanding available assistive tools",
+            "contentPath": "07-technology-readiness-assistive-tools",
+            "hasCloudFunctions": true,
+            "order": 1,
+            "estimatedTime": 45,
+            "required": true,
+            "assessments": [
+              {
+                "assessmentId": "technology_readiness_quiz",
+                "type": "ai_multiple_choice",
+                "title": "Technology Readiness Check",
+                "cloudFunctionName": "course4_07_technology_readiness_assistive_tools_aiQuestion",
+                "required": true
+              }
+            ]
+          },
+          {
+            "itemId": "lesson_cell_phone_policy",
+            "type": "lesson",
+            "title": "Cell Phone Policy & Exam Proctoring Procedures",
+            "description": "Cell phone policies during exams and proctoring procedures",
+            "contentPath": "08-cell-phone-policy-exam-proctoring",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "estimatedTime": 35,
+            "required": true,
+            "assessments": [
+              {
+                "assessmentId": "exam_procedures_quiz",
+                "type": "ai_multiple_choice",
+                "title": "Exam Policies & Procedures",
+                "cloudFunctionName": "course4_08_cell_phone_policy_exam_proctoring_aiQuestion",
+                "required": true
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "unitId": "unit_4_academic_integrity_support",
+        "title": "Unit 4: Academic Integrity & Student Support",
+        "description": "Academic integrity standards and available support resources",
+        "order": 4,
+        "items": [
+          {
+            "itemId": "lesson_academic_integrity",
+            "type": "lesson",
+            "title": "Academic Integrity & Violation Consequences",
+            "description": "Understanding academic integrity standards and consequences of violations",
+            "contentPath": "09-academic-integrity-violation-consequences",
+            "hasCloudFunctions": true,
+            "order": 1,
+            "estimatedTime": 40,
+            "required": true,
+            "assessments": [
+              {
+                "assessmentId": "academic_integrity_quiz",
+                "type": "ai_multiple_choice",
+                "title": "Academic Integrity Standards",
+                "cloudFunctionName": "course4_09_academic_integrity_violation_consequences_aiQuestion",
+                "required": true
+              }
+            ]
+          },
+          {
+            "itemId": "assignment_orientation_completion",
+            "type": "assignment",
+            "title": "Exams, Rewrites & Student Support Resources",
+            "description": "Understanding exam procedures, rewrite policies, and accessing student support",
+            "contentPath": "10-exams-rewrites-student-support",
+            "hasCloudFunctions": true,
+            "order": 2,
+            "estimatedTime": 60,
+            "required": true,
+            "assessments": [
+              {
+                "assessmentId": "orientation_completion_assessment",
+                "type": "ai_multiple_choice",
+                "title": "Course Orientation Completion",
+                "cloudFunctionName": "course4_10_exams_rewrites_student_support_aiQuestion",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navigation": {
+    "allowSkipAhead": false,
+    "requireCompletion": true,
+    "showProgress": true
+  },
+  "settings": {
+    "enableDiscussions": false,
+    "allowPeerReview": false,
+    "trackTime": true,
+    "autoSave": true
+  }
+}

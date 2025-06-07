@@ -3,6 +3,8 @@ import { getDatabase, ref, get, onValue, off } from 'firebase/database';
 
 // Import the dynamic component loader
 import { loadRequiredImports, getCachedImports } from './DynamicComponentLoader';
+// Import the secure component renderer
+import SecureComponentRenderer from './SecureComponentRenderer';
 
 // Keep some core components always loaded for better performance
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -123,8 +125,42 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
                 continue;
               }
 
-              // Create individual section component with import metadata
-              const SectionComponent = await createDynamicComponent(sectionCode, section.importMetadata);
+              // Create individual section component using SafeComponentRenderer
+              const SectionComponent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode }) => {
+                const [sectionImports, setSectionImports] = React.useState(getDefaultImports());
+                
+                React.useEffect(() => {
+                  const loadImports = async () => {
+                    if (section.importMetadata) {
+                      try {
+                        const imports = await getCachedImports(section.importMetadata);
+                        setSectionImports(imports);
+                      } catch (error) {
+                        console.error('Failed to load section imports:', error);
+                        setSectionImports(getDefaultImports());
+                      }
+                    }
+                  };
+                  loadImports();
+                }, []);
+                
+                const componentProps = {
+                  course,
+                  courseId,
+                  courseDisplay,
+                  itemConfig,
+                  isStaffView,
+                  devMode
+                };
+                
+                return React.createElement(SecureComponentRenderer, {
+                  componentCode: sectionCode,
+                  componentProps,
+                  onError: (error) => console.error(`Section "${section.title}" error:`, error),
+                  onLoad: () => console.log(`Section "${section.title}" loaded successfully`)
+                });
+              };
+              
               loadedComponents.push({
                 id: section.id,
                 title: section.title,
@@ -337,10 +373,43 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
               throw new Error('Code contains untransformed JSX. The auto-transformation may have failed. Please save the section again to trigger re-transformation.');
             }
             
-            // Create the dynamic component with import metadata if available
-            const importMetadata = data.importMetadata || null;
-            const component = await createDynamicComponent(reactCode, importMetadata);
-            setDynamicComponent(() => component);
+            // Create the dynamic component using SafeComponentRenderer
+            const SafeComponent = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode }) => {
+              const [componentImports, setComponentImports] = React.useState(getDefaultImports());
+              
+              React.useEffect(() => {
+                const loadImports = async () => {
+                  if (data.importMetadata) {
+                    try {
+                      const imports = await getCachedImports(data.importMetadata);
+                      setComponentImports(imports);
+                    } catch (error) {
+                      console.error('Failed to load component imports:', error);
+                      setComponentImports(getDefaultImports());
+                    }
+                  }
+                };
+                loadImports();
+              }, []);
+              
+              const componentProps = {
+                course,
+                courseId,
+                courseDisplay,
+                itemConfig,
+                isStaffView,
+                devMode
+              };
+              
+              return React.createElement(SecureComponentRenderer, {
+                componentCode: reactCode,
+                componentProps,
+                onError: (error) => console.error('Component error:', error),
+                onLoad: () => console.log('Component loaded successfully')
+              });
+            };
+            
+            setDynamicComponent(() => SafeComponent);
             setLoading(false);
             
           } catch (err) {
@@ -376,99 +445,17 @@ const UiGeneratedContent = ({ course, courseId, courseDisplay, itemConfig, isSta
     };
   }, [courseId, itemConfig, refreshKey]);
 
-  // Function to safely create a React component from code string
-  const createDynamicComponent = async (codeString, importMetadata = null) => {
-    try {
-      console.log('=== Starting component creation ===');
-      console.log('Code length:', codeString?.length);
-      console.log('Import metadata:', importMetadata);
-      console.log('First 200 chars:', codeString?.substring(0, 200));
-      
-      // Check if codeString is valid
-      if (!codeString || typeof codeString !== 'string') {
-        console.error('Invalid code string provided:', codeString);
-        throw new Error('Invalid code string provided');
-      }
-      
-      let processedCode = codeString;
-      
-      // Code is already transformed, no need for Babel transformation
-      console.log('Code is already transformed to React.createElement format');
-      console.log('Processed code preview:', processedCode.substring(0, 500));
-      
-      // Strip out import/export statements
-      processedCode = preprocessCode(processedCode);
-      
-      // Extract component name
-      const componentName = extractComponentName(processedCode);
-      if (!componentName) {
-        throw new Error('Could not find component name in code');
-      }
-      console.log('Component name:', componentName);
-      
-      // Load required imports based on metadata or use default
-      let imports;
-      if (importMetadata) {
-        console.log('Loading dynamic imports based on metadata...');
-        imports = await getCachedImports(importMetadata);
-      } else {
-        console.log('No import metadata, using fallback static imports...');
-        // Fallback to importing all icons for backward compatibility
-        const LucideIcons = await import('lucide-react');
-        const AIMultipleChoiceQuestion = (await import('../assessments/AIMultipleChoiceQuestion')).default;
-        const AILongAnswerQuestion = (await import('../assessments/AILongAnswerQuestion')).default;
-        
-        imports = {
-          React,
-          useState: React.useState,
-          useEffect: React.useEffect,
-          Card, CardContent, CardHeader, CardTitle,
-          Alert, AlertDescription,
-          Badge,
-          AIMultipleChoiceQuestion,
-          AILongAnswerQuestion,
-          // Include all Lucide icons for backward compatibility
-          ...LucideIcons
-        };
-      }
-      
-      // Create a function that returns the component
-      console.log('Creating component function...');
-      let Component;
-      
-      try {
-        // Build the parameter names and values from imports
-        const paramNames = Object.keys(imports).join(', ');
-        const paramValues = Object.values(imports);
-        
-        // Use eval to create the component with dynamic imports
-        const componentCode = `
-          (function(${paramNames}) {
-            ${processedCode}
-            return ${componentName};
-          })
-        `;
-        
-        console.log('Evaluating component code with', Object.keys(imports).length, 'imports');
-        const createComponent = eval(componentCode);
-        
-        Component = createComponent(...paramValues);
-      } catch (evalError) {
-        console.error('Component creation failed:', evalError);
-        console.error('Processed code that failed:', processedCode);
-        throw new Error(`Component creation failed: ${evalError.message}`);
-      }
-
-      if (!Component || typeof Component !== 'function') {
-        throw new Error('Created component is not a valid React component function');
-      }
-
-      console.log('=== Component created successfully ===');
-      return Component;
-    } catch (err) {
-      console.error('Error in createDynamicComponent:', err);
-      throw err;
-    }
+  // Helper function to get default imports for components
+  const getDefaultImports = () => {
+    return {
+      React,
+      useState: React.useState,
+      useEffect: React.useEffect,
+      Card, CardContent, CardHeader, CardTitle,
+      Alert, AlertDescription,
+      Badge
+      // Note: Dynamic imports will be loaded in the SafeComponentRenderer
+    };
   };
 
   // Function to preprocess code by removing import statements and export statements

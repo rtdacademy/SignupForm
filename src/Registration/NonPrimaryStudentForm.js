@@ -645,17 +645,45 @@ const NonPrimaryStudentForm = forwardRef(({
             parentLastName: snapshot.val().ParentLastName || prev.parentLastName,
             parentPhone: snapshot.val().ParentPhone_x0023_ || prev.parentPhone,
             parentEmail: snapshot.val().ParentEmail || prev.parentEmail,
+            parentRelationship: snapshot.val().parentRelationship || prev.parentRelationship,
+            isLegalGuardian: snapshot.val().isLegalGuardian || prev.isLegalGuardian,
+            // Pre-populate student photo from profile
+            studentPhoto: snapshot.val().studentPhoto || prev.studentPhoto,
+            // Pre-populate Indigenous identification from profile
+            indigenousIdentification: snapshot.val().indigenousIdentification || prev.indigenousIdentification,
+            indigenousStatus: snapshot.val().indigenousStatus || prev.indigenousStatus,
+            // Pre-populate marketing question from profile
+            howDidYouHear: snapshot.val().howDidYouHear || prev.howDidYouHear,
+            // Pre-populate citizenship documents from profile, marking as from profile
+            citizenshipDocuments: (() => {
+              let profileCitizenshipDocs = snapshot.val().citizenshipDocuments || prev.citizenshipDocuments;
+              if (Array.isArray(profileCitizenshipDocs)) {
+                profileCitizenshipDocs = profileCitizenshipDocs.map(doc => ({ ...doc, fromProfile: true }));
+              }
+              return profileCitizenshipDocs;
+            })(),
             // Don't pre-populate address - require fresh input for each registration
             // address: snapshot.val().address || prev.address,
           }));
 
-          // Set document URLs if they exist
+          // Set document URLs if they exist (for international students)
           if (snapshot.val().internationalDocuments) {
             setDocumentUrls(prev => ({
               ...prev,
               passport: snapshot.val().internationalDocuments.passport || '',
               additionalID: snapshot.val().internationalDocuments.additionalID || '',
               residencyProof: snapshot.val().internationalDocuments.residencyProof || ''
+            }));
+            
+            // Also set in form data for compatibility, marking as from profile
+            let profileDocs = snapshot.val().internationalDocuments || [];
+            if (Array.isArray(profileDocs)) {
+              profileDocs = profileDocs.map(doc => ({ ...doc, fromProfile: true }));
+            }
+            
+            setFormData(prev => ({
+              ...prev,
+              internationalDocuments: profileDocs
             }));
           }
         }
@@ -683,8 +711,19 @@ const NonPrimaryStudentForm = forwardRef(({
       parentLastName: !!profileData.ParentLastName,
       parentPhone: !!profileData.ParentPhone_x0023_,
       parentEmail: !!profileData.ParentEmail,
+      parentRelationship: !!profileData.parentRelationship,
       documents: !!(profileData.internationalDocuments?.passport && 
                   profileData.internationalDocuments?.additionalID),
+      internationalDocuments: !!(profileData.internationalDocuments && 
+                                Array.isArray(profileData.internationalDocuments) && 
+                                profileData.internationalDocuments.length > 0),
+      studentPhoto: !!profileData.studentPhoto,
+      indigenousIdentification: !!profileData.indigenousIdentification,
+      indigenousStatus: !!profileData.indigenousStatus,
+      howDidYouHear: !!profileData.howDidYouHear,
+      citizenshipDocuments: !!(profileData.citizenshipDocuments && 
+                              Array.isArray(profileData.citizenshipDocuments) && 
+                              profileData.citizenshipDocuments.length > 0),
       // Don't make address read-only - require fresh input for each registration
       // address: !!profileData.address
     };
@@ -693,12 +732,12 @@ const NonPrimaryStudentForm = forwardRef(({
   // Initialize form validation
   const validationOptions = useMemo(() => ({
     conditionalValidation: {
-      parentFirstName: () => !user18OrOlder,
-      parentLastName: () => !user18OrOlder,
-      parentPhone: () => !user18OrOlder,
-      parentEmail: () => !user18OrOlder,
+      parentFirstName: () => !user18OrOlder && !readOnlyFields.parentFirstName,
+      parentLastName: () => !user18OrOlder && !readOnlyFields.parentLastName,
+      parentPhone: () => !user18OrOlder && !readOnlyFields.parentPhone,
+      parentEmail: () => !user18OrOlder && !readOnlyFields.parentEmail,
       preferredFirstName: () => usePreferredFirstName,
-      documents: () => studentType === 'International Student',
+      documents: () => studentType === 'International Student' && !readOnlyFields.documents && !readOnlyFields.internationalDocuments,
       albertaStudentNumber: () => {
         if (studentType === 'International Student' && !hasASN) {
           return false; // Do not validate ASN
@@ -706,11 +745,11 @@ const NonPrimaryStudentForm = forwardRef(({
         return true; // Validate ASN
       },
       schoolAddress: () => studentType === 'Non-Primary' || studentType === 'Home Education',
-      parentRelationship: () => !user18OrOlder,
+      parentRelationship: () => !user18OrOlder && !readOnlyFields.parentRelationship,
       legalDocumentUrl: () => formData.hasLegalRestrictions === 'yes',
-      indigenousIdentification: () => studentType !== 'International Student',
-      indigenousStatus: () => formData.indigenousIdentification === 'yes',
-      citizenshipDocuments: () => studentType !== 'International Student',
+      indigenousIdentification: () => studentType !== 'International Student' && !readOnlyFields.indigenousIdentification,
+      indigenousStatus: () => formData.indigenousIdentification === 'yes' && !readOnlyFields.indigenousStatus,
+      citizenshipDocuments: () => studentType !== 'International Student' && !readOnlyFields.citizenshipDocuments,
       albertaResident: () => studentType !== 'International Student' && !user18OrOlder,
     },
     readOnlyFields,
@@ -1404,8 +1443,13 @@ const NonPrimaryStudentForm = forwardRef(({
               return;
             }
 
-            // Only include courses with Active status set to "Current"
-            if (courseData.Active !== "Current") {
+            // Check if user email is in allowedEmails for developer access
+            const userEmail = user?.email;
+            const allowedEmails = courseData.allowedEmails || [];
+            const isDeveloperAccess = userEmail && allowedEmails.includes(userEmail);
+            
+            // Only include courses with Active status set to "Current" OR if user has developer access
+            if (courseData.Active !== "Current" && !isDeveloperAccess) {
               return;
             }
 
@@ -1415,7 +1459,9 @@ const NonPrimaryStudentForm = forwardRef(({
               DiplomaCourse: courseData.DiplomaCourse,
               diplomaTimes: courseData.diplomaTimes || [],
               recommendedCompletionMonths: courseData.recommendedCompletionMonths || null,
-              minCompletionMonths: courseData.minCompletionMonths || null
+              minCompletionMonths: courseData.minCompletionMonths || null,
+              isDeveloperAccess: isDeveloperAccess,
+              activeStatus: courseData.Active
             });
           });
 
@@ -2548,6 +2594,11 @@ const NonPrimaryStudentForm = forwardRef(({
                       statusText = '(Already Enrolled)';
                     }
 
+                    // Add developer access messaging
+                    if (course.isDeveloperAccess) {
+                      statusText += ` [DEV ACCESS - Status: ${course.activeStatus || 'Unknown'}]`;
+                    }
+
                     return (
                       <option
                         key={course.id}
@@ -2571,6 +2622,24 @@ const NonPrimaryStudentForm = forwardRef(({
                       : null
                   }
                 />
+                
+                {/* Developer Access Message */}
+                {formData.courseId && (() => {
+                  const selectedCourse = courses.find(course => course.id === formData.courseId);
+                  return selectedCourse?.isDeveloperAccess && (
+                    <Alert className="bg-yellow-50 border-yellow-200">
+                      <Shield className="h-4 w-4 text-yellow-600" />
+                      <AlertDescription className="text-sm text-yellow-700">
+                        <div className="font-semibold mb-1">Developer Access Course</div>
+                        You have access to this course because your email is listed in the allowedEmails. 
+                        Current course status: <span className="font-mono font-semibold">{selectedCourse.activeStatus || 'Unknown'}</span>
+                        <br />
+                        <span className="text-xs">This course may not be visible to regular students.</span>
+                      </AlertDescription>
+                    </Alert>
+                  );
+                })()}
+                
                 {coursesError && (
                   <p className="text-sm text-red-500">{coursesError}</p>
                 )}
@@ -3497,9 +3566,30 @@ const NonPrimaryStudentForm = forwardRef(({
               ) : (
                 <div className="space-y-6">
                   <h4 className="text-md font-medium">Parent/Guardian Information (Required)</h4>
-                  <p className="text-sm text-gray-600">
-                    As you are under 18, parent/guardian information is required.
-                  </p>
+                  <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4">
+                    <div className="flex items-start">
+                      <InfoIcon className="h-5 w-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="text-amber-800 font-medium mb-1">Important: Parent Permission Required</p>
+                        <p className="text-amber-700">
+                          As you are under 18, your parent/guardian will receive an email and will need to give permission for you to take this course. 
+                          You will be able to start the course in the meantime, but we will require parent permission before you will be added to the Alberta Education system.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {(readOnlyFields.parentFirstName || readOnlyFields.parentLastName || readOnlyFields.parentPhone || readOnlyFields.parentEmail) ? (
+                    <Alert className="bg-blue-50 border-blue-200">
+                      <InfoIcon className="h-4 w-4 text-blue-600" />
+                      <AlertDescription className="text-blue-700">
+                        We have existing parent/guardian information in your profile. Fields marked as "cannot be changed" are pre-filled from your previous registration.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <p className="text-sm text-gray-600">
+                      Please provide your parent or guardian's contact information below.
+                    </p>
+                  )}
 
                   {/* Parent Relationship */}
                   <div className="space-y-2">
@@ -3667,10 +3757,17 @@ const NonPrimaryStudentForm = forwardRef(({
                             : null
                         }
                       />
-                      <p className="text-sm text-gray-500">
-                        Your parent/guardian will receive an email and will need to grant permission for you to join the course.
-                        Please ensure that the parent email is correct.
-                      </p>
+                      {formData.parentEmail && !errors.parentEmail && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mt-2">
+                          <div className="flex items-start">
+                            <InfoIcon className="h-4 w-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+                            <div className="text-xs text-blue-700">
+                              <p className="font-medium">Email will be sent to: {formData.parentEmail}</p>
+                              <p className="mt-1">Your parent/guardian will receive an email requesting permission for you to enroll in this course.</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -3692,6 +3789,9 @@ const NonPrimaryStudentForm = forwardRef(({
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
                     Indigenous Self-Identification <span className="text-red-500">*</span>
+                    {readOnlyFields.indigenousIdentification && (
+                      <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">From Profile</span>
+                    )}
                   </label>
                   <p className="text-sm text-gray-600">
                     Does the student wish to self-identify as an Indigenous person?
@@ -3703,9 +3803,10 @@ const NonPrimaryStudentForm = forwardRef(({
                         name="indigenousIdentification"
                         value="yes"
                         checked={formData.indigenousIdentification === 'yes'}
-                        onChange={handleFormChange}
+                        onChange={readOnlyFields.indigenousIdentification ? undefined : handleFormChange}
                         onBlur={() => handleBlur('indigenousIdentification')}
                         className="mr-2"
+                        disabled={readOnlyFields.indigenousIdentification}
                       />
                       <span className="text-sm">Yes</span>
                     </label>
@@ -3715,9 +3816,10 @@ const NonPrimaryStudentForm = forwardRef(({
                         name="indigenousIdentification"
                         value="no"
                         checked={formData.indigenousIdentification === 'no'}
-                        onChange={handleFormChange}
+                        onChange={readOnlyFields.indigenousIdentification ? undefined : handleFormChange}
                         onBlur={() => handleBlur('indigenousIdentification')}
                         className="mr-2"
+                        disabled={readOnlyFields.indigenousIdentification}
                       />
                       <span className="text-sm">No</span>
                     </label>
@@ -3739,11 +3841,12 @@ const NonPrimaryStudentForm = forwardRef(({
                       <select
                         name="indigenousStatus"
                         value={formData.indigenousStatus}
-                        onChange={handleFormChange}
+                        onChange={readOnlyFields.indigenousStatus ? undefined : handleFormChange}
                         onBlur={() => handleBlur('indigenousStatus')}
                         className={`w-full p-2 border rounded-md ${
                           touched.indigenousStatus && errors.indigenousStatus ? 'border-red-500' : 'border-gray-300'
-                        }`}
+                        } ${readOnlyFields.indigenousStatus ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                        disabled={readOnlyFields.indigenousStatus}
                         required
                       >
                         <option value="">Select status</option>
@@ -3788,13 +3891,17 @@ const NonPrimaryStudentForm = forwardRef(({
               <div className="space-y-2">
                 <label className="text-sm font-medium">
                   How did you hear about us? <span className="text-red-500">*</span>
+                  {readOnlyFields.howDidYouHear && (
+                    <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">From Profile</span>
+                  )}
                 </label>
                 <select
                   name="howDidYouHear"
                   value={formData.howDidYouHear}
-                  onChange={handleFormChange}
+                  onChange={readOnlyFields.howDidYouHear ? undefined : handleFormChange}
                   onBlur={() => handleBlur('howDidYouHear')}
-                  className="w-full p-2 border rounded-md bg-white"
+                  className={`w-full p-2 border rounded-md ${readOnlyFields.howDidYouHear ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
+                  disabled={readOnlyFields.howDidYouHear}
                 >
                   <option value="">Select an option</option>
                   <option value="google-search">Google Search</option>

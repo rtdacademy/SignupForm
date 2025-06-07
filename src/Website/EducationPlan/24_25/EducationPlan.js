@@ -36,7 +36,10 @@ import IndigenousEducation from './Components/IndigenousEducation';
 // Section VII: Performance Measures
 import PerformanceMeasures from './Components/PerformanceMeasures';
 
-// Section VIII: Conclusion
+// Section VIII: Budget Summary
+import BudgetSummary from './Components/BudgetSummary';
+
+// Section IX: Conclusion
 import ConclusionFutureDirection from './Components/ConclusionFutureDirection';
 
 // Supporting Components
@@ -117,7 +120,13 @@ const EducationPlan = () => {
       ]
     },
     {
-      title: "VII. Conclusion",
+      title: "VII. Budget",
+      items: [
+        { name: "Budget Summary", ref: budgetRef }
+      ]
+    },
+    {
+      title: "VIII. Conclusion",
       items: [
         { name: "Future Direction", ref: conclusionRef }
       ]
@@ -138,6 +147,21 @@ const EducationPlan = () => {
 
   return (
     <div className="max-w-7xl mx-auto p-6 md:pl-16">
+      {/* Permalink Header */}
+      <div className="bg-blue-100 border border-blue-300 rounded-lg p-3 text-center mb-6">
+        <p className="text-sm text-blue-800">
+          <strong>Permanent Link:</strong> This Education Plan is permanently accessible at{' '}
+          <a 
+            href="https://yourway.rtdacademy.com/education-plan/2025-26" 
+            className="text-blue-700 underline hover:text-blue-900"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            yourway.rtdacademy.com/education-plan/2025-26
+          </a>
+        </p>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -264,11 +288,7 @@ const EducationPlan = () => {
           <p className="text-lg text-gray-600 mb-8">
             Third Year of Three-Year Education Plan
           </p>
-          <div className="space-y-2 text-gray-600">
-            <p>Prepared for Alberta Education</p>
-            <p>In accordance with the Education Assurance Framework</p>
-            <p>Submitted: [DATE]</p>
-          </div>
+        
         </div>
       </Card>
       
@@ -355,7 +375,12 @@ const EducationPlan = () => {
           <PerformanceMeasures />
         </div>
 
-        {/* Section VII: Conclusion */}
+        {/* Section VII: Budget Summary */}
+        <div ref={budgetRef}>
+          <BudgetSummary />
+        </div>
+
+        {/* Section VIII: Conclusion */}
         <div ref={conclusionRef}>
           <ConclusionFutureDirection />
         </div>

@@ -291,7 +291,7 @@ albertaStudentNumber: {
       // Only validate for international students
       if (options?.formData?.studentType === 'International Student') {
         // Skip validation if documents are already in profile
-        if (options?.readOnlyFields?.documents) {
+        if (options?.readOnlyFields?.documents || options?.readOnlyFields?.internationalDocuments) {
           return null;
         }
         
@@ -322,8 +322,8 @@ albertaStudentNumber: {
     validate: (value, options) => {
       // Only validate for international students
       if (options?.formData?.studentType === 'International Student') {
-        // Skip validation if already handled by documents field
-        if (options?.readOnlyFields?.internationalDocuments) {
+        // Skip validation if already handled by documents field or has existing documents
+        if (options?.readOnlyFields?.internationalDocuments || options?.readOnlyFields?.documents) {
           return null;
         }
         
@@ -482,6 +482,10 @@ albertaStudentNumber: {
     validate: (value, options) => {
       // Skip validation for International Students
       if (options?.formData?.studentType === 'International Student') {
+        return null;
+      }
+      // Skip validation if documents are already in profile
+      if (options?.readOnlyFields?.citizenshipDocuments) {
         return null;
       }
       // Handle both old format (array of URLs) and new format (array of objects)

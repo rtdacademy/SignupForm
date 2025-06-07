@@ -394,7 +394,22 @@ const StudentRegistrationReview = ({ onBack, requiredCourses = [], loadingRequir
                   : 'Parent/Guardian Information'
               }
               items={parentInfo}
-            />
+            >
+              {!isAdultStudent && formData.age < 18 && formData.parentEmail && (
+                <div className="mt-4 bg-amber-50 border border-amber-200 rounded-md p-3">
+                  <div className="flex items-start">
+                    <InfoIcon className="h-4 w-4 text-amber-600 mt-0.5 mr-2 flex-shrink-0" />
+                    <div className="text-sm">
+                      <p className="text-amber-800 font-medium">Parent Permission Required</p>
+                      <p className="text-amber-700 mt-1">
+                        An email will be sent to {formData.parentEmail} requesting permission for you to enroll. 
+                        You can start the course immediately, but parent approval is required before you're added to the Alberta Education system.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </ReviewSection>
           )}
 
           <ReviewSection title="Course Information" items={courseInfo} />

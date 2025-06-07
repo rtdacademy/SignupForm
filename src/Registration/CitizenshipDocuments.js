@@ -16,6 +16,10 @@ const CitizenshipDocuments = forwardRef(({ onUploadComplete, initialDocuments = 
   const [selectedDocumentType, setSelectedDocumentType] = useState('');
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  
+  // Separate existing documents from new ones
+  const existingDocuments = documents.filter(doc => doc.fromProfile);
+  const newDocuments = documents.filter(doc => !doc.fromProfile);
 
   // Document type options
   const documentTypes = [
@@ -209,13 +213,28 @@ const CitizenshipDocuments = forwardRef(({ onUploadComplete, initialDocuments = 
       <CardContent className="space-y-4">
         <Alert className="bg-blue-50 border-blue-200">
           <AlertDescription className="text-blue-800">
-            Upload acceptable copies of one of the following:
-            <ul className="list-disc pl-5 mt-2">
-              <li>Birth Certificate within Canada</li>
-              <li>Canadian Citizenship Certificate or Card</li>
-              <li>Canadian Passport</li>
-              <li>Type of Visa or other document supporting lawful admittance to Canada</li>
-            </ul>
+            {existingDocuments.length > 0 ? (
+              <>
+                <p className="font-medium mb-2">You have previously uploaded citizenship documents. You may add additional documents if needed.</p>
+                <p>Accepted document types:</p>
+                <ul className="list-disc pl-5 mt-1">
+                  <li>Birth Certificate within Canada</li>
+                  <li>Canadian Citizenship Certificate or Card</li>
+                  <li>Canadian Passport</li>
+                  <li>Type of Visa or other document supporting lawful admittance to Canada</li>
+                </ul>
+              </>
+            ) : (
+              <>
+                Upload acceptable copies of one of the following:
+                <ul className="list-disc pl-5 mt-2">
+                  <li>Birth Certificate within Canada</li>
+                  <li>Canadian Citizenship Certificate or Card</li>
+                  <li>Canadian Passport</li>
+                  <li>Type of Visa or other document supporting lawful admittance to Canada</li>
+                </ul>
+              </>
+            )}
           </AlertDescription>
         </Alert>
 
@@ -245,28 +264,51 @@ const CitizenshipDocuments = forwardRef(({ onUploadComplete, initialDocuments = 
           </select>
         </div>
 
-        {/* Uploaded Documents List */}
-        {documents.length > 0 && (
+        {/* Existing Documents from Profile */}
+        {existingDocuments.length > 0 && (
           <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-700">Uploaded Documents:</p>
-            {documents.map((doc, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+            <p className="text-sm font-medium text-gray-700">Previously Uploaded Documents:</p>
+            {existingDocuments.map((doc, index) => (
+              <div key={`existing-${index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-green-500" />
                     <span className="text-sm text-gray-700">{doc.name || `Document ${index + 1}`}</span>
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">From Profile</span>
                   </div>
                   <span className="text-xs text-gray-500 ml-6">{doc.typeLabel || doc.type}</span>
                 </div>
-                <button
-                  onClick={() => handleRemoveDocument(index)}
-                  className="text-red-500 hover:text-red-700 transition-colors"
-                  type="button"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+                <div className="text-xs text-gray-500">Cannot be removed</div>
               </div>
             ))}
+          </div>
+        )}
+        
+        {/* New Documents */}
+        {newDocuments.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-700">{existingDocuments.length > 0 ? 'Additional Documents:' : 'Uploaded Documents:'}</p>
+            {newDocuments.map((doc, index) => {
+              const actualIndex = existingDocuments.length + index;
+              return (
+                <div key={`new-${index}`} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-green-500" />
+                      <span className="text-sm text-gray-700">{doc.name || `Document ${actualIndex + 1}`}</span>
+                    </div>
+                    <span className="text-xs text-gray-500 ml-6">{doc.typeLabel || doc.type}</span>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveDocument(actualIndex)}
+                    className="text-red-500 hover:text-red-700 transition-colors"
+                    type="button"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -286,7 +328,7 @@ const CitizenshipDocuments = forwardRef(({ onUploadComplete, initialDocuments = 
                 ) : (
                   <Upload className="h-4 w-4 mr-2" />
                 )}
-                Choose Files
+                {existingDocuments.length > 0 ? 'Add More Files' : 'Choose Files'}
               </Button>
               
               <Button
@@ -297,7 +339,7 @@ const CitizenshipDocuments = forwardRef(({ onUploadComplete, initialDocuments = 
                 onClick={startCamera}
               >
                 <Camera className="h-4 w-4 mr-2" />
-                Use Camera
+                {existingDocuments.length > 0 ? 'Add with Camera' : 'Use Camera'}
               </Button>
             </div>
             {!selectedDocumentType && (
