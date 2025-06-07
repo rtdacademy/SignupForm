@@ -122,6 +122,13 @@ const CourseCard = ({
 
   const [showEnrollmentProof, setShowEnrollmentProof] = useState(false);
 
+  // Check if current user is a developer for this course
+  const isDeveloper = (() => {
+    const userEmail = currentUser?.email;
+    const allowedEmails = course.courseDetails?.allowedEmails || [];
+    return userEmail && allowedEmails.includes(userEmail);
+  })();
+
   // Update computedPaymentStatus to silently handle legacy courses
   const computedPaymentStatus = (() => {
     // Skip payment enforcement for courses created before Nov 22, 2024
@@ -221,8 +228,8 @@ const CourseCard = ({
       return;
     }
 
-    // For regular courses, check for schedule
-    if (!hasSchedule) {
+    // For regular courses, check for schedule (unless doesNotRequireSchedule is true)
+    if (!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) {
       toast.error("Please create a schedule before accessing the course");
       return;
     }
@@ -342,6 +349,11 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
   const renderScheduleButtons = () => {
     // Don't render schedule buttons if courseDetails.units doesn't exist
     if (!course.courseDetails?.units) {
+      return null;
+    }
+
+    // Don't render schedule buttons if course doesn't require a schedule
+    if (course.courseDetails?.doesNotRequireSchedule) {
       return null;
     }
 
@@ -618,6 +630,11 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
                 <Badge variant="outline" className={getStatusColor(status, course.isRequiredCourse)}>
                   {course.isRequiredCourse ? "Required" : status}
                 </Badge>
+                {isDeveloper && (
+                  <Badge variant="outline" className="bg-blue-100 text-blue-800 border border-blue-300">
+                    Developer
+                  </Badge>
+                )}
                 {status === 'Registration' && !course.payment?.hasValidPayment && (
                   <TooltipProvider>
                     <Tooltip>
@@ -745,7 +762,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
             )}
 
             <div className="space-y-4">
-              <div className={`grid ${course.courseDetails?.units ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
+              <div className={`grid ${course.courseDetails?.units && !course.courseDetails?.doesNotRequireSchedule ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
                 {renderScheduleButtons()}
 
                 <Button
@@ -754,18 +771,18 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
                     w-full shadow-lg transition-all duration-200 inline-flex items-center justify-center gap-2
                     ${course.isRequiredCourse
                       ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
-                      : (!hasSchedule || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                      : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
                         ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
                         : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
                     }
                   `}
-                  disabled={!course.isRequiredCourse && (!hasSchedule || status !== 'Active' || computedPaymentStatus === 'unpaid')}
+                  disabled={!course.isRequiredCourse && ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')}
                 >
                   <FaExternalLinkAlt className="h-4 w-4" />
                   <span>
                     {course.isRequiredCourse
                       ? 'Go to Required Course'
-                      : (!hasSchedule || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                      : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
                         ? 'Course Unavailable'
                         : 'Go to Course'
                     }
