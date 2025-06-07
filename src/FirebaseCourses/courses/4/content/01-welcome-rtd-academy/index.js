@@ -1,64 +1,140 @@
 import React from 'react';
-import { AIMultipleChoiceQuestion, AILongAnswerQuestion } from '../../../../components/assessments';
+import { AIMultipleChoiceQuestion } from '../../../../components/assessments';
 
 const WelcometoRTDAcademy = ({ courseId }) => {
-  return (
-    <div className="space-y-6">
-      <section>
-        <h1 className="text-3xl font-bold mb-4">Welcome to RTD Academy</h1>
-        <p className="text-gray-600 mb-6">Introduction to RTD Academy, mission, and learning environment</p>
-      </section>
+  const [activeSection, setActiveSection] = useState('overview');
+  const [interactiveAnswers, setInteractiveAnswers] = useState({});
+  
+  // Drag and Drop Assessment State
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [matches, setMatches] = useState({});
+  const [assessmentCompleted, setAssessmentCompleted] = useState(false);
+  const [score, setScore] = useState(0);
 
-      {/* Course Introduction Content */}
-      <section>
-        <h2 className="text-2xl font-semibold mb-3">About RTD Academy</h2>
-        <div className="prose max-w-none">
-          <p className="mb-4">
-            Welcome to RTD Academy, where we believe every student deserves access to high-quality education 
-            tailored to their unique learning needs. Our academy combines traditional educational excellence 
-            with innovative technology to create a personalized learning experience.
-          </p>
-          
-          <h3 className="text-xl font-semibold mb-2">Our Mission</h3>
-          <p className="mb-4">
-            To provide flexible, engaging, and comprehensive education that empowers students to achieve 
-            their academic goals while developing critical thinking skills and preparing for future success.
-          </p>
-          
-          <h3 className="text-xl font-semibold mb-2">What Makes RTD Academy Different</h3>
-          <ul className="list-disc pl-6 mb-4 space-y-2">
-            <li>Personalized learning paths designed for individual student needs</li>
-            <li>AI-powered assessment tools that provide instant feedback</li>
-            <li>Expert instructors available for support and guidance</li>
-            <li>Flexible scheduling that works with your lifestyle</li>
-            <li>Interactive content that makes learning engaging and effective</li>
-          </ul>
-          
-          <h3 className="text-xl font-semibold mb-2">Your Learning Journey</h3>
-          <p className="mb-4">
-            Throughout your time at RTD Academy, you'll engage with various types of assessments and activities 
-            designed to help you master the material. These include multiple-choice questions, long-answer 
-            assessments, interactive labs, and real-world problem-solving scenarios.
+  const handleInteractiveAnswer = (questionId, answer) => {
+    setInteractiveAnswers(prev => ({
+      ...prev,
+      [questionId]: answer
+    }));
+  };
+
+  // Drag and Drop Assessment Data
+  const assessmentTerms = [
+    { id: 'asynchronous', term: 'Asynchronous Learning' },
+    { id: 'lms', term: 'LMS' },
+    { id: 'yourway', term: 'YourWay Portal' },
+    { id: 'rolling', term: 'Rolling Enrollment' },
+    { id: 'pasi', term: 'PASI' },
+    { id: 'proctoring', term: 'Exam Proctoring' },
+    { id: 'digital_citizenship', term: 'Digital Citizenship' },
+    { id: 'academic_integrity', term: 'Academic Integrity' }
+  ];
+
+  const assessmentDefinitions = [
+    { 
+      id: 'asynchronous', 
+      definition: 'Learning that doesn\'t require students to be online at the same time as instructors',
+      dropZone: 'zone1'
+    },
+    { 
+      id: 'lms', 
+      definition: 'Learning Management System - your digital classroom for accessing content and submitting work',
+      dropZone: 'zone2'
+    },
+    { 
+      id: 'yourway', 
+      definition: 'Personal academic dashboard for schedules, registration, and RTD Academy services',
+      dropZone: 'zone3'
+    },
+    { 
+      id: 'rolling', 
+      definition: 'Continuous enrollment throughout the year, not limited to semester start dates',
+      dropZone: 'zone4'
+    },
+    { 
+      id: 'pasi', 
+      definition: 'Provincial Approach to Student Information - Alberta\'s student record system',
+      dropZone: 'zone5'
+    },
+    { 
+      id: 'proctoring', 
+      definition: 'Supervised exam monitoring using webcam and secondary device for security',
+      dropZone: 'zone6'
+    },
+    { 
+      id: 'digital_citizenship', 
+      definition: 'Using technology safely, respectfully, and responsibly in online learning environments',
+      dropZone: 'zone7'
+    },
+    { 
+      id: 'academic_integrity', 
+      definition: 'Honest and ethical behavior in all coursework and assessments',
+      dropZone: 'zone8'
+    }
+  ];
+
+  // Drag and Drop Functions
+  const handleDragStart = (e, term) => {
+    setDraggedItem(term);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, definition) => {
+    e.preventDefault();
+    if (draggedItem) {
+      setMatches(prev => ({
+        ...prev,
+        [definition.id]: draggedItem
+      }));
+      setDraggedItem(null);
+    }
+  };
+
+  const checkAssessment = () => {
+    let correctCount = 0;
+    assessmentDefinitions.forEach(def => {
+      if (matches[def.id] && matches[def.id].id === def.id) {
+        correctCount++;
+      }
+    });
+    
+    setScore(correctCount);
+    setAssessmentCompleted(true);
+  };
+
+  const resetAssessment = () => {
+    setMatches({});
+    setAssessmentCompleted(false);
+    setScore(0);
+    setDraggedItem(null);
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Hero Section */}
+      <section className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg p-8">
+        <h1 className="text-4xl font-bold mb-4">Welcome to RTD Math Academy</h1>
+        <p className="text-xl mb-6">Your gateway to flexible, high-quality online education in Math, Physics, and STEM</p>
+        <div className="bg-white/10 backdrop-blur rounded-lg p-4">
+          <p className="text-lg">
+            🎯 <strong>Learning Objective:</strong> Understand what RTD Math Academy is, how asynchronous learning works, 
+            and what tools and expectations will guide your success.
           </p>
         </div>
       </section>
 
-      {/* Sample AI Long Answer Assessment */}
+      {/* Add your lesson content here */}
       <section>
-        <h2 className="text-2xl font-semibold mb-3">Reflection Activity</h2>
-        <p className="text-gray-600 mb-4">
-          Take a moment to reflect on your educational goals and learning preferences. 
-          This assessment will help you think about what you hope to achieve at RTD Academy.
-        </p>
-        
-        <AILongAnswerQuestion
-          courseId={courseId}
-          assessmentId="welcome_reflection"
-          cloudFunctionName="course4_01_welcome_rtd_academy_aiLongAnswer"
-          topic="Educational Goals and Learning Preferences"
-          theme="blue"
-        />
+        <h2 className="text-2xl font-semibold mb-3">Content</h2>
+        <p>Lesson content goes here...</p>
       </section>
+
+      
     </div>
   );
 };
