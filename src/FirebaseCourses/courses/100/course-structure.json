@@ -16,7 +16,8 @@
             "hasCloudFunctions": false,
             "order": 1,
             "estimatedTime": 30,
-            "required": true
+            "required": true,
+            "doesNotRequireSchedule": false
           }
         ]
       },
@@ -36,6 +37,7 @@
             "order": 1,
             "estimatedTime": 45,
             "required": true,
+            "doesNotRequireSchedule": false,
             "assessments": [
               {
                 "assessmentId": "ai_question_core_concepts",
@@ -70,7 +72,8 @@
             "hasCloudFunctions": false,
             "order": 1,
             "estimatedTime": 60,
-            "required": true
+            "required": true,
+            "doesNotRequireSchedule": false
           },
           {
             "itemId": "assignment_reflection",

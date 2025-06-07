@@ -551,6 +551,27 @@ function Courses({
       });
   };
 
+  const handleDoesNotRequireScheduleChange = (checked) => {
+    if (!isEditing) return;
+
+    const updatedData = {
+      ...courseData,
+      doesNotRequireSchedule: checked,
+    };
+    onCourseUpdate(updatedData);
+
+    const db = getDatabase();
+    const courseRef = ref(db, `courses/${selectedCourseId}`);
+    update(courseRef, { doesNotRequireSchedule: checked })
+      .then(() => {
+        console.log('Successfully updated doesNotRequireSchedule');
+      })
+      .catch((error) => {
+        console.error('Error updating course:', error);
+        alert('An error occurred while updating the course.');
+      });
+  };
+
   const handleStatsChange = (checked) => {
     if (!isEditing) return;
 
@@ -798,8 +819,8 @@ function Courses({
         )}
       </button>
 
-      {/* Add this new button for modern courses */}
-      {courseData?.modernCourse && (
+      {/* Add this new button for modern courses only */}
+      {courseData?.modernCourse && !courseData?.firebaseCourse && (
   <Button
     onClick={() => window.open(`/course-editor/${selectedCourseId}`, '_blank')}
     variant="default"
@@ -808,18 +829,11 @@ function Courses({
     <BookOpen className="mr-2 h-4 w-4" /> Edit Course Content
   </Button>
 )}
-{courseData?.firebaseCourse && (
-  <Button
-    onClick={() => window.open(`/firebase-course-view/${selectedCourseId}`, '_blank')}
-    variant="default"
-    className="flex items-center bg-orange-600 hover:bg-orange-700 text-white"
-  >
-    <FaFire className="mr-2 h-4 w-4" /> View Firebase Course
-  </Button>
-)}
     </>
   )}
-  <CourseWeightingDialog
+  {/* Only show Course Weighting Dialog for non-Firebase courses */}
+  {!courseData?.firebaseCourse && (
+    <CourseWeightingDialog
                   courseId={selectedCourseId}
                   courseUnits={courseData.units || []}
                   courseWeights={courseWeights}
@@ -888,6 +902,7 @@ function Courses({
                   }}
                   isEditing={isEditing}
                 />
+  )}
               </div>
             </div>
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
@@ -903,10 +918,13 @@ function Courses({
                       type="text"
                       name="Title"
                       value={courseData.Title || ''}
-                      onChange={handleInputChange}
-                      disabled={!isEditing}
-                      className={inputClass}
+                      disabled
+                      className={`mt-1 block w-full p-2 border border-gray-200 bg-gray-100 rounded-md shadow-sm text-sm`}
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Read-only. To change the course name, edit the "title" field in:<br />
+                      <code className="bg-gray-100 px-1 rounded">src/FirebaseCourses/courses/{selectedCourseId}/course-display.json</code>
+                    </p>
                   </div>
 
                   {/* Development emails */}
@@ -1121,6 +1139,22 @@ function Courses({
                     </label>
                     <p className="text-xs text-gray-500 mt-1">
                       When enabled, students can chat with other students in this course.
+                    </p>
+                  </div>
+
+                  {/* Does Not Require Schedule */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                      <span>Does Not Require Schedule</span>
+                      <Switch
+                        checked={courseData.doesNotRequireSchedule || false}
+                        onCheckedChange={handleDoesNotRequireScheduleChange}
+                        disabled={!isEditing}
+                        className="ml-2"
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      When enabled, this course does not require a schedule.
                     </p>
                   </div>
 
