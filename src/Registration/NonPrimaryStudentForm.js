@@ -1443,8 +1443,13 @@ const NonPrimaryStudentForm = forwardRef(({
               return;
             }
 
-            // Only include courses with Active status set to "Current"
-            if (courseData.Active !== "Current") {
+            // Check if user email is in allowedEmails for developer access
+            const userEmail = user?.email;
+            const allowedEmails = courseData.allowedEmails || [];
+            const isDeveloperAccess = userEmail && allowedEmails.includes(userEmail);
+            
+            // Only include courses with Active status set to "Current" OR if user has developer access
+            if (courseData.Active !== "Current" && !isDeveloperAccess) {
               return;
             }
 
@@ -1454,7 +1459,9 @@ const NonPrimaryStudentForm = forwardRef(({
               DiplomaCourse: courseData.DiplomaCourse,
               diplomaTimes: courseData.diplomaTimes || [],
               recommendedCompletionMonths: courseData.recommendedCompletionMonths || null,
-              minCompletionMonths: courseData.minCompletionMonths || null
+              minCompletionMonths: courseData.minCompletionMonths || null,
+              isDeveloperAccess: isDeveloperAccess,
+              activeStatus: courseData.Active
             });
           });
 
@@ -2587,6 +2594,11 @@ const NonPrimaryStudentForm = forwardRef(({
                       statusText = '(Already Enrolled)';
                     }
 
+                    // Add developer access messaging
+                    if (course.isDeveloperAccess) {
+                      statusText += ` [DEV ACCESS - Status: ${course.activeStatus || 'Unknown'}]`;
+                    }
+
                     return (
                       <option
                         key={course.id}
@@ -2610,6 +2622,24 @@ const NonPrimaryStudentForm = forwardRef(({
                       : null
                   }
                 />
+                
+                {/* Developer Access Message */}
+                {formData.courseId && (() => {
+                  const selectedCourse = courses.find(course => course.id === formData.courseId);
+                  return selectedCourse?.isDeveloperAccess && (
+                    <Alert className="bg-yellow-50 border-yellow-200">
+                      <Shield className="h-4 w-4 text-yellow-600" />
+                      <AlertDescription className="text-sm text-yellow-700">
+                        <div className="font-semibold mb-1">Developer Access Course</div>
+                        You have access to this course because your email is listed in the allowedEmails. 
+                        Current course status: <span className="font-mono font-semibold">{selectedCourse.activeStatus || 'Unknown'}</span>
+                        <br />
+                        <span className="text-xs">This course may not be visible to regular students.</span>
+                      </AlertDescription>
+                    </Alert>
+                  );
+                })()}
+                
                 {coursesError && (
                   <p className="text-sm text-red-500">{coursesError}</p>
                 )}

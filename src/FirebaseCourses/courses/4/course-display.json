@@ -1,0 +1,25 @@
+{
+  "courseId": "4",
+  "title": "COM1255",
+  "fullTitle": "4 - COM1255",
+  "description": "Generated course: COM1255",
+  "grade": "12",
+  "prerequisites": [],
+  "instructors": [],
+  "duration": "1 semester",
+  "theme": {
+    "primaryColor": "blue",
+    "secondaryColor": "indigo"
+  },
+  "displaySettings": {
+    "showProgressBar": true,
+    "showGrades": true,
+    "enableTextToSpeech": true
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "status": "development",
+    "createdDate": "2025-06-06T23:32:59.763Z",
+    "lastModified": "2025-06-06T23:32:59.764Z"
+  }
+}

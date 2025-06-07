@@ -136,7 +136,9 @@
     "deploy:second": "npm run build:second && firebase deploy --only hosting:second-site",
     "clean": "node scripts/build.js --clean-only",
     "prebuild": "node scripts/build.js --clean-only",
-    "create-course": "node scripts/create-course.js"
+    "create-course": "node scripts/create-course.js",
+    "create-course-from-structure": "node scripts/create-course.js",
+    "delete-course": "node scripts/delete-course.js"
   }
 ,
   "browserslist": [

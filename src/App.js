@@ -113,7 +113,7 @@ function MainApp() {
     user && isStaff(user) ?
     <Layout>
       <React.Suspense fallback={<div>Loading...</div>}>
-        {React.createElement(React.lazy(() => import('./FirebaseCourses/StaffCourseWrapper')))}
+        {React.createElement(React.lazy(() => import('./FirebaseCourses/StaffCourseWrapperRefactored')))}
       </React.Suspense>
     </Layout> :
     <Navigate to="/staff-login" />

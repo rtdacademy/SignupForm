@@ -11,7 +11,7 @@ import CollapsibleNavigation from './components/navigation/CollapsibleNavigation
 import ModernSectionEditor from './components/codeEditor/ModernSectionEditor';
 
 // Import course components - same as CourseRouter
-const COM1255Course = lazy(() => import('./courses/COM1255'));
+//const COM1255Course = lazy(() => import('./courses/COM1255'));
 const PHY30Course = lazy(() => import('./courses/PHY30'));
 const Course2 = lazy(() => import('./courses/2'));
 const Course3 = lazy(() => import('./courses/3'));
