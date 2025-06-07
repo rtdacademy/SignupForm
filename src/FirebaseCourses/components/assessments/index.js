@@ -7,9 +7,11 @@
 import MultipleChoiceQuestion from './MultipleChoiceQuestion/index';
 import DynamicQuestion from './DynamicQuestion/index';
 import AIMultipleChoiceQuestion from './AIMultipleChoiceQuestion/index';
+import AILongAnswerQuestion from './AILongAnswerQuestion/index';
 
 export {
   MultipleChoiceQuestion,
   DynamicQuestion,
   AIMultipleChoiceQuestion,
+  AILongAnswerQuestion,
 };

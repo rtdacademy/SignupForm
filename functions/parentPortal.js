@@ -1513,6 +1513,192 @@ const processParentInvitationRequest = onValueCreated({
 });
 
 /**
+ * Cloud Function: resendParentInvitation
+ * Allows a student to resend parent invitation email for a specific course
+ * Includes rate limiting to prevent spam
+ */
+const resendParentInvitation = onCall({
+  memory: '256MiB',
+  timeoutSeconds: 60,
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000", "https://3000-idx-yourway-1744540653512.cluster-76blnmxvvzdpat4inoxk5tmzik.cloudworkstations.dev"]
+}, async (data) => {
+  // Authentication check
+  if (!data.auth) {
+    return {
+      success: false,
+      error: 'User must be authenticated.'
+    };
+  }
+
+  const { courseId } = data.data;
+  const studentEmail = data.auth.token.email;
+  const studentEmailKey = sanitizeEmail(studentEmail);
+
+  if (!courseId) {
+    return {
+      success: false,
+      error: 'Course ID is required'
+    };
+  }
+
+  const db = admin.database();
+  
+  try {
+    // Get student's course data to verify they're enrolled
+    const studentCourseRef = db.ref(`students/${studentEmailKey}/courses/${courseId}`);
+    const studentCourseSnapshot = await studentCourseRef.once('value');
+    
+    if (!studentCourseSnapshot.exists()) {
+      return {
+        success: false,
+        error: 'You are not enrolled in this course'
+      };
+    }
+
+    const courseData = studentCourseSnapshot.val();
+    
+    // Get student profile to check if they're under 18
+    const studentProfileRef = db.ref(`students/${studentEmailKey}/profile`);
+    const studentProfileSnapshot = await studentProfileRef.once('value');
+    
+    if (!studentProfileSnapshot.exists()) {
+      return {
+        success: false,
+        error: 'Student profile not found'
+      };
+    }
+
+    const studentProfile = studentProfileSnapshot.val();
+    const isUnder18 = studentProfile.age && studentProfile.age < 18;
+    
+    if (!isUnder18) {
+      return {
+        success: false,
+        error: 'Parent approval is not required for students 18 or older'
+      };
+    }
+
+    // Check if parent approval is already approved
+    if (courseData.parentApproval?.approved) {
+      return {
+        success: false,
+        error: 'Parent approval has already been granted for this course'
+      };
+    }
+
+    // Get course details
+    const courseDetailsRef = db.ref(`courses/${courseId}`);
+    const courseDetailsSnapshot = await courseDetailsRef.once('value');
+    
+    if (!courseDetailsSnapshot.exists()) {
+      return {
+        success: false,
+        error: 'Course not found'
+      };
+    }
+
+    const courseDetails = courseDetailsSnapshot.val();
+
+    // Get parent email from student profile
+    const parentEmail = studentProfile.ParentEmail || studentProfile.parentEmail || studentProfile.emergencyContactEmail;
+    if (!parentEmail) {
+      return {
+        success: false,
+        error: 'No parent email found in your profile. Please contact support to update your parent contact information.'
+      };
+    }
+
+    // Rate limiting: Check for recent invitations
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const allInvitationsRef = db.ref('parentInvitations');
+    const recentInvitationsQuery = allInvitationsRef.orderByChild('createdAt').startAt(oneDayAgo);
+    const recentInvitationsSnapshot = await recentInvitationsQuery.once('value');
+    
+    let recentInvitationFound = false;
+    if (recentInvitationsSnapshot.exists()) {
+      recentInvitationsSnapshot.forEach((inviteSnapshot) => {
+        const invitation = inviteSnapshot.val();
+        if (invitation.studentEmailKey === studentEmailKey && 
+            invitation.courseId === courseId &&
+            invitation.parentEmail?.toLowerCase() === parentEmail.toLowerCase()) {
+          recentInvitationFound = true;
+          return true; // Break the forEach loop
+        }
+      });
+    }
+
+    if (recentInvitationFound) {
+      return {
+        success: false,
+        error: 'An invitation was already sent within the last 24 hours. Please wait before sending another.'
+      };
+    }
+
+    // Check if parent account already exists
+    const parentEmailKey = sanitizeEmail(parentEmail);
+    const parentRef = db.ref(`parents/${parentEmailKey}`);
+    const parentSnapshot = await parentRef.once('value');
+    const parentExists = parentSnapshot.exists();
+
+    // Check if student is already linked to this parent
+    let studentAlreadyLinked = false;
+    if (parentExists) {
+      const linkedStudentRef = db.ref(`parents/${parentEmailKey}/linkedStudents/${studentEmailKey}`);
+      const linkedStudentSnapshot = await linkedStudentRef.once('value');
+      studentAlreadyLinked = linkedStudentSnapshot.exists();
+    }
+
+    // Determine the scenario for appropriate email template
+    let scenario = 'new_parent';
+    if (parentExists && !studentAlreadyLinked) {
+      scenario = 'existing_parent_new_student';
+    } else if (parentExists && studentAlreadyLinked) {
+      scenario = 'existing_student_new_course';
+    }
+
+    // Create the invitation record
+    const invitationToken = db.ref('parentInvitations').push().key;
+    const expirationDays = scenario === 'new_parent' ? 2 : scenario === 'existing_parent_new_student' ? 7 : 30;
+    
+    await db.ref(`parentInvitations/${invitationToken}`).set({
+      parentEmail: parentEmail,
+      parentName: studentProfile.parentName || 'Parent/Guardian',
+      studentEmail: studentEmail,
+      studentEmailKey: studentEmailKey,
+      studentName: `${studentProfile.firstName || ''} ${studentProfile.lastName || ''}`.trim() || 'Student',
+      relationship: 'Parent',
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'pending',
+      courseId: courseId,
+      courseName: courseDetails.Title || `Course ${courseId}`,
+      processedFromRequest: false,
+      scenario: scenario,
+      resentBy: studentEmail,
+      resentAt: new Date().toISOString()
+    });
+
+    // The email will be automatically sent by the sendParentInvitationOnCreate trigger
+
+    console.log(`Parent invitation resent successfully for course ${courseId} by student ${studentEmail}`);
+    
+    return {
+      success: true,
+      message: 'Parent invitation email has been sent successfully',
+      parentEmail: parentEmail,
+      scenario: scenario
+    };
+
+  } catch (error) {
+    console.error('Error resending parent invitation:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to resend parent invitation'
+    };
+  }
+});
+
+/**
  * Cloud Function: getParentDashboardData
  * Fetches all linked students' data that the parent has permission to view
  */
@@ -1859,5 +2045,6 @@ module.exports = {
   processParentInvitationRequest,
   acceptParentInvitation,
   approveStudentEnrollment,
+  resendParentInvitation,
   getParentDashboardData
 };

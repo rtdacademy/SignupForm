@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, forwardRef } from 'react';
 import { getDatabase, ref, get, set } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -53,7 +54,7 @@ import { Label } from '../components/ui/label';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Button } from "../components/ui/button";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { ChevronDown, ChevronRight, AlertTriangle, InfoIcon, CalendarIcon, Clock, CalendarClock } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle, InfoIcon, CalendarIcon, Clock, CalendarClock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import CustomBlockoutDates from './CustomBlockoutDates';
 
@@ -304,6 +305,7 @@ const YourWayScheduleMaker = ({
   //defaultStartDate = null,
   defaultEndDate = null,
   onScheduleSaved = () => {},
+  disableDirectSave = false, // New prop to disable direct saving when used within YourWayScheduleCreator
 }) => {
   const { user, user_email_key, authLoading } = useAuth();
 
@@ -343,6 +345,7 @@ const YourWayScheduleMaker = ({
   const [currentCalendarDate, setCurrentCalendarDate] = useState(startDate || new Date());
 
   const [scheduleCreated, setScheduleCreated] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const [showMoreEvents, setShowMoreEvents] = useState(null);
   const [showMoreDate, setShowMoreDate] = useState(null);
@@ -982,32 +985,51 @@ const YourWayScheduleMaker = ({
   };
 
   const handleSaveSchedule = async () => {
-    if (!scheduleData || !course?.CourseID || !user_email_key) {
+    if (!scheduleData) {
+      toast.error("Cannot save schedule. Missing schedule data.");
+      return;
+    }
+
+    // If disableDirectSave is true, just pass the schedule data to onScheduleSaved
+    // This prevents double saving when used within YourWayScheduleCreator
+    if (disableDirectSave) {
+      onScheduleSaved(scheduleData);
+      return;
+    }
+
+    // Direct save path (when used standalone)
+    if (!course?.CourseID || !user_email_key) {
       toast.error("Cannot save schedule. Missing required data.");
       return;
     }
   
-    const db = getDatabase();
-    const encodedEmail = encodeEmailForPath(user_email_key);
-    
-    if (!encodedEmail) {
-      toast.error("Invalid user email");
-      return;
-    }
-  
-    const basePath = `students/${encodedEmail}/courses/${course.CourseID}`;
-  
     try {
-      await Promise.all([
-        set(ref(db, `${basePath}/ScheduleStartDate`), scheduleData.startDate),
-        set(ref(db, `${basePath}/ScheduleEndDate`), scheduleData.endDate),
-      ]);
-  
-     // toast.success("Schedule saved successfully!");
-      onScheduleSaved(scheduleData);
+      setSaving(true);
+      const functions = getFunctions();
+      const saveSchedule = httpsCallable(functions, 'saveStudentSchedule');
+      
+      const result = await saveSchedule({
+        scheduleData,
+        courseId: course.CourseID,
+        isScheduleUpdate: false,
+        note: {
+          content: `📅 Schedule created via YourWay Schedule Builder.\nStart Date: ${format(new Date(scheduleData.startDate), 'MMM dd, yyyy')}\nEnd Date: ${format(new Date(scheduleData.endDate), 'MMM dd, yyyy')}`,
+          author: user?.displayName || user?.email || 'Student',
+          noteType: '📅'
+        }
+      });
+      
+      if (result.data.success) {
+        toast.success("Schedule saved successfully!");
+        onScheduleSaved(result.data.scheduleData);
+      } else {
+        toast.error(result.data.message || "Failed to save schedule");
+      }
     } catch (error) {
       console.error("Error saving schedule:", error);
-      toast.error("Failed to save schedule. Please try again.");
+      toast.error(error.message || "Failed to save schedule. Please try again.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1511,9 +1533,17 @@ const YourWayScheduleMaker = ({
               {course && (
                 <Button 
                   onClick={handleSaveSchedule}
+                  disabled={saving}
                   className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
                 >
-                  Save Schedule
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    disableDirectSave ? 'Use This Schedule' : 'Save Schedule'
+                  )}
                 </Button>
               )}
             </CardHeader>
@@ -1633,9 +1663,17 @@ const YourWayScheduleMaker = ({
               </Button>
               <Button 
                 onClick={handleSaveSchedule}
+                disabled={saving}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
               >
-                Save Schedule
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  disableDirectSave ? 'Use This Schedule' : 'Save Schedule'
+                )}
               </Button>
             </div>
           )}

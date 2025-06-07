@@ -9,7 +9,7 @@ import CellPhonePolicyExamProctoringProcedures from './08-cell-phone-policy-exam
 import AcademicIntegrityViolationConsequences from './09-academic-integrity-violation-consequences';
 import ExamsRewritesStudentSupportResources from './10-exams-rewrites-student-support';
 
-const contentComponents = {
+const contentRegistry = {
   '01-welcome-rtd-academy': WelcometoRTDAcademy,
   '02-learning-plans-completion-policies': LearningPlansCourseCompletionDiplomaExamPolicies,
   '03-time-management-staying-active': TimeManagementStayingActiveinYourCourse,
@@ -22,12 +22,4 @@ const contentComponents = {
   '10-exams-rewrites-student-support': ExamsRewritesStudentSupportResources,
 };
 
-export const generateCourseContent = (contentPath, props) => {
-  const Component = contentComponents[contentPath];
-  if (!Component) {
-    return <div>Content not found for path: {contentPath}</div>;
-  }
-  return <Component {...props} />;
-};
-
-export default contentComponents;
+export default contentRegistry;

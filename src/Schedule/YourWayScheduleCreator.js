@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import YourWayScheduleMaker from './YourWayScheduleMaker';
 import { getDatabase, ref, set, get } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
@@ -29,11 +30,6 @@ const YourWayScheduleCreator = ({
     }
   
     const courseId = course.CourseID;
-    const db = getDatabase();
-    const basePath = `students/${current_user_email_key}/courses/${courseId}`;
-    const scheduleRef = ref(db, `${basePath}/ScheduleJSON`);
-    const notesRef = ref(db, `${basePath}/jsonStudentNotes`);
-    const diplomaChoicesRef = ref(db, `${basePath}/DiplomaMonthChoices`);
   
     const userName = currentUser.displayName || currentUser.email || 'Unknown User';
     const timestamp = new Date().toISOString();
@@ -49,80 +45,39 @@ const YourWayScheduleCreator = ({
   
     try {
       setSaving(true);
-  
-      let completeSchedule;
       
-      if (isScheduleUpdate) {
-        // For schedule updates, preserve the existing remainingSchedules value
-        const existingScheduleSnapshot = await get(scheduleRef);
-        const existingRemainingSchedules = existingScheduleSnapshot.exists() 
-          ? existingScheduleSnapshot.val().remainingSchedules 
-          : 2;
-
-        completeSchedule = {
-          ...schedule,
-          remainingSchedules: existingRemainingSchedules,
-          updatedViaValidation: true, 
-          updatedBy: currentUser.email
-        };
+      // Show loading toast
+      const loadingToast = toast.loading(`Saving your schedule...`);
+      
+      const functions = getFunctions();
+      const saveSchedule = httpsCallable(functions, 'saveStudentSchedule');
+      
+      const result = await saveSchedule({
+        scheduleData: schedule,
+        courseId: courseId,
+        isScheduleUpdate: isScheduleUpdate,
+        note: newNote
+      });
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+      
+      if (result.data.success) {
+        toast.success(`Your schedule has been ${isScheduleUpdate ? 'updated' : 'saved'} successfully!`);
+        if (onScheduleSaved) {
+          onScheduleSaved(result.data.scheduleData);
+        }
       } else {
-        // Original logic for new schedules
-        const existingScheduleSnapshot = await get(scheduleRef);
-        let currentRemainingSchedules = 2;
-        
-        if (existingScheduleSnapshot.exists()) {
-          const existingSchedule = existingScheduleSnapshot.val();
-          currentRemainingSchedules = existingSchedule.remainingSchedules !== undefined 
-            ? existingSchedule.remainingSchedules
-            : 2;
-        }
-        
-        if (currentRemainingSchedules <= 0) {
-          toast.error("You have no remaining schedules left to save.");
-          setSaving(false);
-          return;
-        }
-        
-        completeSchedule = {
-          ...schedule,
-          remainingSchedules: currentRemainingSchedules - 1,
-          createdViaEmulation: isEmulating,
-          createdBy: currentUser.email
-        };
-      }
-  
-      const existingNotesSnapshot = await get(notesRef);
-      const existingNotes = existingNotesSnapshot.exists() ? existingNotesSnapshot.val() : [];
-      const updatedNotes = [newNote, ...(Array.isArray(existingNotes) ? existingNotes : Object.values(existingNotes))];
-  
-      const updates = [
-        set(scheduleRef, completeSchedule),
-        set(notesRef, updatedNotes)
-      ];
-  
-      if (schedule.diplomaMonth) {
-        const diplomaValue = schedule.diplomaMonth.alreadyWrote 
-          ? "Already Wrote" 
-          : schedule.diplomaMonth.month;
-        
-        updates.push(
-          set(diplomaChoicesRef, {
-            Id: 1,
-            Value: diplomaValue
-          })
-        );
-      }
-  
-      await Promise.all(updates);
-  
-      toast.success(`Your schedule has been ${isScheduleUpdate ? 'updated' : 'saved'} successfully!`);
-      if (onScheduleSaved) {
-        onScheduleSaved(completeSchedule);
+        toast.error(result.data.message || `Failed to ${isScheduleUpdate ? 'update' : 'save'} schedule`);
       }
   
     } catch (error) {
       console.error('Error saving schedule:', error);
-      toast.error(`Failed to ${isScheduleUpdate ? 'update' : 'save'} schedule. Please try again.`);
+      if (error.message.includes('No remaining schedules')) {
+        toast.error("You have no remaining schedules left to save.");
+      } else {
+        toast.error(error.message || `Failed to ${isScheduleUpdate ? 'update' : 'save'} schedule. Please try again.`);
+      }
     } finally {
       setSaving(false);
     }
@@ -143,6 +98,7 @@ const YourWayScheduleCreator = ({
             defaultStartDate={defaultStartDate}
             defaultEndDate={defaultEndDate}
             onScheduleSaved={handleScheduleSaved}
+            disableDirectSave={true}
           />
         </div>
       </div>

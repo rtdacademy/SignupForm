@@ -126,7 +126,7 @@ export const useStudentData = (userEmailKey) => {
       
       if (snapshot.exists()) {
         const notificationsData = snapshot.val();
-        console.log(`Fetched ${Object.keys(notificationsData).length} active notifications`);
+        // console.log(`Fetched ${Object.keys(notificationsData).length} active notifications`);
         
         // Convert to array with IDs, explicitly handling important config properties
         const notifications = Object.entries(notificationsData).map(([id, data]) => {
@@ -141,7 +141,7 @@ export const useStudentData = (userEmailKey) => {
         
         return notifications;
       }
-      console.log('No active notifications found');
+      // console.log('No active notifications found');
       return [];
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -481,7 +481,7 @@ export const useStudentData = (userEmailKey) => {
       const datesRef = ref(db, 'ImportantDates');
       const snapshot = await get(datesRef);
       
-      console.log('Fetching ImportantDates directly:', snapshot.exists(), snapshot.val());
+      // console.log('Fetching ImportantDates directly:', snapshot.exists(), snapshot.val());
       
       if (snapshot.exists()) {
         return snapshot.val();
@@ -500,7 +500,7 @@ export const useStudentData = (userEmailKey) => {
     let datesReceived = false;
     let notificationsReceived = false;
     
-    console.log('useStudentData effect running, userEmailKey:', userEmailKey);
+    // console.log('useStudentData effect running, userEmailKey:', userEmailKey);
     
     // Always fetch important dates and notifications, regardless of userEmailKey
     const fetchInitialData = async () => {
@@ -511,8 +511,8 @@ export const useStudentData = (userEmailKey) => {
         ]);
         
         if (isMounted) {
-          console.log('Fetched ImportantDates:', dates);
-          console.log('Fetched Notifications:', notifications.length);
+          // console.log('Fetched ImportantDates:', dates);
+          // console.log('Fetched Notifications:', notifications.length);
           
           setStudentData(prev => ({
             ...prev,
@@ -557,13 +557,13 @@ export const useStudentData = (userEmailKey) => {
     let unsubscribe = null;
 
     const checkLoadingComplete = () => {
-      console.log('checkLoadingComplete:', { 
-        profileReceived, 
-        coursesReceived, 
-        datesReceived, 
-        notificationsReceived,
-        isMounted 
-      });
+      // console.log('checkLoadingComplete:', { 
+      //   profileReceived, 
+      //   coursesReceived, 
+      //   datesReceived, 
+      //   notificationsReceived,
+      //   isMounted 
+      // });
       
       if (profileReceived && coursesReceived && datesReceived && notificationsReceived && isMounted) {
         setStudentData(prev => {
@@ -620,7 +620,7 @@ export const useStudentData = (userEmailKey) => {
         if (!isMounted) return;
         
         profileReceived = true;
-        console.log('Profile received:', profileSnapshot.val());
+        // console.log('Profile received:', profileSnapshot.val());
         
         setStudentData(prev => ({
           ...prev,
@@ -635,11 +635,24 @@ export const useStudentData = (userEmailKey) => {
       const coursesUnsubscribe = onValue(coursesRef, async (coursesSnapshot) => {
         if (!isMounted) return;
 
-        console.log('Courses received:', coursesSnapshot.exists());
+        // console.log('Courses received:', coursesSnapshot.exists());
 
         if (coursesSnapshot.exists()) {
           const coursesData = coursesSnapshot.val();
-          const processedCourses = await processCourses(coursesData);
+          
+          // Remove jsonStudentNotes from each course before processing
+          // since students no longer have read access to this field
+          const sanitizedCoursesData = Object.fromEntries(
+            Object.entries(coursesData).map(([courseId, courseData]) => {
+              if (courseData && typeof courseData === 'object') {
+                const { jsonStudentNotes, ...sanitizedCourseData } = courseData;
+                return [courseId, sanitizedCourseData];
+              }
+              return [courseId, courseData];
+            })
+          );
+          
+          const processedCourses = await processCourses(sanitizedCoursesData);
           
           if (!isMounted) return;
 
@@ -678,7 +691,7 @@ export const useStudentData = (userEmailKey) => {
         if (!isMounted) return;
         
         datesReceived = true;
-        console.log('ImportantDates received via listener:', datesSnapshot.exists(), datesSnapshot.val());
+        // console.log('ImportantDates received via listener:', datesSnapshot.exists(), datesSnapshot.val());
         
         setStudentData(prev => ({
           ...prev,
@@ -692,7 +705,7 @@ export const useStudentData = (userEmailKey) => {
       const notificationsUnsubscribe = onValue(activeNotificationsQuery, async (notificationsSnapshot) => {
         if (!isMounted) return;
         
-        console.log('Active notifications received via listener:', notificationsSnapshot.exists());
+        // console.log('Active notifications received via listener:', notificationsSnapshot.exists());
         
         if (notificationsSnapshot.exists()) {
           const notificationsData = notificationsSnapshot.val();
@@ -701,7 +714,7 @@ export const useStudentData = (userEmailKey) => {
             ...data
           }));
           
-          console.log(`Received ${notificationsArray.length} active notifications`);
+          // console.log(`Received ${notificationsArray.length} active notifications`);
           
           setStudentData(prev => {
             // Need to re-process notifications if they changed
@@ -839,13 +852,23 @@ export const useStudentData = (userEmailKey) => {
         .filter(n => n.shouldDisplay).length;
     }, 0) || 0;
     
-    console.log('📋 NOTIFICATION SUMMARY:', {
-      totalActive: studentData.allNotifications?.length || 0,
-      visibleNotifications,
-      coursesWithNotifications: studentData.courses?.filter(c => 
-        c.notificationIds && Object.keys(c.notificationIds).length > 0
-      ).length || 0
-    });
+    // console.log('📋 NOTIFICATION SUMMARY:', {
+    //   totalActive: studentData.allNotifications?.length || 0,
+    //   visibleNotifications,
+    //   coursesWithNotifications: studentData.courses?.filter(c => 
+    //     c.notificationIds && Object.keys(c.notificationIds).length > 0
+    //   ).length || 0
+    // });
+
+    // Development-only raw data logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 RAW STUDENT DATA:', {
+        courses: studentData.courses,
+        profile: studentData.profile,
+        importantDates: studentData.importantDates,
+        allNotifications: studentData.allNotifications
+      });
+    }
   }
   
 
@@ -1071,7 +1094,7 @@ export const useStudentData = (userEmailKey) => {
 
   // Add a function to force refresh data
   const forceRefresh = async () => {
-    console.log("Force refresh requested!");
+    // console.log("Force refresh requested!");
     
     try {
       // Re-fetch notifications
@@ -1094,7 +1117,7 @@ export const useStudentData = (userEmailKey) => {
         courses: updatedCourses
       }));
       
-      console.log("Force refresh completed with", notifications.length, "notifications");
+      // console.log("Force refresh completed with", notifications.length, "notifications");
       return true;
     } catch (error) {
       console.error("Error during force refresh:", error);
@@ -1105,7 +1128,7 @@ export const useStudentData = (userEmailKey) => {
   // Listen for refresh events
   useEffect(() => {
     const handleRefreshEvent = () => {
-      console.log("Notification refresh event received");
+      // console.log("Notification refresh event received");
       forceRefresh();
     };
     

@@ -202,17 +202,17 @@ const Dashboard = () => {
     if (profile && !dataLoading) {
       const hasAllRequiredFields = checkRequiredFields(profile);
       
-      console.log('Profile check:', {
-        profile,
-        hasAllRequiredFields,
-        fields: {
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          preferredFirstName: profile.preferredFirstName,
-          StudentPhone: profile.StudentPhone,
-          gender: profile.gender
-        }
-      });
+      // console.log('Profile check:', {
+      //   profile,
+      //   hasAllRequiredFields,
+      //   fields: {
+      //     firstName: profile.firstName,
+      //     lastName: profile.lastName,
+      //     preferredFirstName: profile.preferredFirstName,
+      //     StudentPhone: profile.StudentPhone,
+      //     gender: profile.gender
+      //   }
+      // });
       
       // Only update if the value would actually change
       if (!hasAllRequiredFields !== forceProfileOpen) {

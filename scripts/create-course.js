@@ -309,18 +309,20 @@ async function previewAndConfirm(courseStructurePath, courseId, courseTitle, cre
     console.log('⚡ Cloud Functions:');
     console.log(`   functions/courses-config/${courseId}/course-config.json`);
     
-    let functionsCreated = 0;
+    let functionsWithCode = 0;
     units.forEach(unit => {
       unit.items.forEach(item => {
+        const marker = item.hasCloudFunctions ? '🔧' : '📝';
+        const note = item.hasCloudFunctions ? '' : ' (no assessments needed)';
+        console.log(`   ${marker} functions/courses/${courseId}/${item.contentPath}/assessments.js${note}`);
         if (item.hasCloudFunctions) {
-          functionsCreated++;
-          console.log(`   functions/courses/${courseId}/${item.contentPath}/assessments.js`);
+          functionsWithCode++;
         }
       });
     });
     
-    if (functionsCreated === 0) {
-      console.log('   (No cloud functions - no items have hasCloudFunctions: true)');
+    if (functionsWithCode === 0) {
+      console.log('   (All functions are placeholder - no items need active assessments)');
     }
     
     console.log('');
@@ -469,12 +471,18 @@ export default ${item.title.replace(/[^a-zA-Z0-9]/g, '')};`
 }
 
 /**
- * Generate empty assessment function file
+ * Generate assessment function file (empty template)
  */
 function generateAssessmentFile(courseId, item) {
-  return `// Assessment functions for ${item.title}
+  if (item.hasCloudFunctions) {
+    return `// Assessment functions for ${item.title}
 // TODO: Implement assessment functions for this lesson
 `;
+  } else {
+    return `// Assessment functions for ${item.title}
+// TODO: Implement assessment functions for this lesson (currently no assessments needed)
+`;
+  }
 }
 
 /**
@@ -505,21 +513,159 @@ async function createFromStructure() {
     
     // Create main course index.js
     console.log('📄 Creating main course component...');
-    const mainIndexContent = `import React from 'react';
-import FirebaseCourseWrapper from '../FirebaseCourseWrapperImproved';
-import { generateCourseContent } from './content';
+    const mainIndexContent = `import React, { useState, useEffect } from 'react';
+import { ProgressProvider } from '../../context/CourseProgressContext';
+import { Badge } from '../../../components/ui/badge';
+import contentRegistry from './content';
+import courseDisplay from './course-display.json';
+import courseStructure from './course-structure.json';
 
-const ${componentName} = ({ course, activeItemId, onItemSelect, isStaffView, devMode }) => {
-  return (
-    <FirebaseCourseWrapper
-      course={course}
-      activeItemId={activeItemId}
-      onItemSelect={onItemSelect}
-      isStaffView={isStaffView}
-      devMode={devMode}
-      generateContent={generateCourseContent}
-    />
-  );
+// Type-specific styling
+const typeColors = {
+  lesson: 'bg-blue-100 text-blue-800 border-blue-200',
+  assignment: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  exam: 'bg-purple-100 text-purple-800 border-purple-200',
+  info: 'bg-amber-100 text-amber-800 border-amber-200',
+};
+
+/**
+ * Main Course Component for ${courseId}
+ * 
+ * This component uses a convention-based structure where:
+ * - Content is organized in numbered folders (01-getting-started, etc.)
+ * - Cloud functions follow the pattern: COURSEID_FOLDERNAME_FUNCTIONTYPE
+ * - Configuration is loaded from JSON files
+ */
+const ${componentName} = ({
+  course,
+  activeItemId: externalActiveItemId,
+  onItemSelect,
+  isStaffView = false,
+  devMode = false
+}) => {
+  const [internalActiveItemId, setInternalActiveItemId] = useState(null);
+  const courseId = courseDisplay.courseId;
+  const structure = courseStructure.courseStructure?.units || courseStructure.units || [];
+
+  // Debug logging
+  useEffect(() => {
+    console.log(\`\${courseDisplay.courseId}: Course loaded\`, {
+      config: courseDisplay,
+      structure: courseStructure,
+      contentRegistry: Object.keys(contentRegistry)
+    });
+  }, []);
+
+  // Use external or internal active item ID
+  const activeItemId = externalActiveItemId !== undefined ? externalActiveItemId : internalActiveItemId;
+
+  // Set default active item
+  useEffect(() => {
+    if (!activeItemId && structure && structure.length > 0) {
+      const firstUnit = structure[0];
+      if (firstUnit.items && firstUnit.items.length > 0) {
+        const firstItemId = firstUnit.items[0].itemId;
+        setInternalActiveItemId(firstItemId);
+        if (onItemSelect) {
+          onItemSelect(firstItemId);
+        }
+      }
+    }
+  }, [activeItemId, structure, onItemSelect]);
+
+  // Find active item in structure
+  const activeItem = React.useMemo(() => {
+    if (!activeItemId || !structure) return null;
+
+    for (const unit of structure) {
+      for (const item of unit.items) {
+        if (item.itemId === activeItemId) {
+          return { ...item, unitId: unit.unitId, unitName: unit.name };
+        }
+      }
+    }
+    return null;
+  }, [activeItemId, structure]);
+
+  // Render content based on active item
+  const renderContent = () => {
+    if (!activeItem) {
+      return (
+        <div className="text-center p-10">
+          <h2 className="text-xl font-semibold text-gray-700">
+            Select a {structure[0]?.items[0]?.type || 'lesson'} to begin
+          </h2>
+          <p className="text-gray-500 mt-2">
+            Choose from the navigation menu on the left
+          </p>
+        </div>
+      );
+    }
+
+    // Get content component using the contentPath from structure
+    const contentPath = activeItem.contentPath;
+    const ContentComponent = contentRegistry[contentPath];
+
+    console.log('Loading content:', {
+      contentPath,
+      itemId: activeItem.itemId,
+      type: activeItem.type,
+      hasComponent: !!ContentComponent
+    });
+
+    if (!ContentComponent) {
+      return (
+        <div className="text-center p-10">
+          <h2 className="text-xl font-semibold text-red-600">Content Not Found</h2>
+          <p className="text-gray-500 mt-2">
+            No content component found for path: {contentPath}
+          </p>
+          <p className="text-sm text-gray-400 mt-4">
+            Expected component at: src/FirebaseCourses/courses/${courseId}/content/{contentPath}/index.js
+          </p>
+        </div>
+      );
+    }
+
+    const courseId = course?.CourseID || courseDisplay.courseId;
+
+    return (
+      <ProgressProvider courseId={courseId} itemId={activeItem.itemId}>
+        <div className="max-w-6xl mx-auto">
+          {/* Item header */}
+          <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border">
+            <div className="flex items-center gap-3 mb-2">
+              <Badge className={\`\${typeColors[activeItem.type] || 'bg-gray-100 text-gray-800'} text-sm\`}>
+                {activeItem.type.charAt(0).toUpperCase() + activeItem.type.slice(1)}
+              </Badge>
+              <h1 className="text-2xl font-bold text-gray-900">{activeItem.title}</h1>
+            </div>
+            {activeItem.description && (
+              <p className="text-gray-600">{activeItem.description}</p>
+            )}
+            {activeItem.estimatedTime && (
+              <p className="text-sm text-blue-600 mt-2">
+                Estimated time: {activeItem.estimatedTime} minutes
+              </p>
+            )}
+          </div>
+
+          {/* Content */}
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <ContentComponent 
+              courseId={courseId}
+              itemId={activeItem.itemId}
+              activeItem={activeItem}
+              isStaffView={isStaffView}
+              devMode={devMode}
+            />
+          </div>
+        </div>
+      </ProgressProvider>
+    );
+  };
+
+  return renderContent();
 };
 
 export default ${componentName};`;
@@ -551,15 +697,15 @@ export default ${componentName};`;
         contentImports.push(`import ${componentName} from './${item.contentPath}';`);
         contentExports.push(`  '${item.contentPath}': ${componentName},`);
         
-        // Generate cloud functions if needed
+        // Generate cloud functions directory for all items (for consistency)
+        const functionDir = path.join(functionsPath, item.contentPath);
+        fs.mkdirSync(functionDir, { recursive: true });
+        
+        const assessmentFile = generateAssessmentFile(courseId, item);
+        fs.writeFileSync(path.join(functionDir, 'assessments.js'), assessmentFile);
+        
+        // Add to functions list only if cloud functions are needed
         if (item.hasCloudFunctions) {
-          const functionDir = path.join(functionsPath, item.contentPath);
-          fs.mkdirSync(functionDir, { recursive: true });
-          
-          const assessmentFile = generateAssessmentFile(courseId, item);
-          fs.writeFileSync(path.join(functionDir, 'assessments.js'), assessmentFile);
-          
-          // Add to functions list
           const safePath = item.contentPath.replace(/-/g, '_');
           functionsToGenerate.push({
             path: item.contentPath,
@@ -574,19 +720,11 @@ export default ${componentName};`;
     // Create content index file
     const contentIndexContent = `${contentImports.join('\n')}
 
-const contentComponents = {
+const contentRegistry = {
 ${contentExports.join('\n')}
 };
 
-export const generateCourseContent = (contentPath, props) => {
-  const Component = contentComponents[contentPath];
-  if (!Component) {
-    return <div>Content not found for path: {contentPath}</div>;
-  }
-  return <Component {...props} />;
-};
-
-export default contentComponents;`;
+export default contentRegistry;`;
     
     fs.writeFileSync(path.join(contentDir, 'index.js'), contentIndexContent);
     

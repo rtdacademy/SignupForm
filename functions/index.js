@@ -161,6 +161,7 @@ exports.verifyStudentASN = parentPortalFunctions.verifyStudentASN;
 exports.processParentInvitationRequest = parentPortalFunctions.processParentInvitationRequest;
 exports.acceptParentInvitation = parentPortalFunctions.acceptParentInvitation;
 exports.approveStudentEnrollment = parentPortalFunctions.approveStudentEnrollment;
+exports.resendParentInvitation = parentPortalFunctions.resendParentInvitation;
 exports.getParentDashboardData = parentPortalFunctions.getParentDashboardData;
 
 // Student Properties functions (Parent Portal)
@@ -170,6 +171,18 @@ exports.updateStudentAcademicInfo = studentPropertiesFunctions.updateStudentAcad
 exports.updateGuardianInfo = studentPropertiesFunctions.updateGuardianInfo;
 exports.updateStudentStatus = studentPropertiesFunctions.updateStudentStatus;
 exports.updateStudentDocuments = studentPropertiesFunctions.updateStudentDocuments;
+
+// Student Registration functions
+const studentRegistrationFunctions = require('./submitStudentRegistration');
+exports.submitStudentRegistration = studentRegistrationFunctions.submitStudentRegistration;
+
+// Student Profile functions
+const studentProfileFunctions = require('./updateStudentProfile');
+exports.updateStudentProfile = studentProfileFunctions.updateStudentProfile;
+
+// Student Schedule functions
+const studentScheduleFunctions = require('./saveStudentSchedule');
+exports.saveStudentSchedule = studentScheduleFunctions.saveStudentSchedule;
 
 //==============================================================================
 // Assessment functions for courses
@@ -189,6 +202,10 @@ exports.course2_02_momentum_one_dimension_aiLongAnswer = require('./courses/2/02
 //exports.course3_shared_aiQuestion = require('./courses/3/shared/aiQuestions').course3_shared_aiQuestion;
 exports.course3_01_intro_ethics_financial_decisions_aiQuestion = require('./courses/3/01-intro-ethics-financial-decisions/assessments').course3_01_intro_ethics_financial_decisions_aiQuestion;
 exports.course3_02_economic_environment_money_aiQuestion = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_money_aiQuestion;
+
+// 4 Course Functions (RTD Academy Orientation)
+exports.course4_01_welcome_rtd_academy_aiLongAnswer = require('./courses/4/01-welcome-rtd-academy/assessments').course4_01_welcome_rtd_academy_aiLongAnswer;
+exports.course4_03_time_management_staying_active_aiQuestion = require('./courses/4/03-time-management-staying-active/assessments').course4_03_time_management_staying_active_aiQuestion;
 
 // 100 Course Functions
 exports.course100_02_core_concepts_multipleChoice = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_multipleChoice;

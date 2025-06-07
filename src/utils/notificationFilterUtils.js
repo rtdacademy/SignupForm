@@ -250,18 +250,19 @@ export const evaluateCondition = (condition, student, profile) => {
   const studentAge = calculateAge(effectiveProfile.birthday);
   
   // For debugging - log first course to understand structure
-  if (process.env.NODE_ENV === 'development' && conditionType === 'studentTypes') {
-    console.log('DEBUG COURSE STRUCTURE:', {
-      id: student.id,
-      studentType: student.StudentType?.Value,
-      studentType_Value: student.StudentType_Value,
-      courseId: student.CourseID,
-      schoolYear: student.School_x0020_Year?.Value,
-      schoolYear_Value: student.School_x0020_Year_Value,
-      diplomaMonth: student.DiplomaMonthChoices?.Value,
-      diplomaMonth_Value: student.DiplomaMonthChoices_Value
-    });
-  }
+  // Commented out to reduce console noise
+  // if (process.env.NODE_ENV === 'development' && conditionType === 'studentTypes') {
+  //   console.log('DEBUG COURSE STRUCTURE:', {
+  //     id: student.id,
+  //     studentType: student.StudentType?.Value,
+  //     studentType_Value: student.StudentType_Value,
+  //     courseId: student.CourseID,
+  //     schoolYear: student.School_x0020_Year?.Value,
+  //     schoolYear_Value: student.School_x0020_Year_Value,
+  //     diplomaMonth: student.DiplomaMonthChoices?.Value,
+  //     diplomaMonth_Value: student.DiplomaMonthChoices_Value
+  //   });
+  // }
 
   switch (conditionType) {
     case 'studentTypes': {
@@ -674,7 +675,7 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
         // If we have a renewal date and the current date has reached it, immediately show
         if (currentDate >= storedNextRenewalDate) {
           // The renewal date has passed, allow the notification to show
-          console.log(`Renewal date ${storedNextRenewalDate.toISOString()} has passed, showing notification`);
+          // console.log(`Renewal date ${storedNextRenewalDate.toISOString()} has passed, showing notification`);
           // Skip the day-of-week calculation and immediately determine this is a match
           return null; // Return null to continue with the rest of the match evaluation
         }
@@ -712,18 +713,19 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
         }
         
         // Debug info for understanding the renewal logic
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`Weekly renewal calculation for ${notification.id}:`, {
-            lastInteractedDate: lastInteractedDate.toISOString(),
-            currentDate: currentDate.toISOString(),
-            targetDayOfWeek: dayOfWeek,
-            targetDayNum,
-            currentDayNum,
-            nextRenewalDate: nextRenewalDate.toISOString(),
-            daysSinceInteraction,
-            shouldRenew: currentDate >= nextRenewalDate
-          });
-        }
+        // Commented out to reduce console noise
+        // if (process.env.NODE_ENV === 'development') {
+        //   console.log(`Weekly renewal calculation for ${notification.id}:`, {
+        //     lastInteractedDate: lastInteractedDate.toISOString(),
+        //     currentDate: currentDate.toISOString(),
+        //     targetDayOfWeek: dayOfWeek,
+        //     targetDayNum,
+        //     currentDayNum,
+        //     nextRenewalDate: nextRenewalDate.toISOString(),
+        //     daysSinceInteraction,
+        //     shouldRenew: currentDate >= nextRenewalDate
+        //   });
+        // }
         
         // The notification should display if the current date is on or after the next renewal date
         const shouldDisplay = currentDate >= nextRenewalDate;
@@ -798,12 +800,13 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
     surveyCompleted = notificationResults?.completed === true;
     
     // Debug logging for survey completion check
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Survey completion check for ${notification.id} in course ${course.id}:`, {
-        courseSpecificCompleted: notificationResults?.completed,
-        surveyCompleted
-      });
-    }
+    // Commented out to reduce console noise
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log(`Survey completion check for ${notification.id} in course ${course.id}:`, {
+    //     courseSpecificCompleted: notificationResults?.completed,
+    //     surveyCompleted
+    //   });
+    // }
   }
   
   // Format conditions for evaluation
@@ -836,21 +839,22 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
   }
   
   // Debug match results
-  if (process.env.NODE_ENV === 'development') {
-    console.log('NOTIFICATION MATCHING RESULTS:', {
-      notificationId: notification.id,
-      notificationTitle: notification.title,
-      courseId: course.id,
-      logic,
-      isMatch,
-      conditionResults: conditionResults.map(r => ({
-        condition: r.condition,
-        match: r.match,
-        expected: r.expected,
-        actual: r.actual
-      }))
-    });
-  }
+  // Commented out to reduce console noise
+  // if (process.env.NODE_ENV === 'development') {
+  //   console.log('NOTIFICATION MATCHING RESULTS:', {
+  //     notificationId: notification.id,
+  //     notificationTitle: notification.title,
+  //     courseId: course.id,
+  //     logic,
+  //     isMatch,
+  //     conditionResults: conditionResults.map(r => ({
+  //       condition: r.condition,
+  //       match: r.match,
+  //       expected: r.expected,
+  //       actual: r.actual
+  //     }))
+  //   });
+  // }
   
   // If not matched, return now
   if (!isMatch) {
@@ -878,15 +882,16 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
       // shouldDisplay still true, it means we should show it despite being completed before
       
       // Add debug info
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`Survey ${notification.id} renewal evaluation:`, {
-          type: notification.type,
-          completed: surveyCompleted,
-          hasRepeatInterval,
-          displayFrequency,
-          shouldDisplay
-        });
-      }
+      // Commented out to reduce console noise
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log(`Survey ${notification.id} renewal evaluation:`, {
+      //     type: notification.type,
+      //     completed: surveyCompleted,
+      //     hasRepeatInterval,
+      //     displayFrequency,
+      //     shouldDisplay
+      //   });
+      // }
     }
   }
   
@@ -931,13 +936,14 @@ export const evaluateNotificationMatch = (notification, course, profile, seenNot
  */
 export const processNotificationsForCourses = (courses, profile, allNotifications, seenNotifications = {}) => {
   // Debug what's being passed in
-  if (process.env.NODE_ENV === 'development') {
-    console.log('PROCESSING NOTIFICATIONS:', {
-      courseCount: courses?.length || 0,
-      hasProfile: !!profile,
-      notificationCount: allNotifications?.length || 0
-    });
-  }
+  // Commented out to reduce console noise
+  // if (process.env.NODE_ENV === 'development') {
+  //   console.log('PROCESSING NOTIFICATIONS:', {
+  //     courseCount: courses?.length || 0,
+  //     hasProfile: !!profile,
+  //     notificationCount: allNotifications?.length || 0
+  //   });
+  // }
 
   if (!courses || !profile || !allNotifications || !Array.isArray(courses) || courses.length === 0) {
     return courses;
@@ -989,15 +995,16 @@ export const processNotificationsForCourses = (courses, profile, allNotification
           processedNotification.repeatInterval = notification.repeatInterval;
           
           // Add debugging in development
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`Preserved repeatInterval for notification ${notification.id}:`, {
-              type: notification.type,
-              repeatInterval: notification.repeatInterval,
-              isObject: typeof notification.repeatInterval === 'object',
-              hasUnit: notification.repeatInterval?.unit,
-              hasValue: notification.repeatInterval?.value
-            });
-          }
+          // Commented out to reduce console noise
+          // if (process.env.NODE_ENV === 'development') {
+          //   console.log(`Preserved repeatInterval for notification ${notification.id}:`, {
+          //     type: notification.type,
+          //     repeatInterval: notification.repeatInterval,
+          //     isObject: typeof notification.repeatInterval === 'object',
+          //     hasUnit: notification.repeatInterval?.unit,
+          //     hasValue: notification.repeatInterval?.value
+          //   });
+          // }
         }
         
         courseWithNotifications.notificationIds[notification.id] = processedNotification;
@@ -1005,28 +1012,29 @@ export const processNotificationsForCourses = (courses, profile, allNotification
     });
     
     // Debug the notifications added to this course
-    if (process.env.NODE_ENV === 'development') {
-      const notificationCount = Object.keys(courseWithNotifications.notificationIds).length;
-      if (notificationCount > 0) {
-        console.log('NOTIFICATIONS ADDED TO COURSE:', {
-          courseId: course.id,
-          notificationCount,
-          notifications: Object.values(courseWithNotifications.notificationIds).map(n => ({
-            id: n.id,
-            title: n.title,
-            type: n.type,
-            hasRepeatInterval: !!n.repeatInterval,
-            repeatInterval: n.repeatInterval,
-            hasRepeatIntervalProperty: n.hasOwnProperty('repeatInterval'),
-            typeDescription: n.type === 'survey' ? 
-              (n.repeatInterval ? 'Repeating Survey' : 'One-time Survey') : 
-              n.type === 'notification' ? 
-                (n.repeatInterval ? 'Repeating Notification' : 'One-time Notification') : 
-                n.type
-          }))
-        });
-      }
-    }
+    // Commented out to reduce console noise
+    // if (process.env.NODE_ENV === 'development') {
+    //   const notificationCount = Object.keys(courseWithNotifications.notificationIds).length;
+    //   if (notificationCount > 0) {
+    //     console.log('NOTIFICATIONS ADDED TO COURSE:', {
+    //       courseId: course.id,
+    //       notificationCount,
+    //       notifications: Object.values(courseWithNotifications.notificationIds).map(n => ({
+    //         id: n.id,
+    //         title: n.title,
+    //         type: n.type,
+    //         hasRepeatInterval: !!n.repeatInterval,
+    //         repeatInterval: n.repeatInterval,
+    //         hasRepeatIntervalProperty: n.hasOwnProperty('repeatInterval'),
+    //         typeDescription: n.type === 'survey' ? 
+    //           (n.repeatInterval ? 'Repeating Survey' : 'One-time Survey') : 
+    //           n.type === 'notification' ? 
+    //             (n.repeatInterval ? 'Repeating Notification' : 'One-time Notification') : 
+    //             n.type
+    //       }))
+    //     });
+    //   }
+    // }
     
     return courseWithNotifications;
   });

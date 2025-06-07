@@ -947,25 +947,25 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
     const result = [];
     
     // Log the incoming allNotifications prop to verify it's being passed correctly
-    console.log('🔔 RECEIVED ALL NOTIFICATIONS:', allNotifications?.length, allNotifications?.map(n => ({
-      id: n.id,
-      title: n.title,
-      type: n.type
-    })));
+    // console.log('🔔 RECEIVED ALL NOTIFICATIONS:', allNotifications?.length, allNotifications?.map(n => ({
+    //   id: n.id,
+    //   title: n.title,
+    //   type: n.type
+    // })));
     
     // Debug each course's notifications
     if (process.env.NODE_ENV === 'development') {
-      console.log('🔔 NOTIFICATION CENTER SETUP:', {
-        courses: courses?.map(course => ({
-          id: course.id,
-          hasNotifications: !!course.notificationIds,
-          visibleCount: course.notificationIds ? 
-            Object.values(course.notificationIds).filter(n => n.shouldDisplay).length : 0,
-          hasResults: !!course.studentDashboardNotificationsResults,
-          acknowledgedCount: course.studentDashboardNotificationsResults ? 
-            Object.keys(course.studentDashboardNotificationsResults).length : 0
-        }))
-      });
+      // console.log('🔔 NOTIFICATION CENTER SETUP:', {
+      //   courses: courses?.map(course => ({
+      //     id: course.id,
+      //     hasNotifications: !!course.notificationIds,
+      //     visibleCount: course.notificationIds ? 
+      //       Object.values(course.notificationIds).filter(n => n.shouldDisplay).length : 0,
+      //     hasResults: !!course.studentDashboardNotificationsResults,
+      //     acknowledgedCount: course.studentDashboardNotificationsResults ? 
+      //       Object.keys(course.studentDashboardNotificationsResults).length : 0
+      //   }))
+      // });
       
       // Debug the structure of notifications from all courses
       if (courses) {
@@ -1133,24 +1133,24 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
     
     // Log all notifications after processing
     if (process.env.NODE_ENV === 'development') {
-      console.log('🔔 FINAL NOTIFICATIONS TO DISPLAY:', result.map(n => ({
-        id: n.id,
-        uniqueId: n.uniqueId,
-        title: n.title,
-        type: n.type,
-        important: n.important,
-        Important: n.Important,
-        courses: n.courses.map(c => c.id),
-        // Add detailed debugging for repeatInterval
-        hasRepeatInterval: !!n.repeatInterval,
-        repeatInterval: n.repeatInterval,
-        hasOwnRepeatIntervalProperty: n.hasOwnProperty('repeatInterval'),
-        typeDescription: n.type === 'survey' ? 
-          (n.repeatInterval ? 'Repeating Survey' : 'One-time Survey') : 
-          n.type === 'notification' ? 
-            (n.repeatInterval ? 'Repeating Notification' : 'One-time Notification') : 
-            n.type
-      })));
+      // console.log('🔔 FINAL NOTIFICATIONS TO DISPLAY:', result.map(n => ({
+      //   id: n.id,
+      //   uniqueId: n.uniqueId,
+      //   title: n.title,
+      //   type: n.type,
+      //   important: n.important,
+      //   Important: n.Important,
+      //   courses: n.courses.map(c => c.id),
+      //   // Add detailed debugging for repeatInterval
+      //   hasRepeatInterval: !!n.repeatInterval,
+      //   repeatInterval: n.repeatInterval,
+      //   hasOwnRepeatIntervalProperty: n.hasOwnProperty('repeatInterval'),
+      //   typeDescription: n.type === 'survey' ? 
+      //     (n.repeatInterval ? 'Repeating Survey' : 'One-time Survey') : 
+      //     n.type === 'notification' ? 
+      //       (n.repeatInterval ? 'Repeating Notification' : 'One-time Notification') : 
+      //       n.type
+      // })));
     }
     
     return result;
@@ -1208,12 +1208,12 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
     const items = [];
     
     // Debug logging for courses and their notification results
-    console.log('🔄 Processing history items from courses:', courses?.map(course => ({
-      id: course.id,
-      hasResults: !!course.studentDashboardNotificationsResults,
-      resultsCount: course.studentDashboardNotificationsResults ? 
-        Object.keys(course.studentDashboardNotificationsResults).length : 0
-    })));
+    // console.log('🔄 Processing history items from courses:', courses?.map(course => ({
+    //   id: course.id,
+    //   hasResults: !!course.studentDashboardNotificationsResults,
+    //   resultsCount: course.studentDashboardNotificationsResults ? 
+    //     Object.keys(course.studentDashboardNotificationsResults).length : 0
+    // })));
     
     // Process each course's notifications results
     // But now use only the root-level notification data, ignoring individual submissions
@@ -1299,7 +1299,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
     });
     
     // Log the final set of history items
-    console.log('📋 Final history items:', items.length);
+    // console.log('📋 Final history items:', items.length);
     
     // Return just the sorted items
     return { allItems: items, items };
@@ -1392,7 +1392,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
           console.log('Notifications refresh requested - dispatched refresh event');
         }
       };
-      console.log('Notification testing functions added. Use window.testNotifications.mockDate() and window.testNotifications.resetNotification()');
+      // console.log('Notification testing functions added. Use window.testNotifications.mockDate() and window.testNotifications.resetNotification()');
     }
   }, [profile]);
 

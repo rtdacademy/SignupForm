@@ -317,11 +317,12 @@ const SessionTimeoutWarning = () => {
         }
       };
       
-      console.log("%c Session Timeout Debug Tools Available ", "background:#8e44ad; color:white; padding:5px;");
-      console.log("Use these functions to test timeouts:");
-      console.log("- window.SessionTimeoutDebug.simulateInactivity(minutes)");
-      console.log("- window.SessionTimeoutDebug.getStatus()");
-      console.log("- window.SessionTimeoutDebug.resetActivity()");
+      // Debug tools available - commented out to reduce console noise
+      // console.log("%c Session Timeout Debug Tools Available ", "background:#8e44ad; color:white; padding:5px;");
+      // console.log("Use these functions to test timeouts:");
+      // console.log("- window.SessionTimeoutDebug.simulateInactivity(minutes)");
+      // console.log("- window.SessionTimeoutDebug.getStatus()");
+      // console.log("- window.SessionTimeoutDebug.resetActivity()");
     }
     
     return () => {

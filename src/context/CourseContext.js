@@ -28,10 +28,10 @@ export const CourseProvider = ({ children }) => {
     if (user) {
       const emailKey = sanitizeEmail(user.email);
       setUserEmailKey(emailKey);
-      console.log('Core identifiers:', {
-        userEmailKey: emailKey,
-        courseId
-      });
+      // console.log('Core identifiers:', {
+      //   userEmailKey: emailKey,
+      //   courseId
+      // });
     }
   }, [user, courseId]);
 

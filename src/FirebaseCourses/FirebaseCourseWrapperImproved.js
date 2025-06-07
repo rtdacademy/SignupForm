@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FaGraduationCap } from 'react-icons/fa';
-import { BookOpen, ClipboardCheck } from 'lucide-react';
+import { BookOpen, ClipboardCheck, Bug } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
@@ -21,6 +21,21 @@ const FirebaseCourseWrapper = ({
   const [progress, setProgress] = useState({});
   const [navExpanded, setNavExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Check if current user is authorized to see debug info
+  const isDebugAuthorized = useMemo(() => {
+    if (!currentUser?.email || !course?.courseDetails?.allowedEmails) {
+      return false;
+    }
+    
+    const userEmail = currentUser.email.toLowerCase();
+    const allowedEmails = course.courseDetails.allowedEmails;
+    
+    // Check if user email is in the allowed emails array
+    return allowedEmails.some(email => 
+      email.toLowerCase() === userEmail
+    );
+  }, [currentUser, course]);
 
   // Debug logging
   console.log("🔄 FirebaseCourseWrapper rendering with course:", course);
@@ -221,6 +236,21 @@ const FirebaseCourseWrapper = ({
               <FaGraduationCap className="h-4 w-4" />
               <span>Grades</span>
             </button>
+            
+            {/* Debug tab - only show for authorized users */}
+            {isDebugAuthorized && (
+              <button
+                className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm ${
+                  activeTab === 'debug' 
+                    ? 'bg-orange-100 text-orange-800' 
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+                onClick={() => setActiveTab('debug')}
+              >
+                <Bug className="h-4 w-4" />
+                <span>Debug</span>
+              </button>
+            )}
         </div>
       </div>
 
@@ -489,6 +519,121 @@ const FirebaseCourseWrapper = ({
                     </li>
                   ))}
                 </ul>
+              </div>
+            </div>
+          )}
+          
+          {/* Debug tab - only accessible by authorized users */}
+          {activeTab === 'debug' && isDebugAuthorized && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="border-l-4 border-orange-400 bg-orange-50 p-4 mb-6">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <Bug className="h-5 w-5 text-orange-400" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-orange-800">
+                      Debug Information
+                    </h3>
+                    <div className="mt-2 text-sm text-orange-700">
+                      <p>This debug panel is only visible to authorized developers. It shows the raw course object for development purposes.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <h1 className="text-xl font-bold mb-4">Course Debug Information</h1>
+              
+              {/* User Authorization Info */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <h2 className="text-lg font-semibold mb-2">Authorization Status</h2>
+                <div className="space-y-2 text-sm">
+                  <div><strong>Current User Email:</strong> {currentUser?.email || 'Not authenticated'}</div>
+                  <div><strong>Debug Access:</strong> 
+                    <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
+                      isDebugAuthorized 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {isDebugAuthorized ? 'Authorized' : 'Not Authorized'}
+                    </span>
+                  </div>
+                  <div><strong>Allowed Emails:</strong> 
+                    {course?.courseDetails?.allowedEmails ? (
+                      <ul className="ml-4 mt-1">
+                        {course.courseDetails.allowedEmails.map((email, index) => (
+                          <li key={index} className="text-gray-600">• {email}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span className="text-gray-500 ml-2">None configured</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Course Object Display */}
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold mb-2">Raw Course Object</h2>
+                <div className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-auto max-h-96 text-sm font-mono">
+                  <pre className="whitespace-pre-wrap">
+                    {JSON.stringify(course, null, 2)}
+                  </pre>
+                </div>
+              </div>
+              
+              {/* Course Structure Analysis */}
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold mb-2">Course Structure Analysis</h2>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <h3 className="font-medium text-blue-800 mb-2">Available Paths:</h3>
+                      <ul className="space-y-1 text-blue-700">
+                        <li>• course.courseStructure: {course.courseStructure ? '✓' : '✗'}</li>
+                        <li>• course.courseStructure?.structure: {course.courseStructure?.structure ? '✓' : '✗'}</li>
+                        <li>• course.courseStructure?.units: {course.courseStructure?.units ? '✓' : '✗'}</li>
+                        <li>• course.courseDetails: {course.courseDetails ? '✓' : '✗'}</li>
+                        <li>• course.units: {course.units ? '✓' : '✗'}</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-blue-800 mb-2">Resolved Data:</h3>
+                      <ul className="space-y-1 text-blue-700">
+                        <li>• Course Title: {courseTitle || 'Not found'}</li>
+                        <li>• Units Count: {unitsList.length}</li>
+                        <li>• Total Items: {allCourseItems.length}</li>
+                        <li>• Course ID: {course?.CourseID || course?.courseId || 'Not found'}</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Component Props */}
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold mb-2">Component Props</h2>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <h3 className="font-medium mb-2">Wrapper Props:</h3>
+                      <ul className="space-y-1">
+                        <li>• isStaffView: {String(isStaffView)}</li>
+                        <li>• devMode: {String(devMode)}</li>
+                        <li>• activeItemId: {externalActiveItemId || 'null'}</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h3 className="font-medium mb-2">Internal State:</h3>
+                      <ul className="space-y-1">
+                        <li>• activeTab: {activeTab}</li>
+                        <li>• navExpanded: {String(navExpanded)}</li>
+                        <li>• isMobile: {String(isMobile)}</li>
+                        <li>• currentUnitIndex: {currentUnitIndex}</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

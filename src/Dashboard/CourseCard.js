@@ -38,6 +38,7 @@ import PaymentOptionsDialog from './PaymentOptionsDialog';
 import PaymentDetailsDialog from './PaymentDetailsDialog';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import SchedulePurchaseDialog from './SchedulePurchaseDialog';
 import CreateScheduleButton from './CreateScheduleButton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '../components/ui/sheet';
@@ -121,6 +122,8 @@ const CourseCard = ({
   const isOnTranscript = course.PASI?.Value === 'Yes';
 
   const [showEnrollmentProof, setShowEnrollmentProof] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [lastEmailSent, setLastEmailSent] = useState(null);
 
   // Check if current user is a developer for this course
   const isDeveloper = (() => {
@@ -215,11 +218,24 @@ const CourseCard = ({
       return;
     }
 
+    // Allow developers to bypass all restrictions
+    if (isDeveloper) {
+      if (onGoToCourse) {
+        onGoToCourse(course);
+      }
+      return;
+    }
+
     // Handle Firebase Courses and regular courses differently
     if (course.courseDetails?.firebaseCourse) {
-      // For Firebase courses, check payment status but don't require schedule
-      if (status !== 'Active' || computedPaymentStatus === 'unpaid') {
-        toast.error("You cannot access the course until it has been activated and payment completed");
+      // For Firebase courses, only restrict if Archived or Pending
+      if (status === 'Archived' || status === 'Pending') {
+        toast.error("This course is not currently available for access");
+        return;
+      }
+      // Check payment status for Firebase courses
+      if (computedPaymentStatus === 'unpaid') {
+        toast.error("You cannot access the course until payment is completed");
         return;
       }
       if (onGoToCourse) {
@@ -256,6 +272,58 @@ const CourseCard = ({
     if (onGoToCourse) {
       onGoToCourse(course);
     }
+  };
+
+  // Handle resending parent invitation email
+  const handleResendParentEmail = async () => {
+    if (isResendingEmail) return;
+
+    setIsResendingEmail(true);
+    
+    try {
+      const functions = getFunctions();
+      const resendParentInvitation = httpsCallable(functions, 'resendParentInvitation');
+      
+      const result = await resendParentInvitation({
+        courseId: course.CourseID || course.id
+      });
+
+      if (result.data.success) {
+        setLastEmailSent(new Date());
+        toast.success(`Parent invitation email sent to ${result.data.parentEmail}`);
+      } else {
+        // Handle error returned from function
+        toast.error(result.data.error || 'Failed to send parent invitation');
+      }
+    } catch (error) {
+      console.error('Error resending parent email:', error);
+      toast.error(error.message || 'Failed to send parent invitation. Please try again.');
+    } finally {
+      setIsResendingEmail(false);
+    }
+  };
+
+  // Check if resend button should be disabled due to rate limiting
+  const isResendDisabled = () => {
+    if (isResendingEmail) return true;
+    if (!lastEmailSent) return false;
+    
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    return lastEmailSent > oneDayAgo;
+  };
+
+  // Get time remaining before next resend is allowed
+  const getResendTimeRemaining = () => {
+    if (!lastEmailSent) return null;
+    
+    const oneDayFromSent = new Date(lastEmailSent.getTime() + 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const remaining = oneDayFromSent - now;
+    
+    if (remaining <= 0) return null;
+    
+    const hours = Math.ceil(remaining / (1000 * 60 * 60));
+    return hours;
   };
 
   // Update renderPaymentButton to hide payment UI for legacy courses
@@ -413,7 +481,6 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
             <YourWayScheduleCreator
               course={course}
               onScheduleSaved={() => {
-                setRemainingSchedules(prev => Math.max(0, prev - 1));
                 setShowCreateScheduleDialog(false);
               }}
             />
@@ -448,6 +515,27 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
   const renderRegistrationMessage = () => {
     if (status !== 'Registration') return null;
   
+    // Different messaging for Firebase courses
+    if (course.courseDetails?.firebaseCourse) {
+      return (
+        <Alert className="mb-4 bg-green-50 border-green-200">
+          <FaCheckCircle className="h-4 w-4 text-green-500" />
+          <AlertDescription className="text-green-700">
+            <p className="font-medium mb-2">Course Ready to Start!</p>
+            <div className="space-y-2">
+              <p className="text-sm">
+                This online course is ready for immediate access. You can start learning right away using the "Go to Course" button below.
+              </p>
+              <p className="text-xs text-green-600">
+                You can start learning immediately while our registrar completes the enrollment setup in the background.
+              </p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+  
+    // Original messaging for regular courses
     return (
       <Alert className="mb-4 bg-blue-50 border-blue-200">
         <FaEnvelope className="h-4 w-4 text-blue-500" />
@@ -521,7 +609,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
         statusIcon = FaCheckCircle;
       } else if (courseParentApproval.required) {
         approvalStatus = 'pending';
-        statusMessage = 'Parent permission required for this course. An email has been sent to your parent/guardian.';
+        statusMessage = 'Parent permission required for this course.';
         statusColor = 'amber';
         statusIcon = FaClock;
       }
@@ -535,7 +623,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
         statusIcon = FaCheckCircle;
       } else if (profileParentApproval.required && profileParentApproval.status === 'pending') {
         approvalStatus = 'pending';
-        statusMessage = 'Parent permission pending. An email has been sent to your parent/guardian.';
+        statusMessage = 'Parent permission pending.';
         statusColor = 'amber';
         statusIcon = FaClock;
       }
@@ -570,7 +658,38 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
         <Icon className={`h-4 w-4 ${iconColors[statusColor]}`} />
         <AlertDescription>
           <p className="font-medium mb-1">Parent Permission Status</p>
-          <p className="text-sm">{statusMessage}</p>
+          <p className="text-sm mb-2">{statusMessage}</p>
+          
+          {/* Show resend button only for pending status */}
+          {approvalStatus === 'pending' && (
+            <div className="flex items-center gap-2 mt-3">
+              <Button
+                onClick={handleResendParentEmail}
+                disabled={isResendDisabled()}
+                size="sm"
+                variant="outline"
+                className="text-xs"
+              >
+                {isResendingEmail ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <FaEnvelope className="mr-2 h-3 w-3" />
+                    {getResendTimeRemaining() ? `Resend Email (${getResendTimeRemaining()}h)` : 'Resend Email to Parent'}
+                  </>
+                )}
+              </Button>
+              
+              {getResendTimeRemaining() && (
+                <span className="text-xs text-gray-500">
+                  Can resend in {getResendTimeRemaining()} hours
+                </span>
+              )}
+            </div>
+          )}
         </AlertDescription>
       </Alert>
     );
@@ -771,20 +890,36 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
                     w-full shadow-lg transition-all duration-200 inline-flex items-center justify-center gap-2
                     ${course.isRequiredCourse
                       ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
-                      : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
-                        ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
-                        : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                      : isDeveloper
+                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                        : course.courseDetails?.firebaseCourse
+                          ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
+                            ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                            : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
+                          : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                            ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                            : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
                     }
                   `}
-                  disabled={!course.isRequiredCourse && ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')}
+                  disabled={!course.isRequiredCourse && !isDeveloper && (
+                    course.courseDetails?.firebaseCourse 
+                      ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
+                      : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                  )}
                 >
                   <FaExternalLinkAlt className="h-4 w-4" />
                   <span>
                     {course.isRequiredCourse
                       ? 'Go to Required Course'
-                      : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
-                        ? 'Course Unavailable'
-                        : 'Go to Course'
+                      : isDeveloper
+                        ? 'Go to Course (Developer)'
+                        : course.courseDetails?.firebaseCourse
+                          ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
+                            ? 'Course Unavailable'
+                            : 'Go to Course'
+                          : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
+                            ? 'Course Unavailable'
+                            : 'Go to Course'
                     }
                   </span>
                 </Button>

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { AlertCircle, Loader2 } from 'lucide-react';
 import PhoneInput from 'react-phone-input-2';
 import "react-phone-input-2/lib/style.css";
-import { getDatabase, ref, update } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 
 const GENDER_OPTIONS = [
@@ -21,6 +21,9 @@ const REQUIRED_FIELDS = ['preferredFirstName', 'StudentPhone', 'gender'];
 const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) => {
   const { current_user_email_key } = useAuth();
   const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -34,11 +37,12 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
     parentPhone: '',
     parentEmail: '',
   });
+  const [originalData, setOriginalData] = useState({});
 
   // Initialize form data when profile changes
   useEffect(() => {
     if (profile) {
-      setFormData({
+      const data = {
         firstName: profile.firstName || '',
         lastName: profile.lastName || '',
         preferredFirstName: profile.preferredFirstName || profile.firstName || '',
@@ -50,31 +54,83 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
         parentLastName: profile.ParentLastName || '',
         parentPhone: profile.ParentPhone_x0023_ || '',
         parentEmail: profile.ParentEmail || '',
-      });
+      };
+      setFormData(data);
+      setOriginalData(data);
+      setHasChanges(false);
     }
   }, [profile]);
 
-  const handleChange = async (field, value) => {
-    try {
-      // Update local state
-      setFormData(prev => ({
+  const handleChange = (field, value) => {
+    // Update local state
+    setFormData(prev => {
+      const newData = {
         ...prev,
         [field]: value
-      }));
+      };
+      
+      // Check if there are changes compared to original data
+      const editableFields = ['preferredFirstName', 'StudentPhone', 'gender'];
+      const hasChanges = editableFields.some(field => 
+        newData[field] !== originalData[field]
+      );
+      setHasChanges(hasChanges);
+      
+      return newData;
+    });
+    
+    setError(null);
+    setSuccessMessage(null);
+  };
 
-      // Only update database if not in readOnly mode
-      if (!readOnly) {
-        const db = getDatabase();
-        await update(ref(db), {
-          [`students/${current_user_email_key}/profile/${field}`]: value
-        });
-      }
-
+  const handleSave = async () => {
+    try {
+      setSaving(true);
       setError(null);
+
+      const functions = getFunctions();
+      const updateProfile = httpsCallable(functions, 'updateStudentProfile');
+      
+      // Only include editable fields that have changed
+      const editableFields = ['preferredFirstName', 'StudentPhone', 'gender'];
+      const updates = {};
+      
+      editableFields.forEach(field => {
+        if (formData[field] !== originalData[field]) {
+          updates[field] = formData[field];
+        }
+      });
+      
+      if (Object.keys(updates).length === 0) {
+        setHasChanges(false);
+        return;
+      }
+      
+      const result = await updateProfile({ updates });
+      console.log('Profile update result:', result.data);
+      
+      // Update original data to reflect the saved state
+      setOriginalData({ ...formData });
+      setHasChanges(false);
+      setSuccessMessage('Profile updated successfully!');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+      
     } catch (err) {
-      console.error('Error updating field:', err);
-      setError('Failed to update profile');
+      console.error('Error updating profile:', err);
+      setError(err.message || 'Failed to update profile');
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const handleCancel = () => {
+    // Reset form data to original values
+    setFormData({ ...originalData });
+    setHasChanges(false);
+    setError(null);
+    setSuccessMessage(null);
   };
 
   const renderField = (label, field, type = 'text', readonly = false) => {
@@ -92,7 +148,6 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
         <label className="text-sm font-medium">
           {label}
           {isRequired && <span className="text-red-500 ml-1">*</span>}
-          {!isReadonly && <span className="text-primary ml-1">(Editable)</span>}
         </label>
         
         {isGenderField ? (
@@ -147,7 +202,12 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="w-full max-w-2xl overflow-hidden flex flex-col h-full">
         <SheetHeader className="flex-shrink-0">
-          <SheetTitle>Profile Information</SheetTitle>
+          <SheetTitle className="flex items-center gap-2">
+            Profile Information
+            {!readOnly && hasChanges && (
+              <span className="text-sm text-amber-600 font-normal">• Unsaved changes</span>
+            )}
+          </SheetTitle>
           <SheetDescription>
             {readOnly ? 'View student profile information' : 'Manage your profile information'}
           </SheetDescription>
@@ -158,6 +218,15 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
             <AlertCircle className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-sm text-red-700">
               {error}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {successMessage && (
+          <Alert className="mt-4 flex-shrink-0 bg-green-50 border-green-200">
+            <AlertCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-sm text-green-700">
+              {successMessage}
             </AlertDescription>
           </Alert>
         )}
@@ -197,7 +266,35 @@ const ProfileComponent = ({ isOpen, onOpenChange, profile, readOnly = false }) =
           </div>
         </ScrollArea>
 
-        <SheetFooter className="flex-shrink-0 flex justify-end border-t pt-4">
+        <SheetFooter className="flex-shrink-0 flex justify-between border-t pt-4">
+          <div className="flex gap-2">
+            {!readOnly && hasChanges && (
+              <>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleCancel}
+                  disabled={saving}
+                >
+                  Cancel Changes
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
+              </>
+            )}
+          </div>
           <SheetClose asChild>
             <Button type="button" variant="outline">Close</Button>
           </SheetClose>
