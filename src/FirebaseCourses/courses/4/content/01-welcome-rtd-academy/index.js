@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AIMultipleChoiceQuestion } from '../../../../components/assessments';
 
 const WelcometoRTDAcademy = ({ courseId }) => {
