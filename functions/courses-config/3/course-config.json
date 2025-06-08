@@ -1,112 +1,222 @@
 {
   "courseId": "3",
   "title": "Financial Literacy",
+  "fullTitle": "3 - Financial Literacy",
+  "description": "Comprehensive financial literacy course covering personal finance, accounting fundamentals, and business financial management",
   "credits": 5,
+  "grade": "12",
+  "prerequisites": ["Math 20-1 or Math 20-2"],
+  "instructors": [],
+  "duration": "1 semester",
+  "contentFolder": "content",
+  "functionsFolder": "functions/3",
+  "weights": {
+    "lesson": 15,
+    "assignment": 35,
+    "lab": 0,
+    "exam": 35,
+    "project": 15
+  },
+  "globalSettings": {
+    "allowLateSubmissions": true,
+    "latePenaltyPerDay": 5,
+    "maxLateDays": 7,
+    "showProgressBar": true,
+    "showGrades": true,
+    "enableAIQuestions": true,
+    "enableTextToSpeech": true,
+    "enableCalculator": true,
+    "enableFormulaSheet": false,
+    "enableCollaboration": false,
+    "requireSequentialProgress": false,
+    "passingGrade": 60
+  },
   "activityTypes": {
     "lesson": {
+      "displayName": "Lesson",
       "maxAttempts": 999,
+      "attemptPenalty": 0,
       "pointValue": 5,
+      "theme": "green",
       "showDetailedFeedback": true,
       "enableHints": true,
-      "theme": "green",
-      "attemptPenalty": 0,
+      "allowDifficultySelection": false,
+      "defaultDifficulty": "intermediate",
       "aiSettings": {
         "temperature": 0.7,
-        "topP": 0.9,
-        "topK": 40,
-        "maxTokens": 1000
+        "maxTokens": 1000,
+        "topP": 0.9
+      },
+      "longAnswer": {
+        "totalPoints": 5,
+        "rubricCriteria": 3,
+        "wordLimits": { "min": 50, "max": 200 },
+        "showRubric": true,
+        "showWordCount": true
       }
     },
     "assignment": {
+      "displayName": "Assignment",
       "maxAttempts": 3,
+      "attemptPenalty": 10,
       "pointValue": 10,
+      "theme": "blue",
       "showDetailedFeedback": true,
       "enableHints": true,
-      "theme": "blue",
-      "attemptPenalty": 0.1,
-      "requiredScore": 0.7,
+      "allowDifficultySelection": true,
+      "defaultDifficulty": "intermediate",
+      "freeRegenerationOnDifficultyChange": true,
+      "requiredScore": 70,
       "aiSettings": {
         "temperature": 0.6,
-        "topP": 0.85,
-        "topK": 35,
-        "maxTokens": 1200
+        "maxTokens": 1200,
+        "topP": 0.85
+      },
+      "longAnswer": {
+        "totalPoints": 10,
+        "rubricCriteria": 4,
+        "wordLimits": { "min": 100, "max": 400 },
+        "showRubric": true,
+        "showWordCount": true
       }
     },
     "lab": {
+      "displayName": "Lab",
       "maxAttempts": 3,
+      "attemptPenalty": 0,
       "pointValue": 15,
+      "theme": "purple",
       "showDetailedFeedback": true,
       "enableHints": true,
-      "theme": "purple",
-      "attemptPenalty": 0,
+      "allowDifficultySelection": false,
       "defaultDifficulty": "intermediate",
       "aiSettings": {
         "temperature": 0.6,
-        "topP": 0.85,
-        "topK": 35,
-        "maxTokens": 1200
+        "maxTokens": 1200,
+        "topP": 0.85
+      },
+      "longAnswer": {
+        "totalPoints": 15,
+        "rubricCriteria": 5,
+        "wordLimits": { "min": 100, "max": 500 },
+        "showRubric": true,
+        "showWordCount": true
       }
     },
     "exam": {
+      "displayName": "Exam",
       "maxAttempts": 1,
+      "attemptPenalty": 0,
       "pointValue": 25,
+      "theme": "red",
       "showDetailedFeedback": false,
       "enableHints": false,
-      "theme": "red",
-      "attemptPenalty": 0,
+      "allowDifficultySelection": false,
+      "defaultDifficulty": "advanced",
       "timed": true,
       "defaultTimeLimit": 120,
       "aiSettings": {
         "temperature": 0.5,
-        "topP": 0.8,
-        "topK": 30,
-        "maxTokens": 1000
+        "maxTokens": 1000,
+        "topP": 0.8
+      },
+      "longAnswer": {
+        "totalPoints": 25,
+        "rubricCriteria": 5,
+        "wordLimits": { "min": 200, "max": 600 },
+        "showRubric": false,
+        "showWordCount": true
+      }
+    },
+    "project": {
+      "displayName": "Project",
+      "maxAttempts": 2,
+      "attemptPenalty": 5,
+      "pointValue": 20,
+      "theme": "amber",
+      "showDetailedFeedback": true,
+      "enableHints": true,
+      "allowDifficultySelection": false,
+      "defaultDifficulty": "advanced",
+      "aiSettings": {
+        "temperature": 0.7,
+        "maxTokens": 1500,
+        "topP": 0.9
+      },
+      "longAnswer": {
+        "totalPoints": 20,
+        "rubricCriteria": 6,
+        "wordLimits": { "min": 300, "max": 800 },
+        "showRubric": true,
+        "showWordCount": true
       }
     }
   },
-  "weights": {
-    "lesson": 0.15,
-    "assignment": 0.35,
-    "lab": 0.0,
-    "exam": 0.35,
-    "project": 0.15
-  },
-  "settings": {
-    "allowLateSubmissions": true,
-    "latePenaltyPerDay": 0.05,
-    "maxLateDays": 7,
-    "requireSequentialProgress": false,
-    "enableAIQuestions": true,
-    "enableTextToSpeech": true,
-    "enableCalculator": true,
-    "enableFormulaSheet": false
-  },
-  "grading": {
-    "scale": {
-      "A+": 0.97,
-      "A": 0.93,
-      "A-": 0.90,
-      "B+": 0.87,
-      "B": 0.83,
-      "B-": 0.80,
-      "C+": 0.77,
-      "C": 0.73,
-      "C-": 0.70,
-      "D": 0.60,
-      "F": 0.0
+  "themes": {
+    "lesson": {
+      "primaryColor": "green",
+      "secondaryColor": "emerald",
+      "accent": "#10b981",
+      "background": "#ecfdf5",
+      "border": "#a7f3d0"
     },
-    "passingGrade": 0.60
+    "assignment": {
+      "primaryColor": "blue",
+      "secondaryColor": "sky",
+      "accent": "#3b82f6",
+      "background": "#f0f9ff",
+      "border": "#bfdbfe"
+    },
+    "lab": {
+      "primaryColor": "purple",
+      "secondaryColor": "indigo",
+      "accent": "#8b5cf6",
+      "background": "#f5f3ff",
+      "border": "#ddd6fe"
+    },
+    "exam": {
+      "primaryColor": "red",
+      "secondaryColor": "rose",
+      "accent": "#ef4444",
+      "background": "#fef2f2",
+      "border": "#fecaca"
+    },
+    "project": {
+      "primaryColor": "amber",
+      "secondaryColor": "yellow",
+      "accent": "#f59e0b",
+      "background": "#fffbeb",
+      "border": "#fed7aa"
+    },
+    "default": {
+      "primaryColor": "green",
+      "secondaryColor": "emerald",
+      "accent": "#10b981",
+      "background": "#ecfdf5",
+      "border": "#a7f3d0"
+    },
+    "customCSS": ""
+  },
+  "notifications": {
+    "enableEmailNotifications": true,
+    "enableInAppNotifications": true,
+    "notifyOnGrade": true,
+    "notifyOnFeedback": true,
+    "notifyOnAnnouncement": true
   },
   "metadata": {
     "department": "Business",
     "level": "introductory",
-    "prerequisites": ["Math 20-1 or Math 20-2"],
     "coreCompetencies": [
       "Financial Planning",
       "Economic Analysis",
       "Ethical Decision Making",
       "Accounting Fundamentals",
       "Budget Management"
-    ]
+    ],
+    "createdDate": "2025-01-07T00:00:00.000Z",
+    "lastModified": "2025-01-07T00:00:00.000Z",
+    "version": "1.0.0",
+    "status": "development"
   }
 }

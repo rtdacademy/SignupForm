@@ -24,6 +24,9 @@ const emailFunctions = require('./email');
 const stripeFunctions = require('./stripe');
 const speechFunctions = require('./speech');
 
+// Gradebook functions
+const gradebookFunctions = require('./gradebook');
+
 // Course management
 const categoryFunctions = require('./categories');
 const summaryFunctions = require('./summaries');
@@ -183,6 +186,14 @@ exports.updateStudentProfile = studentProfileFunctions.updateStudentProfile;
 // Student Schedule functions
 const studentScheduleFunctions = require('./saveStudentSchedule');
 exports.saveStudentSchedule = studentScheduleFunctions.saveStudentSchedule;
+
+// Gradebook functions
+exports.updateStudentGradebook = gradebookFunctions.updateStudentGradebook;
+exports.updateStudentGradebookOnChange = gradebookFunctions.updateStudentGradebookOnChange;
+exports.updateStaffGradebook = gradebookFunctions.updateStaffGradebook;
+exports.trackLessonAccess = gradebookFunctions.trackLessonAccess;
+exports.getGradebookSummary = gradebookFunctions.getGradebookSummary;
+exports.recalculateGradebook = gradebookFunctions.recalculateGradebook;
 
 //==============================================================================
 // Assessment functions for courses

@@ -133,11 +133,9 @@
  */
 
 const { onCall } = require('firebase-functions/v2/https');
-const { genkit } = require('genkit/beta');
-const { googleAI } = require('@genkit-ai/googleai');
 const { z } = require('zod');
 const { loadConfig } = require('../utilities/config-loader');
-const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../utilities/database-utils');
+const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef, updateGradebookItem, getCourseConfig } = require('../utilities/database-utils');
 const { storeSubmission, createLongAnswerSubmissionRecord } = require('../utilities/submission-storage');
 const { 
   AILongAnswerQuestionSchema, 
@@ -145,23 +143,19 @@ const {
   LongAnswerFunctionParametersSchema 
 } = require('../schemas/assessment-schemas');
 const { applyPromptModules } = require('../prompt-modules');
+const { initializeAI, getTaskSettings, isAPIKeyAvailable } = require('../../utils/aiModels');
 
-// Environment variables
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-// Log API key status (without exposing the actual key)
-if (!GEMINI_API_KEY) {
-  console.log("GEMINI_API_KEY not found in environment - will be provided via Firebase secrets in function calls");
+// Initialize AI instance if we have an API key
+let ai = null;
+if (isAPIKeyAvailable()) {
+  try {
+    ai = initializeAI('gemini-2.0-flash');
+    console.log("✅ AI initialized successfully for long answer assessments");
+  } catch (error) {
+    console.error("❌ Failed to initialize AI in long answer:", error);
+  }
 } else {
-  console.log("GEMINI_API_KEY is configured (length:", GEMINI_API_KEY.length, "characters)");
-}
-
-// Function to initialize AI with API key
-function initializeAI(apiKey) {
-  return genkit({
-    plugins: [googleAI({ apiKey })],
-    model: googleAI.model('gemini-2.0-flash'),
-  });
+  console.log("GEMINI_API_KEY not found in environment - AI generation will use fallback questions");
 }
 
 /**
@@ -175,7 +169,7 @@ function initializeAI(apiKey) {
 async function generateAILongAnswerQuestion(config, topic, difficulty = 'intermediate', fallbackQuestions = []) {
   try {
     // Check if API key is available
-    if (!GEMINI_API_KEY) {
+    if (!isAPIKeyAvailable()) {
       console.warn("No Gemini API key found. Using fallback question instead.");
       return getFallbackLongAnswerQuestion(difficulty, fallbackQuestions, config);
     }
@@ -223,17 +217,19 @@ async function generateAILongAnswerQuestion(config, topic, difficulty = 'interme
     console.log("Generating AI long answer question with structured output using Genkit");
     
     try {
+      // Get optimized settings for assessment generation
+      const taskSettings = getTaskSettings('assessment');
+      
       // Use Genkit's structured output with our Zod schema
       const generateOptions = {
-        model: googleAI.model('gemini-2.0-flash'),
         prompt: promptText,
         output: { 
           schema: AILongAnswerQuestionSchema
         },
         config: {
-          temperature: config.aiSettings?.temperature || 0.6, // Lower temperature for more consistent questions
-          topP: config.aiSettings?.topP || 0.85,
-          topK: config.aiSettings?.topK || 40
+          temperature: config.aiSettings?.temperature || taskSettings.temperature,
+          topP: config.aiSettings?.topP || taskSettings.topP,
+          topK: config.aiSettings?.topK || taskSettings.topK
         }
       };
       
@@ -338,7 +334,7 @@ function getFallbackLongAnswerQuestion(difficulty = 'intermediate', fallbackQues
  */
 async function evaluateAILongAnswer(question, studentAnswer, sampleAnswer, evaluationGuidance = {}) {
   try {
-    if (!GEMINI_API_KEY) {
+    if (!isAPIKeyAvailable()) {
       console.warn("No Gemini API key found. Using fallback evaluation.");
       return getFallbackEvaluation(question, studentAnswer);
     }
@@ -407,19 +403,17 @@ Be precise with scoring - if a criterion asks for "clear explanation" and the ex
 
     console.log("Evaluating student long answer with AI");
 
+    // Get optimized settings for evaluation (very deterministic)
+    const evaluationSettings = getTaskSettings('evaluation');
+
     // Use Genkit's structured output for evaluation
     const { output } = await ai.generate({
-      model: googleAI.model('gemini-2.0-flash'),
       prompt: evaluationPrompt,
       system: systemInstructions,
       output: { 
         schema: AILongAnswerEvaluationSchema
       },
-      config: {
-        temperature: 0.1, // Very low temperature for consistent, deterministic evaluation
-        topP: 0.8,
-        topK: 40
-      }
+      config: evaluationSettings
     });
 
     if (!output) {
@@ -767,13 +761,77 @@ class AILongAnswerCore {
     // Update the assessment
     await assessmentRef.update(updates);
 
-    // Update the grade
+    // Always update grade record using best score policy
     const gradeRef = getDatabaseRef('studentGrade', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
     
-    // For long answer, we might want to store the percentage or scaled score
-    const gradeValue = evaluation.totalScore; // Or use evaluation.percentage / 10 for a 0-10 scale
+    // Get existing grade to implement "best score" policy
+    const existingGradeSnapshot = await gradeRef.once('value');
+    const existingGrade = existingGradeSnapshot.val();
     
-    await gradeRef.set(gradeValue);
+    // Calculate current attempt score
+    const currentScore = evaluation.totalScore;
+    const maxPossible = evaluation.maxScore;
+    
+    // Determine if we should update the grade record
+    let shouldUpdateGrade = false;
+    let finalScore = currentScore;
+    
+    if (existingGrade === null || existingGrade === undefined) {
+      // First attempt - always save (even if 0)
+      shouldUpdateGrade = true;
+      console.log(`First attempt: saving grade ${currentScore}/${maxPossible}`);
+    } else if (currentScore > existingGrade) {
+      // Better score - save the improvement
+      shouldUpdateGrade = true;
+      finalScore = currentScore;
+      console.log(`Improved score: ${existingGrade} → ${currentScore}`);
+    } else {
+      // Same or worse score - keep existing grade
+      shouldUpdateGrade = false;
+      finalScore = existingGrade;
+      console.log(`Score not improved: keeping existing grade ${existingGrade} (attempted: ${currentScore})`);
+    }
+    
+    // Update grade record if needed
+    if (shouldUpdateGrade) {
+      await gradeRef.set(finalScore);
+
+      // Update gradebook with the new/updated score
+      try {
+        // Get course config for gradebook integration
+        const courseConfig = await getCourseConfig(params.courseId);
+        
+        // Find course structure item for better integration
+        const { findCourseStructureItem } = require('../utilities/database-utils');
+        const courseStructureItem = await findCourseStructureItem(params.courseId, params.assessmentId);
+        
+        // Determine activity type from assessment data or course structure
+        const activityType = assessmentData.activityType || courseStructureItem?.type || 'assignment';
+        
+        // Create item configuration for gradebook
+        const itemConfig = {
+          title: courseStructureItem?.title || params.assessmentId.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim(),
+          type: activityType,
+          unitId: courseStructureItem?.unitId || 'unknown',
+          courseStructureItemId: courseStructureItem?.itemId,
+          pointsValue: assessmentData.maxPoints || evaluation.maxScore,
+          maxScore: assessmentData.maxPoints || evaluation.maxScore,
+          weight: courseStructureItem?.weight || 0,
+          required: courseStructureItem?.required !== false,
+          estimatedTime: courseStructureItem?.estimatedTime || 0
+        };
+
+        // Update gradebook item
+        await updateGradebookItem(params.studentKey, params.courseId, params.assessmentId, finalScore, itemConfig, params.isStaff);
+        
+        console.log(`✅ Gradebook updated for long answer assessment ${params.assessmentId} with score ${finalScore} (Course Structure Item: ${courseStructureItem?.itemId || 'unknown'})`);
+      } catch (gradebookError) {
+        console.warn(`⚠️ Failed to update gradebook for ${params.assessmentId}:`, gradebookError.message);
+        // Don't throw error - gradebook failure shouldn't block assessment completion
+      }
+    } else {
+      console.log(`📊 Grade not updated (no improvement), but gradebook already reflects best score: ${finalScore}`);
+    }
 
     // Clean up secure data if assessment is completed or all attempts exhausted
     const isCompleted = evaluation.percentage >= 70; // Long answer considers 70%+ as completed
