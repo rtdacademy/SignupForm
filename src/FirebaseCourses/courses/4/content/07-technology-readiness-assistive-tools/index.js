@@ -418,7 +418,7 @@ const TechnologyReadinessAssistiveTools = ({ courseId }) => {
                     </div>
                     <div className="bg-white rounded p-3">
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-purple-700">< 100ms</div>
+                        <div className="text-2xl font-bold text-purple-700">&lt; 100ms</div>
                         <div className="text-sm text-gray-600">Latency for Real-time Sessions</div>
                       </div>
                     </div>
