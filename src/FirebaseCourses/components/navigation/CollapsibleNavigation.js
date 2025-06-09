@@ -11,6 +11,7 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
+  Menu,
   TrendingUp,
   TrendingDown
 } from 'lucide-react';
@@ -28,6 +29,13 @@ import {
   TooltipTrigger,
 } from '../../../components/ui/tooltip';
 import { Button } from '../../../components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+} from '../../../components/ui/sheet';
 
 // Type-specific styling
 const typeColors = {
@@ -275,21 +283,24 @@ const CollapsibleNavigation = ({
     );
   }
   
-  return (
-    <div className="w-full flex flex-col border-r border-gray-200 bg-white shadow-sm">
+  // Navigation content component
+  const NavigationContent = () => (
+    <>
       <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-blue-50 to-indigo-50">
         <h2 className="font-semibold text-base text-blue-800 flex items-center gap-1 truncate">
           <BookOpen className="h-4 w-4 flex-shrink-0" />
           <span className="truncate">{courseTitle}</span>
         </h2>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onToggleExpand} 
-          className="ml-1 flex-shrink-0"
-        >
-          {isMobile ? <X className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </Button>
+        {!isMobile && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onToggleExpand} 
+            className="ml-1 flex-shrink-0"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
       </div>
       
       <div className="p-3 bg-white flex items-center justify-between text-sm">
@@ -404,6 +415,40 @@ const CollapsibleNavigation = ({
           </TooltipProvider>
         </div>
       </div>
+    </>
+  );
+
+  // For mobile devices, wrap in a Sheet
+  if (isMobile) {
+    return (
+      <>
+        <Sheet open={expanded} onOpenChange={onToggleExpand}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="fixed bottom-4 right-4 z-50 md:hidden bg-blue-600 hover:bg-blue-700 text-white rounded-full w-14 h-14 shadow-lg"
+            >
+              <Menu className="h-6 w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[85vw] sm:w-[350px] p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>{courseTitle} Navigation</SheetTitle>
+            </SheetHeader>
+            <div className="h-full overflow-y-auto flex flex-col bg-white">
+              <NavigationContent />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </>
+    );
+  }
+
+  // For desktop, return the regular navigation
+  return (
+    <div className="w-full flex flex-col border-r border-gray-200 bg-white shadow-sm">
+      <NavigationContent />
     </div>
   );
 };

@@ -772,7 +772,7 @@ const AIMultipleChoiceQuestion = ({
       const sendChatMessage = httpsCallable(functions, 'sendChatMessage');
       
       // Get the current session ID from localStorage (matching GoogleAIChatApp pattern)
-      const sessionIdentifier = `${courseId}_${assessmentId}`;
+      const sessionIdentifier = `ai-multiple-choice-${courseId}-${assessmentId}-${question.timestamp || Date.now()}`;
       const STORAGE_KEY_SESSION_ID = `google_ai_chat_session_id_${sessionIdentifier}`;
       let currentSessionId = null;
       
@@ -1589,7 +1589,7 @@ You can now:
           <div className="w-full md:w-1/2 h-full">
             {question && (
               <GoogleAIChatApp
-                sessionIdentifier={`${courseId}_${assessmentId}`}
+                sessionIdentifier={`ai-multiple-choice-${courseId}-${assessmentId}-${question.timestamp || Date.now()}`}
                 instructions={null} // Let server-side agent system handle instructions
                 firstMessage={getAIChatFirstMessage()}
                 showYouTube={false}

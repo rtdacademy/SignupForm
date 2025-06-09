@@ -242,6 +242,55 @@ function createLongAnswerSubmissionRecord(params, questionData, evaluation, atte
 }
 
 /**
+ * Creates a comprehensive submission record for Short Answer assessments
+ * @param {Object} params - Parameters from the assessment
+ * @param {Object} questionData - Full question data from database
+ * @param {Object} evaluation - Full AI evaluation result
+ * @param {number} attemptNumber - Current attempt number
+ * @param {number} wordCount - Word count of student answer
+ * @returns {Object} Complete submission record
+ */
+function createShortAnswerSubmissionRecord(params, questionData, evaluation, attemptNumber, wordCount) {
+  const timestamp = Date.now();
+  
+  return {
+    metadata: {
+      studentKey: params.studentKey,
+      courseId: params.courseId,
+      assessmentId: params.assessmentId,
+      attemptNumber: attemptNumber,
+      timestamp: timestamp,
+      assessmentType: 'ai-short-answer',
+      isStaff: params.isStaff || false
+    },
+    question: {
+      questionText: questionData.questionText,
+      expectedAnswer: questionData.expectedAnswer,
+      maxPoints: questionData.maxPoints,
+      wordLimit: questionData.wordLimit,
+      difficulty: questionData.difficulty,
+      topic: questionData.topic,
+      subject: questionData.subject,
+      generatedBy: questionData.generatedBy,
+      activityType: questionData.activityType
+    },
+    submission: {
+      answer: params.answer,
+      wordCount: wordCount,
+      evaluation: evaluation,
+      submissionTime: timestamp
+    },
+    context: {
+      maxAttempts: questionData.maxAttempts,
+      attemptsRemaining: questionData.maxAttempts - attemptNumber,
+      theme: questionData.settings?.theme,
+      showHints: questionData.settings?.showHints,
+      showWordCount: questionData.settings?.showWordCount
+    }
+  };
+}
+
+/**
  * Cloud Function to retrieve submission history for instructors
  * This is meant to be called by admin/instructor interfaces
  * @param {string} courseId - Course identifier
@@ -349,6 +398,11 @@ async function getSubmissionSummary(courseId, assessmentId) {
         if (percentage >= 70) {
           stats.completed = true;
         }
+      } else if (submission.metadata.assessmentType === 'ai-short-answer') {
+        if (submission.submission.evaluation.isCorrect) {
+          stats.completed = true;
+          stats.bestScore = Math.max(stats.bestScore, submission.submission.evaluation.score || 0);
+        }
       }
     });
     
@@ -377,6 +431,7 @@ module.exports = {
   listStudentSubmissions,
   createMultipleChoiceSubmissionRecord,
   createLongAnswerSubmissionRecord,
+  createShortAnswerSubmissionRecord,
   generateSubmissionPath,
   getSubmissionHistory,
   getSubmissionSummary

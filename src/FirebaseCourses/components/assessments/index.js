@@ -8,6 +8,7 @@ import MultipleChoiceQuestion from './MultipleChoiceQuestion/index';
 import DynamicQuestion from './DynamicQuestion/index';
 import AIMultipleChoiceQuestion from './AIMultipleChoiceQuestion/index';
 import AILongAnswerQuestion from './AILongAnswerQuestion/index';
+import AIShortAnswerQuestion from './AIShortAnswerQuestion/index';
 import StandardMultipleChoiceQuestion from './StandardMultipleChoiceQuestion/index';
 
 export {
@@ -15,5 +16,6 @@ export {
   DynamicQuestion,
   AIMultipleChoiceQuestion,
   AILongAnswerQuestion,
+  AIShortAnswerQuestion,
   StandardMultipleChoiceQuestion,
 };

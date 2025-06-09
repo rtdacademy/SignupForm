@@ -741,6 +741,79 @@ const StandardMultipleChoiceQuestion = ({
     }
   };
 
+  // Generate initial AI chat message based on status
+  const getAIChatFirstMessage = () => {
+    if (!question) return "Hello! I'm here to help you with this question.";
+    
+    if (question.status === 'active') {
+      return "Hello! I see you're working on a multiple choice question. I'm here to help guide your thinking. What part of the problem would you like to explore first?";
+    } else if (question.lastSubmission) {
+      const isCorrect = question.lastSubmission.isCorrect;
+      if (isCorrect) {
+        return `Great job! You correctly answered that ${question.lastSubmission.answer?.toUpperCase()} was the right choice. Would you like me to explain why this answer is correct, or explore any related concepts?`;
+      } else {
+        return `I see you selected option ${question.lastSubmission.answer?.toUpperCase()}, but that wasn't quite right. The correct answer was option ${question.lastSubmission.correctOptionId?.toUpperCase()}. Would you like me to explain why, or help you understand where your thinking might have gone off track?`;
+      }
+    }
+    
+    return "Hello! I'm here to help you understand this question better. What would you like to know?";
+  };
+
+  // Generate context object for AI chat (following Genkit best practices)
+  const getAIChatContext = () => {
+    if (!question) return null;
+    
+    // Determine if the student has attempted this question
+    const hasAttempted = !!question.lastSubmission || question.status === 'attempted' || question.status === 'completed';
+    
+    // Create proper Genkit context structure
+    const context = {
+      // Auth context (recommended Genkit pattern)
+      auth: {
+        uid: currentUser?.uid,
+        email: currentUser?.email
+      },
+      // Session info
+      sessionInfo: {
+        courseId: courseId,
+        assessmentId: assessmentId,
+        topic: topic || question.topic
+      },
+      // Question state for agent selection (not question content)
+      questionState: {
+        status: question.status,
+        hasAttempted: hasAttempted,
+        attempts: question.attempts,
+        maxAttempts: question.maxAttempts,
+        difficulty: question.difficulty
+      }
+    };
+    
+    // If the student has submitted an answer, include submission state
+    if (question.lastSubmission) {
+      context.questionState.lastSubmission = {
+        selectedAnswer: question.lastSubmission.answer,
+        isCorrect: question.lastSubmission.isCorrect,
+        feedback: question.lastSubmission.feedback,
+        correctOptionId: question.lastSubmission.correctOptionId,
+        timestamp: question.lastSubmission.timestamp
+      };
+      
+      // Add human-readable information for the agents
+      const studentAnswer = question.options.find(opt => opt.id === question.lastSubmission.answer);
+      const correctAnswer = question.options.find(opt => opt.id === question.lastSubmission.correctOptionId);
+      
+      context.questionState.answerDetails = {
+        studentAnswerText: studentAnswer?.text,
+        correctAnswerText: correctAnswer?.text,
+        studentSelectedOption: question.lastSubmission.answer?.toUpperCase(),
+        correctOption: question.lastSubmission.correctOptionId?.toUpperCase()
+      };
+    }
+    
+    return context;
+  };
+
   // Animations for components
   const animations = {
     container: {
@@ -773,6 +846,7 @@ const StandardMultipleChoiceQuestion = ({
   };
 
   return (
+    <>
     <div className={`rounded-lg overflow-hidden shadow-lg border ${questionClassName}`} style={{
       backgroundColor: themeColors.bgLight,
       borderColor: themeColors.border
@@ -789,6 +863,18 @@ const StandardMultipleChoiceQuestion = ({
               <span className="text-xs py-1 px-2 rounded bg-blue-100 text-blue-800 font-medium">
                 Standard
               </span>
+            )}
+            {question && question.enableAIChat !== false && (
+              <Button
+                onClick={() => setChatSheetOpen(true)}
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-1"
+                title="Chat with AI about this question"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">Chat with AI</span>
+              </Button>
             )}
           </div>
         </div>
@@ -1030,6 +1116,98 @@ const StandardMultipleChoiceQuestion = ({
         </AnimatePresence>
       </div>
     </div>
+
+    {/* AI Chat Sheet */}
+    <Sheet open={chatSheetOpen} onOpenChange={setChatSheetOpen}>
+      <SheetContent className="w-[90vw] max-w-[90vw] sm:w-[90vw] p-0" side="right">
+        {/* Desktop: Side by side, Mobile: Chat only */}
+        <div className="flex h-screen">
+          {/* Left side - Question (hidden on mobile) */}
+          <div className="hidden md:block md:w-1/2 border-r overflow-y-auto p-6 bg-gray-50">
+            <div className="max-w-2xl mx-auto">
+              <h3 className="text-lg font-semibold mb-4">Current Question</h3>
+              <div className="space-y-4">
+                {/* Question Text */}
+                <div className="space-y-3">
+                  <div className="text-base font-medium text-gray-900">
+                    {renderEnhancedText(question?.questionText)}
+                  </div>
+                </div>
+
+                {/* Options */}
+                <div className="space-y-2.5">
+                  {question?.options?.map((option, index) => (
+                    <div
+                      key={option.id}
+                      className={`flex items-center p-3.5 border rounded-md ${
+                        selectedAnswer === option.id
+                          ? 'bg-blue-50 border-blue-200'
+                          : 'bg-white border-gray-200'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        checked={selectedAnswer === option.id}
+                        disabled
+                        className="mr-3 h-4 w-4"
+                      />
+                      <label className="text-gray-700 flex-grow">
+                        {renderEnhancedText(option.text)}
+                      </label>
+
+                      {/* Show the correct/incorrect icon if there's a result */}
+                      {result?.isCorrect && selectedAnswer === option.id && (
+                        <span className="text-green-600 ml-2">✓</span>
+                      )}
+                      {result?.correctOptionId === option.id && !result.isCorrect && (
+                        <span className="text-green-600 ml-2">✓</span>
+                      )}
+                      {!result?.isCorrect && result?.answer === option.id && result?.answer !== result?.correctOptionId && (
+                        <span className="text-red-600 ml-2">✗</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Show result if available */}
+                {result && (
+                  <div className={`p-4 rounded-md shadow-sm ${
+                    result.isCorrect
+                      ? 'bg-green-50 border border-green-100 text-green-800'
+                      : 'bg-red-50 border border-red-100 text-red-800'
+                  }`}>
+                    <p className="font-medium text-base mb-1">
+                      {result.isCorrect ? '✓ Correct!' : '✗ Incorrect'}
+                    </p>
+                    <div className="mb-3 text-sm">
+                      {renderEnhancedText(result.feedback)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Right side - Chat (full width on mobile, half width on desktop) */}
+          <div className="w-full md:w-1/2 h-full">
+            {question && (
+              <GoogleAIChatApp
+                sessionIdentifier={`standard-multiple-choice-${courseId}-${assessmentId}-${question.timestamp || Date.now()}`}
+                instructions={null} // Let server-side agent system handle instructions
+                firstMessage={getAIChatFirstMessage()}
+                showYouTube={false}
+                showUpload={false}
+                allowContentRemoval={false}
+                showResourcesAtTop={false}
+                context={getAIChatContext()}
+                aiChatContext={question.aiChatContext}
+              />
+            )}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 };
 

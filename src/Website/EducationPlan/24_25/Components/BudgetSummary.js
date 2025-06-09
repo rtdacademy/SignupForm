@@ -25,19 +25,29 @@ const BudgetSummary = () => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-semibold mb-2 flex items-center">
               <FileSpreadsheet className="w-4 h-4 mr-2" />
-              Current Budget Document
+              Current Budget Documents
             </h4>
             <p className="text-sm text-gray-700 mb-3">
               Access our detailed budget allocation and financial planning documents:
             </p>
-            <Button 
-              variant="outline" 
-              className="flex items-center"
-              onClick={() => window.open('https://rtdacademy.sharepoint.com/:x:/s/RTDAdministration/EZPieglu71pNkvycYpAgnsEBIJmb9rHKLvNnZkBQXUHQbQ?e=Gm3Iqb', '_blank')}
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              View 2024-25 Budget Document
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <Button 
+                variant="outline" 
+                className="flex items-center"
+                onClick={() => window.open('https://rtdacademy.sharepoint.com/:x:/s/RTDAdministration/EZPieglu71pNkvycYpAgnsEBIJmb9rHKLvNnZkBQXUHQbQ?e=Gm3Iqb', '_blank')}
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                View 2024-25 Budget Document
+              </Button>
+              <Button 
+                variant="outline" 
+                className="flex items-center"
+                onClick={() => window.open('https://rtdacademy.sharepoint.com/:b:/s/RTDAdministration/EW9cdXYZV-xDgA3zCd3UVlQBs1rIGX9sE3g23g85XQFDnQ?e=1XUzDO', '_blank')}
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                View Signed Cover Page
+              </Button>
+            </div>
           </div>
 
           <div>

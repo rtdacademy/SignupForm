@@ -221,6 +221,8 @@ exports.course3_02_economic_environment_question1 = require('./courses/3/02-econ
 exports.course3_02_economic_environment_question2 = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_question2;
 exports.course3_02_economic_environment_question3 = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_question3;
 exports.course3_02_economic_environment_question4 = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_question4;
+exports.course3_02_economic_environment_longAnswer = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_longAnswer;
+exports.course3_02_economic_environment_shortAnswer = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_shortAnswer;
 
 // 4 Course Functions (RTD Academy Orientation)
 exports.course4_01_welcome_rtd_academy_aiLongAnswer = require('./courses/4/01-welcome-rtd-academy/assessments').course4_01_welcome_rtd_academy_aiLongAnswer;

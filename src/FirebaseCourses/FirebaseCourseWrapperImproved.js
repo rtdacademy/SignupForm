@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { FaGraduationCap } from 'react-icons/fa';
-import { BookOpen, ClipboardCheck, Bug } from 'lucide-react';
+import { BookOpen, ClipboardCheck, Bug, ArrowUp, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
@@ -33,6 +33,12 @@ const FirebaseCourseWrapperContent = ({
   const [isQuestionReviewModalOpen, setIsQuestionReviewModalOpen] = useState(false);
   const [selectedCourseItem, setSelectedCourseItem] = useState(null);
   const [isItemDetailModalOpen, setIsItemDetailModalOpen] = useState(false);
+  
+  // Ref for navigation container to detect outside clicks
+  const navigationRef = useRef(null);
+  
+  // Flag to temporarily disable scroll-based auto-collapse
+  const [disableScrollCollapse, setDisableScrollCollapse] = useState(false);
   
   // Check if current user is authorized to see debug info
   const isDebugAuthorized = useMemo(() => {
@@ -68,13 +74,68 @@ const FirebaseCourseWrapperContent = ({
     checkMobile();
     window.addEventListener('resize', checkMobile);
     
-    // Start with navigation closed on mobile
-    if (window.innerWidth < 768) {
-      setNavExpanded(false);
-    }
-    
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+  
+  // Handle click outside navigation to collapse it (desktop only)
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Only handle on desktop when navigation is expanded
+      if (!isMobile && navExpanded && navigationRef.current && !navigationRef.current.contains(event.target)) {
+        setNavExpanded(false);
+      }
+    };
+
+    // Add event listener
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMobile, navExpanded]);
+  
+  // Handle scroll-based navigation auto-collapse (desktop only)
+  useEffect(() => {
+    const handleScroll = () => {
+      // Only handle on desktop when navigation is expanded and auto-collapse is not disabled
+      if (!isMobile && navExpanded && navigationRef.current && !disableScrollCollapse) {
+        const navigationRect = navigationRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const headerHeight = 60; // Sticky header height
+        
+        // Calculate how much of the navigation is still visible
+        const visibleNavHeight = Math.max(0, navigationRect.bottom - headerHeight);
+        const navigationFullHeight = navigationRect.height;
+        
+        // If less than 50% of the navigation is visible, collapse it
+        const visibilityThreshold = 0.4; // 60% visibility threshold
+        const visibilityRatio = visibleNavHeight / navigationFullHeight;
+        
+        if (visibilityRatio < visibilityThreshold) {
+          setNavExpanded(false);
+        }
+      }
+    };
+
+    // Add scroll listener with throttling for better performance
+    let ticking = false;
+    const throttledHandleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    // Add scroll listener
+    window.addEventListener('scroll', throttledHandleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', throttledHandleScroll);
+    };
+  }, [isMobile, navExpanded, disableScrollCollapse]);
   
   // Sync with external state if provided
   useEffect(() => {
@@ -89,16 +150,31 @@ const FirebaseCourseWrapperContent = ({
     
     // Scroll to top when selecting a new item
     window.scrollTo(0, 0);
-    
-    // Auto-close navigation on mobile after selection
-    if (isMobile) {
-      setNavExpanded(false);
-    }
 
     if (externalItemSelect) {
       externalItemSelect(itemId);
     }
-  }, [externalItemSelect, isMobile]);
+  }, [externalItemSelect]);
+
+  // Handle scroll to top and expand navigation
+  const handleScrollToTopAndExpand = useCallback(() => {
+    // Temporarily disable scroll-based auto-collapse
+    setDisableScrollCollapse(true);
+    
+    // Expand navigation first
+    setNavExpanded(true);
+    
+    // Scroll to top smoothly
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+    
+    // Re-enable scroll-based auto-collapse after scroll completes
+    setTimeout(() => {
+      setDisableScrollCollapse(false);
+    }, 1000); // Give enough time for smooth scroll to complete
+  }, []);
   
   // Get course data from the course object, either from database or fallback
   const getCourseData = () => {
@@ -275,24 +351,36 @@ const FirebaseCourseWrapperContent = ({
 
       {/* Content area with navigation */}
       <div className="flex relative">
-        {/* Mobile overlay backdrop */}
-        {isMobile && navExpanded && (
+        {/* Collapsible Navigation - responsive width */}
+        {!isMobile && (
           <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-20"
-            onClick={() => setNavExpanded(false)}
-          />
+            ref={navigationRef}
+            className={`
+              ${navExpanded ? 'w-80' : 'w-12'} 
+              flex-shrink-0 transition-all duration-300
+            `}
+          >
+            <CollapsibleNavigation
+              courseTitle={courseTitle}
+              unitsList={unitsList}
+              progress={progress}
+              activeItemId={activeItemId}
+              expanded={navExpanded}
+              onToggleExpand={() => setNavExpanded(!navExpanded)}
+              onItemSelect={(itemId) => {
+                handleItemSelect(itemId);
+                setActiveTab('content');
+              }}
+              currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
+              course={course}
+              isMobile={false}
+              gradebookItems={course?.Gradebook?.items || {}}
+            />
+          </div>
         )}
         
-        {/* Collapsible Navigation - responsive width */}
-        <div className={`
-          ${navExpanded 
-            ? isMobile 
-              ? 'fixed inset-0 z-30 w-full' 
-              : 'w-80' 
-            : 'w-12'
-          } 
-          flex-shrink-0 transition-all duration-300
-        `}>
+        {/* Mobile navigation is now handled by Sheet in CollapsibleNavigation */}
+        {isMobile && (
           <CollapsibleNavigation
             courseTitle={courseTitle}
             unitsList={unitsList}
@@ -303,13 +391,15 @@ const FirebaseCourseWrapperContent = ({
             onItemSelect={(itemId) => {
               handleItemSelect(itemId);
               setActiveTab('content');
+              // Auto-close navigation on mobile after selection
+              setNavExpanded(false);
             }}
             currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
             course={course}
-            isMobile={isMobile}
+            isMobile={true}
             gradebookItems={course?.Gradebook?.items || {}}
           />
-        </div>
+        )}
 
         {/* Main content */}
         <main className="flex-1 p-6">
@@ -578,6 +668,20 @@ const FirebaseCourseWrapperContent = ({
           )}
         </main>
       </div>
+      
+      {/* Floating Navigation Button - only show on desktop when nav is collapsed */}
+      {!isMobile && !navExpanded && (
+        <button
+          onClick={handleScrollToTopAndExpand}
+          className="fixed bottom-4 left-4 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-14 h-14 shadow-lg transition-all duration-300 flex items-center justify-center group"
+          aria-label="Show navigation and scroll to top"
+        >
+          <div className="relative">
+            <Menu className="h-6 w-6 transition-transform group-hover:scale-110" />
+            <ArrowUp className="h-3 w-3 absolute -top-1 -right-1 bg-blue-600 rounded-full" />
+          </div>
+        </button>
+      )}
       
       {/* Course Item Detail Modal */}
       <CourseItemDetailModal
