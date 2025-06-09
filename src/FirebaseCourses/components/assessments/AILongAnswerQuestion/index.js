@@ -294,7 +294,7 @@ const RubricDisplay = ({ rubric, showScores = false, rubricScores = [] }) => {
           >
             <CardContent>
               <div className="space-y-3">
-                {rubric.map((criterion, index) => {
+                {rubric && rubric.map((criterion, index) => {
                   const score = getScoreForCriterion(criterion.criterion);
                   const hasScore = showScores && score;
                   
@@ -614,7 +614,7 @@ const AILongAnswerQuestion = ({
       const functions = getFunctions();
       const sendChatMessage = httpsCallable(functions, 'sendChatMessage');
       
-      const sessionIdentifier = `${courseId}_${assessmentId}`;
+      const sessionIdentifier = `ai-long-answer-${courseId}-${assessmentId}-${question.timestamp || Date.now()}`;
       const STORAGE_KEY_SESSION_ID = `google_ai_chat_session_id_${sessionIdentifier}`;
       let currentSessionId = null;
       
@@ -625,9 +625,9 @@ const AILongAnswerQuestion = ({
       }
       
       // Create a detailed context update message
-      const rubricDetails = evaluationResult.rubricScores.map(score => 
+      const rubricDetails = evaluationResult.rubricScores ? evaluationResult.rubricScores.map(score => 
         `${score.criterion}: ${score.score}/${score.maxPoints}`
-      ).join(', ');
+      ).join(', ') : 'Score details not available';
       
       const contextUpdateMessage = `I just submitted my long answer response and received a score of ${evaluationResult.totalScore}/${evaluationResult.maxScore} (${evaluationResult.percentage}%). 
 
@@ -766,7 +766,7 @@ The student is working on a long answer question that will be graded according t
 The question asks: "${question.questionText}"
 
 The rubric criteria are:
-${question.rubric.map(r => `- ${r.criterion} (${r.points} points): ${r.description}`).join('\n')}
+${question.rubric ? question.rubric.map(r => `- ${r.criterion} (${r.points} points): ${r.description}`).join('\n') : 'Rubric not yet loaded'}
 
 Guide them to address each criterion in their answer without giving away the content.`;
     } else if (question.lastSubmission) {
@@ -780,7 +780,7 @@ Their submitted answer was:
 (Word count: ${question.lastSubmission.wordCount})
 
 Their detailed rubric scores were:
-${evaluation.rubricScores.map(s => `- ${s.criterion}: ${s.score}/${s.maxPoints} - ${s.feedback}`).join('\n')}
+${evaluation.rubricScores ? evaluation.rubricScores.map(s => `- ${s.criterion}: ${s.score}/${s.maxPoints} - ${s.feedback}`).join('\n') : 'Scores not available'}
 
 Overall feedback: "${evaluation.overallFeedback}"
 
@@ -803,15 +803,19 @@ You can now:
     if (!question) return "Hello! I'm here to help you with this long answer question.";
     
     if (question.status === 'active' && !question.lastSubmission) {
-      return `Hello! I see you're working on a long answer question about ${topic || 'physics'}. This question has ${question.rubric.length} scoring criteria worth ${question.maxPoints} total points. Would you like help organizing your thoughts or understanding what the rubric is looking for?`;
+      return `Hello! I see you're working on a long answer question about ${topic || 'physics'}. This question has ${question.rubric ? question.rubric.length : 'several'} scoring criteria worth ${question.maxPoints} total points. Would you like help organizing your thoughts or understanding what the rubric is looking for?`;
     } else if (question.lastSubmission) {
       const evaluation = question.lastSubmission.evaluation;
-      if (evaluation.percentage >= 80) {
-        return `Great job on your answer! You scored ${evaluation.totalScore}/${evaluation.maxScore} points (${evaluation.percentage}%). Would you like to discuss any specific parts of the rubric or explore the concepts further?`;
-      } else if (evaluation.percentage >= 60) {
-        return `You scored ${evaluation.totalScore}/${evaluation.maxScore} points (${evaluation.percentage}%), which shows good understanding. Let's look at where you can improve. Which rubric criterion would you like to discuss first?`;
+      if (evaluation && evaluation.percentage !== undefined) {
+        if (evaluation.percentage >= 80) {
+          return `Great job on your answer! You scored ${evaluation.totalScore}/${evaluation.maxScore} points (${evaluation.percentage}%). Would you like to discuss any specific parts of the rubric or explore the concepts further?`;
+        } else if (evaluation.percentage >= 60) {
+          return `You scored ${evaluation.totalScore}/${evaluation.maxScore} points (${evaluation.percentage}%), which shows good understanding. Let's look at where you can improve. Which rubric criterion would you like to discuss first?`;
+        } else {
+          return `I see you scored ${evaluation.totalScore}/${evaluation.maxScore} points (${evaluation.percentage}%). Let's work through the feedback together to help you understand the concepts better. What part of the question or rubric would you like to focus on?`;
+        }
       } else {
-        return `I see you scored ${evaluation.totalScore}/${evaluation.maxScore} points (${evaluation.percentage}%). Let's work through the feedback together to help you understand the concepts better. What part of the question or rubric would you like to focus on?`;
+        return `I see you've submitted an answer. Let me help you understand the concepts better while your answer is being evaluated.`;
       }
     }
     
@@ -1208,7 +1212,7 @@ You can now:
           <div className="w-full md:w-1/2 h-full">
             {question && (
               <GoogleAIChatApp
-                sessionIdentifier={`${courseId}_${assessmentId}`}
+                sessionIdentifier={`ai-long-answer-${courseId}-${assessmentId}-${question.timestamp || Date.now()}`}
                 instructions={getAIChatInstructions()}
                 firstMessage={getAIChatFirstMessage()}
                 showYouTube={false}

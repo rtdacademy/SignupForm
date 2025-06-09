@@ -70,7 +70,6 @@
  *   - topK: {number} - Top-K sampling (default: 40)
  * 
  * Content Settings:
- * - katexFormatting: {boolean} - Enable LaTeX math formatting (default: false)
  * - subject: {string} - Subject name for context
  * - gradeLevel: {number} - Grade level for context
  * - topic: {string} - Topic name for context
@@ -103,7 +102,6 @@
  *   activityType: 'lesson',
  *   enableAIChat: true,
  *   aiChatContext: "This question tests momentum conservation. Students often struggle with vector components and collision types.",
- *   katexFormatting: true,
  *   maxAttempts: 5,
  *   pointsValue: 2,
  *   theme: 'purple',
@@ -129,24 +127,23 @@
  */
 
 const { onCall } = require('firebase-functions/v2/https');
-const { genkit } = require('genkit/beta');
-const { googleAI } = require('@genkit-ai/googleai');
 const { z } = require('zod');
 const { loadConfig } = require('../utilities/config-loader');
-const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef } = require('../utilities/database-utils');
+const { extractParameters, initializeCourseIfNeeded, getServerTimestamp, getDatabaseRef, updateGradebookItem, getCourseConfig } = require('../utilities/database-utils');
 const { storeSubmission, createMultipleChoiceSubmissionRecord } = require('../utilities/submission-storage');
 const { AIQuestionSchema } = require('../schemas/assessment-schemas');
 const { applyPromptModules } = require('../prompt-modules');
+const { initializeAI, getTaskSettings, isAPIKeyAvailable } = require('../../utils/aiModels');
 
-// Environment variables
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-// Function to initialize AI with API key
-function initializeAI(apiKey) {
-  return genkit({
-    plugins: [googleAI({ apiKey })],
-    model: googleAI.model('gemini-2.0-flash'),
-  });
+// Initialize AI instance if we have an API key
+let ai = null;
+if (isAPIKeyAvailable()) {
+  try {
+    ai = initializeAI('gemini-2.0-flash');
+    console.log("✅ AI initialized successfully for multiple choice assessments");
+  } catch (error) {
+    console.error("❌ Failed to initialize AI in multiple choice:", error);
+  }
 }
 
 /**
@@ -173,7 +170,7 @@ function shuffleArray(array) {
 async function generateAIQuestion(config, topic, difficulty = 'intermediate', fallbackQuestions = []) {
   try {
     // Check if API key is available
-    if (!GEMINI_API_KEY) {
+    if (!isAPIKeyAvailable()) {
       console.warn("No Gemini API key found. Using fallback question instead.");
       return getFallbackQuestion(difficulty, fallbackQuestions);
     }
@@ -194,22 +191,25 @@ async function generateAIQuestion(config, topic, difficulty = 'intermediate', fa
     2. Make sure the question has ONE clear correct answer
     3. Ensure all incorrect options (distractors) are plausible but clearly wrong
     4. Include specific feedback for each answer option explaining why it's correct or incorrect
-    5. Use exactly 4 options with IDs: a, b, c, and d`;
+    5. Use exactly 4 options with IDs: a, b, c, and d
+    6. For mathematical expressions, use standard markdown math syntax: $inline math$ for inline expressions and $$block math$$ for display equations`;
     
     console.log("Generating AI question with structured output using Genkit");
     
     try {
+      // Get optimized settings for assessment generation
+      const taskSettings = getTaskSettings('assessment');
+      
       // Use Genkit's structured output with our Zod schema
       const generateOptions = {
-        model: googleAI.model('gemini-2.0-flash'),
         prompt: promptText,
         output: { 
           schema: AIQuestionSchema
         },
         config: {
-          temperature: config.aiSettings?.temperature || 0.7,
-          topP: config.aiSettings?.topP || 0.8,
-          topK: config.aiSettings?.topK || 40
+          temperature: config.aiSettings?.temperature || taskSettings.temperature,
+          topP: config.aiSettings?.topP || taskSettings.topP,
+          topK: config.aiSettings?.topK || taskSettings.topK
         }
       };
       
@@ -632,17 +632,76 @@ class AIMultipleChoiceCore {
     // Update the assessment
     await assessmentRef.update(updates);
 
-    // Update the grade if the answer is correct AND we haven't previously recorded a correct grade
-    if (result.isCorrect && !wasCorrectOverall) {
-      const gradeRef = getDatabaseRef('studentGrade', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
+    // Always update grade record, but use best score policy
+    const gradeRef = getDatabaseRef('studentGrade', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
+    
+    // Get existing grade to implement "best score" policy
+    const existingGradeSnapshot = await gradeRef.once('value');
+    const existingGrade = existingGradeSnapshot.val();
+    
+    // Calculate current attempt score
+    const pointsValue = assessmentData.pointsValue || 2;
+    const currentScore = result.isCorrect ? pointsValue : 0;
+    
+    // Determine if we should update the grade record
+    let shouldUpdateGrade = false;
+    let finalScore = currentScore;
+    
+    if (existingGrade === null || existingGrade === undefined) {
+      // First attempt - always save (even if 0)
+      shouldUpdateGrade = true;
+      console.log(`First attempt: saving grade ${currentScore}/${pointsValue}`);
+    } else if (currentScore > existingGrade) {
+      // Better score - save the improvement
+      shouldUpdateGrade = true;
+      finalScore = currentScore;
+      console.log(`Improved score: ${existingGrade} → ${currentScore}`);
+    } else {
+      // Same or worse score - keep existing grade
+      shouldUpdateGrade = false;
+      finalScore = existingGrade;
+      console.log(`Score not improved: keeping existing grade ${existingGrade} (attempted: ${currentScore})`);
+    }
 
-      // Calculate score based on the pointsValue from settings
-      const pointsValue = assessmentData.pointsValue || 2;
-
-      // No penalty for attempts - full points for getting it correct
-      const finalScore = pointsValue;
-
+    // Update grade record if needed
+    if (shouldUpdateGrade) {
       await gradeRef.set(finalScore);
+
+      // Update gradebook with the new/updated score
+      try {
+        // Get course config for gradebook integration
+        const courseConfig = await getCourseConfig(params.courseId);
+        
+        // Find course structure item for better integration
+        const { findCourseStructureItem } = require('../utilities/database-utils');
+        const courseStructureItem = await findCourseStructureItem(params.courseId, params.assessmentId);
+        
+        // Determine activity type from assessment data or course structure
+        const activityType = assessmentData.activityType || courseStructureItem?.type || 'lesson';
+        
+        // Create item configuration for gradebook
+        const itemConfig = {
+          title: courseStructureItem?.title || params.assessmentId.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim(),
+          type: activityType,
+          unitId: courseStructureItem?.unitId || 'unknown',
+          courseStructureItemId: courseStructureItem?.itemId,
+          pointsValue: pointsValue,
+          maxScore: pointsValue,
+          weight: courseStructureItem?.weight || 0,
+          required: courseStructureItem?.required !== false,
+          estimatedTime: courseStructureItem?.estimatedTime || 0
+        };
+
+        // Update gradebook item
+        await updateGradebookItem(params.studentKey, params.courseId, params.assessmentId, finalScore, itemConfig, params.isStaff);
+        
+        console.log(`✅ Gradebook updated for assessment ${params.assessmentId} with score ${finalScore} (Course Structure Item: ${courseStructureItem?.itemId || 'unknown'})`);
+      } catch (gradebookError) {
+        console.warn(`⚠️ Failed to update gradebook for ${params.assessmentId}:`, gradebookError.message);
+        // Don't throw error - gradebook failure shouldn't block assessment completion
+      }
+    } else {
+      console.log(`📊 Grade not updated (no improvement), but gradebook already reflects best score: ${finalScore}`);
     }
 
     // Clean up secure data if assessment is completed or all attempts exhausted

@@ -1,13 +1,21 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { FaGraduationCap } from 'react-icons/fa';
-import { BookOpen, ClipboardCheck, Bug } from 'lucide-react';
+import { BookOpen, ClipboardCheck, Bug, ArrowUp, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
+import { GradebookProvider } from './context/GradebookContext';
+import { 
+  GradebookSummary, 
+  AssessmentGrid, 
+  CourseItemGrid, 
+  CourseItemDetailModal, 
+  QuestionReviewModal 
+} from './components/gradebook';
 
 // Main wrapper component for all Firebase courses
 // Provides common layout, navigation, and context for course content
-const FirebaseCourseWrapper = ({
+const FirebaseCourseWrapperContent = ({
   course,
   children,
   activeItemId: externalActiveItemId,
@@ -21,6 +29,16 @@ const FirebaseCourseWrapper = ({
   const [progress, setProgress] = useState({});
   const [navExpanded, setNavExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [reviewQuestion, setReviewQuestion] = useState(null);
+  const [isQuestionReviewModalOpen, setIsQuestionReviewModalOpen] = useState(false);
+  const [selectedCourseItem, setSelectedCourseItem] = useState(null);
+  const [isItemDetailModalOpen, setIsItemDetailModalOpen] = useState(false);
+  
+  // Ref for navigation container to detect outside clicks
+  const navigationRef = useRef(null);
+  
+  // Flag to temporarily disable scroll-based auto-collapse
+  const [disableScrollCollapse, setDisableScrollCollapse] = useState(false);
   
   // Check if current user is authorized to see debug info
   const isDebugAuthorized = useMemo(() => {
@@ -56,13 +74,68 @@ const FirebaseCourseWrapper = ({
     checkMobile();
     window.addEventListener('resize', checkMobile);
     
-    // Start with navigation closed on mobile
-    if (window.innerWidth < 768) {
-      setNavExpanded(false);
-    }
-    
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+  
+  // Handle click outside navigation to collapse it (desktop only)
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Only handle on desktop when navigation is expanded
+      if (!isMobile && navExpanded && navigationRef.current && !navigationRef.current.contains(event.target)) {
+        setNavExpanded(false);
+      }
+    };
+
+    // Add event listener
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMobile, navExpanded]);
+  
+  // Handle scroll-based navigation auto-collapse (desktop only)
+  useEffect(() => {
+    const handleScroll = () => {
+      // Only handle on desktop when navigation is expanded and auto-collapse is not disabled
+      if (!isMobile && navExpanded && navigationRef.current && !disableScrollCollapse) {
+        const navigationRect = navigationRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const headerHeight = 60; // Sticky header height
+        
+        // Calculate how much of the navigation is still visible
+        const visibleNavHeight = Math.max(0, navigationRect.bottom - headerHeight);
+        const navigationFullHeight = navigationRect.height;
+        
+        // If less than 50% of the navigation is visible, collapse it
+        const visibilityThreshold = 0.4; // 60% visibility threshold
+        const visibilityRatio = visibleNavHeight / navigationFullHeight;
+        
+        if (visibilityRatio < visibilityThreshold) {
+          setNavExpanded(false);
+        }
+      }
+    };
+
+    // Add scroll listener with throttling for better performance
+    let ticking = false;
+    const throttledHandleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    // Add scroll listener
+    window.addEventListener('scroll', throttledHandleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', throttledHandleScroll);
+    };
+  }, [isMobile, navExpanded, disableScrollCollapse]);
   
   // Sync with external state if provided
   useEffect(() => {
@@ -77,16 +150,31 @@ const FirebaseCourseWrapper = ({
     
     // Scroll to top when selecting a new item
     window.scrollTo(0, 0);
-    
-    // Auto-close navigation on mobile after selection
-    if (isMobile) {
-      setNavExpanded(false);
-    }
 
     if (externalItemSelect) {
       externalItemSelect(itemId);
     }
-  }, [externalItemSelect, isMobile]);
+  }, [externalItemSelect]);
+
+  // Handle scroll to top and expand navigation
+  const handleScrollToTopAndExpand = useCallback(() => {
+    // Temporarily disable scroll-based auto-collapse
+    setDisableScrollCollapse(true);
+    
+    // Expand navigation first
+    setNavExpanded(true);
+    
+    // Scroll to top smoothly
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+    
+    // Re-enable scroll-based auto-collapse after scroll completes
+    setTimeout(() => {
+      setDisableScrollCollapse(false);
+    }, 1000); // Give enough time for smooth scroll to complete
+  }, []);
   
   // Get course data from the course object, either from database or fallback
   const getCourseData = () => {
@@ -167,22 +255,29 @@ const FirebaseCourseWrapper = ({
     return items;
   }, [unitsList]);
 
-  // Simulate progress data - in a real app, this would come from Firebase
+  // Convert gradebook data to progress format for navigation
   useEffect(() => {
-    // Mock progress data
-    const mockProgress = {};
-    unitsList.forEach((unit) => {
-      if (unit.items) {
-        unit.items.forEach((item, idx) => {
-          // Mark first item in each unit as completed for demo purposes
-          if (idx === 0) {
-            mockProgress[item.itemId] = { completed: true, completedAt: new Date().toISOString() };
-          }
-        });
-      }
-    });
-    setProgress(mockProgress);
-  }, [unitsList]);
+    // This will be handled by the GradebookContext now
+    // For navigation, we'll use a simplified approach
+    const gradebookProgress = {};
+    
+    // Check if we have any gradebook data
+    if (course?.Gradebook?.items) {
+      Object.entries(course.Gradebook.items).forEach(([itemId, item]) => {
+        if (item.status === 'completed' || item.score > 0) {
+          gradebookProgress[itemId] = {
+            completed: true,
+            completedAt: item.completedAt || item.lastAttempt || new Date().toISOString(),
+            score: item.score,
+            maxScore: item.maxScore,
+            attempts: item.attempts
+          };
+        }
+      });
+    }
+    
+    setProgress(gradebookProgress);
+  }, [course?.Gradebook?.items]);
   
   // Get current unit index
   const currentUnitIndex = useMemo(() => {
@@ -256,24 +351,36 @@ const FirebaseCourseWrapper = ({
 
       {/* Content area with navigation */}
       <div className="flex relative">
-        {/* Mobile overlay backdrop */}
-        {isMobile && navExpanded && (
+        {/* Collapsible Navigation - responsive width */}
+        {!isMobile && (
           <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-20"
-            onClick={() => setNavExpanded(false)}
-          />
+            ref={navigationRef}
+            className={`
+              ${navExpanded ? 'w-80' : 'w-12'} 
+              flex-shrink-0 transition-all duration-300
+            `}
+          >
+            <CollapsibleNavigation
+              courseTitle={courseTitle}
+              unitsList={unitsList}
+              progress={progress}
+              activeItemId={activeItemId}
+              expanded={navExpanded}
+              onToggleExpand={() => setNavExpanded(!navExpanded)}
+              onItemSelect={(itemId) => {
+                handleItemSelect(itemId);
+                setActiveTab('content');
+              }}
+              currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
+              course={course}
+              isMobile={false}
+              gradebookItems={course?.Gradebook?.items || {}}
+            />
+          </div>
         )}
         
-        {/* Collapsible Navigation - responsive width */}
-        <div className={`
-          ${navExpanded 
-            ? isMobile 
-              ? 'fixed inset-0 z-30 w-full' 
-              : 'w-80' 
-            : 'w-12'
-          } 
-          flex-shrink-0 transition-all duration-300
-        `}>
+        {/* Mobile navigation is now handled by Sheet in CollapsibleNavigation */}
+        {isMobile && (
           <CollapsibleNavigation
             courseTitle={courseTitle}
             unitsList={unitsList}
@@ -284,12 +391,15 @@ const FirebaseCourseWrapper = ({
             onItemSelect={(itemId) => {
               handleItemSelect(itemId);
               setActiveTab('content');
+              // Auto-close navigation on mobile after selection
+              setNavExpanded(false);
             }}
             currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
             course={course}
-            isMobile={isMobile}
+            isMobile={true}
+            gradebookItems={course?.Gradebook?.items || {}}
           />
-        </div>
+        )}
 
         {/* Main content */}
         <main className="flex-1 p-6">
@@ -417,108 +527,27 @@ const FirebaseCourseWrapper = ({
           )}
           
           {activeTab === 'grades' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h1 className="text-xl font-bold mb-4">Your Grades</h1>
-              
-              {/* Grade Summary */}
-              <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Current Grade</h3>
-                  <div className="text-3xl font-bold text-blue-700">82%</div>
-                  <div className="text-sm text-blue-600 mt-1">B</div>
+            <div className="bg-white rounded-lg shadow">
+              <div className="p-6">
+                <h1 className="text-2xl font-bold mb-6">Gradebook</h1>
+                
+                
+                {/* Gradebook Summary */}
+                <div className="mb-8">
+                  <GradebookSummary />
                 </div>
                 
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Assignments</h3>
-                  <div className="text-3xl font-bold text-green-700">90%</div>
-                  <div className="text-sm text-green-600 mt-1">Weight: {course.courseDetails?.weights?.assignment * 100 || 0}%</div>
+                {/* Course Items Grid */}
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Course Items</h2>
+                  <CourseItemGrid 
+                    courseStructure={course}
+                    onViewItemDetails={(item) => {
+                      setSelectedCourseItem(item);
+                      setIsItemDetailModalOpen(true);
+                    }}
+                  />
                 </div>
-                
-                <div className="bg-purple-50 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Exams</h3>
-                  <div className="text-3xl font-bold text-purple-700">78%</div>
-                  <div className="text-sm text-purple-600 mt-1">Weight: {course.courseDetails?.weights?.exam * 100 || 0}%</div>
-                </div>
-              </div>
-              
-              {/* Grades Table */}
-              <div className="mb-6">
-                <h2 className="text-lg font-medium mb-4">Grade Breakdown</h2>
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Item
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Type
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Weight
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Grade
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {allCourseItems.filter(item => item.type !== 'lesson').map((item) => {
-                        const itemProgress = progress[item.itemId] || {};
-                        
-                        // Generate mock grade for demo purposes
-                        const mockGrade = itemProgress.completed ? 
-                          Math.floor(Math.random() * 30) + 70 : // Random grade between 70-100 for completed items
-                          null;
-                          
-                        return (
-                          <tr key={item.itemId}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {item.title}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {courseWeights[item.type] * 100 || 0}%
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              {mockGrade ? `${mockGrade}%` : '-'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              {itemProgress.completed ? (
-                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                  Graded
-                                </span>
-                              ) : (
-                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                  Not Submitted
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              
-              <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600">
-                <h3 className="font-medium text-gray-700 mb-2">How Grades Are Calculated</h3>
-                <p className="mb-2">
-                  Your final grade is calculated based on the weights specified in the course:
-                </p>
-                <ul className="list-disc pl-5 space-y-1">
-                  {Object.entries(course.courseDetails?.weights || {}).map(([type, weight]) => (
-                    <li key={type}>
-                      {type.charAt(0).toUpperCase() + type.slice(1)}: {weight * 100}%
-                    </li>
-                  ))}
-                </ul>
               </div>
             </div>
           )}
@@ -639,7 +668,54 @@ const FirebaseCourseWrapper = ({
           )}
         </main>
       </div>
+      
+      {/* Floating Navigation Button - only show on desktop when nav is collapsed */}
+      {!isMobile && !navExpanded && (
+        <button
+          onClick={handleScrollToTopAndExpand}
+          className="fixed bottom-4 left-4 z-50 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-14 h-14 shadow-lg transition-all duration-300 flex items-center justify-center group"
+          aria-label="Show navigation and scroll to top"
+        >
+          <div className="relative">
+            <Menu className="h-6 w-6 transition-transform group-hover:scale-110" />
+            <ArrowUp className="h-3 w-3 absolute -top-1 -right-1 bg-blue-600 rounded-full" />
+          </div>
+        </button>
+      )}
+      
+      {/* Course Item Detail Modal */}
+      <CourseItemDetailModal
+        item={selectedCourseItem}
+        isOpen={isItemDetailModalOpen}
+        onClose={() => {
+          setIsItemDetailModalOpen(false);
+          setSelectedCourseItem(null);
+        }}
+        onReviewQuestion={(question) => {
+          setReviewQuestion(question);
+          setIsQuestionReviewModalOpen(true);
+        }}
+      />
+      
+      {/* Question Review Modal */}
+      <QuestionReviewModal
+        question={reviewQuestion}
+        isOpen={isQuestionReviewModalOpen}
+        onClose={() => {
+          setIsQuestionReviewModalOpen(false);
+          setReviewQuestion(null);
+        }}
+      />
     </div>
+  );
+};
+
+// Wrapper component that provides GradebookContext
+const FirebaseCourseWrapper = (props) => {
+  return (
+    <GradebookProvider course={props.course}>
+      <FirebaseCourseWrapperContent {...props} />
+    </GradebookProvider>
   );
 };
 

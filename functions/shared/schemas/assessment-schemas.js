@@ -284,6 +284,101 @@ const LongAnswerEvaluationResponseSchema = z.object({
   attemptsMade: z.number().min(1),
 });
 
+//==============================================================================
+// Short Answer Schemas
+//==============================================================================
+
+// Schema for AI-generated short answer question
+const AIShortAnswerQuestionSchema = z.object({
+  questionText: z.string().describe('The short answer question prompt'),
+  expectedAnswer: z.string().describe('The expected correct answer or key concepts'),
+  sampleAnswer: z.string().describe('A good sample answer for reference'),
+  hints: z.array(z.string()).optional().describe('Optional hints to help students'),
+  acceptableAnswers: z.array(z.string()).optional().describe('Alternative acceptable answers or phrasings'),
+});
+
+// Schema for AI evaluation of short answer
+const AIShortAnswerEvaluationSchema = z.object({
+  isCorrect: z.boolean().describe('Whether the answer is correct'),
+  score: z.number().min(0).describe('Points earned'),
+  maxScore: z.number().min(1).describe('Maximum possible points'),
+  percentage: z.number().min(0).max(100).describe('Score as a percentage'),
+  feedback: z.string().max(300).describe('Brief feedback explaining the evaluation (max 300 characters)'),
+  keyPointsFound: z.array(z.string()).optional().describe('Key points correctly identified in the answer'),
+  keyPointsMissing: z.array(z.string()).optional().describe('Key points missing from the answer'),
+});
+
+// Schema for short answer student assessment record
+const StudentShortAnswerAssessmentSchema = z.object({
+  timestamp: z.any(),
+  questionText: z.string(),
+  expectedAnswer: z.string(),
+  maxPoints: z.number().min(1).default(1),
+  wordLimit: z.object({
+    min: z.number().optional().default(5),
+    max: z.number().default(100),
+  }),
+  topic: z.string(),
+  difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
+  generatedBy: z.enum(['ai', 'fallback', 'manual']),
+  attempts: z.number().min(0),
+  status: z.enum(['active', 'attempted', 'completed', 'failed']),
+  maxAttempts: z.number().min(1),
+  activityType: z.string(),
+  enableAIChat: z.boolean().optional(),
+  aiChatContext: z.string().optional(),
+  settings: z.object({
+    showHints: z.boolean().default(false),
+    showWordCount: z.boolean().default(true),
+    allowDifficultySelection: z.boolean().default(false),
+    theme: z.string().default('blue'),
+  }),
+  lastSubmission: z.object({
+    timestamp: z.any(),
+    answer: z.string(),
+    wordCount: z.number(),
+    evaluation: AIShortAnswerEvaluationSchema,
+  }).optional(),
+});
+
+// Schema for secure short answer data (server-side only)
+const SecureShortAnswerAssessmentSchema = z.object({
+  expectedAnswer: z.string(),
+  sampleAnswer: z.string(),
+  acceptableAnswers: z.array(z.string()).optional(),
+  hints: z.array(z.string()).optional(),
+  timestamp: z.any(),
+});
+
+// Schema for short answer submission
+const ShortAnswerSubmissionSchema = z.object({
+  timestamp: z.any(),
+  answer: z.string(),
+  wordCount: z.number(),
+  evaluation: AIShortAnswerEvaluationSchema,
+  attemptNumber: z.number().min(1),
+});
+
+// Schema for short answer function parameters
+const ShortAnswerFunctionParametersSchema = z.object({
+  courseId: z.string().min(1),
+  assessmentId: z.string().min(1),
+  operation: z.enum(['generate', 'evaluate']),
+  answer: z.string().optional(),
+  studentEmail: z.string().email().optional(),
+  userId: z.string().optional(),
+  topic: z.string().optional().default('general'),
+  difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional().default('intermediate'),
+});
+
+// Schema for short answer evaluation response
+const ShortAnswerEvaluationResponseSchema = z.object({
+  success: z.boolean(),
+  result: AIShortAnswerEvaluationSchema,
+  attemptsRemaining: z.number().min(0),
+  attemptsMade: z.number().min(1),
+});
+
 module.exports = {
   // Multiple Choice Schemas
   AnswerOptionSchema,
@@ -300,6 +395,15 @@ module.exports = {
   LongAnswerSubmissionSchema,
   LongAnswerFunctionParametersSchema,
   LongAnswerEvaluationResponseSchema,
+  
+  // Short Answer Schemas
+  AIShortAnswerQuestionSchema,
+  AIShortAnswerEvaluationSchema,
+  StudentShortAnswerAssessmentSchema,
+  SecureShortAnswerAssessmentSchema,
+  ShortAnswerSubmissionSchema,
+  ShortAnswerFunctionParametersSchema,
+  ShortAnswerEvaluationResponseSchema,
   
   // Configuration Schemas
   AISettingsSchema,

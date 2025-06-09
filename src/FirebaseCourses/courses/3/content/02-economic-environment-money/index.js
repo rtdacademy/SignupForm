@@ -3,6 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../../../compone
 import { Alert, AlertDescription } from '../../../../../components/ui/alert';
 import { Badge } from '../../../../../components/ui/badge';
 import AIMultipleChoiceQuestion from '../../../../components/assessments/AIMultipleChoiceQuestion';
+import AILongAnswerQuestion from '../../../../components/assessments/AILongAnswerQuestion';
+import AIShortAnswerQuestion from '../../../../components/assessments/AIShortAnswerQuestion';
+import { StandardMultipleChoiceQuestion } from '../../../../components/assessments';
 
 const EconomicEnvironmentMoney = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode }) => {
 
@@ -294,39 +297,228 @@ const EconomicEnvironmentMoney = ({ course, courseId, courseDisplay, itemConfig,
         </CardContent>
       </Card>
 
-      {/* Practice Section */}
+      {/* Question 1 */}
       <Card>
         <CardHeader>
-          <CardTitle>🧮 Apply Your Knowledge</CardTitle>
+          <CardTitle>🧮 Question 1: Economic Indicators</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-gray-700">
-            Test your understanding of how economic factors affect personal financial decisions.
+            Test your understanding of key economic indicators and their impact.
           </p>
 
           {devMode && (
             <div className="mb-4">
               <Badge variant="outline" className="text-xs">
-                Function: course3_02_economic_environment_money_aiQuestion
+                Function: course3_02_economic_environment_question1
               </Badge>
             </div>
           )}
 
           <AIMultipleChoiceQuestion
             courseId={courseId}
-            assessmentId="economic_environment_practice"
-            cloudFunctionName="course3_02_economic_environment_money_aiQuestion"
+            assessmentId="course3_02_economic_environment_question1"
+            cloudFunctionName="course3_02_economic_environment_question1"
             course={course}
-            topic="Economic Environment and Personal Finance"
+            topic="Economic Indicators and Personal Finance"
+            title="Economic Indicators and Personal Finance"
             theme="blue"
             onCorrectAnswer={() => {
-              console.log('Correct answer!');
+              console.log('Question 1: Correct answer!');
             }}
             onAttempt={(isCorrect) => {
-              console.log('Attempt made:', isCorrect);
+              console.log('Question 1: Attempt made:', isCorrect);
             }}
             onComplete={() => {
-              console.log('Assessment completed');
+              console.log('Question 1: Assessment completed');
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Question 2 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>🧮 Question 2: Inflation Impact</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-gray-700">
+            Apply your knowledge of inflation and purchasing power.
+          </p>
+
+          {devMode && (
+            <div className="mb-4">
+              <Badge variant="outline" className="text-xs">
+                Function: course3_02_economic_environment_question2
+              </Badge>
+            </div>
+          )}
+
+          <AIMultipleChoiceQuestion
+            courseId={courseId}
+            assessmentId="course3_02_economic_environment_question2"
+            cloudFunctionName="course3_02_economic_environment_question2"
+            course={course}
+            topic="Inflation and Purchasing Power"
+            title="Inflation and Purchasing Power"
+            theme="amber"
+            onCorrectAnswer={() => {
+              console.log('Question 2: Correct answer!');
+            }}
+            onAttempt={(isCorrect) => {
+              console.log('Question 2: Attempt made:', isCorrect);
+            }}
+            onComplete={() => {
+              console.log('Question 2: Assessment completed');
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Question 3 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>🧮 Question 3: Interest Rate Strategy</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-gray-700">
+            Test your understanding of how to respond to interest rate changes.
+          </p>
+
+          {devMode && (
+            <div className="mb-4">
+              <Badge variant="outline" className="text-xs">
+                Function: course3_02_economic_environment_question3
+              </Badge>
+            </div>
+          )}
+
+          <AIMultipleChoiceQuestion
+            courseId={courseId}
+            assessmentId="course3_02_economic_environment_question3"
+            cloudFunctionName="course3_02_economic_environment_question3"
+            course={course}
+            topic="Interest Rate Strategy and Financial Planning"
+            title="Interest Rate Strategy and Financial Planning"
+            theme="green"
+            onCorrectAnswer={() => {
+              console.log('Question 3: Correct answer!');
+            }}
+            onAttempt={(isCorrect) => {
+              console.log('Question 3: Attempt made:', isCorrect);
+            }}
+            onComplete={() => {
+              console.log('Question 3: Assessment completed');
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Question 4 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>🧮 Question 4: Economic Cycles and Strategy</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-gray-700">
+            Test your understanding of economic cycles and appropriate financial strategies for each phase.
+          </p>
+
+          {devMode && (
+            <div className="mb-4">
+              <Badge variant="outline" className="text-xs">
+                Function: course3_02_economic_environment_question4
+              </Badge>
+            </div>
+          )}
+
+          <StandardMultipleChoiceQuestion
+            courseId={courseId}
+            assessmentId="course3_02_economic_environment_question4"
+            cloudFunctionName="course3_02_economic_environment_question4"
+            course={course}
+            topic="Economic Cycles and Financial Strategy"
+            title="Economic Cycles and Financial Strategy"
+            theme="purple"
+            onCorrectAnswer={() => {
+              console.log('Question 4: Correct answer!');
+            }}
+            onAttempt={(isCorrect) => {
+              console.log('Question 4: Attempt made:', isCorrect);
+            }}
+            onComplete={() => {
+              console.log('Question 4: Assessment completed');
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Question 5: Long Answer Analysis */}
+      <Card>
+        <CardHeader>
+          <CardTitle>📝 Question 5: Economic Analysis</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-gray-700">
+            Apply your understanding of economic concepts to analyze a real-world scenario.
+          </p>
+
+          {devMode && (
+            <div className="mb-4">
+              <Badge variant="outline" className="text-xs">
+                Function: course3_02_economic_environment_longAnswer
+              </Badge>
+            </div>
+          )}
+
+          <AILongAnswerQuestion
+            courseId={courseId}
+            assessmentId="course3_02_economic_environment_longAnswer"
+            cloudFunctionName="course3_02_economic_environment_longAnswer"
+            topic="Economic Environment and Personal Finance"
+            theme="purple"
+            onCorrectAnswer={() => {
+              console.log('Question 5: Successful completion!');
+            }}
+            onAttempt={(isCorrect) => {
+              console.log('Question 5: Attempt made:', isCorrect);
+            }}
+            onComplete={() => {
+              console.log('Question 5: Assessment completed');
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Question 6: Economic Decision Making Short Answer */}
+      <Card>
+        <CardHeader>
+          <CardTitle>💭 Question 6: Economic Decision Making</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-gray-700">
+            Apply your knowledge of economic concepts to real-world personal finance situations.
+          </p>
+
+          {devMode && (
+            <div className="mb-4">
+              <Badge variant="outline" className="text-xs">
+                Function: course3_02_economic_environment_shortAnswer
+              </Badge>
+            </div>
+          )}
+
+          <AIShortAnswerQuestion
+            cloudFunctionName="course3_02_economic_environment_shortAnswer"
+            courseId={courseId}
+            assessmentId="course3_02_economic_environment_shortAnswer"
+            topic="Economic Decision Making"
+            theme="green"
+            onComplete={() => {
+              console.log('Question 6: Assessment completed');
+            }}
+            onAttempt={(isCorrect) => {
+              console.log('Question 6: Attempt made:', isCorrect);
             }}
           />
         </CardContent>

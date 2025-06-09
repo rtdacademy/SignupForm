@@ -10,7 +10,10 @@ import {
   PlayCircle,
   ChevronRight,
   ChevronLeft,
-  X
+  X,
+  Menu,
+  TrendingUp,
+  TrendingDown
 } from 'lucide-react';
 import { 
   Accordion,
@@ -26,6 +29,13 @@ import {
   TooltipTrigger,
 } from '../../../components/ui/tooltip';
 import { Button } from '../../../components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+} from '../../../components/ui/sheet';
 
 // Type-specific styling
 const typeColors = {
@@ -61,6 +71,7 @@ const CollapsibleNavigation = ({
   currentUnitIndex = 0,
   course,
   isMobile = false,
+  gradebookItems = {},
 }) => {
 
   // Display debugging information about the course structure
@@ -144,6 +155,7 @@ const CollapsibleNavigation = ({
   const renderItem = (item, unitIndex, itemIndex) => {
     const isCompleted = progress[item.itemId]?.completed;
     const isActive = activeItemId === item.itemId;
+    const gradebookItem = gradebookItems[item.itemId];
     
     // Determine if this is the first incomplete item
     const isNextItem = !isCompleted && 
@@ -158,38 +170,79 @@ const CollapsibleNavigation = ({
           return thisGlobalIndex < currentGlobalIndex;
         });
     
+    // Calculate grade percentage if available
+    const gradePercentage = gradebookItem && gradebookItem.maxScore > 0
+      ? Math.round((gradebookItem.score / gradebookItem.maxScore) * 100)
+      : null;
+    
+    // Get grade color
+    const getGradeColor = (percentage) => {
+      if (percentage >= 90) return 'text-green-600';
+      if (percentage >= 80) return 'text-blue-600';
+      if (percentage >= 70) return 'text-yellow-600';
+      if (percentage >= 60) return 'text-orange-600';
+      return 'text-red-600';
+    };
+    
     return (
-      <div
-        key={`${unitIndex}-${itemIndex}-${item.itemId}`}
-        className={`p-2 mb-1.5 rounded-md text-sm cursor-pointer transition-all duration-200
-          ${isActive ? 'bg-blue-50 border-l-2 border-blue-500 pl-1.5' :
-           isNextItem ? 'bg-purple-50 border-l-2 border-purple-400 pl-1.5' :
-           isCompleted ? 'bg-green-50 border-l-2 border-green-400 pl-1.5' :
-           'hover:bg-gray-50'}`}
-        onClick={() => onItemSelect(item.itemId)}
-      >
-        <div className="flex justify-between items-start">
-          <div className="flex items-start gap-2">
-            <div className="mt-0.5 flex-shrink-0">
-              {isCompleted ? (
-                <CheckCircle className="text-green-500 h-4 w-4" />
-              ) : isNextItem ? (
-                <PlayCircle className="text-purple-500 h-4 w-4" />
-              ) : (
-                typeIcons[item.type] || <Info className="h-4 w-4" />
-              )}
-            </div>
-            <span className="font-medium line-clamp-2">
-              {item.title}
-            </span>
-          </div>
-          <Badge
-            className={`${typeColors[item.type] || 'bg-gray-100 text-gray-800'} text-xs py-0.5 px-2 min-h-0 h-5 ml-2`}
+      <Tooltip key={`${unitIndex}-${itemIndex}-${item.itemId}`}>
+        <TooltipTrigger asChild>
+          <div
+            className={`p-2 mb-1.5 rounded-md text-sm cursor-pointer transition-all duration-200
+              ${isActive ? 'bg-blue-50 border-l-2 border-blue-500 pl-1.5' :
+               isNextItem ? 'bg-purple-50 border-l-2 border-purple-400 pl-1.5' :
+               isCompleted ? 'bg-green-50 border-l-2 border-green-400 pl-1.5' :
+               'hover:bg-gray-50'}`}
+            onClick={() => onItemSelect(item.itemId)}
           >
-            {item.type}
-          </Badge>
-        </div>
-      </div>
+            <div className="flex justify-between items-start">
+              <div className="flex items-start gap-2 flex-1">
+                <div className="mt-0.5 flex-shrink-0">
+                  {isCompleted ? (
+                    <CheckCircle className="text-green-500 h-4 w-4" />
+                  ) : isNextItem ? (
+                    <PlayCircle className="text-purple-500 h-4 w-4" />
+                  ) : (
+                    typeIcons[item.type] || <Info className="h-4 w-4" />
+                  )}
+                </div>
+                <span className="font-medium line-clamp-2 flex-1">
+                  {item.title}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 ml-2">
+                {gradePercentage !== null && (
+                  <span className={`text-xs font-semibold ${getGradeColor(gradePercentage)}`}>
+                    {gradePercentage}%
+                  </span>
+                )}
+                <Badge
+                  className={`${typeColors[item.type] || 'bg-gray-100 text-gray-800'} text-xs py-0.5 px-2 min-h-0 h-5`}
+                >
+                  {item.type}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-xs">
+          <div className="space-y-1">
+            <p className="font-medium">{item.title}</p>
+            {gradebookItem && (
+              <>
+                <p className="text-sm">Score: {gradebookItem.score}/{gradebookItem.maxScore} ({gradePercentage}%)</p>
+                <p className="text-sm">Attempts: {gradebookItem.attempts || 0}</p>
+                {gradebookItem.lastAttempt && (
+                  <p className="text-sm">Last attempt: {new Date(gradebookItem.lastAttempt).toLocaleDateString()}</p>
+                )}
+              </>
+            )}
+            {!isCompleted && (
+              <p className="text-sm text-gray-600">Not yet completed</p>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
     );
   };
   
@@ -230,21 +283,24 @@ const CollapsibleNavigation = ({
     );
   }
   
-  return (
-    <div className="w-full flex flex-col border-r border-gray-200 bg-white shadow-sm">
+  // Navigation content component
+  const NavigationContent = () => (
+    <>
       <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-blue-50 to-indigo-50">
         <h2 className="font-semibold text-base text-blue-800 flex items-center gap-1 truncate">
           <BookOpen className="h-4 w-4 flex-shrink-0" />
           <span className="truncate">{courseTitle}</span>
         </h2>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onToggleExpand} 
-          className="ml-1 flex-shrink-0"
-        >
-          {isMobile ? <X className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </Button>
+        {!isMobile && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onToggleExpand} 
+            className="ml-1 flex-shrink-0"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
       </div>
       
       <div className="p-3 bg-white flex items-center justify-between text-sm">
@@ -262,7 +318,8 @@ const CollapsibleNavigation = ({
       
       <div className="flex-1">
         <div className="p-2">
-          {Object.entries(sectionedUnits.sections)
+          <TooltipProvider>
+            {Object.entries(sectionedUnits.sections)
             .sort(([a, b]) => {
               // Empty section goes last, then sort by section/course code
               if (a === "") return 1;
@@ -355,8 +412,43 @@ const CollapsibleNavigation = ({
                 </Accordion>
               </div>
             ))}
+          </TooltipProvider>
         </div>
       </div>
+    </>
+  );
+
+  // For mobile devices, wrap in a Sheet
+  if (isMobile) {
+    return (
+      <>
+        <Sheet open={expanded} onOpenChange={onToggleExpand}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="fixed bottom-4 right-4 z-50 md:hidden bg-blue-600 hover:bg-blue-700 text-white rounded-full w-14 h-14 shadow-lg"
+            >
+              <Menu className="h-6 w-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[85vw] sm:w-[350px] p-0">
+            <SheetHeader className="sr-only">
+              <SheetTitle>{courseTitle} Navigation</SheetTitle>
+            </SheetHeader>
+            <div className="h-full overflow-y-auto flex flex-col bg-white">
+              <NavigationContent />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </>
+    );
+  }
+
+  // For desktop, return the regular navigation
+  return (
+    <div className="w-full flex flex-col border-r border-gray-200 bg-white shadow-sm">
+      <NavigationContent />
     </div>
   );
 };
