@@ -211,8 +211,16 @@ exports.course2_02_momentum_one_dimension_aiLongAnswer = require('./courses/2/02
 
 // 3 Course Functions (Financial Literacy)
 //exports.course3_shared_aiQuestion = require('./courses/3/shared/aiQuestions').course3_shared_aiQuestion;
-exports.course3_01_intro_ethics_financial_decisions_aiQuestion = require('./courses/3/01-intro-ethics-financial-decisions/assessments').course3_01_intro_ethics_financial_decisions_aiQuestion;
-exports.course3_02_economic_environment_money_aiQuestion = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_money_aiQuestion;
+
+// Course 3 - Lesson 1: Introduction and Ethics in Financial Decision Making
+exports.course3_01_intro_ethics_question1 = require('./courses/3/01-intro-ethics-financial-decisions/assessments').course3_01_intro_ethics_question1;
+exports.course3_01_intro_ethics_question2 = require('./courses/3/01-intro-ethics-financial-decisions/assessments').course3_01_intro_ethics_question2;
+
+// Course 3 - Lesson 2: The Economic Environment and Your Money
+exports.course3_02_economic_environment_question1 = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_question1;
+exports.course3_02_economic_environment_question2 = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_question2;
+exports.course3_02_economic_environment_question3 = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_question3;
+exports.course3_02_economic_environment_question4 = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_question4;
 
 // 4 Course Functions (RTD Academy Orientation)
 exports.course4_01_welcome_rtd_academy_aiLongAnswer = require('./courses/4/01-welcome-rtd-academy/assessments').course4_01_welcome_rtd_academy_aiLongAnswer;

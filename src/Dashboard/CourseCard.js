@@ -207,9 +207,8 @@ const CourseCard = ({
     setRemainingSchedules(remaining);
     setShowScheduleConfirmDialog(true);
   };
-  
-  // Simplify handleGoToCourse to just check schedule and status
-  const handleGoToCourse = () => {
+    // Simplify handleGoToCourse to just check schedule and status
+  const handleGoToCourse = async () => {
     // For required courses, we always allow access
     if (course.isRequiredCourse) {
       if (onGoToCourse) {
@@ -224,9 +223,7 @@ const CourseCard = ({
         onGoToCourse(course);
       }
       return;
-    }
-
-    // Handle Firebase Courses and regular courses differently
+    }    // Handle Firebase Courses and regular courses differently
     if (course.courseDetails?.firebaseCourse) {
       // For Firebase courses, only restrict if Archived or Pending
       if (status === 'Archived' || status === 'Pending') {
@@ -238,6 +235,27 @@ const CourseCard = ({
         toast.error("You cannot access the course until payment is completed");
         return;
       }
+      
+      // Validate gradebook structure for Firebase courses before allowing access
+      try {
+        const { getFunctions, httpsCallable } = await import('firebase/functions');
+        const functions = getFunctions();
+        const validateGradebook = httpsCallable(functions, 'validateGradebookStructure');
+        
+        const result = await validateGradebook({
+          courseId: course.id,
+          studentEmail: user?.email
+        });
+        
+        if (!result.data.isValid) {
+          console.log('Gradebook structure validation completed with fixes:', result.data);
+          toast.success("Course gradebook has been updated. You can now access the course.");
+        }
+      } catch (error) {
+        console.error('Error validating gradebook structure:', error);
+        // Don't block access if validation fails, just log the error
+      }
+      
       if (onGoToCourse) {
         onGoToCourse(course);
       }

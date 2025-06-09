@@ -1,6 +1,14 @@
 /**
  * Gradebook Cloud Functions
  * Real-time gradebook updates when assessments are completed
+ * 
+ * NEW APPROACH (2025): Uses course-config.json as single source of truth
+ * Benefits:
+ * - Developers only maintain question points in course-config.json
+ * - All totals (item, category, course) calculated automatically
+ * - No more pattern matching or hardcoded point values
+ * - Consistent between frontend gradebook display and backend updates
+ * - Easier maintenance and fewer errors
  */
 
 const { onValueCreated, onValueUpdated } = require('firebase-functions/v2/database');
@@ -11,6 +19,7 @@ const {
   initializeGradebook, 
   getCourseConfig,
   trackLessonAccess,
+  validateGradebookStructure,
   GRADEBOOK_PATHS
 } = require('./shared/utilities/database-utils');
 
@@ -36,33 +45,12 @@ exports.updateStudentGradebook = onValueCreated({
   }
   
   try {
-    // Get course config to determine activity type and max score
-    const courseConfig = await getCourseConfig(courseId);
-    
-    // Try to determine item type from assessment ID pattern
-    let activityType = 'lesson'; // default
-    if (assessmentId.includes('assignment') || assessmentId.includes('homework')) {
-      activityType = 'assignment';
-    } else if (assessmentId.includes('exam') || assessmentId.includes('test')) {
-      activityType = 'exam';
-    } else if (assessmentId.includes('lab') || assessmentId.includes('laboratory')) {
-      activityType = 'lab';
-    } else if (assessmentId.includes('project')) {
-      activityType = 'project';
-    }
-    
-    // Get max score from course config
-    const activityConfig = courseConfig.activityTypes?.[activityType] || {};
-    const maxScore = activityConfig.pointValue || score;
-    
-    // Create item configuration
+    // The updateGradebookItem function now handles all item configuration lookup
+    // using the course-config.json gradebook structure. We just need to pass
+    // a minimal legacy itemConfig for backward compatibility.
     const itemConfig = {
       title: assessmentId.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim(),
-      type: activityType,
-      unitId: 'unknown', // Will be filled in by lesson tracking
-      pointsValue: maxScore,
-      maxScore: maxScore,
-      weight: 0 // Individual items don't have weights, categories do
+      // All other configuration will be determined from course-config.json
     };
     
     // Check if this is a staff member
@@ -112,33 +100,11 @@ exports.updateStudentGradebookOnChange = onValueUpdated({
   }
   
   try {
-    // Get course config
-    const courseConfig = await getCourseConfig(courseId);
-    
-    // Determine item type from assessment ID pattern
-    let activityType = 'lesson';
-    if (assessmentId.includes('assignment') || assessmentId.includes('homework')) {
-      activityType = 'assignment';
-    } else if (assessmentId.includes('exam') || assessmentId.includes('test')) {
-      activityType = 'exam';
-    } else if (assessmentId.includes('lab') || assessmentId.includes('laboratory')) {
-      activityType = 'lab';
-    } else if (assessmentId.includes('project')) {
-      activityType = 'project';
-    }
-    
-    // Get max score from course config
-    const activityConfig = courseConfig.activityTypes?.[activityType] || {};
-    const maxScore = activityConfig.pointValue || newScore;
-    
-    // Create item configuration
+    // The updateGradebookItem function now handles all item configuration lookup
+    // using the course-config.json gradebook structure.
     const itemConfig = {
       title: assessmentId.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim(),
-      type: activityType,
-      unitId: 'unknown',
-      pointsValue: maxScore,
-      maxScore: maxScore,
-      weight: 0
+      // All other configuration will be determined from course-config.json
     };
     
     // Check if this is a staff member
@@ -176,33 +142,11 @@ exports.updateStaffGradebook = onValueCreated({
   }
   
   try {
-    // Get course config
-    const courseConfig = await getCourseConfig(courseId);
-    
-    // Determine activity type
-    let activityType = 'lesson';
-    if (assessmentId.includes('assignment') || assessmentId.includes('homework')) {
-      activityType = 'assignment';
-    } else if (assessmentId.includes('exam') || assessmentId.includes('test')) {
-      activityType = 'exam';
-    } else if (assessmentId.includes('lab') || assessmentId.includes('laboratory')) {
-      activityType = 'lab';
-    } else if (assessmentId.includes('project')) {
-      activityType = 'project';
-    }
-    
-    // Get max score from course config
-    const activityConfig = courseConfig.activityTypes?.[activityType] || {};
-    const maxScore = activityConfig.pointValue || score;
-    
-    // Create item configuration
+    // The updateGradebookItem function now handles all item configuration lookup
+    // using the course-config.json gradebook structure.
     const itemConfig = {
       title: assessmentId.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim(),
-      type: activityType,
-      unitId: 'unknown',
-      pointsValue: maxScore,
-      maxScore: maxScore,
-      weight: 0
+      // All other configuration will be determined from course-config.json
     };
     
     // Initialize gradebook if needed
@@ -320,6 +264,138 @@ exports.getGradebookSummary = onCall({
 });
 
 /**
+ * NEW: Trigger on assessment attempts (not just grades)
+ * This captures all student activity including failed attempts
+ * Listens to: /students/{studentKey}/courses/{courseId}/Assessments/{assessmentId}/timestamp
+ */
+exports.updateGradebookOnAssessmentAttempt = onValueUpdated({
+  ref: '/students/{studentKey}/courses/{courseId}/Assessments/{assessmentId}/timestamp',
+  region: 'us-central1',
+  memory: '256MiB',
+  timeoutSeconds: 60
+}, async (event) => {
+  const { studentKey, courseId, assessmentId } = event.params;
+  
+  console.log(`📝 Assessment attempt trigger: ${studentKey}/${courseId}/${assessmentId}`);
+  
+  try {
+    // Get the full assessment data
+    const assessmentPath = `/students/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`;
+    const assessmentRef = admin.database().ref(assessmentPath);
+    const assessmentSnapshot = await assessmentRef.once('value');
+    const assessmentData = assessmentSnapshot.val();
+    
+    if (!assessmentData) {
+      console.log('No assessment data found, skipping');
+      return;
+    }
+    
+    // Calculate score based on assessment data
+    let score = 0;
+    if (assessmentData.lastSubmission?.isCorrect) {
+      score = assessmentData.pointsValue || 0;
+    }
+    
+    console.log(`📊 Assessment ${assessmentId}: attempts=${assessmentData.attempts}, score=${score}/${assessmentData.pointsValue}`);
+    
+    // Check if this is a staff member
+    const isStaff = studentKey.includes('@rtdacademy.com') || studentKey.includes('staff');
+    
+    // Initialize gradebook if it doesn't exist
+    const gradebookPath = `${isStaff ? 'staff_testing' : 'students'}/${studentKey}/courses/${courseId}/Gradebook`;
+    const gradebookRef = admin.database().ref(gradebookPath);
+    const gradebookSnapshot = await gradebookRef.once('value');
+    
+    if (!gradebookSnapshot.exists()) {
+      console.log('Initializing gradebook for student');
+      await initializeGradebook(studentKey, courseId, isStaff);
+    }
+    
+    // Create item config from assessment data
+    const itemConfig = {
+      title: assessmentData.questionText?.substring(0, 50) + '...' || assessmentId,
+      type: assessmentData.activityType || 'lesson',
+      pointsValue: assessmentData.pointsValue || 0,
+      attempts: assessmentData.attempts || 0,
+      status: assessmentData.status || 'attempted'
+    };
+    
+    // Update gradebook item
+    await updateGradebookItem(studentKey, courseId, assessmentId, score, itemConfig, isStaff);
+    
+    console.log(`✅ Gradebook updated from assessment attempt: ${assessmentId}`);
+    
+  } catch (error) {
+    console.error('Error updating gradebook from assessment attempt:', error);
+    // Don't throw error to avoid function retries
+  }
+});
+
+/**
+ * NEW: Trigger on staff assessment attempts
+ * Listens to: /staff_testing/{studentKey}/courses/{courseId}/Assessments/{assessmentId}/timestamp
+ */
+exports.updateStaffGradebookOnAssessmentAttempt = onValueUpdated({
+  ref: '/staff_testing/{studentKey}/courses/{courseId}/Assessments/{assessmentId}/timestamp',
+  region: 'us-central1',
+  memory: '256MiB',
+  timeoutSeconds: 60
+}, async (event) => {
+  const { studentKey, courseId, assessmentId } = event.params;
+  
+  console.log(`🧪 Staff assessment attempt trigger: ${studentKey}/${courseId}/${assessmentId}`);
+  
+  try {
+    // Get the full assessment data
+    const assessmentPath = `/staff_testing/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`;
+    const assessmentRef = admin.database().ref(assessmentPath);
+    const assessmentSnapshot = await assessmentRef.once('value');
+    const assessmentData = assessmentSnapshot.val();
+    
+    if (!assessmentData) {
+      console.log('No staff assessment data found, skipping');
+      return;
+    }
+    
+    // Calculate score based on assessment data
+    let score = 0;
+    if (assessmentData.lastSubmission?.isCorrect) {
+      score = assessmentData.pointsValue || 0;
+    }
+    
+    console.log(`📊 Staff Assessment ${assessmentId}: attempts=${assessmentData.attempts}, score=${score}/${assessmentData.pointsValue}`);
+    
+    // Initialize gradebook if it doesn't exist
+    const gradebookPath = `staff_testing/${studentKey}/courses/${courseId}/Gradebook`;
+    const gradebookRef = admin.database().ref(gradebookPath);
+    const gradebookSnapshot = await gradebookRef.once('value');
+    
+    if (!gradebookSnapshot.exists()) {
+      console.log('Initializing staff gradebook');
+      await initializeGradebook(studentKey, courseId, true);
+    }
+    
+    // Create item config from assessment data
+    const itemConfig = {
+      title: assessmentData.questionText?.substring(0, 50) + '...' || assessmentId,
+      type: assessmentData.activityType || 'lesson',
+      pointsValue: assessmentData.pointsValue || 0,
+      attempts: assessmentData.attempts || 0,
+      status: assessmentData.status || 'attempted'
+    };
+    
+    // Update gradebook item (isStaff = true)
+    await updateGradebookItem(studentKey, courseId, assessmentId, score, itemConfig, true);
+    
+    console.log(`✅ Staff gradebook updated from assessment attempt: ${assessmentId}`);
+    
+  } catch (error) {
+    console.error('Error updating staff gradebook from assessment attempt:', error);
+    // Don't throw error to avoid function retries
+  }
+});
+
+/**
  * Callable function: Recalculate gradebook for a student (admin only)
  */
 exports.recalculateGradebook = onCall({
@@ -350,40 +426,17 @@ exports.recalculateGradebook = onCall({
     const gradesSnapshot = await gradesRef.once('value');
     const grades = gradesSnapshot.val() || {};
     
-    // Get course config
-    const courseConfig = await getCourseConfig(courseId);
-    
     // Clear existing gradebook items
     const itemsPath = `${isStaff ? 'staff_testing' : 'students'}/${studentKey}/courses/${courseId}/Gradebook/items`;
     const itemsRef = admin.database().ref(itemsPath);
     await itemsRef.remove();
     
-    // Recalculate each grade
+    // Recalculate each grade using the new course config approach
     for (const [assessmentId, score] of Object.entries(grades)) {
-      // Determine activity type
-      let activityType = 'lesson';
-      if (assessmentId.includes('assignment') || assessmentId.includes('homework')) {
-        activityType = 'assignment';
-      } else if (assessmentId.includes('exam') || assessmentId.includes('test')) {
-        activityType = 'exam';
-      } else if (assessmentId.includes('lab') || assessmentId.includes('laboratory')) {
-        activityType = 'lab';
-      } else if (assessmentId.includes('project')) {
-        activityType = 'project';
-      }
-      
-      // Get max score from course config
-      const activityConfig = courseConfig.activityTypes?.[activityType] || {};
-      const maxScore = activityConfig.pointValue || score;
-      
-      // Create item configuration
+      // Simple item configuration - the updateGradebookItem function will handle the lookup
       const itemConfig = {
         title: assessmentId.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim(),
-        type: activityType,
-        unitId: 'unknown',
-        pointsValue: maxScore,
-        maxScore: maxScore,
-        weight: 0
+        // All other configuration will be determined from course-config.json
       };
       
       // Update gradebook item without triggering recalculation
@@ -401,5 +454,62 @@ exports.recalculateGradebook = onCall({
   } catch (error) {
     console.error('Error recalculating gradebook:', error);
     throw new Error(`Failed to recalculate gradebook: ${error.message}`);
+  }
+});
+
+/**
+ * Cloud Function: Validate gradebook structure for Firebase courses
+ * Called from frontend when students access Firebase courses
+ * Ensures gradebook is complete and matches course-config.json structure
+ */
+exports.validateGradebookStructure = onCall({
+  region: 'us-central1',
+  memory: '256MiB',
+  timeoutSeconds: 60,
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
+}, async (data, context) => {
+  try {
+    // Authentication check
+    if (!context.auth) {
+      throw new Error('User must be authenticated');
+    }
+
+    const { courseId, studentEmail } = data.data || data;
+    const userEmail = studentEmail || context.auth.token.email;
+    
+    if (!userEmail || !courseId) {
+      throw new Error('Missing required parameters: courseId, userEmail');
+    }
+    
+    // Sanitize email for database key
+    const studentKey = userEmail.replace(/\./g, '_').replace(/@/g, ',');
+    const isStaff = userEmail.includes('@rtdacademy.com');
+    
+    console.log(`🔍 Validating gradebook structure for ${userEmail} in course ${courseId}`);
+    
+    // Call the validation function
+    const validationResult = await validateGradebookStructure(studentKey, courseId, isStaff);
+    
+    console.log(`✅ Gradebook validation completed for course ${courseId}:`, {
+      isValid: validationResult.isValid,
+      missingItems: validationResult.missingItems?.length || 0,
+      missingCategories: validationResult.missingCategories?.length || 0,
+      wasRebuilt: validationResult.wasRebuilt
+    });
+    
+    return {
+      success: true,
+      isValid: validationResult.isValid,
+      missingItems: validationResult.missingItems,
+      missingCategories: validationResult.missingCategories,
+      wasRebuilt: validationResult.wasRebuilt,
+      message: validationResult.isValid 
+        ? 'Gradebook structure is valid' 
+        : 'Gradebook structure was updated to match course configuration'
+    };
+    
+  } catch (error) {
+    console.error('Error validating gradebook structure:', error);
+    throw new Error(`Failed to validate gradebook structure: ${error.message}`);
   }
 });

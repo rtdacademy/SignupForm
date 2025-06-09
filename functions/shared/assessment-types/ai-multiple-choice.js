@@ -70,7 +70,6 @@
  *   - topK: {number} - Top-K sampling (default: 40)
  * 
  * Content Settings:
- * - katexFormatting: {boolean} - Enable LaTeX math formatting (default: false)
  * - subject: {string} - Subject name for context
  * - gradeLevel: {number} - Grade level for context
  * - topic: {string} - Topic name for context
@@ -103,7 +102,6 @@
  *   activityType: 'lesson',
  *   enableAIChat: true,
  *   aiChatContext: "This question tests momentum conservation. Students often struggle with vector components and collision types.",
- *   katexFormatting: true,
  *   maxAttempts: 5,
  *   pointsValue: 2,
  *   theme: 'purple',
@@ -193,7 +191,8 @@ async function generateAIQuestion(config, topic, difficulty = 'intermediate', fa
     2. Make sure the question has ONE clear correct answer
     3. Ensure all incorrect options (distractors) are plausible but clearly wrong
     4. Include specific feedback for each answer option explaining why it's correct or incorrect
-    5. Use exactly 4 options with IDs: a, b, c, and d`;
+    5. Use exactly 4 options with IDs: a, b, c, and d
+    6. For mathematical expressions, use standard markdown math syntax: $inline math$ for inline expressions and $$block math$$ for display equations`;
     
     console.log("Generating AI question with structured output using Genkit");
     

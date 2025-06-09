@@ -6,6 +6,18 @@
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('../../utils');
 
+// Helper function to get category weights
+const getCategoryWeight = (type) => {
+  const weights = {
+    lesson: 15,
+    assignment: 35,
+    exam: 35,
+    project: 15,
+    lab: 0
+  };
+  return weights[type] || 15;
+};
+
 /**
  * Gets a safe server timestamp that works in both production and emulator environments
  * @returns {any} Server timestamp or Date.now() fallback
@@ -368,40 +380,128 @@ async function trackAssessmentProgress(studentKey, courseId, lessonId, assessmen
  * Update gradebook when an assessment is completed
  * @param {string} studentKey - Sanitized student email
  * @param {string} courseId - Course ID
- * @param {string} itemId - Item ID (assessment ID)
+ * @param {string} itemId - Item ID (assessment ID/question ID)
  * @param {number} score - Score earned
- * @param {Object} itemConfig - Item configuration from course structure
+ * @param {Object} itemConfig - Item configuration (legacy - will be replaced by course config data)
  * @param {boolean} isStaff - Whether this is a staff member
  */
 async function updateGradebookItem(studentKey, courseId, itemId, score, itemConfig, isStaff = false) {
   try {
+    // ENHANCED: Check if gradebook exists and validate structure periodically
     const itemPath = GRADEBOOK_PATHS.gradebookItem(studentKey, courseId, itemId, isStaff);
     const itemRef = admin.database().ref(itemPath);
     
-    // Get existing data
+    // Get existing data first to check if gradebook exists
     const snapshot = await itemRef.once('value');
     const existing = snapshot.val() || {};
     
-    // Find the course structure item this assessment belongs to
-    const courseStructureItem = await findCourseStructureItem(courseId, itemId);
-    const courseStructureItemId = courseStructureItem?.itemId || itemConfig.courseStructureItemId || 'unknown';
+    // Check if gradebook is initialized
+    const basePath = isStaff ? `staff_testing/${studentKey}/courses/${courseId}/Gradebook` 
+                              : `students/${studentKey}/courses/${courseId}/Gradebook`;
+    const gradebookRef = admin.database().ref(basePath);
+    const gradebookSnapshot = await gradebookRef.once('value');
+    const currentGradebook = gradebookSnapshot.val();
+    
+    let shouldValidateStructure = false;
+    
+    // Validate structure if:
+    // 1. Gradebook doesn't exist or isn't initialized
+    // 2. This is the first submission of the day (throttling mechanism)
+    // 3. Question doesn't exist in current structure
+    if (!currentGradebook || !currentGradebook.initialized) {
+      console.log(`📝 Gradebook not initialized for ${studentKey} in course ${courseId}`);
+      shouldValidateStructure = true;
+    } else if (!existing || Object.keys(existing).length === 0) {
+      // Question doesn't exist - this could indicate missing structure
+      console.log(`🔍 Question ${itemId} not found in gradebook for ${studentKey}, checking structure...`);
+      shouldValidateStructure = true;
+    } else {
+      // Periodic validation: Check if we haven't validated today
+      const lastValidated = currentGradebook.lastStructureValidation;
+      const today = new Date().toDateString();
+      const lastValidatedDate = lastValidated ? new Date(lastValidated).toDateString() : null;
+      
+      if (lastValidatedDate !== today) {
+        console.log(`📅 Daily structure validation for ${studentKey} in course ${courseId}`);
+        shouldValidateStructure = true;
+      }
+    }
+    
+    if (shouldValidateStructure) {
+      const structureValidation = await validateGradebookStructure(studentKey, courseId, isStaff);
+      
+      if (!structureValidation.isValid) {
+        console.log(`🔧 Gradebook structure incomplete for ${studentKey} in course ${courseId}. Rebuilding...`);
+        console.log(`Missing items: ${structureValidation.missingItems.length}, Missing categories: ${structureValidation.missingCategories.length}`);
+        
+        // Reinitialize the complete gradebook structure
+        await initializeGradebook(studentKey, courseId, isStaff);
+        console.log(`✅ Gradebook structure rebuilt successfully for ${studentKey} in course ${courseId}`);
+        
+        // Refresh the item reference after reinitialization
+        const newSnapshot = await itemRef.once('value');
+        const refreshedExisting = newSnapshot.val() || {};
+        Object.assign(existing, refreshedExisting);
+      }
+      
+      // Update last validation timestamp
+      await gradebookRef.update({
+        lastStructureValidation: getServerTimestamp()
+      });
+    }
+    
+    // NEW: Use course config to find question details
+    const questionInfo = await findQuestionInCourseConfig(courseId, itemId);
+    
+    let finalItemConfig = itemConfig;
+    let courseStructureItemId = 'unknown';
+    
+    if (questionInfo) {
+      // Use data from course config (preferred)
+      console.log(`✅ Using course config data for ${itemId}`);
+      finalItemConfig = {
+        title: questionInfo.questionTitle,
+        type: questionInfo.itemType,
+        pointsValue: questionInfo.questionPoints,
+        maxScore: questionInfo.questionPoints,
+        courseStructureItemId: questionInfo.itemId, // This is the course item ID (lesson/assignment)
+        contentPath: questionInfo.contentPath
+      };
+      courseStructureItemId = questionInfo.itemId;
+    } else {
+      // Fallback to legacy approach only if course config approach fails
+      console.log(`⚠️ Question ${itemId} not found in course config, trying legacy approach`);
+      try {
+        const courseStructureItem = await findCourseStructureItem(courseId, itemId);
+        courseStructureItemId = courseStructureItem?.itemId || itemConfig.courseStructureItemId || 'unknown';
+      } catch (error) {
+        console.log(`⚠️ Legacy approach also failed for ${itemId}: ${error.message}`);
+        console.log(`Using minimal configuration for ${itemId}`);
+        courseStructureItemId = itemConfig.courseStructureItemId || 'unknown';
+      }
+    }
     
     const itemData = {
-      title: itemConfig.title || existing.title || itemId,
-      type: itemConfig.type || existing.type || courseStructureItem?.type || 'lesson',
-      unitId: itemConfig.unitId || existing.unitId || courseStructureItem?.unitId || 'unknown',
-      courseStructureItemId: courseStructureItemId, // NEW: Link to course structure
+      title: finalItemConfig.title || existing.title || itemId,
+      type: finalItemConfig.type || existing.type || 'lesson',
+      unitId: finalItemConfig.unitId || existing.unitId || 'unknown',
+      courseStructureItemId: courseStructureItemId, // Link to course item (lesson/assignment)
       score: score,
-      maxScore: itemConfig.pointsValue || itemConfig.maxScore || score,
-      weight: itemConfig.weight || existing.weight || 0,
+      maxScore: finalItemConfig.pointsValue || finalItemConfig.maxScore || score,
+      weight: finalItemConfig.weight || existing.weight || 0,
       attempts: (existing.attempts || 0) + 1,
       lastAttempt: getServerTimestamp(),
       status: 'completed',
       // Enhanced tracking
-      timeSpent: itemConfig.timeSpent || existing.timeSpent || 0,
-      required: courseStructureItem?.required !== false,
-      estimatedTime: courseStructureItem?.estimatedTime || 0
+      timeSpent: finalItemConfig.timeSpent || existing.timeSpent || 0,
+      required: true, // Questions are typically required
+      estimatedTime: finalItemConfig.estimatedTime || 0
     };
+
+    // Only add contentPath if it has a value (avoid undefined)
+    if (finalItemConfig.contentPath || existing.contentPath) {
+      itemData.contentPath = finalItemConfig.contentPath || existing.contentPath;
+    }
     
     // Track first completion
     if (!existing.completedAt) {
@@ -661,7 +761,8 @@ function getDefaultCourseConfig() {
 }
 
 /**
- * Initialize gradebook structure for a new student
+ * Initialize gradebook structure for a new student using course-config.json
+ * Creates complete gradebook structure with all items and expected totals
  * @param {string} studentKey - Sanitized student email
  * @param {string} courseId - Course ID
  * @param {boolean} isStaff - Whether this is a staff member
@@ -672,26 +773,141 @@ async function initializeGradebook(studentKey, courseId, isStaff = false) {
                               : `students/${studentKey}/courses/${courseId}/Gradebook`;
     const gradebookRef = admin.database().ref(basePath);
     
-    await gradebookRef.set({
-      initialized: true,
-      createdAt: getServerTimestamp(),
-      summary: {
-        totalPoints: 0,
-        possiblePoints: 0,
-        percentage: 0,
-        isPassing: false,
-        status: 'active'
-      },
-      categories: {},
-      items: {},
-      courseStructureItems: {}, // NEW: Course structure item summaries
-      progress: {
-        lessons: {}
-      },
-      timeTracking: {} // NEW: Time tracking
-    });
+    // Get course config to build complete structure
+    const courseConfig = await getCourseConfig(courseId);
+    const gradebookStructure = courseConfig?.gradebook?.itemStructure;
     
-    console.log(`🎓 Initialized gradebook for ${studentKey} in course ${courseId}`);
+    if (gradebookStructure) {
+      console.log(`🏗️ Building complete gradebook structure from course-config.json for course ${courseId}`);
+      
+      // Build complete gradebook structure
+      const categories = {};
+      const items = {};
+      let totalPossiblePoints = 0;
+      
+      // Process each item from course config
+      Object.entries(gradebookStructure).forEach(([itemId, itemConfig]) => {
+        const itemType = itemConfig.type || 'lesson';
+        const itemQuestions = itemConfig.questions || [];
+        const itemTotalPoints = itemQuestions.reduce((sum, q) => sum + (q.points || 0), 0);
+        
+        // Initialize category if not exists
+        if (!categories[itemType]) {
+          categories[itemType] = {
+            categoryWeight: getCategoryWeight(itemType),
+            earned: 0,
+            possible: 0,
+            percentage: 0,
+            items: [],
+            totalWeight: 0,
+            useIndividualWeights: false,
+            weightedScore: 0
+          };
+        }
+        
+        // Add to category totals
+        categories[itemType].possible += itemTotalPoints;
+        totalPossiblePoints += itemTotalPoints;
+        
+        // Add item to category
+        categories[itemType].items.push({
+          id: itemId,
+          title: itemConfig.title,
+          maxScore: itemTotalPoints,
+          score: 0,
+          percentage: 0,
+          type: itemType,
+          weight: 0
+        });
+        
+        // Create individual question items
+        itemQuestions.forEach(question => {
+          items[question.questionId] = {
+            title: question.title,
+            type: itemType,
+            unitId: 'main_unit',
+            courseStructureItemId: itemId,
+            score: 0,
+            maxScore: question.points,
+            weight: 0,
+            attempts: 0,
+            lastAttempt: null,
+            status: 'not_started',
+            timeSpent: 0,
+            required: true,
+            estimatedTime: 0
+          };
+        });
+      });
+      
+      // Calculate category percentages (all 0% initially)
+      Object.keys(categories).forEach(categoryType => {
+        const category = categories[categoryType];
+        category.percentage = 0; // No points earned yet
+        category.weightedScore = 0;
+      });
+      
+      const passingGrade = courseConfig.globalSettings?.passingGrade || 60;
+      
+      const gradebookData = {
+        initialized: true,
+        createdAt: getServerTimestamp(),
+        summary: {
+          totalPoints: 0,
+          possiblePoints: totalPossiblePoints,
+          percentage: 0,
+          isPassing: false,
+          passingGrade: passingGrade,
+          status: 'active',
+          lastUpdated: getServerTimestamp(),
+          totalWeight: Object.values(categories).reduce((sum, cat) => sum + cat.categoryWeight, 0),
+          weightedScore: 0
+        },
+        categories: categories,
+        items: items,
+        courseStructureItems: {},
+        progress: {
+          lessons: {}
+        },
+        timeTracking: {}
+      };
+      
+      await gradebookRef.set(gradebookData);
+      
+      console.log(`✅ Complete gradebook initialized for ${studentKey} in course ${courseId}:`, {
+        totalPossiblePoints,
+        itemsCount: Object.keys(items).length,
+        categoriesCount: Object.keys(categories).length,
+        categoryTotals: Object.fromEntries(
+          Object.entries(categories).map(([type, cat]) => [type, cat.possible])
+        )
+      });
+      
+    } else {
+      // Fallback to basic structure if no course config
+      console.log(`⚠️ No course config found, creating basic gradebook for course ${courseId}`);
+      
+      await gradebookRef.set({
+        initialized: true,
+        createdAt: getServerTimestamp(),
+        summary: {
+          totalPoints: 0,
+          possiblePoints: 0,
+          percentage: 0,
+          isPassing: false,
+          status: 'active'
+        },
+        categories: {},
+        items: {},
+        courseStructureItems: {},
+        progress: {
+          lessons: {}
+        },
+        timeTracking: {}
+      });
+    }
+    
+    console.log(`🎓 Gradebook initialization complete for ${studentKey} in course ${courseId}`);
     
   } catch (error) {
     console.error('Error initializing gradebook:', error);
@@ -729,7 +945,67 @@ async function getCourseStructure(courseId) {
 }
 
 /**
- * Find a course structure item by assessment ID
+ * Find a question/assessment in the course config gradebook structure
+ * 
+ * NEW APPROACH (2025): This function replaces pattern matching with precise lookup
+ * in the course-config.json gradebook structure. It finds the exact question,
+ * its point value, and the parent item (lesson/assignment) it belongs to.
+ * 
+ * @param {string} courseId - Course ID  
+ * @param {string} assessmentId - Assessment ID (question ID)
+ * @returns {Promise<Object|null>} Question info with item details or null
+ */
+async function findQuestionInCourseConfig(courseId, assessmentId) {
+  try {
+    const courseConfig = await getCourseConfig(courseId);
+    const gradebookStructure = courseConfig?.gradebook?.itemStructure;
+    
+    if (!gradebookStructure) {
+      console.log(`⚠️ No gradebook structure found in course config for course ${courseId}`);
+      return null;
+    }
+    
+    console.log(`🔍 Looking for assessment ${assessmentId} in course config gradebook structure`);
+    
+    // Search through all items and their questions
+    for (const [itemId, itemConfig] of Object.entries(gradebookStructure)) {
+      const questions = itemConfig.questions || [];
+      
+      for (const question of questions) {
+        if (question.questionId === assessmentId) {
+          console.log(`✅ FOUND: ${assessmentId} in item ${itemId} (${question.points} points)`);
+          return {
+            questionId: assessmentId,
+            questionTitle: question.title,
+            questionPoints: question.points,
+            itemId: itemId,
+            itemTitle: itemConfig.title,
+            itemType: itemConfig.type,
+            contentPath: itemConfig.contentPath,
+            // Calculate total item points from all questions
+            itemTotalPoints: questions.reduce((sum, q) => sum + (q.points || 0), 0),
+            itemQuestions: questions
+          };
+        }
+      }
+    }
+    
+    console.log(`❌ Assessment ${assessmentId} not found in course config gradebook structure`);
+    console.log(`Available question IDs:`, 
+      Object.values(gradebookStructure).flatMap(item => 
+        item.questions?.map(q => q.questionId) || []
+      )
+    );
+    
+    return null;
+  } catch (error) {
+    console.error('Error finding assessment in course config:', error);
+    return null;
+  }
+}
+
+/**
+ * Find a course structure item by assessment ID (LEGACY - for backward compatibility)
  * @param {string} courseId - Course ID
  * @param {string} assessmentId - Assessment ID
  * @returns {Promise<Object|null>} Course structure item or null
@@ -963,6 +1239,120 @@ async function trackTimeSpent(studentKey, courseId, itemId, timeSpent, isStaff =
   }
 }
 
+/**
+ * Validate gradebook structure completeness against course configuration
+ * Checks if current gradebook has all items and categories from course-config.json
+ * @param {string} studentKey - Sanitized student email
+ * @param {string} courseId - Course ID
+ * @param {boolean} isStaff - Whether this is a staff member
+ * @returns {Promise<{isValid: boolean, missingItems: Array, missingCategories: Array}>}
+ */
+async function validateGradebookStructure(studentKey, courseId, isStaff = false) {
+  try {
+    console.log(`🔍 Validating gradebook structure for ${studentKey} in course ${courseId}`);
+    
+    // Get course configuration
+    const courseConfig = await getCourseConfig(courseId);
+    const gradebookStructure = courseConfig?.gradebook?.itemStructure;
+    
+    if (!gradebookStructure) {
+      console.log(`⚠️ No gradebook structure found in course config for course ${courseId}`);
+      return { isValid: true, missingItems: [], missingCategories: [] }; // Skip validation if no structure
+    }
+    
+    // Get current gradebook data
+    const basePath = isStaff ? `staff_testing/${studentKey}/courses/${courseId}/Gradebook` 
+                              : `students/${studentKey}/courses/${courseId}/Gradebook`;
+    const gradebookRef = admin.database().ref(basePath);
+    const gradebookSnapshot = await gradebookRef.once('value');
+    const currentGradebook = gradebookSnapshot.val();
+    
+    // If gradebook doesn't exist, it's definitely incomplete
+    if (!currentGradebook || !currentGradebook.initialized) {
+      console.log(`❌ Gradebook not initialized for ${studentKey} in course ${courseId}`);
+      return { 
+        isValid: false, 
+        missingItems: Object.keys(gradebookStructure), 
+        missingCategories: [...new Set(Object.values(gradebookStructure).map(item => item.type))]
+      };
+    }
+    
+    const currentItems = currentGradebook.items || {};
+    const currentCategories = currentGradebook.categories || {};
+    
+    // Build expected structure from course config
+    const expectedQuestions = new Set();
+    const expectedCategories = new Set();
+    const expectedCourseItems = new Set();
+    
+    Object.entries(gradebookStructure).forEach(([itemId, itemConfig]) => {
+      expectedCourseItems.add(itemId);
+      expectedCategories.add(itemConfig.type);
+      
+      // Add all questions from this item
+      (itemConfig.questions || []).forEach(question => {
+        expectedQuestions.add(question.questionId);
+      });
+    });
+    
+    // Check for missing individual questions
+    const missingItems = [];
+    expectedQuestions.forEach(questionId => {
+      if (!currentItems[questionId]) {
+        missingItems.push(questionId);
+      }
+    });
+    
+    // Check for missing categories
+    const missingCategories = [];
+    expectedCategories.forEach(categoryType => {
+      if (!currentCategories[categoryType]) {
+        missingCategories.push(categoryType);
+      }
+    });
+    
+    // Check for missing course structure items (optional, since they're calculated)
+    const currentCourseItems = currentGradebook.courseStructureItems || {};
+    const missingCourseItems = [];
+    expectedCourseItems.forEach(itemId => {
+      if (!currentCourseItems[itemId]) {
+        missingCourseItems.push(itemId);
+      }
+    });
+    
+    const isValid = missingItems.length === 0 && missingCategories.length === 0;
+    
+    if (!isValid) {
+      console.log(`❌ Gradebook structure validation failed for ${studentKey} in course ${courseId}:`, {
+        missingItems: missingItems.length,
+        missingCategories: missingCategories.length,
+        missingCourseItems: missingCourseItems.length
+      });
+    } else {
+      console.log(`✅ Gradebook structure validation passed for ${studentKey} in course ${courseId}`);
+    }
+    
+    return { 
+      isValid, 
+      missingItems, 
+      missingCategories, 
+      missingCourseItems,
+      expectedItemsCount: expectedQuestions.size,
+      currentItemsCount: Object.keys(currentItems).length
+    };
+    
+  } catch (error) {
+    console.error('Error validating gradebook structure:', error);
+    // Return invalid to trigger recreation if validation fails
+    return { 
+      isValid: false, 
+      missingItems: [], 
+      missingCategories: [], 
+      error: error.message 
+    };
+  }
+}
+
 module.exports = {
   getServerTimestamp,
   extractParameters,
@@ -979,6 +1369,8 @@ module.exports = {
   getCourseConfig,
   getCourseStructure,
   findCourseStructureItem,
+  findQuestionInCourseConfig, // NEW: Course config based question lookup
   updateCourseStructureItemSummary,
   trackTimeSpent,
+  validateGradebookStructure, // NEW: Gradebook structure validation
 };

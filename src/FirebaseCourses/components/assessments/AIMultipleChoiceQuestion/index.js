@@ -6,13 +6,15 @@ import { useAuth } from '../../../../context/AuthContext';
 import { Button } from '../../../../components/ui/button';
 import { Infinity, MessageCircle } from 'lucide-react';
 import { sanitizeEmail } from '../../../../utils/sanitizeEmail';
-import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import remarkGfm from 'remark-gfm';
+import remarkEmoji from 'remark-emoji';
+import remarkDeflist from 'remark-deflist';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import {
   Sheet,
   SheetContent,
@@ -24,11 +26,12 @@ import GoogleAIChatApp from '../../../../edbotz/GoogleAIChat/GoogleAIChatApp';
 
 /**
  * Helper function to detect if text contains markdown patterns
+ * Based on GoogleAIChatApp's enhanced detection
  */
 const containsMarkdown = (text) => {
   if (!text) return false;
   
-  // Look for common markdown patterns including newlines
+  // Look for more precise patterns to reduce false positives
   const markdownPatterns = [
     /^#+\s+.+$/m,                  // Headers: # Header
     /\*\*.+\*\*/,                  // Bold: **bold**
@@ -49,41 +52,133 @@ const containsMarkdown = (text) => {
     /\\end\{/,                     // LaTeX environments: \end{...}
     /\\frac\{/,                    // LaTeX fractions: \frac{...}
     /\\sqrt/,                      // LaTeX square roots: \sqrt{...}
-    /\n/,                          // Newlines - important for preserving line breaks
+    /\\left/,                      // LaTeX brackets: \left(...
+    /\\right/,                     // LaTeX brackets: \right)...
   ];
   
-  // Check for newlines or other markdown patterns
-  return markdownPatterns.some(pattern => pattern.test(text));
+  // Check for simple text indicators first for better performance
+  const quickCheck = (
+    text.includes('#') || 
+    text.includes('**') || 
+    text.includes('*') ||
+    text.includes('```') ||
+    text.includes('`') ||
+    text.includes('[') ||
+    text.includes('|') ||
+    text.includes('> ') ||
+    text.includes('- ') ||
+    text.includes('1. ') ||
+    text.includes('$') ||  // Math delimiters
+    text.includes('\\')    // LaTeX commands
+  );
+  
+  // If quick check passes, do more precise checking
+  if (quickCheck) {
+    // Check for common markdown patterns
+    for (const pattern of markdownPatterns) {
+      if (pattern.test(text)) {
+        return true;
+      }
+    }
+    
+    // Special case for tables which can be tricky to detect
+    if (text.includes('|')) {
+      // Count pipe characters in the text
+      const pipeCount = (text.match(/\|/g) || []).length;
+      // If there are multiple pipe characters, it's likely a table
+      if (pipeCount >= 4) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 };
 
 /**
  * Enhanced text rendering that handles both markdown and LaTeX math
- * Preserves newlines and formats text properly
+ * Based on GoogleAIChatApp's comprehensive rendering approach
  */
 const renderEnhancedText = (text) => {
   if (!text) return text;
   
-  // If text contains markdown patterns or newlines, use ReactMarkdown
+  // If text contains markdown patterns, use ReactMarkdown with enhanced configuration
   if (containsMarkdown(text)) {
     return (
       <div className="prose prose-sm max-w-none">
         <ReactMarkdown
-          remarkPlugins={[remarkMath, remarkGfm]}
-          rehypePlugins={[rehypeKatex, rehypeRaw]}
+          remarkPlugins={[remarkMath, remarkGfm, remarkEmoji, remarkDeflist]}
+          rehypePlugins={[
+            [rehypeSanitize, {
+              // Standard HTML elements plus additional elements for enhanced content
+              allowedElements: [
+                // Standard markdown elements
+                'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'blockquote', 
+                'pre', 'code', 'em', 'strong', 'del', 'table', 'thead', 'tbody', 'tr', 
+                'th', 'td', 'a', 'img', 'hr', 'br', 'div', 'span',
+                // Additional elements we want to allow
+                'details', 'summary', 'dl', 'dt', 'dd'
+              ],
+              // Allow certain attributes
+              allowedAttributes: {
+                // Allow href and target for links
+                a: ['href', 'target', 'rel'],
+                // Allow src and alt for images
+                img: ['src', 'alt', 'title'],
+                // Allow class and style for common elements
+                div: ['className', 'class', 'style'],
+                span: ['className', 'class', 'style'],
+                code: ['className', 'class', 'language'],
+                pre: ['className', 'class'],
+                // Allow open attribute for details
+                details: ['open']
+              }
+            }],
+            rehypeKatex,
+            rehypeRaw
+          ]}
           components={{
-            // Handle inline code
+            // Make headings slightly smaller in question contexts
+            h1: ({node, ...props}) => <h2 className="text-xl font-bold mt-1 mb-2" {...props} />,
+            h2: ({node, ...props}) => <h3 className="text-lg font-bold mt-1 mb-2" {...props} />,
+            h3: ({node, ...props}) => <h4 className="text-base font-bold mt-1 mb-1" {...props} />,
+            
+            // Enhanced code handling
             code: ({node, inline, className, children, ...props}) => {
               if (inline) {
                 return <code className="px-1 py-0.5 rounded text-sm font-mono bg-gray-100 text-gray-800" {...props}>{children}</code>
               }
               return <code {...props}>{children}</code>
             },
-            // Make sure paragraphs preserve spacing
-            p: ({node, ...props}) => <p className="mb-2" {...props} />,
-            // Handle lists
+            
+            // Make lists more compact
             ul: ({node, ...props}) => <ul className="my-1 pl-5" {...props} />,
             ol: ({node, ...props}) => <ol className="my-1 pl-5" {...props} />,
             li: ({node, ...props}) => <li className="my-0.5" {...props} />,
+            
+            // Make sure paragraphs preserve spacing
+            p: ({node, ...props}) => <p className="mb-2" {...props} />,
+            
+            // Make links open in new tab and have proper styling
+            a: ({node, ...props}) => <a target="_blank" rel="noopener noreferrer" className="font-medium underline" {...props} />,
+            
+            // Style tables to fit in content areas
+            table: ({node, ...props}) => (
+              <div className="overflow-x-auto my-2">
+                <table className="border-collapse border border-gray-300 text-sm" {...props} />
+              </div>
+            ),
+            th: ({node, ...props}) => <th className="border border-gray-300 px-2 py-1 bg-gray-100" {...props} />,
+            td: ({node, ...props}) => <td className="border border-gray-300 px-2 py-1" {...props} />,
+            
+            // Handle details/summary elements
+            details: ({node, ...props}) => <details className="border rounded-md p-2 my-2" {...props} />,
+            summary: ({node, ...props}) => <summary className="font-medium cursor-pointer" {...props} />,
+            
+            // Definition lists
+            dl: ({node, ...props}) => <dl className="my-2" {...props} />,
+            dt: ({node, ...props}) => <dt className="font-bold mt-2" {...props} />,
+            dd: ({node, ...props}) => <dd className="ml-4 mt-1" {...props} />,
           }}
         >
           {text}
@@ -122,6 +217,7 @@ const AIMultipleChoiceQuestion = ({
 
   // Styling props only - all other configuration comes from the database
   theme = 'purple',        // Color theme: 'blue', 'green', 'purple', etc.
+  title,                   // Custom title for the question (fallback if not in database)
   questionClassName = '',  // Additional class name for question container
   optionsClassName = '',   // Additional class name for options container
   
@@ -130,6 +226,9 @@ const AIMultipleChoiceQuestion = ({
   onAttempt = () => {},    // Callback on each attempt
   onComplete = () => {},   // Callback when all attempts are used
 }) => {
+  // Generate a unique instance ID for this question component
+  const instanceId = useRef(`mc_${assessmentId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`).current;
+  
   // Authentication and state
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -407,7 +506,7 @@ const AIMultipleChoiceQuestion = ({
   }, [currentUser, courseId, assessmentId, db]);
 
   // Generate a new question using cloud function with debouncing
-  const generateQuestion = async () => {
+  const generateQuestion = async (customDifficulty = null) => {
     if (!currentUser || !currentUser.email) return;
     
     // Prevent multiple calls if we're already generating
@@ -435,7 +534,7 @@ const AIMultipleChoiceQuestion = ({
       regenerationTimeoutRef.current = setTimeout(() => {
         console.log(`Debounce period complete, proceeding with generation`);
         lastGeneratedTimeRef.current = Date.now();
-        generateQuestionNow();
+        generateQuestionNow(customDifficulty);
       }, timeToWait);
       
       return;
@@ -443,11 +542,11 @@ const AIMultipleChoiceQuestion = ({
 
     // If we're not debouncing, generate right away
     lastGeneratedTimeRef.current = now;
-    await generateQuestionNow();
+    await generateQuestionNow(customDifficulty);
   };
   
   // The actual generation function (after debounce handling)
-  const generateQuestionNow = async () => {
+  const generateQuestionNow = async (customDifficulty = null) => {
     // Only set regenerating if not already set (avoid double setting in handleRegenerate)
     if (!regenerating) {
       setRegenerating(true);
@@ -460,9 +559,11 @@ const AIMultipleChoiceQuestion = ({
       const assessmentFunction = httpsCallable(functions, cloudFunctionName);
 
       // Extract topic and difficulty from question data if available
-      // For assignments with difficulty selection, use selectedDifficulty, otherwise use question data
+      // For assignments with difficulty selection, use customDifficulty (from button click), then selectedDifficulty, otherwise use question data
       const topicFromData = topic || question?.topic || 'general';
-      const difficultyFromData = selectedDifficulty || question?.difficulty || question?.settings?.defaultDifficulty || 'intermediate';
+      const difficultyFromData = customDifficulty || selectedDifficulty || question?.difficulty || question?.settings?.defaultDifficulty || 'intermediate';
+      
+      console.log(`Difficulty selection logic: customDifficulty=${customDifficulty}, selectedDifficulty=${selectedDifficulty}, question.difficulty=${question?.difficulty}, final=${difficultyFromData}`);
       
       const functionParams = {
         courseId: courseId,
@@ -640,7 +741,7 @@ const AIMultipleChoiceQuestion = ({
     // and update the database, which will trigger our database listener
     try {
       console.log("Requesting question regeneration while preserving attempt count");
-      generateQuestion().catch(error => {
+      generateQuestion(customDifficulty).catch(error => {
         // Handle async errors
         console.error("Error during question regeneration:", error);
         setExpectingNewQuestion(false);
@@ -960,17 +1061,17 @@ You can now:
                 >
                   <input
                     type="radio"
-                    id={option.id}
-                    name="multipleChoice"
+                    id={`${instanceId}_${option.id}`}
+                    name={instanceId}
                     value={option.id}
                     checked={selectedAnswer === option.id}
                     onChange={() => !result && setSelectedAnswer(option.id)}
                     disabled={result !== null} // Disable after any submission (prevent resubmitting)
-                    className={`mr-3 h-4 w-4 text-${themeColors.name}-600 focus:ring-${themeColors.name}-500`}
+                    className={`mr-3 h-4 w-4 cursor-pointer text-${themeColors.name}-600 focus:ring-${themeColors.name}-500`}
                   />
-                  <div className="text-gray-700 flex-grow cursor-pointer" onClick={() => !result && setSelectedAnswer(option.id)}>
+                  <label htmlFor={`${instanceId}_${option.id}`} className="text-gray-700 flex-grow cursor-pointer">
                     {renderEnhancedText(option.text)}
-                  </div>
+                  </label>
 
                   {/* Show the correct/incorrect icon if there's a result */}
                   {result?.isCorrect && selectedAnswer === option.id && (
@@ -1151,7 +1252,7 @@ You can now:
            style={{ backgroundColor: themeColors.bgDark, borderColor: themeColors.border }}>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-lg font-medium" style={{ color: themeColors.textDark }}>
-            {question?.title || 'Multiple Choice Question'}
+            {question?.title || title || 'Multiple Choice Question'}
           </h3>
           <div className="flex items-center gap-2">
             {question?.generatedBy === 'ai' && (
@@ -1305,17 +1406,17 @@ You can now:
                   >
                     <input
                       type="radio"
-                      id={option.id}
-                      name="multipleChoice"
+                      id={`${instanceId}_${option.id}`}
+                      name={instanceId}
                       value={option.id}
                       checked={selectedAnswer === option.id}
                       onChange={() => !result && setSelectedAnswer(option.id)}
                       disabled={result !== null} // Disable after any submission (prevent resubmitting)
-                      className={`mr-3 h-4 w-4 text-${themeColors.name}-600 focus:ring-${themeColors.name}-500`}
+                      className={`mr-3 h-4 w-4 cursor-pointer text-${themeColors.name}-600 focus:ring-${themeColors.name}-500`}
                     />
-                    <div className="text-gray-700 flex-grow cursor-pointer" onClick={() => !result && setSelectedAnswer(option.id)}>
+                    <label htmlFor={`${instanceId}_${option.id}`} className="text-gray-700 flex-grow cursor-pointer">
                       {renderEnhancedText(option.text)}
-                    </div>
+                    </label>
 
                     {/* Show the correct/incorrect icon if there's a result */}
                     {result?.isCorrect && selectedAnswer === option.id && (

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../../../compone
 import { Alert, AlertDescription } from '../../../../../components/ui/alert';
 import { Badge } from '../../../../../components/ui/badge';
 import AIMultipleChoiceQuestion from '../../../../components/assessments/AIMultipleChoiceQuestion';
+import { StandardMultipleChoiceQuestion } from '../../../../components/assessments';
 
 const EconomicEnvironmentMoney = ({ course, courseId, courseDisplay, itemConfig, isStaffView, devMode }) => {
 
@@ -307,17 +308,18 @@ const EconomicEnvironmentMoney = ({ course, courseId, courseDisplay, itemConfig,
           {devMode && (
             <div className="mb-4">
               <Badge variant="outline" className="text-xs">
-                Function: course3_02_economic_environment_money_aiQuestion
+                Function: course3_02_economic_environment_question1
               </Badge>
             </div>
           )}
 
           <AIMultipleChoiceQuestion
             courseId={courseId}
-            assessmentId="course3_02_economic_environment_money_question1"
-            cloudFunctionName="course3_02_economic_environment_money_aiQuestion"
+            assessmentId="course3_02_economic_environment_question1"
+            cloudFunctionName="course3_02_economic_environment_question1"
             course={course}
             topic="Economic Indicators and Personal Finance"
+            title="Economic Indicators and Personal Finance"
             theme="blue"
             onCorrectAnswer={() => {
               console.log('Question 1: Correct answer!');
@@ -345,18 +347,19 @@ const EconomicEnvironmentMoney = ({ course, courseId, courseDisplay, itemConfig,
           {devMode && (
             <div className="mb-4">
               <Badge variant="outline" className="text-xs">
-                Function: course3_02_economic_environment_money_aiQuestion
+                Function: course3_02_economic_environment_question2
               </Badge>
             </div>
           )}
 
           <AIMultipleChoiceQuestion
             courseId={courseId}
-            assessmentId="course3_02_economic_environment_money_question2"
-            cloudFunctionName="course3_02_economic_environment_money_aiQuestion"
+            assessmentId="course3_02_economic_environment_question2"
+            cloudFunctionName="course3_02_economic_environment_question2"
             course={course}
             topic="Inflation and Purchasing Power"
-            theme="orange"
+            title="Inflation and Purchasing Power"
+            theme="amber"
             onCorrectAnswer={() => {
               console.log('Question 2: Correct answer!');
             }}
@@ -383,17 +386,18 @@ const EconomicEnvironmentMoney = ({ course, courseId, courseDisplay, itemConfig,
           {devMode && (
             <div className="mb-4">
               <Badge variant="outline" className="text-xs">
-                Function: course3_02_economic_environment_money_aiQuestion
+                Function: course3_02_economic_environment_question3
               </Badge>
             </div>
           )}
 
           <AIMultipleChoiceQuestion
             courseId={courseId}
-            assessmentId="course3_02_economic_environment_money_question3"
-            cloudFunctionName="course3_02_economic_environment_money_aiQuestion"
+            assessmentId="course3_02_economic_environment_question3"
+            cloudFunctionName="course3_02_economic_environment_question3"
             course={course}
             topic="Interest Rate Strategy and Financial Planning"
+            title="Interest Rate Strategy and Financial Planning"
             theme="green"
             onCorrectAnswer={() => {
               console.log('Question 3: Correct answer!');
@@ -403,6 +407,45 @@ const EconomicEnvironmentMoney = ({ course, courseId, courseDisplay, itemConfig,
             }}
             onComplete={() => {
               console.log('Question 3: Assessment completed');
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Question 4 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>🧮 Question 4: Economic Cycles and Strategy</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-gray-700">
+            Test your understanding of economic cycles and appropriate financial strategies for each phase.
+          </p>
+
+          {devMode && (
+            <div className="mb-4">
+              <Badge variant="outline" className="text-xs">
+                Function: course3_02_economic_environment_question4
+              </Badge>
+            </div>
+          )}
+
+          <StandardMultipleChoiceQuestion
+            courseId={courseId}
+            assessmentId="course3_02_economic_environment_question4"
+            cloudFunctionName="course3_02_economic_environment_question4"
+            course={course}
+            topic="Economic Cycles and Financial Strategy"
+            title="Economic Cycles and Financial Strategy"
+            theme="purple"
+            onCorrectAnswer={() => {
+              console.log('Question 4: Correct answer!');
+            }}
+            onAttempt={(isCorrect) => {
+              console.log('Question 4: Attempt made:', isCorrect);
+            }}
+            onComplete={() => {
+              console.log('Question 4: Assessment completed');
             }}
           />
         </CardContent>

@@ -142,13 +142,50 @@
         "temperature": 0.7,
         "maxTokens": 1500,
         "topP": 0.9
-      },
-      "longAnswer": {
+      },      "longAnswer": {
         "totalPoints": 20,
         "rubricCriteria": 6,
         "wordLimits": { "min": 300, "max": 800 },
         "showRubric": true,
         "showWordCount": true
+      }
+    }
+  },
+  "questionTypes": {
+    "multipleChoice": {
+      "standard": {
+        "maxAttempts": 9999,
+        "pointsValue": 1,
+        "showFeedback": true,
+        "enableHints": true,
+        "attemptPenalty": 0,
+        "allowDifficultySelection": false,
+        "defaultDifficulty": "intermediate",
+        "randomizeQuestions": true,
+        "randomizeOptions": true,
+        "allowSameQuestion": false,
+        "numberOfOptions": 4,
+        "correctOptions": 1,
+        "shuffleOptions": true,
+        "displayFormat": "vertical"
+      },
+      "ai_generated": {
+        "maxAttempts": 9999,
+        "pointsValue": 5,
+        "showFeedback": true,
+        "enableHints": true,
+        "attemptPenalty": 0,
+        "allowDifficultySelection": false,
+        "defaultDifficulty": "intermediate",
+        "numberOfOptions": 4,
+        "correctOptions": 1,
+        "shuffleOptions": true,
+        "displayFormat": "vertical",
+        "aiSettings": {
+          "temperature": 0.7,
+          "topP": 0.8,
+          "topK": 40
+        }
       }
     }
   },
@@ -203,6 +240,184 @@
     "notifyOnGrade": true,
     "notifyOnFeedback": true,
     "notifyOnAnnouncement": true
+  },
+  "gradebook": {
+    "itemStructure": {
+      "lesson_fin1010_intro_ethics": {
+        "title": "Lesson 1 - Introduction and Ethics in Financial Decision Making",
+        "type": "lesson",
+        "contentPath": "01-intro-ethics-financial-decisions",
+        "questions": [
+          {
+            "questionId": "course3_01_intro_ethics_question1",
+            "title": "Ethics in Financial Decisions",
+            "points": 5
+          },
+          {
+            "questionId": "course3_01_intro_ethics_question2",
+            "title": "Financial Literacy Fundamentals",
+            "points": 5
+          },
+          {
+            "questionId": "course3_01_intro_ethics_question3",
+            "title": "Decision Making Framework",
+            "points": 5
+          }
+        ]
+      },
+      "lesson_fin1010_economic_environment": {
+        "title": "Lesson 2 - The Economic Environment and Your Money",
+        "type": "lesson",
+        "contentPath": "02-economic-environment-money",
+        "questions": [
+          {
+            "questionId": "course3_02_economic_environment_question1",
+            "title": "Economic Factors",
+            "points": 5
+          },
+          {
+            "questionId": "course3_02_economic_environment_question2",
+            "title": "Money and Economic Environment",
+            "points": 5
+          },
+          {
+            "questionId": "course3_02_economic_environment_question3",
+            "title": "Personal Finance Impact",
+            "points": 5
+          },
+          {
+            "questionId": "course3_02_economic_environment_question4",
+            "title": "Economic Cycles and Strategy",
+            "points": 1
+          }
+        ]
+      },
+      "lesson_fin1010_financial_resources": {
+        "title": "Lesson 3 - Acquiring and Using Financial Resources",
+        "type": "lesson",
+        "contentPath": "03-acquiring-using-financial-resources",
+        "questions": [
+          {
+            "questionId": "course3_03_financial_resources_question1",
+            "title": "Financial Resource Types",
+            "points": 5
+          },
+          {
+            "questionId": "course3_03_financial_resources_question2",
+            "title": "Resource Acquisition Strategies",
+            "points": 5
+          },
+          {
+            "questionId": "course3_03_financial_resources_question3",
+            "title": "Effective Resource Usage",
+            "points": 5
+          }
+        ]
+      },
+      "lesson_fin1010_budgeting": {
+        "title": "Lesson 4 - Budgeting and Personal Planning",
+        "type": "lesson",
+        "contentPath": "04-budgeting-personal-planning",
+        "questions": [
+          {
+            "questionId": "course3_04_budgeting_question1",
+            "title": "Budget Creation",
+            "points": 5
+          },
+          {
+            "questionId": "course3_04_budgeting_question2",
+            "title": "Personal Planning Strategies",
+            "points": 5
+          },
+          {
+            "questionId": "course3_04_budgeting_question3",
+            "title": "Financial Goal Setting",
+            "points": 5
+          }
+        ]
+      },
+      "assignment_fin1010_budget_project": {
+        "title": "Personal Budget Creation Project",
+        "type": "assignment",
+        "contentPath": "05-personal-budget-project",
+        "questions": [
+          {
+            "questionId": "course3_05_budget_project_question1",
+            "title": "Budget Planning",
+            "points": 15
+          },
+          {
+            "questionId": "course3_05_budget_project_question2",
+            "title": "Income Analysis",
+            "points": 15
+          },
+          {
+            "questionId": "course3_05_budget_project_question3",
+            "title": "Expense Categorization",
+            "points": 10
+          },
+          {
+            "questionId": "course3_05_budget_project_question4",
+            "title": "Final Budget Presentation",
+            "points": 10
+          }
+        ]
+      },
+      "exam_section2": {
+        "title": "Section 2 Exam",
+        "type": "exam",
+        "contentPath": "24-section2-exam",
+        "questions": [
+          {
+            "questionId": "course3_24_section2_exam_question1",
+            "title": "Accounting Fundamentals",
+            "points": 25
+          },
+          {
+            "questionId": "course3_24_section2_exam_question2", 
+            "title": "Journal Entries",
+            "points": 25
+          },
+          {
+            "questionId": "course3_24_section2_exam_question3",
+            "title": "Trial Balance",
+            "points": 25
+          },
+          {
+            "questionId": "course3_24_section2_exam_question4",
+            "title": "Financial Analysis",
+            "points": 25
+          }
+        ]
+      },
+      "exam_final": {
+        "title": "Final Comprehensive Exam",
+        "type": "exam",
+        "contentPath": "40-final-comprehensive-exam",
+        "questions": [
+          {
+            "questionId": "course3_40_final_exam_question1",
+            "title": "Personal Finance Review",
+            "points": 30
+          },
+          {
+            "questionId": "course3_40_final_exam_question2",
+            "title": "Accounting Cycle",
+            "points": 40
+          },
+          {
+            "questionId": "course3_40_final_exam_question3",
+            "title": "Business Transactions",
+            "points": 40
+          },
+          {
+            "questionId": "course3_40_final_exam_question4",
+            "title": "Comprehensive Analysis",
+            "points": 40
+          }
+        ]
+      }
+    }
   },
   "metadata": {
     "department": "Business",

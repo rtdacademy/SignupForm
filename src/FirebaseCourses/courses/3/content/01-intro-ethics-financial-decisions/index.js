@@ -103,17 +103,18 @@ const IntroEthicsFinancialDecisions = ({ course, courseId, courseDisplay, itemCo
           {devMode && (
             <div className="mb-4">
               <Badge variant="outline" className="text-xs">
-                Function: course3_01_intro_ethics_financial_decisions_aiQuestion
+                Function: course3_01_intro_ethics_question1
               </Badge>
             </div>
           )}
 
           <AIMultipleChoiceQuestion
             courseId={courseId}
-            assessmentId="course3_01_intro_ethics_financial_decisions_question1"
-            cloudFunctionName="course3_01_intro_ethics_financial_decisions_aiQuestion"
+            assessmentId="course3_01_intro_ethics_question1"
+            cloudFunctionName="course3_01_intro_ethics_question1"
             course={course}
             topic="Financial Literacy Fundamentals"
+            title="Financial Literacy Fundamentals"
             theme="green"
             onCorrectAnswer={() => {
               console.log('Question 1: Correct answer!');
@@ -189,17 +190,18 @@ const IntroEthicsFinancialDecisions = ({ course, courseId, courseDisplay, itemCo
           {devMode && (
             <div className="mb-4">
               <Badge variant="outline" className="text-xs">
-                Function: course3_01_intro_ethics_financial_decisions_aiQuestion
+                Function: course3_01_intro_ethics_question2
               </Badge>
             </div>
           )}
 
           <AIMultipleChoiceQuestion
             courseId={courseId}
-            assessmentId="course3_01_intro_ethics_financial_decisions_question2"
-            cloudFunctionName="course3_01_intro_ethics_financial_decisions_aiQuestion"
+            assessmentId="course3_01_intro_ethics_question2"
+            cloudFunctionName="course3_01_intro_ethics_question2"
             course={course}
             topic="Financial Ethics and Decision Making"
+            title="Ethical Decision Making in Finance"
             theme="purple"
             onCorrectAnswer={() => {
               console.log('Question 2: Correct answer!');

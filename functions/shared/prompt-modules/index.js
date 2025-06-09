@@ -3,7 +3,7 @@
  * Central export point for all reusable prompt modules
  */
 
-const { KATEX_FORMATTING_PROMPT } = require('./katex-formatting');
+const { MATH_FORMATTING_PROMPT } = require('./katex-formatting');
 
 /**
  * Applies conditional prompt modules based on configuration
@@ -13,9 +13,9 @@ const { KATEX_FORMATTING_PROMPT } = require('./katex-formatting');
 function applyPromptModules(config = {}) {
   const promptAdditions = [];
 
-  // Add KaTeX formatting requirements if enabled
-  if (config.katexFormatting === true) {
-    promptAdditions.push(KATEX_FORMATTING_PROMPT);
+  // Add math formatting requirements if enabled
+  if (config.mathFormatting === true) {
+    promptAdditions.push(MATH_FORMATTING_PROMPT);
   }
 
   return promptAdditions.join('\n\n');
@@ -23,7 +23,7 @@ function applyPromptModules(config = {}) {
 
 module.exports = {
   // Individual prompt modules
-  KATEX_FORMATTING_PROMPT,
+  MATH_FORMATTING_PROMPT,
   
   // Helper function
   applyPromptModules

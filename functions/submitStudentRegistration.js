@@ -5,6 +5,7 @@ const { HttpsError } = require('firebase-functions/v2/https');
 // Other dependencies
 const admin = require('firebase-admin');
 const { sanitizeEmail } = require('./utils');
+const { initializeGradebook } = require('./shared/utilities/database-utils');
 
 // Initialize Firebase Admin SDK if not already initialized
 if (admin.apps.length === 0) {
@@ -315,7 +316,47 @@ const submitStudentRegistration = onCall({
     }
 
     // Execute all database operations in a single update
-    await db.ref().update(batch);
+    await db.ref().update(batch);    // Initialize gradebooks for all enrolled courses
+    const coursesToInitialize = [numericCourseId, ...requiredCourses.map(c => c.courseId)];
+    
+    console.log(`🎓 Initializing gradebooks for courses: ${coursesToInitialize.join(', ')}`);
+    
+    for (const courseId of coursesToInitialize) {
+      try {
+        // Check if this is a Firebase course
+        const courseRef = db.ref(`courses/${courseId}`);
+        const courseSnapshot = await courseRef.once('value');
+        const courseData = courseSnapshot.val();
+        const isFirebaseCourse = courseData?.firebaseCourse === true;
+        
+        await initializeGradebook(studentEmailKey, courseId, false);
+        console.log(`✅ Gradebook initialized for course ${courseId}`);
+        
+        // For Firebase courses, validate the gradebook structure immediately after initialization
+        if (isFirebaseCourse) {
+          try {
+            const { validateGradebookStructure } = require('./shared/utilities/database-utils');
+            const validation = await validateGradebookStructure(studentEmailKey, courseId, false);
+            
+            if (!validation.isValid) {
+              console.log(`🔧 Gradebook structure validation completed for Firebase course ${courseId}:`, {
+                missingItems: validation.missingItems?.length || 0,
+                missingCategories: validation.missingCategories?.length || 0,
+                wasRebuilt: validation.wasRebuilt
+              });
+            } else {
+              console.log(`✅ Gradebook structure validated for Firebase course ${courseId}`);
+            }
+          } catch (validationError) {
+            console.error(`⚠️ Gradebook validation failed for Firebase course ${courseId}:`, validationError);
+            // Don't fail the registration if validation fails
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Error initializing gradebook for course ${courseId}:`, error);
+        // Continue with other courses even if one fails
+      }
+    }
 
     // Remove the pending registration data
     const pendingRegRef = db.ref(`users/${uid}/pendingRegistration`);
