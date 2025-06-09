@@ -228,6 +228,9 @@ const submitStudentRegistration = onCall({
     // Add profile updates
     Object.assign(batch, profileUpdates);
     
+    // Create notifications node for new students
+    batch[`notifications/${studentEmailKey}`] = {};
+    
     // Add main course
     batch[`students/${studentEmailKey}/courses/${numericCourseId}`] = courseData;
 

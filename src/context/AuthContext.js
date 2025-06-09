@@ -442,12 +442,21 @@ export function AuthProvider({ children }) {
     const userRef = ref(db, `users/${user.uid}`);
     
     try {
+      // First, try to read the user's own data
       const snapshot = await get(userRef);
       
       if (!snapshot.exists()) {
-        const studentsRef = ref(db, `students/${emailKey}`);
-        const studentSnapshot = await get(studentsRef);
-        const isMigrated = studentSnapshot.exists();
+        // For new users, try to check migration status
+        let isMigrated = false;
+        try {
+          const studentsRef = ref(db, `students/${emailKey}`);
+          const studentSnapshot = await get(studentsRef);
+          isMigrated = studentSnapshot.exists();
+        } catch (studentsError) {
+          // If we can't read students data due to permissions, assume not migrated
+          console.log("Cannot check migration status, assuming new user");
+          isMigrated = false;
+        }
 
         const userData = {
           uid: user.uid,
@@ -464,10 +473,7 @@ export function AuthProvider({ children }) {
         await set(userRef, userData);
         setIsMigratedUser(isMigrated);
         
-        if (!isMigrated) {
-          const notificationsRef = ref(db, `notifications/${emailKey}`);
-          await set(notificationsRef, {});
-        }
+        // Note: Notifications node will be created by cloud functions when needed
       } else {
         const existingData = snapshot.val();
         const isMigrated = existingData.isMigratedUser || false;
@@ -482,17 +488,17 @@ export function AuthProvider({ children }) {
       }
       return true;
     } catch (error) {
-      if (error.message?.includes('PERMISSION_DENIED')) {
-        console.log("User does not have permission - email verification may be pending");
+      console.error("Error ensuring user data:", error);
+      if (error.message?.includes('PERMISSION_DENIED') || error.code === 'PERMISSION_DENIED') {
+        console.log("User does not have permission - email verification may be pending or security rules issue");
         await signOut();
         navigate('/login', { 
           state: { 
-            message: "Please verify your email before signing in. Check your inbox for a verification link." 
+            message: "Authentication error. Please verify your email or contact support if the issue persists." 
           } 
         });
         return false;
       }
-      console.error("Error ensuring user data:", error);
       throw error;
     }
   };

@@ -24,7 +24,8 @@ import {
   Upload,
   FilePenLine,
   Shield,
-  Grid
+  Grid,
+  Database
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import CoursesWithSheet from '../courses/CoursesWithSheet';
@@ -43,6 +44,7 @@ import IMathASGradeImporter from './IMathASGradeImporter';
 import LTIManagement from '../LTI/LTIManagement';
 import EnrollmentStatistics from '../Statistics/EnrollmentStatistics'; 
 import PASIDataUpload from '../PASI/PASIDataUpload';
+import DataRectification from './DataRectification';
 
 
 function TeacherDashboard() {
@@ -195,6 +197,7 @@ function TeacherDashboard() {
       { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
       { icon: Link, label: 'Links', key: 'external-links' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
+      { icon: Database, label: 'Data Rectification', key: 'data-rectification' },
     ];
 
     // Only add admin items if user has admin access
@@ -262,6 +265,8 @@ function TeacherDashboard() {
         return <PASIDataUpload />;
       case 'pasi-records':
         return <PASIDataUpload />;
+      case 'data-rectification':
+        return <DataRectification />;
       default:
         return null;
     }
