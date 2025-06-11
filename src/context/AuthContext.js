@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useContext, useRef, useCallb
 import { auth } from '../firebase';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { getDatabase, ref, get, set } from "firebase/database";
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -438,68 +439,53 @@ export function AuthProvider({ children }) {
       return false;
     }
 
-    const db = getDatabase();
-    const userRef = ref(db, `users/${user.uid}`);
-    
     try {
-      // First, try to read the user's own data
-      const snapshot = await get(userRef);
+      // Use cloud function to ensure user node exists
+      const functions = getFunctions();
+      const ensureUserNodeFunction = httpsCallable(functions, 'ensureUserNode');
       
-      if (!snapshot.exists()) {
-        // For new users, try to check migration status
-        let isMigrated = false;
-        try {
-          const studentsRef = ref(db, `students/${emailKey}`);
-          const studentSnapshot = await get(studentsRef);
-          isMigrated = studentSnapshot.exists();
-        } catch (studentsError) {
-          // If we can't read students data due to permissions, assume not migrated
-          console.log("Cannot check migration status, assuming new user");
-          isMigrated = false;
-        }
-
-        const userData = {
-          uid: user.uid,
-          email: user.email,
-          sanitizedEmail: emailKey,
-          type: 'student',
-          createdAt: Date.now(),
-          lastLogin: Date.now(),
-          provider: user.providerData[0].providerId,
-          emailVerified: user.emailVerified,
-          isMigratedUser: isMigrated
-        };
-        
-        await set(userRef, userData);
-        setIsMigratedUser(isMigrated);
-        
-        // Note: Notifications node will be created by cloud functions when needed
+      const result = await ensureUserNodeFunction({
+        uid: user.uid,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        providerData: user.providerData
+      });
+      
+      if (result.data.success) {
+        setIsMigratedUser(result.data.isMigratedUser);
+        return true;
       } else {
-        const existingData = snapshot.val();
-        const isMigrated = existingData.isMigratedUser || false;
-        setIsMigratedUser(isMigrated);
-        
-        await set(userRef, {
-          ...existingData,
-          lastLogin: Date.now(),
-          emailVerified: user.emailVerified,
-          isMigratedUser: isMigrated
-        });
+        throw new Error('Failed to ensure user node');
       }
-      return true;
     } catch (error) {
       console.error("Error ensuring user data:", error);
-      if (error.message?.includes('PERMISSION_DENIED') || error.code === 'PERMISSION_DENIED') {
-        console.log("User does not have permission - email verification may be pending or security rules issue");
+      
+      // Handle specific error types
+      if (error.code === 'functions/unauthenticated' || 
+          error.code === 'functions/permission-denied') {
+        console.log("User authentication issue - may need to re-authenticate");
         await signOut();
         navigate('/login', { 
           state: { 
-            message: "Authentication error. Please verify your email or contact support if the issue persists." 
+            message: "Authentication error. Please sign in again." 
           } 
         });
         return false;
+      } else if (error.code === 'functions/invalid-argument') {
+        console.log("Invalid user data provided");
+        await signOut();
+        navigate('/login', { 
+          state: { 
+            message: "Invalid user data. Please contact support." 
+          } 
+        });
+        return false;
+      } else {
+        // For other errors, try to continue but log the issue
+        console.error("Non-critical error ensuring user node:", error);
+        // Don't throw - allow user to continue if possible
+        return true;
       }
-      throw error;
     }
   };
 
