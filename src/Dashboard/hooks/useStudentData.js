@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getDatabase, ref, onValue, get, query, orderByChild, equalTo, set } from 'firebase/database';
+import { getDatabase, ref, onValue, get, query, orderByChild, equalTo } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../context/AuthContext';
 import { 
   calculateAge as calculateAgeUtil,
@@ -151,37 +152,33 @@ export const useStudentData = (userEmailKey) => {
 
 
 
-  // Mark a notification as seen - now only using Firebase
+  // Mark a notification as seen - using cloud function
   const markNotificationSeen = async (notificationId, userEmail, notification) => {
     if (!userEmail || !notificationId) return;
     
-    // Import sanitizeEmail to ensure consistent email format
-    const { sanitizeEmail } = await import('../../utils/sanitizeEmail');
-    
-    // Update the Firebase database to track this notification as seen and acknowledged
-    const db = getDatabase();
-    
-    // For Firebase paths, use the proper sanitizeEmail function which replaces dots with commas
-    const sanitizedUserEmail = sanitizeEmail(userEmail);
-    
-    // Primary path for the notification results in the shared results collection
-    const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedUserEmail}`);
-    
-    // First try to get existing data so we don't overwrite survey results
-    get(resultsRef).then(snapshot => {
-      const existingData = snapshot.exists() ? snapshot.val() : {};
-      const currentTimestamp = Date.now();
-      const currentDate = new Date().toISOString();
+    try {
+      // Get all course IDs where this notification appears
+      const courseIds = studentData.courses
+        ?.filter(course => course.notificationIds && course.notificationIds[notificationId])
+        ?.map(course => course.id) || [];
       
-      // Base update data for any notification type
-      let updateData = {
-        ...existingData,
-        hasSeen: true,
-        hasSeenTimeStamp: currentDate,
-        acknowledged: true,
-        acknowledgedAt: currentDate,
+      if (courseIds.length === 0) {
+        console.warn(`No courses found for notification ${notificationId}`);
+        return;
+      }
+      
+      // Call the cloud function to handle the database writes
+      const functions = getFunctions();
+      const submitNotificationSurvey = httpsCallable(functions, 'submitNotificationSurvey');
+      
+      const result = await submitNotificationSurvey({
+        operation: 'mark_seen',
+        notificationId: notificationId,
+        courseIds: courseIds,
         userEmail: userEmail
-      };
+      });
+      
+      console.log('Notification marked as seen successfully:', result.data);
       
       // Add window function for testing
       if (!window.resetNotificationStatus) {
@@ -197,163 +194,9 @@ export const useStudentData = (userEmailKey) => {
         };
       }
       
-      // Get display frequency from notification properties, with strong prioritization
-      // 1. Use displayConfig.frequency if available (new format)
-      // 2. Use explicit type-based identification (weekly-survey)
-      // 3. Use renewalConfig if available (transitional format)
-      // 4. Check for repeatInterval (legacy format)
-      // 5. Fall back to one-time as default
-      const displayFrequency = 
-        // New primary structure
-        notification?.displayConfig?.frequency || 
-        // Type-based detection
-        (notification?.type === 'weekly-survey' ? 'weekly' : 
-        // Legacy renewalConfig structure
-        (notification?.renewalConfig?.method === 'day' ? 'weekly' : 
-         notification?.renewalConfig?.method === 'custom' ? 'custom' : 
-        // Legacy repeatInterval structure
-        (notification?.repeatInterval ? 
-          (notification?.repeatInterval.unit === 'day' ? 'weekly' : 
-           notification?.repeatInterval.unit === 'week' ? 'weekly' : 
-           notification?.repeatInterval.unit === 'month' ? 'monthly' : 'custom') :
-        // Default fallback
-        'one-time')));
-          
-      // Determine if this is a survey type
-      const isSurveyType = notification?.type === 'survey' || 
-                          notification?.type === 'weekly-survey' || 
-                          (notification?.type === 'notification' && notification?.surveyQuestions);
-      
-      // Determine if this is a repeating notification
-      // A notification repeats if it has any frequency other than one-time,
-      // or has any repeating configuration in any format
-      const hasRepeatInterval = displayFrequency === 'weekly' || 
-                              displayFrequency === 'monthly' ||
-                              displayFrequency === 'custom' ||
-                              !!notification?.repeatInterval || 
-                              !!notification?.renewalConfig ||
-                              notification?.type === 'weekly-survey' ||
-                              notification?.type === 'recurring';
-      
-      // For any non-one-time notification, track history
-      if (notification && (displayFrequency === 'weekly' || displayFrequency === 'custom' || hasRepeatInterval)) {
-        // Store with timestamp to keep historical record
-        if (!updateData.submissions) {
-          updateData.submissions = {};
-        }
-        
-        // Only record timestamp but don't add answers yet - those are added when survey is submitted
-        updateData.submissions[currentTimestamp] = {
-          seen: true,
-          seenAt: currentDate
-        };
-        
-        // Update the lastSeen timestamp
-        updateData.lastSeen = currentDate;
-      }
-      
-      // Update the record in the main notifications results collection
-      set(resultsRef, updateData);
-      
-      // Also store the acknowledgment in each course's notifications results
-      // This is critical for letting students know which notifications they've seen
-      if (studentData.courses) {
-        for (const course of studentData.courses) {
-          if (course.id) {
-            // Path to the course-specific notification results
-            const courseNotificationRef = ref(db, 
-              `students/${sanitizedUserEmail}/courses/${course.id}/studentDashboardNotificationsResults/${notificationId}`);
-            
-            // Get any existing course-specific notification data
-            get(courseNotificationRef).then(courseSnapshot => {
-              const existingCourseData = courseSnapshot.exists() ? courseSnapshot.val() : {};
-              
-              // Create update data that preserves existing data but updates seen status
-              const courseUpdateData = {
-                ...existingCourseData,
-                hasSeen: true,
-                hasSeenTimeStamp: currentDate,
-                hasAcknowledged: updateData.hasAcknowledged || false,
-                acknowledgedAt: updateData.acknowledgedAt
-              };
-              
-              // Store submission data if this is a repeating notification
-              if (updateData.submissions && Object.keys(updateData.submissions).length > 0) {
-                courseUpdateData.submissions = updateData.submissions;
-              }
-              
-              // Update the course-specific record
-              set(courseNotificationRef, courseUpdateData);
-            }).catch(error => {
-              console.error(`Error updating course notification status for course ${course.id}:`, error);
-            });
-          }
-        }
-      }
-    }).catch(error => {
-      console.error('Error updating notification seen status in Firebase:', error);
-      
-      // Fallback: create a new entry if get() fails
-      const currentTimestamp = Date.now();
-      const currentDate = new Date().toISOString();
-      
-      // Base update data for new entry
-      let updateData = {
-        hasSeen: true,
-        hasSeenTimeStamp: currentDate,
-        acknowledged: true,
-        acknowledgedAt: currentDate,
-        userEmail: userEmail
-      };
-      
-      // Get display frequency from notification properties, with strong prioritization
-      // 1. Use displayConfig.frequency if available (new format)
-      // 2. Use explicit type-based identification (weekly-survey)
-      // 3. Use renewalConfig if available (transitional format)
-      // 4. Check for repeatInterval (legacy format)
-      // 5. Fall back to one-time as default
-      const displayFrequency = 
-        // New primary structure
-        notification?.displayConfig?.frequency || 
-        // Type-based detection
-        (notification?.type === 'weekly-survey' ? 'weekly' : 
-        // Legacy renewalConfig structure
-        (notification?.renewalConfig?.method === 'day' ? 'weekly' : 
-         notification?.renewalConfig?.method === 'custom' ? 'custom' : 
-        // Legacy repeatInterval structure
-        (notification?.repeatInterval ? 
-          (notification?.repeatInterval.unit === 'day' ? 'weekly' : 
-           notification?.repeatInterval.unit === 'week' ? 'weekly' : 
-           notification?.repeatInterval.unit === 'month' ? 'monthly' : 'custom') :
-        // Default fallback
-        'one-time')));
-      
-      // Determine if this is a repeating notification
-      // A notification repeats if it has any frequency other than one-time,
-      // or has any repeating configuration in any format
-      const hasRepeatInterval = displayFrequency === 'weekly' || 
-                               displayFrequency === 'monthly' ||
-                               displayFrequency === 'custom' ||
-                               !!notification?.repeatInterval || 
-                               !!notification?.renewalConfig ||
-                               notification?.type === 'weekly-survey' ||
-                               notification?.type === 'recurring';
-      
-      // For repeating notifications, initialize interaction history
-      if (notification && (displayFrequency === 'weekly' || displayFrequency === 'custom' || hasRepeatInterval)) {
-        updateData.submissions = {
-          [currentTimestamp]: {
-            seen: true,
-            seenAt: currentDate
-          }
-        };
-        updateData.lastSeen = currentDate;
-      }
-      
-      set(resultsRef, updateData).catch(error => {
-        console.error('Error updating notification seen status in Firebase (fallback):', error);
-      });
-    });
+    } catch (error) {
+      console.error('Error marking notification as seen:', error);
+    }
   };
 
   // Process notifications for each course - using the utility function
@@ -876,160 +719,28 @@ export const useStudentData = (userEmailKey) => {
   const submitSurveyResponse = async (notificationId, courseId, answers) => {
     if (!studentData.profile || !studentData.profile.StudentEmail) return;
     
-    // Import sanitizeEmail to ensure consistent email format
-    const { sanitizeEmail } = await import('../../utils/sanitizeEmail');
-    
-    const userEmail = studentData.profile.StudentEmail;
-    // Use the proper sanitized email format for database paths
-    const sanitizedUserEmail = sanitizeEmail(userEmail);
-    const db = getDatabase();
-    const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedUserEmail}`);
-    
-    // Get notification details to determine if it's a weekly survey
-    const notification = studentData.courses
-      .find(course => course.id === courseId)?.notificationIds?.[notificationId];
+    try {
+      const userEmail = studentData.profile.StudentEmail;
+      const studentName = `${studentData.profile.firstName || ''} ${studentData.profile.lastName || ''}`.trim();
       
-    if (!notification) return;
-    
-    // Get current data first
-    get(resultsRef).then(snapshot => {
-      const existingData = snapshot.exists() ? snapshot.val() : {};
-      const currentTimestamp = Date.now();
-      const currentDate = new Date().toISOString();
-      const courseDetails = studentData.courses.find(c => c.id === courseId);
+      // Call the cloud function to handle the survey submission
+      const functions = getFunctions();
+      const submitNotificationSurvey = httpsCallable(functions, 'submitNotificationSurvey');
       
-      // For surveys, we want to track completion per course
-      // Keep existing course completions and add this one
-      const existingCourseIds = existingData.courseIds || [];
-      const existingCourses = existingData.courses || [];
-      
-      // Add current course if not already in the list
-      if (!existingCourseIds.includes(courseId)) {
-        existingCourseIds.push(courseId);
-        existingCourses.push({
-          id: courseId,
-          title: courseDetails?.courseDetails?.Title || `Course ${courseId}`
-        });
-      }
-      
-      let updateData = {
-        ...existingData,
-        completed: true,
-        completedAt: currentDate,
-        answers: answers,
-        courseIds: existingCourseIds,
-        courses: existingCourses,
-        email: userEmail,
+      const result = await submitNotificationSurvey({
+        operation: 'submit_survey',
         notificationId: notificationId,
-        studentEmail: userEmail,
-        studentName: `${studentData.profile.firstName || ''} ${studentData.profile.lastName || ''}`.trim()
-      };
-      
-      // Get display frequency from notification properties, with strong prioritization
-      // 1. Use displayConfig.frequency if available (new format)
-      // 2. Use explicit type-based identification (weekly-survey)
-      // 3. Use renewalConfig if available (transitional format)
-      // 4. Check for repeatInterval (legacy format)
-      // 5. Fall back to one-time as default
-      const displayFrequency = 
-        // New primary structure
-        notification?.displayConfig?.frequency || 
-        // Type-based detection
-        (notification?.type === 'weekly-survey' ? 'weekly' : 
-        // Legacy renewalConfig structure
-        (notification?.renewalConfig?.method === 'day' ? 'weekly' : 
-         notification?.renewalConfig?.method === 'custom' ? 'custom' : 
-        // Legacy repeatInterval structure
-        (notification?.repeatInterval ? 
-          (notification?.repeatInterval.unit === 'day' ? 'weekly' : 
-           notification?.repeatInterval.unit === 'week' ? 'weekly' : 
-           notification?.repeatInterval.unit === 'month' ? 'monthly' : 'custom') :
-        // Default fallback
-        'one-time')));
-          
-      // For repeating surveys (weekly or custom), store in the submissions history
-      if (displayFrequency === 'weekly' || displayFrequency === 'custom' || notification.type === 'weekly-survey') {
-        if (!updateData.submissions) {
-          updateData.submissions = {};
-        }
-        
-        // Add the submission with answers
-        updateData.submissions[currentTimestamp] = {
-          answers: answers,
-          submittedAt: currentDate,
-          courseIds: [courseId],
-          courses: [{
-            id: courseId,
-            title: courseDetails?.courseDetails?.Title || `Course ${courseId}`
-          }]
-        };
-        
-        // Update the lastSubmitted timestamp
-        updateData.lastSubmitted = currentDate;
-        
-        // For repeating surveys, completed is temporary (until next cycle)
-        updateData.completed = true;
-        
-        // Calculate and store the next renewal date based on the frequency
-        if (displayFrequency === 'weekly') {
-          const dayOfWeek = notification.displayConfig?.dayOfWeek || 
-                        notification.renewalConfig?.dayOfWeek || 'monday';
-          
-          const dayMap = {
-            'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
-            'thursday': 4, 'friday': 5, 'saturday': 6
-          };
-          const targetDayNum = dayMap[dayOfWeek.toLowerCase()] || 1; // Default to Monday
-          
-          // Start with today's date for calculation
-          let nextRenewalDate = new Date();
-          
-          // Add days until we reach the target day of the week
-          while (nextRenewalDate.getDay() !== targetDayNum) {
-            nextRenewalDate.setDate(nextRenewalDate.getDate() + 1);
-          }
-          
-          // If today is the target day, add 7 days for next week
-          if (nextRenewalDate.getDay() === new Date().getDay()) {
-            nextRenewalDate.setDate(nextRenewalDate.getDate() + 7);
-          }
-          
-          // Store the next renewal date
-          updateData.nextRenewalDate = nextRenewalDate.toISOString();
-          console.log(`Set next renewal date to ${updateData.nextRenewalDate} for ${dayOfWeek}`);
-        }
-      }
-      
-      // Update the record
-      set(resultsRef, updateData).then(() => {
-        console.log('Survey response submitted successfully!');
-        
-        // IMPORTANT: Also update the course-specific notification result
-        // This ensures that the survey is marked as completed for THIS specific course
-        const courseNotificationRef = ref(db, 
-          `students/${sanitizedUserEmail}/courses/${courseId}/studentDashboardNotificationsResults/${notificationId}`);
-        
-        // Create course-specific completion record
-        const courseSpecificData = {
-          completed: true,
-          completedAt: currentDate,
-          courseId: courseId,
-          notificationId: notificationId,
-          // For repeating surveys, also store submission history
-          ...(updateData.submissions && { submissions: updateData.submissions })
-        };
-        
-        set(courseNotificationRef, courseSpecificData).then(() => {
-          console.log(`Survey marked as completed for course ${courseId}`);
-        }).catch(error => {
-          console.error(`Error updating course-specific notification status: ${error}`);
-        });
-      }).catch(error => {
-        console.error('Error submitting survey response:', error);
+        courseId: courseId,
+        answers: answers,
+        userEmail: userEmail,
+        studentName: studentName
       });
-    }).catch(error => {
-      console.error('Error getting existing data:', error);
-    });
+      
+      console.log('Survey response submitted successfully:', result.data);
+      
+    } catch (error) {
+      console.error('Error submitting survey response:', error);
+    }
   };
 
   // Add a utility function to mark a notification as seen

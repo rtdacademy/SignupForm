@@ -23,13 +23,55 @@ import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { cn } from '../lib/utils';
-import { getDatabase, ref, set, get, update, onValue } from 'firebase/database';
+import { getDatabase, ref, update } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { useAuth } from '../context/AuthContext';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+
+// Helper function to call cloud function for marking notifications as seen
+const callMarkSeenCloudFunction = async (notificationId, courseIds, userEmail) => {
+  try {
+    const functions = getFunctions();
+    const submitNotificationSurvey = httpsCallable(functions, 'submitNotificationSurvey');
+    
+    const result = await submitNotificationSurvey({
+      operation: 'mark_seen',
+      notificationId: String(notificationId),
+      courseIds: courseIds.map(id => String(id)),
+      userEmail: String(userEmail)
+    });
+    
+    console.log('Successfully marked notification as seen via cloud function:', result.data);
+    return result.data;
+  } catch (error) {
+    console.error('Error calling mark_seen cloud function:', error);
+    throw error;
+  }
+};
+
+// Helper function to call cloud function for acknowledging notifications
+const callAcknowledgeCloudFunction = async (notificationId, courseIds, userEmail) => {
+  try {
+    const functions = getFunctions();
+    const submitNotificationSurvey = httpsCallable(functions, 'submitNotificationSurvey');
+    
+    const result = await submitNotificationSurvey({
+      operation: 'acknowledge',
+      notificationId: String(notificationId),
+      courseIds: courseIds.map(id => String(id)),
+      userEmail: String(userEmail)
+    });
+    
+    console.log('Successfully acknowledged notification via cloud function:', result.data);
+    return result.data;
+  } catch (error) {
+    console.error('Error calling acknowledge cloud function:', error);
+    throw error;
+  }
+};
 
 const NotificationIcon = ({ type, size = "h-5 w-5", repeatInterval = null }) => {
   // New consolidated notification system:
@@ -1431,311 +1473,37 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
     isExpanded
   ]);
 
-  // Mark notification as read using only Firebase
+  // Mark notification as read using cloud function
   const markAsRead = async (notification) => {
     const notificationId = typeof notification === 'object' ? 
       (notification.originalNotificationId || notification.id) : notification;
     
-    // Import sanitizeEmail to ensure consistent email format
-    const { sanitizeEmail } = await import('../utils/sanitizeEmail');
+    // Extract course information
+    let courseIds = [];
     
-    // Also update hasSeen status in Firebase
-    if (profile?.StudentEmail && notificationId) {
-      const db = getDatabase();
-      // Use the proper sanitized email format with comma
-      const sanitizedUserEmail = sanitizeEmail(current_user_email_key);
-      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedUserEmail}`);
-      
-      // Get current timestamp
-      const currentTimestamp = Date.now();
-      const currentDate = new Date().toISOString();
-      
-      // If this is a notification object, get its properties
-      let hasRepeatInterval = false;
-      let isSurveyType = false;
-      
-      // Extract course information to include with the seen status
-      let courseIds = [];
-      let coursesInfo = [];
-      
-      if (typeof notification === 'object') {
-        // Extract repeatInterval information - check all possible ways to identify a repeating notification
-        hasRepeatInterval = !!notification.repeatInterval || 
-                           notification.type === 'weekly-survey' || 
-                           notification.type === 'recurring' ||
-                           notification.displayConfig?.frequency === 'weekly' ||
-                           notification.displayConfig?.frequency === 'monthly' ||
-                           notification.displayConfig?.frequency === 'custom' ||
-                           notification.renewalConfig?.method === 'day' ||
-                           notification.renewalConfig?.method === 'custom';
+    if (typeof notification === 'object' && notification.courses && Array.isArray(notification.courses)) {
+      notification.courses.forEach(course => {
+        if (course.id) {
+          courseIds.push(course.id);
+        }
+      });
+    }
+    
+    // Call cloud function to update seen status if we have required data
+    if (profile?.StudentEmail && notificationId && courseIds.length > 0) {
+      try {
+        await callMarkSeenCloudFunction(notificationId, courseIds, profile.StudentEmail);
         
-        // Determine if this is a survey type - only true for explicit survey types
-        isSurveyType = notification.type === 'survey' || 
-                       notification.type === 'weekly-survey';
-        
-        // Extract course information
-        if (notification.courses && Array.isArray(notification.courses)) {
-          notification.courses.forEach(course => {
-            if (course.id) {
-              courseIds.push(course.id);
-              coursesInfo.push({
-                id: course.id,
-                title: course.title || `Course ${course.id}`
-              });
-            }
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Notification marked as seen via cloud function:', {
+            notificationId,
+            courseIds
           });
         }
+      } catch (error) {
+        console.error('Error marking notification as seen:', error);
+        // Don't throw the error to avoid breaking the UI flow
       }
-      
-      // First try to get existing data so we don't overwrite survey results
-      get(resultsRef).then(snapshot => {
-        const existingData = snapshot.exists() ? snapshot.val() : {};
-        
-        // Base update data for any notification type
-        let updateData = {
-          ...existingData,
-          hasSeen: true,
-          hasSeenTimeStamp: currentDate,
-          userEmail: profile?.StudentEmail,
-          // Add course information
-          ...(courseIds.length > 0 && { 
-            courseIds: courseIds,
-            courses: coursesInfo,
-            // Include a lastCourseId field for easy reference
-            lastCourseId: courseIds[0]
-          })
-        };
-        
-        // For repeating notifications, handle differently to track interaction history
-        if (hasRepeatInterval) {
-          // Store with timestamp to keep historical record
-          if (!updateData.submissions) {
-            updateData.submissions = {};
-          }
-          
-          // Record this view
-          updateData.submissions[currentTimestamp] = {
-            seen: true,
-            seenAt: currentDate,
-            // Include course information in the submission record
-            ...(courseIds.length > 0 && {
-              courseIds: courseIds,
-              courses: coursesInfo
-            })
-          };
-          
-          // Update the lastSeen timestamp
-          updateData.lastSeen = currentDate;
-          
-          // Also calculate next renewal date for weekly notifications (important for weekly renewal)
-          if (typeof notification === 'object' && 
-              (notification.displayConfig?.frequency === 'weekly' || 
-               notification.renewalConfig?.method === 'day' || 
-               notification.type === 'weekly-survey')) {
-               
-            // Get the target day of week (default to Monday if not specified)
-            const dayOfWeek = notification.displayConfig?.dayOfWeek || 
-                            notification.renewalConfig?.dayOfWeek || 'monday';
-              
-            // Convert day name to day number (0-6, where 0 is Sunday)
-            const dayMap = {
-              'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
-              'thursday': 4, 'friday': 5, 'saturday': 6
-            };
-            const targetDayNum = dayMap[dayOfWeek.toLowerCase()] || 1;
-              
-            // Start with today's date
-            let nextRenewalDate = new Date();
-              
-            // Add days until we reach the target day of the week
-            while (nextRenewalDate.getDay() !== targetDayNum) {
-              nextRenewalDate.setDate(nextRenewalDate.getDate() + 1);
-            }
-              
-            // If today is already the target day, add 7 days to get to next week
-            if (nextRenewalDate.getDay() === new Date().getDay()) {
-              nextRenewalDate.setDate(nextRenewalDate.getDate() + 7);
-            }
-              
-            // Store the next renewal date
-            updateData.nextRenewalDate = nextRenewalDate.toISOString();
-            console.log(`Set next renewal date to ${updateData.nextRenewalDate} for ${dayOfWeek} in markAsRead`);
-          }
-        }
-        
-        // Update the record
-        set(resultsRef, updateData).then(() => {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Notification marked as seen:', {
-              notificationId,
-              hasRepeatInterval,
-              isSurveyType,
-              courseIds
-            });
-          }
-          
-          // Also update course-specific records for each course if this is an object with courses
-          if (typeof notification === 'object' && notification.courses && Array.isArray(notification.courses)) {
-            // Process each course to update its notification seen status
-            notification.courses.forEach(course => {
-              if (course.id) {
-                // Create path to course-specific notification results
-                const courseNotificationRef = ref(db, 
-                  `students/${sanitizedUserEmail}/courses/${course.id}/studentDashboardNotificationsResults/${notificationId}`);
-                
-                // Get any existing course notification data
-                get(courseNotificationRef).then(courseSnapshot => {
-                  const courseData = courseSnapshot.exists() ? courseSnapshot.val() : {};
-                  
-                  // Create update data for the course-specific path
-                  const courseUpdateData = {
-                    ...courseData,
-                    hasSeen: true,
-                    hasSeenTimeStamp: currentDate,
-                    // Add course information to course-specific record
-                    courseId: course.id,
-                    submittedForCourse: course.id,
-                    courseTitle: course.title || `Course ${course.id}`,
-                    // Add the full list of course IDs and info
-                    courseIds: courseIds,
-                    courses: coursesInfo
-                  };
-                  
-                  // Copy important fields from the main notification record
-                  if (updateData.submissions) {
-                    courseUpdateData.submissions = updateData.submissions;
-                  }
-                  if (updateData.nextRenewalDate) {
-                    courseUpdateData.nextRenewalDate = updateData.nextRenewalDate;
-                  }
-                  if (updateData.lastSeen) {
-                    courseUpdateData.lastSeen = updateData.lastSeen;
-                  }
-                  
-                  // Update the course-specific notification record
-                  set(courseNotificationRef, courseUpdateData).catch(error => {
-                    console.error(`Error updating course ${course.id} notification seen status:`, error);
-                  });
-                }).catch(error => {
-                  console.error(`Error getting course ${course.id} notification data:`, error);
-                });
-              }
-            });
-          }
-        });
-      }).catch(error => {
-        console.error('Error updating notification seen status in Firebase:', error);
-        
-        // Fallback: create a new entry if get() fails
-        let updateData = {
-          hasSeen: true,
-          hasSeenTimeStamp: currentDate,
-          userEmail: profile?.StudentEmail,
-          // Add course information to fallback data
-          ...(courseIds.length > 0 && { 
-            courseIds: courseIds,
-            courses: coursesInfo,
-            // Include a lastCourseId field for easy reference
-            lastCourseId: courseIds[0]
-          })
-        };
-        
-        // For repeating notifications, initialize interaction history
-        if (hasRepeatInterval) {
-          updateData.submissions = {
-            [currentTimestamp]: {
-              seen: true,
-              seenAt: currentDate,
-              // Include course information in the submission record
-              ...(courseIds.length > 0 && {
-                courseIds: courseIds,
-                courses: coursesInfo
-              })
-            }
-          };
-          updateData.lastSeen = currentDate;
-          
-          // Also calculate next renewal date for weekly notifications (important for weekly renewal)
-          if (typeof notification === 'object' && 
-              (notification.displayConfig?.frequency === 'weekly' || 
-               notification.renewalConfig?.method === 'day' || 
-               notification.type === 'weekly-survey')) {
-               
-            // Get the target day of week (default to Monday if not specified)
-            const dayOfWeek = notification.displayConfig?.dayOfWeek || 
-                            notification.renewalConfig?.dayOfWeek || 'monday';
-              
-            // Convert day name to day number (0-6, where 0 is Sunday)
-            const dayMap = {
-              'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
-              'thursday': 4, 'friday': 5, 'saturday': 6
-            };
-            const targetDayNum = dayMap[dayOfWeek.toLowerCase()] || 1;
-              
-            // Start with today's date
-            let nextRenewalDate = new Date();
-              
-            // Add days until we reach the target day of the week
-            while (nextRenewalDate.getDay() !== targetDayNum) {
-              nextRenewalDate.setDate(nextRenewalDate.getDate() + 1);
-            }
-              
-            // If today is already the target day, add 7 days to get to next week
-            if (nextRenewalDate.getDay() === new Date().getDay()) {
-              nextRenewalDate.setDate(nextRenewalDate.getDate() + 7);
-            }
-              
-            // Store the next renewal date
-            updateData.nextRenewalDate = nextRenewalDate.toISOString();
-            console.log(`Set next renewal date to ${updateData.nextRenewalDate} for ${dayOfWeek} in markAsRead fallback`);
-          }
-        }
-        
-        set(resultsRef, updateData).then(() => {
-          // Also update course-specific records in the fallback path
-          if (typeof notification === 'object' && notification.courses && Array.isArray(notification.courses)) {
-            // Process each course to update its notification seen status
-            notification.courses.forEach(course => {
-              if (course.id) {
-                // Create path to course-specific notification results
-                const courseNotificationRef = ref(db, 
-                  `students/${sanitizedUserEmail}/courses/${course.id}/studentDashboardNotificationsResults/${notificationId}`);
-                
-                // Create update data for the course-specific path
-                const courseUpdateData = {
-                  hasSeen: true,
-                  hasSeenTimeStamp: currentDate,
-                  // Add course information to course-specific record
-                  courseId: course.id,
-                  submittedForCourse: course.id,
-                  courseTitle: course.title || `Course ${course.id}`,
-                  // Add the full list of course IDs and info
-                  courseIds: courseIds,
-                  courses: coursesInfo
-                };
-                
-                // Copy important fields from the main notification record
-                if (updateData.submissions) {
-                  courseUpdateData.submissions = updateData.submissions;
-                }
-                if (updateData.nextRenewalDate) {
-                  courseUpdateData.nextRenewalDate = updateData.nextRenewalDate;
-                }
-                if (updateData.lastSeen) {
-                  courseUpdateData.lastSeen = updateData.lastSeen;
-                }
-                
-                // Update the course-specific notification record
-                set(courseNotificationRef, courseUpdateData).catch(error => {
-                  console.error(`Error updating course ${course.id} notification seen status (fallback):`, error);
-                });
-              }
-            });
-          }
-        }).catch(error => {
-          console.error('Error updating notification seen status in Firebase (fallback):', error);
-        });
-      });
     }
     
     // Check if all notifications will be read after this one based on Firebase data
@@ -1768,328 +1536,39 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
     }
   };
 
-  // Dismiss/acknowledge notification (for both one-time and repeating notifications)
-  // This function has been simplified to apply acknowledgment to all courses at once
-  // and now only uses Firebase for tracking
+  // Dismiss/acknowledge notification using cloud function
   const dismissNotification = async (notification) => {
     // Use the original ID for backend notification dismissal
     await markNotificationAsSeen(notification.originalNotificationId || notification.id);
     
-    // Import sanitizeEmail to ensure consistent email format
-    const { sanitizeEmail } = await import('../utils/sanitizeEmail');
+    // Extract course information
+    const courseIds = [];
     
-    // For all notification types, update the database with acknowledgment status
-    if (profile?.StudentEmail) {
-      const db = getDatabase();
-      const notificationId = notification.originalNotificationId || notification.id;
-      // Use the proper sanitized email format with comma
-      const sanitizedUserEmail = sanitizeEmail(current_user_email_key);
-      const resultsRef = ref(db, `studentDashboardNotificationsResults/${notificationId}/${sanitizedUserEmail}`);
-      
-      // Get current timestamp
-      const currentTimestamp = Date.now();
-      const currentDate = new Date().toISOString();
-      
-      // Extract repeatInterval information - check all possible ways to identify a repeating notification
-      const hasRepeatInterval = !!notification.repeatInterval || 
-                               notification.type === 'weekly-survey' || 
-                               notification.type === 'recurring' ||
-                               notification.displayConfig?.frequency === 'weekly' ||
-                               notification.displayConfig?.frequency === 'monthly' ||
-                               notification.displayConfig?.frequency === 'custom' ||
-                               notification.renewalConfig?.method === 'day' ||
-                               notification.renewalConfig?.method === 'custom';
-      
-      // Determine if this is a survey type - only true for explicit survey types
-      const isSurveyType = notification.type === 'survey' || 
-                          notification.type === 'weekly-survey';
-      
-      // Extract course information to include with the acknowledgment
-      const courseIds = [];
-      const coursesInfo = [];
-      
-      if (notification.courses && Array.isArray(notification.courses)) {
-        notification.courses.forEach(course => {
-          if (course.id) {
-            courseIds.push(course.id);
-            coursesInfo.push({
-              id: course.id,
-              title: course.title || `Course ${course.id}`
-            });
-          }
-        });
-      }
-      
-      // First try to get existing data so we don't overwrite survey results
-      get(resultsRef).then(snapshot => {
-        const existingData = snapshot.exists() ? snapshot.val() : {};
-        
-        // Base update data for any notification type
-        let updateData = {
-          ...existingData,
-          hasSeen: true,
-          hasSeenTimeStamp: currentDate,
-          hasAcknowledged: true,
-          acknowledgedAt: currentDate,
-          userEmail: profile?.StudentEmail,
-          // Add course information
-          courseIds: courseIds,
-          courses: coursesInfo,
-          // Include a lastCourseId field for easy reference (if available)
-          ...(courseIds.length > 0 && { lastCourseId: courseIds[0] })
-        };
-        
-        // For repeating notifications, handle differently to track interaction history
-        if (hasRepeatInterval) {
-          // Store with timestamp to keep historical record
-          if (!updateData.submissions) {
-            updateData.submissions = {};
-          }
-          
-          // Record this acknowledgment
-          updateData.submissions[currentTimestamp] = {
-            seen: true,
-            seenAt: currentDate,
-            hasAcknowledged: true,
-            acknowledgedAt: currentDate,
-            // Include course information in the submission record
-            courseIds: courseIds,
-            courses: coursesInfo
-          };
-          
-          // Update the lastSeen and lastAcknowledged timestamps
-          updateData.lastSeen = currentDate;
-          updateData.lastAcknowledged = currentDate;
-          
-          // Calculate and store the next renewal date for weekly notifications
-          // This is CRITICAL for proper renewal
-          if (notification.displayConfig?.frequency === 'weekly' || 
-              notification.renewalConfig?.method === 'day' || 
-              (notification.type === 'weekly-survey')) {
-              
-            // Get the target day of week (default to Monday if not specified)
-            const dayOfWeek = notification.displayConfig?.dayOfWeek || 
-                            notification.renewalConfig?.dayOfWeek || 'monday';
-              
-            // Convert day name to day number (0-6, where 0 is Sunday)
-            const dayMap = {
-              'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
-              'thursday': 4, 'friday': 5, 'saturday': 6
-            };
-            const targetDayNum = dayMap[dayOfWeek.toLowerCase()] || 1;
-              
-            // Start with today's date
-            let nextRenewalDate = new Date();
-              
-            // Add days until we reach the target day of the week
-            while (nextRenewalDate.getDay() !== targetDayNum) {
-              nextRenewalDate.setDate(nextRenewalDate.getDate() + 1);
-            }
-              
-            // If today is already the target day, add 7 days to get to next week
-            if (nextRenewalDate.getDay() === new Date().getDay()) {
-              nextRenewalDate.setDate(nextRenewalDate.getDate() + 7);
-            }
-              
-            // Store the next renewal date
-            updateData.nextRenewalDate = nextRenewalDate.toISOString();
-            console.log(`📅 RENEWAL DATE: ${updateData.nextRenewalDate} (${dayOfWeek})`);
-          }
+    if (notification.courses && Array.isArray(notification.courses)) {
+      notification.courses.forEach(course => {
+        if (course.id) {
+          courseIds.push(course.id);
         }
-        
-        // Update the record in central notification results
-        set(resultsRef, updateData).then(() => {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('🔔 NOTIFICATION ACKNOWLEDGED ✅', {
-              notificationId,
-              type: notification.type,
-              hasRepeatInterval,
-              isSurveyType,
-              nextRenewalDate: updateData.nextRenewalDate,
-              storedInBothPlaces: true,
-              courseIds: courseIds
-            });
-          }
-          
-          // Also store acknowledgment in each course-specific path
-          if (notification.courses && Array.isArray(notification.courses)) {
-            // Process each course to update its notification results
-            notification.courses.forEach(course => {
-              if (course.id) {
-                // Create path to course-specific notification results
-                const courseNotificationRef = ref(db, 
-                  `students/${sanitizedUserEmail}/courses/${course.id}/studentDashboardNotificationsResults/${notificationId}`);
-                
-                // Get any existing course notification data
-                get(courseNotificationRef).then(courseSnapshot => {
-                  const courseData = courseSnapshot.exists() ? courseSnapshot.val() : {};
-                  
-                  // Create update data for the course-specific path
-                  const courseUpdateData = {
-                    ...courseData,
-                    hasSeen: true,
-                    hasSeenTimeStamp: currentDate,
-                    hasAcknowledged: true,
-                    acknowledgedAt: currentDate,
-                    // Add course information to course-specific record
-                    courseId: course.id,
-                    submittedForCourse: course.id,
-                    courseTitle: course.title || `Course ${course.id}`,
-                    // Add the full list of course IDs and info
-                    courseIds: courseIds,
-                    courses: coursesInfo
-                  };
-                  
-                  // Copy important fields from the main notification results
-                  if (updateData.submissions) {
-                    courseUpdateData.submissions = updateData.submissions;
-                  }
-                  if (updateData.nextRenewalDate) {
-                    courseUpdateData.nextRenewalDate = updateData.nextRenewalDate;
-                  }
-                  if (updateData.lastSeen) {
-                    courseUpdateData.lastSeen = updateData.lastSeen;
-                  }
-                  if (updateData.lastAcknowledged) {
-                    courseUpdateData.lastAcknowledged = updateData.lastAcknowledged;
-                  }
-                  
-                  // Update the course-specific notification record
-                  set(courseNotificationRef, courseUpdateData).then(() => {
-                    if (process.env.NODE_ENV === 'development') {
-                      console.log(`🔔 Course ${course.id}: Updated notification status for ${notificationId} ✅`);
-                    }
-                  }).catch(error => {
-                    console.error(`Error updating course ${course.id} notification:`, error);
-                  });
-                }).catch(error => {
-                  console.error(`Error getting course ${course.id} notification data:`, error);
-                });
-              }
-            });
-          }
-        }).catch(error => {
-          console.error('Error acknowledging notification:', error);
-        });
-      }).catch(error => {
-        console.error('Error getting existing notification data:', error);
-        
-        // Fallback: create a new entry if get() fails
-        let updateData = {
-          hasSeen: true,
-          hasSeenTimeStamp: currentDate,
-          hasAcknowledged: true,
-          acknowledgedAt: currentDate,
-          userEmail: profile?.StudentEmail,
-          // Add course information to fallback data
-          courseIds: courseIds,
-          courses: coursesInfo,
-          // Include a lastCourseId field for easy reference (if available)
-          ...(courseIds.length > 0 && { lastCourseId: courseIds[0] })
-        };
-        
-        // For repeating notifications, initialize interaction history
-        if (hasRepeatInterval) {
-          updateData.submissions = {
-            [currentTimestamp]: {
-              seen: true,
-              seenAt: currentDate,
-              hasAcknowledged: true,
-              acknowledgedAt: currentDate,
-              // Include course information in the submission record
-              courseIds: courseIds,
-              courses: coursesInfo
-            }
-          };
-          updateData.lastSeen = currentDate;
-          updateData.lastAcknowledged = currentDate;
-          
-          // Calculate and store the next renewal date for weekly notifications
-          // This is CRITICAL for proper renewal
-          if (notification.displayConfig?.frequency === 'weekly' || 
-              notification.renewalConfig?.method === 'day' || 
-              (notification.type === 'weekly-survey')) {
-              
-            // Get the target day of week (default to Monday if not specified)
-            const dayOfWeek = notification.displayConfig?.dayOfWeek || 
-                            notification.renewalConfig?.dayOfWeek || 'monday';
-              
-            // Convert day name to day number (0-6, where 0 is Sunday)
-            const dayMap = {
-              'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 
-              'thursday': 4, 'friday': 5, 'saturday': 6
-            };
-            const targetDayNum = dayMap[dayOfWeek.toLowerCase()] || 1;
-              
-            // Start with today's date
-            let nextRenewalDate = new Date();
-              
-            // Add days until we reach the target day of the week
-            while (nextRenewalDate.getDay() !== targetDayNum) {
-              nextRenewalDate.setDate(nextRenewalDate.getDate() + 1);
-            }
-              
-            // If today is already the target day, add 7 days to get to next week
-            if (nextRenewalDate.getDay() === new Date().getDay()) {
-              nextRenewalDate.setDate(nextRenewalDate.getDate() + 7);
-            }
-              
-            // Store the next renewal date
-            updateData.nextRenewalDate = nextRenewalDate.toISOString();
-            console.log(`Set next renewal date to ${updateData.nextRenewalDate} for ${dayOfWeek} (fallback path)`);
-          }
-        }
-        
-        set(resultsRef, updateData).then(() => {
-          // Also store acknowledgment in each course-specific path (fallback path)
-          if (notification.courses && Array.isArray(notification.courses)) {
-            // Process each course to update its notification results
-            notification.courses.forEach(course => {
-              if (course.id) {
-                // Create path to course-specific notification results
-                const courseNotificationRef = ref(db, 
-                  `students/${sanitizedUserEmail}/courses/${course.id}/studentDashboardNotificationsResults/${notificationId}`);
-                
-                // Create update data for the course-specific path
-                const courseUpdateData = {
-                  hasSeen: true,
-                  hasSeenTimeStamp: currentDate,
-                  hasAcknowledged: true,
-                  acknowledgedAt: currentDate,
-                  // Add course information to course-specific record
-                  courseId: course.id,
-                  submittedForCourse: course.id,
-                  courseTitle: course.title || `Course ${course.id}`,
-                  // Add the full list of course IDs and info
-                  courseIds: courseIds,
-                  courses: coursesInfo
-                };
-                
-                // Copy important fields from the main notification results
-                if (updateData.submissions) {
-                  courseUpdateData.submissions = updateData.submissions;
-                }
-                if (updateData.nextRenewalDate) {
-                  courseUpdateData.nextRenewalDate = updateData.nextRenewalDate;
-                }
-                if (updateData.lastSeen) {
-                  courseUpdateData.lastSeen = updateData.lastSeen;
-                }
-                if (updateData.lastAcknowledged) {
-                  courseUpdateData.lastAcknowledged = updateData.lastAcknowledged;
-                }
-                
-                // Update the course-specific notification record
-                set(courseNotificationRef, courseUpdateData).catch(error => {
-                  console.error(`Error updating course ${course.id} notification (fallback):`, error);
-                });
-              }
-            });
-          }
-        }).catch(error => {
-          console.error('Error acknowledging notification (fallback):', error);
-        });
       });
+    }
+    
+    // Call cloud function to update acknowledgment status if we have required data
+    if (profile?.StudentEmail && courseIds.length > 0) {
+      try {
+        const notificationId = notification.originalNotificationId || notification.id;
+        await callAcknowledgeCloudFunction(notificationId, courseIds, profile.StudentEmail);
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔔 NOTIFICATION ACKNOWLEDGED VIA CLOUD FUNCTION ✅', {
+            notificationId,
+            type: notification.type,
+            courseIds: courseIds
+          });
+        }
+      } catch (error) {
+        console.error('Error acknowledging notification:', error);
+        // Don't throw the error to avoid breaking the UI flow
+      }
     }
   };
 

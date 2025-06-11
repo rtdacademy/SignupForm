@@ -71,8 +71,10 @@ const submitNotificationSurvey = onCall({
   
   // Always log the raw input data to help debug issues
   console.log('⚠️ FUNCTION RAW DATA:', {
+    operation: data?.operation || 'submit_survey',
     notificationId: data?.notificationId || 'missing',
     courseId: data?.courseId || 'missing',
+    courseIds: data?.courseIds || 'missing',
     userEmail: data?.userEmail ? '(Email provided)' : 'MISSING',
     hasAnswers: !!data?.answers,
     answerCount: data?.answers ? Object.keys(data.answers).length : 0,
@@ -108,22 +110,56 @@ const submitNotificationSurvey = onCall({
   const currentDate = new Date().toISOString();
 
   try {
+    // Determine operation type
+    const operation = data?.operation || 'submit_survey';
+    
     // Create a safe copy of data to log - avoid circular references
     console.log("Data received by function:", {
+      operation: operation,
       hasNotificationId: !!data?.notificationId,
-      hasCourseId: !!data?.courseId, 
+      hasCourseId: !!data?.courseId,
+      hasCourseIds: !!data?.courseIds,
       hasAnswers: !!data?.answers,
       hasUserEmail: !!data?.userEmail,
       hasStudentName: !!data?.studentName,
       dataType: typeof data
     });
     
-    // Extract data from the request
+    // Extract common data from the request
     let notificationId = data?.notificationId;
     let courseId = data?.courseId;
+    let courseIds = data?.courseIds;
     let answers = data?.answers;
     let userEmail = data?.userEmail;
     let studentName = data?.studentName;
+    
+    // Route to appropriate handler based on operation
+    switch (operation) {
+      case 'mark_seen':
+        return await handleMarkSeen({
+          notificationId,
+          courseIds,
+          userEmail,
+          db,
+          currentTimestamp,
+          currentDate
+        });
+        
+      case 'acknowledge':
+        return await handleAcknowledge({
+          notificationId,
+          courseIds,
+          userEmail,
+          db,
+          currentTimestamp,
+          currentDate
+        });
+        
+      case 'submit_survey':
+      default:
+        // Continue with existing survey submission logic
+        break;
+    }
     
     console.log("Extracted data types:", {
       notificationIdType: typeof notificationId,
@@ -366,8 +402,17 @@ const submitNotificationSurvey = onCall({
       console.log(`- ${path}`);
     });
     
-    // 6. Apply all updates in a single transaction
-    await db.ref().update(updates);
+    // 6. Apply all updates using individual writes (more secure than root-level update)
+    console.log(`Applying ${Object.keys(updates).length} database updates...`);
+    for (const [path, data] of Object.entries(updates)) {
+      try {
+        await db.ref(path).set(data);
+        console.log(`✓ Successfully updated: ${path}`);
+      } catch (writeError) {
+        console.error(`✗ Failed to update ${path}:`, writeError.message);
+        throw new Error(`Failed to update ${path}: ${writeError.message}`);
+      }
+    }
     
     console.log(`Successfully saved survey response for notification ${notificationId}, user ${finalUserEmail}, course ${courseId}`);
     
@@ -401,6 +446,152 @@ const submitNotificationSurvey = onCall({
     throw new Error(`Error saving survey response: ${error.message}`);
   }
 });
+
+// Helper function to handle marking notifications as seen
+async function handleMarkSeen({ notificationId, courseIds, userEmail, db, currentTimestamp, currentDate }) {
+  console.log(`Processing mark_seen operation for notification ${notificationId}, user ${userEmail}`);
+  
+  // Validate required fields
+  if (!notificationId) {
+    throw new Error('Missing required field: notificationId is required');
+  }
+  if (!userEmail) {
+    throw new Error('Missing required field: userEmail is required');
+  }
+  if (!courseIds || !Array.isArray(courseIds) || courseIds.length === 0) {
+    throw new Error('Missing required field: courseIds must be a non-empty array');
+  }
+
+  const { sanitizeEmail } = require('./utils');
+  const finalSanitizedEmail = sanitizeEmail(userEmail);
+  
+  const updates = {};
+  
+  // Update main notification results
+  const mainResultsPath = `studentDashboardNotificationsResults/${notificationId}/${finalSanitizedEmail}`;
+  const existingDataRef = db.ref(mainResultsPath);
+  const existingDataSnapshot = await existingDataRef.once('value');
+  const existingData = existingDataSnapshot.exists() ? existingDataSnapshot.val() : {};
+  
+  updates[mainResultsPath] = {
+    ...existingData,
+    hasSeen: true,
+    hasSeenTimeStamp: currentDate,
+    timestamp: currentTimestamp
+  };
+  
+  // Update each course-specific path
+  for (const courseId of courseIds) {
+    const courseResultsPath = `students/${finalSanitizedEmail}/courses/${courseId}/studentDashboardNotificationsResults/${notificationId}`;
+    const courseDataRef = db.ref(courseResultsPath);
+    const courseDataSnapshot = await courseDataRef.once('value');
+    const courseData = courseDataSnapshot.exists() ? courseDataSnapshot.val() : {};
+    
+    updates[courseResultsPath] = {
+      ...courseData,
+      hasSeen: true,
+      hasSeenTimeStamp: currentDate,
+      courseId: courseId,
+      submittedForCourse: courseId,
+      timestamp: currentTimestamp
+    };
+  }
+  
+  // Apply all updates
+  console.log(`Applying ${Object.keys(updates).length} mark_seen updates...`);
+  for (const [path, data] of Object.entries(updates)) {
+    try {
+      await db.ref(path).set(data);
+      console.log(`✓ Successfully marked seen: ${path}`);
+    } catch (writeError) {
+      console.error(`✗ Failed to mark seen ${path}:`, writeError.message);
+      throw new Error(`Failed to mark seen ${path}: ${writeError.message}`);
+    }
+  }
+  
+  console.log(`Successfully marked notification ${notificationId} as seen for user ${userEmail}`);
+  
+  return {
+    success: true,
+    message: 'Notification marked as seen successfully',
+    timestamp: currentDate
+  };
+}
+
+// Helper function to handle acknowledging notifications
+async function handleAcknowledge({ notificationId, courseIds, userEmail, db, currentTimestamp, currentDate }) {
+  console.log(`Processing acknowledge operation for notification ${notificationId}, user ${userEmail}`);
+  
+  // Validate required fields
+  if (!notificationId) {
+    throw new Error('Missing required field: notificationId is required');
+  }
+  if (!userEmail) {
+    throw new Error('Missing required field: userEmail is required');
+  }
+  if (!courseIds || !Array.isArray(courseIds) || courseIds.length === 0) {
+    throw new Error('Missing required field: courseIds must be a non-empty array');
+  }
+
+  const { sanitizeEmail } = require('./utils');
+  const finalSanitizedEmail = sanitizeEmail(userEmail);
+  
+  const updates = {};
+  
+  // Update main notification results
+  const mainResultsPath = `studentDashboardNotificationsResults/${notificationId}/${finalSanitizedEmail}`;
+  const existingDataRef = db.ref(mainResultsPath);
+  const existingDataSnapshot = await existingDataRef.once('value');
+  const existingData = existingDataSnapshot.exists() ? existingDataSnapshot.val() : {};
+  
+  updates[mainResultsPath] = {
+    ...existingData,
+    hasSeen: true,
+    hasSeenTimeStamp: currentDate,
+    hasAcknowledged: true,
+    acknowledgedAt: currentDate,
+    timestamp: currentTimestamp
+  };
+  
+  // Update each course-specific path
+  for (const courseId of courseIds) {
+    const courseResultsPath = `students/${finalSanitizedEmail}/courses/${courseId}/studentDashboardNotificationsResults/${notificationId}`;
+    const courseDataRef = db.ref(courseResultsPath);
+    const courseDataSnapshot = await courseDataRef.once('value');
+    const courseData = courseDataSnapshot.exists() ? courseDataSnapshot.val() : {};
+    
+    updates[courseResultsPath] = {
+      ...courseData,
+      hasSeen: true,
+      hasSeenTimeStamp: currentDate,
+      hasAcknowledged: true,
+      acknowledgedAt: currentDate,
+      courseId: courseId,
+      submittedForCourse: courseId,
+      timestamp: currentTimestamp
+    };
+  }
+  
+  // Apply all updates
+  console.log(`Applying ${Object.keys(updates).length} acknowledge updates...`);
+  for (const [path, data] of Object.entries(updates)) {
+    try {
+      await db.ref(path).set(data);
+      console.log(`✓ Successfully acknowledged: ${path}`);
+    } catch (writeError) {
+      console.error(`✗ Failed to acknowledge ${path}:`, writeError.message);
+      throw new Error(`Failed to acknowledge ${path}: ${writeError.message}`);
+    }
+  }
+  
+  console.log(`Successfully acknowledged notification ${notificationId} for user ${userEmail}`);
+  
+  return {
+    success: true,
+    message: 'Notification acknowledged successfully',
+    timestamp: currentDate
+  };
+}
 
 module.exports = {
   submitNotificationSurvey
