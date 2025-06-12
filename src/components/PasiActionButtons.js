@@ -144,7 +144,7 @@ export const MultipleRecordsDisplay = ({ records, asn, onSelect, selectedRecord 
   );
 };
 
-const PasiActionButtons = ({ asn, referenceNumber }) => {
+const PasiActionButtons = ({ asn, referenceNumber, showYourWay = true }) => {
   const validAsn = isValidValue(asn);
   const validReferenceNumber = isValidValue(referenceNumber);
 
@@ -261,23 +261,25 @@ const PasiActionButtons = ({ asn, referenceNumber }) => {
           </Tooltip>
         </div>
 
-        {/* YourWay Button - Separate with different color */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={handleOpenYourWay}
-              className="h-full w-8 p-0 flex items-center justify-center border border-gray-200 rounded-md bg-blue-50/80 hover:bg-blue-100/90"
-              disabled={!validAsn}
-            >
-              <ArrowRightCircle className="h-4 w-4 text-blue-700" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Open in YourWay</p>
-          </TooltipContent>
-        </Tooltip>
+        {/* YourWay Button - Separate with different color - Conditionally rendered */}
+        {showYourWay && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={handleOpenYourWay}
+                className="h-full w-8 p-0 flex items-center justify-center border border-gray-200 rounded-md bg-blue-50/80 hover:bg-blue-100/90"
+                disabled={!validAsn}
+              >
+                <ArrowRightCircle className="h-4 w-4 text-blue-700" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Open in YourWay</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </TooltipProvider>
   );

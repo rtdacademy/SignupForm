@@ -266,22 +266,62 @@ function StudentList({
   
     // Helper function to check full name matches
     const matchesFullName = (student, searchTerm) => {
-      // Create both possible full name combinations
-      const firstNameLastName = `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase().trim();
-      const preferredFirstNameLastName = `${student.preferredFirstName || student.firstName || ''} ${student.lastName || ''}`.toLowerCase().trim();
+      // Handle student summary format (firstName, lastName)
+      if (student.firstName || student.lastName) {
+        const firstNameLastName = `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase().trim();
+        const preferredFirstNameLastName = `${student.preferredFirstName || student.firstName || ''} ${student.lastName || ''}`.toLowerCase().trim();
+        
+        if (firstNameLastName.includes(searchTerm) || preferredFirstNameLastName.includes(searchTerm)) {
+          return true;
+        }
+      }
       
-      // Check if search term matches either combination
-      return firstNameLastName.includes(searchTerm) || 
-             preferredFirstNameLastName.includes(searchTerm);
+      // Handle PASI format (studentName in "Last, First Middle" format)
+      if (student.studentName) {
+        const pasiName = student.studentName.toLowerCase();
+        if (pasiName.includes(searchTerm)) {
+          return true;
+        }
+        
+        // Also try parsing the "Last, First Middle" format to match against "First Last"
+        const nameParts = student.studentName.split(',');
+        if (nameParts.length >= 2) {
+          const lastName = nameParts[0].trim();
+          const firstPart = nameParts[1].trim();
+          const firstName = firstPart.split(' ')[0]; // Get first name before any middle names
+          const reformattedName = `${firstName} ${lastName}`.toLowerCase();
+          if (reformattedName.includes(searchTerm)) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
     };
   
     return studentSummaries.filter((student) => {
       // Basic validation - skip invalid student records
-      if (!student || 
-        typeof student.firstName === 'undefined' || 
-        typeof student.lastName === 'undefined' || 
-        !student.StudentEmail) {
-        console.warn('Skipping invalid student record:', student);
+      // Handle both student summaries and PASI-only records
+      if (!student) {
+        console.warn('Skipping null student record');
+        return false;
+      }
+      
+      // For student summaries: require firstName, lastName, StudentEmail
+      // For PASI-only records: require studentName and either email or asn
+      const hasStudentSummaryFields = student.firstName && student.lastName && student.StudentEmail;
+      const hasPasiFields = student.studentName && (student.email || student.asn);
+      
+      if (!hasStudentSummaryFields && !hasPasiFields) {
+        console.warn('Skipping invalid student record - missing required fields:', {
+          id: student.id,
+          hasFirstName: !!student.firstName,
+          hasLastName: !!student.lastName,
+          hasStudentEmail: !!student.StudentEmail,
+          hasStudentName: !!student.studentName,
+          hasEmail: !!student.email,
+          hasAsn: !!student.asn
+        });
         return false;
       }
       
@@ -438,7 +478,9 @@ function StudentList({
         String(student.preferredFirstName || '').toLowerCase().includes(normalizedSearchTerm) ||
         String(student.lastName || '').toLowerCase().includes(normalizedSearchTerm) ||
         String(student.StudentEmail || '').toLowerCase().includes(normalizedSearchTerm) ||
+        String(student.email || '').toLowerCase().includes(normalizedSearchTerm) || // PASI email field
         String(student.ParentEmail || '').toLowerCase().includes(normalizedSearchTerm) || 
+        String(student.studentName || '').toLowerCase().includes(normalizedSearchTerm) || // PASI studentName field
         normalizeASN(student.asn).includes(normalizeASN(searchTerm));
   
       return matchesFilters && matchesSearch;
@@ -544,12 +586,47 @@ const selectedStudentsData = Array.from(selectedStudents)
 
     const teacher = getTeacherForCourse(student.CourseID);
     
+    // Helper function to extract names from PASI studentName if needed
+    const getNames = (student) => {
+      if (student.firstName && student.lastName) {
+        return {
+          firstName: student.firstName,
+          lastName: student.lastName,
+          preferredFirstName: student.preferredFirstName
+        };
+      }
+      
+      if (student.studentName) {
+        // Parse "Last, First Middle" format
+        const nameParts = student.studentName.split(',');
+        if (nameParts.length >= 2) {
+          const lastName = nameParts[0].trim();
+          const firstPart = nameParts[1].trim();
+          const firstName = firstPart.split(' ')[0];
+          return {
+            firstName,
+            lastName,
+            preferredFirstName: firstName
+          };
+        }
+      }
+      
+      return {
+        firstName: '',
+        lastName: '',
+        preferredFirstName: ''
+      };
+    };
+    
+    const names = getNames(student);
+    const studentEmail = student.StudentEmail || student.email || '';
+    
     return {
-      username: generateUsername(student.firstName, student.lastName),
+      username: generateUsername(names.firstName, names.lastName),
       password: generateTempPassword(),
-      lname: student.lastName || '',
-      fname: student.preferredFirstName || student.firstName || '',
-      email: student.StudentEmail || '',
+      lname: names.lastName,
+      fname: names.preferredFirstName || names.firstName,
+      email: studentEmail,
       courseid: student.CourseID || '',
       course: student.Course_Value || '',
       Status_Value: student.Status_Value || '',

@@ -27,7 +27,7 @@ function StudentManagement({
   const { 
     currentSchoolYear, 
     setCurrentSchoolYear, 
-    studentSummaries,
+    pasiStudentSummariesCombined,
     isLoadingStudents 
   } = useSchoolYear();
 
@@ -290,7 +290,7 @@ function StudentManagement({
   }, []);
 
   // Memoize student summaries and available filters
-  const memoizedStudentSummaries = useMemo(() => studentSummaries, [studentSummaries]);
+  const memoizedStudentSummaries = useMemo(() => pasiStudentSummariesCombined, [pasiStudentSummariesCombined]);
   const memoizedAvailableFilters = useMemo(() => availableFilters, [availableFilters]);
 
   // Calculate list width based on container width and view state
@@ -437,7 +437,7 @@ function StudentManagement({
                   {selectedStudents.size > 0 ? (
                     <StudentMessaging
                       selectedStudents={Array.from(selectedStudents).map(id => 
-                        studentSummaries.find(s => s.id === id)
+                        pasiStudentSummariesCombined.find(s => s.id === id)
                       ).filter(Boolean)}
                       onClose={handleCloseMessaging}
                       onNotification={handleMessagingNotification} 
@@ -469,7 +469,7 @@ function StudentManagement({
               {selectedStudents.size > 0 ? (
                 <StudentMessaging
                   selectedStudents={Array.from(selectedStudents).map(id => 
-                    studentSummaries.find(s => s.id === id)
+                    pasiStudentSummariesCombined.find(s => s.id === id)
                   ).filter(Boolean)}
                   onClose={handleCloseMessaging}
                   onNotification={handleMessagingNotification}
