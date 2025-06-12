@@ -48,12 +48,67 @@ function Header({
   parentInfo
 }) {
   const navigate = useNavigate();
+  
+  // Validation logic for record limits
+  const getRecordCountStyle = (total) => {
+    if (total > 4000) return 'text-red-500';
+    if (total > 3000) return 'text-yellow-500';
+    return 'text-green-500';
+  };
+
+  const getRecordCountDescription = (total) => {
+    if (total > 4000) return 'Over limit';
+    if (total > 3000) return 'Warning';
+    return 'Normal';
+  };
+
+  const wouldExceedLimit = (currentTotal, additionalCount) => {
+    return currentTotal + additionalCount > 4000;
+  };
+
+  const handleNextYearToggle = (checked) => {
+    if (!checked) {
+      setIncludeNextYear(false);
+      return;
+    }
+    
+    // Calculate if adding next year would exceed limit
+    const potentialTotal = recordCounts.current + recordCounts.previous + recordCounts.next;
+    if (wouldExceedLimit(recordCounts.current + (includePreviousYear ? recordCounts.previous : 0), recordCounts.next)) {
+      alert('Adding next year data would exceed the 4,000 record limit. Please uncheck another year first.');
+      return;
+    }
+    
+    setIncludeNextYear(true);
+  };
+
+  const handlePreviousYearToggle = (checked) => {
+    if (!checked) {
+      setIncludePreviousYear(false);
+      return;
+    }
+    
+    // Calculate if adding previous year would exceed limit
+    if (wouldExceedLimit(recordCounts.current + (includeNextYear ? recordCounts.next : 0), recordCounts.previous)) {
+      alert('Adding previous year data would exceed the 4,000 record limit. Please uncheck another year first.');
+      return;
+    }
+    
+    setIncludePreviousYear(true);
+  };
   const { 
     currentSchoolYear, 
     setCurrentSchoolYear, 
     schoolYearOptions, 
     refreshStudentSummaries,
-    isLoadingStudents 
+    isLoadingStudents,
+    includeNextYear,
+    setIncludeNextYear,
+    includePreviousYear,
+    setIncludePreviousYear,
+    recordCounts,
+    getNextSchoolYear,
+    getPreviousSchoolYear
   } = useSchoolYear();
   const { currentMode } = useMode();
   
@@ -151,9 +206,9 @@ function Header({
               </div>
             )}
             
-            {/* School Year Selector with Refresh Button - Only for staff */}
+            {/* School Year Selector with Multi-Year Options - Only for staff */}
             {isStaffUser && selectedOption && (
-              <div className="ml-6 flex items-center space-x-2">
+              <div className="ml-6 flex items-center space-x-4">
                 <DropdownMenu>
                   <DropdownMenuTrigger className="px-3 py-1 rounded bg-gray-700 text-gray-200 hover:bg-gray-600 text-sm flex items-center gap-2">
                     <span>School Year: </span>
@@ -184,6 +239,65 @@ function Header({
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
+                
+                {/* Multi-Year Checkboxes */}
+                <div className="flex flex-col space-y-1">
+                  {/* Previous Year Checkbox */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <label className="flex items-center space-x-2 text-xs text-gray-200 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={includePreviousYear}
+                            onChange={(e) => handlePreviousYearToggle(e.target.checked)}
+                            className="w-3 h-3 rounded border-gray-500 bg-gray-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-800"
+                          />
+                          <span className="select-none">Previous ({getPreviousSchoolYear(currentSchoolYear)})</span>
+                        </label>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="text-xs">
+                          Include data from the previous school year ({getPreviousSchoolYear(currentSchoolYear)}).
+                          Useful for comparing year-over-year data.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  {/* Next Year Checkbox */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <label className="flex items-center space-x-2 text-xs text-gray-200 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={includeNextYear}
+                            onChange={(e) => handleNextYearToggle(e.target.checked)}
+                            className="w-3 h-3 rounded border-gray-500 bg-gray-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-800"
+                          />
+                          <span className="select-none">Next ({getNextSchoolYear(currentSchoolYear)})</span>
+                        </label>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="text-xs">
+                          Include data from the next school year ({getNextSchoolYear(currentSchoolYear)}).
+                          Useful during registration periods and transitions.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                {/* Record Count Display */}
+                <div className="flex flex-col items-center text-xs">
+                  <div className={`font-medium ${getRecordCountStyle(recordCounts.total)}`}>
+                    {recordCounts.total.toLocaleString()} / 4,000
+                  </div>
+                  <div className="text-gray-400">
+                    {getRecordCountDescription(recordCounts.total)}
+                  </div>
+                </div>
                 
                 {/* Refresh Button - Only visible in registration mode */}
                 {currentMode === MODES.REGISTRATION && (
@@ -266,6 +380,20 @@ function Header({
         <div className="bg-blue-600 text-white px-4 py-2 text-sm text-center">
           <AlertCircle className="w-4 h-4 inline-block mr-1" />
           You are currently viewing the portal as {user.email}
+        </div>
+      )}
+      {/* Record Count Warning Banner */}
+      {isStaffUser && recordCounts.total > 3000 && (
+        <div className={`px-4 py-2 text-sm text-center ${
+          recordCounts.total > 4000 
+            ? 'bg-red-600 text-white' 
+            : 'bg-yellow-500 text-black'
+        }`}>
+          <AlertCircle className="w-4 h-4 inline-block mr-1" />
+          {recordCounts.total > 4000 
+            ? `Record limit exceeded: ${recordCounts.total.toLocaleString()} / 4,000 records. Please uncheck a year to continue.`
+            : `Approaching record limit: ${recordCounts.total.toLocaleString()} / 4,000 records loaded.`
+          }
         </div>
       )}
     </header>

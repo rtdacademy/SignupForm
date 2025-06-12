@@ -85,6 +85,10 @@ const DEFAULT_PREFERENCES = {
     statusFilters: {},
     dateFilters: {}
   },
+  schoolYear: {
+    includeNextYear: false,
+    includePreviousYear: false
+  },
   lastViewedStudent: null
 };
 
@@ -231,6 +235,26 @@ export function UserPreferencesProvider({ children }) {
     await updatePreferences(updatedPrefs);
   };
 
+  // Update school year preferences
+  const updateSchoolYearPreferences = async (schoolYearSettings) => {
+    if (!preferences) return;
+
+    // Filter out undefined values to prevent Firebase errors
+    const cleanSettings = Object.fromEntries(
+      Object.entries(schoolYearSettings).filter(([_, value]) => value !== undefined)
+    );
+
+    const updatedPrefs = {
+      ...preferences,
+      schoolYear: {
+        ...preferences.schoolYear,
+        ...cleanSettings
+      }
+    };
+
+    await updatePreferences(updatedPrefs);
+  };
+
   const value = {
     preferences,
     updatePreferences,
@@ -238,6 +262,7 @@ export function UserPreferencesProvider({ children }) {
     clearAllFilters,
     updateSelectedTabs,
     updateLastViewedStudent,
+    updateSchoolYearPreferences,
     loading
   };
 
