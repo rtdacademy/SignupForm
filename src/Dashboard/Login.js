@@ -150,7 +150,7 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
       console.log("Checking if user data exists for UID:", uid);
       const snapshot = await get(child(ref(db), `users/${uid}`));
       if (!snapshot.exists()) {
-        console.log("User data doesn't exist, creating new data");
+        console.log("User data doesn't exist, creating minimal user data");
         const sanitizedEmail = sanitizeEmail(user.email);
         const userData = {
           uid: uid,
@@ -158,16 +158,26 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
           sanitizedEmail: sanitizedEmail,
           type: isStaffEmail(user.email) ? "staff" : "student",
           createdAt: Date.now(),
+          lastLogin: Date.now(),
+          provider: user.providerData[0]?.providerId || 'password',
+          emailVerified: user.emailVerified
         };
         await set(userRef, userData);
-        console.log("User data created successfully:", userData);
+        console.log("Minimal user data created successfully");
       } else {
-        console.log("User data already exists");
+        console.log("User data already exists, updating last login");
+        const existingData = snapshot.val();
+        await set(userRef, {
+          ...existingData,
+          lastLogin: Date.now(),
+          emailVerified: user.emailVerified
+        });
       }
       return true;
     } catch (error) {
       console.error("Error ensuring user data:", error);
-      throw new Error("Failed to create or verify user data");
+      // Log error but don't throw - allow user to continue
+      return true;
     }
   };
 

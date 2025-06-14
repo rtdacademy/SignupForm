@@ -311,7 +311,7 @@ export const SchoolYearProvider = ({ children }) => {
     return () => unsubscribe();
   }, [isStaffUser, includePreviousYear, currentSchoolYear, refreshTrigger, getPreviousSchoolYear]);
 
-  // Fetch PASI records for staff
+  // Fetch PASI records from new pasiRecordsNew structure
   useEffect(() => {
     if (!isStaffUser || !currentSchoolYear) {
       setIsLoadingPasi(false);
@@ -337,50 +337,13 @@ export const SchoolYearProvider = ({ children }) => {
       return;
     }
 
-    // Create references to both data nodes
-    const pasiRef = ref(db, 'pasiRecords');
-    const companionRef = ref(db, 'pasiRecordsCompanion');
+    // Use new pasiRecordsNew structure - direct node access
+    const pasiRef = ref(db, `pasiRecordsNew/${formattedYear}`);
     
-    // Query for PASI records with the specific school year
-    const schoolYearQuery = query(
-      pasiRef,
-      orderByChild('schoolYear'),
-      equalTo(formattedYear)
-    );
-    
-    // Two separate listeners to handle both data sources
-    let pasiData = [];
-    let companionData = {};
-    let pasiLoaded = false;
-    let companionLoaded = false;
-    
-    // Function to merge and update state when both data sources have been loaded
-    const mergeAndUpdateRecords = () => {
-      if (!pasiLoaded || !companionLoaded) return;
-      
-      const mergedRecords = pasiData.map(record => {
-        const companion = companionData[record.id] || {};
-        return { ...record, ...companion };
-      });
-      
-      setPasiRecords(mergedRecords.sort((a, b) => {
-        // First try to sort by studentName if it exists
-        if (a.studentName && b.studentName) {
-          return a.studentName.localeCompare(b.studentName);
-        }
-        // Fallback to id if studentName doesn't exist
-        return a.id.localeCompare(b.id);
-      }));
-      
-      setIsLoadingPasi(false);
-    };
-
-    // Listen for PASI records changes
-    const unsubscribePasi = onValue(schoolYearQuery, (snapshot) => {
+    const unsubscribe = onValue(pasiRef, (snapshot) => {
       try {
         if (!snapshot.exists()) {
-          pasiData = [];
-          pasiLoaded = true;
+          console.log(`No PASI records found for year ${formattedYear}`);
           setPasiRecords([]);
           setIsLoadingPasi(false);
           return;
@@ -390,12 +353,21 @@ export const SchoolYearProvider = ({ children }) => {
         snapshot.forEach(child => {
           const record = child.val();
           const recordId = child.key;
-          records.push({ id: recordId, linked: Boolean(record.linked), ...record });
+          records.push({ id: recordId, ...record });
         });
         
-        pasiData = records;
-        pasiLoaded = true;
-        mergeAndUpdateRecords();
+        console.log(`Loaded ${records.length} PASI records for ${formattedYear}`);
+        
+        // Sort by student name for consistency
+        const sortedRecords = records.sort((a, b) => {
+          if (a.studentName && b.studentName) {
+            return a.studentName.localeCompare(b.studentName);
+          }
+          return a.id.localeCompare(b.id);
+        });
+        
+        setPasiRecords(sortedRecords);
+        setIsLoadingPasi(false);
       } catch (err) {
         console.error('Error processing PASI records:', err);
         setError(err.message);
@@ -409,32 +381,7 @@ export const SchoolYearProvider = ({ children }) => {
       setIsLoadingPasi(false);
     });
 
-    // Listen for companion data changes
-    const unsubscribeCompanion = onValue(companionRef, (snapshot) => {
-      try {
-        const companions = {};
-        if (snapshot.exists()) {
-          snapshot.forEach(child => {
-            companions[child.key] = child.val();
-          });
-        }
-        
-        companionData = companions;
-        companionLoaded = true;
-        mergeAndUpdateRecords();
-      } catch (err) {
-        console.error('Error processing companion data:', err);
-        // Don't set error state here as PASI data is more important
-        companionLoaded = true;
-        mergeAndUpdateRecords();
-      }
-    });
-
-    // Cleanup function to remove both listeners
-    return () => {
-      unsubscribePasi();
-      unsubscribeCompanion();
-    };
+    return () => unsubscribe();
   }, [isStaffUser, currentSchoolYear, refreshTrigger]);
 
   // Fetch next year PASI records when checkbox is checked
@@ -460,41 +407,13 @@ export const SchoolYearProvider = ({ children }) => {
       return;
     }
 
-    const pasiRef = ref(db, 'pasiRecords');
-    const companionRef = ref(db, 'pasiRecordsCompanion');
+    // Use new pasiRecordsNew structure - direct node access
+    const pasiRef = ref(db, `pasiRecordsNew/${formattedYear}`);
     
-    const schoolYearQuery = query(
-      pasiRef,
-      orderByChild('schoolYear'),
-      equalTo(formattedYear)
-    );
-    
-    let pasiData = [];
-    let companionData = {};
-    let pasiLoaded = false;
-    let companionLoaded = false;
-    
-    const mergeAndUpdateRecords = () => {
-      if (!pasiLoaded || !companionLoaded) return;
-      
-      const mergedRecords = pasiData.map(record => {
-        const companion = companionData[record.id] || {};
-        return { ...record, ...companion, _isNextYear: true };
-      });
-      
-      setNextYearPasiRecords(mergedRecords.sort((a, b) => {
-        if (a.studentName && b.studentName) {
-          return a.studentName.localeCompare(b.studentName);
-        }
-        return a.id.localeCompare(b.id);
-      }));
-    };
-
-    const unsubscribePasi = onValue(schoolYearQuery, (snapshot) => {
+    const unsubscribe = onValue(pasiRef, (snapshot) => {
       try {
         if (!snapshot.exists()) {
-          pasiData = [];
-          pasiLoaded = true;
+          console.log(`No next year PASI records found for year ${formattedYear}`);
           setNextYearPasiRecords([]);
           return;
         }
@@ -503,40 +422,27 @@ export const SchoolYearProvider = ({ children }) => {
         snapshot.forEach(child => {
           const record = child.val();
           const recordId = child.key;
-          records.push({ id: recordId, linked: Boolean(record.linked), ...record });
+          records.push({ id: recordId, ...record, _isNextYear: true });
         });
         
-        pasiData = records;
-        pasiLoaded = true;
-        mergeAndUpdateRecords();
+        console.log(`Loaded ${records.length} next year PASI records for ${formattedYear}`);
+        
+        // Sort by student name for consistency
+        const sortedRecords = records.sort((a, b) => {
+          if (a.studentName && b.studentName) {
+            return a.studentName.localeCompare(b.studentName);
+          }
+          return a.id.localeCompare(b.id);
+        });
+        
+        setNextYearPasiRecords(sortedRecords);
       } catch (err) {
         console.error('Error processing next year PASI records:', err);
+        setNextYearPasiRecords([]);
       }
     });
 
-    const unsubscribeCompanion = onValue(companionRef, (snapshot) => {
-      try {
-        const companions = {};
-        if (snapshot.exists()) {
-          snapshot.forEach(child => {
-            companions[child.key] = child.val();
-          });
-        }
-        
-        companionData = companions;
-        companionLoaded = true;
-        mergeAndUpdateRecords();
-      } catch (err) {
-        console.error('Error processing next year companion data:', err);
-        companionLoaded = true;
-        mergeAndUpdateRecords();
-      }
-    });
-
-    return () => {
-      unsubscribePasi();
-      unsubscribeCompanion();
-    };
+    return () => unsubscribe();
   }, [isStaffUser, includeNextYear, currentSchoolYear, refreshTrigger, getNextSchoolYear]);
 
   // Fetch previous year PASI records when checkbox is checked
@@ -562,41 +468,13 @@ export const SchoolYearProvider = ({ children }) => {
       return;
     }
 
-    const pasiRef = ref(db, 'pasiRecords');
-    const companionRef = ref(db, 'pasiRecordsCompanion');
+    // Use new pasiRecordsNew structure - direct node access
+    const pasiRef = ref(db, `pasiRecordsNew/${formattedYear}`);
     
-    const schoolYearQuery = query(
-      pasiRef,
-      orderByChild('schoolYear'),
-      equalTo(formattedYear)
-    );
-    
-    let pasiData = [];
-    let companionData = {};
-    let pasiLoaded = false;
-    let companionLoaded = false;
-    
-    const mergeAndUpdateRecords = () => {
-      if (!pasiLoaded || !companionLoaded) return;
-      
-      const mergedRecords = pasiData.map(record => {
-        const companion = companionData[record.id] || {};
-        return { ...record, ...companion, _isPreviousYear: true };
-      });
-      
-      setPreviousYearPasiRecords(mergedRecords.sort((a, b) => {
-        if (a.studentName && b.studentName) {
-          return a.studentName.localeCompare(b.studentName);
-        }
-        return a.id.localeCompare(b.id);
-      }));
-    };
-
-    const unsubscribePasi = onValue(schoolYearQuery, (snapshot) => {
+    const unsubscribe = onValue(pasiRef, (snapshot) => {
       try {
         if (!snapshot.exists()) {
-          pasiData = [];
-          pasiLoaded = true;
+          console.log(`No previous year PASI records found for year ${formattedYear}`);
           setPreviousYearPasiRecords([]);
           return;
         }
@@ -605,40 +483,27 @@ export const SchoolYearProvider = ({ children }) => {
         snapshot.forEach(child => {
           const record = child.val();
           const recordId = child.key;
-          records.push({ id: recordId, linked: Boolean(record.linked), ...record });
+          records.push({ id: recordId, ...record, _isPreviousYear: true });
         });
         
-        pasiData = records;
-        pasiLoaded = true;
-        mergeAndUpdateRecords();
+        console.log(`Loaded ${records.length} previous year PASI records for ${formattedYear}`);
+        
+        // Sort by student name for consistency
+        const sortedRecords = records.sort((a, b) => {
+          if (a.studentName && b.studentName) {
+            return a.studentName.localeCompare(b.studentName);
+          }
+          return a.id.localeCompare(b.id);
+        });
+        
+        setPreviousYearPasiRecords(sortedRecords);
       } catch (err) {
         console.error('Error processing previous year PASI records:', err);
+        setPreviousYearPasiRecords([]);
       }
     });
 
-    const unsubscribeCompanion = onValue(companionRef, (snapshot) => {
-      try {
-        const companions = {};
-        if (snapshot.exists()) {
-          snapshot.forEach(child => {
-            companions[child.key] = child.val();
-          });
-        }
-        
-        companionData = companions;
-        companionLoaded = true;
-        mergeAndUpdateRecords();
-      } catch (err) {
-        console.error('Error processing previous year companion data:', err);
-        companionLoaded = true;
-        mergeAndUpdateRecords();
-      }
-    });
-
-    return () => {
-      unsubscribePasi();
-      unsubscribeCompanion();
-    };
+    return () => unsubscribe();
   }, [isStaffUser, includePreviousYear, currentSchoolYear, refreshTrigger, getPreviousSchoolYear]);
 
   // Fetch ASNs node - only for staff users
@@ -669,6 +534,108 @@ export const SchoolYearProvider = ({ children }) => {
     return () => unsubscribe();
   }, [isStaffUser, refreshTrigger]);
 
+  // Helper function to get the latest PASI record by exitDate
+  const getLatestPasiRecord = useCallback((pasiRecords) => {
+    if (!pasiRecords || pasiRecords.length === 0) return null;
+    if (pasiRecords.length === 1) return pasiRecords[0];
+    
+    // Sort by exitDate (newest first), then by assignmentDate if exitDate is same
+    return pasiRecords.sort((a, b) => {
+      const dateA = a.exitDate ? new Date(a.exitDate) : new Date(0);
+      const dateB = b.exitDate ? new Date(b.exitDate) : new Date(0);
+      
+      if (dateA.getTime() !== dateB.getTime()) {
+        return dateB.getTime() - dateA.getTime(); // Newest first
+      }
+      
+      // If exitDate is same, use assignmentDate
+      const assignA = a.assignmentDate ? new Date(a.assignmentDate) : new Date(0);
+      const assignB = b.assignmentDate ? new Date(b.assignmentDate) : new Date(0);
+      
+      return assignB.getTime() - assignA.getTime(); // Newest first
+    })[0];
+  }, []);
+
+  // Helper function to match PASI records to student summaries using ASN and courseId
+  const matchPasiToStudentSummary = useCallback((pasiRecords, studentSummaries) => {
+    const results = [];
+    
+    // Create a map of student summaries by ASN + courseId for quick lookup
+    const summaryMap = new Map();
+    studentSummaries.forEach(summary => {
+      if (summary.ASN && summary.CourseID) {
+        const key = `${summary.ASN}_${summary.CourseID}`;
+        summaryMap.set(key, summary);
+      }
+    });
+    
+    // Group PASI records by ASN + courseId
+    const pasiGrouped = new Map();
+    pasiRecords.forEach(record => {
+      if (record.asn && record.courseId) {
+        const key = `${record.asn}_${record.courseId}`;
+        if (!pasiGrouped.has(key)) {
+          pasiGrouped.set(key, []);
+        }
+        pasiGrouped.get(key).push(record);
+      }
+    });
+    
+    // For each student summary, find matching PASI records
+    studentSummaries.forEach(summary => {
+      if (!summary.ASN || !summary.CourseID) {
+        // No ASN or CourseID, can't match - add summary without PASI data
+        results.push(summary);
+        return;
+      }
+      
+      const key = `${summary.ASN}_${summary.CourseID}`;
+      const matchingPasiRecords = pasiGrouped.get(key) || [];
+      
+      if (matchingPasiRecords.length === 0) {
+        // No matching PASI records - add summary without PASI data
+        results.push(summary);
+      } else {
+        // Get the latest PASI record for this ASN + courseId combination
+        const latestPasiRecord = getLatestPasiRecord(matchingPasiRecords);
+        
+        // Merge student summary with latest PASI record
+        const { term, ...restRecord } = latestPasiRecord;
+        const merged = {
+          ...summary, // Student summary data first
+          ...restRecord, // PASI record data second (overwrites conflicts)
+          pasiTerm: term, // Rename term to avoid conflicts
+          pasiRecordCount: matchingPasiRecords.length // Show how many PASI records exist
+        };
+        
+        results.push(merged);
+      }
+      
+      // Remove processed PASI records from the map
+      pasiGrouped.delete(key);
+    });
+    
+    // Add any remaining unmatched PASI records (no corresponding student summary)
+    pasiGrouped.forEach(pasiRecords => {
+      pasiRecords.forEach(record => {
+        const { term, ...restRecord } = record;
+        results.push({
+          ...restRecord,
+          pasiTerm: term,
+          // Add placeholder student summary fields for unmatched PASI records
+          CourseID: record.courseId,
+          Status_Value: null,
+          StudentType_Value: null,
+          ActiveFutureArchived_Value: 'Not Set',
+          Term: null,
+          pasiRecordCount: 1
+        });
+      });
+    });
+    
+    return results;
+  }, [getLatestPasiRecord]);
+
   // Combine PASI & summaries with optional next/previous year data
   const pasiStudentSummariesCombined = useMemo(() => {
     // Merge all selected year data
@@ -685,45 +652,49 @@ export const SchoolYearProvider = ({ children }) => {
       allPasiRecords = [...allPasiRecords, ...previousYearPasiRecords];
     }
     
-    if (!isStaffUser || allPasiRecords.length === 0) {
+    if (!isStaffUser) {
       return allStudentSummaries;
     }
     
-    const summaryMap = {};
-    allStudentSummaries.forEach(summary => {
-      if (summary.id) summaryMap[summary.id] = summary;
-    });
-    
-    return allPasiRecords.map(record => {
-      const { term, summaryKey, ...restRecord } = record;
-      const renamed = { ...restRecord, pasiTerm: term, summaryKey };
-      const summary = summaryKey && summaryMap[summaryKey] ? summaryMap[summaryKey] : null;
-      if (!summary) {
-        return { ...renamed, CourseID: null, Status_Value: null, StudentType_Value: null, ActiveFutureArchived_Value: 'Not Set', Term: null };
-      }
-      return { ...summary, ...renamed };
-    });
-  }, [studentSummaries, pasiRecords, nextYearStudentSummaries, nextYearPasiRecords, previousYearStudentSummaries, previousYearPasiRecords, includeNextYear, includePreviousYear, isStaffUser]);
+    // Use new simplified matching logic
+    return matchPasiToStudentSummary(allPasiRecords, allStudentSummaries);
+  }, [studentSummaries, pasiRecords, nextYearStudentSummaries, nextYearPasiRecords, previousYearStudentSummaries, previousYearPasiRecords, includeNextYear, includePreviousYear, isStaffUser, matchPasiToStudentSummary]);
 
   // Other derived lists (unlinked, unmatched, duplicates)
   const unlinkedPasiRecords = useMemo(() => {
     let allPasiRecords = [...pasiRecords];
+    let allStudentSummaries = [...studentSummaries];
     
     if (includeNextYear) {
       allPasiRecords = [...allPasiRecords, ...nextYearPasiRecords];
+      allStudentSummaries = [...allStudentSummaries, ...nextYearStudentSummaries];
     }
     
     if (includePreviousYear) {
       allPasiRecords = [...allPasiRecords, ...previousYearPasiRecords];
+      allStudentSummaries = [...allStudentSummaries, ...previousYearStudentSummaries];
     }
       
     if (!isStaffUser || allPasiRecords.length === 0) return [];
     
-    return allPasiRecords.filter(r => !r.summaryKey).map(record => {
+    // Create a set of ASN + courseId combinations that exist in student summaries
+    const studentKeys = new Set();
+    allStudentSummaries.forEach(summary => {
+      if (summary.ASN && summary.CourseID) {
+        studentKeys.add(`${summary.ASN}_${summary.CourseID}`);
+      }
+    });
+    
+    // Filter PASI records that don't have matching student summaries
+    return allPasiRecords.filter(record => {
+      if (!record.asn || !record.courseId) return true; // Include if missing ASN or courseId
+      const key = `${record.asn}_${record.courseId}`;
+      return !studentKeys.has(key);
+    }).map(record => {
       const { term, ...rest } = record;
       return { ...rest, pasiTerm: term };
     });
-  }, [pasiRecords, nextYearPasiRecords, previousYearPasiRecords, includeNextYear, includePreviousYear, isStaffUser]);
+  }, [pasiRecords, nextYearPasiRecords, previousYearPasiRecords, studentSummaries, nextYearStudentSummaries, previousYearStudentSummaries, includeNextYear, includePreviousYear, isStaffUser]);
 
   const unmatchedStudentSummaries = useMemo(() => {
     let allStudentSummaries = [...studentSummaries];
@@ -741,8 +712,20 @@ export const SchoolYearProvider = ({ children }) => {
       
     if (!isStaffUser || allStudentSummaries.length === 0) return [];
     
-    const pasiSummaryKeySet = new Set(allPasiRecords.filter(r => r.summaryKey).map(r => r.summaryKey));
-    return allStudentSummaries.filter(s => s.id && !pasiSummaryKeySet.has(s.id));
+    // Create a set of ASN + courseId combinations that exist in PASI records
+    const pasiKeys = new Set();
+    allPasiRecords.forEach(record => {
+      if (record.asn && record.courseId) {
+        pasiKeys.add(`${record.asn}_${record.courseId}`);
+      }
+    });
+    
+    // Filter student summaries that don't have matching PASI records
+    return allStudentSummaries.filter(summary => {
+      if (!summary.ASN || !summary.CourseID) return true; // Include if missing ASN or courseId
+      const key = `${summary.ASN}_${summary.CourseID}`;
+      return !pasiKeys.has(key);
+    });
   }, [studentSummaries, pasiRecords, nextYearStudentSummaries, nextYearPasiRecords, previousYearStudentSummaries, previousYearPasiRecords, includeNextYear, includePreviousYear, isStaffUser]);
 
   const duplicateAsnStudents = useMemo(() => {

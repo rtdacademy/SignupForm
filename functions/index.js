@@ -43,6 +43,7 @@ const studentPropertiesFunctions = require('./studentProperties');
 
 // PASI data management
 const pasiDataFunctions = require('./uploadPasiData');
+const pasiCsvFunctions = require('./uploadPasiCsv');
 
 // Edge functions
 const edgeFunctions = require('./edge');
@@ -167,6 +168,9 @@ exports.sendParentInvitationOnCreate = parentPortalFunctions.sendParentInvitatio
 exports.uploadPasiData = pasiDataFunctions.uploadPasiData;
 exports.retrievePasiData = pasiDataFunctions.retrievePasiData;
 exports.retrieveStudentPasiData = pasiDataFunctions.retrieveStudentPasiData;
+
+// PASI CSV Upload V2
+exports.uploadPasiCsvV2 = pasiCsvFunctions.uploadPasiCsvV2;
 exports.validateParentInvitation = parentPortalFunctions.validateParentInvitation;
 exports.verifyStudentASN = parentPortalFunctions.verifyStudentASN;
 exports.processParentInvitationRequest = parentPortalFunctions.processParentInvitationRequest;
@@ -187,9 +191,6 @@ exports.updateStudentDocuments = studentPropertiesFunctions.updateStudentDocumen
 const studentRegistrationFunctions = require('./submitStudentRegistration');
 exports.submitStudentRegistration = studentRegistrationFunctions.submitStudentRegistration;
 
-// User management functions
-const ensureUserNodeFunctions = require('./ensureUserNode');
-exports.ensureUserNode = ensureUserNodeFunctions.ensureUserNode;
 
 // Student Profile functions
 const studentProfileFunctions = require('./updateStudentProfile');

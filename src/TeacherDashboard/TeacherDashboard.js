@@ -45,6 +45,7 @@ import LTIManagement from '../LTI/LTIManagement';
 import EnrollmentStatistics from '../Statistics/EnrollmentStatistics'; 
 import PASIDataUpload from '../PASI/PASIDataUpload';
 import DataRectification from './DataRectification';
+import PASIDataUploadV2 from '../PASI/PASIDataUploadV2';
 
 
 function TeacherDashboard() {
@@ -266,7 +267,7 @@ function TeacherDashboard() {
       case 'pasi-records':
         return <PASIDataUpload />;
       case 'data-rectification':
-        return <DataRectification />;
+        return <PASIDataUploadV2 />;
       default:
         return null;
     }

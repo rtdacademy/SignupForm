@@ -33,6 +33,7 @@ import EmployeePortal from './TeacherDashboard/EmployeePortal';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import ParentLogin from './ParentPortal/ParentLogin';
 import ParentDashboard from './ParentPortal/ParentDashboard';
+import FlowChartPrerequisites from './components/PrerequisiteFlowChart/FlowChartPrerequisites';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -145,6 +146,7 @@ function MainApp() {
 <Route path="/policies-reports" element={<PoliciesAndReports />} />
 <Route path="/aerr/2023-24" element={<AERR2324 />} />
 <Route path="/education-plan/2025-26" element={<EducationPlan />} />
+<Route path="/prerequisite-flowchart" element={<FlowChartPrerequisites />} />
 <Route path="/parent-login" element={<ParentLogin />} />
 <Route path="/parent-dashboard" element={<ParentDashboard />} />
         
