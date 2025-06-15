@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
+import { Checkbox } from "../components/ui/checkbox";
 import { useMode, MODES } from '../context/ModeContext';
 import { useUserPreferences } from '../context/UserPreferencesContext';
 //import { getSchoolYearOptions, TERM_OPTIONS, getTermInfo } from '../config/DropdownOptions';
@@ -158,7 +159,9 @@ const FilterPanel = memo(function FilterPanel({
   teacherCategories,
   teacherNames,
   user_email_key,
-  categoryTypes, 
+  categoryTypes,
+  recordTypeFilter,
+  onRecordTypeFilterChange,
 }) {
   const [activeFilterCount, setActiveFilterCount] = useState(0);
   const [localFilters, setLocalFilters] = useState({});
@@ -259,10 +262,12 @@ const FilterPanel = memo(function FilterPanel({
         return sum;
       }, 0) +
       // Count hasSchedule filter
-      (localFilters.hasSchedule?.length ? 1 : 0)
+      (localFilters.hasSchedule?.length ? 1 : 0) +
+      // Count record type filter (only count when it's not 'yourway' which is default)
+      (recordTypeFilter !== 'yourway' ? 1 : 0)
     );
     setActiveFilterCount(count);
-  }, [localFilters, searchTerm, availableFilters]);
+  }, [localFilters, searchTerm, availableFilters, recordTypeFilter]);
 
   // Memoized handlers
   const handleSearchChange = useCallback((term) => {
@@ -630,6 +635,8 @@ const FilterPanel = memo(function FilterPanel({
                 availableFilters={availableFilters}
                 filterOptions={filterOptions}
                 studentSummaries={studentSummaries}
+                recordTypeFilter={recordTypeFilter}
+                onRecordTypeFilterChange={onRecordTypeFilterChange}
               >
                 <Button
                   variant="outline"

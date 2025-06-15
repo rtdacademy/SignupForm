@@ -72,6 +72,7 @@ function StudentManagement({
   const [selectedStudents, setSelectedStudents] = useState(new Set());
   const [studentAsns, setStudentAsns] = useState({});
   const [showMultipleAsnsOnly, setShowMultipleAsnsOnly] = useState(false);
+  const [recordTypeFilter, setRecordTypeFilter] = useState('yourway'); // Default to 'yourway' (hide PASI-only records)
 
   const { user_email_key } = useAuth();
 
@@ -85,6 +86,11 @@ function StudentManagement({
   // Handle toggle for filtering by multiple ASNs
   const handleToggleMultipleAsnsOnly = useCallback(() => {
     setShowMultipleAsnsOnly(prev => !prev);
+  }, []);
+
+  // Handle record type filter change
+  const handleRecordTypeFilterChange = useCallback((filterType) => {
+    setRecordTypeFilter(filterType);
   }, []);
 
   // Use props if provided, otherwise use local state
@@ -346,6 +352,7 @@ function StudentManagement({
             studentAsns={studentAsns}
             showMultipleAsnsOnly={showMultipleAsnsOnly}
             onToggleMultipleAsnsOnly={handleToggleMultipleAsnsOnly}
+            recordTypeFilter={recordTypeFilter}
           />
         </CardContent>
       </Card>
@@ -366,7 +373,8 @@ function StudentManagement({
     studentAsns,
     isLoadingStudents,
     showMultipleAsnsOnly,
-    handleToggleMultipleAsnsOnly
+    handleToggleMultipleAsnsOnly,
+    recordTypeFilter
   ]);
 
   // Render student detail
@@ -408,7 +416,9 @@ function StudentManagement({
                 teacherCategories={teacherCategories}
                 teacherNames={teacherNames}
                 user_email_key={user_email_key}
-                categoryTypes={categoryTypes} 
+                categoryTypes={categoryTypes}
+                recordTypeFilter={recordTypeFilter}
+                onRecordTypeFilterChange={handleRecordTypeFilterChange}
               />
             </div>
           </div>

@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Badge } from '../components/ui/badge';
 import { Label } from '../components/ui/label';
-import { CalendarIcon, FilterIcon, XCircleIcon, BookOpen } from 'lucide-react';
+import { CalendarIcon, FilterIcon, XCircleIcon, BookOpen, Database, Circle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useUserPreferences } from '../context/UserPreferencesContext';
 import { getDatabase, ref, get } from 'firebase/database';
@@ -201,9 +201,34 @@ const MigrationStatusOption = ({ data, children, ...props }) => {
   );
 };
 
+const RecordTypeOption = ({ data, children, ...props }) => {
+  const option = RECORD_TYPE_OPTIONS.find((opt) => opt.value === data.value) || data;
+  const Icon = option?.icon || Circle;
+  const color = option?.color || '#6B7280';
+  return (
+    <components.Option {...props}>
+      <div className="flex items-center w-full">
+        <Icon className="h-4 w-4 mr-2" style={{ color }} />
+        <span>{children}</span>
+        {option?.description && (
+          <span className="ml-auto text-xs text-gray-500">{option.description}</span>
+        )}
+      </div>
+    </components.Option>
+  );
+};
+
 const MIGRATION_STATUS_OPTIONS = [
   { value: 'migrated', label: 'Migrated', color: '#10B981' },
   { value: 'not-migrated', label: 'Not Migrated', color: '#EF4444' },
+];
+
+const RECORD_TYPE_OPTIONS = [
+  { value: 'yourway', label: 'YourWay Records', color: '#3B82F6', description: '(Default)', icon: Circle },
+  { value: 'all', label: 'All Records', color: '#6B7280', description: '', icon: Circle },
+  { value: 'linked', label: 'Linked Only', color: '#10B981', description: '(PASI + YourWay)', icon: Circle },
+  { value: 'pasiOnly', label: 'PASI Only', color: '#F59E0B', description: '(No YourWay)', icon: Circle },
+  { value: 'summaryOnly', label: 'YourWay Only', color: '#3B82F6', description: '(No PASI)', icon: Circle },
 ];
 
 const AdvancedFilters = ({
@@ -213,6 +238,8 @@ const AdvancedFilters = ({
   availableFilters,
   filterOptions,
   studentSummaries,
+  recordTypeFilter,
+  onRecordTypeFilterChange,
 }) => {
   const { updateFilterPreferences } = useUserPreferences();
   const [courseTitles, setCourseTitles] = useState({});
@@ -342,6 +369,8 @@ const AdvancedFilters = ({
     if (dateFilters.scheduleStart && Object.keys(dateFilters.scheduleStart).length) count++;
     if (dateFilters.scheduleEnd && Object.keys(dateFilters.scheduleEnd).length) count++;
     if (currentFilters.hasSchedule?.length > 0) count++;
+    // Count record type filter (only count when it's not 'yourway' which is the default)
+    if (recordTypeFilter && recordTypeFilter !== 'yourway') count++;
     Object.keys(currentFilters).forEach((key) => {
       if (key !== 'dateFilters' && key !== 'hasSchedule') {
         if (Array.isArray(currentFilters[key]) && currentFilters[key].length > 0) {
@@ -375,6 +404,8 @@ const AdvancedFilters = ({
       }, {}),
     };
     handleFiltersUpdate(clearedFilters);
+    // Reset record type filter to default
+    onRecordTypeFilterChange('yourway');
   };
 
   const getCurrentMigrationStatus = () => {
@@ -399,6 +430,16 @@ const AdvancedFilters = ({
       hasSchedule,
     };
     handleFiltersUpdate(newFilters);
+  };
+
+  const getCurrentRecordType = () => {
+    if (!recordTypeFilter) return [];
+    return RECORD_TYPE_OPTIONS.filter(option => option.value === recordTypeFilter);
+  };
+
+  const handleRecordTypeChange = (selectedOption) => {
+    const newValue = selectedOption ? selectedOption.value : 'yourway';
+    onRecordTypeFilterChange(newValue);
   };
 
   const renderFilterOptions = ({ key, label }) => {
@@ -588,6 +629,35 @@ const AdvancedFilters = ({
           <ScrollArea className="h-[70vh] mt-4 pr-4">
             <TabsContent value="status" className="mt-0">
               <div className="space-y-6">
+                <div className="flex items-center space-x-4">
+                  <Label className="font-medium text-gray-700 min-w-[120px]">
+                    Record Type
+                  </Label>
+                  <Select
+                    options={RECORD_TYPE_OPTIONS}
+                    components={{ Option: RecordTypeOption }}
+                    value={getCurrentRecordType()[0] || null}
+                    onChange={handleRecordTypeChange}
+                    className="flex-1"
+                    classNamePrefix="select"
+                    placeholder="Select record type"
+                    styles={{
+                      option: (provided, state) => ({
+                        ...provided,
+                        backgroundColor: state.isSelected
+                          ? `${state.data?.color || '#6B7280'}15`
+                          : state.isFocused
+                          ? `${state.data?.color || '#6B7280'}10`
+                          : provided.backgroundColor,
+                      }),
+                      singleValue: (provided, state) => ({
+                        ...provided,
+                        color: '#374151', // Use a dark gray color for better visibility
+                      }),
+                    }}
+                  />
+                </div>
+
                 <div className="flex items-center space-x-4">
                   <Label className="font-medium text-gray-700 min-w-[120px]">
                     Migration Status

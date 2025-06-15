@@ -18,7 +18,8 @@ const REQUIRED_FIELDS = [
   'ASN', 'Work Items', ' Code', 'Student Name', ' Description', 
   'Status', 'School Enrolment', 'Value', 'Approved?', 'Assignment Date', 
   'Credits Attempted', 'Deleted?', 'Dual Enrolment?', 'Exit Date', 
-  'Funding Requested?', 'Term', 'Reference #'
+  'Funding Requested?', 'Term', 'Reference #', 'Description', 'School',
+  'Entry Date', 'Instructional Minutes Received', 'Partner PSI', 'Last Updated'
 ];
 
 // Helper function to parse CSV using Papa Parse
@@ -159,6 +160,7 @@ const uploadPasiCsvV2 = onCall({
         const asn = row['ASN']?.trim();
         const courseCode = row[' Code']?.trim();
         const period = row['Value']?.trim() || 'Unknown';
+        const grade = row['Value']?.trim() || '';
         const term = row['Term']?.trim() || 'Unknown';
         
         if (!asn) {
@@ -173,19 +175,38 @@ const uploadPasiCsvV2 = onCall({
         const referenceNumber = row['Reference #']?.trim() || 'NoRef';
         const recordKey = `${asn}_${courseCode}_${referenceNumber}_${term}`;
         
-        // Get email from ASN mapping
-        const email = asnEmailMap[asn] || asnEmailMap[`${asn.substring(0, 4)}-${asn.substring(4)}`] || '-';
+        // Get student key from ASN mapping
+        const studentKeyMapping = asnEmailMap[asn] || asnEmailMap[`${asn.substring(0, 4)}-${asn.substring(4)}`] || null;
+        
+        // Extract first student key if provided as object (for backwards compatibility)
+        let studentKey = null;
+        let availableStudentKeys = [];
+        
+        if (studentKeyMapping) {
+          if (typeof studentKeyMapping === 'string') {
+            // Simple string format
+            studentKey = studentKeyMapping;
+            availableStudentKeys = [studentKeyMapping];
+          } else if (typeof studentKeyMapping === 'object' && studentKeyMapping.emailKeys) {
+            // Object with emailKeys format
+            availableStudentKeys = Object.keys(studentKeyMapping.emailKeys);
+            studentKey = availableStudentKeys.length > 0 ? availableStudentKeys[0] : null;
+          }
+        }
         
         // Create record object
         const record = {
           // Core fields
           asn,
-          email,
+          studentKey: studentKey || '', // Primary student key (empty string if none)
+          studentKeys: availableStudentKeys, // Array of all available student keys
+          hasStudentKey: !!studentKey, // Boolean flag for easy filtering
           courseCode,
           courseDescription: row[' Description']?.trim() || '',
           studentName: row['Student Name']?.trim() || '',
           status: row['Status']?.trim() || '',
           period,
+          grade,
           term,
           schoolYear: formattedSchoolYear,
           
@@ -200,6 +221,14 @@ const uploadPasiCsvV2 = onCall({
           fundingRequested: row['Funding Requested?']?.trim() || '',
           referenceNumber,
           workItems: row['Work Items']?.trim() || '',
+          
+          // New fields
+          description: row['Description']?.trim() || '', // Without leading space
+          school: row['School']?.trim() || '',
+          entryDate: row['Entry Date']?.trim() || '',
+          instructionalMinutesReceived: row['Instructional Minutes Received']?.trim() || '',
+          partnerPSI: row['Partner PSI']?.trim() || '',
+          lastUpdated: row['Last Updated']?.trim() || '',
           
           // Metadata
           uploadId,

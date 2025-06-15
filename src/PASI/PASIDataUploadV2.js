@@ -13,12 +13,16 @@ import {
   Info,
   Calendar,
   Database,
-  RefreshCw
+  RefreshCw,
+  FileSpreadsheet,
+  CloudUpload
 } from 'lucide-react';
 import { functions, auth } from '../firebase';
 import { httpsCallable } from 'firebase/functions';
 import { getDatabase, ref, onValue, off } from 'firebase/database';
 import { useUserPreferences } from '../context/UserPreferencesContext';
+import { useSchoolYear } from '../context/SchoolYearContext';
+import PasiRecordsSimplified from './PasiRecordsSimplified';
 
 const PASIDataUploadV2 = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -29,6 +33,7 @@ const PASIDataUploadV2 = () => {
   const [uploadHistory, setUploadHistory] = useState([]);
   const [selectedYear, setSelectedYear] = useState('');
   const { preferences } = useUserPreferences();
+  const { refreshStudentSummaries } = useSchoolYear();
 
   // School years from preferences
   const schoolYears = preferences?.schoolYears || ['2024-2025', '2023-2024'];
@@ -129,6 +134,9 @@ const PASIDataUploadV2 = () => {
                 uploadId: result.data.uploadId
               }
             });
+            
+            // Refresh the data in context
+            refreshStudentSummaries();
           } else {
             throw new Error(result.data.message || 'Upload failed');
           }
@@ -176,65 +184,69 @@ const PASIDataUploadV2 = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            PASI Data Upload V2
+      {/* Upload Section */}
+      <Card className="border-2 border-dashed hover:border-solid transition-all duration-200">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-blue-600" />
+              <span>PASI Data Upload</span>
+            </div>
+            {uploadHistory.length > 0 && (
+              <Badge variant="outline" className="text-xs">
+                Last upload: {formatDate(uploadHistory[0]?.startTime)}
+              </Badge>
+            )}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Upload PASI CSV files to update student course records. This new version stores each course attempt separately
-            for better data management and querying.
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Upload Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload New PASI Data</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-4">
-          {/* School Year Selection */}
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              School Year
-            </label>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="w-full p-2 border rounded-md"
-              disabled={uploading}
-            >
-              <option value="">Select school year</option>
-              {schoolYears.map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* File Selection */}
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              CSV File
-            </label>
-            <div className="flex items-center gap-4">
-              <input
-                type="file"
-                accept=".csv"
-                onChange={handleFileSelect}
-                className="flex-1"
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* School Year Selection */}
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                School Year
+              </label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="w-full p-2.5 border rounded-md bg-white hover:border-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                 disabled={uploading}
-              />
-              {selectedFile && (
-                <Badge variant="secondary" className="flex items-center gap-1">
-                  <FileText className="h-3 w-3" />
-                  {selectedFile.name}
-                </Badge>
-              )}
+              >
+                <option value="">Select school year</option>
+                {schoolYears.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* File Selection */}
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                CSV File
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileSelect}
+                  className="sr-only"
+                  id="file-upload"
+                  disabled={uploading}
+                />
+                <label
+                  htmlFor="file-upload"
+                  className={`
+                    w-full p-2.5 border rounded-md flex items-center justify-center gap-2 cursor-pointer
+                    ${uploading ? 'bg-gray-100 cursor-not-allowed' : 'bg-white hover:bg-gray-50 hover:border-gray-400'}
+                    transition-all duration-200
+                  `}
+                >
+                  <FileSpreadsheet className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm">
+                    {selectedFile ? selectedFile.name : 'Choose CSV file...'}
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -242,17 +254,24 @@ const PASIDataUploadV2 = () => {
           <Button
             onClick={handleUpload}
             disabled={!selectedFile || !selectedYear || uploading}
-            className="w-full"
+            className={`
+              w-full h-12 text-base font-medium transition-all duration-200
+              ${!selectedFile || !selectedYear || uploading 
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'
+              }
+            `}
+            variant={uploading ? "secondary" : "default"}
           >
             {uploading ? (
               <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Uploading...
+                <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+                Processing Upload...
               </>
             ) : (
               <>
-                <Upload className="mr-2 h-4 w-4" />
-                Upload CSV
+                <CloudUpload className="mr-2 h-5 w-5" />
+                Upload PASI Data
               </>
             )}
           </Button>
@@ -260,16 +279,16 @@ const PASIDataUploadV2 = () => {
           {/* Progress Bar */}
           {uploading && (
             <div className="space-y-2">
-              <Progress value={uploadProgress} className="w-full" />
-              <p className="text-sm text-center text-muted-foreground">
-                Processing... {uploadProgress}%
+              <Progress value={uploadProgress} className="w-full h-2" />
+              <p className="text-sm text-center text-muted-foreground font-medium">
+                Processing records... {uploadProgress}%
               </p>
             </div>
           )}
 
           {/* Error Display */}
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="animate-in slide-in-from-top-2">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
@@ -277,16 +296,15 @@ const PASIDataUploadV2 = () => {
 
           {/* Success Display */}
           {uploadStatus?.type === 'success' && (
-            <Alert className="border-green-200 bg-green-50">
+            <Alert className="border-green-200 bg-green-50 animate-in slide-in-from-top-2">
               <CheckCircle className="h-4 w-4 text-green-600" />
               <AlertDescription className="text-green-800">
                 <div className="space-y-2">
                   <p className="font-medium">{uploadStatus.message}</p>
-                  <div className="text-sm space-y-1">
-                    <p>Total Records: {uploadStatus.details.totalRecords}</p>
-                    <p>Processed: {uploadStatus.details.processedRecords}</p>
+                  <div className="flex gap-4 text-sm">
+                    <span>Records: {uploadStatus.details.processedRecords}/{uploadStatus.details.totalRecords}</span>
                     {uploadStatus.details.errors > 0 && (
-                      <p>Errors: {uploadStatus.details.errors}</p>
+                      <span className="text-orange-600">Errors: {uploadStatus.details.errors}</span>
                     )}
                   </div>
                 </div>
@@ -296,77 +314,8 @@ const PASIDataUploadV2 = () => {
         </CardContent>
       </Card>
 
-      {/* Upload History */}
-      {uploadHistory.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Uploads</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {uploadHistory.map((upload) => (
-                <div key={upload.id} className="border rounded-lg p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{upload.schoolYear}</span>
-                    </div>
-                    <Badge variant={upload.status === 'completed' ? 'success' : upload.status === 'failed' ? 'destructive' : 'secondary'}>
-                      {upload.status}
-                    </Badge>
-                  </div>
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p>Uploaded: {formatDate(upload.startTime)}</p>
-                    {upload.status === 'completed' && (
-                      <>
-                        <p>Records: {upload.processedCount || 0} / {upload.recordCount || 0}</p>
-                        <p>Duration: {formatDuration(upload.startTime, upload.endTime)}</p>
-                        {upload.errorCount > 0 && (
-                          <p className="text-orange-600">Errors: {upload.errorCount}</p>
-                        )}
-                      </>
-                    )}
-                    {upload.status === 'failed' && upload.error && (
-                      <p className="text-red-600">Error: {upload.error}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Info Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Info className="h-5 w-5" />
-            About This Version
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2 text-sm">
-            <p className="font-medium">Key Improvements:</p>
-            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-              <li>Each course attempt (Term 1, Term 2, Summer) stored separately</li>
-              <li>Cloud-based processing for large files</li>
-              <li>Atomic operations - all records updated or none</li>
-              <li>Better performance and simpler queries</li>
-              <li>No complex duplicate handling needed</li>
-            </ul>
-          </div>
-          <div className="space-y-2 text-sm">
-            <p className="font-medium">Data Structure:</p>
-            <code className="block bg-muted p-2 rounded text-xs">
-              /pasiRecordsNew/{'{24_25}'}/{'{asn}_{courseCode}_{referenceNumber}_{term}'}
-            </code>
-            <p className="text-xs text-muted-foreground">
-              Uses Reference # for unique identification and 24_25 format for school years
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* PASI Records Table */}
+      <PasiRecordsSimplified />
     </div>
   );
 };

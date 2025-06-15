@@ -1032,9 +1032,49 @@ export const courseData = {
         description: 'Academic English for university-bound students',
         prerequisites: [],
         leadsTo: ['ela20-1'],
+        nonStandardLeadsTo: ['ela20-2'], // Can move down to -2 stream
         grade: 10,
         stream: 'academic',
-        diplomaExam: false
+        diplomaExam: false,
+        gridPosition: { row: 0, col: 0 }, // Top row (academic path), Grade 10
+        careerPathways: [
+          'University academic programs',
+          'Law and Legal Studies',
+          'Journalism and Communications',
+          'Education and Teaching',
+          'Publishing and Editorial',
+          'Public Relations and Marketing',
+          'Research and Academia',
+          'Government and Public Administration',
+          'Creative Writing and Literature',
+          'Literary Criticism and Analysis'
+        ],
+        universityPrograms: [
+          'Arts and Humanities degrees',
+          'Law programs (required)',
+          'Education degrees (required)',
+          'Journalism and Communications',
+          'English Literature and Linguistics',
+          'Philosophy and Religious Studies',
+          'History and Political Science',
+          'Psychology and Social Work',
+          'Pre-professional programs (medicine, dentistry)',
+          'All university programs requiring ELA 30-1'
+        ],
+        detailedInfo: {
+          skills: [
+            'Advanced literary analysis and interpretation',
+            'Critical thinking and analytical reasoning',
+            'Academic essay writing and composition',
+            'Research and citation skills',
+            'Close reading and textual analysis',
+            'Creative and expository writing',
+            'Oral presentation and discussion skills',
+            'Media literacy and critical evaluation'
+          ],
+          importance: 'Rigorous academic course preparing students for university-level English studies. Students entering with below 65% historically struggle with intense expectations. Builds critical reading and writing skills essential for academic success.',
+          recommendedFor: 'Students planning university degrees requiring strong literary analysis and critical writing skills. Essential for those pursuing humanities, law, education, or other academic programs.'
+        }
       },
       {
         id: 'ela10-2',
@@ -1046,7 +1086,46 @@ export const courseData = {
         leadsTo: ['ela20-2'],
         grade: 10,
         stream: 'general',
-        diplomaExam: false
+        diplomaExam: false,
+        gridPosition: { row: 1, col: 0 }, // Second row (general path), Grade 10
+        careerPathways: [
+          'Business and Administration',
+          'Technical and Skilled Trades',
+          'Customer Service and Sales',
+          'Healthcare Support Services',
+          'Community and Social Services',
+          'Media and Creative Arts',
+          'Tourism and Hospitality',
+          'Emergency Services and Public Safety',
+          'Manufacturing and Production',
+          'Direct workforce entry positions'
+        ],
+        universityPrograms: [
+          'College diploma programs',
+          'Technical and vocational training',
+          'Applied degree programs',
+          'Business certificates and diplomas',
+          'Health technology programs',
+          'Creative arts and media programs',
+          'Apprenticeship programs',
+          'Community college programs',
+          'Some university programs (with ELA 30-2)',
+          'Adult education and upgrading programs'
+        ],
+        detailedInfo: {
+          skills: [
+            'Practical communication for daily living and careers',
+            'Workplace writing and documentation',
+            'Effective spoken communication',
+            'Basic literary analysis and interpretation',
+            'Media literacy and critical thinking',
+            'Collaborative and teamwork skills',
+            'Problem-solving through language arts',
+            'Personal and professional writing formats'
+          ],
+          importance: 'Focuses on basic communication skills and practical application of English language arts for personal and working life. Designed for students pursuing college diploma programs or technical trades.',
+          recommendedFor: 'Students planning college diploma programs, technical trades, or direct workforce entry. Good foundation for those not requiring intensive literary analysis.'
+        }
       }
     ],
     grade11: [
@@ -1058,9 +1137,49 @@ export const courseData = {
         description: 'Continued academic English studies',
         prerequisites: ['ela10-1'],
         leadsTo: ['ela30-1'],
+        nonStandardLeadsTo: ['ela30-2'], // Can move down to -2 stream
         grade: 11,
         stream: 'academic',
-        diplomaExam: false
+        diplomaExam: false,
+        gridPosition: { row: 0, col: 1 }, // Top row, Grade 11
+        careerPathways: [
+          'Advanced academic and research careers',
+          'Law and Legal Professions',
+          'Journalism and Media Communications',
+          'Publishing and Editorial Services',
+          'Education and Academic Teaching',
+          'Government Policy and Administration',
+          'Corporate Communications and PR',
+          'Literary and Cultural Analysis',
+          'Professional Writing and Editing',
+          'Research and Think Tank Work'
+        ],
+        universityPrograms: [
+          'Competitive university programs',
+          'Pre-law and Legal Studies',
+          'Advanced English and Literature',
+          'Communications and Journalism',
+          'Education and Teacher Training',
+          'Philosophy and Critical Studies',
+          'International Relations and Politics',
+          'Graduate school preparation',
+          'Honours and research programs',
+          'Professional degree prerequisites'
+        ],
+        detailedInfo: {
+          skills: [
+            'Advanced literary and textual analysis',
+            'Sophisticated academic writing and argumentation',
+            'Critical evaluation of complex texts',
+            'Research methodology and source analysis',
+            'Advanced composition and rhetoric',
+            'Comparative literature and cultural studies',
+            'Independent critical thinking and inquiry',
+            'Advanced presentation and seminar skills'
+          ],
+          importance: 'Continuation of rigorous academic English stream. Develops sophisticated analytical and writing skills required for ELA 30-1 and university success in humanities and professional programs.',
+          recommendedFor: 'Students committed to university-bound academic pathway requiring advanced literary analysis and critical writing. Prepares for ELA 30-1 diploma exam and competitive post-secondary programs.'
+        }
       },
       {
         id: 'ela20-2',
@@ -1068,11 +1187,51 @@ export const courseData = {
         name: 'ELA 20-2',
         credits: 5,
         description: 'Practical English skills development',
-        prerequisites: ['ela10-2'],
+        prerequisites: ['ela10-2'], // Primary pathway from ELA 10-2
+        // Note: Also accepts ELA 10-1 (students moving down from -1 stream)
         leadsTo: ['ela30-2'],
         grade: 11,
         stream: 'general',
-        diplomaExam: false
+        diplomaExam: false,
+        gridPosition: { row: 1, col: 1 }, // Second row, Grade 11
+        careerPathways: [
+          'Applied business and administration',
+          'Technical and skilled trade careers',
+          'Healthcare and support services',
+          'Education and training support',
+          'Community and social services',
+          'Media production and technical arts',
+          'Customer service and retail management',
+          'Public safety and emergency services',
+          'Tourism and hospitality management',
+          'Entrepreneurship and small business'
+        ],
+        universityPrograms: [
+          'Applied degree programs',
+          'College diploma and certificate programs',
+          'Business and management programs',
+          'Technical and vocational training',
+          'Health sciences technology programs',
+          'Creative arts and media production',
+          'Adult education and continuing studies',
+          'Apprenticeship preparation programs',
+          'Community college transfer programs',
+          'Professional development certificates'
+        ],
+        detailedInfo: {
+          skills: [
+            'Advanced practical communication skills',
+            'Workplace writing and professional documentation',
+            'Critical analysis applied to real-world contexts',
+            'Collaborative problem-solving and teamwork',
+            'Media production and presentation skills',
+            'Business and professional communication',
+            'Community engagement and civic participation',
+            'Applied research and information literacy'
+          ],
+          importance: 'Develops advanced practical English skills for career and post-secondary success. Offers pathway to ELA 30-2 while building confidence in communication and critical thinking.',
+          recommendedFor: 'Students planning college programs, technical careers, or applied post-secondary education. Provides strong foundation for ELA 30-2 and practical communication needs.'
+        }
       }
     ],
     grade12: [
@@ -1086,7 +1245,46 @@ export const courseData = {
         leadsTo: [],
         grade: 12,
         stream: 'academic',
-        diplomaExam: true
+        diplomaExam: true,
+        gridPosition: { row: 0, col: 2 }, // Top row, Grade 12
+        careerPathways: [
+          'Law and Legal Professions',
+          'Academia and Research',
+          'Journalism and Professional Writing',
+          'Government and Public Policy',
+          'Corporate Communications and PR',
+          'Publishing and Editorial Services',
+          'Education and Teaching',
+          'Cultural and Literary Criticism',
+          'International Relations and Diplomacy',
+          'Professional Consulting and Analysis'
+        ],
+        universityPrograms: [
+          'All university degree programs (required)',
+          'Law school admission (required)',
+          'Graduate school programs',
+          'English Literature and Linguistics',
+          'Philosophy and Critical Studies',
+          'Political Science and International Relations',
+          'Education and Teacher Training',
+          'Communications and Journalism',
+          'Pre-professional programs (medicine, dentistry)',
+          'Honours and research-intensive programs'
+        ],
+        detailedInfo: {
+          skills: [
+            'University-level critical analysis and literary interpretation',
+            'Advanced academic essay writing and research',
+            'Complex textual analysis and argumentation',
+            'Independent critical thinking and inquiry',
+            'Sophisticated rhetorical and composition skills',
+            'Advanced research methodology and citation',
+            'Seminar discussion and presentation skills',
+            'Cultural and historical literary analysis'
+          ],
+          importance: 'Provincial diploma exam course (30% of final grade) required for university admission. Develops sophisticated analytical and writing skills essential for academic success. Cannot be substituted with ELA 30-2 for university programs.',
+          recommendedFor: 'Students planning university studies requiring advanced literary analysis and critical writing. Essential for competitive academic programs, law, education, and graduate school preparation.'
+        }
       },
       {
         id: 'ela30-2',
@@ -1094,11 +1292,51 @@ export const courseData = {
         name: 'ELA 30-2',
         credits: 5,
         description: 'English for college and career',
-        prerequisites: ['ela20-2'],
+        prerequisites: ['ela20-2'], // Primary pathway from ELA 20-2
+        // Note: Also accepts ELA 20-1 (students moving down from -1 stream)
         leadsTo: [],
         grade: 12,
         stream: 'general',
-        diplomaExam: true
+        diplomaExam: true,
+        gridPosition: { row: 1, col: 2 }, // Second row, Grade 12
+        careerPathways: [
+          'Business and Administration Management',
+          'Technical and Trade Supervision',
+          'Healthcare and Human Services',
+          'Education and Training Coordination',
+          'Media Production and Communications',
+          'Community Leadership and Development',
+          'Emergency Services and Public Safety',
+          'Tourism and Hospitality Management',
+          'Entrepreneurship and Small Business Ownership',
+          'Applied Technology and Innovation'
+        ],
+        universityPrograms: [
+          'College diploma and degree programs',
+          'Applied university degree programs',
+          'Business and management programs',
+          'Education and teacher assistant programs',
+          'Health sciences and technology programs',
+          'Creative arts and media production',
+          'Adult education and continuing studies',
+          'Professional development and certificates',
+          'Some university programs (varies by institution)',
+          'Community college transfer programs'
+        ],
+        detailedInfo: {
+          skills: [
+            'Advanced workplace communication and writing',
+            'Critical thinking applied to practical contexts',
+            'Professional presentation and public speaking',
+            'Collaborative leadership and teamwork',
+            'Applied research and information analysis',
+            'Business and technical writing skills',
+            'Community engagement and civic responsibility',
+            'Media literacy and digital communication'
+          ],
+          importance: 'Provincial diploma exam course (30% of final grade) emphasizing practical communication skills. Accepted by college programs and some universities. Focuses on building confidence in verbal and written communication for career success.',
+          recommendedFor: 'Students planning college programs, technical careers, or direct workforce entry. Good preparation for applied post-secondary education and careers requiring strong practical communication skills.'
+        }
       }
     ]
   },
@@ -1114,9 +1352,49 @@ export const courseData = {
         description: 'Globalization and nationalism',
         prerequisites: [],
         leadsTo: ['social20-1'],
+        nonStandardLeadsTo: ['social20-2'], // Can move down to -2 stream
         grade: 10,
         stream: 'academic',
-        diplomaExam: false
+        diplomaExam: false,
+        gridPosition: { row: 0, col: 0 }, // Top row (academic path), Grade 10
+        careerPathways: [
+          'Government and Public Administration',
+          'Political Science and Policy Analysis',
+          'International Relations and Diplomacy',
+          'Law and Legal Studies',
+          'Journalism and Political Commentary',
+          'Non-Profit and Advocacy Organizations',
+          'Research and Think Tanks',
+          'Education and Teaching',
+          'Business and Corporate Strategy',
+          'Public Relations and Communications'
+        ],
+        universityPrograms: [
+          'Political Science (recommended)',
+          'International Relations and Global Studies',
+          'Public Administration and Policy',
+          'Law and Legal Studies',
+          'History and Cultural Studies',
+          'Philosophy and Ethics',
+          'Economics and Development Studies',
+          'Journalism and Communications',
+          'Education and Teacher Training',
+          'Business Administration and Management'
+        ],
+        detailedInfo: {
+          skills: [
+            'Critical analysis of globalization perspectives',
+            'Research and inquiry into global issues',
+            'Understanding of economic and cultural impacts',
+            'Multiple perspective analysis and evaluation',
+            'Historical and contemporary context analysis',
+            'Citizenship skills in a globalizing world',
+            'Critical thinking about global relationships',
+            'Communication of complex social issues'
+          ],
+          importance: 'Explores multiple perspectives on globalization origins and impacts on lands, cultures, economies, human rights and quality of life. Develops academic skills for rigorous social studies analysis.',
+          recommendedFor: 'Students planning university social sciences, political science, international relations, or careers requiring critical analysis of global issues and perspectives.'
+        }
       },
       {
         id: 'social10-2',
@@ -1128,7 +1406,46 @@ export const courseData = {
         leadsTo: ['social20-2'],
         grade: 10,
         stream: 'general',
-        diplomaExam: false
+        diplomaExam: false,
+        gridPosition: { row: 1, col: 0 }, // Second row (general path), Grade 10
+        careerPathways: [
+          'Community Development and Social Services',
+          'Local Government and Municipal Services',
+          'Non-Profit Organizations and Charities',
+          'Human Resources and Personnel',
+          'Customer Service and Public Relations',
+          'Tourism and Cultural Services',
+          'Healthcare and Social Support Services',
+          'Education and Training Support',
+          'Small Business and Entrepreneurship',
+          'Media and Communications'
+        ],
+        universityPrograms: [
+          'College diploma programs in Social Sciences',
+          'Applied Social Work and Human Services',
+          'Business and Management programs',
+          'Tourism and Hospitality Management',
+          'Community College Social Studies programs',
+          'Applied Communication programs',
+          'Human Resources and Personnel Management',
+          'Public Administration certificates',
+          'Adult education and continuing studies',
+          'Some university programs (varies by institution)'
+        ],
+        detailedInfo: {
+          skills: [
+            'Understanding globalization impacts on daily life',
+            'Practical analysis of global and local connections',
+            'Community engagement and civic participation',
+            'Problem-solving in local and global contexts',
+            'Cultural awareness and diversity appreciation',
+            'Basic research and information gathering',
+            'Communication about social issues',
+            'Collaborative work and teamwork skills'
+          ],
+          importance: 'Examines challenges presented by globalization to identities and cultures in Canada. Focuses on practical understanding of living in a globalizing world with adapted complexity.',
+          recommendedFor: 'Students planning college programs, community-focused careers, or applied social sciences. Good foundation for understanding global-local connections in practical contexts.'
+        }
       }
     ],
     grade11: [
@@ -1140,9 +1457,49 @@ export const courseData = {
         description: 'Nationalism and internationalism',
         prerequisites: ['social10-1'],
         leadsTo: ['social30-1'],
+        nonStandardLeadsTo: ['social30-2'], // Can move down to -2 stream
         grade: 11,
         stream: 'academic',
-        diplomaExam: false
+        diplomaExam: false,
+        gridPosition: { row: 0, col: 1 }, // Top row, Grade 11
+        careerPathways: [
+          'International Relations and Foreign Service',
+          'Government Policy and Public Administration',
+          'Political Analysis and Research',
+          'Diplomatic Corps and Embassy Work',
+          'Intelligence and Security Services',
+          'Non-Governmental Organizations (NGOs)',
+          'International Business and Trade',
+          'Journalism and Foreign Correspondence',
+          'Academic Research and Teaching',
+          'Legal and Constitutional Analysis'
+        ],
+        universityPrograms: [
+          'Political Science and Government',
+          'International Relations and Global Studies',
+          'Public Policy and Administration',
+          'Law and Constitutional Studies',
+          'History and Area Studies',
+          'Economics and International Development',
+          'Philosophy and Political Theory',
+          'Journalism and International Affairs',
+          'Graduate programs in Political Science',
+          'Diplomatic and Foreign Service training'
+        ],
+        detailedInfo: {
+          skills: [
+            'Advanced analysis of nationalism and internationalism',
+            'Historical and contemporary political understanding',
+            'Complex research and critical evaluation skills',
+            'Multiple perspective analysis of national interests',
+            'Understanding of foreign policy and global affairs',
+            'Critical thinking about regional and international relations',
+            'Advanced communication of political concepts',
+            'Independent inquiry and investigation skills'
+          ],
+          importance: 'Examines historical and contemporary nationalism in Canada and globally. Explores origins of nationalism and influence on regional, international and global relations. Prepares for Social Studies 30-1.',
+          recommendedFor: 'Students planning university political science, international relations, law, or careers requiring sophisticated analysis of nationalism, internationalism and global affairs.'
+        }
       },
       {
         id: 'social20-2',
@@ -1150,11 +1507,51 @@ export const courseData = {
         name: 'Social Studies 20-2',
         credits: 5,
         description: 'Understandings of nationalism',
-        prerequisites: ['social10-2'],
+        prerequisites: ['social10-2'], // Primary pathway from Social Studies 10-2
+        // Note: Also accepts Social Studies 10-1 (students moving down from -1 stream)
         leadsTo: ['social30-2'],
         grade: 11,
         stream: 'general',
-        diplomaExam: false
+        diplomaExam: false,
+        gridPosition: { row: 1, col: 1 }, // Second row, Grade 11
+        careerPathways: [
+          'Public Administration and Civil Service',
+          'Community Development and Social Planning',
+          'Municipal Government and Local Politics',
+          'Social Services and Human Resources',
+          'Cultural and Heritage Organizations',
+          'Immigration and Settlement Services',
+          'Education and Training Coordination',
+          'Non-Profit Management and Operations',
+          'Tourism and Cultural Tourism',
+          'Media and Community Communications'
+        ],
+        universityPrograms: [
+          'Applied Social Sciences and Human Services',
+          'Public Administration and Management',
+          'Community Development programs',
+          'Social Work and Human Services',
+          'Business and Organizational Management',
+          'Cultural Studies and Heritage programs',
+          'Education and Adult Learning programs',
+          'Applied Communication and Media',
+          'College transfer programs to university',
+          'Professional development certificates'
+        ],
+        detailedInfo: {
+          skills: [
+            'Practical understanding of nationalism concepts',
+            'Applied analysis of national and international issues',
+            'Community engagement and civic participation',
+            'Problem-solving in national and global contexts',
+            'Cultural and identity awareness',
+            'Basic research and information synthesis',
+            'Effective communication about political concepts',
+            'Collaborative analysis and teamwork'
+          ],
+          importance: 'Provides understanding of nationalism concepts with adapted complexity. Builds foundation for Social Studies 30-2 while developing practical civic engagement skills.',
+          recommendedFor: 'Students planning applied social science programs, community-focused careers, or public administration. Good preparation for Social Studies 30-2 and practical civic engagement.'
+        }
       }
     ],
     grade12: [
@@ -1168,7 +1565,46 @@ export const courseData = {
         leadsTo: [],
         grade: 12,
         stream: 'academic',
-        diplomaExam: true
+        diplomaExam: true,
+        gridPosition: { row: 0, col: 2 }, // Top row, Grade 12
+        careerPathways: [
+          'Law and Legal Practice',
+          'Government Policy Development and Analysis',
+          'Political Science Research and Academia',
+          'International Relations and Diplomacy',
+          'Constitutional and Human Rights Law',
+          'Political Campaign Management and Strategy',
+          'Think Tanks and Policy Research Institutes',
+          'Journalism and Political Commentary',
+          'Public Administration and Civil Service Leadership',
+          'Non-Governmental Organizations (NGOs) and Advocacy'
+        ],
+        universityPrograms: [
+          'Political Science (strongly recommended)',
+          'Law and Legal Studies (required)',
+          'International Relations and Global Affairs',
+          'Public Policy and Administration',
+          'Philosophy and Political Theory',
+          'History and Constitutional Studies',
+          'Economics and Political Economy',
+          'Journalism and Political Communication',
+          'Graduate programs in Political Science',
+          'Professional programs requiring political analysis'
+        ],
+        detailedInfo: {
+          skills: [
+            'Advanced analysis of political ideologies and systems',
+            'Critical evaluation of liberalism, socialism, capitalism, fascism',
+            'Complex research and independent inquiry skills',
+            'Understanding of political power and democratic institutions',
+            'Advanced argumentation and debate skills',
+            'Historical analysis of European influence since 1919',
+            'Current affairs research and analysis',
+            'Sophisticated political and economic reasoning'
+          ],
+          importance: 'Provincial diploma exam course (30% of final grade) exploring origins and complexities of ideologies. Analyzes principles of classical and modern liberalism and various political-economic systems. Strongly recommended for Political Science.',
+          recommendedFor: 'Students planning university political science, law, international relations, or careers requiring sophisticated analysis of political ideologies, systems, and democratic institutions.'
+        }
       },
       {
         id: 'social30-2',
@@ -1176,11 +1612,51 @@ export const courseData = {
         name: 'Social Studies 30-2',
         credits: 5,
         description: 'Understandings of ideologies',
-        prerequisites: ['social20-2'],
+        prerequisites: ['social20-2'], // Primary pathway from Social Studies 20-2
+        // Note: Also accepts Social Studies 20-1 (students moving down from -1 stream)
         leadsTo: [],
         grade: 12,
         stream: 'general',
-        diplomaExam: true
+        diplomaExam: true,
+        gridPosition: { row: 1, col: 2 }, // Second row, Grade 12
+        careerPathways: [
+          'Public Service and Government Administration',
+          'Community Leadership and Development',
+          'Social Services and Human Resources',
+          'Local Government and Municipal Services',
+          'Non-Profit Organizations and Charities',
+          'Education and Training Coordination',
+          'Cultural and Heritage Program Management',
+          'Business and Organizational Management',
+          'Media and Community Communications',
+          'Tourism and Community Development'
+        ],
+        universityPrograms: [
+          'Applied Social Sciences and Public Administration',
+          'General Arts and Interdisciplinary Studies',
+          'Business and Management programs',
+          'Social Work and Human Services',
+          'Education and Adult Learning programs',
+          'Community Development and Planning',
+          'Applied Communication and Media programs',
+          'Cultural Studies and Heritage Management',
+          'College transfer programs to university',
+          'Professional development and continuing education'
+        ],
+        detailedInfo: {
+          skills: [
+            'Practical understanding of political ideologies and systems',
+            'Applied analysis of democratic principles and institutions',
+            'Community engagement and civic responsibility',
+            'Problem-solving in political and social contexts',
+            'Understanding of rights and freedoms in democracy',
+            'Effective communication about political concepts',
+            'Collaborative leadership and teamwork',
+            'Applied research and information analysis'
+          ],
+          importance: 'Provincial diploma exam course (30% of final grade) focusing on practical understanding of ideologies and democratic citizenship. Covers similar content to 30-1 with adapted complexity and different teaching approaches.',
+          recommendedFor: 'Students planning applied social science programs, public administration, community leadership roles, or careers requiring practical understanding of democratic systems and civic engagement.'
+        }
       }
     ]
   }

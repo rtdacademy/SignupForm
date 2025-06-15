@@ -56,16 +56,19 @@ export const SchoolYearProvider = ({ children }) => {
 
   // State for fetched data
   const [studentSummaries, setStudentSummaries] = useState([]);
-  const [pasiRecords, setPasiRecords] = useState([]);
+  const [pasiRecords, setPasiRecords] = useState([]); // Old structure for backward compatibility
+  const [pasiRecordsNew, setPasiRecordsNew] = useState([]); // New structure
   const [asnsRecords, setAsnsRecords] = useState([]);
 
   // State for next year data
   const [nextYearStudentSummaries, setNextYearStudentSummaries] = useState([]);
-  const [nextYearPasiRecords, setNextYearPasiRecords] = useState([]);
+  const [nextYearPasiRecords, setNextYearPasiRecords] = useState([]); // Old structure
+  const [nextYearPasiRecordsNew, setNextYearPasiRecordsNew] = useState([]); // New structure
 
   // State for previous year data
   const [previousYearStudentSummaries, setPreviousYearStudentSummaries] = useState([]);
-  const [previousYearPasiRecords, setPreviousYearPasiRecords] = useState([]);
+  const [previousYearPasiRecords, setPreviousYearPasiRecords] = useState([]); // Old structure
+  const [previousYearPasiRecordsNew, setPreviousYearPasiRecordsNew] = useState([]); // New structure
 
   // State for record counts
   const [recordCounts, setRecordCounts] = useState({
@@ -77,7 +80,8 @@ export const SchoolYearProvider = ({ children }) => {
 
   // Loading and error states - initialize to false to avoid showing loading when not authenticated
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
-  const [isLoadingPasi, setIsLoadingPasi] = useState(false);
+  const [isLoadingPasi, setIsLoadingPasi] = useState(false); // Old structure
+  const [isLoadingPasiNew, setIsLoadingPasiNew] = useState(false); // New structure
   const [isLoadingAsns, setIsLoadingAsns] = useState(false);
   const [isLoadingNextYear, setIsLoadingNextYear] = useState(false);
   const [isLoadingPreviousYear, setIsLoadingPreviousYear] = useState(false);
@@ -314,13 +318,13 @@ export const SchoolYearProvider = ({ children }) => {
   // Fetch PASI records from new pasiRecordsNew structure
   useEffect(() => {
     if (!isStaffUser || !currentSchoolYear) {
-      setIsLoadingPasi(false);
-      setPasiRecords([]);
+      setIsLoadingPasiNew(false);
+      setPasiRecordsNew([]);
       return;
     }
 
-    console.log('Fetching PASI records for', currentSchoolYear);
-    setIsLoadingPasi(true);
+    console.log('Fetching PASI records (new structure) for', currentSchoolYear);
+    setIsLoadingPasiNew(true);
     const db = getDatabase();
 
     // Format year, e.g., "2023/2024" -> "23_24"
@@ -332,8 +336,8 @@ export const SchoolYearProvider = ({ children }) => {
     } else {
       console.error('Invalid currentSchoolYear format:', currentSchoolYear);
       setError('Invalid school year format for PASI query.');
-      setIsLoadingPasi(false);
-      setPasiRecords([]);
+      setIsLoadingPasiNew(false);
+      setPasiRecordsNew([]);
       return;
     }
 
@@ -343,9 +347,9 @@ export const SchoolYearProvider = ({ children }) => {
     const unsubscribe = onValue(pasiRef, (snapshot) => {
       try {
         if (!snapshot.exists()) {
-          console.log(`No PASI records found for year ${formattedYear}`);
-          setPasiRecords([]);
-          setIsLoadingPasi(false);
+          console.log(`No PASI records (new structure) found for year ${formattedYear}`);
+          setPasiRecordsNew([]);
+          setIsLoadingPasiNew(false);
           return;
         }
         
@@ -356,7 +360,7 @@ export const SchoolYearProvider = ({ children }) => {
           records.push({ id: recordId, ...record });
         });
         
-        console.log(`Loaded ${records.length} PASI records for ${formattedYear}`);
+        console.log(`Loaded ${records.length} PASI records (new structure) for ${formattedYear}`);
         
         // Sort by student name for consistency
         const sortedRecords = records.sort((a, b) => {
@@ -366,35 +370,35 @@ export const SchoolYearProvider = ({ children }) => {
           return a.id.localeCompare(b.id);
         });
         
-        setPasiRecords(sortedRecords);
-        setIsLoadingPasi(false);
+        setPasiRecordsNew(sortedRecords);
+        setIsLoadingPasiNew(false);
       } catch (err) {
-        console.error('Error processing PASI records:', err);
+        console.error('Error processing PASI records (new structure):', err);
         setError(err.message);
-        setPasiRecords([]);
-        setIsLoadingPasi(false);
+        setPasiRecordsNew([]);
+        setIsLoadingPasiNew(false);
       }
     }, error => {
-      console.error('Database error fetching PASI records:', error);
+      console.error('Database error fetching PASI records (new structure):', error);
       setError(error.message);
-      setPasiRecords([]);
-      setIsLoadingPasi(false);
+      setPasiRecordsNew([]);
+      setIsLoadingPasiNew(false);
     });
 
     return () => unsubscribe();
   }, [isStaffUser, currentSchoolYear, refreshTrigger]);
 
-  // Fetch next year PASI records when checkbox is checked
+  // Fetch next year PASI records (new structure) when checkbox is checked
   useEffect(() => {
     if (!isStaffUser || !includeNextYear || !currentSchoolYear) {
-      setNextYearPasiRecords([]);
+      setNextYearPasiRecordsNew([]);
       return;
     }
 
     const nextYear = getNextSchoolYear(currentSchoolYear);
     if (!nextYear) return;
 
-    console.log('Fetching next year PASI records for', nextYear);
+    console.log('Fetching next year PASI records (new structure) for', nextYear);
     const db = getDatabase();
 
     // Format next year, e.g., "2024/2025" -> "24_25"
@@ -413,8 +417,8 @@ export const SchoolYearProvider = ({ children }) => {
     const unsubscribe = onValue(pasiRef, (snapshot) => {
       try {
         if (!snapshot.exists()) {
-          console.log(`No next year PASI records found for year ${formattedYear}`);
-          setNextYearPasiRecords([]);
+          console.log(`No next year PASI records (new structure) found for year ${formattedYear}`);
+          setNextYearPasiRecordsNew([]);
           return;
         }
         
@@ -425,7 +429,7 @@ export const SchoolYearProvider = ({ children }) => {
           records.push({ id: recordId, ...record, _isNextYear: true });
         });
         
-        console.log(`Loaded ${records.length} next year PASI records for ${formattedYear}`);
+        console.log(`Loaded ${records.length} next year PASI records (new structure) for ${formattedYear}`);
         
         // Sort by student name for consistency
         const sortedRecords = records.sort((a, b) => {
@@ -435,27 +439,27 @@ export const SchoolYearProvider = ({ children }) => {
           return a.id.localeCompare(b.id);
         });
         
-        setNextYearPasiRecords(sortedRecords);
+        setNextYearPasiRecordsNew(sortedRecords);
       } catch (err) {
-        console.error('Error processing next year PASI records:', err);
-        setNextYearPasiRecords([]);
+        console.error('Error processing next year PASI records (new structure):', err);
+        setNextYearPasiRecordsNew([]);
       }
     });
 
     return () => unsubscribe();
   }, [isStaffUser, includeNextYear, currentSchoolYear, refreshTrigger, getNextSchoolYear]);
 
-  // Fetch previous year PASI records when checkbox is checked
+  // Fetch previous year PASI records (new structure) when checkbox is checked
   useEffect(() => {
     if (!isStaffUser || !includePreviousYear || !currentSchoolYear) {
-      setPreviousYearPasiRecords([]);
+      setPreviousYearPasiRecordsNew([]);
       return;
     }
 
     const previousYear = getPreviousSchoolYear(currentSchoolYear);
     if (!previousYear) return;
 
-    console.log('Fetching previous year PASI records for', previousYear);
+    console.log('Fetching previous year PASI records (new structure) for', previousYear);
     const db = getDatabase();
 
     // Format previous year, e.g., "2023/2024" -> "23_24"
@@ -499,6 +503,216 @@ export const SchoolYearProvider = ({ children }) => {
         setPreviousYearPasiRecords(sortedRecords);
       } catch (err) {
         console.error('Error processing previous year PASI records:', err);
+        setPreviousYearPasiRecords([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [isStaffUser, includePreviousYear, currentSchoolYear, refreshTrigger, getPreviousSchoolYear]);
+
+  // Fetch PASI records from old pasiRecords structure (for backward compatibility)
+  useEffect(() => {
+    if (!isStaffUser || !currentSchoolYear) {
+      setIsLoadingPasi(false);
+      setPasiRecords([]);
+      return;
+    }
+
+    console.log('Fetching PASI records (old structure) for', currentSchoolYear);
+    setIsLoadingPasi(true);
+    const db = getDatabase();
+
+    // Format year, e.g., "2023/2024" -> "23_24"
+    const yearParts = currentSchoolYear.split('/');
+    let formattedYear = '';
+    if (yearParts.length === 2 && yearParts[0].length >= 2 && yearParts[1].length >= 2) {
+      formattedYear = `${yearParts[0].slice(-2)}_${yearParts[1].slice(-2)}`;
+      console.log('Formatted school year for old PASI query:', formattedYear);
+    } else {
+      console.error('Invalid currentSchoolYear format:', currentSchoolYear);
+      setError('Invalid school year format for old PASI query.');
+      setIsLoadingPasi(false);
+      setPasiRecords([]);
+      return;
+    }
+
+    // Use old pasiRecords structure - query by school year
+    const pasiRef = ref(db, 'pasiRecords');
+    const schoolYearQuery = query(
+      pasiRef,
+      orderByChild('schoolYear'),
+      equalTo(formattedYear)
+    );
+    
+    const unsubscribe = onValue(schoolYearQuery, (snapshot) => {
+      try {
+        if (!snapshot.exists()) {
+          console.log(`No PASI records (old structure) found for year ${formattedYear}`);
+          setPasiRecords([]);
+          setIsLoadingPasi(false);
+          return;
+        }
+        
+        const records = [];
+        snapshot.forEach(child => {
+          const record = child.val();
+          const recordId = child.key;
+          records.push({ id: recordId, ...record });
+        });
+        
+        console.log(`Loaded ${records.length} PASI records (old structure) for ${formattedYear}`);
+        
+        // Sort by student name for consistency
+        const sortedRecords = records.sort((a, b) => {
+          if (a.studentName && b.studentName) {
+            return a.studentName.localeCompare(b.studentName);
+          }
+          return a.id.localeCompare(b.id);
+        });
+        
+        setPasiRecords(sortedRecords);
+        setIsLoadingPasi(false);
+      } catch (err) {
+        console.error('Error processing PASI records (old structure):', err);
+        setError(err.message);
+        setPasiRecords([]);
+        setIsLoadingPasi(false);
+      }
+    }, error => {
+      console.error('Database error fetching PASI records (old structure):', error);
+      setError(error.message);
+      setPasiRecords([]);
+      setIsLoadingPasi(false);
+    });
+
+    return () => unsubscribe();
+  }, [isStaffUser, currentSchoolYear, refreshTrigger]);
+
+  // Fetch next year PASI records (old structure) when checkbox is checked
+  useEffect(() => {
+    if (!isStaffUser || !includeNextYear || !currentSchoolYear) {
+      setNextYearPasiRecords([]);
+      return;
+    }
+
+    const nextYear = getNextSchoolYear(currentSchoolYear);
+    if (!nextYear) return;
+
+    console.log('Fetching next year PASI records (old structure) for', nextYear);
+    const db = getDatabase();
+
+    // Format next year, e.g., "2024/2025" -> "24_25"
+    const yearParts = nextYear.split('/');
+    let formattedYear = '';
+    if (yearParts.length === 2 && yearParts[0].length >= 2 && yearParts[1].length >= 2) {
+      formattedYear = `${yearParts[0].slice(-2)}_${yearParts[1].slice(-2)}`;
+    } else {
+      console.error('Invalid nextYear format:', nextYear);
+      return;
+    }
+
+    // Use old pasiRecords structure - query by school year
+    const pasiRef = ref(db, 'pasiRecords');
+    const schoolYearQuery = query(
+      pasiRef,
+      orderByChild('schoolYear'),
+      equalTo(formattedYear)
+    );
+    
+    const unsubscribe = onValue(schoolYearQuery, (snapshot) => {
+      try {
+        if (!snapshot.exists()) {
+          console.log(`No next year PASI records (old structure) found for year ${formattedYear}`);
+          setNextYearPasiRecords([]);
+          return;
+        }
+        
+        const records = [];
+        snapshot.forEach(child => {
+          const record = child.val();
+          const recordId = child.key;
+          records.push({ id: recordId, ...record, _isNextYear: true });
+        });
+        
+        console.log(`Loaded ${records.length} next year PASI records (old structure) for ${formattedYear}`);
+        
+        // Sort by student name for consistency
+        const sortedRecords = records.sort((a, b) => {
+          if (a.studentName && b.studentName) {
+            return a.studentName.localeCompare(b.studentName);
+          }
+          return a.id.localeCompare(b.id);
+        });
+        
+        setNextYearPasiRecords(sortedRecords);
+      } catch (err) {
+        console.error('Error processing next year PASI records (old structure):', err);
+        setNextYearPasiRecords([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [isStaffUser, includeNextYear, currentSchoolYear, refreshTrigger, getNextSchoolYear]);
+
+  // Fetch previous year PASI records (old structure) when checkbox is checked
+  useEffect(() => {
+    if (!isStaffUser || !includePreviousYear || !currentSchoolYear) {
+      setPreviousYearPasiRecords([]);
+      return;
+    }
+
+    const previousYear = getPreviousSchoolYear(currentSchoolYear);
+    if (!previousYear) return;
+
+    console.log('Fetching previous year PASI records (old structure) for', previousYear);
+    const db = getDatabase();
+
+    // Format previous year, e.g., "2023/2024" -> "23_24"
+    const yearParts = previousYear.split('/');
+    let formattedYear = '';
+    if (yearParts.length === 2 && yearParts[0].length >= 2 && yearParts[1].length >= 2) {
+      formattedYear = `${yearParts[0].slice(-2)}_${yearParts[1].slice(-2)}`;
+    } else {
+      console.error('Invalid previousYear format:', previousYear);
+      return;
+    }
+
+    // Use old pasiRecords structure - query by school year
+    const pasiRef = ref(db, 'pasiRecords');
+    const schoolYearQuery = query(
+      pasiRef,
+      orderByChild('schoolYear'),
+      equalTo(formattedYear)
+    );
+    
+    const unsubscribe = onValue(schoolYearQuery, (snapshot) => {
+      try {
+        if (!snapshot.exists()) {
+          console.log(`No previous year PASI records (old structure) found for year ${formattedYear}`);
+          setPreviousYearPasiRecords([]);
+          return;
+        }
+        
+        const records = [];
+        snapshot.forEach(child => {
+          const record = child.val();
+          const recordId = child.key;
+          records.push({ id: recordId, ...record, _isPreviousYear: true });
+        });
+        
+        console.log(`Loaded ${records.length} previous year PASI records (old structure) for ${formattedYear}`);
+        
+        // Sort by student name for consistency
+        const sortedRecords = records.sort((a, b) => {
+          if (a.studentName && b.studentName) {
+            return a.studentName.localeCompare(b.studentName);
+          }
+          return a.id.localeCompare(b.id);
+        });
+        
+        setPreviousYearPasiRecords(sortedRecords);
+      } catch (err) {
+        console.error('Error processing previous year PASI records (old structure):', err);
         setPreviousYearPasiRecords([]);
       }
     });
@@ -563,8 +777,8 @@ export const SchoolYearProvider = ({ children }) => {
     // Create a map of student summaries by ASN + courseId for quick lookup
     const summaryMap = new Map();
     studentSummaries.forEach(summary => {
-      if (summary.ASN && summary.CourseID) {
-        const key = `${summary.ASN}_${summary.CourseID}`;
+      if (summary.asn && summary.CourseID) {
+        const key = `${summary.asn}_${summary.CourseID}`;
         summaryMap.set(key, summary);
       }
     });
@@ -583,18 +797,24 @@ export const SchoolYearProvider = ({ children }) => {
     
     // For each student summary, find matching PASI records
     studentSummaries.forEach(summary => {
-      if (!summary.ASN || !summary.CourseID) {
+      if (!summary.asn || !summary.CourseID) {
         // No ASN or CourseID, can't match - add summary without PASI data
-        results.push(summary);
+        results.push({
+          ...summary,
+          recordType: 'summaryOnly' // This record is summary-only (no PASI match)
+        });
         return;
       }
       
-      const key = `${summary.ASN}_${summary.CourseID}`;
+      const key = `${summary.asn}_${summary.CourseID}`;
       const matchingPasiRecords = pasiGrouped.get(key) || [];
       
       if (matchingPasiRecords.length === 0) {
         // No matching PASI records - add summary without PASI data
-        results.push(summary);
+        results.push({
+          ...summary,
+          recordType: 'summaryOnly' // This record is summary-only (no PASI match)
+        });
       } else {
         // Get the latest PASI record for this ASN + courseId combination
         const latestPasiRecord = getLatestPasiRecord(matchingPasiRecords);
@@ -605,7 +825,8 @@ export const SchoolYearProvider = ({ children }) => {
           ...summary, // Student summary data first
           ...restRecord, // PASI record data second (overwrites conflicts)
           pasiTerm: term, // Rename term to avoid conflicts
-          pasiRecordCount: matchingPasiRecords.length // Show how many PASI records exist
+          pasiRecordCount: matchingPasiRecords.length, // Show how many PASI records exist
+          recordType: 'linked' // This record is linked (has both summary and PASI)
         };
         
         results.push(merged);
@@ -628,7 +849,8 @@ export const SchoolYearProvider = ({ children }) => {
           StudentType_Value: null,
           ActiveFutureArchived_Value: 'Not Set',
           Term: null,
-          pasiRecordCount: 1
+          pasiRecordCount: 1,
+          recordType: 'pasiOnly' // This record is PASI-only
         });
       });
     });
@@ -640,25 +862,25 @@ export const SchoolYearProvider = ({ children }) => {
   const pasiStudentSummariesCombined = useMemo(() => {
     // Merge all selected year data
     let allStudentSummaries = [...studentSummaries];
-    let allPasiRecords = [...pasiRecords];
+    let allPasiRecordsNew = [...pasiRecordsNew];
     
     if (includeNextYear) {
       allStudentSummaries = [...allStudentSummaries, ...nextYearStudentSummaries];
-      allPasiRecords = [...allPasiRecords, ...nextYearPasiRecords];
+      allPasiRecordsNew = [...allPasiRecordsNew, ...nextYearPasiRecordsNew];
     }
     
     if (includePreviousYear) {
       allStudentSummaries = [...allStudentSummaries, ...previousYearStudentSummaries];
-      allPasiRecords = [...allPasiRecords, ...previousYearPasiRecords];
+      allPasiRecordsNew = [...allPasiRecordsNew, ...previousYearPasiRecordsNew];
     }
     
     if (!isStaffUser) {
       return allStudentSummaries;
     }
     
-    // Use new simplified matching logic
-    return matchPasiToStudentSummary(allPasiRecords, allStudentSummaries);
-  }, [studentSummaries, pasiRecords, nextYearStudentSummaries, nextYearPasiRecords, previousYearStudentSummaries, previousYearPasiRecords, includeNextYear, includePreviousYear, isStaffUser, matchPasiToStudentSummary]);
+    // Use new simplified matching logic with pasiRecordsNew structure
+    return matchPasiToStudentSummary(allPasiRecordsNew, allStudentSummaries);
+  }, [studentSummaries, pasiRecordsNew, nextYearStudentSummaries, nextYearPasiRecordsNew, previousYearStudentSummaries, previousYearPasiRecordsNew, includeNextYear, includePreviousYear, isStaffUser, matchPasiToStudentSummary]);
 
   // Other derived lists (unlinked, unmatched, duplicates)
   const unlinkedPasiRecords = useMemo(() => {
@@ -680,8 +902,8 @@ export const SchoolYearProvider = ({ children }) => {
     // Create a set of ASN + courseId combinations that exist in student summaries
     const studentKeys = new Set();
     allStudentSummaries.forEach(summary => {
-      if (summary.ASN && summary.CourseID) {
-        studentKeys.add(`${summary.ASN}_${summary.CourseID}`);
+      if (summary.asn && summary.CourseID) {
+        studentKeys.add(`${summary.asn}_${summary.CourseID}`);
       }
     });
     
@@ -722,8 +944,8 @@ export const SchoolYearProvider = ({ children }) => {
     
     // Filter student summaries that don't have matching PASI records
     return allStudentSummaries.filter(summary => {
-      if (!summary.ASN || !summary.CourseID) return true; // Include if missing ASN or courseId
-      const key = `${summary.ASN}_${summary.CourseID}`;
+      if (!summary.asn || !summary.CourseID) return true; // Include if missing ASN or courseId
+      const key = `${summary.asn}_${summary.CourseID}`;
       return !pasiKeys.has(key);
     });
   }, [studentSummaries, pasiRecords, nextYearStudentSummaries, nextYearPasiRecords, previousYearStudentSummaries, previousYearPasiRecords, includeNextYear, includePreviousYear, isStaffUser]);
@@ -766,9 +988,13 @@ export const SchoolYearProvider = ({ children }) => {
     setNextYearStudentSummaries([]);
     setPreviousYearStudentSummaries([]);
     if (isStaffUser) {
+      // Clear both old and new PASI records
       setPasiRecords([]);
       setNextYearPasiRecords([]);
       setPreviousYearPasiRecords([]);
+      setPasiRecordsNew([]);
+      setNextYearPasiRecordsNew([]);
+      setPreviousYearPasiRecordsNew([]);
     }
     setIsLoadingStudents(true);
     setIsLoadingNextYear(true);
@@ -793,9 +1019,10 @@ export const SchoolYearProvider = ({ children }) => {
     unmatchedStudentSummaries,
     duplicateAsnStudents,
     asnsRecords,
-    isLoadingStudents: isLoadingStudents || isLoadingPasi || isLoadingAsns || isLoadingNextYear || isLoadingPreviousYear,
+    isLoadingStudents: isLoadingStudents || isLoadingPasi || isLoadingPasiNew || isLoadingAsns || isLoadingNextYear || isLoadingPreviousYear,
     refreshStudentSummaries,
-    pasiRecords: getCombinedData(pasiRecords, nextYearPasiRecords, previousYearPasiRecords),
+    pasiRecords: getCombinedData(pasiRecords, nextYearPasiRecords, previousYearPasiRecords), // Old structure for backward compatibility
+    pasiRecordsNew: getCombinedData(pasiRecordsNew, nextYearPasiRecordsNew, previousYearPasiRecordsNew), // New structure for enhanced features
     error,
     includeNextYear,
     setIncludeNextYear: setIncludeNextYearWithPersistence,

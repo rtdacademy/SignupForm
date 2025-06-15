@@ -355,9 +355,16 @@ const studentHasCourse = (asn, courseCode, allRecords) => {
     
     // First pass: count blank values
     pasiStudentSummariesCombined.forEach(record => {
-      // Check each field for blank/null values
+      // Check each field for blank/null values, handling combined structure
       Object.keys(blankCounts).forEach(key => {
-        if (!record[key] || record[key] === '-' || record[key] === 'N/A' || record[key] === '') {
+        let valueToCheck = record[key];
+        
+        // Special handling for term field - check displayTerm first
+        if (key === 'term' || key === 'pasiTerm') {
+          valueToCheck = record.displayTerm || record.term || record.pasiTerm || record.Term;
+        }
+        
+        if (!valueToCheck || valueToCheck === '-' || valueToCheck === 'N/A' || valueToCheck === '') {
           blankCounts[key]++;
         }
       });
@@ -377,19 +384,22 @@ const studentHasCourse = (asn, courseCode, allRecords) => {
     // Get terms from both main records and nested multipleRecords
     const terms = new Set();
     pasiStudentSummariesCombined.forEach(record => {
-      // Add main record term
+      // Add main record term - prioritize displayTerm from combined structure
+      if (record.displayTerm) terms.add(record.displayTerm);
       if (record.term) terms.add(record.term);
       if (record.pasiTerm) terms.add(record.pasiTerm);
+      if (record.Term) terms.add(record.Term); // From YourWay data
       
       // Add terms from multiple records
       if (record.multipleRecords && record.multipleRecords.length > 0) {
         record.multipleRecords.forEach(subRecord => {
+          if (subRecord.displayTerm) terms.add(subRecord.displayTerm);
           if (subRecord.term) terms.add(subRecord.term);
         });
       }
     });
     
-    const courses = [...new Set(pasiStudentSummariesCombined.map(record => record.courseCode).filter(Boolean))];
+    const courses = [...new Set(pasiStudentSummariesCombined.map(record => record.courseCode || record.Course_Value).filter(Boolean))];
     const workItems = [...new Set(pasiStudentSummariesCombined.map(record => record.workItems).filter(Boolean))];
     
     // Extract YourWay related options
@@ -406,7 +416,7 @@ const studentHasCourse = (asn, courseCode, allRecords) => {
     const schoolEnrolment = [...new Set(pasiStudentSummariesCombined.map(record => record.schoolEnrolment).filter(Boolean))];
     const pasiStatuses = [...new Set(pasiStudentSummariesCombined.map(record => record.status).filter(Boolean))];
     const pasiWorkItems = [...new Set(pasiStudentSummariesCombined.map(record => record.workItems).filter(Boolean))];
-    const pasiTerms = [...new Set(pasiStudentSummariesCombined.map(record => record.pasiTerm).filter(Boolean))];
+    const pasiTerms = [...new Set(pasiStudentSummariesCombined.map(record => record.displayTerm || record.pasiTerm).filter(Boolean))];
     
     // Add blank options to each array
     return { 
@@ -710,10 +720,12 @@ const applyFilters = () => {
     const inf2020Students = new Set();
     
     pasiStudentSummariesCombined.forEach(record => {
-      if (record.asn && record.courseCode === "COM1255") {
+      // Use the proper field name from combined structure
+      const courseCode = record.courseCode || record.Course_Value;
+      if (record.asn && courseCode === "COM1255") {
         com1255Students.add(record.asn);
       }
-      if (record.asn && record.courseCode === "INF2020") {
+      if (record.asn && courseCode === "INF2020") {
         inf2020Students.add(record.asn);
       }
     });
@@ -734,9 +746,9 @@ const applyFilters = () => {
         const searchLower = searchTerm.toLowerCase();
         const mainRecordMatch = 
           (record.studentName || '').toLowerCase().includes(searchLower) ||
-          (record.courseCode || '').toLowerCase().includes(searchLower) ||
+          (record.courseCode || record.Course_Value || '').toLowerCase().includes(searchLower) ||
           (record.asn || '').toLowerCase().includes(searchLower) ||
-          (record.term || record.pasiTerm || '').toLowerCase().includes(searchLower) ||
+          (record.displayTerm || record.term || record.pasiTerm || record.Term || '').toLowerCase().includes(searchLower) ||
           (record.status || '').toLowerCase().includes(searchLower) ||
           (record.value || '').toLowerCase().includes(searchLower) ||
           (record.exitDate || '').toLowerCase().includes(searchLower) ||
@@ -745,7 +757,7 @@ const applyFilters = () => {
         
         // Search in multiple records if they exist
         const multipleRecordsMatch = record.multipleRecords && record.multipleRecords.some(subRecord => 
-          (subRecord.term || '').toLowerCase().includes(searchLower) ||
+          (subRecord.displayTerm || subRecord.term || '').toLowerCase().includes(searchLower) ||
           (subRecord.status || '').toLowerCase().includes(searchLower) ||
           (subRecord.exitDate || '').toLowerCase().includes(searchLower) ||
           (subRecord.workItems || '').toLowerCase().includes(searchLower)
@@ -757,13 +769,14 @@ const applyFilters = () => {
       // Course filter
       if (courseFilter.length > 0) {
         const hasBlankOption = includesBlankOption(courseFilter);
-        if (isBlank(record.courseCode)) {
+        const courseCode = record.courseCode || record.Course_Value;
+        if (isBlank(courseCode)) {
           // If field is blank but we're not filtering for blanks
           if (!hasBlankOption) return false;
         } else {
           // Field is not blank, check if it matches any non-blank filter values
           const nonBlankFilterValues = courseFilter.filter(val => !val.startsWith('(Blank)'));
-          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.courseCode)) {
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(courseCode)) {
             return false;
           }
           // If we're only filtering for blanks, this record should be excluded
@@ -877,7 +890,8 @@ const applyFilters = () => {
           return false;
         
         // Then check if this specific record is for a course in our valid PASI codes list
-        if (!validPasiCodes.has(record.courseCode))
+        const courseCode = record.courseCode || record.Course_Value;
+        if (!validPasiCodes.has(courseCode))
           return false;
       }
       
@@ -887,7 +901,8 @@ const applyFilters = () => {
           return false;
         
         // Then check if this specific record is for a course in our valid PASI codes list
-        if (!validPasiCodes.has(record.courseCode))
+        const courseCode = record.courseCode || record.Course_Value;
+        if (!validPasiCodes.has(courseCode))
           return false;
       }
       
@@ -897,7 +912,8 @@ const applyFilters = () => {
           return false;
         
         // Then check if this specific record is for a course in our valid PASI codes list
-        if (!validPasiCodes.has(record.courseCode))
+        const courseCode = record.courseCode || record.Course_Value;
+        if (!validPasiCodes.has(courseCode))
           return false;
       }
       
@@ -907,7 +923,8 @@ const applyFilters = () => {
           return false;
         
         // Then check if this specific record is for a course in our valid PASI codes list
-        if (!validPasiCodes.has(record.courseCode))
+        const courseCode = record.courseCode || record.Course_Value;
+        if (!validPasiCodes.has(courseCode))
           return false;
       }
       
@@ -1080,11 +1097,12 @@ const applyFilters = () => {
       
       if (pasiTermFilter.length > 0) {
         const hasBlankOption = includesBlankOption(pasiTermFilter);
-        if (isBlank(record.pasiTerm)) {
+        const termValue = record.displayTerm || record.pasiTerm;
+        if (isBlank(termValue)) {
           if (!hasBlankOption) return false;
         } else {
           const nonBlankFilterValues = pasiTermFilter.filter(val => !val.startsWith('(Blank)'));
-          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(record.pasiTerm)) {
+          if (nonBlankFilterValues.length > 0 && !nonBlankFilterValues.includes(termValue)) {
             return false;
           }
           if (nonBlankFilterValues.length === 0 && hasBlankOption) {
@@ -1266,27 +1284,28 @@ const stats = useMemo(() => {
       statusCounts[record.status] = (statusCounts[record.status] || 0) + 1;
     }
     
-    // Count terms
-    const term = record.term || record.pasiTerm;
+    // Count terms - prioritize displayTerm from combined structure
+    const term = record.displayTerm || record.term || record.pasiTerm || record.Term;
     if (term) {
       termCounts[term] = (termCounts[term] || 0) + 1;
     }
     
     // Count courses
-    if (record.courseCode) {
-      courseCounts[record.courseCode] = (courseCounts[record.courseCode] || 0) + 1;
+    const courseCode = record.courseCode || record.Course_Value;
+    if (courseCode) {
+      courseCounts[courseCode] = (courseCounts[courseCode] || 0) + 1;
     }
     
     // Track students with valid PASI courses
-    if (record.asn && validPasiCodes.has(record.courseCode)) {
+    if (record.asn && validPasiCodes.has(courseCode)) {
       studentsWithValidPasiCourses.add(record.asn);
     }
     
     // Count COM1255 and INF2020 students
     if (record.asn) {
-      if (record.courseCode === "COM1255") {
+      if (courseCode === "COM1255") {
         com1255ASNs.add(record.asn);
-      } else if (record.courseCode === "INF2020") {
+      } else if (courseCode === "INF2020") {
         inf2020ASNs.add(record.asn);
       }
     }

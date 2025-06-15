@@ -156,7 +156,7 @@ const formatDate = (dateValue, isFormatted = false) => {
 // Format date for user-friendly display is now in PasiRecordDetails component
 
 const PasiRecords = () => {
-  // Get PASI records from context
+  // Get PASI records from context - now using the combined data from pasiRecordsNew
   const { pasiStudentSummariesCombined, isLoadingStudents, currentSchoolYear, refreshStudentSummaries } = useSchoolYear();
   
   // Ref for detail card
@@ -243,7 +243,7 @@ const PasiRecords = () => {
     setIsEmailEditDialogOpen(true);
   };
   
-  // Function to update email and summaryKey in PASI record
+  // Function to update email and summaryKey in PASI record using pasiRecordsNew structure
   const handleUpdatePasiRecordEmail = async (recordId, newEmail, summaryKey = null) => {
     if (!recordId || !newEmail) return;
     
@@ -251,16 +251,36 @@ const PasiRecords = () => {
     try {
       const db = getDatabase();
       
-      // Update the email in the PASI record
+      // Find the record's school year and construct the proper path for pasiRecordsNew
+      const record = pasiStudentSummariesCombined.find(r => r.id === recordId);
+      if (!record) {
+        throw new Error('Record not found');
+      }
+      
+      // Format school year for pasiRecordsNew path (e.g., "2024/2025" -> "24_25")
+      const schoolYear = record.schoolYear || record.School_x0020_Year_Value || currentSchoolYear;
+      let formattedYear = '';
+      if (schoolYear) {
+        const yearParts = schoolYear.split('/');
+        if (yearParts.length === 2) {
+          formattedYear = `${yearParts[0].slice(-2)}_${yearParts[1].slice(-2)}`;
+        }
+      }
+      
+      if (!formattedYear) {
+        throw new Error('Unable to determine school year for record update');
+      }
+      
+      // Update the email in the PASI record using pasiRecordsNew structure
       const updates = {};
-      updates[`pasiRecords/${recordId}/email`] = newEmail;
+      updates[`pasiRecordsNew/${formattedYear}/${recordId}/StudentEmail`] = newEmail;
       
       // If summaryKey is provided, update it as well
       if (summaryKey !== null) {
-        updates[`pasiRecords/${recordId}/summaryKey`] = summaryKey;
+        updates[`pasiRecordsNew/${formattedYear}/${recordId}/summaryKey`] = summaryKey;
         
         // Also set the linked status to true if a summaryKey is provided
-        updates[`pasiRecords/${recordId}/linked`] = true;
+        updates[`pasiRecordsNew/${formattedYear}/${recordId}/linked`] = true;
       }
       
       await update(ref(db), updates);
@@ -1003,14 +1023,14 @@ const PasiRecords = () => {
                           className="p-1 cursor-pointer truncate max-w-16 w-16" 
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleCellClick(record.term || record.pasiTerm, "Term");
+                            handleCellClick(record.displayTerm || record.term || record.pasiTerm, "Term");
                           }}
                         >
                           <Badge 
                             variant="outline" 
                             className="bg-blue-50 text-blue-700 border-blue-200 text-xs py-0 px-1.5 truncate"
                           >
-                            {record.term || record.pasiTerm || 'N/A'}
+                            {record.displayTerm || record.term || record.pasiTerm || 'N/A'}
                           </Badge>
                         </TableCell>
                         
@@ -1116,7 +1136,7 @@ const PasiRecords = () => {
                                     className="h-6 w-6 p-0"
                                     onClick={(e) => handleOpenEmailEditDialog(record, e)}
                                   >
-                                    {record.summaryKey ? (
+                                    {record.recordType === 'linked' ? (
                                       <Link2 className="h-4 w-4 text-green-600" />
                                     ) : (
                                       <Wrench className="h-4 w-4 text-amber-600" />
@@ -1124,8 +1144,8 @@ const PasiRecords = () => {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent side="top">
-                                  {record.summaryKey ? (
-                                    <p>Record linked ({record.summaryKey}) - Click to edit</p>
+                                  {record.recordType === 'linked' ? (
+                                    <p>Record linked - Click to edit</p>
                                   ) : (
                                     <p>Record not linked - Click to link</p>
                                   )}
@@ -1235,10 +1255,10 @@ const PasiRecords = () => {
                                   className="bg-purple-50 text-purple-700 border-purple-200 text-xs py-0 px-1.5 truncate"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleCellClick(subRecord.term, "Term");
+                                    handleCellClick(subRecord.displayTerm || subRecord.term, "Term");
                                   }}
                                 >
-                                  {subRecord.term || 'N/A'}
+                                  {subRecord.displayTerm || subRecord.term || 'N/A'}
                                 </Badge>
                               </TableCell>
                               
@@ -1336,7 +1356,7 @@ const PasiRecords = () => {
                                             }, e);
                                           }}
                                         >
-                                          {subRecord.summaryKey ? (
+                                          {subRecord.recordType === 'linked' ? (
                                             <Link2 className="h-4 w-4 text-green-600" />
                                           ) : (
                                             <Wrench className="h-4 w-4 text-amber-600" />
@@ -1344,8 +1364,8 @@ const PasiRecords = () => {
                                         </Button>
                                       </TooltipTrigger>
                                       <TooltipContent side="top">
-                                        {subRecord.summaryKey ? (
-                                          <p>Record linked ({subRecord.summaryKey}) - Click to edit</p>
+                                        {subRecord.recordType === 'linked' ? (
+                                          <p>Record linked - Click to edit</p>
                                         ) : (
                                           <p>Record not linked - Click to link</p>
                                         )}
@@ -1444,7 +1464,7 @@ const EmailEditDialog = ({ record, isOpen, onClose, onUpdate, isUpdating }) => {
 
   useEffect(() => {
     if (record) {
-      setNewEmail(record.email || '');
+      setNewEmail(record.StudentEmail || record.email || '');
       setSummaryKey(record.summaryKey || '');
       setSelectedCourseId('');
       setError('');
@@ -1514,7 +1534,7 @@ const EmailEditDialog = ({ record, isOpen, onClose, onUpdate, isUpdating }) => {
             </label>
             <Input 
               id="current-email" 
-              value={record?.email || ''} 
+              value={record?.StudentEmail || record?.email || ''} 
               disabled 
               className="bg-gray-50"
             />
