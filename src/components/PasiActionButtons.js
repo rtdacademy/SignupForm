@@ -1,7 +1,7 @@
 // src/components/PasiActionButtons.js
 import React, { useState } from 'react';
 import { Button } from "./ui/button";
-import { ExternalLink, Edit, ChevronDown, Database, X, Layers, BookOpen, ArrowRightCircle } from 'lucide-react';
+import { ExternalLink, Edit, ChevronDown, Database, X, Layers, BookOpen, ArrowRightCircle, Info } from 'lucide-react';
 import { openManagedWindow } from '../utils/windowUtils';
 import {
   Tooltip,
@@ -144,7 +144,7 @@ export const MultipleRecordsDisplay = ({ records, asn, onSelect, selectedRecord 
   );
 };
 
-const PasiActionButtons = ({ asn, referenceNumber }) => {
+const PasiActionButtons = ({ asn, referenceNumber, showYourWay = true, onViewDetails = null }) => {
   const validAsn = isValidValue(asn);
   const validReferenceNumber = isValidValue(referenceNumber);
 
@@ -261,23 +261,44 @@ const PasiActionButtons = ({ asn, referenceNumber }) => {
           </Tooltip>
         </div>
 
-        {/* YourWay Button - Separate with different color */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={handleOpenYourWay}
-              className="h-full w-8 p-0 flex items-center justify-center border border-gray-200 rounded-md bg-blue-50/80 hover:bg-blue-100/90"
-              disabled={!validAsn}
-            >
-              <ArrowRightCircle className="h-4 w-4 text-blue-700" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Open in YourWay</p>
-          </TooltipContent>
-        </Tooltip>
+        {/* YourWay Button - Separate with different color - Conditionally rendered */}
+        {showYourWay && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={handleOpenYourWay}
+                className="h-full w-8 p-0 flex items-center justify-center border border-gray-200 rounded-md bg-blue-50/80 hover:bg-blue-100/90"
+                disabled={!validAsn}
+              >
+                <ArrowRightCircle className="h-4 w-4 text-blue-700" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Open in YourWay</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {/* Details Button - Conditionally rendered when onViewDetails is provided */}
+        {onViewDetails && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={onViewDetails}
+                className="h-full w-8 p-0 flex items-center justify-center border border-gray-200 rounded-md bg-purple-50/80 hover:bg-purple-100/90"
+              >
+                <Info className="h-4 w-4 text-purple-700" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>View Detailed Information</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </TooltipProvider>
   );

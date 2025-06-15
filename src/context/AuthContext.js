@@ -2,7 +2,6 @@ import React, { createContext, useState, useEffect, useContext, useRef, useCallb
 import { auth } from '../firebase';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { getDatabase, ref, get, set } from "firebase/database";
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -65,7 +64,6 @@ export function AuthProvider({ children }) {
   const [isParentUser, setIsParentUser] = useState(false);
   const [courseTeachers, setCourseTeachers] = useState({});
   const [staffMembers, setStaffMembers] = useState({});
-  const [isMigratedUser, setIsMigratedUser] = useState(false);
   const [adminEmails, setAdminEmails] = useState([]);
   const [tokenExpirationTime, setTokenExpirationTime] = useState(null);
 
@@ -112,7 +110,8 @@ export function AuthProvider({ children }) {
     '/google-ai-chat',
     '/parent-login',
     '/aerr/2023-24',
-    '/education-plan/2025-26'
+    '/education-plan/2025-26',
+    '/prerequisite-flowchart'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public
@@ -439,31 +438,47 @@ export function AuthProvider({ children }) {
       return false;
     }
 
+    const db = getDatabase();
+    const userRef = ref(db, `users/${user.uid}`);
+    
     try {
-      // Use cloud function to ensure user node exists
-      const functions = getFunctions();
-      const ensureUserNodeFunction = httpsCallable(functions, 'ensureUserNode');
+      console.log("Checking if user data exists for UID:", user.uid);
+      const snapshot = await get(userRef);
       
-      const result = await ensureUserNodeFunction({
-        uid: user.uid,
-        email: user.email,
-        emailVerified: user.emailVerified,
-        providerData: user.providerData
-      });
-      
-      if (result.data.success) {
-        setIsMigratedUser(result.data.isMigratedUser);
-        return true;
+      if (!snapshot.exists()) {
+        console.log("User data doesn't exist, creating minimal user data");
+        
+        const userData = {
+          uid: user.uid,
+          email: user.email,
+          sanitizedEmail: emailKey,
+          type: "student",
+          createdAt: Date.now(),
+          lastLogin: Date.now(),
+          provider: user.providerData[0]?.providerId || 'password',
+          emailVerified: user.emailVerified
+        };
+        
+        await set(userRef, userData);
+        console.log("Minimal user data created successfully");
       } else {
-        throw new Error('Failed to ensure user node');
+        console.log("User data already exists, updating last login");
+        const existingData = snapshot.val();
+        
+        await set(userRef, {
+          ...existingData,
+          lastLogin: Date.now(),
+          emailVerified: user.emailVerified
+        });
       }
+      
+      return true;
     } catch (error) {
       console.error("Error ensuring user data:", error);
       
-      // Handle specific error types
-      if (error.code === 'functions/unauthenticated' || 
-          error.code === 'functions/permission-denied') {
-        console.log("User authentication issue - may need to re-authenticate");
+      // Handle permission errors
+      if (error.code === 'PERMISSION_DENIED') {
+        console.log("Permission denied - user may need to re-authenticate");
         await signOut();
         navigate('/login', { 
           state: { 
@@ -471,21 +486,11 @@ export function AuthProvider({ children }) {
           } 
         });
         return false;
-      } else if (error.code === 'functions/invalid-argument') {
-        console.log("Invalid user data provided");
-        await signOut();
-        navigate('/login', { 
-          state: { 
-            message: "Invalid user data. Please contact support." 
-          } 
-        });
-        return false;
-      } else {
-        // For other errors, try to continue but log the issue
-        console.error("Non-critical error ensuring user node:", error);
-        // Don't throw - allow user to continue if possible
-        return true;
       }
+      
+      // For other errors, log but allow user to continue
+      console.error("Non-critical error ensuring user node:", error);
+      return true;
     }
   };
 
@@ -669,7 +674,6 @@ export function AuthProvider({ children }) {
             setEmulatedUser(null);
             setEmulatedUserEmailKey(null);
             setIsEmulating(false);
-            setIsMigratedUser(false);
             setAdminEmails([]);
             setTokenExpirationTime(null);
   
@@ -701,7 +705,6 @@ export function AuthProvider({ children }) {
           setEmulatedUser(null);
           setEmulatedUserEmailKey(null);
           setIsEmulating(false);
-          setIsMigratedUser(false);
           setAdminEmails([]);
           setTokenExpirationTime(null);
         }
@@ -745,7 +748,6 @@ export function AuthProvider({ children }) {
       setEmulatedUser(null);
       setEmulatedUserEmailKey(null);
       setIsEmulating(false);
-      setIsMigratedUser(false);
       setAdminEmails([]);
       setTokenExpirationTime(null);
       
@@ -884,15 +886,11 @@ export function AuthProvider({ children }) {
     startEmulation,
     stopEmulation,
     
-    // Current user with migration status
+    // Current user
     currentUser: isEmulating ? {
       ...emulatedUser,
-      uid: user ? user.uid : null,
-      isMigratedUser: false // Emulated users aren't considered migrated
-    } : user ? {
-      ...user,
-      isMigratedUser // Include the migration status for regular users
-    } : null,
+      uid: user ? user.uid : null
+    } : user,
     
     // Both email keys should be the emulated user's during emulation
     current_user_email_key: isEmulating ? emulatedUserEmailKey : user_email_key,
@@ -910,11 +908,7 @@ export function AuthProvider({ children }) {
     requiresSuperAdminAccess: () => isStaffUser && isSuperAdminUser,
 
     // Added function to check if an email is blocked
-    isBlockedEmail,
-
-    // Migration related values and functions
-    isMigratedUser,
-    checkMigrationStatus
+    isBlockedEmail
   };
 
   return (

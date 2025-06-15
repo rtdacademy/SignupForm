@@ -55,6 +55,40 @@ const generateTempPassword = () => {
   return `Temp${getRandomNumber()}${getRandomNumber()}${getRandomNumber()}`;
 };
 
+// Utility function to safely extract student key/email from student record
+const getStudentEmail = (student) => {
+  // For PASI records, check studentKey first (new format)
+  if (student.studentKey !== undefined) {
+    return student.studentKey || ''; // Return empty string if null/empty
+  }
+  
+  // For backwards compatibility with old PASI records that have email field
+  if (student.email) {
+    if (typeof student.email === 'string') {
+      return student.email;
+    } else if (typeof student.email === 'object' && student.email.emailKeys) {
+      // Extract first email from emailKeys object
+      const emailKeys = Object.keys(student.email.emailKeys);
+      return emailKeys.length > 0 ? emailKeys[0] : '';
+    }
+  }
+  
+  // Fallback to StudentEmail for regular student summaries
+  return student.StudentEmail || '';
+};
+
+// Utility function to check if a PASI record has a student key
+const hasStudentKey = (student) => {
+  if (student.hasStudentKey !== undefined) {
+    return student.hasStudentKey; // Use explicit flag if available
+  }
+  
+  // Fallback to checking if we can extract a student key
+  const studentKey = getStudentEmail(student);
+  return !!studentKey;
+};
+
+
 // Utility function to format date
 const formatDate = (dateString) => {
   if (!dateString) return '';
@@ -95,7 +129,8 @@ function StudentList({
   onCourseRemoved,
   studentAsns,
   showMultipleAsnsOnly,
-  onToggleMultipleAsnsOnly
+  onToggleMultipleAsnsOnly,
+  recordTypeFilter
 }) {
   const { getTeacherForCourse } = useAuth();
   const { asnsRecords } = useSchoolYear();
@@ -266,22 +301,68 @@ function StudentList({
   
     // Helper function to check full name matches
     const matchesFullName = (student, searchTerm) => {
-      // Create both possible full name combinations
-      const firstNameLastName = `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase().trim();
-      const preferredFirstNameLastName = `${student.preferredFirstName || student.firstName || ''} ${student.lastName || ''}`.toLowerCase().trim();
+      // Handle student summary format (firstName, lastName)
+      if (student.firstName || student.lastName) {
+        const firstNameLastName = `${student.firstName || ''} ${student.lastName || ''}`.toLowerCase().trim();
+        const preferredFirstNameLastName = `${student.preferredFirstName || student.firstName || ''} ${student.lastName || ''}`.toLowerCase().trim();
+        
+        if (firstNameLastName.includes(searchTerm) || preferredFirstNameLastName.includes(searchTerm)) {
+          return true;
+        }
+      }
       
-      // Check if search term matches either combination
-      return firstNameLastName.includes(searchTerm) || 
-             preferredFirstNameLastName.includes(searchTerm);
+      // Handle PASI format (studentName in "Last, First Middle" format)
+      if (student.studentName) {
+        const pasiName = student.studentName.toLowerCase();
+        if (pasiName.includes(searchTerm)) {
+          return true;
+        }
+        
+        // Also try parsing the "Last, First Middle" format to match against "First Last"
+        const nameParts = student.studentName.split(',');
+        if (nameParts.length >= 2) {
+          const lastName = nameParts[0].trim();
+          const firstPart = nameParts[1].trim();
+          const firstName = firstPart.split(' ')[0]; // Get first name before any middle names
+          const reformattedName = `${firstName} ${lastName}`.toLowerCase();
+          if (reformattedName.includes(searchTerm)) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
     };
   
     return studentSummaries.filter((student) => {
       // Basic validation - skip invalid student records
-      if (!student || 
-        typeof student.firstName === 'undefined' || 
-        typeof student.lastName === 'undefined' || 
-        !student.StudentEmail) {
-        console.warn('Skipping invalid student record:', student);
+      // Handle both student summaries and PASI-only records
+      if (!student) {
+        console.warn('Skipping null student record');
+        return false;
+      }
+      
+      // For student summaries: require firstName, lastName, StudentEmail
+      // For PASI-only records: require studentName and either email or asn
+      const hasStudentSummaryFields = student.firstName && student.lastName && student.StudentEmail;
+      
+      // For PASI records, check if we have studentKey (preferred) or can extract from email field
+      const pasiStudentKey = getStudentEmail(student);
+      
+      // PASI records need studentName and either studentKey or ASN 
+      // (ASN alone is sufficient for records without student key mapping)
+      const hasPasiFields = student.studentName && (pasiStudentKey || student.asn);
+      
+      if (!hasStudentSummaryFields && !hasPasiFields) {
+        console.warn('Skipping invalid student record - missing required fields:', {
+          id: student.id,
+          hasFirstName: !!student.firstName,
+          hasLastName: !!student.lastName,
+          hasStudentEmail: !!student.StudentEmail,
+          hasStudentName: !!student.studentName,
+          hasStudentKey: !!pasiStudentKey,
+          hasAsn: !!student.asn
+        });
         return false;
       }
       
@@ -291,6 +372,19 @@ function StudentList({
         if (!student.asn || !hasMultipleEmailKeysForASN(student.asn)) {
           return false;
         }
+      }
+
+      // Check record type filter using the recordType property set in SchoolYearContext
+      const studentRecordType = student.recordType || 'linked';
+      
+      if (recordTypeFilter === 'yourway') {
+        // Show both linked and summaryOnly records (hide pasiOnly)
+        if (studentRecordType === 'pasiOnly') {
+          return false;
+        }
+      } else if (recordTypeFilter !== 'all' && studentRecordType !== recordTypeFilter) {
+        // Filter out records that don't match the selected type
+        return false;
       }
 
       // Helper function to compare dates
@@ -438,12 +532,14 @@ function StudentList({
         String(student.preferredFirstName || '').toLowerCase().includes(normalizedSearchTerm) ||
         String(student.lastName || '').toLowerCase().includes(normalizedSearchTerm) ||
         String(student.StudentEmail || '').toLowerCase().includes(normalizedSearchTerm) ||
+        String(getStudentEmail(student) || '').toLowerCase().includes(normalizedSearchTerm) || // PASI email field
         String(student.ParentEmail || '').toLowerCase().includes(normalizedSearchTerm) || 
+        String(student.studentName || '').toLowerCase().includes(normalizedSearchTerm) || // PASI studentName field
         normalizeASN(student.asn).includes(normalizeASN(searchTerm));
   
       return matchesFilters && matchesSearch;
     });
-  }, [studentSummaries, filters, searchTerm, showMultipleAsnsOnly, asnsRecords]);
+  }, [studentSummaries, filters, searchTerm, showMultipleAsnsOnly, asnsRecords, recordTypeFilter]);
 
 
 // Sorting using useMemo for performance optimization
@@ -544,12 +640,47 @@ const selectedStudentsData = Array.from(selectedStudents)
 
     const teacher = getTeacherForCourse(student.CourseID);
     
+    // Helper function to extract names from PASI studentName if needed
+    const getNames = (student) => {
+      if (student.firstName && student.lastName) {
+        return {
+          firstName: student.firstName,
+          lastName: student.lastName,
+          preferredFirstName: student.preferredFirstName
+        };
+      }
+      
+      if (student.studentName) {
+        // Parse "Last, First Middle" format
+        const nameParts = student.studentName.split(',');
+        if (nameParts.length >= 2) {
+          const lastName = nameParts[0].trim();
+          const firstPart = nameParts[1].trim();
+          const firstName = firstPart.split(' ')[0];
+          return {
+            firstName,
+            lastName,
+            preferredFirstName: firstName
+          };
+        }
+      }
+      
+      return {
+        firstName: '',
+        lastName: '',
+        preferredFirstName: ''
+      };
+    };
+    
+    const names = getNames(student);
+    const studentEmail = getStudentEmail(student);
+    
     return {
-      username: generateUsername(student.firstName, student.lastName),
+      username: generateUsername(names.firstName, names.lastName),
       password: generateTempPassword(),
-      lname: student.lastName || '',
-      fname: student.preferredFirstName || student.firstName || '',
-      email: student.StudentEmail || '',
+      lname: names.lastName,
+      fname: names.preferredFirstName || names.firstName,
+      email: studentEmail,
       courseid: student.CourseID || '',
       course: student.Course_Value || '',
       Status_Value: student.Status_Value || '',

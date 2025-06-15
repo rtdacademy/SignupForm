@@ -37,6 +37,7 @@ import ResumingOnDialog from './Dialog/ResumingOnDialog';
 import { toast } from 'sonner';
 import PermissionIndicator from '../context/PermissionIndicator';
 import ProfileHistory from './ProfileHistory';
+import PasiActionButtons from '../components/PasiActionButtons';
 
 // Helper function to safely extract values from status objects
 const getSafeValue = (value) => {
@@ -148,6 +149,158 @@ const GenderBadge = ({ gender }) => {
   );
 };
 
+// Helper function to detect PASI-only records
+const isPasiOnlyRecord = (student) => {
+  return student?.ActiveFutureArchived_Value === 'Not Set' || 
+         (student?.CourseID === null && student?.Status_Value === null && student?.StudentType_Value === null);
+};
+
+// Component for PASI-only records
+const PasiOnlyCard = React.memo(({ student, index, isSelected, onSelectionChange }) => {
+  const bgColor = index % 2 === 0 ? 'bg-orange-50' : 'bg-orange-100';
+  
+  // Parse student name from PASI format
+  const getNameInfo = () => {
+    if (student.studentName) {
+      const nameParts = student.studentName.split(',');
+      if (nameParts.length >= 2) {
+        const lastName = nameParts[0].trim();
+        const firstPart = nameParts[1].trim();
+        const firstName = firstPart.split(' ')[0];
+        return {
+          firstName,
+          lastName,
+          fullName: `${firstName} ${lastName}`,
+          initials: `${firstName[0] || '?'}${lastName[0] || '?'}`
+        };
+      }
+    }
+    return {
+      firstName: '?',
+      lastName: '?',
+      fullName: student.studentName || '? ?',
+      initials: '??'
+    };
+  };
+
+  const nameInfo = getNameInfo();
+  const avatarColor = getColorFromInitials(nameInfo.initials);
+
+  // Format assignment date
+  const formatDate = (dateString) => {
+    if (!dateString || dateString === '-') return 'Not set';
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch {
+      return dateString;
+    }
+  };
+
+  return (
+    <Card className={`transition-shadow duration-200 ${bgColor} hover:shadow-md mb-3 border-l-4 border-l-orange-400`}>
+      <CardHeader className="p-3 pb-2">
+        <div className="flex items-center space-x-3 mb-2">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={onSelectionChange}
+            aria-label={`Select ${nameInfo.fullName}`}
+          />
+          <Avatar className="w-10 h-10">
+            <AvatarFallback 
+              className="text-sm font-medium" 
+              style={{ backgroundColor: avatarColor, color: '#FFFFFF' }}
+            >
+              {nameInfo.initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base font-medium truncate flex items-center gap-2">
+                {nameInfo.fullName}
+                <Badge className="bg-orange-200 text-orange-800 text-xs">
+                  PASI Only
+                </Badge>
+              </CardTitle>
+            </div>
+            {student.email && student.email !== '-' && (
+              <div className="text-xs text-gray-600 truncate mt-1">
+                {student.email}
+              </div>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="p-3 pt-0">
+        {/* Course Information */}
+        <div className="mb-3">
+          <div className="flex items-center gap-2 mb-1">
+            <Badge className="bg-blue-100 text-blue-800 text-xs">
+              {student.courseCode}
+            </Badge>
+            {student.approved && (
+              <Badge 
+                className={`text-xs ${
+                  student.approved === 'Yes' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}
+              >
+                {student.approved === 'Yes' ? 'Approved' : 'Not Approved'}
+              </Badge>
+            )}
+          </div>
+          <div className="text-sm font-medium text-gray-900">
+            {student.courseDescription}
+          </div>
+        </div>
+
+        {/* Key Information Grid */}
+        <div className="grid grid-cols-2 gap-2 text-xs mb-3">
+          <div>
+            <span className="text-gray-500">ASN:</span>
+            <div className="font-medium">{student.asn || 'N/A'}</div>
+          </div>
+          <div>
+            <span className="text-gray-500">Term:</span>
+            <div className="font-medium">{student.pasiTerm || 'N/A'}</div>
+          </div>
+          <div>
+            <span className="text-gray-500">Assignment Date:</span>
+            <div className="font-medium">{formatDate(student.assignmentDate)}</div>
+          </div>
+          <div>
+            <span className="text-gray-500">Status:</span>
+            <div className="font-medium">{student.status || 'N/A'}</div>
+          </div>
+        </div>
+
+        {/* School Enrollment */}
+        {student.schoolEnrolment && (
+          <div className="mb-3">
+            <span className="text-xs text-gray-500">School Enrollment:</span>
+            <div className="text-xs font-medium bg-gray-100 p-2 rounded mt-1">
+              {student.schoolEnrolment}
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex justify-between items-center pt-2 border-t border-orange-200">
+          <div className="text-xs text-orange-700 font-medium">
+            Not in YourWay
+          </div>
+          <PasiActionButtons 
+            asn={student.asn} 
+            referenceNumber={student.referenceNumber}
+            showYourWay={false}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
+
 const StudentCard = React.memo(({ 
   student, 
   index, 
@@ -167,16 +320,69 @@ const StudentCard = React.memo(({
   studentAsns
 }) => {
   
+  // Check if this is a PASI-only record and render accordingly
+  if (isPasiOnlyRecord(student)) {
+    return (
+      <PasiOnlyCard
+        student={student}
+        index={index}
+        isSelected={isSelected}
+        onSelectionChange={onSelectionChange}
+      />
+    );
+  }
+  
+  // Helper function to extract student information from both formats
+  const getStudentInfo = useMemo(() => {
+    if (student?.firstName && student?.lastName) {
+      // Student summary format
+      return {
+        firstName: student.firstName,
+        lastName: student.lastName,
+        preferredFirstName: student.preferredFirstName,
+        displayName: student.preferredFirstName || student.firstName,
+        fullName: `${student.preferredFirstName || student.firstName} ${student.lastName}`,
+        email: student.StudentEmail || '',
+        initials: `${(student.preferredFirstName || student.firstName)[0] || '?'}${student.lastName[0] || '?'}`
+      };
+    } else if (student?.studentName) {
+      // PASI format - parse "Last, First Middle"
+      const nameParts = student.studentName.split(',');
+      if (nameParts.length >= 2) {
+        const lastName = nameParts[0].trim();
+        const firstPart = nameParts[1].trim();
+        const firstName = firstPart.split(' ')[0];
+        return {
+          firstName,
+          lastName,
+          preferredFirstName: firstName,
+          displayName: firstName,
+          fullName: `${firstName} ${lastName}`,
+          email: student.email || '',
+          initials: `${firstName[0] || '?'}${lastName[0] || '?'}`
+        };
+      }
+    }
+    
+    // Fallback for incomplete data
+    return {
+      firstName: '?',
+      lastName: '?',
+      preferredFirstName: '?',
+      displayName: '?',
+      fullName: '? ?',
+      email: student?.StudentEmail || student?.email || '',
+      initials: '??'
+    };
+  }, [student]);
+  
   const { currentMode } = useMode();
   const bgColor = selectedStudentId === student.id 
     ? 'bg-blue-100' 
     : index % 2 === 0 
       ? 'bg-white' 
       : 'bg-gray-50';
-  const displayName = (student?.preferredFirstName || student?.firstName || '?');
-  const lastName = (student?.lastName || '?');
-  const initials = `${displayName[0] || '?'}${lastName[0] || '?'}`;
-  const avatarColor = getColorFromInitials(initials);
+  const avatarColor = getColorFromInitials(getStudentInfo.initials);
 
   // Get safe status value from potentially complex object
   const safeStatusValue = getSafeValue(student?.Status_Value);
@@ -556,7 +762,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
     try {
       await set(termRef, newTerm);
       toast.success(`Term updated to ${newTerm}`, {
-        description: `For ${student.preferredFirstName || student.firstName} ${student.lastName}`,
+        description: `For ${getStudentInfo.fullName}`,
         duration: 3000
       });
     } catch (error) {
@@ -566,7 +772,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
         duration: 3000
       });
     }
-  }, [student.id, student.Term, student.preferredFirstName, student.firstName, student.lastName, isAdminUser]);
+  }, [student.id, student.Term, getStudentInfo.fullName, isAdminUser]);
 
   // In StudentCard.js
   const handleRemoveCourse = useCallback(async () => {
@@ -581,13 +787,13 @@ const handleStatusChange = useCallback(async (newStatus) => {
       setIsRemovalDialogOpen(false);
       // Call the parent callback with student and course info
       onCourseRemoved(
-        `${student.preferredFirstName || student.firstName} ${student.lastName}`,
+        getStudentInfo.fullName,
         getSafeValue(student.Course_Value)
       );
     } catch (error) {
       console.error("Error removing course:", error);
     }
-  }, [student.id, student.preferredFirstName, student.firstName, student.lastName, student.Course_Value, onCourseRemoved]);
+  }, [student.id, getStudentInfo.fullName, student.Course_Value, onCourseRemoved]);
 
   const handleRestoreFromColdStorage = useCallback(async (e) => {
     e.stopPropagation(); // Prevent card click
@@ -685,12 +891,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
   const initialParticipantsMemo = useMemo(() => {
     return [
       {
-        email: student.StudentEmail,
-        displayName: `${student.preferredFirstName || student.firstName} ${student.lastName}`,
+        email: getStudentInfo.email,
+        displayName: getStudentInfo.fullName,
         type: 'student',
       },
     ];
-  }, [student.StudentEmail, student.preferredFirstName, student.firstName, student.lastName]);
+  }, [getStudentInfo.email, getStudentInfo.fullName]);
 
   // Safely get the last week status value
   const lastWeekStatus = getSafeValue(student.StatusCompare);
@@ -832,13 +1038,13 @@ const handleStatusChange = useCallback(async (newStatus) => {
                 className="text-sm font-medium" 
                 style={{ backgroundColor: avatarColor, color: '#FFFFFF' }}
               >
-                {initials}
+                {getStudentInfo.initials}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-base font-medium truncate flex items-center gap-2">
-                {student.preferredFirstName || student.firstName} {student.lastName}
+                {getStudentInfo.fullName}
               
               </CardTitle>
                 <Button
@@ -879,7 +1085,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-500 truncate">
-                {student.StudentEmail}
+                {getStudentInfo.email}
               </span>
               <GenderBadge gender={student.gender} />
             </div>
@@ -1429,7 +1635,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
                   size="sm"
                   className={`${buttonClass} text-blue-600 hover:text-blue-700`}
                   onClick={(e) => {
-                    window.open(`/emulate/${student.StudentEmail}`, 'emulationTab');
+                    window.open(`/emulate/${getStudentInfo.email}`, 'emulationTab');
                   }}
                 >
                   <UserCheck className={iconClass} />
@@ -1474,7 +1680,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
         <DialogContent className="max-w-7xl w-[95vw] h-[95vh] p-6 flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>
-              Student Details - {student.firstName} {student.lastName}
+              Student Details - {getStudentInfo.fullName}
             </DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-auto mt-4">
@@ -1512,7 +1718,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
             <div className="text-sm text-gray-600 mt-4">
               Are you sure you want to remove this course for:
               <div className="font-medium mt-2 text-base">
-                {student.preferredFirstName || student.firstName} {student.lastName}
+                {getStudentInfo.fullName}
               </div>
               <div className="font-medium mt-2 text-blue-600">
                 {getSafeValue(student.Course_Value)}
@@ -1554,7 +1760,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
         onOpenChange={setIsAsnIssuesDialogOpen}
         asn={student.asn}
         studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
-        studentEmail={student.StudentEmail}  
+        studentEmail={getStudentInfo.email}  
         emailKeys={studentAsns?.[student.asn]?.emailKeys ? 
           Object.entries(studentAsns[student.asn].emailKeys)
             .filter(([_, value]) => value === true)
@@ -1567,7 +1773,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
         isOpen={isPendingFinalizationOpen}
         onOpenChange={setIsPendingFinalizationOpen}
         status={pendingStatus}
-        studentName={`${student.preferredFirstName || student.firstName} ${student.lastName}`}
+        studentName={getStudentInfo.fullName}
         courseName={getSafeValue(student.Course_Value)}
         studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
         courseId={student.id.slice(student.id.lastIndexOf('_') + 1)}
@@ -1586,9 +1792,9 @@ const handleStatusChange = useCallback(async (newStatus) => {
         onOpenChange={setIsResumingOnOpen}
         status="Resuming on (date)"
         statusValue={statusValue}
-        studentName={`${student.preferredFirstName || student.firstName} ${student.lastName}`}
+        studentName={getStudentInfo.fullName}
         courseName={getSafeValue(student.Course_Value)}
-        studentEmail={student.StudentEmail} 
+        studentEmail={getStudentInfo.email} 
         studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
         courseId={student.id.slice(student.id.lastIndexOf('_') + 1)}
         onConfirm={async () => {
@@ -1604,7 +1810,7 @@ const handleStatusChange = useCallback(async (newStatus) => {
         <DialogContent className="max-w-[90vw] w-[800px] h-[80vh] max-h-[700px] p-4 flex flex-col">
           <DialogHeader className="mb-4 bg-white">
             <DialogTitle>
-              Profile Change History - {student.preferredFirstName || student.firstName} {student.lastName}
+              Profile Change History - {getStudentInfo.fullName}
             </DialogTitle>
           </DialogHeader>
           <div className="flex-grow overflow-auto">
