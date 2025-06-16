@@ -353,18 +353,10 @@ function StudentList({
       // studentKey is optional - we want to see records even without email mapping
       const hasPasiFields = student.studentName && student.asn;
       
-      if (!hasStudentSummaryFields && !hasPasiFields) {
-        console.warn('Skipping invalid student record - missing required fields:', {
-          id: student.id,
-          hasFirstName: !!student.firstName,
-          hasLastName: !!student.lastName,
-          hasStudentEmail: !!student.StudentEmail,
-          hasStudentName: !!student.studentName,
-          hasStudentKey: !!pasiStudentKey,
-          hasAsn: !!student.asn
-        });
-        return false;
-      }
+      // Note: We allow students with incomplete data to be displayed
+      // This includes students that don't meet either:
+      // - Student summary requirements (firstName + lastName + StudentEmail)
+      // - PASI requirements (studentName + ASN)
       
       // Check for multiple ASNs filter if enabled
       if (showMultipleAsnsOnly) {

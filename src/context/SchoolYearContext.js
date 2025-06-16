@@ -820,11 +820,9 @@ export const SchoolYearProvider = ({ children }) => {
         const latestPasiRecord = getLatestPasiRecord(matchingPasiRecords);
         
         // Merge student summary with latest PASI record
-        const { term, ...restRecord } = latestPasiRecord;
         const merged = {
           ...summary, // Student summary data first
-          ...restRecord, // PASI record data second (overwrites conflicts)
-          pasiTerm: term, // Rename term to avoid conflicts
+          ...latestPasiRecord, // PASI record data second (overwrites conflicts)
           pasiRecordCount: matchingPasiRecords.length, // Show how many PASI records exist
           recordType: 'linked' // This record is linked (has both summary and PASI)
         };
@@ -839,10 +837,8 @@ export const SchoolYearProvider = ({ children }) => {
     // Add any remaining unmatched PASI records (no corresponding student summary)
     pasiGrouped.forEach(pasiRecords => {
       pasiRecords.forEach(record => {
-        const { term, ...restRecord } = record;
         results.push({
-          ...restRecord,
-          pasiTerm: term,
+          ...record,
           // Add placeholder student summary fields for unmatched PASI records
           CourseID: record.courseId,
           Status_Value: null,
@@ -912,9 +908,6 @@ export const SchoolYearProvider = ({ children }) => {
       if (!record.asn || !record.courseId) return true; // Include if missing ASN or courseId
       const key = `${record.asn}_${record.courseId}`;
       return !studentKeys.has(key);
-    }).map(record => {
-      const { term, ...rest } = record;
-      return { ...rest, pasiTerm: term };
     });
   }, [pasiRecords, nextYearPasiRecords, previousYearPasiRecords, studentSummaries, nextYearStudentSummaries, previousYearStudentSummaries, includeNextYear, includePreviousYear, isStaffUser]);
 
