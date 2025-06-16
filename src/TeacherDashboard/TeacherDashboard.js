@@ -184,7 +184,7 @@ function TeacherDashboard() {
   const navItems = useMemo(() => {
     const baseItems = [
       { icon: Grid, label: 'React Dashboard', key: 'react-dashboard' },
-      { icon: Shield, label: 'PASI Records', key: 'pasi-records' },
+      { icon: Database, label: 'Data Management', key: 'data-rectification' },
       { icon: BookOpen, label: 'Course Management', key: 'courses' },
       { 
         icon: Bell, 
@@ -198,7 +198,6 @@ function TeacherDashboard() {
       { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
       { icon: Link, label: 'Links', key: 'external-links' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
-      { icon: Database, label: 'Data Rectification', key: 'data-rectification' },
     ];
 
     // Only add admin items if user has admin access

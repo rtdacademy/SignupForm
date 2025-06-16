@@ -188,7 +188,6 @@ const PasiActionButtons = ({ asn, referenceNumber, showYourWay = true, onViewDet
   };
 
   return (
-    <TooltipProvider>
       <div className="flex h-7 gap-1">
         {/* Container for connected buttons with light green background */}
         <div className="flex border border-gray-200 rounded-md overflow-hidden">
@@ -300,7 +299,6 @@ const PasiActionButtons = ({ asn, referenceNumber, showYourWay = true, onViewDet
           </Tooltip>
         )}
       </div>
-    </TooltipProvider>
   );
 };
 

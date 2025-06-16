@@ -111,6 +111,74 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
     toast.success(`Copied ${label ? label + ': ' : ''}${displayText}`);
   };
 
+  // Handle record updates - refresh the selected record with updated data
+  const handleRecordUpdate = (fieldKey, fieldPath, newValue) => {
+    if (!selectedRecord) return;
+    
+    // Create a copy of the selected record with the updated field
+    const updatedRecord = { ...selectedRecord };
+    
+    // Update the record based on field path
+    if (fieldPath.includes('/')) {
+      // Handle nested paths like "Status/Value"
+      const pathParts = fieldPath.split('/');
+      if (pathParts.length === 2) {
+        if (!updatedRecord[pathParts[0]]) {
+          updatedRecord[pathParts[0]] = {};
+        }
+        updatedRecord[pathParts[0]][pathParts[1]] = newValue;
+      }
+    } else {
+      // Handle direct field updates
+      updatedRecord[fieldPath] = newValue;
+    }
+    
+    // Map profile fields to the record structure
+    switch (fieldPath) {
+      case 'asn':
+        updatedRecord.asn = newValue;
+        break;
+      case 'firstName':
+        updatedRecord.firstName = newValue;
+        break;
+      case 'lastName':
+        updatedRecord.lastName = newValue;
+        break;
+      case 'preferredFirstName':
+        updatedRecord.preferredFirstName = newValue;
+        break;
+      case 'birthday':
+        updatedRecord.birthday = newValue;
+        break;
+      case 'StudentPhone':
+        updatedRecord.StudentPhone = newValue;
+        break;
+      case 'ParentFirstName':
+        updatedRecord.ParentFirstName = newValue;
+        break;
+      case 'ParentLastName':
+        updatedRecord.ParentLastName = newValue;
+        break;
+      case 'ParentEmail':
+        updatedRecord.ParentEmail = newValue;
+        break;
+      case 'ParentPhone_x0023_':
+        updatedRecord.ParentPhone_x0023_ = newValue;
+        break;
+      case 'StudentType/Value':
+        updatedRecord.StudentType_Value = newValue;
+        break;
+      case 'School_x0020_Year/Value':
+        updatedRecord.School_x0020_Year_Value = newValue;
+        break;
+      default:
+        break;
+    }
+    
+    // Update the selected record state
+    setSelectedRecord(updatedRecord);
+  };
+
   // Copy record to clipboard as JSON
   const copyRecordToClipboard = (record) => {
     const recordStr = JSON.stringify(record, null, 2);
@@ -381,6 +449,7 @@ const TermConflicts = ({ recordsWithTermMismatch }) => {
             record={selectedRecord}
             onClose={() => setSelectedRecord(null)}
             handleCellClick={handleCellClick}
+            onRecordUpdate={handleRecordUpdate}
           />
         )}
       </CardContent>

@@ -29,8 +29,13 @@ import {
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { getDatabase, ref as databaseRef, get } from 'firebase/database';
+import { getDatabase, ref as databaseRef, get, update } from 'firebase/database';
+import { useAuth } from '../context/AuthContext';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { STATUS_OPTIONS, STUDENT_TYPE_OPTIONS, getSchoolYearOptions, TERM_OPTIONS, PASI_OPTIONS } from '../config/DropdownOptions';
+import { Input } from '../components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { toast } from 'sonner';
 import ProfileHistory from '../StudentManagement/ProfileHistory';
 
 // Helper function to calculate age from birthday
@@ -108,7 +113,7 @@ const DataField = ({
               {sourceType === "both" && (
                 <Badge 
                   variant="outline" 
-                  className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                  className="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
                 >
                   {yourWayLabel}
                 </Badge>
@@ -126,7 +131,7 @@ const DataField = ({
               {sourceType === "both" && (
                 <Badge 
                   variant="outline" 
-                  className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                  className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                 >
                   {pasiLabel}
                 </Badge>
@@ -165,6 +170,237 @@ const SingleDataField = ({
   );
 };
 
+// EditableField component for inline editing
+const EditableField = ({ 
+  label, 
+  value, 
+  fieldKey, 
+  fieldPath,
+  isProfileField = true,
+  editType = 'text', // 'text', 'select', 'date', 'boolean'
+  options = [], // For select type
+  editingField,
+  editValue,
+  isUpdating,
+  onEditStart,
+  onEditCancel,
+  onEditSave,
+  onValueChange,
+  onClick
+}) => {
+  const isEditing = editingField === fieldKey;
+  
+  const renderEditInput = () => {
+    switch (editType) {
+      case 'select':
+        return (
+          <Select value={editValue} onValueChange={onValueChange}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label || option.value}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      case 'date':
+        return (
+          <Input
+            type="date"
+            value={editValue}
+            onChange={(e) => onValueChange(e.target.value)}
+            className="h-8 text-sm"
+            disabled={isUpdating}
+          />
+        );
+      default:
+        return (
+          <Input
+            value={editValue}
+            onChange={(e) => onValueChange(e.target.value)}
+            className="h-8 text-sm"
+            disabled={isUpdating}
+          />
+        );
+    }
+  };
+  
+  return (
+    <>
+      <dt className="font-medium text-gray-500">{label}:</dt>
+      <dd>
+        {isEditing ? (
+          <div className="flex items-center gap-2">
+            {renderEditInput()}
+            <Button
+              size="sm"
+              onClick={() => onEditSave(fieldKey, fieldPath, isProfileField)}
+              disabled={isUpdating}
+              className="h-8 px-3 text-xs"
+            >
+              {isUpdating ? 'Saving...' : 'Save'}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onEditCancel}
+              disabled={isUpdating}
+              className="h-8 px-3 text-xs"
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 group">
+            <span 
+              className="cursor-pointer hover:text-blue-600"
+              onClick={() => onClick && value && onClick(value, label)}
+            >
+              {value || 'N/A'}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onEditStart(fieldKey, value)}
+              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <Edit className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </dd>
+    </>
+  );
+};
+
+// EditableFieldWithBadge component for fields that may have source badges
+const EditableFieldWithBadge = ({ 
+  label, 
+  value, 
+  fieldKey, 
+  fieldPath,
+  isProfileField = true,
+  editType = 'text', // 'text', 'select', 'date', 'boolean'
+  options = [], // For select type
+  showBadge = false,
+  badgeText = '',
+  badgeClass = '',
+  displayValue, // Optional: different value for display vs editing
+  editingField,
+  editValue,
+  isUpdating,
+  onEditStart,
+  onEditCancel,
+  onEditSave,
+  onValueChange,
+  onClick
+}) => {
+  const isEditing = editingField === fieldKey;
+  
+  const renderEditInput = () => {
+    switch (editType) {
+      case 'select':
+        return (
+          <Select value={editValue} onValueChange={onValueChange}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label || option.value}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      case 'date':
+        return (
+          <Input
+            type="date"
+            value={editValue}
+            onChange={(e) => onValueChange(e.target.value)}
+            className="h-8 text-sm"
+            disabled={isUpdating}
+          />
+        );
+      default:
+        return (
+          <Input
+            value={editValue}
+            onChange={(e) => onValueChange(e.target.value)}
+            className="h-8 text-sm"
+            disabled={isUpdating}
+          />
+        );
+    }
+  };
+  
+  // Use displayValue if provided, otherwise use value
+  const valueToShow = displayValue || value;
+  
+  return (
+    <>
+      <dt className="font-medium text-gray-500">{label}:</dt>
+      <dd>
+        {isEditing ? (
+          <div className="flex items-center gap-2">
+            {renderEditInput()}
+            <Button
+              size="sm"
+              onClick={() => onEditSave(fieldKey, fieldPath, isProfileField)}
+              disabled={isUpdating}
+              className="h-8 px-3 text-xs"
+            >
+              {isUpdating ? 'Saving...' : 'Save'}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onEditCancel}
+              disabled={isUpdating}
+              className="h-8 px-3 text-xs"
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 group">
+            <div className="flex items-center gap-1">
+              {showBadge && (
+                <Badge variant="outline" className={badgeClass}>
+                  {badgeText}
+                </Badge>
+              )}
+              <span 
+                className="cursor-pointer hover:text-blue-600"
+                onClick={() => onClick && value && onClick(value, label)}
+              >
+                {valueToShow || 'N/A'}
+              </span>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                console.log('Edit button clicked for:', fieldKey, 'with value:', value);
+                onEditStart(fieldKey, value);
+              }}
+              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <Edit className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </dd>
+    </>
+  );
+};
+
 // PasiRecordDetails component with forwardRef to allow parent components to pass a ref
 const PasiRecordDetails = forwardRef(({ 
   record, 
@@ -172,9 +408,13 @@ const PasiRecordDetails = forwardRef(({
   onStaffReviewChange, 
   onEmailEdit,
   handleCellClick,
+  onRecordUpdate, // New callback for when record data changes
   isMissingPasi = false 
 }, ref) => {
   if (!record) return null;
+  
+  // Get user info from auth context for history tracking
+  const { user } = useAuth();
   
   // Log record to inspect available properties
   console.log('PasiRecordDetails - record:', record);
@@ -183,6 +423,20 @@ const PasiRecordDetails = forwardRef(({
   const [isProfileHistoryOpen, setIsProfileHistoryOpen] = useState(false);
   const [hasProfileHistory, setHasProfileHistory] = useState(false);
   const [studentEmailKey, setStudentEmailKey] = useState('');
+  
+  // State for edit functionality
+  const [editingField, setEditingField] = useState(null);
+  const [editValue, setEditValue] = useState('');
+  
+  // Handle edit value changes
+  const handleEditValueChange = (newValue) => {
+    setEditValue(newValue);
+  };
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Derived values for database operations
+  const studentKey = record.StudentEmail ? sanitizeEmail(record.StudentEmail) : null;
+  const courseId = record.CourseID;
   
   // Calculate age from birthday if available
   const age = calculateAge(record.birthday);
@@ -219,6 +473,185 @@ const PasiRecordDetails = forwardRef(({
     checkProfileHistory();
   }, [record.StudentEmail]);
   
+  // Database update functions
+  const updateProfileField = async (fieldPath, newValue) => {
+    if (!studentKey) {
+      toast.error('Cannot update: No student key available');
+      return false;
+    }
+    
+    try {
+      setIsUpdating(true);
+      const db = getDatabase();
+      const updates = {};
+      
+      // Add the main field update
+      updates[`students/${studentKey}/profile/${fieldPath}`] = newValue;
+      
+      // Add lastChange metadata for history tracking
+      updates[`students/${studentKey}/profileHistory/lastChange`] = {
+        userEmail: user?.email || 'unknown',
+        uid: user?.uid || null,
+        timestamp: Date.now(),
+        changeSource: 'pasi_record_details_edit'
+      };
+      
+      await update(databaseRef(db), updates);
+      toast.success('Profile updated successfully');
+      return true;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error('Failed to update profile');
+      return false;
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  const updateCourseField = async (fieldPath, newValue) => {
+    if (!studentKey || !courseId) {
+      toast.error('Cannot update: Missing student key or course ID');
+      return false;
+    }
+    
+    try {
+      setIsUpdating(true);
+      const db = getDatabase();
+      const updates = {};
+      
+      // Add the main field update
+      updates[`students/${studentKey}/courses/${courseId}/${fieldPath}`] = newValue;
+      
+      // Add lastChange metadata for course enrollment history tracking
+      updates[`students/${studentKey}/courses/${courseId}/enrollmentHistory/lastChange`] = {
+        userEmail: user?.email || 'unknown',
+        uid: user?.uid || null,
+        timestamp: Date.now(),
+        changeSource: 'pasi_record_details_edit'
+      };
+      
+      await update(databaseRef(db), updates);
+      toast.success('Course data updated successfully');
+      return true;
+    } catch (error) {
+      console.error('Error updating course data:', error);
+      toast.error('Failed to update course data');
+      return false;
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  // Edit handlers
+  const handleEditStart = (fieldKey, currentValue) => {
+    console.log('handleEditStart called:', { fieldKey, currentValue });
+    setEditingField(fieldKey);
+    setEditValue(currentValue || '');
+  };
+  
+  const handleEditCancel = () => {
+    console.log('handleEditCancel called');
+    setEditingField(null);
+    setEditValue('');
+  };
+  
+  const handleEditSave = async (fieldKey, fieldPath, isProfileField = true) => {
+    let success;
+    if (isProfileField) {
+      success = await updateProfileField(fieldPath, editValue);
+    } else {
+      // For course fields with Value/Id structure
+      const valueToSave = fieldPath.includes('Value') || fieldPath.includes('/') ? editValue : 
+                         { Id: 1, Value: editValue }; // Default structure for dropdown fields
+      success = await updateCourseField(fieldPath, valueToSave);
+    }
+    
+    if (success) {
+      setEditingField(null);
+      setEditValue('');
+      // Notify parent component that record data has been updated
+      if (onRecordUpdate) {
+        onRecordUpdate(fieldKey, fieldPath, editValue);
+      }
+    }
+  };
+  
+  // Special component for Status badges with editing
+  const EditableStatusField = ({ value, fieldKey, isYourWay = true }) => {
+    const isEditing = editingField === fieldKey;
+    
+    if (isEditing) {
+      return (
+        <div className="flex items-center gap-2">
+          <Select value={editValue} onValueChange={handleEditValueChange}>
+            <SelectTrigger className="h-8 text-sm w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.value}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            onClick={() => handleEditSave(fieldKey, 'Status/Value', false)}
+            disabled={isUpdating}
+            className="h-8 px-3 text-xs"
+          >
+            {isUpdating ? 'Saving...' : 'Save'}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleEditCancel}
+            disabled={isUpdating}
+            className="h-8 px-3 text-xs"
+          >
+            Cancel
+          </Button>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="flex items-center gap-2 group">
+        {isYourWay && (
+          <Badge 
+            variant="outline" 
+            className="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+          >
+            YourWay
+          </Badge>
+        )}
+        <Badge 
+          variant={value === 'Completed' ? 'success' : 'secondary'}
+          className={`
+            text-sm py-1 px-2
+            ${value === 'Completed' 
+              ? 'bg-green-50 text-green-700 border-green-200' 
+              : value === 'Active'
+                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }
+          `}
+        >
+          {value || 'N/A'}
+        </Badge>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => handleEditStart(fieldKey, value)}
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <Edit className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  };
+  
   // Determine which data comes from which system
   const yourWayData = {
     asn: record.asn,
@@ -241,7 +674,12 @@ const PasiRecordDetails = forwardRef(({
     gender: record.gender,
     payment_status: record.payment_status,
     resumingOnDate: record.resumingOnDate,
-    studentPhone: record.StudentPhone
+    studentPhone: record.StudentPhone,
+    // Parent/Guardian contact information
+    parentFirstName: record.ParentFirstName,
+    parentLastName: record.ParentLastName,
+    parentEmail: record.ParentEmail,
+    parentPhone: record.ParentPhone_x0023_
   };
   
   const pasiData = {
@@ -252,7 +690,7 @@ const PasiRecordDetails = forwardRef(({
     courseDescription: record.courseDescription,
     term: record.pasiTerm,
     status: record.status,
-    grade: record.value,
+    grade: record.grade,
     exitDate: record.exitDate,
     schoolYear: record.schoolYear,
     assignmentDate: record.assignmentDate,
@@ -286,8 +724,8 @@ const PasiRecordDetails = forwardRef(({
       <CardHeader className="py-3">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4" /> 
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FileText className="h-5 w-5" /> 
               {isMissingPasi ? 'Student Details' : 'PASI Record Details'}
               {isMissingPasi && (
                 <Badge className="ml-2 bg-amber-100 text-amber-800 border-amber-300 text-xs">
@@ -300,7 +738,7 @@ const PasiRecordDetails = forwardRef(({
                 </Badge>
               )}
             </CardTitle>
-        <CardDescription className="text-xs flex justify-between">
+        <CardDescription className="text-sm flex justify-between">
           <span>
             {isMissingPasi ? 
               `${record.studentName || `${record.lastName}, ${record.firstName}`} - ${record.Course_Value || record.courseValue}` :
@@ -341,65 +779,86 @@ const PasiRecordDetails = forwardRef(({
         </div>
       </CardHeader>
       
-      <CardContent className="text-xs py-2">
+      <CardContent className="text-sm py-2">
         <div className="grid grid-cols-1 gap-4">
           <div>
-            <h3 className="font-medium mb-2 text-sm flex items-center">
+            <h3 className="font-medium mb-2 text-base flex items-center">
               <span>Student Information</span>
             </h3>
-            <dl className="grid grid-cols-[1fr_3fr] gap-2">
-              <SingleDataField 
-                label="ASN" 
-                value={record.asn} 
+            <dl className="grid grid-cols-[1fr_3fr] gap-3">
+              {/* ASN - Editable */}
+              <EditableField
+                label="ASN"
+                value={yourWayData.asn}
+                fieldKey="asn"
+                fieldPath="asn"
+                isProfileField={true}
+                editingField={editingField}
+                editValue={editValue}
+                isUpdating={isUpdating}
+                onEditStart={handleEditStart}
+                onEditCancel={handleEditCancel}
+                onEditSave={handleEditSave}
+                onValueChange={handleEditValueChange}
                 onClick={handleCellClick}
               />
               
-              {/* Name Fields */}
-              <dt className="font-medium text-gray-500">First Name:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" 
-                onClick={() => handleCellClick && yourWayData.firstName && handleCellClick(yourWayData.firstName, "First Name")}>
-                {isMissingPasi ? (
-                  <span>{yourWayData.firstName || 'N/A'}</span>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <Badge 
-                      variant="outline" 
-                      className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
-                    >
-                      YourWay
-                    </Badge>
-                    <span>{yourWayData.firstName || 'N/A'}</span>
-                  </div>
-                )}
-              </dd>
+              {/* Name Fields - Editable */}
+              <EditableFieldWithBadge
+                label="First Name"
+                value={yourWayData.firstName}
+                fieldKey="firstName"
+                fieldPath="firstName"
+                isProfileField={true}
+                showBadge={!isMissingPasi}
+                badgeText="YourWay"
+                badgeClass="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                editingField={editingField}
+                editValue={editValue}
+                isUpdating={isUpdating}
+                onEditStart={handleEditStart}
+                onEditCancel={handleEditCancel}
+                onEditSave={handleEditSave}
+                onValueChange={handleEditValueChange}
+                onClick={handleCellClick}
+              />
               
-              <dt className="font-medium text-gray-500">Last Name:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" 
-                onClick={() => handleCellClick && yourWayData.lastName && handleCellClick(yourWayData.lastName, "Last Name")}>
-                {isMissingPasi ? (
-                  <span>{yourWayData.lastName || 'N/A'}</span>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <Badge 
-                      variant="outline" 
-                      className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
-                    >
-                      YourWay
-                    </Badge>
-                    <span>{yourWayData.lastName || 'N/A'}</span>
-                  </div>
-                )}
-              </dd>
+              <EditableFieldWithBadge
+                label="Last Name"
+                value={yourWayData.lastName}
+                fieldKey="lastName"
+                fieldPath="lastName"
+                isProfileField={true}
+                showBadge={!isMissingPasi}
+                badgeText="YourWay"
+                badgeClass="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                editingField={editingField}
+                editValue={editValue}
+                isUpdating={isUpdating}
+                onEditStart={handleEditStart}
+                onEditCancel={handleEditCancel}
+                onEditSave={handleEditSave}
+                onValueChange={handleEditValueChange}
+                onClick={handleCellClick}
+              />
               
               
-              {/* Preferred Name - YourWay only */}
-              {yourWayData.preferredFirstName && (
-                <SingleDataField 
-                  label="Preferred Name" 
-                  value={yourWayData.preferredFirstName} 
-                  onClick={handleCellClick}
-                />
-              )}
+              {/* Preferred Name - YourWay only - Editable */}
+              <EditableField
+                label="Preferred Name"
+                value={yourWayData.preferredFirstName}
+                fieldKey="preferredFirstName"
+                fieldPath="preferredFirstName"
+                isProfileField={true}
+                editingField={editingField}
+                editValue={editValue}
+                isUpdating={isUpdating}
+                onEditStart={handleEditStart}
+                onEditCancel={handleEditCancel}
+                onEditSave={handleEditSave}
+                onValueChange={handleEditValueChange}
+                onClick={handleCellClick}
+              />
               
               {/* Email */}
               <dt className="font-medium text-gray-500">Email:</dt>
@@ -416,7 +875,7 @@ const PasiRecordDetails = forwardRef(({
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                          className="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
                         >
                           YourWay
                         </Badge>
@@ -428,7 +887,7 @@ const PasiRecordDetails = forwardRef(({
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                          className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                         >
                           PASI
                         </Badge>
@@ -449,50 +908,47 @@ const PasiRecordDetails = forwardRef(({
                 )}
               </dd>
               
-              {/* Birthday - YourWay only */}
-              <dt className="font-medium text-gray-500">Birthday:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" 
-                onClick={() => handleCellClick && record.birthday && handleCellClick(record.birthday, "Birthday")}>
-                {isMissingPasi ? (
-                  <span>{record.birthday ? formatUserFriendlyDate(record.birthday) : 'N/A'}</span>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <Badge 
-                      variant="outline" 
-                      className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
-                    >
-                      YourWay
-                    </Badge>
-                    <span>{record.birthday ? formatUserFriendlyDate(record.birthday) : 'N/A'}</span>
-                  </div>
-                )}
-              </dd>
+              {/* Birthday - YourWay only - Editable */}
+              <EditableFieldWithBadge
+                label="Birthday"
+                value={record.birthday}
+                displayValue={record.birthday ? formatUserFriendlyDate(record.birthday) : 'N/A'}
+                fieldKey="birthday"
+                fieldPath="birthday"
+                isProfileField={true}
+                editType="date"
+                showBadge={!isMissingPasi}
+                badgeText="YourWay"
+                badgeClass="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                editingField={editingField}
+                editValue={editValue}
+                isUpdating={isUpdating}
+                onEditStart={handleEditStart}
+                onEditCancel={handleEditCancel}
+                onEditSave={handleEditSave}
+                onValueChange={handleEditValueChange}
+                onClick={handleCellClick}
+              />
               
               <dt className="font-medium text-gray-500">Age:</dt>
               <dd>{age}</dd>
               
-              {/* Phone - YourWay only */}
-              {yourWayData.studentPhone && (
-                <>
-                  <dt className="font-medium text-gray-500">Phone:</dt>
-                  <dd className="cursor-pointer hover:text-blue-600" 
-                    onClick={() => handleCellClick && yourWayData.studentPhone && handleCellClick(yourWayData.studentPhone, "Phone")}>
-                    {isMissingPasi ? (
-                      <span>{yourWayData.studentPhone || 'N/A'}</span>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <Badge 
-                          variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
-                        >
-                          YourWay
-                        </Badge>
-                        <span>{yourWayData.studentPhone || 'N/A'}</span>
-                      </div>
-                    )}
-                  </dd>
-                </>
-              )}
+              {/* Student Phone - YourWay only - Editable */}
+              <EditableField
+                label="Student Phone"
+                value={yourWayData.studentPhone}
+                fieldKey="studentPhone"
+                fieldPath="StudentPhone"
+                isProfileField={true}
+                editingField={editingField}
+                editValue={editValue}
+                isUpdating={isUpdating}
+                onEditStart={handleEditStart}
+                onEditCancel={handleEditCancel}
+                onEditSave={handleEditSave}
+                onValueChange={handleEditValueChange}
+                onClick={handleCellClick}
+              />
               
               {/* Full Address - YourWay only */}
               {record.address && record.address.formattedAddress && (
@@ -503,7 +959,7 @@ const PasiRecordDetails = forwardRef(({
                       {!isMissingPasi && (
                         <Badge 
                           variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                          className="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
                         >
                           YourWay
                         </Badge>
@@ -516,7 +972,7 @@ const PasiRecordDetails = forwardRef(({
                         <Button
                           variant="outline"
                           size="xs"
-                          className="h-6 px-2 text-xs flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                          className="h-7 px-3 text-sm flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
                           onClick={() => window.open(`https://www.google.com/maps/place/?q=place_id:${record.address.placeId}`, '_blank')}
                           title="View on Google Maps"
                         >
@@ -529,24 +985,27 @@ const PasiRecordDetails = forwardRef(({
                 </>
               )}
               
-              {/* Student Type - YourWay only */}
-              <dt className="font-medium text-gray-500">Student Type:</dt>
-              <dd className="cursor-pointer hover:text-blue-600" 
-                onClick={() => handleCellClick && yourWayData.studentType && handleCellClick(yourWayData.studentType, "Student Type")}>
-                {isMissingPasi ? (
-                  <span>{yourWayData.studentType || 'N/A'}</span>
-                ) : (
-                  <div className="flex items-center gap-1">
-                    <Badge 
-                      variant="outline" 
-                      className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
-                    >
-                      YourWay
-                    </Badge>
-                    <span>{yourWayData.studentType || 'N/A'}</span>
-                  </div>
-                )}
-              </dd>
+              {/* Student Type - YourWay only - Editable */}
+              <EditableFieldWithBadge
+                label="Student Type"
+                value={yourWayData.studentType}
+                fieldKey="studentType"
+                fieldPath="StudentType/Value"
+                isProfileField={false}
+                editType="select"
+                options={STUDENT_TYPE_OPTIONS}
+                showBadge={!isMissingPasi}
+                badgeText="YourWay"
+                badgeClass="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                editingField={editingField}
+                editValue={editValue}
+                isUpdating={isUpdating}
+                onEditStart={handleEditStart}
+                onEditCancel={handleEditCancel}
+                onEditSave={handleEditSave}
+                onValueChange={handleEditValueChange}
+                onClick={handleCellClick}
+              />
               
               {/* Primary School - YourWay only (if exists) */}
               {yourWayData.primarySchool && (
@@ -560,7 +1019,7 @@ const PasiRecordDetails = forwardRef(({
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                          className="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
                         >
                           YourWay
                         </Badge>
@@ -571,37 +1030,27 @@ const PasiRecordDetails = forwardRef(({
                 </>
               )}
               
-              {/* School Year */}
-              <dt className="font-medium text-gray-500">School Year:</dt>
-              <dd className="cursor-pointer hover:text-blue-600"
-                onClick={() => handleCellClick && yourWayData.schoolYear && handleCellClick(yourWayData.schoolYear, "School Year")}>
-                {isMissingPasi ? (
-                  <span>{yourWayData.schoolYear || 'N/A'}</span>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      <Badge 
-                        variant="outline" 
-                        className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
-                      >
-                        YourWay
-                      </Badge>
-                      <span>{yourWayData.schoolYear || 'N/A'}</span>
-                    </div>
-                    {pasiData.schoolYear && (
-                      <div className="flex items-center gap-1">
-                        <Badge 
-                          variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
-                        >
-                          PASI
-                        </Badge>
-                        <span>{pasiData.schoolYear || 'N/A'}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </dd>
+              {/* School Year - Editable */}
+              <EditableFieldWithBadge
+                label="School Year"
+                value={yourWayData.schoolYear}
+                fieldKey="schoolYear"
+                fieldPath="School_x0020_Year/Value"
+                isProfileField={false}
+                editType="select"
+                options={getSchoolYearOptions()}
+                showBadge={!isMissingPasi}
+                badgeText="YourWay"
+                badgeClass="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                editingField={editingField}
+                editValue={editValue}
+                isUpdating={isUpdating}
+                onEditStart={handleEditStart}
+                onEditCancel={handleEditCancel}
+                onEditSave={handleEditSave}
+                onValueChange={handleEditValueChange}
+                onClick={handleCellClick}
+              />
               
               {/* Registration Date */}
               <dt className="font-medium text-gray-500">Registration Date:</dt>
@@ -620,11 +1069,89 @@ const PasiRecordDetails = forwardRef(({
             </dl>
           </div>
           
+          {/* Parent/Guardian Contact Information Section */}
+          {(yourWayData.parentFirstName || yourWayData.parentLastName || yourWayData.parentEmail || yourWayData.parentPhone) && (
+            <div>
+              <h3 className="font-medium mb-2 text-base flex items-center">
+                <span>Parent/Guardian Contact Information</span>
+              </h3>
+              <dl className="grid grid-cols-[1fr_3fr] gap-3">
+                {/* Parent First Name - Editable */}
+                <EditableField
+                  label="Parent First Name"
+                  value={yourWayData.parentFirstName}
+                  fieldKey="parentFirstName"
+                  fieldPath="ParentFirstName"
+                  isProfileField={true}
+                  editingField={editingField}
+                  editValue={editValue}
+                  isUpdating={isUpdating}
+                  onEditStart={handleEditStart}
+                  onEditCancel={handleEditCancel}
+                  onEditSave={handleEditSave}
+                  onValueChange={handleEditValueChange}
+                  onClick={handleCellClick}
+                />
+                
+                {/* Parent Last Name - Editable */}
+                <EditableField
+                  label="Parent Last Name"
+                  value={yourWayData.parentLastName}
+                  fieldKey="parentLastName"
+                  fieldPath="ParentLastName"
+                  isProfileField={true}
+                  editingField={editingField}
+                  editValue={editValue}
+                  isUpdating={isUpdating}
+                  onEditStart={handleEditStart}
+                  onEditCancel={handleEditCancel}
+                  onEditSave={handleEditSave}
+                  onValueChange={handleEditValueChange}
+                  onClick={handleCellClick}
+                />
+                
+                {/* Parent Email - Editable */}
+                <EditableField
+                  label="Parent Email"
+                  value={yourWayData.parentEmail}
+                  fieldKey="parentEmail"
+                  fieldPath="ParentEmail"
+                  isProfileField={true}
+                  editingField={editingField}
+                  editValue={editValue}
+                  isUpdating={isUpdating}
+                  onEditStart={handleEditStart}
+                  onEditCancel={handleEditCancel}
+                  onEditSave={handleEditSave}
+                  onValueChange={handleEditValueChange}
+                  onClick={handleCellClick}
+                />
+                
+                {/* Parent Phone - Editable */}
+                <EditableField
+                  label="Parent Phone"
+                  value={yourWayData.parentPhone}
+                  fieldKey="parentPhone"
+                  fieldPath="ParentPhone_x0023_"
+                  isProfileField={true}
+                  editingField={editingField}
+                  editValue={editValue}
+                  isUpdating={isUpdating}
+                  onEditStart={handleEditStart}
+                  onEditCancel={handleEditCancel}
+                  onEditSave={handleEditSave}
+                  onValueChange={handleEditValueChange}
+                  onClick={handleCellClick}
+                />
+              </dl>
+            </div>
+          )}
+          
           <div>
-            <h3 className="font-medium mb-2 text-sm flex items-center">
+            <h3 className="font-medium mb-2 text-base flex items-center">
               <span>Course Information</span>
             </h3>
-            <dl className="grid grid-cols-[1fr_3fr] gap-2">
+            <dl className="grid grid-cols-[1fr_3fr] gap-3">
               {/* Course ID / Code */}
               <dt className="font-medium text-gray-500">{isMissingPasi ? 'Course ID:' : 'Course ID/Code:'}</dt>
               <dd className={isMissingPasi ? "" : "grid grid-cols-2 gap-2"}>
@@ -640,7 +1167,7 @@ const PasiRecordDetails = forwardRef(({
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                          className="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
                         >
                           YourWay
                         </Badge>
@@ -652,7 +1179,7 @@ const PasiRecordDetails = forwardRef(({
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                          className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                         >
                           PASI
                         </Badge>
@@ -678,7 +1205,7 @@ const PasiRecordDetails = forwardRef(({
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                          className="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
                         >
                           YourWay
                         </Badge>
@@ -690,7 +1217,7 @@ const PasiRecordDetails = forwardRef(({
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                          className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                         >
                           PASI
                         </Badge>
@@ -711,11 +1238,11 @@ const PasiRecordDetails = forwardRef(({
                     <div className="flex items-center gap-1">
                       <Badge 
                         variant="outline" 
-                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                        className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                       >
                         PASI
                       </Badge>
-                      <Badge className="text-xs py-0 px-1.5 bg-green-50 text-green-700 border-green-200">
+                      <Badge className="text-sm py-1 px-2 bg-green-50 text-green-700 border-green-200">
                         {pasiData.term || 'N/A'}
                       </Badge>
                     </div>
@@ -723,70 +1250,36 @@ const PasiRecordDetails = forwardRef(({
                 </>
               )}
               
-              {/* Status */}
+              {/* Status - Editable */}
               <dt className="font-medium text-gray-500">Status:</dt>
               <dd className={isMissingPasi ? "" : "grid grid-cols-2 gap-2"}>
                 {isMissingPasi ? (
-                  <div className="cursor-pointer hover:text-blue-600"
-                    onClick={() => handleCellClick && yourWayData.status && handleCellClick(yourWayData.status, "Status")}
-                  >
-                    <Badge 
-                      variant={yourWayData.status === 'Completed' ? 'success' : 'secondary'}
-                      className={`
-                        text-xs py-0 px-1.5
-                        ${yourWayData.status === 'Completed' 
-                          ? 'bg-green-50 text-green-700 border-green-200' 
-                          : yourWayData.status === 'Active'
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }
-                      `}
-                    >
-                      {yourWayData.status || 'N/A'}
-                    </Badge>
-                  </div>
+                  <EditableStatusField
+                    value={yourWayData.status}
+                    fieldKey="status"
+                    isYourWay={false}
+                  />
                 ) : (
                   <>
-                    <div className="cursor-pointer hover:text-blue-600"
-                      onClick={() => handleCellClick && yourWayData.status && handleCellClick(yourWayData.status, "Status")}
-                    >
-                      <div className="flex items-center gap-1">
-                        <Badge 
-                          variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
-                        >
-                          YourWay
-                        </Badge>
-                        <Badge 
-                          variant={yourWayData.status === 'Completed' ? 'success' : 'secondary'}
-                          className={`
-                            text-xs py-0 px-1.5
-                            ${yourWayData.status === 'Completed' 
-                              ? 'bg-green-50 text-green-700 border-green-200' 
-                              : yourWayData.status === 'Active'
-                                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
-                            }
-                          `}
-                        >
-                          {yourWayData.status || 'N/A'}
-                        </Badge>
-                      </div>
-                    </div>
+                    <EditableStatusField
+                      value={yourWayData.status}
+                      fieldKey="status"
+                      isYourWay={true}
+                    />
                     <div className="cursor-pointer hover:text-blue-600"
                       onClick={() => handleCellClick && pasiData.status && handleCellClick(pasiData.status, "Status")}
                     >
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                          className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                         >
                           PASI
                         </Badge>
                         <Badge 
                           variant={pasiData.status === 'Completed' ? 'success' : 'secondary'}
                           className={`
-                            text-xs py-0 px-1.5
+                            text-sm py-1 px-2
                             ${pasiData.status === 'Completed' 
                               ? 'bg-green-50 text-green-700 border-green-200' 
                               : pasiData.status === 'Active'
@@ -812,7 +1305,7 @@ const PasiRecordDetails = forwardRef(({
                     <div className="flex items-center gap-1">
                       <Badge 
                         variant="outline" 
-                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                        className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                       >
                         PASI
                       </Badge>
@@ -831,7 +1324,7 @@ const PasiRecordDetails = forwardRef(({
                     <div className="flex items-center gap-1">
                       <Badge 
                         variant="outline" 
-                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                        className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                       >
                         PASI
                       </Badge>
@@ -850,7 +1343,7 @@ const PasiRecordDetails = forwardRef(({
                     <div className="flex items-center gap-1">
                       <Badge 
                         variant="outline" 
-                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                        className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                       >
                         PASI
                       </Badge>
@@ -880,7 +1373,7 @@ const PasiRecordDetails = forwardRef(({
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                          className="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
                         >
                           YourWay
                         </Badge>
@@ -908,7 +1401,7 @@ const PasiRecordDetails = forwardRef(({
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                          className="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
                         >
                           YourWay
                         </Badge>
@@ -927,7 +1420,7 @@ const PasiRecordDetails = forwardRef(({
                     <div className="flex items-center gap-1">
                       <Badge 
                         variant="outline" 
-                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                        className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                       >
                         PASI
                       </Badge>
@@ -944,7 +1437,7 @@ const PasiRecordDetails = forwardRef(({
                     <div className="flex items-center gap-1">
                       <Badge 
                         variant="outline" 
-                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                        className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                       >
                         PASI
                       </Badge>
@@ -961,7 +1454,7 @@ const PasiRecordDetails = forwardRef(({
                     <div className="flex items-center gap-1">
                       <Badge 
                         variant="outline" 
-                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                        className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                       >
                         PASI
                       </Badge>
@@ -983,7 +1476,7 @@ const PasiRecordDetails = forwardRef(({
                       <div className="flex items-center gap-1">
                         <Badge 
                           variant="outline" 
-                          className="text-[10px] py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
+                          className="text-xs py-0 px-1 bg-blue-50 text-blue-700 border-blue-200"
                         >
                           YourWay
                         </Badge>
@@ -1003,7 +1496,7 @@ const PasiRecordDetails = forwardRef(({
                     <div className="flex items-center gap-1">
                       <Badge 
                         variant="outline" 
-                        className="text-[10px] py-0 px-1 bg-green-50 text-green-700 border-green-200"
+                        className="text-xs py-0 px-1 bg-green-50 text-green-700 border-green-200"
                       >
                         PASI
                       </Badge>
@@ -1019,7 +1512,7 @@ const PasiRecordDetails = forwardRef(({
                   <dt className="font-medium text-gray-500">Summary Key:</dt>
                   <dd className="cursor-pointer hover:text-blue-600 break-all" 
                     onClick={() => handleCellClick && record.summaryKey && handleCellClick(record.summaryKey, "Summary Key")}>
-                    <span className="text-xs text-gray-600">{record.summaryKey}</span>
+                    <span className="text-sm text-gray-600">{record.summaryKey}</span>
                     {onEmailEdit && (
                       <Button 
                         variant="ghost" 
@@ -1060,10 +1553,10 @@ const PasiRecordDetails = forwardRef(({
           {/* Documents Section */}
           {(record.citizenshipDocuments?.length > 0 || record.internationalDocuments) && (
             <div>
-              <h3 className="font-medium mb-2 text-sm flex items-center">
+              <h3 className="font-medium mb-2 text-base flex items-center">
                 <span>Documents</span>
               </h3>
-              <dl className="grid grid-cols-[1fr_3fr] gap-2">
+              <dl className="grid grid-cols-[1fr_3fr] gap-3">
                 {/* Citizenship Documents */}
                 {record.citizenshipDocuments?.length > 0 && (
                   <>
@@ -1075,7 +1568,7 @@ const PasiRecordDetails = forwardRef(({
                             key={index}
                             variant="outline"
                             size="xs"
-                            className="text-xs flex items-center gap-1"
+                            className="text-sm flex items-center gap-1"
                             onClick={() => window.open(doc.url, '_blank')}
                           >
                             <FileCheck className="h-3 w-3" />
@@ -1098,7 +1591,7 @@ const PasiRecordDetails = forwardRef(({
                           <Button
                             variant="outline"
                             size="xs"
-                            className="text-xs flex items-center gap-1"
+                            className="text-sm flex items-center gap-1"
                             onClick={() => window.open(record.internationalDocuments.passport, '_blank')}
                           >
                             <FileCheck className="h-3 w-3" />
@@ -1110,7 +1603,7 @@ const PasiRecordDetails = forwardRef(({
                           <Button
                             variant="outline"
                             size="xs"
-                            className="text-xs flex items-center gap-1"
+                            className="text-sm flex items-center gap-1"
                             onClick={() => window.open(record.internationalDocuments.additionalID, '_blank')}
                           >
                             <FileCheck className="h-3 w-3" />
@@ -1122,7 +1615,7 @@ const PasiRecordDetails = forwardRef(({
                           <Button
                             variant="outline"
                             size="xs"
-                            className="text-xs flex items-center gap-1"
+                            className="text-sm flex items-center gap-1"
                             onClick={() => window.open(record.internationalDocuments.residencyProof, '_blank')}
                           >
                             <FileCheck className="h-3 w-3" />
@@ -1142,7 +1635,7 @@ const PasiRecordDetails = forwardRef(({
         {/* Additional Information about Multiple Records - hide in MissingPasi mode */}
         {!isMissingPasi && !record.isSubRecord && record.multipleRecords && record.multipleRecords.length > 0 && (
           <div className="mt-4">
-            <h3 className="font-medium mb-2 text-sm">Multiple PASI Records</h3>
+            <h3 className="font-medium mb-2 text-base">Multiple PASI Records</h3>
             <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
               <p className="text-amber-800 flex items-center mb-2">
                 <AlertTriangle className="h-3 w-3 mr-1" />
@@ -1153,14 +1646,14 @@ const PasiRecordDetails = forwardRef(({
                 {record.multipleRecords.map((subRecord, index) => (
                   <div key={subRecord.referenceNumber || index} className="bg-white border border-gray-200 rounded-md p-2">
                     <div className="flex justify-between items-center mb-1">
-                      <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+                      <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-sm">
                         Record {index + 1}
                       </Badge>
                       <span className="text-xs text-gray-500">
                         {subRecord.referenceNumber === record.referenceNumber ? '(Current)' : ''}
                       </span>
                     </div>
-                    <dl className="grid grid-cols-[1fr_1.5fr] gap-1 text-xs">
+                    <dl className="grid grid-cols-[1fr_1.5fr] gap-2 text-sm">
                       <dt className="font-medium text-gray-500">Status:</dt>
                       <dd>{subRecord.status || 'N/A'}</dd>
                       
@@ -1183,7 +1676,7 @@ const PasiRecordDetails = forwardRef(({
         {/* Related PASI Records - hide in MissingPasi mode */}
         {!isMissingPasi && record.pasiRecords && Object.keys(record.pasiRecords).length > 0 && (
           <div className="mt-4">
-            <h3 className="font-medium mb-2 text-sm">Other PASI Records</h3>
+            <h3 className="font-medium mb-2 text-base">Other PASI Records</h3>
             <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
               <p className="text-blue-800 flex items-center mb-2">
                 <Info className="h-3 w-3 mr-1" />
@@ -1194,14 +1687,14 @@ const PasiRecordDetails = forwardRef(({
                 {Object.entries(record.pasiRecords).map(([courseCode, pasiRecord]) => (
                   <div key={courseCode} className="bg-white border border-gray-200 rounded-md p-2">
                     <div className="flex justify-between items-center mb-1">
-                      <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                      <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-sm">
                         {courseCode.toUpperCase()}
                       </Badge>
                       <span className="text-xs text-gray-500">
                         {pasiRecord.pasiRecordID === record.id ? '(Current)' : ''}
                       </span>
                     </div>
-                    <dl className="grid grid-cols-[1fr_1.5fr] gap-1 text-xs">
+                    <dl className="grid grid-cols-[1fr_1.5fr] gap-2 text-sm">
                       <dt className="font-medium text-gray-500">Description:</dt>
                       <dd>{pasiRecord.courseDescription || 'N/A'}</dd>
                       
