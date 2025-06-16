@@ -67,6 +67,7 @@ import PasiActionButtons from "../components/PasiActionButtons";
 import PasiRecordDetails from "../TeacherDashboard/PasiRecordDetails";
 import { toast } from 'sonner';
 import { getDatabase, ref, push, onValue, off, remove, update } from 'firebase/database';
+import { getStudentTypeInfo, getActiveFutureArchivedColor } from '../config/DropdownOptions';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -129,7 +130,7 @@ const FILTERABLE_FIELDS = {
   // Status & Progress
   status: { label: 'PASI Status', type: 'text' },
   Status_Value: { label: 'YourWay Status', type: 'text' },
-  ActiveFutureArchived_Value: { label: 'Active/Future/Archived', type: 'text' },
+  ActiveFutureArchived_Value: { label: 'State', type: 'text' },
   PercentCompleteGradebook: { label: 'Percent Complete Gradebook', type: 'number' },
   PercentScheduleComplete: { label: 'Percent Schedule Complete', type: 'number' },
   grade: { label: 'Grade', type: 'number' },
@@ -170,7 +171,10 @@ const FILTERABLE_FIELDS = {
   hasStudentKey: { label: 'Has Student Key', type: 'boolean' },
   autoStatus: { label: 'Auto Status', type: 'boolean' },
   hasSchedule: { label: 'Has Schedule', type: 'boolean' },
-  instructionalMinutesReceived: { label: 'Instructional Minutes Received', type: 'text' }
+  instructionalMinutesReceived: { label: 'Instructional Minutes Received', type: 'text' },
+  
+  // Special Fields
+  current_date: { label: 'Current Date', type: 'current_date' }
 };
 
 // Operator definitions
@@ -208,6 +212,17 @@ const OPERATORS = {
     { value: 'is_false', label: 'Is False' },
     { value: 'exists', label: 'Exists' },
     { value: 'not_exists', label: 'Does Not Exist' }
+  ],
+  current_date: [
+    { value: 'month_is_one_of', label: 'Current Month Is One Of' },
+    { value: 'month_is_not_one_of', label: 'Current Month Is Not One Of' },
+    { value: 'month_equals', label: 'Current Month Equals' },
+    { value: 'month_not_equals', label: 'Current Month Does Not Equal' },
+    { value: 'day_of_month_equals', label: 'Current Day Of Month Equals' },
+    { value: 'day_of_month_greater_than', label: 'Current Day Of Month Greater Than' },
+    { value: 'day_of_month_less_than', label: 'Current Day Of Month Less Than' },
+    { value: 'year_equals', label: 'Current Year Equals' },
+    { value: 'weekday_is_one_of', label: 'Current Weekday Is One Of' }
   ]
 };
 
@@ -219,6 +234,37 @@ const BASE_DATA_SOURCES = [
   { value: 'allPasi', label: 'All PASI Records' },
   { value: 'allYourWay', label: 'All YourWay Records' }
 ];
+
+// Options for current_date field dropdowns
+const MONTH_OPTIONS = [
+  { value: '1', label: 'January' },
+  { value: '2', label: 'February' },
+  { value: '3', label: 'March' },
+  { value: '4', label: 'April' },
+  { value: '5', label: 'May' },
+  { value: '6', label: 'June' },
+  { value: '7', label: 'July' },
+  { value: '8', label: 'August' },
+  { value: '9', label: 'September' },
+  { value: '10', label: 'October' },
+  { value: '11', label: 'November' },
+  { value: '12', label: 'December' }
+];
+
+const WEEKDAY_OPTIONS = [
+  { value: '0', label: 'Sunday' },
+  { value: '1', label: 'Monday' },
+  { value: '2', label: 'Tuesday' },
+  { value: '3', label: 'Wednesday' },
+  { value: '4', label: 'Thursday' },
+  { value: '5', label: 'Friday' },
+  { value: '6', label: 'Saturday' }
+];
+
+const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => ({
+  value: String(i + 1),
+  label: String(i + 1)
+}));
 
 // Helper function to check if a date value is valid and not empty
 const isValidDateValue = (value) => {
@@ -315,6 +361,15 @@ const formatDate = (dateValue, isFormatted = false) => {
     console.error("Error formatting date:", error);
     return 'N/A';
   }
+};
+
+// Helper function to determine if PASI columns should be shown
+const shouldShowPasiColumns = (activeTab, customViews) => {
+  const currentView = customViews.find(view => view.id === activeTab);
+  const baseDataSource = currentView?.baseDataSource || activeTab;
+  
+  // Hide PASI columns for YourWay-only data sources
+  return baseDataSource !== 'summaryOnly' && baseDataSource !== 'allYourWay';
 };
 
 // Function to generate a consistent color for a student based on initials
@@ -571,6 +626,146 @@ const CustomViewModal = ({
     return !['is_empty', 'is_not_empty', 'exists', 'not_exists', 'is_true', 'is_false'].includes(operator);
   };
 
+  // Helper function to render appropriate input for current_date conditions
+  const renderValueInput = (condition, groupId, conditionIndex) => {
+    const isCurrentDate = condition.field === 'current_date';
+    const operator = condition.operator;
+    
+    if (!needsValueInput(operator)) {
+      return null;
+    }
+
+    // Handle current_date field with special dropdowns
+    if (isCurrentDate) {
+      switch (operator) {
+        case 'month_is_one_of':
+        case 'month_is_not_one_of':
+          // Multi-select for months
+          return (
+            <div className="space-y-2">
+              <div className="text-xs text-gray-600">Select months (comma-separated values will be created):</div>
+              {MONTH_OPTIONS.map((month) => (
+                <label key={month.value} className="flex items-center space-x-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={(condition.value || '').split(',').map(v => v.trim()).includes(month.value)}
+                    onChange={(e) => {
+                      const currentValues = condition.value ? condition.value.split(',').map(v => v.trim()).filter(Boolean) : [];
+                      let newValues;
+                      if (e.target.checked) {
+                        newValues = [...currentValues, month.value];
+                      } else {
+                        newValues = currentValues.filter(v => v !== month.value);
+                      }
+                      updateCondition(groupId, conditionIndex, 'value', newValues.join(','));
+                    }}
+                    className="rounded"
+                  />
+                  <span>{month.label}</span>
+                </label>
+              ))}
+            </div>
+          );
+        
+        case 'month_equals':
+        case 'month_not_equals':
+          return (
+            <Select value={condition.value} onValueChange={(value) => updateCondition(groupId, conditionIndex, 'value', value)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select month" />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTH_OPTIONS.map((month) => (
+                  <SelectItem key={month.value} value={month.value}>
+                    {month.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+        
+        case 'weekday_is_one_of':
+          // Multi-select for weekdays
+          return (
+            <div className="space-y-2">
+              <div className="text-xs text-gray-600">Select weekdays:</div>
+              {WEEKDAY_OPTIONS.map((day) => (
+                <label key={day.value} className="flex items-center space-x-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={(condition.value || '').split(',').map(v => v.trim()).includes(day.value)}
+                    onChange={(e) => {
+                      const currentValues = condition.value ? condition.value.split(',').map(v => v.trim()).filter(Boolean) : [];
+                      let newValues;
+                      if (e.target.checked) {
+                        newValues = [...currentValues, day.value];
+                      } else {
+                        newValues = currentValues.filter(v => v !== day.value);
+                      }
+                      updateCondition(groupId, conditionIndex, 'value', newValues.join(','));
+                    }}
+                    className="rounded"
+                  />
+                  <span>{day.label}</span>
+                </label>
+              ))}
+            </div>
+          );
+        
+        case 'day_of_month_equals':
+        case 'day_of_month_greater_than':
+        case 'day_of_month_less_than':
+          return (
+            <Select value={condition.value} onValueChange={(value) => updateCondition(groupId, conditionIndex, 'value', value)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select day" />
+              </SelectTrigger>
+              <SelectContent>
+                {DAY_OPTIONS.map((day) => (
+                  <SelectItem key={day.value} value={day.value}>
+                    {day.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+        
+        case 'year_equals':
+          return (
+            <Input
+              type="number"
+              placeholder="Enter year (e.g., 2024)"
+              value={condition.value}
+              onChange={(e) => updateCondition(groupId, conditionIndex, 'value', e.target.value)}
+              className="h-8 text-xs"
+              min="2020"
+              max="2030"
+            />
+          );
+        
+        default:
+          return (
+            <Input
+              placeholder="Enter value"
+              value={condition.value}
+              onChange={(e) => updateCondition(groupId, conditionIndex, 'value', e.target.value)}
+              className="h-8 text-xs"
+            />
+          );
+      }
+    }
+
+    // Default text input for other fields
+    return (
+      <Input
+        placeholder="Enter value"
+        value={condition.value}
+        onChange={(e) => updateCondition(groupId, conditionIndex, 'value', e.target.value)}
+        className="h-8 text-xs"
+      />
+    );
+  };
+
   const handleSave = () => {
     onSave(localFormState);
   };
@@ -817,13 +1012,13 @@ const CustomViewModal = ({
                       {/* Value Input */}
                       <div className="space-y-1">
                         <Label className="text-xs">Value</Label>
-                        <Input
-                          placeholder="Enter value"
-                          value={condition.value}
-                          onChange={(e) => updateCondition(group.id, conditionIndex, 'value', e.target.value)}
-                          disabled={!condition.operator || !needsValueInput(condition.operator)}
-                          className="h-8 text-xs"
-                        />
+                        {condition.operator && needsValueInput(condition.operator) ? (
+                          renderValueInput(condition, group.id, conditionIndex)
+                        ) : (
+                          <div className="h-8 flex items-center text-xs text-gray-400">
+                            No value needed
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -902,16 +1097,13 @@ const PasiRecordsSimplified = () => {
     
     const unsubscribe = onValue(customViewsRef, (snapshot) => {
       const data = snapshot.val();
-      console.log('Firebase custom views data:', data); // Debug log
       if (data) {
         const viewsArray = Object.keys(data).map(key => ({
           id: key,
           ...data[key]
         }));
-        console.log('Processed custom views:', viewsArray); // Debug log
         setCustomViews(viewsArray);
       } else {
-        console.log('No custom views found'); // Debug log
         setCustomViews([]);
       }
       setIsLoadingCustomViews(false);
@@ -924,15 +1116,8 @@ const PasiRecordsSimplified = () => {
 
   // Helper function to evaluate a single condition
   const evaluateCondition = (record, condition) => {
-    console.log('🔍 Evaluating condition:', {
-      field: condition.field,
-      operator: condition.operator,
-      value: condition.value,
-      fieldValue: record[condition.field]
-    });
     
     if (!condition.field || !condition.operator) {
-      console.log('❌ Invalid condition - missing field or operator');
       return false;
     }
     
@@ -994,49 +1179,126 @@ const PasiRecordsSimplified = () => {
       case 'not_exists':
         result = fieldValue === undefined || fieldValue === null;
         break;
+      
+      // Current Date operators
+      case 'month_is_one_of':
+        if (condition.field === 'current_date') {
+          const currentMonth = new Date().getMonth() + 1; // JavaScript months are 0-indexed
+          const monthNumbers = (condition.value || '').split(',').map(month => {
+            const monthName = month.trim();
+            // Convert month names to numbers
+            const monthMap = {
+              'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+              'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12,
+              '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
+              '7': 7, '8': 8, '9': 9, '10': 10, '11': 11, '12': 12
+            };
+            return monthMap[monthName] || parseInt(monthName);
+          }).filter(Boolean);
+          result = monthNumbers.includes(currentMonth);
+        }
+        break;
+      case 'month_is_not_one_of':
+        if (condition.field === 'current_date') {
+          const currentMonth = new Date().getMonth() + 1;
+          const monthNumbers = (condition.value || '').split(',').map(month => {
+            const monthName = month.trim();
+            const monthMap = {
+              'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+              'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12,
+              '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6,
+              '7': 7, '8': 8, '9': 9, '10': 10, '11': 11, '12': 12
+            };
+            return monthMap[monthName] || parseInt(monthName);
+          }).filter(Boolean);
+          result = !monthNumbers.includes(currentMonth);
+        }
+        break;
+      case 'month_equals':
+        if (condition.field === 'current_date') {
+          const currentMonth = new Date().getMonth() + 1;
+          const monthMap = {
+            'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+            'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
+          };
+          const targetMonth = monthMap[condition.value] || parseInt(condition.value);
+          result = currentMonth === targetMonth;
+        }
+        break;
+      case 'month_not_equals':
+        if (condition.field === 'current_date') {
+          const currentMonth = new Date().getMonth() + 1;
+          const monthMap = {
+            'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+            'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
+          };
+          const targetMonth = monthMap[condition.value] || parseInt(condition.value);
+          result = currentMonth !== targetMonth;
+        }
+        break;
+      case 'day_of_month_equals':
+        if (condition.field === 'current_date') {
+          const currentDay = new Date().getDate();
+          result = currentDay === parseInt(condition.value);
+        }
+        break;
+      case 'day_of_month_greater_than':
+        if (condition.field === 'current_date') {
+          const currentDay = new Date().getDate();
+          result = currentDay > parseInt(condition.value);
+        }
+        break;
+      case 'day_of_month_less_than':
+        if (condition.field === 'current_date') {
+          const currentDay = new Date().getDate();
+          result = currentDay < parseInt(condition.value);
+        }
+        break;
+      case 'year_equals':
+        if (condition.field === 'current_date') {
+          const currentYear = new Date().getFullYear();
+          result = currentYear === parseInt(condition.value);
+        }
+        break;
+      case 'weekday_is_one_of':
+        if (condition.field === 'current_date') {
+          const currentWeekday = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
+          const weekdayNumbers = (condition.value || '').split(',').map(day => {
+            const dayName = day.trim();
+            const dayMap = {
+              'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6,
+              '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6
+            };
+            return dayMap[dayName] !== undefined ? dayMap[dayName] : parseInt(dayName);
+          }).filter(num => num !== undefined && !isNaN(num));
+          result = weekdayNumbers.includes(currentWeekday);
+        }
+        break;
       default:
         result = false;
     }
     
-    console.log(`✅ Condition result: ${result}`);
     return result;
   };
 
   // Enhanced filter function for grouped conditions
   const applyCustomFilter = (records, conditionsConfig) => {
-    console.log('🎯 applyCustomFilter called with:', {
-      recordCount: records.length,
-      conditionsConfig,
-      isArray: Array.isArray(conditionsConfig)
-    });
     
     // Handle legacy format (simple array of conditions)
     if (Array.isArray(conditionsConfig)) {
-      console.log('📊 Using legacy filter format');
       return applyLegacyFilter(records, conditionsConfig);
     }
     
     // Handle new grouped format
     if (!conditionsConfig || !conditionsConfig.groups || conditionsConfig.groups.length === 0) {
-      console.log('⚠️ No conditions config or empty groups, returning all records');
       return records;
     }
     
-    console.log('🔄 Processing grouped conditions:', {
-      groupCount: conditionsConfig.groups.length,
-      groupLogic: conditionsConfig.groupLogic
-    });
     
     const filteredRecords = records.filter((record, recordIndex) => {
       // Only log for first few records to avoid console spam
       const shouldLog = recordIndex < 3;
       if (shouldLog) {
-        console.log(`🔍 Processing record ${recordIndex + 1}:`, {
-          asn: record.asn,
-          studentName: record.studentName,
-          firstName: record.firstName,
-          lastName: record.lastName
-        });
       }
       
       const groupResults = [];
@@ -1046,14 +1308,10 @@ const PasiRecordsSimplified = () => {
         const group = conditionsConfig.groups[groupIndex];
         
         if (shouldLog) {
-          console.log(`📁 Evaluating Group ${groupIndex + 1}:`, {
-            conditionCount: group.conditions?.length || 0,
-            internalLogic: group.internalLogic
-          });
         }
         
         if (!group.conditions || group.conditions.length === 0) {
-          if (shouldLog) console.log('📁 Empty group, defaulting to true');
+          groupResults.push(true);
           groupResults.push(true);
           continue;
         }
@@ -1061,7 +1319,7 @@ const PasiRecordsSimplified = () => {
         // Filter out invalid conditions
         const validConditions = group.conditions.filter(c => c.field && c.operator);
         if (validConditions.length === 0) {
-          if (shouldLog) console.log('📁 No valid conditions in group, defaulting to true');
+          groupResults.push(true);
           groupResults.push(true);
           continue;
         }
@@ -1071,20 +1329,17 @@ const PasiRecordsSimplified = () => {
         const groupLogic = group.internalLogic || 'AND';
         
         if (shouldLog) {
-          console.log(`📁 Processing ${validConditions.length} valid conditions with ${groupLogic} logic`);
         }
         
         for (let i = 0; i < validConditions.length; i++) {
           const condition = validConditions[i];
           if (shouldLog) {
-            console.log(`🔸 Condition ${i + 1}/${validConditions.length}:`);
           }
           
           const conditionResult = evaluateCondition(record, condition);
           
           if (i === 0) {
             groupResult = conditionResult;
-            if (shouldLog) console.log(`🔸 First condition result: ${groupResult}`);
           } else {
             const previousResult = groupResult;
             if (groupLogic === 'AND') {
@@ -1093,13 +1348,11 @@ const PasiRecordsSimplified = () => {
               groupResult = groupResult || conditionResult;
             }
             if (shouldLog) {
-              console.log(`🔸 Combined: ${previousResult} ${groupLogic} ${conditionResult} = ${groupResult}`);
             }
           }
         }
         
         if (shouldLog) {
-          console.log(`📁 Group ${groupIndex + 1} final result: ${groupResult}`);
         }
         groupResults.push(groupResult);
       }
@@ -1109,7 +1362,6 @@ const PasiRecordsSimplified = () => {
       const globalGroupLogic = conditionsConfig.groupLogic || 'AND';
       
       if (shouldLog) {
-        console.log(`🎯 Combining ${groupResults.length} group results with ${globalGroupLogic}:`, groupResults);
       }
       
       for (let i = 1; i < groupResults.length; i++) {
@@ -1120,47 +1372,34 @@ const PasiRecordsSimplified = () => {
           finalResult = finalResult || groupResults[i];
         }
         if (shouldLog) {
-          console.log(`🎯 Global combine: ${previousResult} ${globalGroupLogic} ${groupResults[i]} = ${finalResult}`);
         }
       }
       
       if (shouldLog) {
-        console.log(`🎯 Record ${recordIndex + 1} FINAL RESULT: ${finalResult}`);
-        console.log('---');
       }
       
       return finalResult;
     });
     
-    console.log(`🎯 Filter complete: ${records.length} → ${filteredRecords.length} records`);
     return filteredRecords;
   };
 
   // Legacy filter function for backwards compatibility
   const applyLegacyFilter = (records, conditions) => {
-    console.log('📊 Legacy filter called with:', {
-      recordCount: records.length,
-      conditionCount: conditions?.length || 0,
-      conditions
-    });
     
     if (!conditions || conditions.length === 0) {
-      console.log('⚠️ No legacy conditions, returning all records');
       return records;
     }
     
     const validConditions = conditions.filter(c => c.field && c.operator);
-    console.log(`📊 Valid legacy conditions: ${validConditions.length}/${conditions.length}`);
     
     if (validConditions.length === 0) {
-      console.log('⚠️ No valid legacy conditions, returning all records');
       return records;
     }
     
     const filteredRecords = records.filter((record, recordIndex) => {
       const shouldLog = recordIndex < 3;
       if (shouldLog) {
-        console.log(`📊 Legacy: Processing record ${recordIndex + 1}`);
       }
       
       let result = true;
@@ -1169,14 +1408,12 @@ const PasiRecordsSimplified = () => {
       for (let i = 0; i < validConditions.length; i++) {
         const condition = validConditions[i];
         if (shouldLog) {
-          console.log(`📊 Legacy condition ${i + 1}:`);
         }
         
         const conditionResult = evaluateCondition(record, condition);
         
         if (i === 0) {
           result = conditionResult;
-          if (shouldLog) console.log(`📊 Legacy first result: ${result}`);
         } else {
           const previousResult = result;
           if (currentLogic === 'AND') {
@@ -1185,7 +1422,6 @@ const PasiRecordsSimplified = () => {
             result = result || conditionResult;
           }
           if (shouldLog) {
-            console.log(`📊 Legacy combined: ${previousResult} ${currentLogic} ${conditionResult} = ${result}`);
           }
         }
         
@@ -1193,13 +1429,11 @@ const PasiRecordsSimplified = () => {
       }
       
       if (shouldLog) {
-        console.log(`📊 Legacy record ${recordIndex + 1} final: ${result}`);
       }
       
       return result;
     });
     
-    console.log(`📊 Legacy filter complete: ${records.length} → ${filteredRecords.length} records`);
     return filteredRecords;
   };
 
@@ -1242,12 +1476,6 @@ const PasiRecordsSimplified = () => {
       }
       
       // Apply custom filters
-      console.log('🎯 Applying custom view filters:', {
-        viewName: customView.name,
-        baseDataSource: customView.baseDataSource,
-        recordsBeforeFilter: records.length,
-        conditions: customView.conditions
-      });
       records = applyCustomFilter(records, customView.conditions);
     } else {
       // Get the appropriate data source based on active tab (default tabs)
@@ -1828,13 +2056,21 @@ const PasiRecordsSimplified = () => {
                           } 
                         />
                         <SortableHeader column="startDateFormatted" label="Reg Date" />
-                        <SortableHeader 
-                          column="pasiTerm" 
-                          label="Term" 
-                        />
-                        {((activeTab === 'linked' || activeTab === 'summaryOnly') || 
-                          (customViews.find(view => view.id === activeTab)?.baseDataSource === 'linked' || 
-                           customViews.find(view => view.id === activeTab)?.baseDataSource === 'summaryOnly')) && (
+                        {shouldShowPasiColumns(activeTab, customViews) && (
+                          <SortableHeader 
+                            column="pasiTerm" 
+                            label="Term" 
+                          />
+                        )}
+                        {(activeTab !== 'pasiOnly' && activeTab !== 'allPasi' && 
+                          (!customViews.find(view => view.id === activeTab) || 
+                           (customViews.find(view => view.id === activeTab)?.baseDataSource !== 'pasiOnly' && 
+                            customViews.find(view => view.id === activeTab)?.baseDataSource !== 'allPasi'))) && (
+                          <SortableHeader column="StudentType_Value" label="Student Type" />
+                        )}
+                        <SortableHeader column="ActiveFutureArchived_Value" label="State" />
+                        {((activeTab === 'linked') || 
+                          (customViews.find(view => view.id === activeTab)?.baseDataSource === 'linked')) && (
                           <SortableHeader column="status" label="PASI Status" />
                         )}
                         <SortableHeader 
@@ -1845,9 +2081,13 @@ const PasiRecordsSimplified = () => {
                           } 
                           label="YourWay Status" 
                         />
-                        <SortableHeader column="grade" label="Grade" />
-                        <SortableHeader column="exitDate" label="Exit Date" />
-                        {(activeTab !== 'pasiOnly' && activeTab !== 'allPasi') && (
+                        {shouldShowPasiColumns(activeTab, customViews) && (
+                          <SortableHeader column="grade" label="Grade" />
+                        )}
+                        {shouldShowPasiColumns(activeTab, customViews) && (
+                          <SortableHeader column="exitDate" label="Exit Date" />
+                        )}
+                        {(activeTab !== 'pasiOnly' && activeTab !== 'allPasi') && shouldShowPasiColumns(activeTab, customViews) && (
                           <SortableHeader column="workItems" label={<AlertTriangle className="h-3 w-3" />} />
                         )}
                         <TableHead className="text-xs px-1 py-1 w-32 max-w-32 truncate">Actions</TableHead>
@@ -1952,24 +2192,87 @@ const PasiRecordsSimplified = () => {
                                 )}
                               </TableCell>
                               
+                              {/* Term Cell - only show when PASI columns should be shown */}
+                              {shouldShowPasiColumns(activeTab, customViews) && (
+                                <TableCell 
+                                  className="p-1 cursor-pointer truncate max-w-16 w-16" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCellClick(record.pasiTerm, "Term");
+                                  }}
+                                >
+                                  <Badge 
+                                    variant="outline" 
+                                    className="bg-blue-50 text-blue-700 border-blue-200 text-xs py-0 px-1.5 truncate"
+                                  >
+                                    {record.pasiTerm || 'N/A'}
+                                  </Badge>
+                                </TableCell>
+                              )}
+                              
+                              {/* Student Type Cell - only show for non-PASI tabs */}
+                              {(activeTab !== 'pasiOnly' && activeTab !== 'allPasi' && 
+                                (!customViews.find(view => view.id === activeTab) || 
+                                 (customViews.find(view => view.id === activeTab)?.baseDataSource !== 'pasiOnly' && 
+                                  customViews.find(view => view.id === activeTab)?.baseDataSource !== 'allPasi'))) && (
+                                <TableCell 
+                                  className="p-1 cursor-pointer truncate max-w-20 w-20" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCellClick(record.StudentType_Value, "Student Type");
+                                  }}
+                                >
+                                  {record.StudentType_Value ? (
+                                    (() => {
+                                      const { color, icon: IconComponent } = getStudentTypeInfo(record.StudentType_Value);
+                                      return (
+                                        <div 
+                                          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium truncate"
+                                          style={{
+                                            backgroundColor: `${color}20`, // Add transparency
+                                            color: color,
+                                            border: `1px solid ${color}40`
+                                          }}
+                                          title={record.StudentType_Value}
+                                        >
+                                          {IconComponent && <IconComponent className="h-2.5 w-2.5 mr-1 flex-shrink-0" />}
+                                          <span className="truncate">{record.StudentType_Value}</span>
+                                        </div>
+                                      );
+                                    })()
+                                  ) : (
+                                    <span className="text-gray-400">N/A</span>
+                                  )}
+                                </TableCell>
+                              )}
+                              
+                              {/* State Cell - show for all tabs */}
                               <TableCell 
-                                className="p-1 cursor-pointer truncate max-w-16 w-16" 
+                                className="p-1 cursor-pointer truncate max-w-20 w-20" 
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleCellClick(record.pasiTerm, "Term");
+                                  handleCellClick(record.ActiveFutureArchived_Value, "State");
                                 }}
                               >
-                                <Badge 
-                                  variant="outline" 
-                                  className="bg-blue-50 text-blue-700 border-blue-200 text-xs py-0 px-1.5 truncate"
-                                >
-                                  {record.pasiTerm || 'N/A'}
-                                </Badge>
+                                {record.ActiveFutureArchived_Value ? (
+                                  <div 
+                                    className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium truncate"
+                                    style={{
+                                      backgroundColor: `${getActiveFutureArchivedColor(record.ActiveFutureArchived_Value)}20`, // Add transparency
+                                      color: getActiveFutureArchivedColor(record.ActiveFutureArchived_Value),
+                                      border: `1px solid ${getActiveFutureArchivedColor(record.ActiveFutureArchived_Value)}40`
+                                    }}
+                                    title={record.ActiveFutureArchived_Value}
+                                  >
+                                    <span className="truncate">{record.ActiveFutureArchived_Value}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">N/A</span>
+                                )}
                               </TableCell>
                               
-                              {((activeTab === 'linked' || activeTab === 'summaryOnly') || 
-                                (customViews.find(view => view.id === activeTab)?.baseDataSource === 'linked' || 
-                                 customViews.find(view => view.id === activeTab)?.baseDataSource === 'summaryOnly')) && (
+                              {((activeTab === 'linked') || 
+                                (customViews.find(view => view.id === activeTab)?.baseDataSource === 'linked')) && (
                                 <TableCell 
                                   className="p-1 cursor-pointer truncate max-w-16 w-16" 
                                   onClick={(e) => {
@@ -2012,26 +2315,31 @@ const PasiRecordsSimplified = () => {
                                 </Badge>
                               </TableCell>
                               
-                              <TableCell 
-                                className="p-1 cursor-pointer truncate max-w-10 w-10" 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCellClick(record.grade || record.PercentCompleteGradebook, "Grade");
-                                }}
-                              >
-                                {(record.grade !== undefined && record.grade !== null) || record.PercentCompleteGradebook ? (
-                                  <div className="flex items-center gap-1 cursor-pointer">
-                                    <Edit className="h-3 w-3 text-blue-500" />
-                                    <span className="font-medium truncate">
-                                      {record.grade !== undefined && record.grade !== null ? record.grade : `${record.PercentCompleteGradebook}%`}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400">N/A</span>
-                                )}
-                              </TableCell>
+                              {/* Grade Cell - only show when PASI columns should be shown */}
+                              {shouldShowPasiColumns(activeTab, customViews) && (
+                                <TableCell 
+                                  className="p-1 cursor-pointer truncate max-w-10 w-10" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCellClick(record.grade || record.PercentCompleteGradebook, "Grade");
+                                  }}
+                                >
+                                  {(record.grade !== undefined && record.grade !== null) || record.PercentCompleteGradebook ? (
+                                    <div className="flex items-center gap-1 cursor-pointer">
+                                      <Edit className="h-3 w-3 text-blue-500" />
+                                      <span className="font-medium truncate">
+                                        {record.grade !== undefined && record.grade !== null ? record.grade : `${record.PercentCompleteGradebook}%`}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-400">N/A</span>
+                                  )}
+                                </TableCell>
+                              )}
                               
-                              <TableCell 
+                              {/* Exit Date Cell - only show when PASI columns should be shown */}
+                              {shouldShowPasiColumns(activeTab, customViews) && (
+                                <TableCell 
                                 className="p-1 cursor-pointer truncate max-w-20 w-20" 
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -2053,9 +2361,10 @@ const PasiRecordsSimplified = () => {
                                   <span className="text-gray-400">N/A</span>
                                 )}
                               </TableCell>
+                              )}
                               
-                              {/* Work Items Cell - only show for non-PASI tabs */}
-                              {(activeTab !== 'pasiOnly' && activeTab !== 'allPasi') && (
+                              {/* Work Items Cell - only show for non-PASI tabs and when PASI columns should be shown */}
+                              {(activeTab !== 'pasiOnly' && activeTab !== 'allPasi') && shouldShowPasiColumns(activeTab, customViews) && (
                                 <TableCell className="p-1 w-6 max-w-6">
                                   <TooltipProvider>
                                     <Tooltip>
@@ -2103,11 +2412,13 @@ const PasiRecordsSimplified = () => {
                                   const baseDataSource = currentView?.baseDataSource || activeTab;
                                   
                                   if (baseDataSource === 'pasiOnly' || baseDataSource === 'allPasi') {
-                                    return 10;
-                                  } else if (baseDataSource === 'linked' || baseDataSource === 'summaryOnly' || activeTab === 'linked' || activeTab === 'summaryOnly') {
-                                    return 12;
+                                    return 11; // PASI-only: expansion + ASN + Name + Course + Reg Date + Term + State + YourWay Status + Grade + Exit Date + Actions
+                                  } else if (baseDataSource === 'summaryOnly' || baseDataSource === 'allYourWay') {
+                                    return 9; // YourWay-only: expansion + ASN + Name + Course + Reg Date + Student Type + State + YourWay Status + Actions (no PASI columns)
+                                  } else if (baseDataSource === 'linked' || activeTab === 'linked') {
+                                    return 14; // Linked: all columns including PASI Status
                                   } else {
-                                    return 11;
+                                    return 13; // Other views with PASI columns but no PASI Status
                                   }
                                 })()} className="p-0">
                                   <div className="bg-blue-50 border-t-2 border-blue-200">

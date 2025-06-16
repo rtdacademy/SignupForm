@@ -343,15 +343,15 @@ function StudentList({
       }
       
       // For student summaries: require firstName, lastName, StudentEmail
-      // For PASI-only records: require studentName and either email or asn
+      // For PASI-only records: require studentName and asn (studentKey is optional)
       const hasStudentSummaryFields = student.firstName && student.lastName && student.StudentEmail;
       
       // For PASI records, check if we have studentKey (preferred) or can extract from email field
       const pasiStudentKey = getStudentEmail(student);
       
-      // PASI records need studentName and either studentKey or ASN 
-      // (ASN alone is sufficient for records without student key mapping)
-      const hasPasiFields = student.studentName && (pasiStudentKey || student.asn);
+      // PASI records need studentName and ASN
+      // studentKey is optional - we want to see records even without email mapping
+      const hasPasiFields = student.studentName && student.asn;
       
       if (!hasStudentSummaryFields && !hasPasiFields) {
         console.warn('Skipping invalid student record - missing required fields:', {
