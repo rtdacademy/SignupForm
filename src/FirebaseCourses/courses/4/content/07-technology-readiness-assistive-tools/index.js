@@ -1,21 +1,34 @@
-import React, { useState } from 'react';
-import { AIMultipleChoiceQuestion } from '../../../../components/assessments';
+import React, { useState, useEffect } from 'react';
+import { AIMultipleChoiceQuestion, StandardMultipleChoiceQuestion } from '../../../../components/assessments';
+import { useProgress } from '../../../../context/CourseProgressContext';
 
-const TechnologyReadinessAssistiveTools = ({ courseId }) => {
+const TechnologyReadinessAssistiveTools = ({ courseId, itemId, activeItem }) => {
+  const { markCompleted } = useProgress();
   const [activeSection, setActiveSection] = useState('overview');
   const [techChecklist, setTechChecklist] = useState({});
-  const [workspaceSetup, setWorkspaceSetup] = useState({
-    monitor: '',
-    keyboard: '',
-    mouse: '',
-    chair: '',
-    lighting: '',
-    camera: '',
-    audio: ''
-  });
   const [assistiveTools, setAssistiveTools] = useState(['', '', '']);
   const [showChecklistResults, setShowChecklistResults] = useState(false);
-  const [showWorkspaceResults, setShowWorkspaceResults] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [questionsCompleted, setQuestionsCompleted] = useState({
+    question1: false,
+    question2: false,
+    question3: false,
+    question4: false,
+    question5: false,
+    question6: false,
+    question7: false,
+    question8: false
+  });
+  const [questionResults, setQuestionResults] = useState({
+    question1: null,
+    question2: null,
+    question3: null,
+    question4: null,
+    question5: null,
+    question6: null,
+    question7: null,
+    question8: null
+  });
 
   // Tech requirements checklist data
   const techRequirements = [
@@ -77,72 +90,6 @@ const TechnologyReadinessAssistiveTools = ({ courseId }) => {
     }
   ];
 
-  // Workspace setup options
-  const workspaceOptions = {
-    monitor: {
-      correct: 'Eye level, arm\'s length away',
-      options: [
-        'Eye level, arm\'s length away',
-        'Above eye level, close to face',
-        'Below eye level, far away',
-        'To the side, tilted'
-      ]
-    },
-    keyboard: {
-      correct: 'Level with elbows, wrists straight',
-      options: [
-        'Level with elbows, wrists straight',
-        'Higher than elbows, wrists bent up',
-        'Lower than elbows, wrists bent down',
-        'Tilted at steep angle'
-      ]
-    },
-    mouse: {
-      correct: 'Same level as keyboard, close to body',
-      options: [
-        'Same level as keyboard, close to body',
-        'Higher than keyboard, far reach',
-        'On different surface, awkward angle',
-        'On lap while typing'
-      ]
-    },
-    chair: {
-      correct: 'Feet flat on floor, back supported',
-      options: [
-        'Feet flat on floor, back supported',
-        'Feet dangling, slouched posture',
-        'Perched on edge, no back support',
-        'Too high, leaning forward'
-      ]
-    },
-    lighting: {
-      correct: 'Soft, even lighting from side or front',
-      options: [
-        'Soft, even lighting from side or front',
-        'Bright light directly behind monitor',
-        'Only overhead fluorescent lighting',
-        'Dark room with only screen light'
-      ]
-    },
-    camera: {
-      correct: 'Eye level, stable position, good lighting',
-      options: [
-        'Eye level, stable position, good lighting',
-        'Below eye level, looking up',
-        'Unstable, shaky positioning',
-        'Poor lighting, hard to see'
-      ]
-    },
-    audio: {
-      correct: 'Headphones or headset to minimize echo',
-      options: [
-        'Headphones or headset to minimize echo',
-        'Computer speakers at high volume',
-        'No audio setup, rely on phone',
-        'Bluetooth speakers across room'
-      ]
-    }
-  };
 
   const handleChecklistChange = (itemId, checked) => {
     setTechChecklist(prev => ({
@@ -151,18 +98,33 @@ const TechnologyReadinessAssistiveTools = ({ courseId }) => {
     }));
   };
 
-  const handleWorkspaceChange = (category, value) => {
-    setWorkspaceSetup(prev => ({
-      ...prev,
-      [category]: value
-    }));
-  };
 
   const handleAssistiveToolChange = (index, value) => {
     const newTools = [...assistiveTools];
     newTools[index] = value;
     setAssistiveTools(newTools);
   };
+
+  const handleQuestionComplete = (questionNumber) => {
+    setQuestionsCompleted(prev => ({
+      ...prev,
+      [`question${questionNumber}`]: true
+    }));
+  };
+
+  const allQuestionsCompleted = questionsCompleted.question1 && questionsCompleted.question2 && questionsCompleted.question3 && 
+    questionsCompleted.question4 && questionsCompleted.question5 && questionsCompleted.question6 && 
+    questionsCompleted.question7 && questionsCompleted.question8;
+
+  // Track completion when all questions are answered
+  useEffect(() => {
+    if (allQuestionsCompleted) {
+      const lessonItemId = itemId || activeItem?.itemId;
+      if (lessonItemId) {
+        markCompleted(lessonItemId);
+      }
+    }
+  }, [allQuestionsCompleted, markCompleted, itemId, activeItem?.itemId]);
 
   const checkTechReadiness = () => {
     const criticalItems = techRequirements.filter(item => item.critical);
@@ -173,21 +135,11 @@ const TechnologyReadinessAssistiveTools = ({ courseId }) => {
     return { criticalItems: criticalItems.length, completedCritical, totalCompleted, totalItems: techRequirements.length };
   };
 
-  const checkWorkspaceSetup = () => {
-    let correctCount = 0;
-    Object.keys(workspaceOptions).forEach(category => {
-      if (workspaceSetup[category] === workspaceOptions[category].correct) {
-        correctCount++;
-      }
-    });
-    setShowWorkspaceResults(true);
-    return { correct: correctCount, total: Object.keys(workspaceOptions).length };
-  };
 
   return (
     <div className="space-y-8">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-cyan-600 to-blue-700 text-white rounded-lg p-8">
+      <section className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg p-8">
         <h1 className="text-4xl font-bold mb-4">Technology Readiness & Assistive Tools</h1>
         <p className="text-xl mb-6">Set up your technology for success at RTD Academy</p>
         <div className="bg-white/10 backdrop-blur rounded-lg p-4">
@@ -205,11 +157,7 @@ const TechnologyReadinessAssistiveTools = ({ courseId }) => {
             { id: 'overview', label: 'Tech Overview' },
             { id: 'requirements', label: 'System Requirements' },
             { id: 'ergonomics', label: 'Ergonomics & Setup' },
-            { id: 'organization', label: 'File Organization' },
             { id: 'accessibility', label: 'Accessibility Tools' },
-            { id: 'checklist', label: 'Tech Checklist' },
-            { id: 'workspace', label: 'Workspace Setup' },
-            { id: 'support', label: 'RTD Tech Support' },
             { id: 'assessment', label: 'Knowledge Check' }
           ].map((tab) => (
             <button
@@ -217,7 +165,7 @@ const TechnologyReadinessAssistiveTools = ({ courseId }) => {
               onClick={() => setActiveSection(tab.id)}
               className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeSection === tab.id
-                  ? 'border-cyan-500 text-cyan-600'
+                  ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -758,231 +706,6 @@ const TechnologyReadinessAssistiveTools = ({ courseId }) => {
         </section>
       )}
 
-      {/* File Organization Section */}
-      {activeSection === 'organization' && (
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-3xl font-bold mb-4">📁 File Organization & Digital Workflow</h2>
-            <p className="text-gray-600 mb-6">
-              Develop an organized digital filing system to manage course materials, assignments, and personal documents effectively.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-purple-700">🗂️ Recommended Folder Structure</h3>
-            
-            <div className="grid lg:grid-cols-2 gap-6">
-              <div className="bg-purple-50 rounded-lg p-4">
-                <h4 className="font-semibold text-purple-800 mb-3">📚 Course Organization System</h4>
-                <div className="bg-white rounded p-3 font-mono text-sm">
-                  <div className="space-y-1">
-                    <div>📁 RTD Academy/</div>
-                    <div className="ml-4">📁 2024-2025 School Year/</div>
-                    <div className="ml-8">📁 Physics 30/</div>
-                    <div className="ml-12">📁 01-Course Materials/</div>
-                    <div className="ml-12">📁 02-Assignments/</div>
-                    <div className="ml-16">📁 Completed/</div>
-                    <div className="ml-16">📁 In Progress/</div>
-                    <div className="ml-12">📁 03-Exams/</div>
-                    <div className="ml-16">📁 Section 1/</div>
-                    <div className="ml-16">📁 Section 2/</div>
-                    <div className="ml-16">📁 Section 3/</div>
-                    <div className="ml-12">📁 04-Notes/</div>
-                    <div className="ml-12">📁 05-Resources/</div>
-                    <div className="ml-8">📁 Math 30-1/</div>
-                    <div className="ml-12">📁 (same structure)/</div>
-                  </div>
-                </div>
-                <p className="text-xs text-purple-700 mt-2">
-                  This structure keeps each course separate while maintaining consistent organization
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-800 mb-3">📋 File Naming Conventions</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="bg-white rounded p-2">
-                      <strong>Assignments:</strong> CourseCode_Assignment#_YourName_Date
-                      <br />
-                      <span className="text-xs text-gray-600">Example: PHY30_Assignment01_JohnSmith_2024-03-15</span>
-                    </div>
-                    <div className="bg-white rounded p-2">
-                      <strong>Notes:</strong> CourseCode_Lesson#_Topic_Date
-                      <br />
-                      <span className="text-xs text-gray-600">Example: PHY30_Lesson05_Momentum_2024-03-15</span>
-                    </div>
-                    <div className="bg-white rounded p-2">
-                      <strong>Downloads:</strong> Keep original names, sort into folders
-                      <br />
-                      <span className="text-xs text-gray-600">Example: Move to appropriate course material folder</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-green-800 mb-2">✅ Organization Best Practices</h4>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• Create folders before you need them</li>
-                    <li>• Save files immediately in correct location</li>
-                    <li>• Use consistent naming across all courses</li>
-                    <li>• Include dates in YYYY-MM-DD format</li>
-                    <li>• Backup important files regularly</li>
-                    <li>• Clean up downloads folder weekly</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-orange-700">☁️ Cloud Storage and Backup Strategy</h3>
-            
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-orange-50 rounded-lg p-4">
-                <h4 className="font-semibold text-orange-800 mb-3">🔄 Backup Options</h4>
-                <div className="space-y-3">
-                  <div className="bg-white rounded p-3">
-                    <h5 className="font-semibold text-sm mb-1">Google Drive</h5>
-                    <p className="text-xs text-gray-600">15GB free, integrates with Google Docs, automatic sync</p>
-                  </div>
-                  <div className="bg-white rounded p-3">
-                    <h5 className="font-semibold text-sm mb-1">OneDrive</h5>
-                    <p className="text-xs text-gray-600">5GB free, integrates with Microsoft Office, Windows built-in</p>
-                  </div>
-                  <div className="bg-white rounded p-3">
-                    <h5 className="font-semibold text-sm mb-1">iCloud</h5>
-                    <p className="text-xs text-gray-600">5GB free, seamless Apple device integration</p>
-                  </div>
-                  <div className="bg-white rounded p-3">
-                    <h5 className="font-semibold text-sm mb-1">External Drive</h5>
-                    <p className="text-xs text-gray-600">Physical backup, full control, no internet required</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold mb-3">🛡️ Backup Strategy: 3-2-1 Rule</h4>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">3</div>
-                    <div>
-                      <p className="font-semibold text-sm">Keep 3 Copies</p>
-                      <p className="text-xs text-gray-600">Original + 2 backups of important files</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold">2</div>
-                    <div>
-                      <p className="font-semibold text-sm">Use 2 Different Media</p>
-                      <p className="text-xs text-gray-600">Cloud storage + external drive or second computer</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold">1</div>
-                    <div>
-                      <p className="font-semibold text-sm">Keep 1 Offsite</p>
-                      <p className="text-xs text-gray-600">Cloud storage or external drive in different location</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
-                  <p className="text-xs text-red-700">
-                    <strong>⚠️ Critical:</strong> Back up assignments before submission deadlines!
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-green-700">📱 Digital Workflow Tools</h3>
-            
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="bg-green-50 rounded-lg p-4">
-                <h4 className="font-semibold text-green-800 mb-3">📝 Note-Taking Apps</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="bg-white rounded p-2">
-                    <strong>OneNote:</strong> Free, syncs across devices, integrates with Office
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Notion:</strong> All-in-one workspace, great for organization
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Google Keep:</strong> Simple notes, reminders, mobile-friendly
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Obsidian:</strong> Advanced linking, great for research
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-800 mb-3">📅 Planning Tools</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="bg-white rounded p-2">
-                    <strong>Google Calendar:</strong> Schedule classes, deadlines, reminders
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Todoist:</strong> Task management, project organization
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Trello:</strong> Visual project boards, collaboration
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Forest:</strong> Focus timer, productivity tracking
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-purple-50 rounded-lg p-4">
-                <h4 className="font-semibold text-purple-800 mb-3">🔧 Utility Apps</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="bg-white rounded p-2">
-                    <strong>7-Zip:</strong> File compression, archive management
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Adobe Reader:</strong> PDF viewing, annotation, forms
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>f.lux:</strong> Blue light filter, eye strain reduction
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Everything:</strong> Instant file search (Windows)
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-3 text-yellow-800">💡 File Management Pro Tips</h3>
-            <div className="grid md:grid-cols-2 gap-6 text-sm">
-              <div>
-                <h4 className="font-semibold mb-2">Daily Habits:</h4>
-                <ul className="space-y-1 text-gray-700">
-                  <li>• Save work every 10-15 minutes</li>
-                  <li>• Name files immediately when created</li>
-                  <li>• Move downloads to proper folders daily</li>
-                  <li>• Use version numbers for important documents</li>
-                  <li>• Delete unnecessary files weekly</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">Assignment Workflow:</h4>
-                <ul className="space-y-1 text-gray-700">
-                  <li>• Create assignment folder when started</li>
-                  <li>• Save drafts with version numbers</li>
-                  <li>• Keep final version in separate folder</li>
-                  <li>• Screenshot submission confirmations</li>
-                  <li>• Archive completed work at term end</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Accessibility Tools Section */}
       {activeSection === 'accessibility' && (
@@ -1194,534 +917,196 @@ const TechnologyReadinessAssistiveTools = ({ courseId }) => {
             </div>
           </div>
 
-          <div className="bg-blue-50 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-4 text-blue-800">🤝 Getting Support for Assistive Technology</h3>
-            
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-semibold mb-3">RTD Academy Support:</h4>
-                <div className="space-y-2 text-sm text-gray-700">
-                  <div className="flex items-center">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                    <span>Contact student services for accommodation requests</span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                    <span>Technical support available for accessibility features</span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                    <span>Alternative format materials when needed</span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                    <span>Extended time for assessments with documentation</span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-semibold mb-3">External Resources:</h4>
-                <div className="space-y-2 text-sm text-gray-700">
-                  <div className="flex items-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    <span>CNIB Foundation for vision loss support</span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    <span>Provincial assistive technology programs</span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    <span>Post-secondary disability services</span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    <span>Community accessibility organizations</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 p-4 bg-white rounded border border-blue-200">
-              <h5 className="font-semibold text-sm mb-2">📝 Personal Assistive Tools Reflection:</h5>
-              <p className="text-xs text-gray-600 mb-3">
-                List three assistive tools or features that might benefit your learning experience:
-              </p>
-              <div className="space-y-2">
-                {assistiveTools.map((tool, index) => (
-                  <input
-                    key={index}
-                    type="text"
-                    className="w-full p-2 border border-gray-300 rounded text-sm"
-                    placeholder={`Assistive tool ${index + 1} (e.g., screen reader, text-to-speech, magnifier)`}
-                    value={tool}
-                    onChange={(e) => handleAssistiveToolChange(index, e.target.value)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
         </section>
       )}
 
-      {/* Tech Checklist Section */}
-      {activeSection === 'checklist' && (
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-3xl font-bold mb-4">✅ Interactive Technology Readiness Checklist</h2>
-            <p className="text-gray-600 mb-6">
-              Complete this comprehensive checklist to ensure your technology setup is ready for RTD Academy courses.
-            </p>
-          </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-green-700">🔍 System Requirements Check</h3>
-            
-            <div className="space-y-4">
-              {techRequirements.map((item) => (
-                <div key={item.id} className={`border rounded-lg p-4 ${
-                  item.critical ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50'
-                }`}>
-                  <div className="flex items-start space-x-3">
-                    <input
-                      type="checkbox"
-                      id={item.id}
-                      checked={techChecklist[item.id] || false}
-                      onChange={(e) => handleChecklistChange(item.id, e.target.checked)}
-                      className={`mt-1 ${item.critical ? 'text-red-600' : 'text-green-600'}`}
-                    />
-                    <div className="flex-grow">
-                      <label htmlFor={item.id} className="flex items-center space-x-2 cursor-pointer">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          item.critical 
-                            ? 'bg-red-100 text-red-800' 
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {item.category}
-                        </span>
-                        {item.critical && (
-                          <span className="px-2 py-1 rounded text-xs font-medium bg-red-200 text-red-900">
-                            CRITICAL
-                          </span>
-                        )}
-                      </label>
-                      <p className="font-medium text-sm mt-1">{item.requirement}</p>
-                      <p className="text-xs text-gray-600 mt-1">{item.explanation}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-6 text-center">
-              <button
-                onClick={checkTechReadiness}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
-              >
-                🔍 Check My Tech Readiness
-              </button>
-            </div>
-
-            {showChecklistResults && (
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h4 className="font-semibold text-blue-800 mb-3">📊 Your Technology Readiness Report</h4>
-                <div className="grid md:grid-cols-3 gap-4 text-sm">
-                  <div className="bg-white rounded p-3 text-center">
-                    <div className="text-2xl font-bold text-red-600">
-                      {checkTechReadiness().completedCritical}/{checkTechReadiness().criticalItems}
-                    </div>
-                    <div className="text-xs text-gray-600">Critical Requirements Met</div>
-                  </div>
-                  <div className="bg-white rounded p-3 text-center">
-                    <div className="text-2xl font-bold text-green-600">
-                      {checkTechReadiness().totalCompleted}/{checkTechReadiness().totalItems}
-                    </div>
-                    <div className="text-xs text-gray-600">Total Requirements Met</div>
-                  </div>
-                  <div className="bg-white rounded p-3 text-center">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {Math.round((checkTechReadiness().totalCompleted / checkTechReadiness().totalItems) * 100)}%
-                    </div>
-                    <div className="text-xs text-gray-600">Overall Readiness</div>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  {checkTechReadiness().completedCritical === checkTechReadiness().criticalItems ? (
-                    <div className="p-3 bg-green-100 border border-green-200 rounded">
-                      <p className="text-sm text-green-800">
-                        <strong>✅ Excellent!</strong> You meet all critical requirements for RTD Academy courses.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-red-100 border border-red-200 rounded">
-                      <p className="text-sm text-red-800">
-                        <strong>⚠️ Action Required!</strong> You need to address the missing critical requirements before starting courses.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Workspace Setup Activity Section */}
-      {activeSection === 'workspace' && (
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-3xl font-bold mb-4">🏗️ Virtual Workspace Setup Activity</h2>
-            <p className="text-gray-600 mb-6">
-              Test your knowledge of proper workspace ergonomics by selecting the best setup option for each workspace element.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-purple-700">🪑 Ergonomic Setup Quiz</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              For each workspace element, select the option that represents the most ergonomic and professional setup.
-            </p>
-            
-            <div className="space-y-6">
-              {Object.entries(workspaceOptions).map(([category, data]) => (
-                <div key={category} className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-semibold mb-3 capitalize">{category.replace(/([A-Z])/g, ' $1')} Setup:</h4>
-                  <div className="space-y-2">
-                    {data.options.map((option, index) => (
-                      <label key={index} className="flex items-center space-x-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name={category}
-                          value={option}
-                          checked={workspaceSetup[category] === option}
-                          onChange={(e) => handleWorkspaceChange(category, e.target.value)}
-                          className="text-purple-600"
-                        />
-                        <span className="text-sm">{option}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-6 text-center">
-              <button
-                onClick={checkWorkspaceSetup}
-                disabled={Object.values(workspaceSetup).some(value => value === '')}
-                className={`px-6 py-3 rounded-lg font-medium ${
-                  Object.values(workspaceSetup).every(value => value !== '')
-                    ? 'bg-purple-600 text-white hover:bg-purple-700'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                🔍 Check My Workspace Setup
-              </button>
-            </div>
-
-            {showWorkspaceResults && (
-              <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                <h4 className="font-semibold text-purple-800 mb-3">🏆 Workspace Setup Results</h4>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="bg-white rounded p-3 text-center">
-                    <div className="text-3xl font-bold text-purple-600">
-                      {checkWorkspaceSetup().correct}/{checkWorkspaceSetup().total}
-                    </div>
-                    <div className="text-sm text-gray-600">Correct Ergonomic Choices</div>
-                  </div>
-                  <div className="bg-white rounded p-3 text-center">
-                    <div className="text-3xl font-bold text-blue-600">
-                      {Math.round((checkWorkspaceSetup().correct / checkWorkspaceSetup().total) * 100)}%
-                    </div>
-                    <div className="text-sm text-gray-600">Ergonomic Score</div>
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  {Object.entries(workspaceOptions).map(([category, data]) => (
-                    <div key={category} className={`p-2 rounded text-sm ${
-                      workspaceSetup[category] === data.correct
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      <strong>{category.charAt(0).toUpperCase() + category.slice(1)}:</strong>
-                      {workspaceSetup[category] === data.correct ? (
-                        <span> ✅ Correct choice!</span>
-                      ) : (
-                        <span> ❌ Better choice: {data.correct}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4">
-                  {checkWorkspaceSetup().correct >= 6 ? (
-                    <div className="p-3 bg-green-100 border border-green-200 rounded">
-                      <p className="text-sm text-green-800">
-                        <strong>🎉 Excellent!</strong> You have a great understanding of ergonomic workspace setup.
-                      </p>
-                    </div>
-                  ) : checkWorkspaceSetup().correct >= 4 ? (
-                    <div className="p-3 bg-yellow-100 border border-yellow-200 rounded">
-                      <p className="text-sm text-yellow-800">
-                        <strong>👍 Good work!</strong> Review the areas you missed to optimize your workspace.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-red-100 border border-red-200 rounded">
-                      <p className="text-sm text-red-800">
-                        <strong>📚 Keep Learning!</strong> Consider reviewing the ergonomics section to improve your setup.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-blue-50 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-4 text-blue-800">💭 Personal Assistive Tools Assessment</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Based on what you've learned about accessibility features, list three assistive tools or features 
-              that might benefit your learning experience at RTD Academy:
-            </p>
-            
-            <div className="space-y-3">
-              {assistiveTools.map((tool, index) => (
-                <div key={index} className="bg-white rounded-lg p-3">
-                  <label className="block text-sm font-medium mb-2">
-                    Assistive Tool {index + 1}:
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full p-2 border border-gray-300 rounded text-sm"
-                    placeholder="e.g., Screen reader for visual content, Text-to-speech for long readings, Magnifier for small text"
-                    value={tool}
-                    onChange={(e) => handleAssistiveToolChange(index, e.target.value)}
-                  />
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 p-3 bg-white rounded border border-blue-200">
-              <p className="text-xs text-blue-700">
-                <strong>💡 Remember:</strong> RTD Academy is committed to supporting all learners. Contact student services 
-                if you need assistance with accessibility accommodations or assistive technology setup.
-              </p>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* RTD Tech Support Section */}
-      {activeSection === 'support' && (
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-3xl font-bold mb-4">🛠️ RTD Academy Technology Support</h2>
-            <p className="text-gray-600 mb-6">
-              Learn about available technical support services, policies, and resources to help you succeed.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-blue-700">📞 Getting Technical Help</h3>
-            
-            <div className="grid lg:grid-cols-2 gap-6">
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-800 mb-3">🎧 RTD Technical Support</h4>
-                <div className="space-y-3">
-                  <div className="bg-white rounded p-3">
-                    <h5 className="font-semibold text-sm mb-1">Contact Information</h5>
-                    <div className="text-xs text-gray-600 space-y-1">
-                      <p>📧 Email: support@rtdacademy.com</p>
-                      <p>📞 Phone: 403.351.0896</p>
-                      <p>⏰ Hours: Monday-Friday, 8:00 AM - 5:00 PM MST</p>
-                      <p>🌐 Online: Submit ticket through student portal</p>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded p-3">
-                    <h5 className="font-semibold text-sm mb-1">What Support Covers</h5>
-                    <ul className="text-xs text-gray-600 space-y-1">
-                      <li>• LMS access and navigation issues</li>
-                      <li>• Browser compatibility problems</li>
-                      <li>• Exam platform technical difficulties</li>
-                      <li>• Microsoft Teams setup and troubleshooting</li>
-                      <li>• File upload and submission problems</li>
-                      <li>• Password resets and account access</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-green-800 mb-3">🚨 Emergency Technical Support</h4>
-                  <div className="space-y-2 text-sm text-gray-700">
-                    <p><strong>During Exams:</strong> Immediate support available via phone during scheduled exam times</p>
-                    <p><strong>Critical Deadlines:</strong> Extended support hours during major assignment due dates</p>
-                    <p><strong>After Hours:</strong> Leave voicemail with detailed issue description for next-day callback</p>
-                    <p><strong>Weekend Support:</strong> Limited support available for urgent academic matters</p>
-                  </div>
-                </div>
-
-                <div className="bg-orange-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-orange-800 mb-3">📋 Before Contacting Support</h4>
-                  <div className="space-y-1 text-sm text-gray-700">
-                    <div className="flex items-center">
-                      <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                      <span>Try refreshing your browser and clearing cache</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                      <span>Check your internet connection stability</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                      <span>Verify you're using a supported browser</span>
-                    </div>
-                    <div className="flex items-center">
-                      <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                      <span>Check RTD Academy status page for known issues</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-purple-700">🎯 Self-Help Resources</h3>
-            
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="bg-purple-50 rounded-lg p-4">
-                <h4 className="font-semibold text-purple-800 mb-3">📚 Knowledge Base</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="bg-white rounded p-2">
-                    <strong>Getting Started Guides:</strong> Step-by-step tutorials for new students
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Video Tutorials:</strong> Visual guides for common tasks and features
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>FAQs:</strong> Answers to frequently asked technical questions
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Troubleshooting Guides:</strong> Solutions for common technical issues
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-green-50 rounded-lg p-4">
-                <h4 className="font-semibold text-green-800 mb-3">🛠️ System Tools</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="bg-white rounded p-2">
-                    <strong>Connection Test:</strong> Verify your internet speed and stability
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Browser Check:</strong> Test browser compatibility and settings
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Audio/Video Test:</strong> Verify camera and microphone functionality
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>System Requirements:</strong> Check if your computer meets minimum specs
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-800 mb-3">👥 Community Support</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="bg-white rounded p-2">
-                    <strong>Student Forums:</strong> Connect with other students for peer help
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Study Groups:</strong> Technical help from classmates
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Office Hours:</strong> Instructor availability for tech questions
-                  </div>
-                  <div className="bg-white rounded p-2">
-                    <strong>Peer Tutoring:</strong> Student mentors for technology guidance
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-orange-700">📜 Technology Policies</h3>
-            
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-orange-50 rounded-lg p-4">
-                <h4 className="font-semibold text-orange-800 mb-3">⚖️ Acceptable Use Policy</h4>
-                <div className="space-y-2 text-sm text-gray-700">
-                  <p><strong>Appropriate Use:</strong> RTD technology resources are for educational purposes only</p>
-                  <p><strong>Prohibited Activities:</strong> No illegal downloads, harassment, or commercial use</p>
-                  <p><strong>Security:</strong> Students must protect login credentials and report security issues</p>
-                  <p><strong>Respect:</strong> Be considerate of shared resources and other users</p>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold mb-3">🔒 Privacy and Data Protection</h4>
-                <div className="space-y-2 text-sm text-gray-700">
-                  <p><strong>Personal Information:</strong> RTD protects student data according to privacy laws</p>
-                  <p><strong>Monitoring:</strong> System logs may be reviewed for security and troubleshooting</p>
-                  <p><strong>Sharing:</strong> Don't share account access or personal information online</p>
-                  <p><strong>Backup:</strong> Students responsible for backing up their own work</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-3 text-yellow-800">💡 Technology Success Tips</h3>
-            <div className="grid md:grid-cols-2 gap-6 text-sm">
-              <div>
-                <h4 className="font-semibold mb-2">Proactive Preparation:</h4>
-                <ul className="space-y-1 text-gray-700">
-                  <li>• Test your setup before each new course starts</li>
-                  <li>• Keep backup devices and internet options ready</li>
-                  <li>• Update software and browsers regularly</li>
-                  <li>• Save important phone numbers and contact info</li>
-                  <li>• Practice using all required platforms early</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">When Issues Arise:</h4>
-                <ul className="space-y-1 text-gray-700">
-                  <li>• Document error messages and screenshot issues</li>
-                  <li>• Contact support early, don't wait until deadlines</li>
-                  <li>• Have alternative plans for exam days</li>
-                  <li>• Keep communication open with instructors</li>
-                  <li>• Use mobile devices as backup when needed</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Assessment Section */}
       {activeSection === 'assessment' && (
         <section className="space-y-6">
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-4">🎯 Technology Readiness Assessment</h2>
+            <h2 className="text-3xl font-bold mb-4">🎯 Knowledge Check: Technology Readiness & Assistive Tools</h2>
             <p className="text-gray-600 max-w-2xl mx-auto mb-6">
-              Test your understanding of technology requirements, ergonomics, accessibility features, and RTD support policies.
+              Test your understanding of technology requirements, ergonomics, accessibility features, and best practices for learning success.
             </p>
           </div>
 
-          <AIMultipleChoiceQuestion
-            courseId={courseId}
-            assessmentId="07_technology_readiness_assistive_tools_practice"
-            cloudFunctionName="course4_07_technology_readiness_assistive_tools_aiQuestion"
-            title="Technology Setup & Support Mastery"
-            theme="cyan"
-          />
+          <div className="max-w-4xl mx-auto">
+              {/* Question Progress Indicator */}
+              <div className="flex justify-center mb-6">
+                <div className="flex space-x-2">
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentQuestionIndex(index)}
+                      className={`w-3 h-3 rounded-full transition-all duration-200 ${
+                        index === currentQuestionIndex
+                          ? 'bg-indigo-600 scale-125'
+                          : questionResults[`question${index + 1}`] === 'correct'
+                          ? 'bg-green-500'
+                          : questionResults[`question${index + 1}`] === 'incorrect'
+                          ? 'bg-red-500'
+                          : 'bg-gray-300 hover:bg-gray-400'
+                      }`}
+                      aria-label={`Go to question ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Question Display */}
+              <div className="relative">
+                {currentQuestionIndex === 0 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="07_technology_readiness_assistive_tools_question1"
+                    cloudFunctionName="course4_07_technology_readiness_question1"
+                    title="System Requirements Knowledge"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(1);
+                      setQuestionResults(prev => ({...prev, question1: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 1 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="07_technology_readiness_assistive_tools_question2"
+                    cloudFunctionName="course4_07_technology_readiness_question2"
+                    title="Internet Connection Requirements"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(2);
+                      setQuestionResults(prev => ({...prev, question2: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 2 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="07_technology_readiness_assistive_tools_question3"
+                    cloudFunctionName="course4_07_technology_readiness_question3"
+                    title="Ergonomic Setup Best Practices"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(3);
+                      setQuestionResults(prev => ({...prev, question3: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 3 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="07_technology_readiness_assistive_tools_question4"
+                    cloudFunctionName="course4_07_technology_readiness_question4"
+                    title="Accessibility Features Understanding"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(4);
+                      setQuestionResults(prev => ({...prev, question4: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 4 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="07_technology_readiness_assistive_tools_question5"
+                    cloudFunctionName="course4_07_technology_readiness_question5"
+                    title="Proctored Exam Technology"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(5);
+                      setQuestionResults(prev => ({...prev, question5: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 5 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="07_technology_readiness_assistive_tools_question6"
+                    cloudFunctionName="course4_07_technology_readiness_question6"
+                    title="Scenario: Technical Difficulties During Exam"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(6);
+                      setQuestionResults(prev => ({...prev, question6: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 6 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="07_technology_readiness_assistive_tools_question7"
+                    cloudFunctionName="course4_07_technology_readiness_question7"
+                    title="Scenario: Student with Vision Impairment"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(7);
+                      setQuestionResults(prev => ({...prev, question7: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 7 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="07_technology_readiness_assistive_tools_question8"
+                    cloudFunctionName="course4_07_technology_readiness_question8"
+                    title="Scenario: Ergonomic Setup Problems"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(8);
+                      setQuestionResults(prev => ({...prev, question8: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Navigation Controls */}
+              <div className="flex justify-between items-center mt-6">
+                <button
+                  onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
+                  disabled={currentQuestionIndex === 0}
+                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    currentQuestionIndex === 0
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Previous
+                </button>
+
+                <div className="text-sm text-gray-500">
+                  Question {currentQuestionIndex + 1} of 8
+                </div>
+
+                <button
+                  onClick={() => setCurrentQuestionIndex(Math.min(7, currentQuestionIndex + 1))}
+                  disabled={currentQuestionIndex === 7}
+                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    currentQuestionIndex === 7
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                  }`}
+                >
+                  Next
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+          </div>
         </section>
       )}
 

@@ -4,7 +4,7 @@
       {
         "unitId": "unit_1_orientation",
         "title": "Unit 1: Course Orientation & Introduction",
-        "description": "Getting started with RTD Academy and understanding course expectations",
+        "description": "Complete orientation covering all aspects of RTD Academy policies, procedures, and expectations",
         "order": 1,
         "items": [
           {
@@ -15,7 +15,7 @@
             "contentPath": "01-welcome-rtd-academy",
             "hasCloudFunctions": false,
             "order": 1,
-            "estimatedTime": 30,
+            "estimatedTime": 15,
             "required": true
           },
           {
@@ -26,7 +26,7 @@
             "contentPath": "02-learning-plans-completion-policies",
             "hasCloudFunctions": true,
             "order": 2,
-            "estimatedTime": 45,
+            "estimatedTime": 15,
             "required": true,
             "assessments": [
               {
@@ -46,7 +46,7 @@
             "contentPath": "03-time-management-staying-active",
             "hasCloudFunctions": true,
             "order": 3,
-            "estimatedTime": 40,
+            "estimatedTime": 15,
             "required": true,
             "assessments": [
               {
@@ -57,24 +57,16 @@
                 "required": false
               }
             ]
-          }
-        ]
-      },
-      {
-        "unitId": "unit_2_expectations_conduct",
-        "title": "Unit 2: Expectations & Digital Conduct",
-        "description": "Understanding conduct expectations and digital citizenship responsibilities",
-        "order": 2,
-        "items": [
+          },
           {
             "itemId": "lesson_conduct_expectations",
             "type": "lesson",
-            "title": "Conduct Expectations & Alberta Education Responsibilities",
+            "title": "Digital Citizenship and Online Safety",
             "description": "Student conduct expectations and Alberta Education requirements",
             "contentPath": "04-conduct-expectations-responsibilities",
             "hasCloudFunctions": true,
-            "order": 1,
-            "estimatedTime": 35,
+            "order": 4,
+            "estimatedTime": 15,
             "required": true,
             "assessments": [
               {
@@ -89,12 +81,12 @@
           {
             "itemId": "lesson_digital_citizenship",
             "type": "lesson",
-            "title": "Digital Citizenship & Online Safety",
+            "title": "Course Prerequisites & Academic Requirements",
             "description": "Best practices for digital citizenship and maintaining online safety",
             "contentPath": "05-digital-citizenship-online-safety",
             "hasCloudFunctions": true,
-            "order": 2,
-            "estimatedTime": 50,
+            "order": 5,
+            "estimatedTime": 15,
             "required": true,
             "assessments": [
               {
@@ -107,42 +99,14 @@
             ]
           },
           {
-            "itemId": "lesson_communication_tools",
-            "type": "lesson",
-            "title": "Communication Tools & Etiquette",
-            "description": "Effective use of communication tools and proper online etiquette",
-            "contentPath": "06-communication-tools-etiquette",
-            "hasCloudFunctions": true,
-            "order": 3,
-            "estimatedTime": 40,
-            "required": true,
-            "assessments": [
-              {
-                "assessmentId": "communication_etiquette_check",
-                "type": "ai_multiple_choice",
-                "title": "Communication & Etiquette",
-                "cloudFunctionName": "course4_06_communication_tools_etiquette_aiQuestion",
-                "required": false
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "unitId": "unit_3_technology_tools",
-        "title": "Unit 3: Technology & Support Tools",
-        "description": "Technology readiness, assistive tools, and technical requirements",
-        "order": 3,
-        "items": [
-          {
             "itemId": "lesson_technology_readiness",
             "type": "lesson",
             "title": "Technology Readiness & Assistive Tools",
             "description": "Ensuring technology readiness and understanding available assistive tools",
             "contentPath": "07-technology-readiness-assistive-tools",
             "hasCloudFunctions": true,
-            "order": 1,
-            "estimatedTime": 45,
+            "order": 6,
+            "estimatedTime": 15,
             "required": true,
             "assessments": [
               {
@@ -157,60 +121,32 @@
           {
             "itemId": "lesson_cell_phone_policy",
             "type": "lesson",
-            "title": "Cell Phone Policy & Exam Proctoring Procedures",
-            "description": "Cell phone policies during exams and proctoring procedures",
+            "title": "Cell Phones, Exams, and Academic Integrity",
+            "description": "Cell phone policies, exam proctoring procedures, and academic integrity standards",
             "contentPath": "08-cell-phone-policy-exam-proctoring",
             "hasCloudFunctions": true,
-            "order": 2,
-            "estimatedTime": 35,
+            "order": 7,
+            "estimatedTime": 15,
             "required": true,
             "assessments": [
               {
                 "assessmentId": "exam_procedures_quiz",
                 "type": "ai_multiple_choice",
-                "title": "Exam Policies & Procedures",
+                "title": "Cell Phones, Exams & Academic Integrity",
                 "cloudFunctionName": "course4_08_cell_phone_policy_exam_proctoring_aiQuestion",
-                "required": true
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "unitId": "unit_4_academic_integrity_support",
-        "title": "Unit 4: Academic Integrity & Student Support",
-        "description": "Academic integrity standards and available support resources",
-        "order": 4,
-        "items": [
-          {
-            "itemId": "lesson_academic_integrity",
-            "type": "lesson",
-            "title": "Academic Integrity & Violation Consequences",
-            "description": "Understanding academic integrity standards and consequences of violations",
-            "contentPath": "09-academic-integrity-violation-consequences",
-            "hasCloudFunctions": true,
-            "order": 1,
-            "estimatedTime": 40,
-            "required": true,
-            "assessments": [
-              {
-                "assessmentId": "academic_integrity_quiz",
-                "type": "ai_multiple_choice",
-                "title": "Academic Integrity Standards",
-                "cloudFunctionName": "course4_09_academic_integrity_violation_consequences_aiQuestion",
                 "required": true
               }
             ]
           },
           {
             "itemId": "assignment_orientation_completion",
-            "type": "assignment",
+            "type": "lesson",
             "title": "Exams, Rewrites & Student Support Resources",
             "description": "Understanding exam procedures, rewrite policies, and accessing student support",
             "contentPath": "10-exams-rewrites-student-support",
             "hasCloudFunctions": true,
-            "order": 2,
-            "estimatedTime": 60,
+            "order": 8,
+            "estimatedTime": 15,
             "required": true,
             "assessments": [
               {
@@ -226,6 +162,7 @@
       }
     ]
   },
+  
   "navigation": {
     "allowSkipAhead": false,
     "requireCompletion": true,

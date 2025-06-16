@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { AIMultipleChoiceQuestion } from '../../../../components/assessments';
+import React, { useState, useEffect } from 'react';
+import { AIMultipleChoiceQuestion, StandardMultipleChoiceQuestion } from '../../../../components/assessments';
+import { useProgress } from '../../../../context/CourseProgressContext';
 
-const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
-  const [activeSection, setActiveSection] = useState('planning');
+const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId, itemId, activeItem, onNavigateToLesson, onNavigateToNext }) => {
+  const { markCompleted } = useProgress();
+  const [activeSection, setActiveSection] = useState('completion');
   const [learningPlan, setLearningPlan] = useState({
     studyDays: [],
     studyTimes: '',
@@ -12,30 +14,30 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
     workLocation: []
   });
 
-  // Weekly Planner Drag & Drop State
-  const [plannerItems, setPlannerItems] = useState({
-    activities: [
-      { id: 'course-reading', text: 'Course Reading & Content Review', color: 'bg-blue-100 text-blue-800' },
-      { id: 'assignments', text: 'Assignment Work', color: 'bg-green-100 text-green-800' },
-      { id: 'quiz-prep', text: 'Quiz Preparation', color: 'bg-yellow-100 text-yellow-800' },
-      { id: 'exam-study', text: 'Exam Study Sessions', color: 'bg-red-100 text-red-800' },
-      { id: 'check-ins', text: 'Monday Check-in & Friday Reflection', color: 'bg-purple-100 text-purple-800' },
-      { id: 'office-hours', text: 'Virtual Office Hours', color: 'bg-indigo-100 text-indigo-800' }
-    ],
-    schedule: {
-      Monday: [],
-      Tuesday: [],
-      Wednesday: [],
-      Thursday: [],
-      Friday: [],
-      Saturday: [],
-      Sunday: []
-    }
-  });
-
   const [draggedItem, setDraggedItem] = useState(null);
   const [fillInBlanks, setFillInBlanks] = useState({});
   const [mcAnswers, setMcAnswers] = useState({});
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [questionsCompleted, setQuestionsCompleted] = useState({
+    question1: false,
+    question2: false,
+    question3: false,
+    question4: false,
+    question5: false,
+    question6: false,
+    question7: false,
+    question8: false
+  });
+  const [questionResults, setQuestionResults] = useState({
+    question1: null,
+    question2: null,
+    question3: null,
+    question4: null,
+    question5: null,
+    question6: null,
+    question7: null,
+    question8: null
+  });
 
   const handleLearningPlanChange = (field, value) => {
     setLearningPlan(prev => ({
@@ -53,40 +55,6 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
     }));
   };
 
-  // Drag & Drop Functions
-  const handleDragStart = (e, item) => {
-    setDraggedItem(item);
-    e.dataTransfer.effectAllowed = 'copy';
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
-  };
-
-  const handleDrop = (e, day) => {
-    e.preventDefault();
-    if (draggedItem) {
-      setPlannerItems(prev => ({
-        ...prev,
-        schedule: {
-          ...prev.schedule,
-          [day]: [...prev.schedule[day], { ...draggedItem, id: `${draggedItem.id}-${Date.now()}` }]
-        }
-      }));
-      setDraggedItem(null);
-    }
-  };
-
-  const removeFromSchedule = (day, itemId) => {
-    setPlannerItems(prev => ({
-      ...prev,
-      schedule: {
-        ...prev.schedule,
-        [day]: prev.schedule[day].filter(item => item.id !== itemId)
-      }
-    }));
-  };
 
   const handleFillInBlank = (questionId, value) => {
     setFillInBlanks(prev => ({
@@ -100,6 +68,63 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
       ...prev,
       [questionId]: value
     }));
+  };
+
+  const handleQuestionComplete = (questionNumber) => {
+    setQuestionsCompleted(prev => ({
+      ...prev,
+      [`question${questionNumber}`]: true
+    }));
+  };
+
+  const allQuestionsCompleted = questionsCompleted.question1 && questionsCompleted.question2 && questionsCompleted.question3 && 
+    questionsCompleted.question4 && questionsCompleted.question5 && questionsCompleted.question6 && 
+    questionsCompleted.question7 && questionsCompleted.question8;
+
+  // Track completion when all questions are answered
+  useEffect(() => {
+    if (allQuestionsCompleted) {
+      const lessonItemId = itemId || activeItem?.itemId;
+      if (lessonItemId) {
+        markCompleted(lessonItemId);
+      }
+    }
+  }, [allQuestionsCompleted, markCompleted, itemId, activeItem?.itemId]);
+
+  const handleNextLesson = () => {
+    console.log('🚀 Navigating to next lesson...', {
+      onNavigateToNext: !!onNavigateToNext,
+      onNavigateToLesson: !!onNavigateToLesson
+    });
+    
+    if (onNavigateToNext) {
+      console.log('✅ Using onNavigateToNext()');
+      onNavigateToNext();
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
+    } else if (onNavigateToLesson) {
+      console.log('✅ Using onNavigateToLesson(lesson_time_management)');
+      onNavigateToLesson('lesson_time_management');
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
+    } else {
+      console.warn('⚠️ Navigation functions not provided, using fallback navigation');
+      
+      if (window.courseNavigate) {
+        console.log('🔄 Using window.courseNavigate fallback');
+        window.courseNavigate('lesson_time_management');
+        setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 100);
+      } else {
+        console.log('🔄 Using page navigation fallback (will cause refresh)');
+        const currentPath = window.location.pathname;
+        const newPath = currentPath.replace('02-learning-plans-completion-policies', '03-time-management-staying-active');
+        window.location.href = newPath;
+      }
+    }
   };
 
   const checkFillInBlanks = () => {
@@ -124,7 +149,7 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
   return (
     <div className="space-y-8">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-indigo-600 to-purple-700 text-white rounded-lg p-8">
+      <section className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg p-8">
         <h1 className="text-4xl font-bold mb-4">Learning Plans, Course Completion & Diploma Exam Policies</h1>
         <p className="text-xl mb-6">Master your path to success with personalized planning and clear expectations</p>
         <div className="bg-white/10 backdrop-blur rounded-lg p-4">
@@ -139,12 +164,10 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8 overflow-x-auto">
           {[
-            { id: 'planning', label: 'Personal Learning Plan' },
             { id: 'completion', label: 'Course Completion' },
-            { id: 'withdrawal', label: 'Withdrawal & PASI' },
+            { id: 'planning', label: 'Personal Learning Plan' },
+            { id: 'withdrawal', label: 'Withdrawal & MyPass' },
             { id: 'mypass', label: 'MyPass & Diploma Exams' },
-            { id: 'activity', label: 'Staying Active' },
-            { id: 'planner', label: 'Weekly Planner' },
             { id: 'assessment', label: 'Knowledge Check' }
           ].map((tab) => (
             <button
@@ -152,7 +175,7 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
               onClick={() => setActiveSection(tab.id)}
               className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeSection === tab.id
-                  ? 'border-indigo-500 text-indigo-600'
+                  ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -314,25 +337,24 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-orange-700">🎯 One Year Completion Rule</h3>
             
             <div className="grid lg:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="bg-orange-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-orange-800 mb-2">📅 The One Year Timeline</h4>
+                  <h4 className="font-semibold text-orange-800 mb-2">📅 Completion Expectation</h4>
                   <p className="text-gray-700 text-sm mb-3">
-                    Students are expected to complete their course within <strong>one year of enrollment</strong>. 
-                    This gives you flexibility while ensuring steady progress toward your educational goals.
+                    Students are expected to complete their course by <strong>the date they submit</strong> when registering. 
+                    This gives you control over your timeline while ensuring you meet your personal educational goals.
                   </p>
                   
                   <div className="bg-white rounded p-3">
-                    <p className="text-sm font-medium mb-2">Your timeline includes:</p>
+                    <p className="text-sm font-medium mb-2">A course is complete when you have finished:</p>
                     <ul className="text-sm text-gray-600 space-y-1">
                       <li>• Course content and lessons</li>
                       <li>• Assignments and projects</li>
                       <li>• Section exams (3 total)</li>
                       <li>• Diploma exam (if applicable)</li>
-                      <li>• Any required rewrites</li>
+                      <li>• One re-write exam (optional)</li>
                     </ul>
                   </div>
                 </div>
@@ -340,8 +362,8 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
                 <div className="bg-blue-50 rounded-lg p-4">
                   <h4 className="font-semibold text-blue-800 mb-2">🤝 Extensions Available</h4>
                   <p className="text-gray-700 text-sm">
-                    Extensions may be granted under special circumstances. Contact your instructor or 
-                    RTD administration if you anticipate needing more time due to:
+                    Students may apply for extensions for up to one year after their original start date under special circumstances. 
+                    Contact your instructor or RTD administration if you anticipate needing more time due to:
                   </p>
                   <ul className="text-sm text-gray-600 mt-2 space-y-1">
                     <li>• Medical reasons</li>
@@ -354,117 +376,75 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
 
               <div className="space-y-4">
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-semibold mb-3">📊 Typical Course Progression</h4>
+                  <h4 className="font-semibold mb-3">⏱️ Time Requirements for 5-Credit Course</h4>
+                  <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
+                    <p className="text-sm font-medium text-blue-800">Total Required Hours: 125 hours</p>
+                    <p className="text-xs text-blue-600 mt-1">Alberta Education standard: 25 hours per credit × 5 credits</p>
+                  </div>
+                  
                   <div className="space-y-3">
                     <div className="flex items-center justify-between p-2 bg-white rounded">
-                      <span className="text-sm">Month 1-3: Course Content</span>
-                      <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">25%</span>
+                      <span className="text-sm font-medium">1 Month Timeline</span>
+                      <span className="text-xs text-red-600 bg-red-100 px-2 py-1 rounded font-semibold">6.25 hrs/day</span>
                     </div>
                     <div className="flex items-center justify-between p-2 bg-white rounded">
-                      <span className="text-sm">Month 4-6: Assignments & Section 1</span>
-                      <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">50%</span>
+                      <span className="text-sm font-medium">2 Month Timeline</span>
+                      <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded font-semibold">3.1 hrs/day</span>
                     </div>
                     <div className="flex items-center justify-between p-2 bg-white rounded">
-                      <span className="text-sm">Month 7-9: Section 2 & Advanced Content</span>
-                      <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">75%</span>
+                      <span className="text-sm font-medium">4 Month Timeline</span>
+                      <span className="text-xs text-yellow-600 bg-yellow-100 px-2 py-1 rounded font-semibold">1.6 hrs/day</span>
                     </div>
                     <div className="flex items-center justify-between p-2 bg-white rounded">
-                      <span className="text-sm">Month 10-12: Section 3 & Diploma Prep</span>
-                      <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">100%</span>
+                      <span className="text-sm font-medium">8 Month Timeline</span>
+                      <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded font-semibold">0.8 hrs/day</span>
                     </div>
+                  </div>
+                  
+                  <div className="mt-3 p-2 bg-blue-50 rounded">
+                    <p className="text-xs text-blue-700"><strong>Note:</strong> Based on 5-day work week (Mon-Fri). Weekend study can reduce daily requirements.</p>
                   </div>
                 </div>
 
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <h4 className="font-semibold text-yellow-800 mb-2">💡 Success Tips</h4>
                   <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• Break the year into manageable monthly goals</li>
                     <li>• Track your progress regularly</li>
                     <li>• Communicate with instructors about your pace</li>
                     <li>• Plan for busy periods (work, holidays, etc.)</li>
-                    <li>• Use summer months strategically</li>
                   </ul>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-green-700">✅ What "Course Completion" Means</h3>
-            
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-green-50 rounded-lg p-4">
-                <h4 className="font-semibold text-green-800 mb-3">Required for Completion:</h4>
-                <ul className="space-y-2 text-sm text-gray-700">
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    All course lessons and content reviewed
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    All assignments submitted on time
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    Three section exams completed
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    Diploma exam taken (for diploma courses)
-                  </li>
-                  <li className="flex items-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    Final grade calculated and submitted to PASI
-                  </li>
-                </ul>
-              </div>
-
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-800 mb-3">Your Course Progress:</h4>
-                <p className="text-sm text-gray-700 mb-3">
-                  Track your progress through your YourWay Portal and course dashboard. 
-                  You'll see completion percentages for:
-                </p>
-                <ul className="space-y-1 text-sm text-gray-700">
-                  <li>• Lesson completion</li>
-                  <li>• Assignment submissions</li>
-                  <li>• Quiz performance</li>
-                  <li>• Exam scores</li>
-                  <li>• Overall course grade</li>
-                </ul>
-              </div>
-            </div>
-          </div>
         </section>
       )}
 
-      {/* Withdrawal & PASI Section */}
+      {/* Withdrawal & MyPass Section */}
       {activeSection === 'withdrawal' && (
         <section className="space-y-6">
           <div>
-            <h2 className="text-3xl font-bold mb-4">🚪 Withdrawal Deadlines & PASI Reporting</h2>
+            <h2 className="text-3xl font-bold mb-4">🚪 Withdrawal Deadlines & MyPass Reporting</h2>
             <p className="text-gray-600 mb-6">
-              Understanding withdrawal policies and PASI reporting helps you make informed decisions about your education.
+              Understanding withdrawal policies and MyPass reporting helps you make informed decisions about your education.
+              </p><p><strong>Note: These policies apply to Non-Primary, Homeschool, and Summer School students.</strong>
             </p>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-red-700">⚠️ Critical Withdrawal Timeline</h3>
-            
             <div className="grid lg:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <h4 className="font-semibold text-green-700 mb-2">✅ Before Section 1 Exam</h4>
                   <p className="text-sm text-gray-700 mb-3">
                     Students who choose to withdraw <strong>before completing the Section 1 exam</strong> will have 
-                    their enrollment recorded as a <strong>Withdrawal (WDRW)</strong> in PASI.
+                    their enrollment recorded as a <strong>Withdrawal (WDRW)</strong> in MyPass.
                   </p>
                   <div className="bg-white rounded p-3">
                     <p className="text-sm font-medium text-green-800">What this means:</p>
                     <ul className="text-sm text-gray-600 mt-1 space-y-1">
                       <li>• No grade will be submitted to your transcript</li>
-                      <li>• No impact on your GPA</li>
-                      <li>• Clean withdrawal from course</li>
                       <li>• Can re-register in future terms</li>
                     </ul>
                   </div>
@@ -474,15 +454,13 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
                   <h4 className="font-semibold text-red-700 mb-2">❌ After Section 1 Exam</h4>
                   <p className="text-sm text-gray-700 mb-3">
                     If a student withdraws <strong>after completing the Section 1 exam</strong>, RTD Math Academy 
-                    will submit a final grade to PASI.
+                    will submit a final grade to MyPass.
                   </p>
                   <div className="bg-white rounded p-3">
                     <p className="text-sm font-medium text-red-800">This grade will include:</p>
                     <ul className="text-sm text-gray-600 mt-1 space-y-1">
-                      <li>• All completed assessments</li>
                       <li>• Zeros for any incomplete or missing coursework</li>
                       <li>• A final grade that may reflect a low or failing mark</li>
-                      <li>• Permanent record on your transcript</li>
                     </ul>
                   </div>
                 </div>
@@ -490,13 +468,13 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
 
               <div className="space-y-4">
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-yellow-700 mb-2">🏛️ What is PASI?</h4>
+                  <h4 className="font-semibold text-yellow-700 mb-2">🏛️ What is MyPass?</h4>
                   <p className="text-sm text-gray-700 mb-3">
-                    <strong>PASI (Provincial Approach to Student Information)</strong> is Alberta's official 
-                    student record system. All grades, withdrawals, and academic records are reported to PASI.
+                    <strong>MyPass</strong> is Alberta's official student record system interface. All grades, 
+                    withdrawals, and academic records are accessible through MyPass.
                   </p>
                   <div className="bg-white rounded p-3">
-                    <p className="text-sm font-medium mb-2">PASI tracks:</p>
+                    <p className="text-sm font-medium mb-2">MyPass tracks:</p>
                     <ul className="text-sm text-gray-600 space-y-1">
                       <li>• Course enrollments and withdrawals</li>
                       <li>• Final grades and credits earned</li>
@@ -505,15 +483,25 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
                       <li>• Graduation requirements</li>
                     </ul>
                   </div>
+                  <div className="mt-3">
+                    <a 
+                      href="https://public.education.alberta.ca/PASI/mypass/welcome" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline text-sm font-medium"
+                    >
+                      → Access MyPass Portal
+                    </a>
+                  </div>
                 </div>
 
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-orange-700 mb-2">📢 Additional PASI Reporting Situations</h4>
+                  <h4 className="font-semibold text-orange-700 mb-2">📢 Additional MyPass Reporting Situations</h4>
                   <p className="text-sm text-gray-700 mb-2">A final grade will also be submitted if a student:</p>
                   <ul className="text-sm text-gray-600 space-y-1">
-                    <li>• Becomes inactive and doesn't meet with RTD administration after being locked out</li>
-                    <li>• Reaches the end of term with an incomplete course</li>
-                    <li>• Fails to respond to communication for extended periods</li>
+                    <li>• Reaches the end of the term without applying for extension</li>
+                    <li>• Has reached the 1 year maximum extension from their original start date</li>
+                    <li>• Is unenrolled due to inactivity with no communication</li>
                   </ul>
                   <p className="text-xs text-orange-600 mt-2 italic">
                     Note: All grades are submitted at the end of the term, but students may continue into the next 
@@ -576,7 +564,7 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
                   <ul className="text-sm text-gray-600 space-y-1">
                     <li>• Register for diploma exams</li>
                     <li>• Choose exam locations</li>
-                    <li>• Pay for exam fees and rewrites</li>
+                    <li>• Pay rewrite exam fees</li>
                     <li>• Reschedule or cancel exams</li>
                     <li>• View exam results</li>
                     <li>• Access your diploma exam history</li>
@@ -607,74 +595,14 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-green-700">📝 Step-by-Step MyPass Registration</h3>
-            
-            <div className="space-y-4">
-              <div className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
-                <div className="flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">1</div>
-                <div>
-                  <h4 className="font-semibold mb-2">Create Your MyPass Account</h4>
-                  <p className="text-sm text-gray-700 mb-2">Visit the MyPass website and create your account using your Alberta Student Number (ASN) and personal information.</p>
-                  <div className="bg-white rounded p-2">
-                    <p className="text-xs text-gray-600">💡 Tip: Have your ASN, birthdate, and photo ID ready</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
-                <div className="flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">2</div>
-                <div>
-                  <h4 className="font-semibold mb-2">Select Your Diploma Exams</h4>
-                  <p className="text-sm text-gray-700 mb-2">Choose the diploma exams for your enrolled courses during the registration periods (typically fall and spring).</p>
-                  <div className="bg-white rounded p-2">
-                    <p className="text-xs text-gray-600">📅 Registration opens several months before exam sessions</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
-                <div className="flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">3</div>
-                <div>
-                  <h4 className="font-semibold mb-2">Choose Exam Location & Session</h4>
-                  <p className="text-sm text-gray-700 mb-2">Select your preferred exam location and session time. Popular locations fill up quickly!</p>
-                  <div className="bg-white rounded p-2">
-                    <p className="text-xs text-gray-600">⏰ Register early for best location and time options</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
-                <div className="flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">4</div>
-                <div>
-                  <h4 className="font-semibold mb-2">Pay Registration Fees</h4>
-                  <p className="text-sm text-gray-700 mb-2">Complete payment through MyPass. Fees vary by exam and any additional services.</p>
-                  <div className="bg-white rounded p-2">
-                    <p className="text-xs text-gray-600">💳 Payment required to confirm registration</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
-                <div className="flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-sm">5</div>
-                <div>
-                  <h4 className="font-semibold mb-2">Confirm Registration Details</h4>
-                  <p className="text-sm text-gray-700 mb-2">Review all details and print your confirmation. Bring this to your exam!</p>
-                  <div className="bg-white rounded p-2">
-                    <p className="text-xs text-gray-600">📄 Keep confirmation safe - you'll need it on exam day</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-3 text-red-800">🚨 Critical Withdrawal Responsibility</h3>
+            <h3 className="text-lg font-semibold mb-3 text-red-800">🚨 Diploma Exam Withdrawal Responsibility</h3>
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <h4 className="font-semibold text-red-700 mb-2">If You Withdraw from a Diploma Course:</h4>
                 <p className="text-sm text-gray-700 mb-3">
-                  <strong>It is YOUR responsibility to cancel your diploma exam registration in MyPass.</strong> 
+                  <strong>It is YOUR responsibility to cancel your diploma exam registration in MyPass. </strong> 
                   RTD Academy cannot do this for you.
                 </p>
                 <div className="bg-white rounded p-3">
@@ -682,24 +610,16 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
                   <ul className="text-sm text-gray-600 space-y-1">
                     <li>• Log into MyPass immediately</li>
                     <li>• Cancel your exam registration</li>
-                    <li>• Check refund policies and deadlines</li>
+                    <li>• Check cancellation deadlines</li>
                     <li>• Keep confirmation of cancellation</li>
                   </ul>
                 </div>
               </div>
               
               <div>
-                <h4 className="font-semibold text-red-700 mb-2">Consequences of Not Cancelling:</h4>
-                <ul className="text-sm text-gray-700 space-y-2">
-                  <li>• You may forfeit exam fees</li>
-                  <li>• You'll be marked as "No Show" if you don't attend</li>
-                  <li>• This appears on your official record</li>
-                  <li>• May affect future exam registrations</li>
-                </ul>
-                
-                <div className="bg-yellow-100 rounded p-3 mt-3">
+                <div className="bg-yellow-100 rounded p-3">
                   <p className="text-xs text-yellow-800">
-                    💡 If you need to reschedule or cancel after payment, contact MyPass directly for assistance with refunds or transfers.
+                    💡 If you need to reschedule or cancel your exam registration, contact MyPass directly for assistance. Note: Rewrite fees may apply for rescheduling.
                   </p>
                 </div>
               </div>
@@ -707,191 +627,24 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
           </div>
 
           <div className="bg-blue-50 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-3 text-blue-800">💰 Payment & Rewrite Information</h3>
+            <h3 className="text-lg font-semibold mb-3 text-blue-800">💰 Exam Registration & Rewrite Information</h3>
             <div className="grid md:grid-cols-2 gap-4 text-sm">
               <div>
-                <h4 className="font-semibold mb-2">Exam Payments:</h4>
+                <h4 className="font-semibold mb-2">Initial Exam Registration:</h4>
                 <ul className="space-y-1 text-gray-700">
-                  <li>• All payments made directly to Alberta Education through MyPass</li>
-                  <li>• RTD Academy does not handle diploma exam fees</li>
-                  <li>• Payment required to secure your exam spot</li>
-                  <li>• Credit card or bank transfer options available</li>
+                  <li>• No fee for your first attempt at diploma exams</li>
+                  <li>• Registration completed directly through MyPass</li>
+                  <li>• RTD Academy does not handle exam registrations</li>
+                  <li>• Register early for best location and time options</li>
                 </ul>
               </div>
               <div>
                 <h4 className="font-semibold mb-2">Exam Rewrites:</h4>
                 <ul className="space-y-1 text-gray-700">
-                  <li>• Rewrite fees paid directly through MyPass</li>
-                  <li>• Different fee structure than initial exams</li>
+                  <li>• Rewrite fees apply and are paid directly through MyPass</li>
                   <li>• Multiple sessions available throughout the year</li>
                   <li>• Same registration process as initial exams</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Staying Active Section */}
-      {activeSection === 'activity' && (
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-3xl font-bold mb-4">⚡ Staying Active: Avoiding Inactivity Consequences</h2>
-            <p className="text-gray-600 mb-6">
-              Learn what happens when students become inactive and how to stay engaged with your coursework.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-green-700">✅ Activity Requirements</h3>
-            
-            <div className="grid lg:grid-cols-2 gap-6">
-              <div className="bg-green-50 rounded-lg p-4">
-                <h4 className="font-semibold text-green-800 mb-3">📋 What You Must Do</h4>
-                <div className="space-y-3">
-                  <div className="bg-white rounded p-3">
-                    <p className="font-medium text-sm mb-1">🗓️ Log in Weekly</p>
-                    <p className="text-xs text-gray-600">Access your course at least once per week</p>
-                  </div>
-                  <div className="bg-white rounded p-3">
-                    <p className="font-medium text-sm mb-1">📍 Stay on Schedule</p>
-                    <p className="text-xs text-gray-600">Remain within 2 lessons of your target date</p>
-                  </div>
-                  <div className="bg-white rounded p-3">
-                    <p className="font-medium text-sm mb-1">✍️ Complete Check-ins</p>
-                    <p className="text-xs text-gray-600">Monday check-in and Friday reflection</p>
-                  </div>
-                  <div className="bg-white rounded p-3">
-                    <p className="font-medium text-sm mb-1">📧 Respond to Communication</p>
-                    <p className="text-xs text-gray-600">Check and respond to emails promptly</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-800 mb-3">💡 Why These Matter</h4>
-                <p className="text-sm text-gray-700 mb-3">
-                  These requirements aren't arbitrary - they're designed to help you succeed in online learning 
-                  and ensure you stay connected with your educational goals.
-                </p>
-                
-                <div className="space-y-2 text-sm text-gray-700">
-                  <p><strong>Weekly logins</strong> keep course material fresh in your mind</p>
-                  <p><strong>Staying on schedule</strong> prevents overwhelming catch-up work</p>
-                  <p><strong>Check-ins</strong> help you reflect on progress and plan ahead</p>
-                  <p><strong>Communication</strong> ensures you get support when needed</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-red-700">⚠️ Inactivity Consequences: Real Student Examples</h3>
-            
-            <div className="space-y-4">
-              <div className="border border-red-200 rounded-lg p-4">
-                <h4 className="font-semibold text-red-800 mb-2">📈 Escalating Response Process</h4>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="bg-yellow-50 rounded p-3 text-center">
-                    <h5 className="font-semibold text-yellow-800 mb-2">Week 1</h5>
-                    <p className="text-sm text-gray-700">Email reminder sent</p>
-                  </div>
-                  <div className="bg-orange-50 rounded p-3 text-center">
-                    <h5 className="font-semibold text-orange-800 mb-2">Week 2+</h5>
-                    <p className="text-sm text-gray-700">Course access locked</p>
-                  </div>
-                  <div className="bg-red-50 rounded p-3 text-center">
-                    <h5 className="font-semibold text-red-800 mb-2">No Response</h5>
-                    <p className="text-sm text-gray-700">Student withdrawn</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid lg:grid-cols-2 gap-6">
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-orange-800 mb-3">📚 Example: Sarah's Physics 30 Course</h4>
-                  <div className="space-y-2 text-sm text-gray-700">
-                    <p><strong>Situation:</strong> Sarah stopped logging in during a busy work period</p>
-                    <p><strong>Timeline:</strong></p>
-                    <ul className="ml-4 space-y-1 text-xs">
-                      <li>• Day 7: Email reminder sent</li>
-                      <li>• Day 10: Second email with concern</li>
-                      <li>• Day 14: Course access locked</li>
-                      <li>• Day 21: Final withdrawal notice</li>
-                    </ul>
-                    <p><strong>Outcome:</strong> Sarah didn't respond and was withdrawn with her current grade (45%) submitted to PASI</p>
-                  </div>
-                </div>
-
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-green-800 mb-3">✅ Example: Mike's Math 30-1 Course</h4>
-                  <div className="space-y-2 text-sm text-gray-700">
-                    <p><strong>Situation:</strong> Mike became inactive due to family emergency</p>
-                    <p><strong>Response:</strong></p>
-                    <ul className="ml-4 space-y-1 text-xs">
-                      <li>• Responded to RTD's email explaining situation</li>
-                      <li>• Scheduled meeting with administration</li>
-                      <li>• Created modified timeline for completion</li>
-                      <li>• Received temporary extension</li>
-                    </ul>
-                    <p><strong>Outcome:</strong> Mike successfully completed the course with support</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="font-semibold mb-3">🔄 The Meeting Requirement</h4>
-                <p className="text-sm text-gray-700 mb-3">
-                  If your course access is locked due to inactivity, you have <strong>one week</strong> to meet 
-                  with the RTD Administration team to create a plan for resuming progress.
-                </p>
-                
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <h5 className="font-semibold text-sm mb-2">In the meeting, you'll discuss:</h5>
-                    <ul className="text-xs text-gray-600 space-y-1">
-                      <li>• Reasons for inactivity</li>
-                      <li>• Current life circumstances</li>
-                      <li>• Realistic timeline for completion</li>
-                      <li>• Support needed to succeed</li>
-                      <li>• Modified schedule if necessary</li>
-                    </ul>
-                  </div>
                   
-                  <div>
-                    <h5 className="font-semibold text-sm mb-2">If you don't meet:</h5>
-                    <ul className="text-xs text-gray-600 space-y-1">
-                      <li>• You will be withdrawn from the course</li>
-                      <li>• Your current grade will be submitted to PASI</li>
-                      <li>• This becomes part of your permanent record</li>
-                      <li>• You cannot access course materials</li>
-                      <li>• Must re-register to take the course again</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-blue-50 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-3 text-blue-800">🎯 Staying Active: Success Strategies</h3>
-            <div className="grid md:grid-cols-2 gap-6 text-sm">
-              <div>
-                <h4 className="font-semibold mb-2">📅 Time Management:</h4>
-                <ul className="space-y-1 text-gray-700">
-                  <li>• Set regular study times in your calendar</li>
-                  <li>• Use reminders on your phone</li>
-                  <li>• Plan for busy periods in advance</li>
-                  <li>• Break large tasks into smaller chunks</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">🤝 Communication:</h4>
-                <ul className="space-y-1 text-gray-700">
-                  <li>• Contact instructors BEFORE you fall behind</li>
-                  <li>• Explain challenges early</li>
-                  <li>• Ask for help with time management</li>
-                  <li>• Use office hours for support</li>
                 </ul>
               </div>
             </div>
@@ -899,152 +652,7 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
         </section>
       )}
 
-      {/* Weekly Planner Section */}
-      {activeSection === 'planner' && (
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-3xl font-bold mb-4">📅 Interactive Weekly Study Planner</h2>
-            <p className="text-gray-600 mb-6">
-              Create your personalized weekly study schedule by dragging activities to different days. 
-              Think about when you'll work on your course and where you might study.
-            </p>
-          </div>
 
-          <div className="bg-blue-50 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-4 text-blue-800">📝 How to Use the Planner</h3>
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <h4 className="font-semibold mb-2">Instructions:</h4>
-                <ul className="space-y-1 text-gray-700">
-                  <li>1. Drag study activities from the list below</li>
-                  <li>2. Drop them onto your preferred days</li>
-                  <li>3. Add multiple activities to each day as needed</li>
-                  <li>4. Click the ✖ to remove items if you change your mind</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">Planning Tips:</h4>
-                <ul className="space-y-1 text-gray-700">
-                  <li>• Consider your work/school schedule</li>
-                  <li>• Plan for consistent daily engagement</li>
-                  <li>• Include check-ins on Mondays and Fridays</li>
-                  <li>• Balance different types of activities</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="grid lg:grid-cols-3 gap-6">
-              {/* Activities to Drag */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4 text-green-700">📚 Study Activities</h3>
-                <p className="text-sm text-gray-600 mb-4">Drag these activities to your weekly schedule →</p>
-                
-                <div className="space-y-3">
-                  {plannerItems.activities.map((activity) => (
-                    <div
-                      key={activity.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, activity)}
-                      className={`p-3 rounded-lg border-2 border-dashed cursor-move transition-all hover:shadow-md ${activity.color}`}
-                    >
-                      <div className="flex items-center">
-                        <span className="text-sm mr-2">📋</span>
-                        <span className="font-medium text-sm">{activity.text}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
-                  <p className="text-xs text-yellow-800">
-                    💡 You can drag the same activity to multiple days if you want to spread it throughout the week!
-                  </p>
-                </div>
-              </div>
-
-              {/* Weekly Schedule */}
-              <div className="lg:col-span-2">
-                <h3 className="text-lg font-semibold mb-4 text-purple-700">🗓️ Your Weekly Schedule</h3>
-                
-                <div className="space-y-3">
-                  {Object.keys(plannerItems.schedule).map((day) => (
-                    <div key={day} className="border border-gray-200 rounded-lg p-4">
-                      <h4 className="font-semibold mb-3 text-gray-700 flex items-center">
-                        <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
-                        {day}
-                      </h4>
-                      
-                      <div
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, day)}
-                        className={`min-h-[60px] border-2 border-dashed rounded-lg p-3 transition-all ${
-                          plannerItems.schedule[day].length > 0
-                            ? 'border-green-300 bg-green-50'
-                            : 'border-gray-300 bg-gray-50 hover:border-green-400'
-                        }`}
-                      >
-                        {plannerItems.schedule[day].length > 0 ? (
-                          <div className="space-y-2">
-                            {plannerItems.schedule[day].map((item, index) => (
-                              <div
-                                key={item.id}
-                                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium mr-2 mb-1 ${item.color}`}
-                              >
-                                <span className="mr-2">📋</span>
-                                <span>{item.text}</span>
-                                <button
-                                  onClick={() => removeFromSchedule(day, item.id)}
-                                  className="ml-2 text-red-500 hover:text-red-700"
-                                >
-                                  ✖
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-gray-400 text-sm italic text-center">
-                            Drop study activities here...
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Schedule Summary */}
-          {Object.values(plannerItems.schedule).some(day => day.length > 0) && (
-            <div className="bg-green-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-3 text-green-800">📊 Your Weekly Study Plan Summary</h3>
-              <div className="grid md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <h4 className="font-semibold mb-2">Active Study Days:</h4>
-                  <p className="text-gray-700">
-                    {Object.keys(plannerItems.schedule).filter(day => plannerItems.schedule[day].length > 0).join(', ') || 'None planned yet'}
-                  </p>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Total Planned Activities:</h4>
-                  <p className="text-gray-700">
-                    {Object.values(plannerItems.schedule).reduce((total, day) => total + day.length, 0)} activities scheduled
-                  </p>
-                </div>
-              </div>
-              
-              <div className="mt-4 p-3 bg-white rounded">
-                <p className="text-sm text-green-700">
-                  💡 <strong>Great planning!</strong> Remember to be realistic about your time commitments. 
-                  It's better to plan less and be consistent than to over-plan and feel overwhelmed.
-                </p>
-              </div>
-            </div>
-          )}
-        </section>
-      )}
 
       {/* Assessment Section */}
       {activeSection === 'assessment' && (
@@ -1052,228 +660,238 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId }) => {
           <div className="text-center">
             <h2 className="text-3xl font-bold mb-4">🎯 Knowledge Check: Learning Plans & Policies</h2>
             <p className="text-gray-600 max-w-2xl mx-auto mb-6">
-              Test your understanding with realistic scenarios and fill-in-the-blank questions about course policies and procedures.
+              Test your understanding with realistic scenarios and questions about course policies and procedures.
             </p>
           </div>
 
-          {/* Fill in the Blanks */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-blue-700">📝 Fill in the Blanks</h3>
-            <p className="text-sm text-gray-600 mb-4">Complete each sentence with the correct term or phrase:</p>
-            
-            <div className="space-y-4">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm mb-2">
-                  <strong>1.</strong> Students are expected to complete their course within 
-                  <input 
-                    type="text" 
-                    className="mx-2 px-2 py-1 border border-blue-300 rounded w-24"
-                    placeholder="____"
-                    value={fillInBlanks.q1 || ''}
-                    onChange={(e) => handleFillInBlank('q1', e.target.value)}
-                  /> 
-                  of enrollment.
-                </p>
+          <div className="max-w-4xl mx-auto">
+              {/* Question Progress Indicator */}
+              <div className="flex justify-center mb-6">
+                <div className="flex space-x-2">
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentQuestionIndex(index)}
+                      className={`w-3 h-3 rounded-full transition-all duration-200 ${
+                        index === currentQuestionIndex
+                          ? 'bg-indigo-600 scale-125'
+                          : questionResults[`question${index + 1}`] === 'correct'
+                          ? 'bg-green-500'
+                          : questionResults[`question${index + 1}`] === 'incorrect'
+                          ? 'bg-red-500'
+                          : 'bg-gray-300 hover:bg-gray-400'
+                      }`}
+                      aria-label={`Go to question ${index + 1}`}
+                    />
+                  ))}
+                </div>
               </div>
 
-              <div className="p-4 bg-green-50 rounded-lg">
-                <p className="text-sm mb-2">
-                  <strong>2.</strong> Students who withdraw before completing the 
-                  <input 
-                    type="text" 
-                    className="mx-2 px-2 py-1 border border-green-300 rounded w-32"
-                    placeholder="____"
-                    value={fillInBlanks.q2 || ''}
-                    onChange={(e) => handleFillInBlank('q2', e.target.value)}
-                  /> 
-                  exam will have their enrollment recorded as a Withdrawal (WDRW) in PASI.
-                </p>
+              {/* Question Display */}
+              <div className="relative">
+                {currentQuestionIndex === 0 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="02_learning_plans_completion_policies_question1"
+                    cloudFunctionName="course4_02_learning_plans_question1"
+                    title="Scenario: Alex's Section 1 Withdrawal"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(1);
+                      setQuestionResults(prev => ({...prev, question1: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 1 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="02_learning_plans_completion_policies_question2"
+                    cloudFunctionName="course4_02_learning_plans_question2"
+                    title="Scenario: Maria's MyPass Registration"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(2);
+                      setQuestionResults(prev => ({...prev, question2: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 2 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="02_learning_plans_completion_policies_question3"
+                    cloudFunctionName="course4_02_learning_plans_question3"
+                    title="Scenario: Jordan's Inactivity Situation"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(3);
+                      setQuestionResults(prev => ({...prev, question3: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 3 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="02_learning_plans_completion_policies_question4"
+                    cloudFunctionName="course4_02_learning_plans_question4"
+                    title="Course Completion Timeline"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(4);
+                      setQuestionResults(prev => ({...prev, question4: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 4 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="02_learning_plans_completion_policies_question5"
+                    cloudFunctionName="course4_02_learning_plans_question5"
+                    title="Section 1 Withdrawal Policy"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(5);
+                      setQuestionResults(prev => ({...prev, question5: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 5 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="02_learning_plans_completion_policies_question6"
+                    cloudFunctionName="course4_02_learning_plans_question6"
+                    title="Diploma Exam Registration"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(6);
+                      setQuestionResults(prev => ({...prev, question6: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 6 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="02_learning_plans_completion_policies_question7"
+                    cloudFunctionName="course4_02_learning_plans_question7"
+                    title="Course Access Lock Policy"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(7);
+                      setQuestionResults(prev => ({...prev, question7: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
+                
+                {currentQuestionIndex === 7 && (
+                  <StandardMultipleChoiceQuestion
+                    courseId={courseId}
+                    assessmentId="02_learning_plans_completion_policies_question8"
+                    cloudFunctionName="course4_02_learning_plans_question8"
+                    title="Consequences of Not Responding"
+                    theme="indigo"
+                    onAttempt={(isCorrect) => {
+                      handleQuestionComplete(8);
+                      setQuestionResults(prev => ({...prev, question8: isCorrect ? 'correct' : 'incorrect'}));
+                    }}
+                  />
+                )}
               </div>
 
-              <div className="p-4 bg-purple-50 rounded-lg">
-                <p className="text-sm mb-2">
-                  <strong>3.</strong> All students in diploma courses are required to register for their exams through 
-                  <input 
-                    type="text" 
-                    className="mx-2 px-2 py-1 border border-purple-300 rounded w-24"
-                    placeholder="____"
-                    value={fillInBlanks.q3 || ''}
-                    onChange={(e) => handleFillInBlank('q3', e.target.value)}
-                  />.
-                </p>
-              </div>
+              {/* Navigation Controls */}
+              <div className="flex justify-between items-center mt-6">
+                <button
+                  onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
+                  disabled={currentQuestionIndex === 0}
+                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    currentQuestionIndex === 0
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Previous
+                </button>
 
-              <div className="p-4 bg-orange-50 rounded-lg">
-                <p className="text-sm mb-2">
-                  <strong>4.</strong> If a student is inactive for more than one week, their course access may be temporarily 
-                  <input 
-                    type="text" 
-                    className="mx-2 px-2 py-1 border border-orange-300 rounded w-24"
-                    placeholder="____"
-                    value={fillInBlanks.q4 || ''}
-                    onChange={(e) => handleFillInBlank('q4', e.target.value)}
-                  />.
-                </p>
-              </div>
+                <div className="text-sm text-gray-500">
+                  Question {currentQuestionIndex + 1} of 8
+                </div>
 
-              <div className="p-4 bg-red-50 rounded-lg">
-                <p className="text-sm mb-2">
-                  <strong>5.</strong> Students who don't meet with RTD Administration after being locked out will be 
-                  <input 
-                    type="text" 
-                    className="mx-2 px-2 py-1 border border-red-300 rounded w-32"
-                    placeholder="____"
-                    value={fillInBlanks.q5 || ''}
-                    onChange={(e) => handleFillInBlank('q5', e.target.value)}
-                  /> 
-                  from their course.
-                </p>
+                <button
+                  onClick={() => setCurrentQuestionIndex(Math.min(7, currentQuestionIndex + 1))}
+                  disabled={currentQuestionIndex === 7}
+                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    currentQuestionIndex === 7
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                  }`}
+                >
+                  Next
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
               </div>
-            </div>
-
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => {
-                  const result = checkFillInBlanks();
-                  alert(`You got ${result.score} out of ${result.total} correct!`);
-                }}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Check My Answers
-              </button>
-            </div>
           </div>
-
-          {/* Multiple Choice Scenarios */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-green-700">🎭 Scenario-Based Questions</h3>
-            <p className="text-sm text-gray-600 mb-4">Choose the best response for each realistic student situation:</p>
-            
-            <div className="space-y-6">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-semibold mb-3">Scenario 1: Alex's Missed Section 1 Exam</h4>
-                <p className="text-sm text-gray-700 mb-3">
-                  Alex has been struggling with the course content and missed the Section 1 exam deadline. 
-                  He's considering withdrawing from the course. What should Alex know?
-                </p>
-                <div className="space-y-2">
-                  {[
-                    'Since he missed Section 1, he\'ll automatically get a withdrawal (WDRW) on his transcript',
-                    'He can still withdraw cleanly since he hasn\'t completed Section 1 exam',
-                    'He must complete Section 1 before he can withdraw',
-                    'His current grade will be submitted regardless of when he withdraws'
-                  ].map((option, index) => (
-                    <label key={index} className="flex items-start space-x-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="scenario1"
-                        className="mt-1 text-green-600"
-                        onChange={() => handleMultipleChoice('scenario1', option)}
-                      />
-                      <span className="text-sm">{option}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-semibold mb-3">Scenario 2: Maria's MyPass Registration</h4>
-                <p className="text-sm text-gray-700 mb-3">
-                  Maria is enrolled in Math 30-1 and needs to register for the diploma exam. She's never used MyPass before. 
-                  What's the most important thing for her to know?
-                </p>
-                <div className="space-y-2">
-                  {[
-                    'RTD Academy will register her automatically',
-                    'She must create a MyPass account and register herself',
-                    'She only needs to register if she wants to choose her exam location',
-                    'MyPass registration is optional for Math 30-1'
-                  ].map((option, index) => (
-                    <label key={index} className="flex items-start space-x-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="scenario2"
-                        className="mt-1 text-green-600"
-                        onChange={() => handleMultipleChoice('scenario2', option)}
-                      />
-                      <span className="text-sm">{option}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-semibold mb-3">Scenario 3: Jordan's Inactivity Situation</h4>
-                <p className="text-sm text-gray-700 mb-3">
-                  Jordan hasn't logged into his Physics 30 course for 10 days due to a family emergency. 
-                  He just received an email saying his access has been locked. What should he do?
-                </p>
-                <div className="space-y-2">
-                  {[
-                    'Wait until the family emergency is over to respond',
-                    'Immediately contact RTD to schedule a meeting within one week',
-                    'Just start logging in again - the lock will automatically lift',
-                    'Withdraw from the course to avoid getting a failing grade'
-                  ].map((option, index) => (
-                    <label key={index} className="flex items-start space-x-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="scenario3"
-                        className="mt-1 text-green-600"
-                        onChange={() => handleMultipleChoice('scenario3', option)}
-                      />
-                      <span className="text-sm">{option}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* AI Assessment */}
-          <AIMultipleChoiceQuestion
-            courseId={courseId}
-            assessmentId="02_learning_plans_completion_policies_practice"
-            cloudFunctionName="course4_02_learning_plans_completion_policies_aiQuestion"
-            title="Advanced Policy Scenarios"
-            theme="indigo"
-          />
         </section>
       )}
 
-      {/* Summary Section */}
-      <section className="bg-gradient-to-r from-indigo-600 to-purple-700 text-white rounded-lg p-8">
-        <h2 className="text-2xl font-bold mb-4">🎉 Congratulations! You're Ready to Plan Your Success</h2>
-        <div className="grid md:grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-xl font-semibold mb-3">What You've Mastered:</h3>
-            <ul className="space-y-2 text-indigo-100">
-              <li>✅ How to create a personalized learning plan</li>
-              <li>✅ Course completion timeline and one-year expectation</li>
-              <li>✅ Withdrawal deadlines and PASI reporting rules</li>
-              <li>✅ MyPass registration and diploma exam management</li>
-              <li>✅ Consequences of inactivity and how to stay engaged</li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-xl font-semibold mb-3">Your Action Items:</h3>
-            <div className="space-y-2 text-indigo-100">
-              <p>1. 📅 Implement your weekly study schedule</p>
-              <p>2. 📧 Set up email reminders for check-ins</p>
-              <p>3. 💻 Create your MyPass account (if taking diploma courses)</p>
-              <p>4. 📱 Save RTD contact information</p>
-              <p>5. 🎯 Review your learning goals regularly</p>
+      {/* Summary Section - Only show when all questions are completed */}
+      {allQuestionsCompleted && (
+        <section className="bg-gradient-to-r from-indigo-600 to-purple-700 text-white rounded-lg p-8">
+          <h2 className="text-2xl font-bold mb-4">🎉 Lesson Complete! You're Ready to Plan Your Success</h2>
+          
+          <div className="text-center mb-6">
+            <p className="text-lg mb-4">
+              You've mastered RTD Academy's policies on learning plans, course completion, withdrawal procedures, and MyPass registration.
+            </p>
+            
+            <div className="bg-white/10 backdrop-blur rounded-lg p-4 mb-6">
+              <p className="text-base">
+                Next, you'll learn effective time management strategies and how to stay active and engaged in your asynchronous courses.
+              </p>
             </div>
           </div>
-        </div>
-        
-        <div className="mt-6 bg-white/10 backdrop-blur rounded-lg p-4">
-          <p className="text-lg font-medium">
-            🚀 You now have all the tools and knowledge needed to succeed at RTD Academy. Remember: 
-            consistency beats intensity, and we're here to support you every step of the way!
-          </p>
-        </div>
-      </section>
+
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <h3 className="text-xl font-semibold mb-3">What You've Mastered:</h3>
+              <ul className="space-y-2 text-indigo-100">
+                <li>✅ How to create a personalized learning plan</li>
+                <li>✅ Course completion timeline and one-year expectation</li>
+                <li>✅ Withdrawal deadlines and PASI reporting rules</li>
+                <li>✅ MyPass registration and diploma exam management</li>
+                <li>✅ Consequences of inactivity and how to stay engaged</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold mb-3">Your Action Items:</h3>
+              <div className="space-y-2 text-indigo-100">
+                <p>1. 📅 Implement your weekly study schedule</p>
+                <p>2. 📧 Set up email reminders for check-ins</p>
+                <p>3. 💻 Create your MyPass account (if taking diploma courses)</p>
+                <p>4. 📱 Save RTD contact information</p>
+                <p>5. 🎯 Review your learning goals regularly</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <button
+              onClick={handleNextLesson}
+              className="bg-white text-indigo-600 hover:bg-indigo-50 font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
+            >
+              Continue to Next Lesson →
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 };

@@ -340,8 +340,13 @@ const StaffCourseWrapperRefactored = () => {
             currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
             course={enhancedCourse}
             isMobile={isMobile}
+            gradebookItems={enhancedCourse?.Gradebook?.items || enhancedCourse?.Assessments || {}}
+            isStaffView={true}
+            devMode={devMode}
           />
         </div>
+        {/* SEQUENTIAL_ACCESS_UPDATE: Added isStaffView and devMode props for lesson access control */}
+        {/* Original CollapsibleNavigation props (before sequential access): courseTitle, unitsList, progress, activeItemId, expanded, onToggleExpand, onItemSelect, currentUnitIndex, course, isMobile */}
 
         {/* Main content - using CourseRouterEnhanced */}
         <main className="flex-1 overflow-auto p-2 pb-8 min-h-0">
