@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { AIMultipleChoiceQuestion } from '../../../../components/assessments';
+import React, { useState, useEffect } from 'react';
+import { AIMultipleChoiceQuestion, StandardMultipleChoiceQuestion } from '../../../../components/assessments';
+import { useProgress } from '../../../../context/CourseProgressContext';
 
-const CellPhonePolicyExamProctoring = ({ courseId }) => {
-  const [activeSection, setActiveSection] = useState('overview');
+const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigateToNext }) => {
+  const { markCompleted } = useProgress();
+  const [activeSection, setActiveSection] = useState('general');
   const [setupProgress, setSetupProgress] = useState({
     step1: false,
     step2: false,
@@ -26,6 +28,54 @@ const CellPhonePolicyExamProctoring = ({ courseId }) => {
   // Behavior quiz state
   const [behaviorQuiz, setBehaviorQuiz] = useState({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+
+  // Academic integrity state (from lesson 09)
+  const [scenarioAnswers, setScenarioAnswers] = useState({});
+  const [showScenarioFeedback, setShowScenarioFeedback] = useState(false);
+  
+  // Drag and Drop State for ethics sorting
+  const [dragItems, setDragItems] = useState({
+    available: [
+      { id: 'citing-sources', text: 'Citing sources in your assignment', category: 'ethical' },
+      { id: 'using-chatgpt-exam', text: 'Using ChatGPT to answer exam questions', category: 'unethical' },
+      { id: 'asking-clarification', text: 'Asking instructor for clarification during exam', category: 'ethical' },
+      { id: 'sharing-answers', text: 'Sharing quiz answers with classmates', category: 'unethical' },
+      { id: 'study-group', text: 'Forming a study group to review material', category: 'ethical' },
+      { id: 'copying-assignment', text: 'Copying another student\'s assignment', category: 'unethical' },
+      { id: 'using-calculator', text: 'Using approved calculator during math exam', category: 'ethical' },
+      { id: 'impersonation', text: 'Having someone else take your exam', category: 'unethical' },
+      { id: 'referencing-notes', text: 'Referencing course notes during open-book test', category: 'ethical' },
+      { id: 'accessing-internet', text: 'Searching Google during closed-book exam', category: 'unethical' }
+    ],
+    ethical: [],
+    unethical: []
+  });
+  
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [sortingComplete, setSortingComplete] = useState(false);
+
+  // Standard multiple choice questions state
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [questionsCompleted, setQuestionsCompleted] = useState({
+    question1: false,
+    question2: false,
+    question3: false,
+    question4: false,
+    question5: false,
+    question6: false,
+    question7: false,
+    question8: false
+  });
+  const [questionResults, setQuestionResults] = useState({
+    question1: null,
+    question2: null,
+    question3: null,
+    question4: null,
+    question5: null,
+    question6: null,
+    question7: null,
+    question8: null
+  });
 
   const handleSetupStep = (step) => {
     setSetupProgress(prev => ({
@@ -93,16 +143,103 @@ const CellPhonePolicyExamProctoring = ({ courseId }) => {
     return { score, total: Object.keys(correctAnswers).length };
   };
 
+  // Academic integrity handlers (from lesson 09)
+  const handleScenarioAnswer = (scenarioId, answer) => {
+    setScenarioAnswers(prev => ({
+      ...prev,
+      [scenarioId]: answer
+    }));
+  };
+
+  const checkScenarioAnswers = () => {
+    const correctAnswers = {
+      scenario1: 'violation',
+      scenario2: 'not_violation',
+      scenario3: 'violation',
+      scenario4: 'violation'
+    };
+    
+    let score = 0;
+    Object.keys(correctAnswers).forEach(key => {
+      if (scenarioAnswers[key] === correctAnswers[key]) {
+        score++;
+      }
+    });
+    
+    setShowScenarioFeedback(true);
+    return { score, total: Object.keys(correctAnswers).length };
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (e, item) => {
+    setDraggedItem(item);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, category) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+
+    setDragItems(prev => {
+      const newItems = { ...prev };
+      
+      // Remove from current location
+      Object.keys(newItems).forEach(key => {
+        newItems[key] = newItems[key].filter(item => item.id !== draggedItem.id);
+      });
+      
+      // Add to new location
+      newItems[category] = [...newItems[category], draggedItem];
+      
+      return newItems;
+    });
+    
+    setDraggedItem(null);
+  };
+
+  const checkSorting = () => {
+    const allCorrect = dragItems.ethical.every(item => item.category === 'ethical') &&
+                      dragItems.unethical.every(item => item.category === 'unethical') &&
+                      dragItems.available.length === 0;
+    setSortingComplete(allCorrect);
+  };
+
+  const handleQuestionComplete = (questionNumber) => {
+    setQuestionsCompleted(prev => ({
+      ...prev,
+      [`question${questionNumber}`]: true
+    }));
+  };
+
+  const allQuestionsCompleted = questionsCompleted.question1 && questionsCompleted.question2 && questionsCompleted.question3 && 
+    questionsCompleted.question4 && questionsCompleted.question5 && questionsCompleted.question6 && 
+    questionsCompleted.question7 && questionsCompleted.question8;
+
+  // Track completion when all questions are answered
+  useEffect(() => {
+    if (allQuestionsCompleted) {
+      const lessonItemId = itemId || activeItem?.itemId;
+      if (lessonItemId) {
+        markCompleted(lessonItemId);
+      }
+    }
+  }, [allQuestionsCompleted, markCompleted, itemId, activeItem?.itemId]);
+
   return (
     <div className="space-y-8">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-red-600 to-orange-700 text-white rounded-lg p-8">
-        <h1 className="text-4xl font-bold mb-4">Cell Phone Policy & Exam Proctoring</h1>
-        <p className="text-xl mb-6">Master RTD Academy's cell phone requirements for academic integrity and exam success</p>
+      <section className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg p-8">
+        <h1 className="text-4xl font-bold mb-4">Cell Phones, Exams, and Academic Integrity</h1>
+        <p className="text-xl mb-6">Master RTD Academy's policies for maintaining academic integrity during exams and assessments</p>
         <div className="bg-white/10 backdrop-blur rounded-lg p-4">
           <p className="text-lg">
-            🎯 <strong>Learning Objectives:</strong> Understand RTD's cell phone policy, master secondary-camera setup procedures, 
-            learn exam day behaviors and restrictions, and identify accessibility exceptions and accommodations.
+            🎯 <strong>Learning Objectives:</strong> Understand cell phone policies, exam day behaviors, academic integrity standards, 
+            types of violations, and the disciplinary process while maintaining ethical academic practices.
           </p>
         </div>
       </section>
@@ -111,14 +248,11 @@ const CellPhonePolicyExamProctoring = ({ courseId }) => {
       <div className="border-b border-gray-200">
         <nav className="flex space-x-8 overflow-x-auto">
           {[
-            { id: 'overview', label: 'Policy Overview' },
             { id: 'general', label: 'General Expectations' },
-            { id: 'setup', label: 'Secondary Camera Setup' },
-            { id: 'behavior', label: 'Exam Day Behaviors' },
-            { id: 'violations', label: 'Violations & Consequences' },
-            { id: 'exceptions', label: 'Accessibility Exceptions' },
-            { id: 'diagram', label: 'Room Setup Activity' },
-            { id: 'quiz', label: 'Behavior Quiz' },
+            { id: 'behavior', label: 'Exam Day Behaviours' },
+            { id: 'policy', label: 'Policy Overview' },
+            { id: 'violations', label: 'Types of Violations' },
+            { id: 'discipline', label: 'Disciplinary Process' },
             { id: 'assessment', label: 'Knowledge Check' }
           ].map((tab) => (
             <button
@@ -126,7 +260,7 @@ const CellPhonePolicyExamProctoring = ({ courseId }) => {
               onClick={() => setActiveSection(tab.id)}
               className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeSection === tab.id
-                  ? 'border-red-500 text-red-600'
+                  ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -1409,28 +1543,668 @@ const CellPhonePolicyExamProctoring = ({ courseId }) => {
         </section>
       )}
 
+      {/* Policy Overview Section */}
+      {activeSection === 'policy' && (
+        <section className="space-y-6">
+          <div className="bg-red-50 rounded-lg p-6">
+            <h2 className="text-2xl font-bold mb-4 text-red-900">📜 RTD Academy Academic Integrity Policy</h2>
+            <p className="text-gray-700 mb-4">
+              Academic integrity is fundamental to your success and the integrity of RTD Academy. Our policy ensures 
+              that all students are evaluated fairly and that academic achievements reflect genuine knowledge and skills.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-xl font-semibold mb-4 text-blue-700">🎯 Core Principles</h3>
+            
+            <div className="grid lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
+                    <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                    Honesty in All Work
+                  </h4>
+                  <p className="text-sm text-gray-700 mb-3">
+                    All assignments, quizzes, and exams must be your own original work.
+                  </p>
+                  <div className="bg-white rounded p-3">
+                    <p className="text-xs font-medium mb-2">This means:</p>
+                    <ul className="text-xs text-gray-600 space-y-1">
+                      <li>• Completing all assessments independently</li>
+                      <li>• Not copying from other sources without citation</li>
+                      <li>• Using only authorized resources during exams</li>
+                      <li>• Representing your true understanding</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-800 mb-3 flex items-center">
+                    <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                    Respect for Learning Process
+                  </h4>
+                  <p className="text-sm text-gray-700 mb-3">
+                    Honor the educational process and the efforts of your peers and instructors.
+                  </p>
+                  <div className="bg-white rounded p-3">
+                    <p className="text-xs font-medium mb-2">Examples include:</p>
+                    <ul className="text-xs text-gray-600 space-y-1">
+                      <li>• Not sharing exam content with others</li>
+                      <li>• Respecting intellectual property</li>
+                      <li>• Maintaining confidentiality of assessments</li>
+                      <li>• Supporting fair evaluation for everyone</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-800 mb-3 flex items-center">
+                    <span className="w-3 h-3 bg-purple-500 rounded-full mr-2"></span>
+                    Accountability & Responsibility
+                  </h4>
+                  <p className="text-sm text-gray-700 mb-3">
+                    Take responsibility for understanding and following academic integrity standards.
+                  </p>
+                  <div className="bg-white rounded p-3">
+                    <p className="text-xs font-medium mb-2">Your responsibilities:</p>
+                    <ul className="text-xs text-gray-600 space-y-1">
+                      <li>• Know what constitutes academic dishonesty</li>
+                      <li>• Ask questions when policies are unclear</li>
+                      <li>• Report suspected violations</li>
+                      <li>• Accept consequences if violations occur</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-orange-800 mb-3 flex items-center">
+                    <span className="w-3 h-3 bg-orange-500 rounded-full mr-2"></span>
+                    Ethical Use of Technology
+                  </h4>
+                  <p className="text-sm text-gray-700 mb-3">
+                    Use technology appropriately and within the guidelines of each assessment.
+                  </p>
+                  <div className="bg-white rounded p-3">
+                    <p className="text-xs font-medium mb-2">Technology guidelines:</p>
+                    <ul className="text-xs text-gray-600 space-y-1">
+                      <li>• No unauthorized AI tool usage during exams</li>
+                      <li>• Respect software and platform restrictions</li>
+                      <li>• Use assistive technology only when approved</li>
+                      <li>• Maintain security of login credentials</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <h3 className="text-lg font-semibold mb-3 text-yellow-800">⚖️ Why Academic Integrity Matters</h3>
+            <div className="grid md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <h4 className="font-semibold mb-2">For You:</h4>
+                <ul className="space-y-1 text-gray-700">
+                  <li>• Develops genuine skills and knowledge</li>
+                  <li>• Builds confidence in your abilities</li>
+                  <li>• Prepares you for future challenges</li>
+                  <li>• Maintains the value of your credentials</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-2">For Your Peers:</h4>
+                <ul className="space-y-1 text-gray-700">
+                  <li>• Ensures fair competition and evaluation</li>
+                  <li>• Protects the integrity of grades</li>
+                  <li>• Maintains trust in the system</li>
+                  <li>• Supports collaborative learning</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-2">For Society:</h4>
+                <ul className="space-y-1 text-gray-700">
+                  <li>• Maintains trust in educational credentials</li>
+                  <li>• Ensures competent professionals</li>
+                  <li>• Upholds ethical standards</li>
+                  <li>• Protects academic reputation</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Types of Violations Section */}
+      {activeSection === 'violations' && (
+        <section className="space-y-6">
+          <div>
+            <h2 className="text-3xl font-bold mb-4">🚫 Types of Academic Integrity Violations</h2>
+            <p className="text-gray-600 mb-6">
+              Understanding what constitutes academic dishonesty helps you avoid violations and maintain integrity.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h3 className="text-xl font-semibold mb-4 text-red-700">📝 Plagiarism</h3>
+              
+              <div className="space-y-4">
+                <div className="bg-red-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-red-800 mb-2">What is Plagiarism?</h4>
+                  <p className="text-sm text-gray-700 mb-3">
+                    Using someone else's work, ideas, or words without proper citation or attribution.
+                  </p>
+                  
+                  <div className="bg-white rounded p-3">
+                    <p className="text-xs font-medium mb-2">Common forms:</p>
+                    <ul className="text-xs text-gray-600 space-y-1">
+                      <li>• Copying text from websites without quotation marks</li>
+                      <li>• Submitting someone else's assignment as your own</li>
+                      <li>• Paraphrasing without crediting the source</li>
+                      <li>• Using images or media without permission</li>
+                      <li>• Self-plagiarism (reusing your own previous work)</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="bg-green-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-800 mb-2">How to Avoid Plagiarism</h4>
+                  <div className="text-sm text-gray-700 space-y-2">
+                    <p>• <strong>Always cite sources:</strong> Include author, title, date, and URL</p>
+                    <p>• <strong>Use quotation marks:</strong> For direct quotes from any source</p>
+                    <p>• <strong>Paraphrase properly:</strong> Rewrite in your own words AND cite</p>
+                    <p>• <strong>Ask for help:</strong> When unsure about citation requirements</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h3 className="text-xl font-semibold mb-4 text-orange-700">🤖 AI Tool Misuse</h3>
+              
+              <div className="space-y-4">
+                <div className="bg-orange-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-orange-800 mb-2">Prohibited AI Usage</h4>
+                  <p className="text-sm text-gray-700 mb-3">
+                    Using artificial intelligence tools like ChatGPT, Claude, or Bard to complete assessments 
+                    that should demonstrate your own knowledge.
+                  </p>
+                  
+                  <div className="bg-white rounded p-3">
+                    <p className="text-xs font-medium mb-2">Examples of violations:</p>
+                    <ul className="text-xs text-gray-600 space-y-1">
+                      <li>• Using ChatGPT to answer exam questions</li>
+                      <li>• Having AI write your essays or assignments</li>
+                      <li>• Using AI to solve math problems during tests</li>
+                      <li>• Getting AI to explain concepts during closed-book exams</li>
+                      <li>• Using AI translation tools during language assessments</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-800 mb-2">Appropriate AI Use</h4>
+                  <div className="text-sm text-gray-700 space-y-2">
+                    <p>• <strong>Study preparation:</strong> Use AI to create practice questions</p>
+                    <p>• <strong>Concept review:</strong> Get explanations for learning (not during exams)</p>
+                    <p>• <strong>Writing assistance:</strong> Only when explicitly permitted by instructor</p>
+                    <p>• <strong>Research help:</strong> Generate ideas for topics (not final content)</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h3 className="text-xl font-semibold mb-4 text-purple-700">🤝 Unauthorized Collaboration</h3>
+              
+              <div className="space-y-4">
+                <div className="bg-purple-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-800 mb-2">What Counts as Cheating?</h4>
+                  <p className="text-sm text-gray-700 mb-3">
+                    Working with others on assignments or exams that are meant to be completed individually.
+                  </p>
+                  
+                  <div className="bg-white rounded p-3">
+                    <p className="text-xs font-medium mb-2">Violation examples:</p>
+                    <ul className="text-xs text-gray-600 space-y-1">
+                      <li>• Sharing quiz or exam answers with classmates</li>
+                      <li>• Working together on individual assignments</li>
+                      <li>• Getting help from tutors during exams</li>
+                      <li>• Looking at another student's work during tests</li>
+                      <li>• Using unauthorized online help forums</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="bg-green-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-800 mb-2">Allowed Collaboration</h4>
+                  <div className="text-sm text-gray-700 space-y-2">
+                    <p>• <strong>Study groups:</strong> Reviewing material together before exams</p>
+                    <p>• <strong>Seeking help:</strong> Asking instructors for clarification on concepts</p>
+                    <p>• <strong>Academic support:</strong> Using RTD Academy tutoring and support services</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h3 className="text-xl font-semibold mb-4 text-indigo-700">👤 Impersonation & Identity Fraud</h3>
+              
+              <div className="space-y-4">
+                <div className="bg-indigo-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-indigo-800 mb-2">Identity Violations</h4>
+                  <p className="text-sm text-gray-700 mb-3">
+                    Having someone else complete assignments or exams on your behalf, or misrepresenting your identity.
+                  </p>
+                  
+                  <div className="bg-white rounded p-3">
+                    <p className="text-xs font-medium mb-2">Serious violations:</p>
+                    <ul className="text-xs text-gray-600 space-y-1">
+                      <li>• Having someone else take your exam</li>
+                      <li>• Sharing login credentials with others</li>
+                      <li>• Taking an exam for another student</li>
+                      <li>• Using fake identification during assessments</li>
+                      <li>• Submitting work completed by someone else</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="bg-red-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-red-800 mb-2">Severe Consequences</h4>
+                  <div className="text-sm text-gray-700 space-y-2">
+                    <p>• <strong>Immediate withdrawal</strong> from the course</p>
+                    <p>• <strong>Permanent record</strong> of academic dishonesty</p>
+                    <p>• <strong>Prohibition</strong> from future RTD Academy enrollment</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Disciplinary Process Section */}
+      {activeSection === 'discipline' && (
+        <section className="space-y-6">
+          <div>
+            <h2 className="text-3xl font-bold mb-4">⚖️ RTD Academy Disciplinary Process</h2>
+            <p className="text-gray-600 mb-6">
+              Understand the clear, fair process used to address academic integrity violations.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-xl font-semibold mb-4 text-orange-700">📋 Investigation Process</h3>
+            
+            <div className="space-y-4">
+              <div className="relative">
+                <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-300"></div>
+                
+                <div className="relative flex items-start space-x-4 pb-6">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">1</div>
+                  <div className="flex-grow">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-blue-800 mb-2">Initial Detection</h4>
+                      <p className="text-sm text-gray-700 mb-2">
+                        Potential violation is identified through automated systems, instructor observation, or student reports.
+                      </p>
+                      <div className="bg-white rounded p-3">
+                        <p className="text-xs font-medium mb-1">Detection methods:</p>
+                        <ul className="text-xs text-gray-600 space-y-1">
+                          <li>• Plagiarism detection software</li>
+                          <li>• Proctoring system alerts</li>
+                          <li>• Unusual pattern recognition</li>
+                          <li>• Instructor review of submissions</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative flex items-start space-x-4 pb-6">
+                  <div className="flex-shrink-0 w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center text-white font-bold text-sm">2</div>
+                  <div className="flex-grow">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-yellow-800 mb-2">Preliminary Investigation</h4>
+                      <p className="text-sm text-gray-700 mb-2">
+                        Course instructor conducts initial review of evidence and documentation.
+                      </p>
+                      <div className="bg-white rounded p-3">
+                        <p className="text-xs font-medium mb-1">Investigation includes:</p>
+                        <ul className="text-xs text-gray-600 space-y-1">
+                          <li>• Review of submission timestamps</li>
+                          <li>• Analysis of work patterns</li>
+                          <li>• Comparison with other submissions</li>
+                          <li>• Examination of technical evidence</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative flex items-start space-x-4 pb-6">
+                  <div className="flex-shrink-0 w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm">3</div>
+                  <div className="flex-grow">
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-orange-800 mb-2">Student Notification</h4>
+                      <p className="text-sm text-gray-700 mb-2">
+                        Student is informed of the suspected violation and given opportunity to respond.
+                      </p>
+                      <div className="bg-white rounded p-3">
+                        <p className="text-xs font-medium mb-1">Notification process:</p>
+                        <ul className="text-xs text-gray-600 space-y-1">
+                          <li>• Formal email with specific allegations</li>
+                          <li>• Evidence summary provided</li>
+                          <li>• 48-hour response period given</li>
+                          <li>• Right to explanation acknowledged</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="relative flex items-start space-x-4">
+                  <div className="flex-shrink-0 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-bold text-sm">4</div>
+                  <div className="flex-grow">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-red-800 mb-2">Final Decision</h4>
+                      <p className="text-sm text-gray-700 mb-2">
+                        Based on investigation and student response, final decision and consequences are determined.
+                      </p>
+                      <div className="bg-white rounded p-3">
+                        <p className="text-xs font-medium mb-1">Decision factors:</p>
+                        <ul className="text-xs text-gray-600 space-y-1">
+                          <li>• Strength of evidence</li>
+                          <li>• Student's explanation and response</li>
+                          <li>• Previous violation history</li>
+                          <li>• Severity of the violation</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h3 className="text-xl font-semibold mb-4 text-yellow-700">⚠️ First Offense Consequences</h3>
+              
+              <div className="space-y-4">
+                <div className="bg-yellow-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-yellow-800 mb-3">Standard First Offense Process</h4>
+                  
+                  <div className="space-y-3">
+                    <div className="bg-white rounded p-3">
+                      <h5 className="font-semibold text-sm text-red-700 mb-2">1. Assessment Scored at 0%</h5>
+                      <p className="text-xs text-gray-600">
+                        The violated assessment receives a grade of zero percent, regardless of the content submitted.
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white rounded p-3">
+                      <h5 className="font-semibold text-sm text-blue-700 mb-2">2. Academic Integrity Module Required</h5>
+                      <p className="text-xs text-gray-600">
+                        Student must complete a comprehensive online module covering academic integrity principles 
+                        before continuing with coursework.
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white rounded p-3">
+                      <h5 className="font-semibold text-sm text-green-700 mb-2">3. Re-write Opportunity Available</h5>
+                      <p className="text-xs text-gray-600">
+                        After completing the integrity module, student may use their course re-write opportunity 
+                        to replace the zero grade.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h3 className="text-xl font-semibold mb-4 text-red-700">🚨 Second Offense Consequences</h3>
+              
+              <div className="space-y-4">
+                <div className="bg-red-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-red-800 mb-3">Immediate Course Withdrawal</h4>
+                  
+                  <div className="space-y-3">
+                    <div className="bg-white rounded p-3">
+                      <h5 className="font-semibold text-sm text-red-700 mb-2">Automatic Withdrawal</h5>
+                      <p className="text-xs text-gray-600">
+                        Student is immediately withdrawn from the course with no opportunity for completion or re-write.
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white rounded p-3">
+                      <h5 className="font-semibold text-sm text-orange-700 mb-2">Current Grade Submitted</h5>
+                      <p className="text-xs text-gray-600">
+                        The student's grade at the time of violation is calculated and submitted to PASI as the final mark.
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white rounded p-3">
+                      <h5 className="font-semibold text-sm text-purple-700 mb-2">Future Enrollment Prohibited</h5>
+                      <p className="text-xs text-gray-600">
+                        Student becomes ineligible to register for any future RTD Academy courses.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+        </section>
+      )}
+
       {/* Assessment Section */}
       {activeSection === 'assessment' && (
         <section className="space-y-6">
           <div className="text-center">
-            <h2 className="text-3xl font-bold mb-4">🎯 Cell Phone Policy Knowledge Check</h2>
+            <h2 className="text-3xl font-bold mb-4">🎯 Cell Phones, Exams, and Academic Integrity Knowledge Check</h2>
             <p className="text-gray-600 max-w-2xl mx-auto mb-6">
-              Demonstrate your comprehensive understanding of RTD Academy's cell phone policy and exam procedures.
+              Test your understanding of cell phone policies, exam procedures, and academic integrity standards.
             </p>
           </div>
 
-          <AIMultipleChoiceQuestion
-            courseId={courseId}
-            assessmentId="08_cell_phone_policy_exam_proctoring_practice"
-            cloudFunctionName="course4_08_cell_phone_policy_exam_proctoring_aiQuestion"
-            title="Cell Phone Policy & Proctoring Procedures"
-            theme="red"
-          />
+          <div className="max-w-4xl mx-auto">
+              {/* Question Progress Indicator */}
+              <div className="flex justify-center mb-6">
+                <div className="flex space-x-2">
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentQuestionIndex(index)}
+                      className={`w-3 h-3 rounded-full transition-all duration-200 ${
+                        index === currentQuestionIndex
+                          ? 'bg-indigo-600 scale-125'
+                          : questionResults[`question${index + 1}`] === 'correct'
+                          ? 'bg-green-500'
+                          : questionResults[`question${index + 1}`] === 'incorrect'
+                          ? 'bg-red-500'
+                          : 'bg-gray-300 hover:bg-gray-400'
+                      }`}
+                      aria-label={`Go to question ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Question Display */}
+              <div className="relative">
+
+            {/* Question 1 - Cell Phone Setup Knowledge */}
+            {currentQuestionIndex === 0 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="08_cell_phone_policy_question1"
+                cloudFunctionName="course4_08_cell_phone_policy_question1"
+                title="Secondary Camera Setup"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  handleQuestionComplete(1);
+                  setQuestionResults(prev => ({...prev, question1: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {/* Question 2 - Do Not Disturb Settings Knowledge */}
+            {currentQuestionIndex === 1 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="08_cell_phone_policy_question2"
+                cloudFunctionName="course4_08_cell_phone_policy_question2"
+                title="Phone Configuration Requirements"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  handleQuestionComplete(2);
+                  setQuestionResults(prev => ({...prev, question2: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {/* Question 3 - Prohibited Behaviors Knowledge */}
+            {currentQuestionIndex === 2 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="08_cell_phone_policy_question3"
+                cloudFunctionName="course4_08_cell_phone_policy_question3"
+                title="Exam Day Restrictions"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  handleQuestionComplete(3);
+                  setQuestionResults(prev => ({...prev, question3: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {/* Question 4 - Academic Integrity Policy Knowledge */}
+            {currentQuestionIndex === 3 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="08_cell_phone_policy_question4"
+                cloudFunctionName="course4_08_cell_phone_policy_question4"
+                title="Academic Integrity Principles"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  handleQuestionComplete(4);
+                  setQuestionResults(prev => ({...prev, question4: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {/* Question 5 - Violation Consequences Knowledge */}
+            {currentQuestionIndex === 4 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="08_cell_phone_policy_question5"
+                cloudFunctionName="course4_08_cell_phone_policy_question5"
+                title="Violation Consequences"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  handleQuestionComplete(5);
+                  setQuestionResults(prev => ({...prev, question5: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {/* Question 6 - Technical Issue Scenario */}
+            {currentQuestionIndex === 5 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="08_cell_phone_policy_question6"
+                cloudFunctionName="course4_08_cell_phone_policy_question6"
+                title="Technical Difficulties During Exam"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  handleQuestionComplete(6);
+                  setQuestionResults(prev => ({...prev, question6: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {/* Question 7 - Academic Integrity Violation Scenario */}
+            {currentQuestionIndex === 6 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="08_cell_phone_policy_question7"
+                cloudFunctionName="course4_08_cell_phone_policy_question7"
+                title="Academic Integrity Scenario"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  handleQuestionComplete(7);
+                  setQuestionResults(prev => ({...prev, question7: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {/* Question 8 - Phone Policy Violation Scenario */}
+            {currentQuestionIndex === 7 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="08_cell_phone_policy_question8"
+                cloudFunctionName="course4_08_cell_phone_policy_question8"
+                title="Cell Phone Policy Scenario"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  handleQuestionComplete(8);
+                  setQuestionResults(prev => ({...prev, question8: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+              </div>
+
+              {/* Navigation Controls */}
+              <div className="flex justify-between items-center mt-6">
+                <button
+                  onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
+                  disabled={currentQuestionIndex === 0}
+                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    currentQuestionIndex === 0
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Previous
+                </button>
+
+                <div className="text-sm text-gray-500">
+                  Question {currentQuestionIndex + 1} of 8
+                </div>
+
+                <button
+                  onClick={() => setCurrentQuestionIndex(Math.min(7, currentQuestionIndex + 1))}
+                  disabled={currentQuestionIndex === 7}
+                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    currentQuestionIndex === 7
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                  }`}
+                >
+                  Next
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+          </div>
         </section>
       )}
 
-      {/* Summary Section */}
-      <section className="bg-gradient-to-r from-red-600 to-orange-700 text-white rounded-lg p-8">
+      {/* Summary Section - Only show when all questions are completed */}
+      {allQuestionsCompleted && (
+      <section className="bg-gradient-to-r from-indigo-600 to-purple-700 text-white rounded-lg p-8">
         <h2 className="text-2xl font-bold mb-4">🎉 You're Ready for Proctored Exams!</h2>
         <div className="grid md:grid-cols-2 gap-6">
           <div>
@@ -1462,7 +2236,21 @@ const CellPhonePolicyExamProctoring = ({ courseId }) => {
             testing conditions for all students. When in doubt, always ask your proctor for guidance!
           </p>
         </div>
+
+        <div className="text-center mt-6">
+          <button
+            onClick={() => {
+              if (onNavigateToNext) {
+                onNavigateToNext();
+              }
+            }}
+            className="bg-white text-indigo-600 hover:bg-indigo-50 font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
+          >
+            Continue to Next Lesson →
+          </button>
+        </div>
       </section>
+      )}
     </div>
   );
 };

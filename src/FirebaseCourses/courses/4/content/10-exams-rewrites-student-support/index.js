@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { AIMultipleChoiceQuestion } from '../../../../components/assessments';
+import React, { useState, useEffect } from 'react';
+import { AIMultipleChoiceQuestion, StandardMultipleChoiceQuestion } from '../../../../components/assessments';
+import { useProgress } from '../../../../context/CourseProgressContext';
 
-const ExamsRewritesStudentSupportResources = ({ courseId }) => {
+const ExamsRewritesStudentSupportResources = ({ courseId, itemId, activeItem }) => {
+  const { markCompleted } = useProgress();
   const [activeSection, setActiveSection] = useState('rewrite-policy');
   const [supportPlanData, setSupportPlanData] = useState({
     academicChallenges: '',
@@ -36,7 +38,7 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
   const [readinessChecklist, setReadinessChecklist] = useState({
     understandRewritePolicy: false,
     knowSupportContacts: false,
-    familiarWithISP: false,
+    familiarWithIPP: false,
     practiceTestCompleted: false,
     technologyTested: false,
     studySpaceReady: false,
@@ -45,6 +47,29 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
   });
 
   const [showReflectionFeedback, setShowReflectionFeedback] = useState(false);
+
+  // Standard multiple choice questions state
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [questionsCompleted, setQuestionsCompleted] = useState({
+    question1: false,
+    question2: false,
+    question3: false,
+    question4: false,
+    question5: false,
+    question6: false,
+    question7: false,
+    question8: false
+  });
+  const [questionResults, setQuestionResults] = useState({
+    question1: null,
+    question2: null,
+    question3: null,
+    question4: null,
+    question5: null,
+    question6: null,
+    question7: null,
+    question8: null
+  });
 
   const handleSupportPlanChange = (field, value) => {
     setSupportPlanData(prev => ({
@@ -74,6 +99,20 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
     }));
   };
 
+  const allQuestionsCompleted = questionsCompleted.question1 && questionsCompleted.question2 && questionsCompleted.question3 && 
+    questionsCompleted.question4 && questionsCompleted.question5 && questionsCompleted.question6 && 
+    questionsCompleted.question7 && questionsCompleted.question8;
+
+  // Track completion when all questions are answered
+  useEffect(() => {
+    if (allQuestionsCompleted) {
+      const lessonItemId = itemId || activeItem?.itemId;
+      if (lessonItemId) {
+        markCompleted(lessonItemId);
+      }
+    }
+  }, [allQuestionsCompleted, markCompleted, itemId, activeItem?.itemId]);
+
   const submitReflection = () => {
     if (reflectionData.elearningExperience.length > 100 && 
         reflectionData.connectionsToCourse.length > 50) {
@@ -90,7 +129,7 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
   return (
     <div className="space-y-8">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-lg p-8">
+      <section className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg p-8">
         <h1 className="text-4xl font-bold mb-4">Exams, Rewrites & Student Support Resources</h1>
         <p className="text-xl mb-6">Master RTD Academy's support systems and prepare for your academic journey ahead</p>
         <div className="bg-white/10 backdrop-blur rounded-lg p-4">
@@ -108,12 +147,9 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
           {[
             { id: 'rewrite-policy', label: 'Rewrite Policy' },
             { id: 'appeals-process', label: 'Appeals Process' },
-            { id: 'isp-support', label: 'Instructional Support Plans' },
+            { id: 'ipp-support', label: 'Individual Program Plans (IPP)' },
             { id: 'contact-support', label: 'Getting Support' },
-            { id: 'support-services', label: 'Types of Support' },
             { id: 'proactive-help', label: 'Proactive Support Use' },
-            { id: 'reflection', label: 'E-Learning Reflection' },
-            { id: 'course-readiness', label: 'Course Readiness' },
             { id: 'assessment', label: 'Knowledge Check' }
           ].map((tab) => (
             <button
@@ -121,7 +157,7 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
               onClick={() => setActiveSection(tab.id)}
               className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                 activeSection === tab.id
-                  ? 'border-emerald-500 text-emerald-600'
+                  ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -228,44 +264,6 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-red-700">🚫 What Cannot Be Rewritten</h3>
-            
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <h4 className="font-semibold text-red-800 mb-3">Quizzes and Daily Assessments</h4>
-                <p className="text-sm text-gray-700 mb-3">
-                  <strong>Quiz rewrites are not allowed</strong> under any circumstances. This includes all course quizzes, daily assessments, and formative evaluations.
-                </p>
-                <div className="bg-white rounded p-3">
-                  <p className="text-xs font-medium mb-2">Non-rewritable assessments:</p>
-                  <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Weekly quizzes</li>
-                    <li>• Chapter assessments</li>
-                    <li>• Daily check-in quizzes</li>
-                    <li>• Practice assessments</li>
-                    <li>• Participation grades</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <h4 className="font-semibold text-orange-800 mb-3">Diploma Exams</h4>
-                <p className="text-sm text-gray-700 mb-3">
-                  Diploma exam rewrites are governed by Alberta Education policy, not RTD Academy policy.
-                </p>
-                <div className="bg-white rounded p-3">
-                  <p className="text-xs font-medium mb-2">Diploma exam information:</p>
-                  <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Separate fees and registration through MyPass</li>
-                    <li>• Provincial rewrite policies apply</li>
-                    <li>• RTD Academy assists with scheduling</li>
-                    <li>• Different timeline and requirements</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
 
           <div className="bg-gray-50 rounded-lg p-6">
             <h3 className="text-lg font-semibold mb-3 text-gray-800">💡 Rewrite Success Tips</h3>
@@ -388,13 +386,11 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                       <h4 className="font-semibold text-blue-800 mb-2">Formal Written Appeal (Within 10 Business Days)</h4>
                       <p className="text-sm text-gray-700 mb-2">
-                        If informal discussion doesn't resolve the issue, submit a formal written appeal to the course coordinator.
+                        If informal discussion doesn't resolve the issue, submit a formal written appeal to the principal.
                       </p>
                       <div className="bg-white rounded p-3">
                         <p className="text-xs font-medium mb-1">Required documentation:</p>
                         <ul className="text-xs text-gray-600 space-y-1">
-                          <li>• Completed appeal form</li>
-                          <li>• Copy of original submission and feedback</li>
                           <li>• Detailed explanation of concern</li>
                           <li>• Evidence supporting your position</li>
                           <li>• Record of informal discussion attempts</li>
@@ -410,15 +406,13 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
                     <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                       <h4 className="font-semibold text-purple-800 mb-2">Review and Investigation (5-10 Business Days)</h4>
                       <p className="text-sm text-gray-700 mb-2">
-                        The appeal is reviewed by an independent faculty member and the academic coordinator.
+                        The principal will conduct an investigation and review the appeal.
                       </p>
                       <div className="bg-white rounded p-3">
                         <p className="text-xs font-medium mb-1">Investigation process:</p>
                         <ul className="text-xs text-gray-600 space-y-1">
                           <li>• Review of original work and marking</li>
                           <li>• Comparison with course standards</li>
-                          <li>• Consultation with subject matter experts</li>
-                          <li>• Examination of all relevant documentation</li>
                         </ul>
                       </div>
                     </div>
@@ -434,13 +428,6 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
                         A written decision is provided with detailed rationale and any grade changes if applicable.
                       </p>
                       <div className="bg-white rounded p-3">
-                        <p className="text-xs font-medium mb-1">Possible outcomes:</p>
-                        <ul className="text-xs text-gray-600 space-y-1">
-                          <li>• Appeal upheld - grade increased</li>
-                          <li>• Appeal partially upheld - some adjustments made</li>
-                          <li>• Appeal denied - original grade stands</li>
-                          <li>• Appeal referred to higher authority if needed</li>
-                        </ul>
                       </div>
                     </div>
                   </div>
@@ -449,80 +436,56 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
             </div>
           </div>
 
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-3 text-yellow-800">📞 Appeal Contact Information</h3>
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <h4 className="font-semibold mb-2">Primary Contact:</h4>
-                <ul className="space-y-1 text-gray-700">
-                  <li>• <strong>Email:</strong> appeals@rtdacademy.com</li>
-                  <li>• <strong>Phone:</strong> 403.351.0896</li>
-                  <li>• <strong>Response Time:</strong> 2-3 business days</li>
-                  <li>• <strong>Office Hours:</strong> Monday-Friday 8am-5pm</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">Important Deadlines:</h4>
-                <ul className="space-y-1 text-gray-700">
-                  <li>• <strong>Informal Discussion:</strong> 5 business days</li>
-                  <li>• <strong>Formal Appeal:</strong> 10 business days</li>
-                  <li>• <strong>Final Deadline:</strong> 30 days from grade posting</li>
-                  <li>• <strong>Extensions:</strong> Only for documented emergencies</li>
-                </ul>
-              </div>
-            </div>
-          </div>
         </section>
       )}
 
-      {/* ISP Support Section */}
-      {activeSection === 'isp-support' && (
+      {/* IPP Support Section */}
+      {activeSection === 'ipp-support' && (
         <section className="space-y-6">
           <div>
-            <h2 className="text-3xl font-bold mb-4">📚 Instructional Support Plans (ISPs)</h2>
+            <h2 className="text-3xl font-bold mb-4">📚 Individual Program Plans (IPP)</h2>
             <p className="text-gray-600 mb-6">
-              Learn how to access and utilize Instructional Support Plans to enhance your learning experience and academic success.
+              If you have an IPP, RTD Academy will strive to provide all documented accommodations to support your learning success.
             </p>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-purple-700">🎯 What are Instructional Support Plans?</h3>
+            <h3 className="text-xl font-semibold mb-4 text-purple-700">🎯 Understanding Individual Program Plans</h3>
             
             <div className="grid lg:grid-cols-2 gap-6">
               <div className="bg-purple-50 rounded-lg p-4">
-                <h4 className="font-semibold text-purple-800 mb-3">ISP Overview</h4>
+                <h4 className="font-semibold text-purple-800 mb-3">What is an IPP?</h4>
                 <p className="text-sm text-gray-700 mb-3">
-                  Instructional Support Plans (ISPs) are personalized academic support strategies designed to help students 
-                  overcome specific learning challenges and achieve their educational goals.
+                  An Individual Program Plan (IPP) is a documented plan that outlines specific learning accommodations 
+                  and support strategies for students with identified learning needs.
                 </p>
                 <div className="bg-white rounded p-3">
-                  <p className="text-xs font-medium mb-2">ISPs can help with:</p>
+                  <p className="text-xs font-medium mb-2">Why students might have an IPP:</p>
                   <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Learning disabilities and accommodations</li>
-                    <li>• Time management and study skills</li>
-                    <li>• Specific subject area difficulties</li>
-                    <li>• Test anxiety and exam preparation</li>
-                    <li>• Motivation and engagement strategies</li>
-                    <li>• Technology integration challenges</li>
+                    <li>• Learning disabilities or differences</li>
+                    <li>• Visual or auditory impairments</li>
+                    <li>• Physical disabilities</li>
+                    <li>• Attention disorders (ADHD/ADD)</li>
+                    <li>• Medical conditions affecting learning</li>
+                    <li>• Processing or cognitive challenges</li>
                   </ul>
                 </div>
               </div>
 
               <div className="bg-blue-50 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-800 mb-3">Who Can Access ISPs?</h4>
+                <h4 className="font-semibold text-blue-800 mb-3">Common IPP Accommodations</h4>
                 <p className="text-sm text-gray-700 mb-3">
-                  Any RTD Academy student can request an ISP consultation. Plans are particularly beneficial for students 
-                  facing academic challenges or those who want to optimize their learning strategies.
+                  RTD Academy provides various accommodations based on your documented IPP to ensure equal access to education.
                 </p>
                 <div className="bg-white rounded p-3">
-                  <p className="text-xs font-medium mb-2">Common ISP candidates:</p>
+                  <p className="text-xs font-medium mb-2">Possible accommodations include:</p>
                   <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Students with documented learning differences</li>
-                    <li>• First-time online learners</li>
-                    <li>• Students returning to education after a break</li>
-                    <li>• Those struggling with specific subjects</li>
-                    <li>• Students seeking to improve study efficiency</li>
-                    <li>• Anyone wanting personalized academic support</li>
+                    <li>• Extended time for assessments and exams</li>
+                    <li>• Frequent breaks during testing</li>
+                    <li>• Use of screen readers for visual impairments</li>
+                    <li>• Large print materials and assessments</li>
+                    <li>• Alternative response formats</li>
+                    <li>• Reduced distractions testing environment</li>
                   </ul>
                 </div>
               </div>
@@ -530,173 +493,60 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-green-700">📋 How to Access ISP Services</h3>
+            <h3 className="text-xl font-semibold mb-4 text-green-700">📋 How to Access IPP Accommodations</h3>
             
             <div className="space-y-4">
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="font-semibold text-green-800 mb-3 flex items-center">
-                  <span className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm mr-3">1</span>
-                  Initial Request
-                </h4>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="font-semibold text-green-800 mb-3">During Your Orientation Meeting</h4>
                 <p className="text-sm text-gray-700 mb-3">
-                  Contact RTD Academy to request an ISP consultation. This can be done at any time during your enrollment.
+                  To access accommodations, discuss your IPP during your orientation meeting. This ensures we can implement your accommodations from the start of your course.
                 </p>
-                <div className="bg-gray-50 rounded p-3">
-                  <p className="text-xs font-medium mb-2">Contact methods:</p>
+                <div className="bg-white rounded p-3">
+                  <p className="text-xs font-medium mb-2">What to bring to orientation:</p>
                   <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Email: support@rtdacademy.com with "ISP Request" in subject</li>
-                    <li>• Phone: 403.351.0896 during business hours</li>
-                    <li>• Online form: Available in student portal</li>
-                    <li>• Through your course instructor</li>
+                    <li>• Current IPP documentation</li>
+                    <li>• List of required accommodations</li>
+                    <li>• Any assistive technology requirements</li>
+                    <li>• Questions about online implementation</li>
                   </ul>
                 </div>
               </div>
 
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
-                  <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm mr-3">2</span>
-                  Assessment and Planning
-                </h4>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-800 mb-3">Complex Accommodations</h4>
                 <p className="text-sm text-gray-700 mb-3">
-                  A qualified educational specialist will conduct an assessment to understand your learning needs and challenges.
+                  If your accommodations are more complex, or you are unsure how they will work in an online environment, please request a meeting with an administrator.
                 </p>
-                <div className="bg-gray-50 rounded p-3">
-                  <p className="text-xs font-medium mb-2">Assessment includes:</p>
+                <div className="bg-white rounded p-3">
+                  <p className="text-xs font-medium mb-2">Examples of complex accommodations:</p>
                   <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Learning style evaluation</li>
-                    <li>• Academic history review</li>
-                    <li>• Current challenge identification</li>
-                    <li>• Goal setting and priority establishment</li>
-                    <li>• Technology comfort assessment</li>
-                    <li>• Support system evaluation</li>
+                    <li>• Specialized software requirements</li>
+                    <li>• Multiple accommodation needs</li>
+                    <li>• Physical accessibility considerations</li>
+                    <li>• Alternative assessment formats</li>
+                    <li>• Communication assistance needs</li>
                   </ul>
                 </div>
               </div>
 
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="font-semibold text-purple-800 mb-3 flex items-center">
-                  <span className="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm mr-3">3</span>
-                  Plan Development
-                </h4>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <h4 className="font-semibold text-yellow-800 mb-3">Diploma Exam Documentation</h4>
                 <p className="text-sm text-gray-700 mb-3">
-                  Based on the assessment, a personalized ISP is created with specific strategies, accommodations, and resources.
+                  <strong>Important:</strong> For diploma exams, we must have documentation of all accommodations. This documentation must be submitted well in advance of your exam date.
                 </p>
-                <div className="bg-gray-50 rounded p-3">
-                  <p className="text-xs font-medium mb-2">Plan components:</p>
+                <div className="bg-white rounded p-3">
+                  <p className="text-xs font-medium mb-2">Diploma exam requirements:</p>
                   <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Specific learning strategies</li>
-                    <li>• Accommodation recommendations</li>
-                    <li>• Technology tools and resources</li>
-                    <li>• Study schedule and time management</li>
-                    <li>• Regular check-in schedule</li>
-                    <li>• Progress monitoring methods</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h4 className="font-semibold text-orange-800 mb-3 flex items-center">
-                  <span className="w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm mr-3">4</span>
-                  Implementation and Support
-                </h4>
-                <p className="text-sm text-gray-700 mb-3">
-                  Your ISP is implemented with ongoing support, regular check-ins, and plan adjustments as needed.
-                </p>
-                <div className="bg-gray-50 rounded p-3">
-                  <p className="text-xs font-medium mb-2">Ongoing support includes:</p>
-                  <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Weekly or bi-weekly check-ins</li>
-                    <li>• Strategy coaching and refinement</li>
-                    <li>• Crisis intervention if needed</li>
-                    <li>• Plan modifications based on progress</li>
-                    <li>• Coordination with course instructors</li>
-                    <li>• Resource updates and new tool introduction</li>
+                    <li>• Official IPP documentation</li>
+                    <li>• Alberta Education approval for accommodations</li>
+                    <li>• Advance submission deadlines</li>
+                    <li>• Specific accommodation forms</li>
                   </ul>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-indigo-700">🛠️ Create Your Personal Support Plan</h3>
-            
-            <div className="space-y-4">
-              <div className="bg-indigo-50 rounded-lg p-4">
-                <h4 className="font-semibold text-indigo-800 mb-3">Self-Assessment Exercise</h4>
-                <p className="text-sm text-gray-700 mb-4">
-                  Complete this brief self-assessment to identify areas where an ISP might be beneficial for you.
-                </p>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">What academic challenges are you currently facing?</label>
-                    <textarea 
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                      rows="3"
-                      placeholder="Describe any learning difficulties, time management issues, or subject-specific challenges..."
-                      value={supportPlanData.academicChallenges}
-                      onChange={(e) => handleSupportPlanChange('academicChallenges', e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2">What are your specific learning needs and preferences?</label>
-                    <textarea 
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                      rows="3"
-                      placeholder="Visual learner, need quiet environment, prefer hands-on activities, etc..."
-                      value={supportPlanData.learningNeeds}
-                      onChange={(e) => handleSupportPlanChange('learningNeeds', e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2">How do you currently manage your study time?</label>
-                    <textarea 
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                      rows="2"
-                      placeholder="Describe your current study schedule, time management strategies, or challenges..."
-                      value={supportPlanData.timeManagement}
-                      onChange={(e) => handleSupportPlanChange('timeManagement', e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2">What type of support would be most helpful?</label>
-                    <div className="space-y-2">
-                      <label className="flex items-center space-x-2">
-                        <input 
-                          type="checkbox" 
-                          className="text-indigo-600"
-                          checked={supportPlanData.academicSupport}
-                          onChange={(e) => handleSupportPlanChange('academicSupport', e.target.checked)}
-                        />
-                        <span className="text-sm">Academic coaching and study strategies</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input 
-                          type="checkbox" 
-                          className="text-indigo-600"
-                          checked={supportPlanData.techSupport}
-                          onChange={(e) => handleSupportPlanChange('techSupport', e.target.checked)}
-                        />
-                        <span className="text-sm">Technology assistance and digital literacy</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input 
-                          type="checkbox" 
-                          className="text-indigo-600"
-                          checked={supportPlanData.wellnessSupport}
-                          onChange={(e) => handleSupportPlanChange('wellnessSupport', e.target.checked)}
-                        />
-                        <span className="text-sm">Wellness and stress management support</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </section>
       )}
 
@@ -713,7 +563,7 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h3 className="text-xl font-semibold mb-4 text-blue-700">🎯 Quick Support Reference</h3>
             
-            <div className="grid lg:grid-cols-3 gap-6">
+            <div className="grid lg:grid-cols-2 gap-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
                   <span className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-lg mr-3">📚</span>
@@ -722,8 +572,7 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
                 <div className="space-y-3">
                   <div className="bg-white rounded p-3">
                     <p className="text-xs font-medium mb-1">Primary Contact:</p>
-                    <p className="text-sm text-gray-700">support@rtdacademy.com</p>
-                    <p className="text-sm text-gray-700">403.351.0896</p>
+                    <p className="text-sm text-gray-700">Your course teacher</p>
                   </div>
                   <div className="bg-white rounded p-3">
                     <p className="text-xs font-medium mb-1">For help with:</p>
@@ -732,12 +581,12 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
                       <li>• Assignment clarification</li>
                       <li>• Study strategies</li>
                       <li>• Grade concerns</li>
-                      <li>• ISP requests</li>
+                      <li>• IPP accommodation questions</li>
                     </ul>
                   </div>
                   <div className="bg-white rounded p-3">
                     <p className="text-xs font-medium mb-1">Response Time:</p>
-                    <p className="text-xs text-gray-600">24-48 hours during business days</p>
+                    <p className="text-xs text-gray-600">24-48 hours</p>
                   </div>
                 </div>
               </div>
@@ -750,8 +599,9 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
                 <div className="space-y-3">
                   <div className="bg-white rounded p-3">
                     <p className="text-xs font-medium mb-1">Primary Contact:</p>
-                    <p className="text-sm text-gray-700">tech@rtdacademy.com</p>
-                    <p className="text-sm text-gray-700">403.351.0896 ext. 2</p>
+                    <p className="text-sm text-gray-700">Your course teacher</p>
+                    <p className="text-xs font-medium mb-1 mt-2">Secondary Contact:</p>
+                    <p className="text-sm text-gray-700">Stan Scott - stan@rtdacademy.com</p>
                   </div>
                   <div className="bg-white rounded p-3">
                     <p className="text-xs font-medium mb-1">For help with:</p>
@@ -765,112 +615,14 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
                   </div>
                   <div className="bg-white rounded p-3">
                     <p className="text-xs font-medium mb-1">Response Time:</p>
-                    <p className="text-xs text-gray-600">4-8 hours during business days</p>
+                    <p className="text-xs text-gray-600">24-48 hours</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h4 className="font-semibold text-purple-800 mb-3 flex items-center">
-                  <span className="w-8 h-8 bg-purple-500 text-white rounded-full flex items-center justify-center text-lg mr-3">💝</span>
-                  Wellness Support
-                </h4>
-                <div className="space-y-3">
-                  <div className="bg-white rounded p-3">
-                    <p className="text-xs font-medium mb-1">Primary Contact:</p>
-                    <p className="text-sm text-gray-700">wellness@rtdacademy.com</p>
-                    <p className="text-sm text-gray-700">403.351.0896 ext. 3</p>
-                  </div>
-                  <div className="bg-white rounded p-3">
-                    <p className="text-xs font-medium mb-1">For help with:</p>
-                    <ul className="text-xs text-gray-600 space-y-1">
-                      <li>• Stress management</li>
-                      <li>• Mental health resources</li>
-                      <li>• Work-life balance</li>
-                      <li>• Crisis support</li>
-                      <li>• Accessibility needs</li>
-                    </ul>
-                  </div>
-                  <div className="bg-white rounded p-3">
-                    <p className="text-xs font-medium mb-1">Response Time:</p>
-                    <p className="text-xs text-gray-600">Same day for urgent, 24 hours for routine</p>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-orange-700">📝 Support Request Form</h3>
-            
-            <div className="bg-orange-50 rounded-lg p-4">
-              <h4 className="font-semibold text-orange-800 mb-3">Practice Support Request</h4>
-              <p className="text-sm text-gray-700 mb-4">
-                Use this form to practice writing an effective support request. Good requests get faster, more helpful responses.
-              </p>
-              
-              <div className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Type of Support Needed:</label>
-                    <select 
-                      className="w-full p-2 border border-gray-300 rounded"
-                      value={contactForm.supportType}
-                      onChange={(e) => handleContactFormChange('supportType', e.target.value)}
-                    >
-                      <option value="">Select support type</option>
-                      <option value="academic">Academic Support</option>
-                      <option value="technical">Technical Support</option>
-                      <option value="wellness">Wellness Support</option>
-                      <option value="administrative">Administrative Issue</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Urgency Level:</label>
-                    <select 
-                      className="w-full p-2 border border-gray-300 rounded"
-                      value={contactForm.urgency}
-                      onChange={(e) => handleContactFormChange('urgency', e.target.value)}
-                    >
-                      <option value="">Select urgency</option>
-                      <option value="urgent">Urgent (same day response needed)</option>
-                      <option value="normal">Normal (24-48 hour response)</option>
-                      <option value="low">Low priority (when convenient)</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-2">Detailed Description:</label>
-                  <textarea 
-                    className="w-full p-3 border border-gray-300 rounded-lg"
-                    rows="4"
-                    placeholder="Describe your issue clearly: What happened? What were you trying to do? What error messages did you see? What have you already tried?"
-                    value={contactForm.description}
-                    onChange={(e) => handleContactFormChange('description', e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-2">Preferred Contact Method:</label>
-                  <div className="space-y-2">
-                    {['Email response', 'Phone call', 'Video meeting', 'Text message'].map((method) => (
-                      <label key={method} className="flex items-center space-x-2">
-                        <input 
-                          type="radio" 
-                          name="contact_method"
-                          className="text-orange-600"
-                          onChange={() => handleContactFormChange('preferredContact', method)}
-                        />
-                        <span className="text-sm">{method}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
             <h3 className="text-lg font-semibold mb-3 text-yellow-800">💡 Tips for Effective Support Requests</h3>
@@ -880,10 +632,9 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
                 <ul className="space-y-1 text-gray-700">
                   <li>• Course name and lesson number</li>
                   <li>• Exact error messages or problems</li>
-                  <li>• Screenshots if applicable</li>
+                  <li>• <strong>Screenshots or video</strong> for technical help</li>
                   <li>• Browser and device information</li>
                   <li>• Steps you've already tried</li>
-                  <li>• Your student ID number</li>
                 </ul>
               </div>
               <div>
@@ -891,7 +642,6 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
                 <ul className="space-y-1 text-gray-700">
                   <li>• Use clear, descriptive subject lines</li>
                   <li>• Be specific about what you need</li>
-                  <li>• Indicate urgency level accurately</li>
                   <li>• Provide context and background</li>
                   <li>• Follow up appropriately</li>
                   <li>• Be patient and respectful</li>
@@ -902,157 +652,6 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
         </section>
       )}
 
-      {/* Support Services Section */}
-      {activeSection === 'support-services' && (
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-3xl font-bold mb-4">🛠️ Types of Support Services Available</h2>
-            <p className="text-gray-600 mb-6">
-              Discover the comprehensive support services available to help you succeed in your RTD Academy journey.
-            </p>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-xl font-semibold mb-4 text-blue-700">📚 Academic Support Services</h3>
-              
-              <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-800 mb-2">Content Tutoring</h4>
-                  <p className="text-sm text-gray-700 mb-2">
-                    One-on-one or small group sessions with subject matter experts for specific course content.
-                  </p>
-                  <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Mathematics: Algebra, Calculus, Statistics</li>
-                    <li>• Sciences: Physics, Chemistry, Biology</li>
-                    <li>• Languages: English, French, ESL support</li>
-                    <li>• Social Studies: History, Geography, Civics</li>
-                  </ul>
-                </div>
-
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-green-800 mb-2">Study Skills Coaching</h4>
-                  <p className="text-sm text-gray-700 mb-2">
-                    Learn effective study strategies and time management techniques for online learning success.
-                  </p>
-                  <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Note-taking strategies for digital content</li>
-                    <li>• Memory techniques and retention methods</li>
-                    <li>• Test preparation and anxiety management</li>
-                    <li>• Goal setting and progress tracking</li>
-                  </ul>
-                </div>
-
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-purple-800 mb-2">Writing Support</h4>
-                  <p className="text-sm text-gray-700 mb-2">
-                    Assistance with all aspects of academic writing, from planning to final editing.
-                  </p>
-                  <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Essay structure and organization</li>
-                    <li>• Research and citation guidance</li>
-                    <li>• Grammar and style improvement</li>
-                    <li>• Proofreading and editing techniques</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-xl font-semibold mb-4 text-green-700">💻 Technical Support Services</h3>
-              
-              <div className="space-y-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-green-800 mb-2">Platform Navigation</h4>
-                  <p className="text-sm text-gray-700 mb-2">
-                    Help with using RTD Academy's learning management system and digital tools.
-                  </p>
-                  <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• LMS orientation and navigation</li>
-                    <li>• Assignment submission procedures</li>
-                    <li>• Gradebook and progress tracking</li>
-                    <li>• Communication tools usage</li>
-                  </ul>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-800 mb-2">Device and Software Support</h4>
-                  <p className="text-sm text-gray-700 mb-2">
-                    Technical assistance with hardware and software requirements for online learning.
-                  </p>
-                  <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Browser optimization and troubleshooting</li>
-                    <li>• Audio/video setup for virtual sessions</li>
-                    <li>• File management and organization</li>
-                    <li>• Security and privacy settings</li>
-                  </ul>
-                </div>
-
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-orange-800 mb-2">Digital Literacy Training</h4>
-                  <p className="text-sm text-gray-700 mb-2">
-                    Skill development for effective use of digital tools and online resources.
-                  </p>
-                  <ul className="text-xs text-gray-600 space-y-1">
-                    <li>• Internet research skills</li>
-                    <li>• Digital communication etiquette</li>
-                    <li>• Online safety and security</li>
-                    <li>• Productivity software training</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-purple-700">💝 Wellness and Personal Support Services</h3>
-            
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h4 className="font-semibold text-purple-800 mb-3">Mental Health Support</h4>
-                <p className="text-sm text-gray-700 mb-3">
-                  Resources and referrals for mental health and emotional wellbeing.
-                </p>
-                <ul className="text-xs text-gray-600 space-y-1">
-                  <li>• Stress management techniques</li>
-                  <li>• Anxiety coping strategies</li>
-                  <li>• Crisis intervention resources</li>
-                  <li>• Counseling referrals</li>
-                  <li>• Support group connections</li>
-                </ul>
-              </div>
-
-              <div className="bg-pink-50 border border-pink-200 rounded-lg p-4">
-                <h4 className="font-semibold text-pink-800 mb-3">Life Balance Coaching</h4>
-                <p className="text-sm text-gray-700 mb-3">
-                  Guidance for managing school, work, and personal responsibilities.
-                </p>
-                <ul className="text-xs text-gray-600 space-y-1">
-                  <li>• Work-life-school balance</li>
-                  <li>• Family support strategies</li>
-                  <li>• Financial planning resources</li>
-                  <li>• Career guidance</li>
-                  <li>• Transition support</li>
-                </ul>
-              </div>
-
-              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                <h4 className="font-semibold text-indigo-800 mb-3">Accessibility Services</h4>
-                <p className="text-sm text-gray-700 mb-3">
-                  Accommodations and support for students with diverse learning needs.
-                </p>
-                <ul className="text-xs text-gray-600 space-y-1">
-                  <li>• Learning disability support</li>
-                  <li>• Assistive technology setup</li>
-                  <li>• Modified assessment options</li>
-                  <li>• Alternative format materials</li>
-                  <li>• Communication accommodations</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Proactive Support Use Section */}
       {activeSection === 'proactive-help' && (
@@ -1162,11 +761,7 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
                     </li>
                     <li className="flex items-start">
                       <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
-                      Feeling disconnected from instructors or peers
-                    </li>
-                    <li className="flex items-start">
-                      <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
-                      Avoiding participation in class discussions
+                      Feeling disconnected from instructors
                     </li>
                     <li className="flex items-start">
                       <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-2 flex-shrink-0"></span>
@@ -1228,370 +823,10 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
             </div>
           </div>
 
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold mb-3 text-yellow-800">💡 Success Stories: Proactive Support in Action</h3>
-            <div className="grid md:grid-cols-2 gap-6 text-sm">
-              <div>
-                <h4 className="font-semibold mb-2">Emma's Math Success:</h4>
-                <p className="text-gray-700 mb-2">
-                  Emma realized she was struggling with algebra concepts in Week 2. Instead of waiting, she immediately 
-                  contacted academic support and set up weekly tutoring sessions.
-                </p>
-                <p className="text-green-700 font-medium">Result: Improved from 65% to 85% by the end of the course</p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-2">Jordan's Tech Preparedness:</h4>
-                <p className="text-gray-700 mb-2">
-                  Before starting his course, Jordan scheduled a tech orientation session to learn the LMS and test his setup.
-                </p>
-                <p className="text-green-700 font-medium">Result: No technical delays throughout the entire course</p>
-              </div>
-            </div>
-          </div>
         </section>
       )}
 
-      {/* E-Learning Reflection Section */}
-      {activeSection === 'reflection' && (
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-3xl font-bold mb-4">🤔 E-Learning Experience Reflection</h2>
-            <p className="text-gray-600 mb-6">
-              Reflect on your journey through this orientation course and prepare for your upcoming academic studies.
-            </p>
-          </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-indigo-700">📝 Personal Learning Reflection</h3>
-            
-            {!reflectionData.completed ? (
-              <div className="space-y-6">
-                <div className="bg-indigo-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-indigo-800 mb-3">Instructions</h4>
-                  <p className="text-sm text-gray-700 mb-3">
-                    Complete this comprehensive reflection on your e-learning experience. Your responses will be analyzed 
-                    by AI to provide personalized feedback about your readiness for upcoming courses. Be honest and specific 
-                    in your responses.
-                  </p>
-                  <p className="text-xs text-indigo-600">
-                    Minimum requirements: 100 words for e-learning experience, 50 words for course connections
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      <strong>Describe your overall e-learning experience during this orientation course:</strong>
-                    </label>
-                    <textarea 
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                      rows="4"
-                      placeholder="Reflect on what you learned, how you adapted to online learning, what surprised you, what was challenging, and what you enjoyed..."
-                      value={reflectionData.elearningExperience}
-                      onChange={(e) => handleReflectionChange('elearningExperience', e.target.value)}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {reflectionData.elearningExperience.length} characters
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      <strong>What challenges did you face during this orientation course?</strong>
-                    </label>
-                    <textarea 
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                      rows="3"
-                      placeholder="Describe any technical difficulties, time management issues, content challenges, or other obstacles you encountered..."
-                      value={reflectionData.challengesFaced}
-                      onChange={(e) => handleReflectionChange('challengesFaced', e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      <strong>What strategies or approaches worked best for you?</strong>
-                    </label>
-                    <textarea 
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                      rows="3"
-                      placeholder="Share the study methods, time management techniques, or learning strategies that helped you succeed..."
-                      value={reflectionData.successfulStrategies}
-                      onChange={(e) => handleReflectionChange('successfulStrategies', e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      <strong>How have you grown personally through this experience?</strong>
-                    </label>
-                    <textarea 
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                      rows="3"
-                      placeholder="Reflect on new skills you've developed, confidence you've gained, or perspectives that have changed..."
-                      value={reflectionData.personalGrowth}
-                      onChange={(e) => handleReflectionChange('personalGrowth', e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      <strong>How does this experience connect to your upcoming course and academic goals?</strong>
-                    </label>
-                    <textarea 
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                      rows="3"
-                      placeholder="Explain how this orientation prepares you for your next course, what skills you'll apply, and how it fits your educational objectives..."
-                      value={reflectionData.connectionsToCourse}
-                      onChange={(e) => handleReflectionChange('connectionsToCourse', e.target.value)}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {reflectionData.connectionsToCourse.length} characters
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      <strong>What are your goals and expectations for your next course?</strong>
-                    </label>
-                    <textarea 
-                      className="w-full p-3 border border-gray-300 rounded-lg"
-                      rows="3"
-                      placeholder="Share your academic goals, personal objectives, and what you hope to achieve in your upcoming studies..."
-                      value={reflectionData.futureGoals}
-                      onChange={(e) => handleReflectionChange('futureGoals', e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div className="text-center">
-                  <button
-                    onClick={submitReflection}
-                    disabled={reflectionData.elearningExperience.length < 100 || reflectionData.connectionsToCourse.length < 50}
-                    className="px-8 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                  >
-                    Submit Reflection for AI Analysis
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                <h4 className="font-semibold text-green-800 mb-4 text-center">✅ Reflection Analysis Complete</h4>
-                
-                {showReflectionFeedback && (
-                  <div className="space-y-4">
-                    <div className="bg-white rounded-lg p-4 border-2 border-green-300">
-                      <h5 className="font-semibold text-lg text-gray-800 mb-3">🤖 AI Analysis of Your Reflection</h5>
-                      
-                      <div className="space-y-3 text-sm">
-                        <div className="bg-blue-50 rounded p-3">
-                          <p className="font-medium text-blue-800 mb-1">Learning Readiness Assessment:</p>
-                          <p className="text-gray-700">
-                            Based on your reflection, you demonstrate strong self-awareness and adaptability - key traits 
-                            for successful online learning. Your ability to identify both challenges and successful strategies 
-                            shows metacognitive skills that will serve you well in future courses.
-                          </p>
-                        </div>
-                        
-                        <div className="bg-green-50 rounded p-3">
-                          <p className="font-medium text-green-800 mb-1">Strengths Identified:</p>
-                          <p className="text-gray-700">
-                            Your reflection reveals good problem-solving abilities and willingness to adapt. You've shown 
-                            that you can learn from challenges and apply new strategies effectively.
-                          </p>
-                        </div>
-                        
-                        <div className="bg-yellow-50 rounded p-3">
-                          <p className="font-medium text-yellow-800 mb-1">Recommendations for Future Success:</p>
-                          <p className="text-gray-700">
-                            Continue to use the successful strategies you've identified. Remember to seek help proactively 
-                            when facing new challenges, and maintain the positive attitude toward learning that comes through 
-                            in your reflection.
-                          </p>
-                        </div>
-                        
-                        <div className="bg-purple-50 rounded p-3">
-                          <p className="font-medium text-purple-800 mb-1">Course Connection Analysis:</p>
-                          <p className="text-gray-700">
-                            Your understanding of how this orientation connects to your upcoming studies shows good academic 
-                            planning. You're well-prepared to transfer these foundational skills to subject-specific content.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="text-center bg-gradient-to-r from-green-100 to-blue-100 rounded-lg p-4">
-                      <p className="text-lg font-medium text-gray-800">
-                        🎉 Congratulations on completing your thoughtful reflection! 
-                        You're ready to begin your academic journey with confidence.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Course Readiness Section */}
-      {activeSection === 'course-readiness' && (
-        <section className="space-y-6">
-          <div>
-            <h2 className="text-3xl font-bold mb-4">🚀 Your Course Readiness Assessment</h2>
-            <p className="text-gray-600 mb-6">
-              Complete this final readiness checklist to ensure you're fully prepared to begin your first academic course at RTD Academy.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-semibold mb-4 text-emerald-700">📋 Readiness Checklist</h3>
-            
-            <div className="space-y-4">
-              {Object.entries(readinessChecklist).map(([key, completed]) => {
-                const checklistItems = {
-                  understandRewritePolicy: {
-                    title: "I understand RTD's rewrite policy and requirements",
-                    description: "One rewrite per course, all exams completed, practice test threshold"
-                  },
-                  knowSupportContacts: {
-                    title: "I know how to contact support for academic, technical, and wellness help",
-                    description: "Academic: support@rtdacademy.com, Tech: tech@rtdacademy.com, Wellness: wellness@rtdacademy.com"
-                  },
-                  familiarWithISP: {
-                    title: "I understand how to access Instructional Support Plans if needed",
-                    description: "Request process, assessment, plan development, and implementation"
-                  },
-                  practiceTestCompleted: {
-                    title: "I've completed practice tests and understand their importance",
-                    description: "70% threshold required before rewrite requests"
-                  },
-                  technologyTested: {
-                    title: "My technology setup is tested and working",
-                    description: "Internet, device, browser, LMS access, audio/video for proctoring"
-                  },
-                  studySpaceReady: {
-                    title: "I have a designated study space prepared",
-                    description: "Quiet, organized, with necessary materials and minimal distractions"
-                  },
-                  scheduleCreated: {
-                    title: "I've created a realistic study schedule",
-                    description: "Regular study times, target dates, check-ins, and break planning"
-                  },
-                  goalsSet: {
-                    title: "I've set clear academic goals for my first course",
-                    description: "Specific, measurable objectives and motivation for learning"
-                  }
-                };
-
-                const item = checklistItems[key];
-                return (
-                  <div key={key} className={`border-2 rounded-lg p-4 transition-all ${
-                    completed ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-gray-50'
-                  }`}>
-                    <label className="flex items-start space-x-3 cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="mt-1 text-emerald-600 text-lg"
-                        checked={completed}
-                        onChange={() => handleChecklistChange(key)}
-                      />
-                      <div className="flex-grow">
-                        <h4 className={`font-semibold mb-1 ${completed ? 'text-green-800' : 'text-gray-700'}`}>
-                          {item.title}
-                        </h4>
-                        <p className="text-sm text-gray-600">{item.description}</p>
-                      </div>
-                      {completed && (
-                        <span className="text-green-600 text-xl">✅</span>
-                      )}
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-6 bg-emerald-50 rounded-lg p-4">
-              <h4 className="font-semibold text-emerald-800 mb-2">Your Readiness Score</h4>
-              <div className="flex items-center space-x-4">
-                <div className="flex-grow bg-gray-200 rounded-full h-6">
-                  <div 
-                    className={`h-6 rounded-full transition-all flex items-center justify-center text-white text-sm font-medium ${
-                      calculateReadinessPercentage() >= 80 ? 'bg-green-500' : 
-                      calculateReadinessPercentage() >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-                    }`}
-                    style={{ width: `${calculateReadinessPercentage()}%` }}
-                  >
-                    {calculateReadinessPercentage()}%
-                  </div>
-                </div>
-                <span className="text-emerald-700 font-semibold">
-                  {calculateReadinessPercentage()}% Ready
-                </span>
-              </div>
-              
-              <div className="mt-3">
-                {calculateReadinessPercentage() >= 80 && (
-                  <p className="text-green-700 font-medium">
-                    🎉 Excellent! You're well-prepared to begin your first course.
-                  </p>
-                )}
-                {calculateReadinessPercentage() >= 60 && calculateReadinessPercentage() < 80 && (
-                  <p className="text-yellow-700 font-medium">
-                    👍 Good progress! Complete a few more items to be fully ready.
-                  </p>
-                )}
-                {calculateReadinessPercentage() < 60 && (
-                  <p className="text-red-700 font-medium">
-                    📚 Keep working through the checklist to ensure your success.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-lg p-8">
-            <h3 className="text-2xl font-bold mb-4 text-center">🌟 You're Ready to Begin Your Academic Journey!</h3>
-            
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-xl font-semibold mb-3">What You've Accomplished:</h4>
-                <ul className="space-y-2 text-emerald-100">
-                  <li>✅ Mastered RTD Academy's policies and procedures</li>
-                  <li>✅ Learned to navigate the support systems</li>
-                  <li>✅ Developed e-learning skills and strategies</li>
-                  <li>✅ Created personal learning plans</li>
-                  <li>✅ Built confidence in online education</li>
-                  <li>✅ Prepared for academic success</li>
-                </ul>
-              </div>
-              
-              <div>
-                <h4 className="text-xl font-semibold mb-3">Your Next Steps:</h4>
-                <div className="space-y-2 text-emerald-100">
-                  <p>1. 📚 Begin your first academic course with confidence</p>
-                  <p>2. 🎯 Apply the learning strategies you've developed</p>
-                  <p>3. 🤝 Use support services proactively when needed</p>
-                  <p>4. 📈 Track your progress and celebrate achievements</p>
-                  <p>5. 🌱 Continue growing as an independent learner</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-6 bg-white/10 backdrop-blur rounded-lg p-6">
-              <p className="text-xl font-medium text-center mb-4">
-                🎓 Welcome to RTD Academy - Where Your Educational Dreams Take Flight!
-              </p>
-              <p className="text-lg text-center">
-                You've completed your orientation with flying colors. Now it's time to dive into your chosen subject 
-                and discover the amazing things you can achieve through dedicated online learning. 
-                Remember: every expert was once a beginner, and every journey starts with a single step. 
-                You've taken that step, and we're here to support you every step of the way!
-              </p>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Assessment Section */}
       {activeSection === 'assessment' && (
@@ -1603,18 +838,188 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
             </p>
           </div>
 
-          <AIMultipleChoiceQuestion
-            courseId={courseId}
-            assessmentId="10_exams_rewrites_student_support_practice"
-            cloudFunctionName="course4_10_exams_rewrites_student_support_aiQuestion"
-            title="Support Services & Course Readiness Assessment"
-            theme="emerald"
-          />
+          <div className="max-w-4xl mx-auto">
+              {/* Question Progress Indicator */}
+              <div className="flex justify-center mb-6">
+                <div className="flex space-x-2">
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map((index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentQuestionIndex(index)}
+                      className={`w-3 h-3 rounded-full transition-all duration-200 ${
+                        index === currentQuestionIndex
+                          ? 'bg-indigo-600 scale-125'
+                          : questionResults[`question${index + 1}`] === 'correct'
+                          ? 'bg-green-500'
+                          : questionResults[`question${index + 1}`] === 'incorrect'
+                          ? 'bg-red-500'
+                          : 'bg-gray-300 hover:bg-gray-400'
+                      }`}
+                      aria-label={`Go to question ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Question Display */}
+              <div className="relative">
+
+            {currentQuestionIndex === 0 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="10_exams_rewrites_question1"
+                cloudFunctionName="course4_10_exams_rewrites_question1"
+                title="Rewrite Policy Understanding"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  setQuestionsCompleted(prev => ({ ...prev, question1: true }));
+                  setQuestionResults(prev => ({...prev, question1: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {currentQuestionIndex === 1 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="10_exams_rewrites_question2"
+                cloudFunctionName="course4_10_exams_rewrites_question2"
+                title="Support Services Knowledge"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  setQuestionsCompleted(prev => ({ ...prev, question2: true }));
+                  setQuestionResults(prev => ({...prev, question2: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {currentQuestionIndex === 2 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="10_exams_rewrites_question3"
+                cloudFunctionName="course4_10_exams_rewrites_question3"
+                title="Student Support Resources"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  setQuestionsCompleted(prev => ({ ...prev, question3: true }));
+                  setQuestionResults(prev => ({...prev, question3: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {currentQuestionIndex === 3 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="10_exams_rewrites_question4"
+                cloudFunctionName="course4_10_exams_rewrites_question4"
+                title="Academic Planning Requirements"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  setQuestionsCompleted(prev => ({ ...prev, question4: true }));
+                  setQuestionResults(prev => ({...prev, question4: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {currentQuestionIndex === 4 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="10_exams_rewrites_question5"
+                cloudFunctionName="course4_10_exams_rewrites_question5"
+                title="Exam Support and Accommodations"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  setQuestionsCompleted(prev => ({ ...prev, question5: true }));
+                  setQuestionResults(prev => ({...prev, question5: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {currentQuestionIndex === 5 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="10_exams_rewrites_question6"
+                cloudFunctionName="course4_10_exams_rewrites_question6"
+                title="Student Readiness Assessment"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  setQuestionsCompleted(prev => ({ ...prev, question6: true }));
+                  setQuestionResults(prev => ({...prev, question6: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {currentQuestionIndex === 6 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="10_exams_rewrites_question7"
+                cloudFunctionName="course4_10_exams_rewrites_question7"
+                title="Scenario: Requesting Support"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  setQuestionsCompleted(prev => ({ ...prev, question7: true }));
+                  setQuestionResults(prev => ({...prev, question7: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+
+            {currentQuestionIndex === 7 && (
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId="10_exams_rewrites_question8"
+                cloudFunctionName="course4_10_exams_rewrites_question8"
+                title="Scenario: Exam Rewrite Decision"
+                theme="indigo"
+                onAttempt={(isCorrect) => {
+                  setQuestionsCompleted(prev => ({ ...prev, question8: true }));
+                  setQuestionResults(prev => ({...prev, question8: isCorrect ? 'correct' : 'incorrect'}));
+                }}
+              />
+            )}
+              </div>
+
+              {/* Navigation Controls */}
+              <div className="flex justify-between items-center mt-6">
+                <button
+                  onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
+                  disabled={currentQuestionIndex === 0}
+                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    currentQuestionIndex === 0
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Previous
+                </button>
+
+                <div className="text-sm text-gray-500">
+                  Question {currentQuestionIndex + 1} of 8
+                </div>
+
+                <button
+                  onClick={() => setCurrentQuestionIndex(Math.min(7, currentQuestionIndex + 1))}
+                  disabled={currentQuestionIndex === 7}
+                  className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    currentQuestionIndex === 7
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                  }`}
+                >
+                  Next
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+          </div>
         </section>
       )}
 
-      {/* Final Encouragement Section */}
-      <section className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white rounded-lg p-10">
+      {/* Final Encouragement Section - Only show when all questions are completed */}
+      {allQuestionsCompleted && (
+      <section className="bg-gradient-to-r from-indigo-600 to-purple-700 text-white rounded-lg p-10">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold mb-4">🎉 Congratulations on Completing Your RTD Academy Orientation!</h2>
           <p className="text-xl mb-6">You're now equipped with everything you need to succeed in your educational journey</p>
@@ -1674,6 +1079,7 @@ const ExamsRewritesStudentSupportResources = ({ courseId }) => {
           </div>
         </div>
       </section>
+      )}
     </div>
   );
 };

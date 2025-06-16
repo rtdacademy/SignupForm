@@ -375,9 +375,14 @@ const FirebaseCourseWrapperContent = ({
               course={course}
               isMobile={false}
               gradebookItems={course?.Gradebook?.items || {}}
+              isStaffView={false}
+              devMode={false}
             />
           </div>
         )}
+        
+        {/* SEQUENTIAL_ACCESS_UPDATE: Added isStaffView and devMode props for lesson access control */}
+        {/* Original CollapsibleNavigation props (before sequential access): courseTitle, unitsList, progress, activeItemId, expanded, onToggleExpand, onItemSelect, currentUnitIndex, course, isMobile, gradebookItems */}
         
         {/* Mobile navigation is now handled by Sheet in CollapsibleNavigation */}
         {isMobile && (
@@ -398,6 +403,8 @@ const FirebaseCourseWrapperContent = ({
             course={course}
             isMobile={true}
             gradebookItems={course?.Gradebook?.items || {}}
+            isStaffView={false}
+            devMode={false}
           />
         )}
 

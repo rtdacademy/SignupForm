@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { ProgressProvider } from '../../context/CourseProgressContext';
+import { ProgressProvider, useProgress } from '../../context/CourseProgressContext';
 import { Badge } from '../../../components/ui/badge';
 import contentRegistry from './content';
 import courseDisplay from './course-display.json';
 import courseStructure from './course-structure.json';
+// SEQUENTIAL_ACCESS_UPDATE: Added lesson access utilities for Course 4 sequential unlocking
+import { 
+  getLessonAccessibility, 
+  getHighestAccessibleLesson,
+  shouldBypassAccessControl 
+} from '../../utils/lessonAccess';
 
 // Type-specific styling
 const typeColors = {
@@ -11,6 +17,113 @@ const typeColors = {
   assignment: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   exam: 'bg-purple-100 text-purple-800 border-purple-200',
   info: 'bg-amber-100 text-amber-800 border-amber-200',
+};
+
+/**
+ * Wrapper component that tracks lesson access when content is displayed
+ */
+const LessonContentWrapper = ({ 
+  activeItem, 
+  ContentComponent, 
+  courseId, 
+  isStaffView, 
+  devMode, 
+  onItemSelect, 
+  setInternalActiveItemId, 
+  findNextLesson,
+  gradebookItems = {},
+  courseStructure
+}) => {
+  // SEQUENTIAL_ACCESS_UPDATE: Temporarily commented out to isolate Firebase permission issue
+  // const { trackLessonAccess, progress } = useProgress();
+
+  // SEQUENTIAL_ACCESS_UPDATE: Added access validation for assessment-based unlocking
+  // Original code (before sequential access): Only had trackLessonAccess call
+  // Note: Access validation now uses assessment data instead of writing to Firebase progress
+  useEffect(() => {
+    if (activeItem?.itemId && !shouldBypassAccessControl(isStaffView, devMode)) {
+      // For assessment-based unlocking, we validate access using gradebook/assessment data
+      const assessmentData = gradebookItems;
+      
+      const accessibility = getLessonAccessibility({ courseStructure }, assessmentData);
+      const accessInfo = accessibility[activeItem.itemId];
+      
+      if (!accessInfo) {
+        console.warn('⚠️ No access info found for lesson:', activeItem.itemId);
+        return;
+      }
+      
+      if (!accessInfo.accessible) {
+        console.log('⚠️ Access denied for lesson:', activeItem.itemId, 'Reason:', accessInfo.reason);
+        
+        // Redirect to highest accessible lesson
+        const highestAccessible = getHighestAccessibleLesson({ courseStructure }, assessmentData);
+        if (highestAccessible && highestAccessible !== activeItem.itemId) {
+          console.log('🔄 Redirecting to highest accessible lesson:', highestAccessible);
+          if (onItemSelect) {
+            onItemSelect(highestAccessible);
+          } else {
+            setInternalActiveItemId(highestAccessible);
+          }
+          return;
+        }
+      } else {
+        console.log('✅ Access granted for lesson:', activeItem.itemId);
+      }
+    }
+  }, [activeItem?.itemId, activeItem?.title, activeItem?.type, activeItem?.unitId, activeItem?.unitName, isStaffView, devMode, onItemSelect, setInternalActiveItemId, gradebookItems]);
+
+  return (
+    <div className="max-w-6xl mx-auto">
+      {/* Item header */}
+      <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border">
+        <div className="flex items-center gap-3 mb-2">
+          <Badge className={`${typeColors[activeItem.type] || 'bg-gray-100 text-gray-800'} text-sm`}>
+            {activeItem.type.charAt(0).toUpperCase() + activeItem.type.slice(1)}
+          </Badge>
+          <h1 className="text-2xl font-bold text-gray-900">{activeItem.title}</h1>
+        </div>
+        {activeItem.description && (
+          <p className="text-gray-600">{activeItem.description}</p>
+        )}
+        {activeItem.estimatedTime && (
+          <p className="text-sm text-blue-600 mt-2">
+            Estimated time: {activeItem.estimatedTime} minutes
+          </p>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <ContentComponent 
+          courseId={courseId}
+          itemId={activeItem.itemId}
+          activeItem={activeItem}
+          isStaffView={isStaffView}
+          devMode={devMode}
+          onNavigateToLesson={(lessonItemId) => {
+            // Navigate to the specified lesson using the existing navigation system
+            if (onItemSelect) {
+              onItemSelect(lessonItemId);
+            } else {
+              setInternalActiveItemId(lessonItemId);
+            }
+          }}
+          onNavigateToNext={() => {
+            // Navigate to the next lesson in sequence
+            const nextLessonId = findNextLesson(activeItem?.itemId);
+            if (nextLessonId) {
+              if (onItemSelect) {
+                onItemSelect(nextLessonId);
+              } else {
+                setInternalActiveItemId(nextLessonId);
+              }
+            }
+          }}
+        />
+      </div>
+    </div>
+  );
 };
 
 /**
@@ -26,7 +139,8 @@ const Course4 = ({
   activeItemId: externalActiveItemId,
   onItemSelect,
   isStaffView = false,
-  devMode = false
+  devMode = false,
+  gradebookItems = {}
 }) => {
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
   const courseId = courseDisplay.courseId;
@@ -72,6 +186,24 @@ const Course4 = ({
     return null;
   }, [activeItemId, structure]);
 
+  // Helper function to find the next lesson in the course structure
+  const findNextLesson = React.useCallback((currentItemId) => {
+    if (!structure || !currentItemId) return null;
+
+    let foundCurrent = false;
+    for (const unit of structure) {
+      for (const item of unit.items) {
+        if (foundCurrent) {
+          return item.itemId;
+        }
+        if (item.itemId === currentItemId) {
+          foundCurrent = true;
+        }
+      }
+    }
+    return null; // No next lesson found
+  }, [structure]);
+
   // Render content based on active item
   const renderContent = () => {
     if (!activeItem) {
@@ -116,36 +248,18 @@ const Course4 = ({
 
     return (
       <ProgressProvider courseId={courseId} itemId={activeItem.itemId}>
-        <div className="max-w-6xl mx-auto">
-          {/* Item header */}
-          <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border">
-            <div className="flex items-center gap-3 mb-2">
-              <Badge className={`${typeColors[activeItem.type] || 'bg-gray-100 text-gray-800'} text-sm`}>
-                {activeItem.type.charAt(0).toUpperCase() + activeItem.type.slice(1)}
-              </Badge>
-              <h1 className="text-2xl font-bold text-gray-900">{activeItem.title}</h1>
-            </div>
-            {activeItem.description && (
-              <p className="text-gray-600">{activeItem.description}</p>
-            )}
-            {activeItem.estimatedTime && (
-              <p className="text-sm text-blue-600 mt-2">
-                Estimated time: {activeItem.estimatedTime} minutes
-              </p>
-            )}
-          </div>
-
-          {/* Content */}
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <ContentComponent 
-              courseId={courseId}
-              itemId={activeItem.itemId}
-              activeItem={activeItem}
-              isStaffView={isStaffView}
-              devMode={devMode}
-            />
-          </div>
-        </div>
+        <LessonContentWrapper 
+          activeItem={activeItem}
+          ContentComponent={ContentComponent}
+          courseId={courseId}
+          isStaffView={isStaffView}
+          devMode={devMode}
+          onItemSelect={onItemSelect}
+          setInternalActiveItemId={setInternalActiveItemId}
+          findNextLesson={findNextLesson}
+          gradebookItems={gradebookItems}
+          courseStructure={courseStructure}
+        />
       </ProgressProvider>
     );
   };

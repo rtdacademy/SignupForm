@@ -13,8 +13,15 @@ import {
   X,
   Menu,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  // SEQUENTIAL_ACCESS_UPDATE: Added Lock icon for lesson access control
+  Lock
 } from 'lucide-react';
+// SEQUENTIAL_ACCESS_UPDATE: Added lesson access utilities for Course 4 sequential unlocking
+import { 
+  getLessonAccessibility, 
+  shouldBypassAccessControl 
+} from '../../utils/lessonAccess';
 import { 
   Accordion,
   AccordionItem,
@@ -72,6 +79,10 @@ const CollapsibleNavigation = ({
   course,
   isMobile = false,
   gradebookItems = {},
+  // SEQUENTIAL_ACCESS_UPDATE: Added props for lesson access control
+  // Original props (before sequential access): courseTitle, unitsList, progress, activeItemId, onItemSelect, expanded, onToggleExpand, currentUnitIndex, course, isMobile, gradebookItems
+  isStaffView = false,
+  devMode = false,
 }) => {
 
   // Display debugging information about the course structure
@@ -151,11 +162,32 @@ const CollapsibleNavigation = ({
     const completedCount = Object.values(progress).filter(item => item.completed).length;
     return Math.round((completedCount / allCourseItems.length) * 100);
   }, [allCourseItems, progress]);
+
+  // SEQUENTIAL_ACCESS_UPDATE: Calculate lesson accessibility for sequential unlocking
+  // Original code (before sequential access): Only had overallProgress calculation above
+  const lessonAccessibility = useMemo(() => {
+    // Skip access control for staff/dev or if no course structure
+    if (shouldBypassAccessControl(isStaffView, devMode) || !course) {
+      const accessibility = {};
+      allCourseItems.forEach(item => {
+        accessibility[item.itemId] = { accessible: true, reason: 'Access control bypassed' };
+      });
+      return accessibility;
+    }
+    
+    // Use assessment data (gradebookItems) for unlocking instead of progress data
+    return getLessonAccessibility(course, gradebookItems);
+  }, [allCourseItems, isStaffView, devMode, course, gradebookItems]);
   
   const renderItem = (item, unitIndex, itemIndex) => {
     const isCompleted = progress[item.itemId]?.completed;
     const isActive = activeItemId === item.itemId;
     const gradebookItem = gradebookItems[item.itemId];
+    
+    // SEQUENTIAL_ACCESS_UPDATE: Check lesson accessibility
+    // Original code (before sequential access): Only had isCompleted, isActive, gradebookItem above
+    const accessInfo = lessonAccessibility[item.itemId] || { accessible: true, reason: 'Default access' };
+    const isAccessible = accessInfo.accessible;
     
     // Determine if this is the first incomplete item
     const isNextItem = !isCompleted && 
@@ -184,21 +216,45 @@ const CollapsibleNavigation = ({
       return 'text-red-600';
     };
     
+    // SEQUENTIAL_ACCESS_UPDATE: Updated styling and click handler for lesson access control
+    // Original styling (before sequential access): Only had isActive, isNextItem, isCompleted states
+    const getItemStyling = () => {
+      if (!isAccessible) {
+        return 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60';
+      }
+      if (isActive) {
+        return 'bg-blue-50 border-l-2 border-blue-500 pl-1.5';
+      }
+      if (isNextItem) {
+        return 'bg-purple-50 border-l-2 border-purple-400 pl-1.5';
+      }
+      if (isCompleted) {
+        return 'bg-green-50 border-l-2 border-green-400 pl-1.5';
+      }
+      return 'hover:bg-gray-50 cursor-pointer';
+    };
+
     return (
       <Tooltip key={`${unitIndex}-${itemIndex}-${item.itemId}`}>
         <TooltipTrigger asChild>
           <div
-            className={`p-2 mb-1.5 rounded-md text-sm cursor-pointer transition-all duration-200
-              ${isActive ? 'bg-blue-50 border-l-2 border-blue-500 pl-1.5' :
-               isNextItem ? 'bg-purple-50 border-l-2 border-purple-400 pl-1.5' :
-               isCompleted ? 'bg-green-50 border-l-2 border-green-400 pl-1.5' :
-               'hover:bg-gray-50'}`}
-            onClick={() => onItemSelect(item.itemId)}
+            className={`p-2 mb-1.5 rounded-md text-sm transition-all duration-200 ${getItemStyling()}`}
+            onClick={() => {
+              // SEQUENTIAL_ACCESS_UPDATE: Added access control to click handler
+              // Original click handler (before sequential access): onClick={() => onItemSelect(item.itemId)}
+              if (isAccessible) {
+                onItemSelect(item.itemId);
+              }
+            }}
           >
             <div className="flex justify-between items-start">
               <div className="flex items-start gap-2 flex-1">
                 <div className="mt-0.5 flex-shrink-0">
-                  {isCompleted ? (
+                  {/* SEQUENTIAL_ACCESS_UPDATE: Added lock icon for inaccessible lessons */}
+                  {/* Original icon logic (before sequential access): Only had isCompleted, isNextItem, and default type icons */}
+                  {!isAccessible ? (
+                    <Lock className="text-gray-400 h-4 w-4" />
+                  ) : isCompleted ? (
                     <CheckCircle className="text-green-500 h-4 w-4" />
                   ) : isNextItem ? (
                     <PlayCircle className="text-purple-500 h-4 w-4" />
@@ -228,6 +284,11 @@ const CollapsibleNavigation = ({
         <TooltipContent side="right" className="max-w-xs">
           <div className="space-y-1">
             <p className="font-medium">{item.title}</p>
+            {/* SEQUENTIAL_ACCESS_UPDATE: Added accessibility information to tooltip */}
+            {/* Original tooltip (before sequential access): Only showed gradebook info and completion status */}
+            {!isAccessible && (
+              <p className="text-sm text-red-600 font-medium">🔒 {accessInfo.reason}</p>
+            )}
             {gradebookItem && (
               <>
                 <p className="text-sm">Score: {gradebookItem.score}/{gradebookItem.maxScore} ({gradePercentage}%)</p>
@@ -237,7 +298,7 @@ const CollapsibleNavigation = ({
                 )}
               </>
             )}
-            {!isCompleted && (
+            {!isCompleted && isAccessible && (
               <p className="text-sm text-gray-600">Not yet completed</p>
             )}
           </div>

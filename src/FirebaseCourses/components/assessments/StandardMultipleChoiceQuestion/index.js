@@ -1079,9 +1079,9 @@ const StandardMultipleChoiceQuestion = ({
                       </>
                     )}
                     
-                    {/* Display message when max attempts reached */}
+                    {/* Display message when max attempts reached - only show for multi-attempt questions */}
                     {(question.maxAttemptsReached || question.attemptsExhausted || 
-                      question.attempts >= question.maxAttempts) && (
+                      question.attempts >= question.maxAttempts) && question.maxAttempts > 1 && (
                       <div className="text-amber-700 bg-amber-50 border border-amber-200 p-3 rounded-md text-sm">
                         <p className="font-medium mb-1">Maximum attempts reached</p>
                         <p className="flex items-center">

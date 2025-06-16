@@ -156,7 +156,8 @@ const CourseRouterEnhanced = ({
       activeItemId: currentItemId,
       onItemSelect: handleItemSelect,
       isStaffView,
-      devMode
+      devMode,
+      gradebookItems: enhancedCourse?.Gradebook?.items || enhancedCourse?.Assessments || {}
     };
 
     switch(courseId) {
