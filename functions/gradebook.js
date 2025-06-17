@@ -179,14 +179,21 @@ exports.trackLessonAccess = onCall({
   cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
 }, async (data, context) => {
   try {
-    // Extract parameters
-    const { courseId, lessonId, lessonInfo } = data.data || data;
+    // Debug logging
+    console.log('📧 trackLessonAccess received data:', data);
+    console.log('📧 trackLessonAccess context auth:', context.auth?.token?.email);
     
-    // Get user info
-    let studentEmail = data.studentEmail;
+    // Extract parameters
+    const actualData = data.data || data;
+    const { courseId, lessonId, lessonInfo, studentEmail: dataStudentEmail } = actualData;
+    
+    // Get user info - check both data and auth context
+    let studentEmail = dataStudentEmail || data.studentEmail;
     if (!studentEmail && context.auth?.token?.email) {
       studentEmail = context.auth.token.email;
     }
+    
+    console.log('📧 Final studentEmail:', studentEmail);
     
     if (!studentEmail) {
       throw new Error('No student email provided');

@@ -1384,7 +1384,13 @@ const processParentInvitationRequest = onValueCreated({
         courseId: request.courseId,
         courseName: request.courseName,
         processedFromRequest: true,
-        scenario: 'new_parent'
+        scenario: 'new_parent',
+        // Include resend metadata if this is a resend
+        ...(request.isResend && {
+          isResend: true,
+          resentBy: request.resentBy,
+          resentAt: request.resentAt
+        })
       });
       
       // Update the request with token
@@ -1427,7 +1433,13 @@ const processParentInvitationRequest = onValueCreated({
         courseName: request.courseName,
         processedFromRequest: true,
         scenario: 'existing_parent_new_student',
-        requiresToken: false // Parent can approve from dashboard
+        requiresToken: false, // Parent can approve from dashboard
+        // Include resend metadata if this is a resend
+        ...(request.isResend && {
+          isResend: true,
+          resentBy: request.resentBy,
+          resentAt: request.resentAt
+        })
       });
       
       // Update the request
@@ -1473,7 +1485,13 @@ const processParentInvitationRequest = onValueCreated({
         processedFromRequest: true,
         scenario: 'existing_student_new_course',
         requiresToken: false,
-        notificationOnly: true
+        notificationOnly: true,
+        // Include resend metadata if this is a resend
+        ...(request.isResend && {
+          isResend: true,
+          resentBy: request.resentBy,
+          resentAt: request.resentAt
+        })
       });
       
       // Update the request
@@ -1634,59 +1652,53 @@ const resendParentInvitation = onCall({
       };
     }
 
-    // Check if parent account already exists
-    const parentEmailKey = sanitizeEmail(parentEmail);
-    const parentRef = db.ref(`parents/${parentEmailKey}`);
-    const parentSnapshot = await parentRef.once('value');
-    const parentExists = parentSnapshot.exists();
+    // Get parent relationship from student profile (prefer stored relationship over hardcoded 'Parent')
+    const parentRelationship = studentProfile.parentRelationship || 'Parent';
+    const parentFirstName = studentProfile.ParentFirstName || '';
+    const parentLastName = studentProfile.ParentLastName || '';
+    const parentName = `${parentFirstName} ${parentLastName}`.trim() || 'Parent/Guardian';
 
-    // Check if student is already linked to this parent
-    let studentAlreadyLinked = false;
-    if (parentExists) {
-      const linkedStudentRef = db.ref(`parents/${parentEmailKey}/linkedStudents/${studentEmailKey}`);
-      const linkedStudentSnapshot = await linkedStudentRef.once('value');
-      studentAlreadyLinked = linkedStudentSnapshot.exists();
-    }
-
-    // Determine the scenario for appropriate email template
-    let scenario = 'new_parent';
-    if (parentExists && !studentAlreadyLinked) {
-      scenario = 'existing_parent_new_student';
-    } else if (parentExists && studentAlreadyLinked) {
-      scenario = 'existing_student_new_course';
-    }
-
-    // Create the invitation record
-    const invitationToken = db.ref('parentInvitations').push().key;
-    const expirationDays = scenario === 'new_parent' ? 2 : scenario === 'existing_parent_new_student' ? 7 : 30;
+    // Check if there's already a pending parentInvitationRequest
+    const existingRequestRef = db.ref(`students/${studentEmailKey}/parentInvitationRequest`);
+    const existingRequestSnapshot = await existingRequestRef.once('value');
     
-    await db.ref(`parentInvitations/${invitationToken}`).set({
+    if (existingRequestSnapshot.exists()) {
+      const existingRequest = existingRequestSnapshot.val();
+      if (existingRequest.status === 'pending') {
+        return {
+          success: false,
+          error: 'A parent invitation request is already being processed. Please wait a moment and try again.'
+        };
+      }
+    }
+
+    // Create parentInvitationRequest following the same pattern as registration flow
+    // This will trigger the processParentInvitationRequest function which handles the proper flow
+    await db.ref(`students/${studentEmailKey}/parentInvitationRequest`).set({
       parentEmail: parentEmail,
-      parentName: studentProfile.parentName || 'Parent/Guardian',
+      parentName: parentName,
       studentEmail: studentEmail,
-      studentEmailKey: studentEmailKey,
       studentName: `${studentProfile.firstName || ''} ${studentProfile.lastName || ''}`.trim() || 'Student',
-      relationship: 'Parent',
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'pending',
+      relationship: parentRelationship,
+      requestedAt: new Date().toISOString(),
       courseId: courseId,
       courseName: courseDetails.Title || `Course ${courseId}`,
-      processedFromRequest: false,
-      scenario: scenario,
+      status: 'pending',
+      // Additional metadata for resend tracking
+      isResend: true,
       resentBy: studentEmail,
       resentAt: new Date().toISOString()
     });
 
-    // The email will be automatically sent by the sendParentInvitationOnCreate trigger
+    // The processParentInvitationRequest trigger will handle creating the parentInvitations entry
+    // and determining the appropriate scenario based on existing parent/student relationships
 
-    console.log(`Parent invitation resent successfully for course ${courseId} by student ${studentEmail}`);
+    console.log(`Parent invitation request created successfully for course ${courseId} by student ${studentEmail}`);
     
     return {
       success: true,
-      message: 'Parent invitation email has been sent successfully',
-      parentEmail: parentEmail,
-      scenario: scenario
+      message: 'Parent invitation request has been created and will be processed shortly. An email will be sent to your parent.',
+      parentEmail: parentEmail
     };
 
   } catch (error) {

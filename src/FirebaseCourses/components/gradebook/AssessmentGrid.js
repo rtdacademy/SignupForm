@@ -267,11 +267,6 @@ const AssessmentRow = ({ assessment, onReview }) => {
         <div className="text-sm font-medium text-gray-900">
           {assessment.title || assessment.id}
         </div>
-        {assessment.unitId && assessment.unitId !== 'unknown' && (
-          <div className="text-xs text-gray-500 mt-1">
-            Unit: {assessment.unitId}
-          </div>
-        )}
       </td>
       <td className="px-6 py-4">
         <Badge className={`${getTypeColor(assessment.type)} text-xs`}>

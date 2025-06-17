@@ -3,7 +3,7 @@ import { ProgressProvider } from '../../context/CourseProgressContext';
 import { Badge } from '../../../components/ui/badge';
 import contentRegistry from './content';
 import courseDisplay from './course-display.json';
-import courseStructure from './course-structure.json';
+// Course structure now loaded from database via gradebook
 
 // Type-specific styling
 const typeColors = {
@@ -30,16 +30,20 @@ const Course3 = ({
 }) => {
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
   const courseId = courseDisplay.courseId;
-  const structure = courseStructure.courseStructure?.units || courseStructure.units || [];
+  
+  // Get course structure from course object (database-driven)
+  const structure = course?.courseStructure?.units || 
+                   course?.Gradebook?.courseStructure?.units || 
+                   [];
 
   // Debug logging
   useEffect(() => {
     console.log(`${courseDisplay.courseId}: Course loaded`, {
       config: courseDisplay,
-      structure: courseStructure,
+      structure: structure,
       contentRegistry: Object.keys(contentRegistry)
     });
-  }, []);
+  }, [structure]);
 
   // Use external or internal active item ID
   const activeItemId = externalActiveItemId !== undefined ? externalActiveItemId : internalActiveItemId;

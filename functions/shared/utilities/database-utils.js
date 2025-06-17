@@ -287,8 +287,13 @@ async function trackLessonAccess(studentKey, courseId, lessonId, lessonInfo = {}
       lastAccessedAt: getServerTimestamp(),
       accessCount: (existing.accessCount || 0) + 1,
       title: lessonInfo.title || existing.title,
-      unitId: lessonInfo.unitId || existing.unitId,
     };
+    
+    // Only include unitId if it has a value (avoid undefined)
+    const unitId = lessonInfo.unitId || existing.unitId;
+    if (unitId) {
+      update.unitId = unitId;
+    }
     
     // Track first open
     if (!existing.firstOpenedAt) {
@@ -849,6 +854,37 @@ async function initializeGradebook(studentKey, courseId, isStaff = false) {
       
       const passingGrade = courseConfig.globalSettings?.passingGrade || 60;
       
+      // Build navigation structure from course config
+      // First priority: use courseStructure from course config if it exists
+      let courseStructure;
+      if (courseConfig.courseStructure) {
+        console.log("✅ Using courseStructure from course config");
+        courseStructure = courseConfig.courseStructure;
+      } else {
+        console.log("⚠️ No courseStructure in course config, building from gradebook items");
+        // Fallback: build from gradebook items
+        courseStructure = {
+          title: courseConfig.title || `Course ${courseId}`,
+          units: [{
+            unitId: "unit_1_orientation",
+            title: "Course Content",
+            description: "All course lessons and activities",
+            order: 1,
+            items: Object.entries(gradebookStructure).map(([itemId, itemConfig], index) => ({
+              itemId: itemId,
+              type: itemConfig.type || 'lesson',
+              title: itemConfig.title,
+              description: `Complete ${itemConfig.title}`,
+              contentPath: itemConfig.contentPath,
+              hasCloudFunctions: true,
+              order: index + 1,
+              estimatedTime: 15,
+              required: true
+            }))
+          }]
+        };
+      }
+
       const gradebookData = {
         initialized: true,
         createdAt: getServerTimestamp(),
@@ -866,6 +902,7 @@ async function initializeGradebook(studentKey, courseId, isStaff = false) {
         categories: categories,
         items: items,
         courseStructureItems: {},
+        courseStructure: courseStructure, // Add course structure for navigation
         progress: {
           lessons: {}
         },

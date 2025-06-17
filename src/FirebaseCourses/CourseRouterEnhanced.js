@@ -21,58 +21,8 @@ const Course3 = lazy(() => import('./courses/3'));
 const Course4 = lazy(() => import('./courses/4'));
 const Course100 = lazy(() => import('./courses/100'));
 
-// Course structure helper functions for Firebase courses
-const getCourse2Structure = () => {
-  const data = require('./courses/2/course-structure.json');
-  return {
-    title: "Physics 30",
-    structure: data.courseStructure?.units || []
-  };
-};
-
-const getCourse3Structure = () => {
-  const data = require('./courses/3/course-structure.json');
-  return {
-    title: "Financial Literacy",
-    structure: data.courseStructure?.units || []
-  };
-};
-
-const getCourse4Structure = () => {
-  const data = require('./courses/4/course-structure.json');
-  return {
-    title: "COM1255",
-    structure: data.courseStructure?.units || []
-  };
-};
-
-const getCourse100Structure = () => {
-  const data = require('./courses/100/course-structure.json');
-  return {
-    title: "Sample Course",
-    structure: data.courseStructure?.units || []
-  };
-};
-
-// Helper function to get course structure
-const getCourseStructure = (courseId) => {
-  switch(courseId) {
-    case 2:
-    case '2':
-      return getCourse2Structure();
-    case 3:
-    case '3':
-      return getCourse3Structure();
-    case 4:
-    case '4':
-      return getCourse4Structure();
-    case 100:
-    case '100':
-      return getCourse100Structure();
-    default:
-      return null;
-  }
-};
+// Course structure is now loaded from database via gradebook
+// No need for static JSON imports
 
 // Default template course component for courses without specific implementations
 const TemplateCourse = ({ course }) => {
@@ -140,13 +90,23 @@ const CourseRouterEnhanced = ({
     }
   }, [externalOnItemSelect]);
 
-  // Get enhanced course data with structure (if applicable)
+  // Course structure now comes from database via gradebook
+  // The course object already contains the structure from gradebook initialization
   const enhancedCourse = useMemo(() => {
-    const courseStructure = getCourseStructure(courseId);
-    return courseStructure ? {
-      ...course,
-      courseStructure
-    } : course;
+    // Check if course structure exists in gradebook
+    if (course?.Gradebook?.courseStructure) {
+      return {
+        ...course,
+        courseStructure: course.Gradebook.courseStructure
+      };
+    }
+    
+    // If no structure available, show error instead of fallback
+    if (!course?.Gradebook?.courseStructure) {
+      console.warn(`No course structure found in gradebook for course ${courseId}. Gradebook may not be initialized.`);
+    }
+    
+    return course;
   }, [course, courseId]);
 
   // This will dynamically render course components based on CourseID
@@ -247,6 +207,6 @@ const CourseRouterEnhanced = ({
   }
 };
 
-// Export both the enhanced version and helper functions
+// Export the enhanced version
 export default CourseRouterEnhanced;
-export { getCourseStructure, LoadingCourse };
+export { LoadingCourse };
