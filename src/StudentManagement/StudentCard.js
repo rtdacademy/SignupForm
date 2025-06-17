@@ -38,6 +38,7 @@ import { toast } from 'sonner';
 import PermissionIndicator from '../context/PermissionIndicator';
 import ProfileHistory from './ProfileHistory';
 import PasiActionButtons from '../components/PasiActionButtons';
+import { sanitizeEmail } from '../utils/sanitizeEmail';
 
 // Helper function to safely extract values from status objects
 const getSafeValue = (value) => {
@@ -484,8 +485,9 @@ const StudentCard = React.memo(({
       if (!student.id) return;
       
       const db = getDatabase();
-      const lastUnderscoreIndex = student.id.lastIndexOf('_');
-      const studentKey = student.id.slice(0, lastUnderscoreIndex);
+      // Get the student key consistently with how categories are handled
+      const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+      const studentKey = sanitizeEmail(rawEmail);
       const profileHistoryRef = ref(db, `students/${studentKey}/profileHistory`);
       
       try {
@@ -518,9 +520,14 @@ const validateActiveFutureArchivedValue = useCallback((value) => {
 // Then update the updateStatus function
 const updateStatus = useCallback(async (newStatus) => {
   const db = getDatabase();
-  const lastUnderscoreIndex = student.id.lastIndexOf('_');
-  const studentKey = student.id.slice(0, lastUnderscoreIndex);
-  const courseId = student.id.slice(lastUnderscoreIndex + 1);
+  // Get the student key consistently with how categories are handled
+  const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+  const studentKey = sanitizeEmail(rawEmail);
+  const courseId = student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1);
+  
+  // Debug logging
+  console.log('updateStatus - Database path:', `students/${studentKey}/courses/${courseId}/Status/Value`);
+  console.log('updateStatus - studentKey:', studentKey, 'courseId:', courseId);
   
   try {
     const previousStatus = statusValue;
@@ -663,9 +670,10 @@ const handleStatusChange = useCallback(async (newStatus) => {
     if (!getStatusAllowsAutoStatus(statusValue)) return;
 
     const db = getDatabase();
-    const lastUnderscoreIndex = student.id.lastIndexOf('_');
-    const studentKey = student.id.slice(0, lastUnderscoreIndex);
-    const courseId = student.id.slice(lastUnderscoreIndex + 1);
+    // Get the student key consistently with how categories are handled
+    const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+    const studentKey = sanitizeEmail(rawEmail);
+    const courseId = student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1);
     const autoStatusRef = ref(db, `students/${studentKey}/courses/${courseId}/autoStatus`);
 
     try {
@@ -684,9 +692,10 @@ const handleStatusChange = useCallback(async (newStatus) => {
 
   const handleCategoryChange = useCallback(async (categoryId, teacherEmailKey) => {
     const db = getDatabase();
-    const lastUnderscoreIndex = student.id.lastIndexOf('_');
-    const studentKey = student.id.slice(0, lastUnderscoreIndex);
-    const courseId = student.id.slice(lastUnderscoreIndex + 1);
+    // Use the actual student email and course ID from the student object
+    const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+    const studentKey = sanitizeEmail(rawEmail);
+    const courseId = student.CourseID || student.courseId;
     const categoryRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}/${categoryId}`);
     const summaryKey = `${studentKey}_${courseId}`;
     const summaryRef = ref(db, `studentCourseSummaries/${summaryKey}`);
@@ -727,14 +736,15 @@ const handleStatusChange = useCallback(async (newStatus) => {
 
   const handleRemoveCategory = useCallback(async (categoryId, teacherEmailKey) => {
     const db = getDatabase();
-    const lastUnderscoreIndex = student.id.lastIndexOf('_');
-    const studentKey = student.id.slice(0, lastUnderscoreIndex);
-    const courseId = student.id.slice(lastUnderscoreIndex + 1);
-    const categoryRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}/${categoryId}`);
-  
+    // Use the actual student email and course ID from the student object
+    const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+    const studentKey = sanitizeEmail(rawEmail);
+    const courseId = student.CourseID || student.courseId;
+    const categoriesRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}`);
+    
     try {
-      // Set to false instead of removing the node
-      await set(categoryRef, false);
+      // Use update to set specific category to false
+      await update(categoriesRef, { [categoryId]: false });
       
       if (isPartOfMultiSelect) {
         onBulkCategoryChange(categoryId, teacherEmailKey, student.id, false);
@@ -744,42 +754,14 @@ const handleStatusChange = useCallback(async (newStatus) => {
     }
   }, [student.id, isPartOfMultiSelect, onBulkCategoryChange]);
 
-  // Handle term change for the student
-  const handleTermChange = useCallback(async (newTerm) => {
-    if (!isAdminUser) {
-      toast.error("Term changes require admin permissions");
-      return;
-    }
-
-    if (newTerm === student.Term) return; // No change needed
-
-    const db = getDatabase();
-    const lastUnderscoreIndex = student.id.lastIndexOf('_');
-    const studentKey = student.id.slice(0, lastUnderscoreIndex);
-    const courseId = student.id.slice(lastUnderscoreIndex + 1);
-    const termRef = ref(db, `students/${studentKey}/courses/${courseId}/Term`);
-    
-    try {
-      await set(termRef, newTerm);
-      toast.success(`Term updated to ${newTerm}`, {
-        description: `For ${getStudentInfo.fullName}`,
-        duration: 3000
-      });
-    } catch (error) {
-      console.error("Error updating term:", error);
-      toast.error("Failed to update term", {
-        description: error.message,
-        duration: 3000
-      });
-    }
-  }, [student.id, student.Term, getStudentInfo.fullName, isAdminUser]);
 
   // In StudentCard.js
   const handleRemoveCourse = useCallback(async () => {
     const db = getDatabase();
-    const lastUnderscoreIndex = student.id.lastIndexOf('_');
-    const studentKey = student.id.slice(0, lastUnderscoreIndex);
-    const courseId = student.id.slice(lastUnderscoreIndex + 1);
+    // Get the student key consistently with how categories are handled
+    const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+    const studentKey = sanitizeEmail(rawEmail);
+    const courseId = student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1);
     const courseRef = ref(db, `students/${studentKey}/courses/${courseId}`);
   
     try {
@@ -800,9 +782,10 @@ const handleStatusChange = useCallback(async (newStatus) => {
     setIsRestoring(true);
     
     const db = getDatabase();
-    const lastUnderscoreIndex = student.id.lastIndexOf('_');
-    const studentKey = student.id.slice(0, lastUnderscoreIndex);
-    const courseId = student.id.slice(lastUnderscoreIndex + 1);
+    // Get the student key consistently with how categories are handled
+    const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+    const studentKey = sanitizeEmail(rawEmail);
+    const courseId = student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1);
     const summaryKey = `${studentKey}_${courseId}`;
     
     try {
@@ -1130,80 +1113,19 @@ const handleStatusChange = useCallback(async (newStatus) => {
                         {courseInfo?.label || `Course ${student.CourseID}`}
                       </Badge>
                       
-                      {student.Term && (
-                        <TooltipProvider>
-                          <Tooltip delayDuration={200}>
-                            <TooltipTrigger asChild>
-                              <div className="relative">
-                                {isAdminUser ? (
-                                  // Interactive dropdown for admins
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Badge 
-                                        className="flex items-center gap-1 px-2 py-0.5 h-6 text-xs font-medium border-0 rounded-md cursor-pointer"
-                                        style={{
-                                          backgroundColor: `${getTermInfo(student.Term).color}15`,
-                                          color: getTermInfo(student.Term).color
-                                        }}
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        {getTermInfo(student.Term).icon && React.createElement(getTermInfo(student.Term).icon, {
-                                          className: "w-3 h-3 mr-1"
-                                        })}
-                                        {student.Term}
-                                        <div className="absolute -top-1 -right-1">
-                                          <PermissionIndicator type="ADMIN" className="h-3 w-3" />
-                                        </div>
-                                      </Badge>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-[180px]">
-                                      {TERM_OPTIONS.map((option) => (
-                                        <DropdownMenuItem
-                                          key={option.value}
-                                          className={customHoverStyle}
-                                          onSelect={(e) => {
-                                            e.preventDefault();
-                                            handleTermChange(option.value);
-                                          }}
-                                        >
-                                          <div className="flex items-center w-full">
-                                            {React.createElement(option.icon, {
-                                              className: "w-4 h-4 mr-2",
-                                              style: { color: option.color }
-                                            })}
-                                            <span>{option.value}</span>
-                                          </div>
-                                        </DropdownMenuItem>
-                                      ))}
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                ) : (
-                                  // Static badge for non-admins
-                                  <Badge 
-                                    className="flex items-center gap-1 px-2 py-0.5 h-6 text-xs font-medium border-0 rounded-md"
-                                    style={{
-                                      backgroundColor: `${getTermInfo(student.Term).color}15`,
-                                      color: getTermInfo(student.Term).color
-                                    }}
-                                  >
-                                    {getTermInfo(student.Term).icon && React.createElement(getTermInfo(student.Term).icon, {
-                                      className: "w-3 h-3 mr-1"
-                                    })}
-                                    {student.Term}
-                                    <div className="absolute -top-1 -right-1">
-                                      <PermissionIndicator type="ADMIN" className="h-3 w-3" />
-                                    </div>
-                                  </Badge>
-                                )}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom">
-                              {isAdminUser 
-                                ? 'Click to change term (Admin only)' 
-                                : 'Term change requires admin access'}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                      {student.pasiTerm && (
+                        <Badge 
+                          className="flex items-center gap-1 px-2 py-0.5 h-6 text-xs font-medium border-0 rounded-md"
+                          style={{
+                            backgroundColor: `${getTermInfo(student.pasiTerm).color}15`,
+                            color: getTermInfo(student.pasiTerm).color
+                          }}
+                        >
+                          {getTermInfo(student.pasiTerm).icon && React.createElement(getTermInfo(student.pasiTerm).icon, {
+                            className: "w-3 h-3 mr-1"
+                          })}
+                          {student.pasiTerm}
+                        </Badge>
                       )}
                     </div>
                   );
@@ -1223,7 +1145,9 @@ const handleStatusChange = useCallback(async (newStatus) => {
             </span>
             {student.grade !== undefined && 
               student.grade !== null && 
-              student.grade !== 0 && (
+              student.grade !== 0 && 
+              student.grade !== '' && 
+              student.grade !== '0' && (
               <span className={`text-xs font-bold ${getGradeColorAndIcon(student.grade).color} flex items-center mr-2`}>
                 Gr. {formatGrade(student.grade)}
                 {getGradeColorAndIcon(student.grade).icon}
@@ -1759,7 +1683,10 @@ const handleStatusChange = useCallback(async (newStatus) => {
         isOpen={isAsnIssuesDialogOpen}
         onOpenChange={setIsAsnIssuesDialogOpen}
         asn={student.asn}
-        studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
+        studentKey={(() => {
+          const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+          return sanitizeEmail(rawEmail);
+        })()}
         studentEmail={getStudentInfo.email}  
         emailKeys={studentAsns?.[student.asn]?.emailKeys ? 
           Object.entries(studentAsns[student.asn].emailKeys)
@@ -1775,8 +1702,11 @@ const handleStatusChange = useCallback(async (newStatus) => {
         status={pendingStatus}
         studentName={getStudentInfo.fullName}
         courseName={getSafeValue(student.Course_Value)}
-        studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
-        courseId={student.id.slice(student.id.lastIndexOf('_') + 1)}
+        studentKey={(() => {
+          const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+          return sanitizeEmail(rawEmail);
+        })()}
+        courseId={student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1)}
         onConfirm={() => {
           setIsPendingFinalizationOpen(false);
           setPendingStatus(null);
@@ -1795,8 +1725,11 @@ const handleStatusChange = useCallback(async (newStatus) => {
         studentName={getStudentInfo.fullName}
         courseName={getSafeValue(student.Course_Value)}
         studentEmail={getStudentInfo.email} 
-        studentKey={student.id.slice(0, student.id.lastIndexOf('_'))}
-        courseId={student.id.slice(student.id.lastIndexOf('_') + 1)}
+        studentKey={(() => {
+          const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+          return sanitizeEmail(rawEmail);
+        })()}
+        courseId={student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1)}
         onConfirm={async () => {
           setIsResumingOnOpen(false);
         }}
@@ -1814,7 +1747,10 @@ const handleStatusChange = useCallback(async (newStatus) => {
             </DialogTitle>
           </DialogHeader>
           <div className="flex-grow overflow-auto">
-            <ProfileHistory studentEmailKey={student.id.slice(0, student.id.lastIndexOf('_'))} />
+            <ProfileHistory studentEmailKey={(() => {
+              const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+              return sanitizeEmail(rawEmail);
+            })()} />
           </div>
         </DialogContent>
       </Dialog>

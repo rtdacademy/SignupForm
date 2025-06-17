@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   BookOpen, 
   ClipboardCheck,
@@ -15,8 +15,12 @@ import {
   TrendingUp,
   TrendingDown,
   // SEQUENTIAL_ACCESS_UPDATE: Added Lock icon for lesson access control
-  Lock
+  Lock,
+  RefreshCw
 } from 'lucide-react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { toast } from 'sonner';
+import { useAuth } from '../../../context/AuthContext';
 // SEQUENTIAL_ACCESS_UPDATE: Added lesson access utilities for Course 4 sequential unlocking
 import { 
   getLessonAccessibility, 
@@ -84,15 +88,25 @@ const CollapsibleNavigation = ({
   isStaffView = false,
   devMode = false,
 }) => {
+  const { user } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Display debugging information about the course structure
   useEffect(() => {
     if (course) {
-      console.log("CollapsibleNavigation: Course structure paths:", {
+      console.log("CollapsibleNavigation: Course structure and ID debug:", {
         providedUnitsList: unitsList,
         detailsStructure: course.courseDetails?.courseStructure?.structure,
         directStructure: course.courseStructure?.structure,
-        units: course.units
+        units: course.units,
+        courseIdFields: {
+          courseId: course.courseId,
+          CourseID: course.CourseID,
+          id: course.id,
+          courseIdPresent: !!course.courseId,
+          CourseIDPresent: !!course.CourseID
+        },
+        fullCourseObject: course
       });
     }
   }, [course, unitsList]);
@@ -178,6 +192,85 @@ const CollapsibleNavigation = ({
     // Use assessment data (gradebookItems) for unlocking instead of progress data
     return getLessonAccessibility(course, gradebookItems);
   }, [allCourseItems, isStaffView, devMode, course, gradebookItems]);
+  
+  // Handle refresh button click
+  const handleRefresh = async () => {
+    // Enhanced debug logging
+    console.log('🔍 CollapsibleNavigation Refresh Debug:', {
+      course: course,
+      courseKeys: course ? Object.keys(course) : 'course is null/undefined',
+      user: user,
+      userKeys: user ? Object.keys(user) : 'user is null/undefined'
+    });
+    
+    // Check for courseId in multiple possible field names
+    const courseIdValue = course?.courseId || course?.CourseID || course?.id;
+    
+    if (!courseIdValue || !user?.email) {
+      console.log('❌ Refresh blocked - Debug info:', {
+        courseIdValue,
+        courseFields: {
+          courseId: course?.courseId,
+          CourseID: course?.CourseID,
+          id: course?.id
+        },
+        userEmail: user?.email,
+        coursePresent: !!course,
+        userPresent: !!user,
+        courseObject: course,
+        userObject: user
+      });
+      toast.error('Unable to refresh - missing course or user information');
+      return;
+    }
+
+    setIsRefreshing(true);
+    
+    try {
+      const functions = getFunctions();
+      const trackLessonAccess = httpsCallable(functions, 'trackLessonAccess');
+      
+      console.log('🔄 Refreshing gradebook structure for course:', courseIdValue);
+      console.log('🔄 Sending data to trackLessonAccess:', {
+        courseId: courseIdValue,
+        lessonId: activeItemId || 'refresh_trigger',
+        studentEmail: user.email,
+        lessonInfo: {
+          title: 'Gradebook Structure Refresh',
+          type: 'system',
+          purpose: 'refresh'
+        }
+      });
+      
+      // Use trackLessonAccess to trigger gradebook initialization
+      // This function will call initializeGradebook if the gradebook doesn't exist
+      const result = await trackLessonAccess({
+        courseId: courseIdValue,
+        lessonId: activeItemId || 'refresh_trigger',
+        studentEmail: user.email,
+        lessonInfo: {
+          title: 'Gradebook Structure Refresh',
+          type: 'system',
+          purpose: 'refresh'
+        }
+      });
+      
+      console.log('✅ Gradebook refresh result:', result.data);
+      
+      toast.success('Course structure refreshed successfully');
+      
+      // Trigger a page reload to ensure all components get the updated data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+      
+    } catch (error) {
+      console.error('❌ Error refreshing gradebook:', error);
+      toast.error(`Failed to refresh course structure: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
   
   const renderItem = (item, unitIndex, itemIndex) => {
     const isCompleted = progress[item.itemId]?.completed;
@@ -352,16 +445,28 @@ const CollapsibleNavigation = ({
           <BookOpen className="h-4 w-4 flex-shrink-0" />
           <span className="truncate">{courseTitle}</span>
         </h2>
-        {!isMobile && (
+        <div className="flex items-center gap-1 ml-1 flex-shrink-0">
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={onToggleExpand} 
-            className="ml-1 flex-shrink-0"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="h-8 w-8 p-0"
+            title="Refresh course structure"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
-        )}
+          {!isMobile && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onToggleExpand} 
+              className="h-8 w-8 p-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
       
       <div className="p-3 bg-white flex items-center justify-between text-sm">

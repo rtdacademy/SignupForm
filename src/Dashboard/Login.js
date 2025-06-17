@@ -710,10 +710,33 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {renderAuthForm()}
           
-          <div className="mt-6 text-center">
-            <Link to="/staff-login" className="font-medium text-secondary hover:text-secondary-dark">
-              Staff Login
-            </Link>
+          <div className="mt-6 space-y-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Other login options</span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <Link 
+                to="/parent-login" 
+                className="flex flex-col items-center p-3 border border-purple-200 rounded-md hover:bg-purple-50 transition-colors"
+              >
+                <span className="font-medium text-purple-600 hover:text-purple-700">Parent Portal</span>
+                <span className="text-xs text-gray-500 mt-1">For parents/guardians</span>
+              </Link>
+              
+              <Link 
+                to="/staff-login" 
+                className="flex flex-col items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                <span className="font-medium text-secondary hover:text-secondary-dark">Staff Login</span>
+                <span className="text-xs text-gray-500 mt-1">For RTD staff</span>
+              </Link>
+            </div>
           </div>
         </div>
       ) : (
@@ -725,6 +748,11 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
               <p className="mt-2 text-center text-sm text-gray-600">
                 Welcome to the Student Portal. Here you can register for new courses, manage your personal information, and access your enrolled courses.
               </p>
+              <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <p className="text-center text-sm text-purple-700">
+                  <strong>Parents/Guardians:</strong> Use the <Link to="/parent-login" className="text-purple-600 hover:text-purple-800 underline font-medium">Parent Portal</Link> to approve enrollments and manage your children's education.
+                </p>
+              </div>
             </div>
           )}
 
@@ -732,10 +760,33 @@ const Login = ({ hideWelcome = false, startWithSignUp = false, compactView = fal
             <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
               {renderAuthForm()}
               
-              <div className="mt-6 text-center">
-                <Link to="/staff-login" className="font-medium text-secondary hover:text-secondary-dark">
-                  Staff Login
-                </Link>
+              <div className="mt-6 space-y-4">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-200"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">Other login options</span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <Link 
+                    to="/parent-login" 
+                    className="flex flex-col items-center p-3 border border-purple-200 rounded-md hover:bg-purple-50 transition-colors"
+                  >
+                    <span className="font-medium text-purple-600 hover:text-purple-700">Parent Portal</span>
+                    <span className="text-xs text-gray-500 mt-1">For parents/guardians</span>
+                  </Link>
+                  
+                  <Link 
+                    to="/staff-login" 
+                    className="flex flex-col items-center p-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="font-medium text-secondary hover:text-secondary-dark">Staff Login</span>
+                    <span className="text-xs text-gray-500 mt-1">For RTD staff</span>
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

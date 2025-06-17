@@ -684,6 +684,8 @@ export function AuthProvider({ children }) {
                   if (currentPath.toLowerCase().includes('teacher') || 
                       currentPath.toLowerCase() === '/courses') {
                     navigate('/staff-login');
+                  } else if (currentPath.toLowerCase() === '/parent-dashboard') {
+                    navigate('/parent-login');
                   } else {
                     navigate('/login');
                   }

@@ -603,9 +603,6 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
     // Check if student is under 18 from profile
     const isUnder18 = profile && profile.age && profile.age < 18;
     
-    // If student is 18 or older, don't show parent approval status
-    if (!isUnder18) return null;
-    
     // Check for parent approval status from the course data
     const courseParentApproval = course.parentApproval;
     
@@ -655,59 +652,99 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
       statusIcon = AlertCircle;
     }
     
-    // Don't render anything if there's no status to show
-    if (!approvalStatus) return null;
+    // Check if parent email exists in profile
+    const hasParentEmail = profile?.ParentEmail || course.parentApproval?.parentEmail;
     
-    const Icon = statusIcon;
+    // Determine button disabled state and tooltip message
+    let isButtonDisabled = false;
+    let disabledReason = '';
+    
+    if (!isUnder18) {
+      isButtonDisabled = true;
+      disabledReason = 'Parent permission not required for students 18 and older';
+    } else if (!hasParentEmail) {
+      isButtonDisabled = true;
+      disabledReason = 'No parent email address on file';
+    } else if (approvalStatus === 'approved') {
+      isButtonDisabled = true;
+      disabledReason = 'Parent permission already granted';
+    } else if (isResendDisabled()) {
+      isButtonDisabled = true;
+      disabledReason = getResendTimeRemaining() 
+        ? `Email recently sent. Can resend in ${getResendTimeRemaining()} hours`
+        : 'Processing...';
+    }
+    
+    // Always show parent permission section
+    const Icon = statusIcon || AlertCircle;
     const colors = {
       green: 'bg-green-50 border-green-200 text-green-700',
       amber: 'bg-amber-50 border-amber-200 text-amber-700',
-      blue: 'bg-blue-50 border-blue-200 text-blue-700'
+      blue: 'bg-blue-50 border-blue-200 text-blue-700',
+      gray: 'bg-gray-50 border-gray-200 text-gray-700'
     };
     
     const iconColors = {
       green: 'text-green-500',
       amber: 'text-amber-500',
-      blue: 'text-blue-500'
+      blue: 'text-blue-500',
+      gray: 'text-gray-400'
     };
     
+    // Default color for no status
+    const displayColor = statusColor || 'gray';
+    const displayMessage = statusMessage || (isUnder18 
+      ? 'Parent permission status not yet determined' 
+      : 'Parent permission not required (student is 18 or older)');
+    
     return (
-      <Alert className={`mb-4 ${colors[statusColor]}`}>
-        <Icon className={`h-4 w-4 ${iconColors[statusColor]}`} />
+      <Alert className={`mb-4 ${colors[displayColor]}`}>
+        <Icon className={`h-4 w-4 ${iconColors[displayColor]}`} />
         <AlertDescription>
-          <p className="font-medium mb-1">Parent Permission Status</p>
-          <p className="text-sm mb-2">{statusMessage}</p>
+          <p className="font-medium mb-1">Parent Permission</p>
+          <p className="text-sm mb-2">{displayMessage}</p>
           
-          {/* Show resend button only for pending status */}
-          {approvalStatus === 'pending' && (
-            <div className="flex items-center gap-2 mt-3">
-              <Button
-                onClick={handleResendParentEmail}
-                disabled={isResendDisabled()}
-                size="sm"
-                variant="outline"
-                className="text-xs"
-              >
-                {isResendingEmail ? (
-                  <>
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <FaEnvelope className="mr-2 h-3 w-3" />
-                    {getResendTimeRemaining() ? `Resend Email (${getResendTimeRemaining()}h)` : 'Resend Email to Parent'}
-                  </>
+          {/* Always show resend button */}
+          <div className="flex items-center gap-2 mt-3">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0} className="inline-flex">
+                    <Button
+                      onClick={isButtonDisabled ? undefined : handleResendParentEmail}
+                      disabled={isButtonDisabled}
+                      size="sm"
+                      variant="outline"
+                      className={`text-xs ${isButtonDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {isResendingEmail ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2"></div>
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <FaEnvelope className="mr-2 h-3 w-3" />
+                          Send Email to Parent
+                        </>
+                      )}
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {isButtonDisabled && (
+                  <TooltipContent>
+                    <p className="text-sm">{disabledReason}</p>
+                  </TooltipContent>
                 )}
-              </Button>
-              
-              {getResendTimeRemaining() && (
-                <span className="text-xs text-gray-500">
-                  Can resend in {getResendTimeRemaining()} hours
-                </span>
-              )}
-            </div>
-          )}
+              </Tooltip>
+            </TooltipProvider>
+            
+            {profile?.ParentEmail && (
+              <span className="text-xs text-gray-500">
+                ({profile.ParentEmail})
+              </span>
+            )}
+          </div>
         </AlertDescription>
       </Alert>
     );

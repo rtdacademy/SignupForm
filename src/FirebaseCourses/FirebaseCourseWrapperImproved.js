@@ -176,73 +176,82 @@ const FirebaseCourseWrapperContent = ({
     }, 1000); // Give enough time for smooth scroll to complete
   }, []);
   
-  // Get course data from the course object, either from database or fallback
+  // Get course data from the course object - now prioritizes database structure
   const getCourseData = () => {
     console.log("🔍 FirebaseCourseWrapper - Analyzing course data:", course);
     console.log("🔍 Course structure paths:", {
+      "course.Gradebook?.courseStructure": course.Gradebook?.courseStructure,
       "course.courseStructure": course.courseStructure,
       "course.courseStructure?.structure": course.courseStructure?.structure,
-      "course.courseStructure?.units": course.courseStructure?.units,
-      "course.courseDetails?.courseStructure?.structure": course.courseDetails?.courseStructure?.structure,
-      "course.courseDetails?.units": course.courseDetails?.units,
-      "course.units": course.units
+      "course.courseStructure?.units": course.courseStructure?.units
     });
 
-    // First priority: check direct courseStructure path (JSON file from CourseRouter)
-    if (course.courseStructure?.structure) {
-      console.log("Using courseStructure.structure from JSON file (via CourseRouter)");
+    // First priority: check gradebook courseStructure (database-driven from backend config)
+    if (course.Gradebook?.courseStructure) {
+      console.log("✅ Using course structure from gradebook (database-driven from backend config)");
+      return {
+        title: course.Gradebook.courseStructure.title || course.Course?.Value || '',
+        structure: course.Gradebook.courseStructure.units || [],
+        courseWeights: course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
+      };
+    }
+    
+    // Second priority: check direct courseStructure path (legacy JSON file approach)
+    else if (course.courseStructure?.structure) {
+      console.log("⚠️ Using legacy courseStructure.structure from JSON file");
       return {
         title: course.courseStructure.title || '',
         structure: course.courseStructure.structure || [],
-        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
+        courseWeights: course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
       };
     }
-    // Also check for nested courseStructure.units pattern
+    // Also check for nested courseStructure.units pattern (legacy)
     else if (course.courseStructure?.units) {
-      console.log("Using courseStructure.units from JSON file (via CourseRouter)");
+      console.log("⚠️ Using legacy courseStructure.units from JSON file");
       return {
         title: course.courseStructure.title || course.Course?.Value || '',
         structure: course.courseStructure.units || [],
-        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
-      };
-    }
-    // Second priority: check courseDetails.courseStructure.structure (database fallback)
-    else if (course.courseDetails?.courseStructure?.structure) {
-      console.log("Using courseDetails.courseStructure.structure from database");
-      return {
-        title: course.courseDetails.courseStructure.title || course.Title || '',
-        structure: course.courseDetails.courseStructure.structure,
-        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
-      };
-    }
-    // Third priority: units array
-    else if (course.units) {
-      console.log("Using units array directly");
-      return {
-        title: course.Title || '',
-        structure: [{
-          name: "Course Content",
-          section: "1",
-          unitId: "main_unit",
-          items: course.units.flatMap(unit => unit.items || [])
-        }],
-        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
+        courseWeights: course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
       };
     }
 
-    // Fallback: use other course data
-    console.log("⚠️ WARNING: Using fallback - no JSON structure found!");
+    // Error state: no structure available
+    console.error("❌ ERROR: No course structure found! Gradebook may not be initialized.");
     return {
-      title: course.Course?.Value || course.courseDetails?.Title || '',
-      structure: course.courseDetails?.units || [],
-      courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
+      title: course.Course?.Value || course.courseDetails?.Title || 'Course',
+      structure: [],
+      courseWeights: course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 },
+      error: "Course structure not available. Please refresh the page or contact support."
     };
   };
 
   const courseData = getCourseData();
   const courseTitle = courseData.title;
   const unitsList = courseData.structure || [];
-  const courseWeights = courseData.courseWeights || { lesson: 0.2, assignment: 0.4, exam: 0.4 };
+  const courseWeights = courseData.courseWeights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 };
+  
+  // Show error state if no course structure available
+  if (courseData.error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 text-center">
+          <div className="text-red-600 mb-4">
+            <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Course Structure Loading</h2>
+          <p className="text-gray-600 mb-4">{courseData.error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
   
   // Flatten all course items for progress tracking
   const allCourseItems = useMemo(() => {
