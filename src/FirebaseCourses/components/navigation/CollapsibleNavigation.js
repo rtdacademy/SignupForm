@@ -21,11 +21,11 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
-// SEQUENTIAL_ACCESS_UPDATE: Added lesson access utilities for Course 4 sequential unlocking
+// SEQUENTIAL_ACCESS_UPDATE: Auth utilities moved to parent component
+// Keeping isUserAuthorizedDeveloper for the developer banner
 import { 
-  getLessonAccessibility, 
-  shouldBypassAccessControl 
-} from '../../utils/lessonAccess';
+  isUserAuthorizedDeveloper
+} from '../../utils/authUtils';
 import { 
   Accordion,
   AccordionItem,
@@ -82,13 +82,16 @@ const CollapsibleNavigation = ({
   currentUnitIndex = 0,
   course,
   isMobile = false,
-  gradebookItems = {},
   // SEQUENTIAL_ACCESS_UPDATE: Added props for lesson access control
-  // Original props (before sequential access): courseTitle, unitsList, progress, activeItemId, onItemSelect, expanded, onToggleExpand, currentUnitIndex, course, isMobile, gradebookItems
+  // Original props (before sequential access): courseTitle, unitsList, progress, activeItemId, onItemSelect, expanded, onToggleExpand, currentUnitIndex, course, isMobile
   isStaffView = false,
   devMode = false,
+  lessonAccessibility = {},
 }) => {
-  const { user } = useAuth();
+  const { user, currentUser } = useAuth();
+  
+  // Check if current user is an authorized developer
+  const isAuthorizedDeveloper = isUserAuthorizedDeveloper(currentUser, course);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Display debugging information about the course structure
@@ -113,9 +116,11 @@ const CollapsibleNavigation = ({
 
   // Process units by section or course code
   const sectionedUnits = useMemo(() => {
-    // Try to use course.courseDetails.courseStructure.structure if available and unitsList is empty
-    const effectiveUnitsList = unitsList.length > 0 ? unitsList :
-      (course?.courseDetails?.courseStructure?.structure || []);
+    // Prioritize course.Gradebook.courseStructure.units, then fallback to props
+    const effectiveUnitsList = course?.Gradebook?.courseStructure?.units ||
+      unitsList ||
+      course?.courseDetails?.courseStructure?.structure ||
+      [];
 
     // Check if this course has multiple course codes
     const courseCodes = new Set(effectiveUnitsList
@@ -158,9 +163,11 @@ const CollapsibleNavigation = ({
   const allCourseItems = useMemo(() => {
     const items = [];
 
-    // Try to use course.courseDetails.courseStructure.structure if available and unitsList is empty
-    const effectiveUnitsList = unitsList.length > 0 ? unitsList :
-      (course?.courseDetails?.courseStructure?.structure || []);
+    // Prioritize course.Gradebook.courseStructure.units, then fallback to props
+    const effectiveUnitsList = course?.Gradebook?.courseStructure?.units ||
+      unitsList ||
+      course?.courseDetails?.courseStructure?.structure ||
+      [];
 
     effectiveUnitsList.forEach(unit => {
       if (unit.items && Array.isArray(unit.items)) {
@@ -170,28 +177,22 @@ const CollapsibleNavigation = ({
     return items;
   }, [unitsList, course]);
   
-  // Calculate overall progress percentage
+  // Calculate overall progress percentage using gradebook data
   const overallProgress = useMemo(() => {
     if (!allCourseItems.length) return 0;
-    const completedCount = Object.values(progress).filter(item => item.completed).length;
+    const gradebook = course?.Gradebook;
+    const completedCount = allCourseItems.filter(item => {
+      const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
+      const gradebookItem = gradebook?.items?.[item.itemId];
+      return courseStructureItem?.completed || gradebookItem?.status === 'completed';
+    }).length;
     return Math.round((completedCount / allCourseItems.length) * 100);
-  }, [allCourseItems, progress]);
+  }, [allCourseItems, course]);
 
-  // SEQUENTIAL_ACCESS_UPDATE: Calculate lesson accessibility for sequential unlocking
+  // SEQUENTIAL_ACCESS_UPDATE: Now receives lesson accessibility as a prop from parent
   // Original code (before sequential access): Only had overallProgress calculation above
-  const lessonAccessibility = useMemo(() => {
-    // Skip access control for staff/dev or if no course structure
-    if (shouldBypassAccessControl(isStaffView, devMode) || !course) {
-      const accessibility = {};
-      allCourseItems.forEach(item => {
-        accessibility[item.itemId] = { accessible: true, reason: 'Access control bypassed' };
-      });
-      return accessibility;
-    }
-    
-    // Use assessment data (gradebookItems) for unlocking instead of progress data
-    return getLessonAccessibility(course, gradebookItems);
-  }, [allCourseItems, isStaffView, devMode, course, gradebookItems]);
+  // Note: lessonAccessibility is now calculated in the parent component (FirebaseCourseWrapperImproved)
+  // and passed as a prop to avoid duplicate calculations and ensure consistency
   
   // Handle refresh button click
   const handleRefresh = async () => {
@@ -273,32 +274,80 @@ const CollapsibleNavigation = ({
   };
   
   const renderItem = (item, unitIndex, itemIndex) => {
-    const isCompleted = progress[item.itemId]?.completed;
+    // Use gradebook data for lesson status and percentages
+    const gradebook = course?.Gradebook;
+    const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
+    const gradebookItem = gradebook?.items?.[item.itemId];
+    
+    // Calculate lesson percentage from category data if courseStructureItems doesn't exist
+    let lessonPercentage = 0;
+    let lessonScore = 0;
+    let lessonTotal = 0;
+    
+    // Debug logging to trace data paths
+    if (item.itemId.includes('lesson_')) {
+      console.log(`📊 Data paths for ${item.itemId}:`, {
+        gradebook: gradebook ? 'exists' : 'missing',
+        courseStructureItems: gradebook?.courseStructureItems,
+        courseStructureItem: courseStructureItem,
+        categories: gradebook?.categories,
+        lessonCategory: gradebook?.categories?.lesson,
+        lessonCategoryItems: gradebook?.categories?.lesson?.items,
+        itemId: item.itemId
+      });
+    }
+    
+    if (courseStructureItem) {
+      // Use courseStructureItems if available (this will be populated when assessments are completed)
+      lessonPercentage = courseStructureItem.percentage || 0;
+      lessonScore = courseStructureItem.totalScore || 0;
+      lessonTotal = courseStructureItem.totalPossible || 0;
+    } else {
+      // Fallback: Calculate from category items
+      const categoryItems = gradebook?.categories?.lesson?.items || [];
+      const lessonItem = categoryItems.find(catItem => catItem.id === item.itemId);
+      
+      if (item.itemId.includes('lesson_')) {
+        console.log(`🔍 Looking for ${item.itemId} in category items:`, {
+          categoryItems: categoryItems.map(ci => ({ id: ci.id, score: ci.score, maxScore: ci.maxScore, percentage: ci.percentage })),
+          lessonItem: lessonItem,
+          found: !!lessonItem
+        });
+      }
+      
+      if (lessonItem) {
+        lessonPercentage = lessonItem.percentage || 0;
+        lessonScore = lessonItem.score || 0;
+        lessonTotal = lessonItem.maxScore || 0;
+      }
+    }
+    
+    // Determine completion based on gradebook data
+    const isCompleted = courseStructureItem?.completed || gradebookItem?.status === 'completed' || lessonPercentage >= 100;
     const isActive = activeItemId === item.itemId;
-    const gradebookItem = gradebookItems[item.itemId];
     
     // SEQUENTIAL_ACCESS_UPDATE: Check lesson accessibility
     // Original code (before sequential access): Only had isCompleted, isActive, gradebookItem above
     const accessInfo = lessonAccessibility[item.itemId] || { accessible: true, reason: 'Default access' };
     const isAccessible = accessInfo.accessible;
     
-    // Determine if this is the first incomplete item
-    const isNextItem = !isCompleted && 
-      Object.entries(progress).filter(([, data]) => data.completed).length > 0 &&
-      !Object.entries(progress)
-        .filter(([id, data]) => !data.completed && id !== item.itemId)
-        .some(([id]) => {
-          const thisItem = allCourseItems.find(i => i.itemId === id);
-          const currentItem = allCourseItems.find(i => i.itemId === item.itemId);
-          const thisGlobalIndex = thisItem ? allCourseItems.indexOf(thisItem) : -1;
-          const currentGlobalIndex = currentItem ? allCourseItems.indexOf(currentItem) : -1;
-          return thisGlobalIndex < currentGlobalIndex;
-        });
+    // Determine if this is the next recommended item (simplified logic for gradebook-based system)
+    const hasStarted = lessonPercentage > 0 || (gradebookItem?.attempts || 0) > 0;
+    const isNextItem = !isCompleted && hasStarted;
     
-    // Calculate grade percentage if available
-    const gradePercentage = gradebookItem && gradebookItem.maxScore > 0
-      ? Math.round((gradebookItem.score / gradebookItem.maxScore) * 100)
-      : null;
+    // Use the calculated lesson percentage
+    const gradePercentage = lessonPercentage > 0 ? lessonPercentage : null;
+    
+    // Debug logging for this specific item
+    if (item.itemId.includes('lesson_')) {
+      console.log(`🔍 Rendering ${item.itemId}:`, {
+        courseStructureItem: courseStructureItem ? 'present' : 'missing',
+        percentage: gradePercentage,
+        isAccessible,
+        accessReason: accessInfo.reason,
+        requiredPercentage: accessInfo.requiredPercentage
+      });
+    }
     
     // Get grade color
     const getGradeColor = (percentage) => {
@@ -380,19 +429,51 @@ const CollapsibleNavigation = ({
             {/* SEQUENTIAL_ACCESS_UPDATE: Added accessibility information to tooltip */}
             {/* Original tooltip (before sequential access): Only showed gradebook info and completion status */}
             {!isAccessible && (
-              <p className="text-sm text-red-600 font-medium">🔒 {accessInfo.reason}</p>
-            )}
-            {gradebookItem && (
               <>
-                <p className="text-sm">Score: {gradebookItem.score}/{gradebookItem.maxScore} ({gradePercentage}%)</p>
-                <p className="text-sm">Attempts: {gradebookItem.attempts || 0}</p>
-                {gradebookItem.lastAttempt && (
-                  <p className="text-sm">Last attempt: {new Date(gradebookItem.lastAttempt).toLocaleDateString()}</p>
+                <p className="text-sm text-red-600 font-medium">🔒 {accessInfo.reason}</p>
+                {accessInfo.requiredPercentage && (
+                  <p className="text-xs text-red-500">
+                    Requires {accessInfo.requiredPercentage}% to unlock
+                  </p>
+                )}
+              </>
+            )}
+            {(courseStructureItem || lessonScore > 0 || gradebookItem) && (
+              <>
+                {(courseStructureItem || lessonScore > 0) && (
+                  <>
+                    <p className="text-sm">Lesson Score: {lessonScore}/{lessonTotal} ({gradePercentage || 0}%)</p>
+                    <p className="text-sm">Assessments: {courseStructureItem?.assessmentCount || lessonTotal}</p>
+                  </>
+                )}
+                {gradebookItem && (
+                  <>
+                    <p className="text-sm">Individual Attempts: {gradebookItem.attempts || 0}</p>
+                    {gradebookItem.lastAttempt && (
+                      <p className="text-sm">Last attempt: {new Date(gradebookItem.lastAttempt).toLocaleDateString()}</p>
+                    )}
+                  </>
                 )}
               </>
             )}
             {!isCompleted && isAccessible && (
               <p className="text-sm text-gray-600">Not yet completed</p>
+            )}
+            {/* Show percentage requirements for course progression */}
+            {course?.Gradebook?.courseConfig?.progressionRequirements?.enabled && (
+              <>
+                {(() => {
+                  const progressionRequirements = course.Gradebook.courseConfig.progressionRequirements;
+                  const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId];
+                  const requiredPercentage = lessonOverride?.minimumPercentage || progressionRequirements.defaultMinimumPercentage || 80;
+                  
+                  return (
+                    <p className="text-xs text-blue-600 mt-1">
+                      📊 Need {requiredPercentage}% to unlock next lesson
+                    </p>
+                  );
+                })()}
+              </>
             )}
           </div>
         </TooltipContent>
@@ -440,6 +521,17 @@ const CollapsibleNavigation = ({
   // Navigation content component
   const NavigationContent = () => (
     <>
+      {/* Developer Access Indicator */}
+      {isAuthorizedDeveloper && (
+        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 text-xs font-medium flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            <span>DEVELOPER MODE</span>
+          </div>
+          <span className="opacity-80">• All lessons unlocked • Access restrictions bypassed</span>
+        </div>
+      )}
+      
       <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-blue-50 to-indigo-50">
         <h2 className="font-semibold text-base text-blue-800 flex items-center gap-1 truncate">
           <BookOpen className="h-4 w-4 flex-shrink-0" />
@@ -516,9 +608,14 @@ const CollapsibleNavigation = ({
                   className="space-y-2"
                 >
                   {sectionUnits.map((unit) => {
-                    // Calculate unit progress
+                    // Calculate unit progress using gradebook data
                     const unitItems = unit.items || [];
-                    const unitCompletedCount = unitItems.filter(item => progress[item.itemId]?.completed).length;
+                    const gradebook = course?.Gradebook;
+                    const unitCompletedCount = unitItems.filter(item => {
+                      const courseStructureItem = gradebook?.courseStructureItems?.[item.itemId];
+                      const gradebookItem = gradebook?.items?.[item.itemId];
+                      return courseStructureItem?.completed || gradebookItem?.status === 'completed';
+                    }).length;
                     const unitPercentage = unitItems.length > 0
                       ? Math.round((unitCompletedCount / unitItems.length) * 100)
                       : 0;

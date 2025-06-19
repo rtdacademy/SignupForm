@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useGradebook } from '../../context/GradebookContext';
+// No longer using gradebook context - data comes from course prop
 import { 
   Search, 
   Filter, 
@@ -23,8 +23,12 @@ import {
   SelectValue,
 } from '../../../components/ui/select';
 
-const CourseItemGrid = ({ onViewItemDetails, courseStructure }) => {
-  const { items, categories, hasData } = useGradebook();
+const CourseItemGrid = ({ onViewItemDetails, onItemSelect, courseStructure, course, compact = false }) => {
+  // Extract gradebook data from either courseStructure or course prop
+  const gradebook = (courseStructure || course)?.Gradebook || {};
+  const items = gradebook?.items || {};
+  const categories = gradebook?.categories || {};
+  const hasData = !!gradebook?.summary;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -41,11 +45,12 @@ const CourseItemGrid = ({ onViewItemDetails, courseStructure }) => {
     Object.entries(items).forEach(([itemId, itemData]) => {
       // Try to find matching course structure item
       let structureItem = null;
-      if (courseStructure?.courseStructure?.units) {
-        courseStructure.courseStructure.units.forEach(unit => {
+      const courseData = courseStructure || course;
+      if (courseData?.courseStructure?.units) {
+        courseData.courseStructure.units.forEach(unit => {
           const found = unit.items?.find(item => item.itemId === itemId);
           if (found) {
-            structureItem = { ...found, unitTitle: unit.title, unitSequence: unit.sequence };
+            structureItem = { ...found, unitTitle: unit.name, unitSequence: unit.order };
           }
         });
       }
@@ -87,7 +92,7 @@ const CourseItemGrid = ({ onViewItemDetails, courseStructure }) => {
     });
     
     return allItems;
-  }, [items, categories, courseStructure, hasData]);
+  }, [items, categories, courseStructure, course, hasData]);
 
   // Filter and sort course items
   const filteredItems = useMemo(() => {
@@ -143,6 +148,52 @@ const CourseItemGrid = ({ onViewItemDetails, courseStructure }) => {
     return (
       <div className="bg-gray-50 rounded-lg p-6 text-center">
         <p className="text-gray-500">No course items available yet.</p>
+      </div>
+    );
+  }
+
+  // Compact mode for dashboard overview
+  if (compact) {
+    return (
+      <div className="space-y-3">
+        {filteredItems.slice(0, 5).map((item) => (
+          <div key={item.itemId} className="bg-white border rounded-lg p-4 hover:bg-gray-50 cursor-pointer"
+               onClick={() => (onViewItemDetails || onItemSelect)?.(item)}>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-900">{item.title}</h4>
+                <p className="text-sm text-gray-500">{item.type} • {item.unitTitle}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="font-medium">{item.earnedPoints} / {item.totalPoints}</div>
+                  <div className="text-sm text-gray-500">{item.percentage}%</div>
+                </div>
+                <div className="flex items-center">
+                  {item.status === 'completed' ? (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  ) : item.status === 'in_progress' ? (
+                    <RotateCcw className="h-5 w-5 text-yellow-500" />
+                  ) : (
+                    <Clock className="h-5 w-5 text-gray-400" />
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+        {filteredItems.length > 5 && (
+          <div className="text-center">
+            <Button variant="ghost" className="text-sm text-gray-600">
+              View all {filteredItems.length} items
+            </Button>
+          </div>
+        )}
+        {filteredItems.length === 0 && (
+          <div className="text-center py-4 text-gray-500">
+            No course items available.
+          </div>
+        )}
       </div>
     );
   }
@@ -251,7 +302,7 @@ const CourseItemGrid = ({ onViewItemDetails, courseStructure }) => {
                 <CourseItemRow 
                   key={item.itemId}
                   item={item}
-                  onViewDetails={() => onViewItemDetails(item)}
+                  onViewDetails={() => (onViewItemDetails || onItemSelect)?.(item)}
                 />
               ))}
             </tbody>

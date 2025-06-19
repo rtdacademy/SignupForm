@@ -6,7 +6,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Sheet, SheetContent } from "../components/ui/sheet";
-import { Calendar, Split, IdCard, AlertTriangle, Edit, ClipboardList, InfoIcon, DollarSign, LayoutGrid, ChevronRight, ChevronLeft, PanelLeft, PanelRight, Maximize2 } from 'lucide-react';
+import { Calendar, Split, IdCard, AlertTriangle, Edit, ClipboardList, InfoIcon, DollarSign, LayoutGrid, ChevronRight, ChevronLeft, PanelLeft, PanelRight, Maximize2, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { ToggleGroup, ToggleGroupItem } from '../components/ui/toggle-group';
@@ -29,6 +29,7 @@ import { useUserPreferences } from '../context/UserPreferencesContext';
 import PaymentInfo from './PaymentInfo'; 
 import PASIManager from './PASIManager';
 import StudentGradesDisplay from './StudentGradesDisplay';
+import StudentActivitySheet from './StudentActivitySheet';
 
 const getColorFromInitials = (initials) => {
   const colors = [
@@ -84,6 +85,9 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
   
   // PASI sheet state
   const [isPasiSheetOpen, setIsPasiSheetOpen] = useState(false);
+  
+  // Activity sheet state
+  const [isActivitySheetOpen, setIsActivitySheetOpen] = useState(false);
   
   // Notes panel width - store it for user preference
   const [notesPanelWidth, setNotesPanelWidth] = useState(preferences?.notesPanelWidth || 300);
@@ -1014,6 +1018,17 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                 </Button>
               )}
               
+              {/* Activity Button - Always visible */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsActivitySheetOpen(true)}
+                className="h-8 text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center"
+              >
+                <Activity className="h-4 w-4 mr-1" />
+                Activity
+              </Button>
+              
               {/* More Info Button - Always visible */}
               <Button
                 variant="outline"
@@ -1132,6 +1147,17 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                   Docs
                 </Button>
               )}
+              
+              {/* Activity Button - Always visible */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsActivitySheetOpen(true)}
+                className="flex-1 min-w-[80px] text-[#40b3b3] border-[#40b3b3] hover:bg-[#40b3b3] hover:text-white flex items-center justify-center"
+              >
+                <Activity className="h-4 w-4 mr-1" />
+                Activity
+              </Button>
               
               {/* More Info Button - Always visible */}
               <Button
@@ -1599,6 +1625,17 @@ function StudentDetail({ studentSummary, isMobile, onRefresh }) {
                 />
               </div>
             </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Activity Sheet */}
+        <Sheet open={isActivitySheetOpen} onOpenChange={setIsActivitySheetOpen}>
+          <SheetContent side="right" className="w-[95%] max-w-6xl p-0 overflow-hidden">
+            <StudentActivitySheet 
+              studentData={studentData}
+              courseId={courseId}
+              onClose={() => setIsActivitySheetOpen(false)}
+            />
           </SheetContent>
         </Sheet>
 

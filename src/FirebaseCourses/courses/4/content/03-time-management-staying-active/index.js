@@ -528,7 +528,6 @@ const TimeManagementStayingActiveinYourCourse = ({ courseId, itemId, activeItem 
                 {currentQuestionIndex === 0 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="03_time_management_question1"
                     cloudFunctionName="course4_03_time_management_question1"
                     title="Weekly Login Requirement"
                     theme="indigo"
@@ -542,7 +541,6 @@ const TimeManagementStayingActiveinYourCourse = ({ courseId, itemId, activeItem 
                 {currentQuestionIndex === 1 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="03_time_management_question2"
                     cloudFunctionName="course4_03_time_management_question2"
                     title="Two-Lesson Rule"
                     theme="indigo"
@@ -556,7 +554,6 @@ const TimeManagementStayingActiveinYourCourse = ({ courseId, itemId, activeItem 
                 {currentQuestionIndex === 2 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="03_time_management_question3"
                     cloudFunctionName="course4_03_time_management_question3"
                     title="Inactivity Timeline"
                     theme="indigo"
@@ -570,7 +567,6 @@ const TimeManagementStayingActiveinYourCourse = ({ courseId, itemId, activeItem 
                 {currentQuestionIndex === 3 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="03_time_management_question4"
                     cloudFunctionName="course4_03_time_management_question4"
                     title="Response Time After Lockout"
                     theme="indigo"
@@ -584,7 +580,6 @@ const TimeManagementStayingActiveinYourCourse = ({ courseId, itemId, activeItem 
                 {currentQuestionIndex === 4 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="03_time_management_question5"
                     cloudFunctionName="course4_03_time_management_question5"
                     title="Total Withdrawal Timeline"
                     theme="indigo"
@@ -598,7 +593,6 @@ const TimeManagementStayingActiveinYourCourse = ({ courseId, itemId, activeItem 
                 {currentQuestionIndex === 5 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="03_time_management_question6"
                     cloudFunctionName="course4_03_time_management_question6"
                     title="Scenario: Sarah's Lockout Situation"
                     theme="indigo"
@@ -612,7 +606,6 @@ const TimeManagementStayingActiveinYourCourse = ({ courseId, itemId, activeItem 
                 {currentQuestionIndex === 6 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="03_time_management_question7"
                     cloudFunctionName="course4_03_time_management_question7"
                     title="Scenario: Marcus's Prevention Strategy"
                     theme="indigo"
@@ -626,7 +619,6 @@ const TimeManagementStayingActiveinYourCourse = ({ courseId, itemId, activeItem 
                 {currentQuestionIndex === 7 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="03_time_management_question8"
                     cloudFunctionName="course4_03_time_management_question8"
                     title="Scenario: Lisa's Communication Plan"
                     theme="indigo"

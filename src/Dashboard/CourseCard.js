@@ -94,7 +94,9 @@ const formatDate = (dateString) => {
 
 const CourseCard = ({ 
   course, 
-  onGoToCourse,
+  onGoToCourse, // Keep for backward compatibility
+  onGoToFirebaseCourse, // New handler for Firebase courses
+  onGoToLMSCourse, // New handler for LMS courses
   className = '',
   profile 
 }) => {
@@ -211,19 +213,43 @@ const CourseCard = ({
   const handleGoToCourse = async () => {
     // For required courses, we always allow access
     if (course.isRequiredCourse) {
-      if (onGoToCourse) {
-        onGoToCourse(course);
+      // Use appropriate handler based on course type
+      if (course.courseDetails?.firebaseCourse) {
+        if (onGoToFirebaseCourse) {
+          onGoToFirebaseCourse(course);
+        } else if (onGoToCourse) {
+          onGoToCourse(course); // Fallback for backward compatibility
+        }
+      } else {
+        if (onGoToLMSCourse) {
+          onGoToLMSCourse(course);
+        } else if (onGoToCourse) {
+          onGoToCourse(course); // Fallback for backward compatibility
+        }
       }
       return;
     }
 
     // Allow developers to bypass all restrictions
     if (isDeveloper) {
-      if (onGoToCourse) {
-        onGoToCourse(course);
+      // Use appropriate handler based on course type
+      if (course.courseDetails?.firebaseCourse) {
+        if (onGoToFirebaseCourse) {
+          onGoToFirebaseCourse(course);
+        } else if (onGoToCourse) {
+          onGoToCourse(course); // Fallback for backward compatibility
+        }
+      } else {
+        if (onGoToLMSCourse) {
+          onGoToLMSCourse(course);
+        } else if (onGoToCourse) {
+          onGoToCourse(course); // Fallback for backward compatibility
+        }
       }
       return;
-    }    // Handle Firebase Courses and regular courses differently
+    }    
+    
+    // Handle Firebase Courses and regular courses differently
     if (course.courseDetails?.firebaseCourse) {
       // For Firebase courses, only restrict if Archived or Pending
       if (status === 'Archived' || status === 'Pending') {
@@ -244,7 +270,7 @@ const CourseCard = ({
         
         const result = await validateGradebook({
           courseId: course.id,
-          studentEmail: user?.email
+          studentEmail: currentUser?.email
         });
         
         if (!result.data.isValid) {
@@ -256,8 +282,11 @@ const CourseCard = ({
         // Don't block access if validation fails, just log the error
       }
       
-      if (onGoToCourse) {
-        onGoToCourse(course);
+      // Use Firebase course handler
+      if (onGoToFirebaseCourse) {
+        onGoToFirebaseCourse(course);
+      } else if (onGoToCourse) {
+        onGoToCourse(course); // Fallback for backward compatibility
       }
       return;
     }
@@ -275,8 +304,11 @@ const CourseCard = ({
         toast.error("You cannot access the course until it has been activated");
         return;
       }
-      if (onGoToCourse) {
-        onGoToCourse(course);
+      // Use LMS course handler
+      if (onGoToLMSCourse) {
+        onGoToLMSCourse(course);
+      } else if (onGoToCourse) {
+        onGoToCourse(course); // Fallback for backward compatibility
       }
       return;
     }
@@ -287,8 +319,11 @@ const CourseCard = ({
       return;
     }
 
-    if (onGoToCourse) {
-      onGoToCourse(course);
+    // Use LMS course handler
+    if (onGoToLMSCourse) {
+      onGoToLMSCourse(course);
+    } else if (onGoToCourse) {
+      onGoToCourse(course); // Fallback for backward compatibility
     }
   };
 

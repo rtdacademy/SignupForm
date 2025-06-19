@@ -75,6 +75,16 @@ const CourseRouterEnhanced = ({
   const courseId = course.CourseID;
   const [internalCurrentItemId, setInternalCurrentItemId] = useState(null);
 
+  // Debug logging for course object in CourseRouterEnhanced
+  console.log('🚀 CourseRouterEnhanced.js - Course object received:', {
+    courseId: course?.CourseID,
+    gradebook: course?.Gradebook,
+    gradebookItems: course?.Gradebook?.items,
+    assessments: course?.Grades?.assessments,
+    enhancedCourseGradebook: course?.Gradebook,
+    timestamp: new Date().toLocaleTimeString()
+  });
+
   // Use external navigation state if provided, otherwise use internal state
   const currentItemId = externalActiveItemId !== null ? externalActiveItemId : internalCurrentItemId;
   
@@ -90,27 +100,13 @@ const CourseRouterEnhanced = ({
     }
   }, [externalOnItemSelect]);
 
-  // Course structure now comes from database via gradebook
-  // The course object already contains the structure from gradebook initialization
-  const enhancedCourse = useMemo(() => {
-    // Check if course structure exists in gradebook
-    if (course?.Gradebook?.courseStructure) {
-      return {
-        ...course,
-        courseStructure: course.Gradebook.courseStructure
-      };
-    }
-    
-    // If no structure available, show error instead of fallback
-    if (!course?.Gradebook?.courseStructure) {
-      console.warn(`No course structure found in gradebook for course ${courseId}. Gradebook may not be initialized.`);
-    }
-    
-    return course;
-  }, [course, courseId]);
+  // Just use the course object directly for real-time updates
+  // No memoization - we want all changes to flow through immediately
+  const enhancedCourse = course;
 
   // This will dynamically render course components based on CourseID
-  const renderCourseContent = useCallback(() => {
+  // No useCallback - we want all changes to flow through immediately
+  const renderCourseContent = () => {
     const courseProps = {
       course: enhancedCourse,
       activeItemId: currentItemId,
@@ -164,7 +160,7 @@ const CourseRouterEnhanced = ({
       default:
         return <TemplateCourse course={course} />;
     }
-  }, [courseId, enhancedCourse, currentItemId, handleItemSelect, isStaffView, devMode]);
+  };
 
   // Render based on the specified mode
   switch (renderMode) {

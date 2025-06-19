@@ -221,6 +221,11 @@ const AIMultipleChoiceQuestion = ({
   questionClassName = '',  // Additional class name for question container
   optionsClassName = '',   // Additional class name for options container
   
+  // Exam mode props
+  examMode = false,        // Whether this is being used in exam mode
+  examSessionId = null,    // Exam session ID for saving answers
+  onExamAnswerSave = () => {}, // Callback for saving exam answers
+  
   // Callback functions
   onCorrectAnswer = () => {}, // Callback when answer is correct
   onAttempt = () => {},    // Callback on each attempt
@@ -254,6 +259,9 @@ const AIMultipleChoiceQuestion = ({
   // Get theme colors - use theme from question settings if available, otherwise use prop
   const activeTheme = question?.settings?.theme || theme;
   const themeColors = getThemeColors(activeTheme);
+  
+  // Detect exam mode from course config or prop
+  const isExamMode = examMode || question?.activityType === 'exam';
 
   // Track if we're currently waiting for a new question during regeneration
   const [expectingNewQuestion, setExpectingNewQuestion] = useState(false);
@@ -625,8 +633,48 @@ const AIMultipleChoiceQuestion = ({
     }
   };
 
+  // Handle exam answer save (no evaluation)
+  const handleExamAnswerSave = async () => {
+    if (!selectedAnswer) {
+      alert("Please select an answer");
+      return;
+    }
+    
+    try {
+      // Call exam answer save function
+      const saveExamAnswerFunction = httpsCallable(functions, 'saveExamAnswer');
+      
+      const functionParams = {
+        courseId: courseId,
+        assessmentId: assessmentId,
+        answer: selectedAnswer,
+        examSessionId: examSessionId,
+        studentEmail: currentUser.email
+      };
+      
+      console.log('Saving exam answer:', functionParams);
+      
+      const result = await saveExamAnswerFunction(functionParams);
+      console.log('Exam answer saved:', result.data);
+      
+      // Notify parent component
+      onExamAnswerSave(selectedAnswer, assessmentId);
+      
+      // Show success feedback
+      alert('Answer saved successfully!');
+      
+    } catch (error) {
+      console.error('Error saving exam answer:', error);
+      alert('Failed to save answer: ' + (error.message || error));
+    }
+  };
+
   // Handle submission of the answer
   const handleSubmit = async () => {
+    // In exam mode, save answer without evaluation
+    if (isExamMode) {
+      return handleExamAnswerSave();
+    }
     if (!selectedAnswer) {
       alert("Please select an answer");
       return;
@@ -674,8 +722,8 @@ const AIMultipleChoiceQuestion = ({
       if (result.data?.result) {
         setResult(result.data.result);
         
-        // Send automatic context update to AI chat if chat sheet is open
-        if (chatSheetOpen) {
+        // Send automatic context update to AI chat if chat sheet is open and not in exam mode
+        if (chatSheetOpen && !isExamMode) {
           await sendContextUpdateToAI(result.data.result);
         }
       }
@@ -1098,7 +1146,7 @@ You can now:
                 }}
                 className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md"
               >
-                {submitting ? 'Submitting...' : 'Submit Answer'}
+                {submitting ? (isExamMode ? 'Saving...' : 'Submitting...') : (isExamMode ? 'Save Answer' : 'Submit Answer')}
               </Button>
             )}
 
@@ -1140,10 +1188,11 @@ You can now:
                   </div>
                 )}
 
-                {/* For generating a new AI question */}
-                <div className="mt-4">
-                  {result && !question.maxAttemptsReached && !question.attemptsExhausted && 
-                   question.attempts < question.maxAttempts && (
+                {/* For generating a new AI question - hide in exam mode */}
+                {!isExamMode && (
+                  <div className="mt-4">
+                    {result && !question.maxAttemptsReached && !question.attemptsExhausted && 
+                     question.attempts < question.maxAttempts && (
                     <>
                       {/* Show difficulty selection for lesson type activities */}
                       {question.activityType === 'lesson' ? (
@@ -1201,7 +1250,8 @@ You can now:
                       </p>
                     </div>
                   )}
-                </div>
+                  </div>
+                )}
               </motion.div>
             )}
           </>
@@ -1260,7 +1310,7 @@ You can now:
                 AI-powered
               </span>
             )}
-            {question && question.enableAIChat !== false && (
+            {question && question.enableAIChat !== false && !isExamMode && (
               <Button
                 onClick={() => setChatSheetOpen(true)}
                 size="sm"
@@ -1443,7 +1493,7 @@ You can now:
                   }}
                   className="mt-3 w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md"
                 >
-                  {submitting ? 'Submitting...' : 'Submit Answer'}
+                  {submitting ? (isExamMode ? 'Saving...' : 'Submitting...') : (isExamMode ? 'Save Answer' : 'Submit Answer')}
                 </Button>
               )}
 
@@ -1488,7 +1538,7 @@ You can now:
 
                   {/* For generating a new AI question */}
                   <div className="mt-4">
-                    {result && !question.maxAttemptsReached && !question.attemptsExhausted && 
+                    {!isExamMode && result && !question.maxAttemptsReached && !question.attemptsExhausted && 
                      question.attempts < question.maxAttempts && (
                       <>
                         {/* Show difficulty selection for lesson type activities */}

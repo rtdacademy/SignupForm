@@ -1,10 +1,29 @@
 import React from 'react';
-import { useGradebook } from '../../context/GradebookContext';
 import { TrendingUp, TrendingDown, Award, Target } from 'lucide-react';
 import { Progress } from '../../../components/ui/progress';
 
-const GradebookSummary = () => {
-  const { summary, categories, hasData } = useGradebook();
+const GradebookSummary = ({ course }) => {
+  
+  // Extract gradebook data directly from course prop
+  const gradebook = course?.Gradebook || {};
+  const summary = gradebook?.summary || null;
+  const categories = gradebook?.categories || {};
+  const items = gradebook?.items || {};
+  const assessments = course?.Assessments || {};
+  const hasData = !!summary;
+  
+  // Check for configuration errors
+  const configError = summary ? null : 'No gradebook data available';
+  
+  // Show configuration error if weights are missing
+  if (configError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+        <p className="text-red-700 font-medium">Configuration Error</p>
+        <p className="text-red-600 text-sm mt-2">{configError}</p>
+      </div>
+    );
+  }
   
   if (!hasData || !summary) {
     return (
@@ -14,50 +33,110 @@ const GradebookSummary = () => {
     );
   }
 
-  const overallPercentage = summary.percentage || 0;
+  // Fix percentage calculation - convert from decimal to percentage if needed
+  let overallPercentage = summary.percentage || 0;
+  if (overallPercentage > 0 && overallPercentage < 1) {
+    overallPercentage = overallPercentage * 100;
+  }
+  
   const isPassing = summary.isPassing || overallPercentage >= (summary.passingGrade || 60);
   
+  // Extract new grade fields
+  const performanceGrade = summary.performanceGrade || 0;
+  const courseGrade = summary.courseGrade || 0;
+  const completedCount = summary.completedCount || 0;
+  const totalItemCount = summary.totalItemCount || 0;
+  const completedPoints = summary.completedPoints || 0;
+  const completedPossible = summary.completedPossible || 0;
+
+  // Calculate lesson-based completion stats
+  const lessonStats = calculateLessonStats(items, assessments);
+
   return (
     <div className="space-y-6">
-      {/* Overall Grade Card */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-lg font-medium text-gray-700 mb-1">Overall Grade</h3>
-            <div className="flex items-baseline gap-3">
-              <span className="text-5xl font-bold text-blue-700">{Math.round(overallPercentage)}%</span>
+      {/* Dual Grade Display */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Performance Grade - How well student is doing on completed work */}
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-100">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-gray-700 mb-1">Your Performance</h3>
+              <div className="flex items-baseline gap-3">
+                <span className="text-5xl font-bold text-green-700">{Math.round(performanceGrade)}%</span>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">
+                {completedPoints} / {completedPossible} points on completed work
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                {performanceGrade >= (summary.passingGrade || 60) ? (
+                  <>
+                    <TrendingUp className="h-4 w-4 text-green-600" />
+                    <span className="text-sm text-green-600 font-medium">Strong performance!</span>
+                  </>
+                ) : (
+                  <>
+                    <Target className="h-4 w-4 text-orange-600" />
+                    <span className="text-sm text-orange-600 font-medium">
+                      Focus on accuracy
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
-            <div className="mt-3 flex items-center gap-2">
-              {isPassing ? (
-                <>
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                  <span className="text-sm text-green-600 font-medium">Passing</span>
-                </>
-              ) : (
-                <>
-                  <TrendingDown className="h-4 w-4 text-red-600" />
-                  <span className="text-sm text-red-600 font-medium">
-                    Need {(summary.passingGrade || 60) - overallPercentage}% more to pass
-                  </span>
-                </>
-              )}
-            </div>
+            <Award className={`h-12 w-12 ${performanceGrade >= (summary.passingGrade || 60) ? 'text-yellow-500' : 'text-gray-300'}`} />
           </div>
-          <Award className={`h-12 w-12 ${isPassing ? 'text-yellow-500' : 'text-gray-300'}`} />
         </div>
-        
-        {/* Progress to passing */}
-        <div className="mt-4">
-          <div className="flex justify-between text-sm text-gray-600 mb-1">
-            <span>Progress to passing grade</span>
-            <span>{summary.passingGrade || 60}%</span>
+
+        {/* Course Progress - Overall course completion percentage */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-gray-700 mb-1">Course Progress</h3>
+              <div className="flex items-baseline gap-3">
+                <span className="text-5xl font-bold text-blue-700">{Math.round(lessonStats.completionPercentage)}%</span>
+              </div>
+             
+              <div className="mt-3 flex items-center gap-2">
+                <Target className="h-4 w-4 text-blue-600" />
+                <span className="text-sm text-blue-600 font-medium">
+                  {lessonStats.completed} of {lessonStats.total} lessons completed
+                </span>
+              </div>
+            </div>
+            <div className="text-blue-600">
+              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
           </div>
-          <Progress 
-            value={Math.min(100, (overallPercentage / (summary.passingGrade || 60)) * 100)} 
-            className="h-2"
-          />
+          
+          {/* Progress to completion */}
+          <div className="mt-4">
+            <div className="flex justify-between text-sm text-gray-600 mb-1">
+              <span>Overall Progress</span>
+              <span>{Math.round(lessonStats.completionPercentage)}%</span>
+            </div>
+            <Progress 
+              value={lessonStats.completionPercentage} 
+              className="h-2"
+            />
+          </div>
         </div>
       </div>
+
+      {/* Traditional Overall Grade (for reference/backward compatibility) */}
+      {overallPercentage !== courseGrade && (
+        <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-xl p-4 border border-purple-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-md font-medium text-gray-700">Weighted Grade</h4>
+              <span className="text-3xl font-bold text-purple-700">{Math.round(overallPercentage)}%</span>
+              <p className="text-sm text-gray-600">This would be your grade if zeros were applied to all uncompleted lessons</p>
+            </div>
+           
+          </div>
+        </div>
+      )}
 
       {/* Category Breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -73,22 +152,22 @@ const GradebookSummary = () => {
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
-          label="Total Points"
-          value={`${summary.totalPoints || 0} / ${summary.possiblePoints || 0}`}
-          subtext="Earned / Possible"
+          label="Lessons Completed"
+          value={`${lessonStats.completed} / ${lessonStats.total}`}
+          subtext="Learning activities finished"
+          color="green"
+        />
+        <StatCard
+          label="Points Earned"
+          value={`${completedPoints} / ${completedPossible}`}
+          subtext="On completed work"
           color="blue"
         />
         <StatCard
-          label="Weighted Score"
-          value={`${Math.round(summary.weightedScore || 0)}%`}
-          subtext="After weights applied"
+          label="Course Total"
+          value={`${summary.totalPoints || 0} / ${summary.possiblePoints || 0}`}
+          subtext="All possible points"
           color="purple"
-        />
-        <StatCard
-          label="Assignments"
-          value={`${getCompletedCount(categories)} / ${getTotalCount(categories)}`}
-          subtext="Completed"
-          color="green"
         />
         <StatCard
           label="Last Updated"
@@ -185,6 +264,59 @@ const getRelativeTime = (timestamp) => {
   if (hours > 0) return `${hours}h ago`;
   if (minutes > 0) return `${minutes}m ago`;
   return 'Just now';
+};
+
+const calculateLessonStats = (items, assessments) => {
+  const lessons = {};
+  
+  // Group items by lesson prefix
+  Object.entries(items || {}).forEach(([itemId, itemData]) => {
+    const lessonPrefix = extractLessonPrefix(itemId);
+    if (!lessonPrefix) return;
+    
+    if (!lessons[lessonPrefix]) {
+      lessons[lessonPrefix] = {
+        lessonId: lessonPrefix,
+        totalQuestions: 0,
+        completedQuestions: 0,
+        status: 'not_started'
+      };
+    }
+    
+    lessons[lessonPrefix].totalQuestions += 1;
+    
+    if (itemData.score > 0) {
+      lessons[lessonPrefix].completedQuestions += 1;
+    }
+  });
+  
+  // Calculate lesson completion status
+  Object.values(lessons).forEach(lesson => {
+    if (lesson.completedQuestions === 0) {
+      lesson.status = 'not_started';
+    } else if (lesson.completedQuestions === lesson.totalQuestions) {
+      lesson.status = 'completed';
+    } else {
+      lesson.status = 'in_progress';
+    }
+  });
+  
+  const total = Object.keys(lessons).length;
+  const completed = Object.values(lessons).filter(lesson => lesson.status === 'completed').length;
+  const completionPercentage = total > 0 ? (completed / total) * 100 : 0;
+  
+  return {
+    total,
+    completed,
+    completionPercentage
+  };
+};
+
+const extractLessonPrefix = (itemId) => {
+  // Extract lesson prefix from item ID like "course4_01_welcome_rtd_academy_knowledge_check"
+  // Returns "course4_01"
+  const match = itemId.match(/^(course\d+_\d+)/);
+  return match ? match[1] : null;
 };
 
 export default GradebookSummary;

@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, useRef, useCallback } from 'react';
 import { auth } from '../firebase';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
-import { getDatabase, ref, get, set } from "firebase/database";
+import { getDatabase, ref, get, set, serverTimestamp } from "firebase/database";
 import { Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -79,6 +79,12 @@ export function AuthProvider({ children }) {
     lastActivity: Date.now(),
     isActive: true
   });
+
+  // Activity tracking state
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const activityBuffer = useRef([]);
+  const lastDatabaseUpdate = useRef(0);
+  const DATABASE_UPDATE_INTERVAL = 60 * 1000; // Update database max once per minute
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -165,6 +171,113 @@ export function AuthProvider({ children }) {
 
   const checkIsSuperAdmin = (user) => {
     return user && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
+  };
+
+  // Activity tracking functions
+  const initializeUserSession = async (user) => {
+    if (!user) return null;
+    
+    try {
+      const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const db = getDatabase();
+      const userActivityRef = ref(db, `users/${user.uid}/activityTracking/currentSession`);
+      
+      const sessionData = {
+        sessionId,
+        startTime: serverTimestamp(),
+        lastActivity: serverTimestamp(),
+        userAgent: navigator.userAgent,
+        activityEvents: []
+      };
+
+      await set(userActivityRef, sessionData);
+      setCurrentSessionId(sessionId);
+      activityBuffer.current = [];
+      lastDatabaseUpdate.current = Date.now();
+      
+      return sessionId;
+    } catch (error) {
+      console.error('Error initializing user session:', error);
+      return null;
+    }
+  };
+
+  const addActivityEvent = useCallback((eventType, eventData = {}) => {
+    if (!user || !currentSessionId) return;
+    
+    const timestamp = Date.now();
+    const event = {
+      timestamp,
+      type: eventType,
+      data: {
+        url: window.location.pathname,
+        ...eventData
+      }
+    };
+    
+    activityBuffer.current.push(event);
+    
+    // Keep buffer size reasonable (last 100 events)
+    if (activityBuffer.current.length > 100) {
+      activityBuffer.current = activityBuffer.current.slice(-100);
+    }
+  }, [user, currentSessionId]);
+
+  const updateUserActivityInDatabase = useCallback(async () => {
+    if (!user || !currentSessionId) return;
+    
+    const now = Date.now();
+    
+    // Throttle database updates
+    if (now - lastDatabaseUpdate.current < DATABASE_UPDATE_INTERVAL) {
+      return;
+    }
+    
+    try {
+      const db = getDatabase();
+      
+      // Get current events from buffer
+      const eventsToUpdate = [...activityBuffer.current];
+      
+      await set(ref(db, `users/${user.uid}/activityTracking/currentSession/lastActivity`), serverTimestamp());
+      await set(ref(db, `users/${user.uid}/activityTracking/currentSession/lastActivityTimestamp`), now);
+      await set(ref(db, `users/${user.uid}/activityTracking/currentSession/activityEvents`), eventsToUpdate);
+      await set(ref(db, `users/${user.uid}/activityTracking/currentSession/eventCount`), eventsToUpdate.length);
+      
+      lastDatabaseUpdate.current = now;
+      
+      // Clear buffer after successful update
+      activityBuffer.current = [];
+      
+    } catch (error) {
+      if (error.code !== 'PERMISSION_DENIED') {
+        console.error('Error updating user activity:', error);
+      }
+    }
+  }, [user, currentSessionId]);
+
+  const archivePreviousSession = async (user) => {
+    if (!user) return;
+    
+    try {
+      const db = getDatabase();
+      const currentSessionRef = ref(db, `users/${user.uid}/activityTracking/currentSession`);
+      const snapshot = await get(currentSessionRef);
+      
+      if (snapshot.exists()) {
+        const sessionData = snapshot.val();
+        
+        // Add session to pending archive list
+        const archiveRef = ref(db, `users/${user.uid}/activityTracking/pendingArchive/${sessionData.sessionId}`);
+        await set(archiveRef, {
+          ...sessionData,
+          endTime: serverTimestamp(),
+          readyForArchive: true
+        });
+      }
+    } catch (error) {
+      console.error('Error archiving previous session:', error);
+    }
   };
 
   // Fetch admin emails (only called after staff authentication)
@@ -304,9 +417,18 @@ export function AuthProvider({ children }) {
   const trackActivity = useCallback(() => {
     if (!user) return;
     
+    // Add activity event to buffer
+    addActivityEvent('user_interaction', {
+      timestamp: Date.now(),
+      path: window.location.pathname
+    });
+    
+    // Update database if enough time has passed
+    updateUserActivityInDatabase();
+    
     // Reset the timeout on user activity
     resetInactivityTimeout();
-  }, [user, resetInactivityTimeout]);
+  }, [user, resetInactivityTimeout, updateUserActivityInDatabase, addActivityEvent]);
 
   // Set up activity tracking
   useEffect(() => {
@@ -332,8 +454,6 @@ export function AuthProvider({ children }) {
         const storedTimestamp = parseInt(localStorage.getItem('rtd_last_activity_timestamp') || '0', 10);
         const currentTime = Date.now();
         const inactivityDuration = currentTime - storedTimestamp;
-        
-        console.log(`Visibility changed, inactivity duration: ${Math.round(inactivityDuration/1000)}s`);
         
         if (inactivityDuration >= INACTIVITY_TIMEOUT) {
           // Perform logout directly without async function
@@ -381,7 +501,7 @@ export function AuthProvider({ children }) {
         document.removeEventListener(event, trackActivity);
       });
     };
-  }, [user, trackActivity, resetInactivityTimeout, checkTokenExpiration]);
+  }, [user, trackActivity, resetInactivityTimeout, checkTokenExpiration, currentSessionId]);
 
   // Ensure staff node includes admin and super admin status
   const ensureStaffNode = async (user, emailKey) => {
@@ -596,11 +716,16 @@ export function AuthProvider({ children }) {
               
               dataCreated = await ensureStaffNode(currentUser, emailKey);
               if (dataCreated) {
-                await Promise.all([
-                  fetchStaffMembers(),
-                  fetchCourseTeachers(),
-                  checkTokenExpiration() // Check token expiration for the new user
-                ]);
+                try {
+                  await Promise.all([
+                    fetchStaffMembers(),
+                    fetchCourseTeachers(),
+                    checkTokenExpiration(),
+                    archivePreviousSession(currentUser).then(() => initializeUserSession(currentUser))
+                  ]);
+                } catch (error) {
+                  console.error('Error initializing staff activity tracking:', error);
+                }
                 
                 setUser(currentUser);
                 setUserEmailKey(emailKey);
@@ -624,7 +749,14 @@ export function AuthProvider({ children }) {
             
             if (parentStatus) {
               // Parent user - don't create student node
-              await checkTokenExpiration();
+              try {
+                await Promise.all([
+                  checkTokenExpiration(),
+                  archivePreviousSession(currentUser).then(() => initializeUserSession(currentUser))
+                ]);
+              } catch (error) {
+                console.error('Error initializing parent activity tracking:', error);
+              }
               
               setUser(currentUser);
               setUserEmailKey(emailKey);
@@ -643,7 +775,13 @@ export function AuthProvider({ children }) {
               // Regular student user
               dataCreated = await ensureUserNode(currentUser, emailKey);
               if (dataCreated && isMounted) {
-                await checkTokenExpiration(); // Check token expiration for the new user
+                try {
+                  await archivePreviousSession(currentUser);
+                  await initializeUserSession(currentUser);
+                  await checkTokenExpiration();
+                } catch (error) {
+                  console.error('Error initializing activity tracking:', error);
+                }
                 
                 setUser(currentUser);
                 setUserEmailKey(emailKey);
@@ -728,6 +866,11 @@ export function AuthProvider({ children }) {
     try {
       const wasStaff = isStaffUser;
       
+      // Archive current session before signing out
+      if (user) {
+        await archivePreviousSession(user);
+      }
+      
       // Clear any existing timeouts
       if (inactivityTimeoutRef.current) {
         clearTimeout(inactivityTimeoutRef.current);
@@ -752,6 +895,11 @@ export function AuthProvider({ children }) {
       setIsEmulating(false);
       setAdminEmails([]);
       setTokenExpirationTime(null);
+      setCurrentSessionId(null);
+      
+      // Clear activity tracking state
+      activityBuffer.current = [];
+      lastDatabaseUpdate.current = 0;
       
       // Clear localStorage items used for session management
       localStorage.removeItem('rtd_last_activity_timestamp');
@@ -910,7 +1058,12 @@ export function AuthProvider({ children }) {
     requiresSuperAdminAccess: () => isStaffUser && isSuperAdminUser,
 
     // Added function to check if an email is blocked
-    isBlockedEmail
+    isBlockedEmail,
+    
+    // Activity tracking functions
+    addActivityEvent,
+    updateUserActivityInDatabase,
+    currentSessionId
   };
 
   return (

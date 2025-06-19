@@ -565,8 +565,6 @@ class AIShortAnswerCore {
       status: 'active',
       maxAttempts: maxAttempts,
       activityType: activityType,
-      enableAIChat: config.enableAIChat,
-      aiChatContext: config.aiChatContext,
       settings: {
         showHints: config.showHints === true || activityConfig.enableHints === true,
         showWordCount: config.showWordCount !== undefined ? config.showWordCount : (shortAnswerDefaults.showWordCount !== undefined ? shortAnswerDefaults.showWordCount : true),
@@ -574,6 +572,14 @@ class AIShortAnswerCore {
         theme: config.theme || activityConfig.theme || 'blue',
       }
     };
+
+    // Only add AI chat properties if AI chat is enabled
+    if (config.enableAIChat === true) {
+      questionData.enableAIChat = true;
+      if (config.aiChatContext) {
+        questionData.aiChatContext = config.aiChatContext;
+      }
+    }
     
     // Store public question data in the database (student-accessible)
     await assessmentRef.set(questionData);

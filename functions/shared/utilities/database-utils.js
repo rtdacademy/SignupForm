@@ -694,23 +694,60 @@ async function updateGradebookSummary(studentKey, courseId, isStaff = false) {
     // Calculate total points
     let totalEarned = 0;
     let totalPossible = 0;
+    let completedEarned = 0;  // NEW: Points earned on completed items
+    let completedPossible = 0; // NEW: Points possible on completed items
     
+    // Get all items to check completion status
+    const itemsPath = GRADEBOOK_PATHS.gradebookItems(studentKey, courseId, isStaff);
+    const itemsRef = admin.database().ref(itemsPath);
+    const itemsSnapshot = await itemsRef.once('value');
+    const items = itemsSnapshot.val() || {};
+    
+    // Calculate totals for all items and completed items
     Object.values(categories).forEach(category => {
       totalEarned += category.earned;
       totalPossible += category.possible;
     });
     
-    // Create summary
+    // Calculate performance grade based on completed items only
+    Object.values(items).forEach(item => {
+      if (item.status === 'completed' || item.attempts > 0) {
+        completedEarned += item.score || 0;
+        completedPossible += item.maxScore || 0;
+      }
+    });
+    
+    // Calculate performance percentage (grade on completed work)
+    const performancePercentage = completedPossible > 0 
+      ? (completedEarned / completedPossible) * 100 
+      : 0;
+    
+    // Calculate overall course percentage (current grade in full course)
+    const coursePercentage = totalPossible > 0 
+      ? (totalEarned / totalPossible) * 100 
+      : 0;
+    
+    // Create enhanced summary
     const summary = {
+      // Existing fields
       totalPoints: Math.round(totalEarned * 10) / 10,
       possiblePoints: totalPossible,
-      percentage: Math.round(overallPercentage * 10) / 10,
+      percentage: Math.round(overallPercentage * 10) / 10, // Keep for backward compatibility
       isPassing: overallPercentage >= passingGrade,
       passingGrade: passingGrade,
       lastUpdated: getServerTimestamp(),
       status: 'active',
       weightedScore: Math.round(totalWeightedScore * 10) / 10,
       totalWeight: totalWeight,
+      
+      // NEW FIELDS
+      courseGrade: Math.round(coursePercentage * 10) / 10,        // Grade out of full course (e.g., 10%)
+      performanceGrade: Math.round(performancePercentage * 10) / 10, // Grade on completed work (e.g., 90%)
+      completedPoints: Math.round(completedEarned * 10) / 10,     // Points earned on completed items
+      completedPossible: completedPossible,                        // Points possible on completed items
+      completedCount: Object.values(items).filter(item => 
+        item.status === 'completed' || item.attempts > 0).length, // Number of completed items
+      totalItemCount: Object.keys(items).length                    // Total number of items
     };
     
     // Save summary
@@ -718,7 +755,11 @@ async function updateGradebookSummary(studentKey, courseId, isStaff = false) {
     const summaryRef = admin.database().ref(summaryPath);
     await summaryRef.set(summary);
     
-    console.log(`📈 Updated gradebook summary: ${overallPercentage.toFixed(1)}% (${summary.isPassing ? 'Passing' : 'Not Passing'})`);
+    console.log(`📈 Updated gradebook summary:`);
+    console.log(`   Course Grade: ${summary.courseGrade}% (${summary.totalPoints}/${summary.possiblePoints})`);
+    console.log(`   Performance Grade: ${summary.performanceGrade}% (${summary.completedPoints}/${summary.completedPossible})`);
+    console.log(`   Completed: ${summary.completedCount}/${summary.totalItemCount} items`);
+    
     return summary;
     
   } catch (error) {
@@ -728,18 +769,12 @@ async function updateGradebookSummary(studentKey, courseId, isStaff = false) {
 }
 
 /**
- * Get course configuration (cached)
+ * Get course configuration (always fresh from file)
  */
-const courseConfigCache = {};
 async function getCourseConfig(courseId) {
-  if (courseConfigCache[courseId]) {
-    return courseConfigCache[courseId];
-  }
-  
   try {
-    // Load from secure config
+    // Load from secure config - no caching to ensure fresh config
     const config = require(`../../courses-config/${courseId}/course-config.json`);
-    courseConfigCache[courseId] = config;
     return config;
   } catch (error) {
     console.warn(`Course config not found for ${courseId}, using defaults`);
@@ -798,8 +833,16 @@ async function initializeGradebook(studentKey, courseId, isStaff = false) {
         
         // Initialize category if not exists
         if (!categories[itemType]) {
+          // Get weight from course config instead of hardcoded values
+          const configWeights = courseConfig.weights || {};
+          const categoryWeight = configWeights[itemType] !== undefined 
+            ? configWeights[itemType] * 100  // Convert from decimal to percentage
+            : getCategoryWeight(itemType);   // Fallback to hardcoded for backward compatibility
+          
+          console.log(`🎯 Category ${itemType}: Using weight ${categoryWeight}% (config: ${configWeights[itemType]}, fallback: ${getCategoryWeight(itemType)})`);
+          
           categories[itemType] = {
-            categoryWeight: getCategoryWeight(itemType),
+            categoryWeight: categoryWeight,
             earned: 0,
             possible: 0,
             percentage: 0,
@@ -888,6 +931,13 @@ async function initializeGradebook(studentKey, courseId, isStaff = false) {
       const gradebookData = {
         initialized: true,
         createdAt: getServerTimestamp(),
+        // Include course config weights so frontend can access them
+        courseConfig: {
+          weights: courseConfig.weights || {},
+          globalSettings: courseConfig.globalSettings || {},
+          gradebook: courseConfig.gradebook || {},
+          progressionRequirements: courseConfig.progressionRequirements || {}
+        },
         summary: {
           totalPoints: 0,
           possiblePoints: totalPossiblePoints,
@@ -959,18 +1009,28 @@ async function initializeGradebook(studentKey, courseId, isStaff = false) {
  */
 async function getCourseStructure(courseId) {
   try {
-    // Try to load from frontend course structure first
+    // NEW APPROACH: Use courseStructure from course-config.json
+    const courseConfig = await getCourseConfig(courseId);
+    
+    if (courseConfig?.courseStructure) {
+      console.log(`✅ Using courseStructure from course config for course ${courseId}`);
+      return courseConfig.courseStructure;
+    }
+    
+    // Fallback: Try to load from frontend course structure files (legacy)
     const frontendPath = `../../../src/FirebaseCourses/courses/${courseId}/course-structure.json`;
     try {
       const courseStructure = require(frontendPath);
+      console.log(`⚠️ Using legacy frontend courseStructure for course ${courseId}`);
       return courseStructure.courseStructure || courseStructure;
     } catch (frontendError) {
       console.log(`Frontend course structure not found for ${courseId}, trying backend...`);
     }
     
-    // Try backend course structure
+    // Try backend course structure (legacy)
     const backendPath = `../../courses/${courseId}/structure.json`;
     const courseStructure = require(backendPath);
+    console.log(`⚠️ Using legacy backend courseStructure for course ${courseId}`);
     return courseStructure.courseStructure || courseStructure;
     
   } catch (error) {
@@ -981,12 +1041,15 @@ async function getCourseStructure(courseId) {
   }
 }
 
+
 /**
  * Find a question/assessment in the course config gradebook structure
  * 
  * NEW APPROACH (2025): This function replaces pattern matching with precise lookup
  * in the course-config.json gradebook structure. It finds the exact question,
  * its point value, and the parent item (lesson/assignment) it belongs to.
+ * 
+ * Enhanced with legacy ID transformation to handle old gradebook data.
  * 
  * @param {string} courseId - Course ID  
  * @param {string} assessmentId - Assessment ID (question ID)
@@ -1141,6 +1204,87 @@ async function findCourseStructureItem(courseId, assessmentId) {
 }
 
 /**
+ * Clean up legacy assessment entries from gradebook
+ * Removes duplicate legacy assessment IDs when corresponding new IDs exist
+ * @param {string} studentKey - Sanitized student email
+ * @param {string} courseId - Course ID
+ * @param {boolean} isStaff - Whether this is a staff member
+ */
+async function cleanupLegacyAssessments(studentKey, courseId, isStaff = false) {
+  try {
+    const itemsPath = GRADEBOOK_PATHS.gradebookItems(studentKey, courseId, isStaff);
+    const itemsRef = admin.database().ref(itemsPath);
+    const itemsSnapshot = await itemsRef.once('value');
+    const items = itemsSnapshot.val() || {};
+    
+    const courseConfig = await getCourseConfig(courseId);
+    const gradebookStructure = courseConfig?.gradebook?.itemStructure;
+    
+    if (!gradebookStructure) {
+      console.log(`⚠️ No course config found for course ${courseId}, skipping cleanup`);
+      return;
+    }
+    
+    // Build set of valid new assessment IDs
+    const validNewIds = new Set();
+    Object.values(gradebookStructure).forEach(item => {
+      (item.questions || []).forEach(question => {
+        validNewIds.add(question.questionId);
+      });
+    });
+    
+    // Find legacy IDs that have corresponding new IDs
+    const legacyIdsToRemove = [];
+    Object.keys(items).forEach(assessmentId => {
+      // Check if this is a legacy ID (doesn't start with course prefix)
+      if (!assessmentId.match(/^course\d+_/)) {
+        // Try to find corresponding new ID
+        const possibleNewId = `course${courseId}_${assessmentId}`;
+        if (validNewIds.has(possibleNewId) && items[possibleNewId]) {
+          // Both legacy and new exist - mark legacy for removal
+          legacyIdsToRemove.push(assessmentId);
+          console.log(`🗑️ Marking legacy assessment for removal: ${assessmentId} (new version: ${possibleNewId} exists)`);
+        }
+      }
+    });
+    
+    // Remove legacy assessments
+    if (legacyIdsToRemove.length > 0) {
+      const updates = {};
+      legacyIdsToRemove.forEach(legacyId => {
+        updates[legacyId] = null; // Firebase deletion
+      });
+      
+      await itemsRef.update(updates);
+      console.log(`✅ Removed ${legacyIdsToRemove.length} legacy assessment entries`);
+      
+      // Also clean up any course structure items that might reference these
+      const courseStructureItemsPath = GRADEBOOK_PATHS.courseStructureItems(studentKey, courseId, isStaff);
+      const summariesRef = admin.database().ref(courseStructureItemsPath);
+      const summariesSnapshot = await summariesRef.once('value');
+      const summaries = summariesSnapshot.val() || {};
+      
+      // Update course structure item summaries to recalculate without legacy items
+      for (const [itemId, summary] of Object.entries(summaries)) {
+        await updateCourseStructureItemSummary(studentKey, courseId, itemId, isStaff);
+      }
+      
+      return { 
+        removed: legacyIdsToRemove.length,
+        legacyIds: legacyIdsToRemove 
+      };
+    } else {
+      console.log(`✅ No legacy assessments found to clean up`);
+      return { removed: 0, legacyIds: [] };
+    }
+    
+  } catch (error) {
+    console.error('Error cleaning up legacy assessments:', error);
+    throw error;
+  }
+}
+
+/**
  * Update course structure item summary (aggregates multiple assessments within a lesson/assignment)
  * @param {string} studentKey - Sanitized student email
  * @param {string} courseId - Course ID
@@ -1159,10 +1303,29 @@ async function updateCourseStructureItemSummary(studentKey, courseId, courseStru
     const itemsSnapshot = await itemsRef.once('value');
     const items = itemsSnapshot.val() || {};
     
-    // Filter assessments that belong to this course structure item
+    // Get course config to filter out legacy assessments
+    const courseConfig = await getCourseConfig(courseId);
+    const gradebookStructure = courseConfig?.gradebook?.itemStructure;
+    
+    // Get valid assessment IDs for this course structure item from course config
+    const validAssessmentIds = new Set();
+    
+    if (gradebookStructure && gradebookStructure[courseStructureItemId]) {
+      const questions = gradebookStructure[courseStructureItemId].questions || [];
+      questions.forEach(question => {
+        validAssessmentIds.add(question.questionId);
+      });
+    }
+    
+    console.log(`📋 Valid assessment IDs for ${courseStructureItemId}:`, Array.from(validAssessmentIds));
+    
+    // Filter assessments that belong to this course structure item AND exist in course config
     const relatedAssessments = Object.entries(items).filter(([assessmentId, item]) => 
-      item.courseStructureItemId === courseStructureItemId
+      item.courseStructureItemId === courseStructureItemId && 
+      validAssessmentIds.has(assessmentId)
     );
+    
+    console.log(`📊 Selected assessments for ${courseStructureItemId}:`, relatedAssessments.map(([id]) => id));
     
     if (relatedAssessments.length === 0) {
       return; // No assessments for this item yet
@@ -1212,12 +1375,18 @@ async function updateCourseStructureItemSummary(studentKey, courseId, courseStru
       actualTimeSpent: Math.round(totalTimeSpent / 60), // Convert to minutes
       lastUpdated: getServerTimestamp(),
       assessments: relatedAssessments.reduce((acc, [id, item]) => {
+        // Calculate individual assessment percentage
+        const itemPercentage = item.maxScore > 0 ? Math.round(((item.score || 0) / item.maxScore) * 100) : 0;
+        
+        // Use local timestamp in dev/emulator mode if timestamp is missing
+        const itemTimestamp = item.timestamp || (process.env.FUNCTIONS_EMULATOR ? Date.now() : getServerTimestamp());
+        
         acc[id] = {
-          score: item.score,
-          maxScore: item.maxScore,
-          percentage: item.percentage,
-          timestamp: item.timestamp,
-          timeSpent: item.timeSpent
+          score: item.score || 0,
+          maxScore: item.maxScore || 0,
+          percentage: itemPercentage,
+          timestamp: itemTimestamp,
+          timeSpent: item.timeSpent || 0
         };
         return acc;
       }, {})
@@ -1407,6 +1576,7 @@ module.exports = {
   getCourseStructure,
   findCourseStructureItem,
   findQuestionInCourseConfig, // NEW: Course config based question lookup
+  cleanupLegacyAssessments, // NEW: Clean up legacy assessment duplicates
   updateCourseStructureItemSummary,
   trackTimeSpent,
   validateGradebookStructure, // NEW: Gradebook structure validation

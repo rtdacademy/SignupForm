@@ -1301,15 +1301,15 @@ export const getDiplomaMonthColor = (month) => {
 
 export const TERM_OPTIONS = [
   {
-    value: "Term 1",
-    label: "Term 1",
+    value: "Semester 1",
+    label: "Semester 1",
     color: "#3B82F6", // Blue
     icon: Calendar,
     description: "First semester (September to January)"
   },
   {
-    value: "Term 2",
-    label: "Term 2",
+    value: "Semester 2",
+    label: "Semester 2",
     color: "#F97316", // Orange
     icon: CalendarDays,
     description: "Second semester (February to June)"

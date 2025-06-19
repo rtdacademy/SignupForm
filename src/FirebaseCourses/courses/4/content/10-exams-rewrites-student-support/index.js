@@ -867,7 +867,6 @@ const ExamsRewritesStudentSupportResources = ({ courseId, itemId, activeItem }) 
             {currentQuestionIndex === 0 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="10_exams_rewrites_question1"
                 cloudFunctionName="course4_10_exams_rewrites_question1"
                 title="Rewrite Policy Understanding"
                 theme="indigo"
@@ -881,7 +880,6 @@ const ExamsRewritesStudentSupportResources = ({ courseId, itemId, activeItem }) 
             {currentQuestionIndex === 1 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="10_exams_rewrites_question2"
                 cloudFunctionName="course4_10_exams_rewrites_question2"
                 title="Support Services Knowledge"
                 theme="indigo"
@@ -895,7 +893,6 @@ const ExamsRewritesStudentSupportResources = ({ courseId, itemId, activeItem }) 
             {currentQuestionIndex === 2 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="10_exams_rewrites_question3"
                 cloudFunctionName="course4_10_exams_rewrites_question3"
                 title="Student Support Resources"
                 theme="indigo"
@@ -909,7 +906,6 @@ const ExamsRewritesStudentSupportResources = ({ courseId, itemId, activeItem }) 
             {currentQuestionIndex === 3 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="10_exams_rewrites_question4"
                 cloudFunctionName="course4_10_exams_rewrites_question4"
                 title="Academic Planning Requirements"
                 theme="indigo"
@@ -923,7 +919,6 @@ const ExamsRewritesStudentSupportResources = ({ courseId, itemId, activeItem }) 
             {currentQuestionIndex === 4 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="10_exams_rewrites_question5"
                 cloudFunctionName="course4_10_exams_rewrites_question5"
                 title="Exam Support and Accommodations"
                 theme="indigo"
@@ -937,7 +932,6 @@ const ExamsRewritesStudentSupportResources = ({ courseId, itemId, activeItem }) 
             {currentQuestionIndex === 5 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="10_exams_rewrites_question6"
                 cloudFunctionName="course4_10_exams_rewrites_question6"
                 title="Student Readiness Assessment"
                 theme="indigo"
@@ -951,7 +945,6 @@ const ExamsRewritesStudentSupportResources = ({ courseId, itemId, activeItem }) 
             {currentQuestionIndex === 6 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="10_exams_rewrites_question7"
                 cloudFunctionName="course4_10_exams_rewrites_question7"
                 title="Scenario: Requesting Support"
                 theme="indigo"
@@ -965,7 +958,6 @@ const ExamsRewritesStudentSupportResources = ({ courseId, itemId, activeItem }) 
             {currentQuestionIndex === 7 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="10_exams_rewrites_question8"
                 cloudFunctionName="course4_10_exams_rewrites_question8"
                 title="Scenario: Exam Rewrite Decision"
                 theme="indigo"

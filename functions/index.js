@@ -24,6 +24,9 @@ const emailFunctions = require('./email');
 const stripeFunctions = require('./stripe');
 const speechFunctions = require('./speech');
 
+// Exam session management
+const examSessionFunctions = require('./examSessionManager');
+
 // Gradebook functions
 const gradebookFunctions = require('./gradebook');
 
@@ -37,6 +40,8 @@ const asnFunctions = require('./asnSync');
 
 // User management
 const archiveStudentDataFunctions = require('./archiveStudentData');
+const archiveUserActivityFunctions = require('./archiveUserActivity');
+const retrieveUserActivityFunctions = require('./retrieveUserActivity');
 const profileHistoryFunctions = require('./profileHistory');
 const parentPortalFunctions = require('./parentPortal');
 const studentPropertiesFunctions = require('./studentProperties');
@@ -74,6 +79,10 @@ exports.sendChatMessageV2 = chatFunctions.sendChatMessageV2;
 exports.deleteCategoryForStudentsV2 = categoryFunctions.deleteCategoryForStudentsV2;
 exports.archiveStudentDataV2 = archiveStudentDataFunctions.archiveStudentDataV2;
 exports.restoreStudentDataV2 = archiveStudentDataFunctions.restoreStudentDataV2;
+exports.archiveUserActivity = archiveUserActivityFunctions.archiveUserActivity;
+exports.cleanupOldActivityData = archiveUserActivityFunctions.cleanupOldActivityData;
+exports.retrieveUserActivity = retrieveUserActivityFunctions.retrieveUserActivity;
+exports.generateActivityReport = retrieveUserActivityFunctions.generateActivityReport;
 exports.trackProfileChangesV2 = profileHistoryFunctions.trackProfileChangesV2;
 exports.trackCourseEnrollmentChangesV2 = profileHistoryFunctions.trackCourseEnrollmentChangesV2;
 
@@ -205,8 +214,16 @@ exports.updateStudentGradebook = gradebookFunctions.updateStudentGradebook;
 exports.updateStudentGradebookOnChange = gradebookFunctions.updateStudentGradebookOnChange;
 exports.updateStaffGradebook = gradebookFunctions.updateStaffGradebook;
 exports.trackLessonAccess = gradebookFunctions.trackLessonAccess;
+exports.getGradebookData = gradebookFunctions.getGradebookData;
 exports.getGradebookSummary = gradebookFunctions.getGradebookSummary;
 exports.recalculateGradebook = gradebookFunctions.recalculateGradebook;
+exports.recalculateMyGradebook = gradebookFunctions.recalculateMyGradebook;
+
+// Exam session management functions
+exports.startExamSession = examSessionFunctions.startExamSession;
+exports.saveExamAnswer = examSessionFunctions.saveExamAnswer;
+exports.submitExamSession = examSessionFunctions.submitExamSession;
+exports.getExamSession = examSessionFunctions.getExamSession;
 
 //==============================================================================
 // Assessment functions for courses
@@ -238,7 +255,6 @@ exports.course3_02_economic_environment_longAnswer = require('./courses/3/02-eco
 exports.course3_02_economic_environment_shortAnswer = require('./courses/3/02-economic-environment-money/assessments').course3_02_economic_environment_shortAnswer;
 
 // 4 Course Functions (RTD Academy Orientation)
-exports.course4_01_welcome_rtd_academy_aiLongAnswer = require('./courses/4/01-welcome-rtd-academy/assessments').course4_01_welcome_rtd_academy_aiLongAnswer;
 exports.course4_01_welcome_rtd_academy_knowledge_check = require('./courses/4/01-welcome-rtd-academy/assessments').course4_01_welcome_rtd_academy_knowledge_check;
 exports.course4_01_welcome_rtd_academy_question2 = require('./courses/4/01-welcome-rtd-academy/assessments').course4_01_welcome_rtd_academy_question2;
 exports.course4_01_welcome_rtd_academy_question3 = require('./courses/4/01-welcome-rtd-academy/assessments').course4_01_welcome_rtd_academy_question3;
@@ -296,6 +312,17 @@ exports.course4_10_exams_rewrites_question5 = require('./courses/4/10-exams-rewr
 exports.course4_10_exams_rewrites_question6 = require('./courses/4/10-exams-rewrites-student-support/assessments').course4_10_exams_rewrites_question6;
 exports.course4_10_exams_rewrites_question7 = require('./courses/4/10-exams-rewrites-student-support/assessments').course4_10_exams_rewrites_question7;
 exports.course4_10_exams_rewrites_question8 = require('./courses/4/10-exams-rewrites-student-support/assessments').course4_10_exams_rewrites_question8;
+
+// Course 4 - Mid-Course Exam
+exports.course4_06_mid_exam_question1 = require('./courses/4/06-mid-course-exam/assessments').course4_06_mid_exam_question1;
+exports.course4_06_mid_exam_question2 = require('./courses/4/06-mid-course-exam/assessments').course4_06_mid_exam_question2;
+exports.course4_06_mid_exam_question3 = require('./courses/4/06-mid-course-exam/assessments').course4_06_mid_exam_question3;
+
+// Course 4 - Final Comprehensive Exam
+exports.course4_11_final_exam_question1 = require('./courses/4/11-final-exam/assessments').course4_11_final_exam_question1;
+exports.course4_11_final_exam_question2 = require('./courses/4/11-final-exam/assessments').course4_11_final_exam_question2;
+exports.course4_11_final_exam_question3 = require('./courses/4/11-final-exam/assessments').course4_11_final_exam_question3;
+exports.course4_11_final_exam_question4 = require('./courses/4/11-final-exam/assessments').course4_11_final_exam_question4;
 
 // 100 Course Functions
 exports.course100_02_core_concepts_multipleChoice = require('./courses/100/02-core-concepts/assessments').course100_02_core_concepts_multipleChoice;

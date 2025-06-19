@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getDatabase, ref, onValue, get, query, orderByChild, equalTo } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../../context/AuthContext';
@@ -21,6 +21,12 @@ export const useStudentData = (userEmailKey) => {
     importantDates: null,
     allNotifications: [] // Store all notifications before filtering
   });
+  
+  // Track real-time course details separate from student course enrollment
+  const [courseDetails, setCourseDetails] = useState({});
+  
+  // Track active course listeners for cleanup
+  const courseListenersRef = useRef({});
 
   const fetchStaffMember = async (emailKey) => {
     try {
@@ -84,32 +90,84 @@ export const useStudentData = (userEmailKey) => {
     }
   };
 
-  const fetchCourseDetails = async (courseId) => {
-    try {
-      const db = getDatabase();
-      const courseRef = ref(db, `courses/${courseId}`);
-      const snapshot = await get(courseRef);
-      const courseData = snapshot.exists() ? snapshot.val() : null;
+  // Set up real-time listener for course details
+  const setupCourseListener = (courseId) => {
+    const db = getDatabase();
+    const courseRef = ref(db, `courses/${courseId}`);
+    
+    console.log(`🔥 Setting up real-time listener for course: ${courseId}`);
+    
+    const unsubscribe = onValue(courseRef, async (snapshot) => {
+      try {
+        const courseData = snapshot.exists() ? snapshot.val() : null;
 
-      if (courseData) {
-        // Instead of destructuring and removing Teachers/SupportStaff,
-        // keep the full course object and just enhance it with resolved staff members
-        const teachers = await fetchStaffMembers(courseData.Teachers || []);
-        const supportStaff = await fetchStaffMembers(courseData.SupportStaff || []);
+        if (courseData) {
+          // Enhance with resolved staff members
+          const teachers = await fetchStaffMembers(courseData.Teachers || []);
+          const supportStaff = await fetchStaffMembers(courseData.SupportStaff || []);
 
-        // Return the complete course object with resolved staff members
-        return {
-          ...courseData,  // Include all original course data
-          teachers,       // Add resolved teacher objects
-          supportStaff    // Add resolved support staff objects
-        };
+          // Update course details state
+          setCourseDetails(prev => ({
+            ...prev,
+            [courseId]: {
+              ...courseData,  // Include all original course data
+              teachers,       // Add resolved teacher objects
+              supportStaff    // Add resolved support staff objects
+            }
+          }));
+        } else {
+          // Remove course details if course no longer exists
+          setCourseDetails(prev => {
+            const updated = { ...prev };
+            delete updated[courseId];
+            return updated;
+          });
+        }
+      } catch (error) {
+        console.error(`Error processing course data for ${courseId}:`, error);
       }
-
-      return null;
-    } catch (error) {
-      console.error(`Error fetching course ${courseId}:`, error);
-      return null;
-    }
+    }, (error) => {
+      console.error(`Firebase listener error for course ${courseId}:`, error);
+    });
+    
+    return unsubscribe;
+  };
+  
+  // Manage course listeners based on current student courses
+  const manageCourseListeners = (studentCourses) => {
+    if (!studentCourses) return;
+    
+    const currentCourseIds = new Set(
+      Object.keys(studentCourses)
+        .filter(key => key !== 'sections' && key !== 'normalizedSchedule')
+    );
+    
+    const activeCourseIds = new Set(Object.keys(courseListenersRef.current));
+    
+    // Remove listeners for courses no longer enrolled
+    activeCourseIds.forEach(courseId => {
+      if (!currentCourseIds.has(courseId)) {
+        console.log(`🔥 Removing listener for course: ${courseId}`);
+        courseListenersRef.current[courseId](); // Call unsubscribe
+        delete courseListenersRef.current[courseId];
+        
+        // Remove from course details state
+        setCourseDetails(prev => {
+          const updated = { ...prev };
+          delete updated[courseId];
+          return updated;
+        });
+      }
+    });
+    
+    // Add listeners for new courses
+    currentCourseIds.forEach(courseId => {
+      if (!activeCourseIds.has(courseId)) {
+        console.log(`🔥 Adding listener for course: ${courseId}`);
+        const unsubscribe = setupCourseListener(courseId);
+        courseListenersRef.current[courseId] = unsubscribe;
+      }
+    });
   };
 
   // Fetch only active notifications using a query
@@ -262,6 +320,9 @@ export const useStudentData = (userEmailKey) => {
   };
 
   const processCourses = async (studentCourses) => {
+    // Set up course listeners for the current student courses
+    manageCourseListeners(studentCourses);
+    
     // Initialize an array to hold all courses (student-enrolled and required)
     let allCourses = [];
 
@@ -272,17 +333,17 @@ export const useStudentData = (userEmailKey) => {
 
       const coursesWithDetails = await Promise.all(
         courseEntries.map(async ([id, studentCourse]) => {
-          // Fetch the complete course details and payment info
-          const [courseDetails, paymentInfo] = await Promise.all([
-            fetchCourseDetails(id),  // This now returns the complete course object
-            fetchPaymentDetails(id)
-          ]);
+          // Get course details from real-time state (may be null if not loaded yet)
+          const realtimeCourseDetails = courseDetails[id] || null;
+          
+          // Fetch payment info
+          const paymentInfo = await fetchPaymentDetails(id);
 
-          // Return the enhanced student course object with complete course details
+          // Return the enhanced student course object with real-time course details
           return {
             id,
             ...studentCourse,
-            courseDetails: courseDetails,  // This will include all course properties from Firebase
+            courseDetails: realtimeCourseDetails,  // This will include all course properties from Firebase real-time
             payment: paymentInfo || {
               status: 'unpaid',
               details: null,
@@ -335,6 +396,53 @@ export const useStudentData = (userEmailKey) => {
       return null;
     }
   };
+
+  // Effect to re-process courses when course details change
+  useEffect(() => {
+    // Only re-process if we have student data and course details have been updated
+    if (studentData.loading || !studentData.profile) return;
+    
+    const updateCoursesWithNewDetails = async () => {
+      // Get the latest student courses from state
+      const coursesSnapshot = await new Promise((resolve) => {
+        if (!userEmailKey) {
+          resolve(null);
+          return;
+        }
+        
+        const db = getDatabase();
+        const coursesRef = ref(db, `students/${userEmailKey}/courses`);
+        get(coursesRef).then(snapshot => {
+          resolve(snapshot.exists() ? snapshot.val() : null);
+        }).catch(() => resolve(null));
+      });
+      
+      if (coursesSnapshot) {
+        // Re-process courses with updated course details
+        const processedCourses = await processCourses(coursesSnapshot);
+        
+        setStudentData(prev => {
+          // Re-process notifications if we have them
+          let updatedCourses = processedCourses;
+          
+          if (prev.profile && prev.allNotifications) {
+            updatedCourses = processNotificationsForCourses(
+              processedCourses,
+              prev.profile,
+              prev.allNotifications
+            );
+          }
+          
+          return {
+            ...prev,
+            courses: updatedCourses
+          };
+        });
+      }
+    };
+    
+    updateCoursesWithNewDetails();
+  }, [courseDetails]); // Re-run when course details change
 
   useEffect(() => {
     let isMounted = true;
@@ -684,6 +792,17 @@ export const useStudentData = (userEmailKey) => {
       if (unsubscribe) {
         unsubscribe();
       }
+      
+      // Clean up all course listeners
+      Object.values(courseListenersRef.current).forEach(unsubscribeCourse => {
+        if (typeof unsubscribeCourse === 'function') {
+          unsubscribeCourse();
+        }
+      });
+      courseListenersRef.current = {};
+      
+      // Clear course details state
+      setCourseDetails({});
     };
   }, [userEmailKey, isEmulating]);
 
