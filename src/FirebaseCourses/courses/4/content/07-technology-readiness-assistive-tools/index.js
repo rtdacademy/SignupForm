@@ -960,7 +960,6 @@ const TechnologyReadinessAssistiveTools = ({ courseId, itemId, activeItem }) => 
                 {currentQuestionIndex === 0 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="07_technology_readiness_assistive_tools_question1"
                     cloudFunctionName="course4_07_technology_readiness_question1"
                     title="System Requirements Knowledge"
                     theme="indigo"
@@ -974,7 +973,6 @@ const TechnologyReadinessAssistiveTools = ({ courseId, itemId, activeItem }) => 
                 {currentQuestionIndex === 1 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="07_technology_readiness_assistive_tools_question2"
                     cloudFunctionName="course4_07_technology_readiness_question2"
                     title="Internet Connection Requirements"
                     theme="indigo"
@@ -988,7 +986,6 @@ const TechnologyReadinessAssistiveTools = ({ courseId, itemId, activeItem }) => 
                 {currentQuestionIndex === 2 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="07_technology_readiness_assistive_tools_question3"
                     cloudFunctionName="course4_07_technology_readiness_question3"
                     title="Ergonomic Setup Best Practices"
                     theme="indigo"
@@ -1002,7 +999,6 @@ const TechnologyReadinessAssistiveTools = ({ courseId, itemId, activeItem }) => 
                 {currentQuestionIndex === 3 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="07_technology_readiness_assistive_tools_question4"
                     cloudFunctionName="course4_07_technology_readiness_question4"
                     title="Accessibility Features Understanding"
                     theme="indigo"
@@ -1016,7 +1012,6 @@ const TechnologyReadinessAssistiveTools = ({ courseId, itemId, activeItem }) => 
                 {currentQuestionIndex === 4 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="07_technology_readiness_assistive_tools_question5"
                     cloudFunctionName="course4_07_technology_readiness_question5"
                     title="Proctored Exam Technology"
                     theme="indigo"
@@ -1030,7 +1025,6 @@ const TechnologyReadinessAssistiveTools = ({ courseId, itemId, activeItem }) => 
                 {currentQuestionIndex === 5 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="07_technology_readiness_assistive_tools_question6"
                     cloudFunctionName="course4_07_technology_readiness_question6"
                     title="Scenario: Technical Difficulties During Exam"
                     theme="indigo"
@@ -1044,7 +1038,6 @@ const TechnologyReadinessAssistiveTools = ({ courseId, itemId, activeItem }) => 
                 {currentQuestionIndex === 6 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="07_technology_readiness_assistive_tools_question7"
                     cloudFunctionName="course4_07_technology_readiness_question7"
                     title="Scenario: Student with Vision Impairment"
                     theme="indigo"
@@ -1058,7 +1051,6 @@ const TechnologyReadinessAssistiveTools = ({ courseId, itemId, activeItem }) => 
                 {currentQuestionIndex === 7 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="07_technology_readiness_assistive_tools_question8"
                     cloudFunctionName="course4_07_technology_readiness_question8"
                     title="Scenario: Ergonomic Setup Problems"
                     theme="indigo"

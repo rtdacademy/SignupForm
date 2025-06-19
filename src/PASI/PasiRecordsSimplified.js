@@ -70,7 +70,7 @@ import PasiActionButtons from "../components/PasiActionButtons";
 import PasiRecordDetails from "../TeacherDashboard/PasiRecordDetails";
 import { toast } from 'sonner';
 import { getDatabase, ref, push, onValue, off, remove, update } from 'firebase/database';
-import { getStudentTypeInfo, getActiveFutureArchivedColor } from '../config/DropdownOptions';
+import { getStudentTypeInfo, getActiveFutureArchivedColor, getPaymentStatusColor } from '../config/DropdownOptions';
 
 const ITEMS_PER_PAGE = 200;
 
@@ -150,7 +150,11 @@ const FILTERABLE_FIELDS = {
   startDate: { label: 'Start Date', type: 'date' },
   
   // Special Fields
-  current_date: { label: 'Today\'s Date', type: 'current_date' }
+  current_date: { label: 'Today\'s Date', type: 'current_date' },
+  'student.categories': { label: 'Student Categories', type: 'categories' },
+  
+  // Payment Information
+  payment_status: { label: 'Payment Status', type: 'text' }
 };
 
 // Full field definitions for advanced users (can be enabled later)
@@ -224,7 +228,8 @@ const ALL_FILTERABLE_FIELDS = {
   instructionalMinutesReceived: { label: 'Instructional Minutes Received', type: 'text' },
   
   // Special Fields
-  current_date: { label: 'Current Date', type: 'current_date' }
+  current_date: { label: 'Current Date', type: 'current_date' },
+  'student.categories': { label: 'Student Categories', type: 'categories' }
 };
 
 // Operator definitions
@@ -270,6 +275,15 @@ const OPERATORS = {
     { value: 'is_false', label: 'Is False' },
     { value: 'exists', label: 'Exists' },
     { value: 'not_exists', label: 'Does Not Exist' }
+  ],
+  categories: [
+    { value: 'has_category', label: 'Has Category' },
+    { value: 'does_not_have_category', label: 'Does Not Have Category' },
+    { value: 'has_any_of_categories', label: 'Has Any of These Categories' },
+    { value: 'has_all_categories', label: 'Has All of These Categories' },
+    { value: 'has_none_of_categories', label: 'Has None of These Categories' },
+    { value: 'is_empty', label: 'Has No Categories' },
+    { value: 'is_not_empty', label: 'Has Categories' }
   ],
   current_date: [
     { value: 'month_is_one_of', label: 'Current Month Is One Of' },
@@ -609,7 +623,8 @@ const CustomViewModal = ({
   onDelete,
   baseDataSources = BASE_DATA_SOURCES,
   filterableFields = FILTERABLE_FIELDS,
-  operators = OPERATORS
+  operators = OPERATORS,
+  teacherCategories = {}
 }) => {
   // Local form state isolated to this component
   const [localFormState, setLocalFormState] = useState({
@@ -826,10 +841,10 @@ const CustomViewModal = ({
     
     // Special handling for courseCode when groupByASN is enabled
     if (fieldName === 'courseCode' && localFormState.newViewGroupByASN) {
-      return operators.courseCode_aggregate || [];
+      return OPERATORS.courseCode_aggregate || [];
     }
     
-    return operators[field.type] || [];
+    return OPERATORS[field.type] || [];
   };
 
   const needsValueInput = (operator) => {
@@ -839,10 +854,78 @@ const CustomViewModal = ({
   // Helper function to render appropriate input for current_date conditions
   const renderValueInput = (condition, groupId, conditionIndex) => {
     const isCurrentDate = condition.field === 'current_date';
+    const isCategories = condition.field === 'student.categories';
     const operator = condition.operator;
     
     if (!needsValueInput(operator)) {
       return null;
+    }
+
+    // Handle student.categories field with dropdown
+    if (isCategories && ['has_category', 'does_not_have_category'].includes(operator)) {
+      // Get all categories from all teachers
+      const allCategories = [];
+      
+      Object.keys(teacherCategories).forEach(teacherEmail => {
+        Object.keys(teacherCategories[teacherEmail]).forEach(categoryId => {
+          const category = teacherCategories[teacherEmail][categoryId];
+          if (category && !category.archived) {
+            // Add top-level category with teacher email in the value
+            allCategories.push({
+              value: `${teacherEmail}.${categoryId}`,
+              label: `${category.name} (${teacherEmail})`,
+              teacher: teacherEmail,
+              type: category.type || 'general',
+              color: category.color
+            });
+          }
+        });
+      });
+      
+      // Also add special nested categories for info@rtdacademy.com
+      if (teacherCategories['info@rtdacademy,com']) {
+        const infoCategories = teacherCategories['info@rtdacademy,com'];
+        ['PASI_Course_Link', 'PASI_Record_Missing', 'YourWay_PASI_Status_Mismatch'].forEach(nestedKey => {
+          if (infoCategories[nestedKey]) {
+            allCategories.push({
+              value: `info@rtdacademy,com.${nestedKey}`,
+              label: `${infoCategories[nestedKey].name} (system)`,
+              teacher: 'info@rtdacademy,com',
+              type: infoCategories[nestedKey].type || 'system',
+              color: infoCategories[nestedKey].color
+            });
+          }
+        });
+      }
+
+      return (
+        <Select 
+          value={condition.value} 
+          onValueChange={(value) => updateCondition(groupId, conditionIndex, 'value', value)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Select category" />
+          </SelectTrigger>
+          <SelectContent className="max-h-60">
+            {allCategories.map((category) => (
+              <SelectItem key={category.value} value={category.value}>
+                <div className="flex items-center space-x-2">
+                  <div 
+                    className="w-2 h-2 rounded-full flex-shrink-0" 
+                    style={{ backgroundColor: category.color || '#3B82F6' }}
+                  />
+                  <span className="truncate">{category.label}</span>
+                  {category.type && (
+                    <Badge variant="outline" className="text-xs ml-1">
+                      {category.type}
+                    </Badge>
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
     }
 
     // Handle current_date field with special dropdowns
@@ -1444,6 +1527,11 @@ const PasiRecordsSimplified = () => {
   const [userViewPreferences, setUserViewPreferences] = useState({});
   const [showManageViews, setShowManageViews] = useState(false);
   
+  
+  // Teacher categories state
+  const [teacherCategories, setTeacherCategories] = useState({});
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  
   // Get current user
   const { currentUser } = useAuth();
   const userId = currentUser?.uid;
@@ -1488,6 +1576,22 @@ const PasiRecordsSimplified = () => {
       off(preferencesRef, 'value', unsubscribe);
     };
   }, [userId]);
+
+  // Load teacher categories
+  useEffect(() => {
+    const database = getDatabase();
+    const categoriesRef = ref(database, 'teacherCategories');
+    
+    const unsubscribe = onValue(categoriesRef, (snapshot) => {
+      const data = snapshot.val();
+      setTeacherCategories(data || {});
+      setIsLoadingCategories(false);
+    });
+
+    return () => {
+      off(categoriesRef, 'value', unsubscribe);
+    };
+  }, []);
 
   // Helper function to evaluate a single condition
   const evaluateCondition = (record, condition) => {
@@ -1537,10 +1641,20 @@ const PasiRecordsSimplified = () => {
         result = new Date(fieldValue) > new Date(condition.value);
         break;
       case 'is_empty':
-        result = !fieldValue || fieldValue === '' || fieldValue === 'N/A';
+        if (condition.field === 'student.categories') {
+          const categories = record.categories || {};
+          result = Object.keys(categories).length === 0;
+        } else {
+          result = !fieldValue || fieldValue === '' || fieldValue === 'N/A';
+        }
         break;
       case 'is_not_empty':
-        result = fieldValue && fieldValue !== '' && fieldValue !== 'N/A';
+        if (condition.field === 'student.categories') {
+          const categories = record.categories || {};
+          result = Object.keys(categories).length > 0;
+        } else {
+          result = fieldValue && fieldValue !== '' && fieldValue !== 'N/A';
+        }
         break;
       case 'is_true':
         result = fieldValue === true || fieldValue === 'true' || fieldValue === 'Yes';
@@ -1647,6 +1761,73 @@ const PasiRecordsSimplified = () => {
             return dayMap[dayName] !== undefined ? dayMap[dayName] : parseInt(dayName);
           }).filter(num => num !== undefined && !isNaN(num));
           result = weekdayNumbers.includes(currentWeekday);
+        }
+        break;
+      
+      // Category operators - handle student.categories field
+      case 'has_category':
+        if (condition.field === 'student.categories') {
+          const categories = record.categories || {};
+          // Check for nested categories first (e.g., charlie@rtdacademy,com.1733176421727)
+          if (condition.value.includes('.')) {
+            const [parent, child] = condition.value.split('.');
+            result = !!(categories[parent] && categories[parent][child]);
+          } else {
+            // Check if the category exists and is true (for legacy direct categories)
+            result = !!categories[condition.value];
+          }
+        }
+        break;
+      case 'does_not_have_category':
+        if (condition.field === 'student.categories') {
+          const categories = record.categories || {};
+          // Check for nested categories first (e.g., charlie@rtdacademy,com.1733176421727)
+          if (condition.value.includes('.')) {
+            const [parent, child] = condition.value.split('.');
+            result = !(categories[parent] && categories[parent][child]);
+          } else {
+            // Check if the category doesn't exist or is false (for legacy direct categories)
+            result = !categories[condition.value];
+          }
+        }
+        break;
+      case 'has_any_of_categories':
+        if (condition.field === 'student.categories') {
+          const categories = record.categories || {};
+          const targetCategories = (condition.value || '').split(',').map(c => c.trim()).filter(c => c);
+          result = targetCategories.some(category => {
+            if (category.includes('.')) {
+              const [parent, child] = category.split('.');
+              return !!(categories[parent] && categories[parent][child]);
+            }
+            return !!categories[category];
+          });
+        }
+        break;
+      case 'has_all_categories':
+        if (condition.field === 'student.categories') {
+          const categories = record.categories || {};
+          const targetCategories = (condition.value || '').split(',').map(c => c.trim()).filter(c => c);
+          result = targetCategories.every(category => {
+            if (category.includes('.')) {
+              const [parent, child] = category.split('.');
+              return !!(categories[parent] && categories[parent][child]);
+            }
+            return !!categories[category];
+          });
+        }
+        break;
+      case 'has_none_of_categories':
+        if (condition.field === 'student.categories') {
+          const categories = record.categories || {};
+          const targetCategories = (condition.value || '').split(',').map(c => c.trim()).filter(c => c);
+          result = !targetCategories.some(category => {
+            if (category.includes('.')) {
+              const [parent, child] = category.split('.');
+              return !!(categories[parent] && categories[parent][child]);
+            }
+            return !!categories[category];
+          });
         }
         break;
       default:
@@ -2528,6 +2709,7 @@ const PasiRecordsSimplified = () => {
     setCurrentPage(1);
   };
 
+
   // Custom view management functions
   const handleCreateView = () => {
     setEditingView(null);
@@ -2599,18 +2781,15 @@ const PasiRecordsSimplified = () => {
       return;
     }
 
-    // Create new order for user preferences
+    // Create new order array by reordering the visible views
+    const reorderedViews = [...visibleViews];
+    const draggedView = reorderedViews.splice(draggedIndex, 1)[0];
+    reorderedViews.splice(dropIndex, 0, draggedView);
+    
+    // Create new order mapping
     const newOrder = {};
-    visibleViews.forEach((view, index) => {
-      if (index === dropIndex) {
-        newOrder[draggedViewId] = index;
-      } else if (index < dropIndex && view.id !== draggedViewId) {
-        newOrder[view.id] = index;
-      } else if (index > dropIndex) {
-        newOrder[view.id] = view.id === draggedViewId ? index : index + 1;
-      } else if (view.id !== draggedViewId) {
-        newOrder[view.id] = index + 1;
-      }
+    reorderedViews.forEach((view, index) => {
+      newOrder[view.id] = index;
     });
 
     const newPreferences = {
@@ -3143,6 +3322,10 @@ const PasiRecordsSimplified = () => {
                                   column="Status_Value"
                                   label="YourWay Status" 
                                 />
+                                <SortableHeader 
+                                  column="payment_status"
+                                  label="Payment Status" 
+                                />
                                 {shouldShowPasiColumns(activeTab, customViews) && (
                                   <SortableHeader column="grade" label="Grade" />
                                 )}
@@ -3623,6 +3806,26 @@ const PasiRecordsSimplified = () => {
                                     </Badge>
                                   </TableCell>
                                   
+                                  {/* Payment Status Cell */}
+                                  <TableCell className="p-1 truncate min-w-12 max-w-20">
+                                    {record.payment_status ? (
+                                      <Badge 
+                                        variant="outline"
+                                        className={`text-xs py-0 px-1.5 truncate`}
+                                        style={{
+                                          backgroundColor: `${getPaymentStatusColor(record.payment_status)}20`,
+                                          color: getPaymentStatusColor(record.payment_status),
+                                          borderColor: `${getPaymentStatusColor(record.payment_status)}40`
+                                        }}
+                                        title={record.payment_status || 'N/A'}
+                                      >
+                                        {record.payment_status}
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-xs text-gray-400">Not Set</span>
+                                    )}
+                                  </TableCell>
+                                  
                                   {/* Grade Cell - only show when PASI columns should be shown */}
                                   {shouldShowPasiColumns(activeTab, customViews) && (
                                     <TableCell 
@@ -3767,7 +3970,9 @@ const PasiRecordsSimplified = () => {
         baseDataSources={BASE_DATA_SOURCES}
         filterableFields={FILTERABLE_FIELDS}
         operators={OPERATORS}
+        teacherCategories={teacherCategories}
       />
+
 
       {/* Details Sheet */}
       <Sheet open={isDetailsSheetOpen} onOpenChange={setIsDetailsSheetOpen}>

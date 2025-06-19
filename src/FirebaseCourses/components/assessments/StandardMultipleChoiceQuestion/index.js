@@ -201,7 +201,8 @@ const renderEnhancedText = (text) => {
  * 
  * This component handles:
  * - Random question selection from configured pool
- * - Submission of answers and feedback
+ * - Submission of answers and feedback (immediate mode)
+ * - Exam mode: Save answers without immediate feedback
  * - Tracking of attempts
  * - Displaying explanation of correct answers
  * - Real-time updates via Firebase database listener
@@ -209,8 +210,8 @@ const renderEnhancedText = (text) => {
 const StandardMultipleChoiceQuestion = ({
   // Required props
   courseId,                // Course identifier
-  assessmentId,            // Unique identifier for this assessment
-  cloudFunctionName,       // Name of the cloud function to call
+  cloudFunctionName,       // Name of the cloud function to call (also used as assessmentId)
+  assessmentId,            // DEPRECATED: Use cloudFunctionName instead - kept for backward compatibility
   course,                  // Course object (optional - not used for database access anymore)
   topic,                   // Topic for question context (optional)
 
@@ -220,13 +221,26 @@ const StandardMultipleChoiceQuestion = ({
   questionClassName = '',  // Additional class name for question container
   optionsClassName = '',   // Additional class name for options container
   
+  // Exam mode props
+  examMode = false,        // Whether this question is part of an exam
+  examSessionId = null,    // Exam session ID if in exam mode
+  onExamAnswerSave = () => {}, // Callback when answer is saved in exam mode
+  
   // Callback functions
   onCorrectAnswer = () => {}, // Callback when answer is correct
   onAttempt = () => {},    // Callback on each attempt
   onComplete = () => {},   // Callback when all attempts are used
 }) => {
+  // Use cloudFunctionName as assessmentId, with fallback for backward compatibility
+  const finalAssessmentId = cloudFunctionName || assessmentId;
+  
+  if (!finalAssessmentId) {
+    console.error('StandardMultipleChoiceQuestion: cloudFunctionName is required');
+    return <div className="p-4 bg-red-50 text-red-600 rounded">Error: cloudFunctionName is required</div>;
+  }
+  
   // Generate a unique instance ID for this question component
-  const instanceId = useRef(`mc_${assessmentId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`).current;
+  const instanceId = useRef(`mc_${finalAssessmentId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`).current;
   
   // Authentication and state
   const { currentUser } = useAuth();
@@ -240,6 +254,8 @@ const StandardMultipleChoiceQuestion = ({
   const [regenerating, setRegenerating] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
   const [chatSheetOpen, setChatSheetOpen] = useState(false);
+  const [examAnswerSaved, setExamAnswerSaved] = useState(false);
+  const [showExamFeedback, setShowExamFeedback] = useState(false);
   
   // Refs for debouncing and preventing multiple calls
   const isGeneratingRef = useRef(false);
@@ -250,8 +266,13 @@ const StandardMultipleChoiceQuestion = ({
   const functions = getFunctions();
   const db = getDatabase();
 
+  // Detect exam mode from course configuration or explicit prop
+  const isExamMode = examMode || question?.activityType === 'exam' || 
+    (course?.Gradebook?.courseConfig?.activityTypes?.exam && 
+     question?.type === 'exam');
+  
   // Get theme colors - use theme from question settings if available, otherwise use prop
-  const activeTheme = question?.settings?.theme || theme;
+  const activeTheme = question?.settings?.theme || (isExamMode ? 'red' : theme);
   const themeColors = getThemeColors(activeTheme);
 
   // Track if we're currently waiting for a new question during regeneration
@@ -327,7 +348,7 @@ const StandardMultipleChoiceQuestion = ({
         clearTimeout(safetyTimeoutRef.current);
       }
     };
-  }, [regenerating, expectingNewQuestion, course, assessmentId]);
+  }, [regenerating, expectingNewQuestion, course, finalAssessmentId]);
   
   useEffect(() => {
     if (!currentUser || !currentUser.email) {
@@ -351,7 +372,7 @@ const StandardMultipleChoiceQuestion = ({
       try {
         // Use appropriate path based on whether user is staff or student
         const basePath = isStaff ? 'staff_testing' : 'students';
-        const dbPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`;
+        const dbPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${finalAssessmentId}`;
         console.log(`Creating database ref for question: ${dbPath}`);
 
         // Setup firebase database listener
@@ -502,7 +523,7 @@ const StandardMultipleChoiceQuestion = ({
         unsubscribeRef();
       }
     };
-  }, [currentUser, courseId, assessmentId, db]);
+  }, [currentUser, courseId, finalAssessmentId, db]);
 
   // Generate a new question using cloud function with debouncing
   const generateQuestion = async () => {
@@ -564,7 +585,7 @@ const StandardMultipleChoiceQuestion = ({
       
       const functionParams = {
         courseId: courseId,
-        assessmentId: assessmentId,
+        assessmentId: finalAssessmentId,
         operation: 'generate',
         studentEmail: currentUser.email,
         userId: currentUser.uid,
@@ -624,6 +645,12 @@ const StandardMultipleChoiceQuestion = ({
       return;
     }
 
+    // Check if this is exam mode
+    if (isExamMode) {
+      await handleExamAnswerSave();
+      return;
+    }
+
     setSubmitting(true);
     try {
       const assessmentFunction = httpsCallable(functions, cloudFunctionName);
@@ -635,7 +662,7 @@ const StandardMultipleChoiceQuestion = ({
       
       const functionParams = {
         courseId: courseId,
-        assessmentId: assessmentId,
+        assessmentId: finalAssessmentId,
         operation: 'evaluate',
         answer: selectedAnswer,
         studentEmail: currentUser.email,
@@ -681,6 +708,45 @@ const StandardMultipleChoiceQuestion = ({
         // Generic error
         setError("Failed to submit your answer. Please try again: " + (err.message || err));
       }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Handle saving answer in exam mode
+  const handleExamAnswerSave = async () => {
+    if (!selectedAnswer) {
+      alert("Please select an answer");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const assessmentFunction = httpsCallable(functions, cloudFunctionName);
+      
+      const functionParams = {
+        courseId: courseId,
+        assessmentId: finalAssessmentId,
+        operation: 'saveExamAnswer',
+        answer: selectedAnswer,
+        studentEmail: currentUser.email,
+        userId: currentUser.uid,
+        examSessionId: examSessionId,
+        topic: topic || question?.topic || 'general',
+        difficulty: question?.difficulty || 'intermediate'
+      };
+
+      console.log(`Saving exam answer for ${cloudFunctionName}`, functionParams);
+
+      const result = await assessmentFunction(functionParams);
+      console.log("Exam answer saved successfully:", result);
+
+      setExamAnswerSaved(true);
+      onExamAnswerSave(selectedAnswer, finalAssessmentId);
+      
+    } catch (err) {
+      console.error("Error saving exam answer:", err);
+      setError("Failed to save your answer. Please try again: " + (err.message || err));
     } finally {
       setSubmitting(false);
     }
@@ -776,7 +842,7 @@ const StandardMultipleChoiceQuestion = ({
       // Session info
       sessionInfo: {
         courseId: courseId,
-        assessmentId: assessmentId,
+        assessmentId: finalAssessmentId,
         topic: topic || question.topic
       },
       // Question state for agent selection (not question content)
@@ -859,12 +925,17 @@ const StandardMultipleChoiceQuestion = ({
             {question?.title || title || 'Multiple Choice Question'}
           </h3>
           <div className="flex items-center gap-2">
+            {isExamMode && (
+              <span className="text-xs py-1 px-2 rounded bg-red-100 text-red-800 font-medium">
+                EXAM MODE
+              </span>
+            )}
             {question?.generatedBy === 'standard' && (
               <span className="text-xs py-1 px-2 rounded bg-blue-100 text-blue-800 font-medium">
                 Standard
               </span>
             )}
-            {question && question.enableAIChat !== false && (
+            {question && question.enableAIChat !== false && !isExamMode && (
               <Button
                 onClick={() => setChatSheetOpen(true)}
                 size="sm"
@@ -1003,23 +1074,41 @@ const StandardMultipleChoiceQuestion = ({
                 ))}
               </div>
 
-              {/* Submit button - only show if not already submitted */}
-              {!result && (
+              {/* Submit/Save button - behavior depends on exam mode */}
+              {!result && !showExamFeedback && (
                 <Button
                   onClick={handleSubmit}
-                  disabled={submitting || !selectedAnswer}
+                  disabled={submitting || !selectedAnswer || (isExamMode && examAnswerSaved)}
                   style={{
-                    backgroundColor: themeColors.accent,
+                    backgroundColor: isExamMode && examAnswerSaved ? '#9CA3AF' : themeColors.accent,
                     color: 'white',
                   }}
                   className="mt-3 w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md"
                 >
-                  {submitting ? 'Submitting...' : 'Submit Answer'}
+                  {submitting ? 
+                    (isExamMode ? 'Saving...' : 'Submitting...') : 
+                    isExamMode ? 
+                      (examAnswerSaved ? 'Answer Saved ✓' : 'Save Answer') : 
+                      'Submit Answer'
+                  }
                 </Button>
               )}
+              
+              {/* Exam mode saved confirmation */}
+              {isExamMode && examAnswerSaved && !showExamFeedback && (
+                <motion.div
+                  variants={animations.slideUp}
+                  initial="hidden"
+                  animate="show"
+                  className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm"
+                >
+                  <p className="font-medium mb-1">Answer Saved</p>
+                  <p>Your answer has been saved. You can change your selection before finishing the exam.</p>
+                </motion.div>
+              )}
 
-              {/* Result feedback */}
-              {result && (
+              {/* Result feedback - hidden in exam mode unless exam is completed */}
+              {(result && (!isExamMode || showExamFeedback)) && (
                 <motion.div
                   variants={animations.slideUp}
                   initial="hidden"
@@ -1057,9 +1146,9 @@ const StandardMultipleChoiceQuestion = ({
                     </div>
                   )}
 
-                  {/* For generating a new question */}
+                  {/* For generating a new question - hidden in exam mode */}
                   <div className="mt-4">
-                    {result && !question.maxAttemptsReached && !question.attemptsExhausted && 
+                    {result && !isExamMode && !question.maxAttemptsReached && !question.attemptsExhausted && 
                      question.attempts < question.maxAttempts && (
                       <>
                         {/* Regular regenerate button */}
@@ -1077,6 +1166,13 @@ const StandardMultipleChoiceQuestion = ({
                           Try Another Question
                         </Button>
                       </>
+                    )}                    
+                    {/* Exam mode specific messaging */}
+                    {isExamMode && result && (
+                      <div className="text-sm text-gray-600 mt-2">
+                        <p className="font-medium">Exam Mode</p>
+                        <p>Results will be available when you complete the entire exam.</p>
+                      </div>
                     )}
                     
                     {/* Display message when max attempts reached - only show for multi-attempt questions */}
@@ -1192,7 +1288,7 @@ const StandardMultipleChoiceQuestion = ({
           <div className="w-full md:w-1/2 h-full">
             {question && (
               <GoogleAIChatApp
-                sessionIdentifier={`standard-multiple-choice-${courseId}-${assessmentId}-${question.timestamp || Date.now()}`}
+                sessionIdentifier={`standard-multiple-choice-${courseId}-${finalAssessmentId}-${question.timestamp || Date.now()}`}
                 instructions={null} // Let server-side agent system handle instructions
                 firstMessage={getAIChatFirstMessage()}
                 showYouTube={false}

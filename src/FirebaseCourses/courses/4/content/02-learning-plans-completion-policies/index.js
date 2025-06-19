@@ -692,7 +692,6 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId, itemId, ac
                 {currentQuestionIndex === 0 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="02_learning_plans_completion_policies_question1"
                     cloudFunctionName="course4_02_learning_plans_question1"
                     title="Scenario: Alex's Section 1 Withdrawal"
                     theme="indigo"
@@ -706,7 +705,6 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId, itemId, ac
                 {currentQuestionIndex === 1 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="02_learning_plans_completion_policies_question2"
                     cloudFunctionName="course4_02_learning_plans_question2"
                     title="Scenario: Maria's MyPass Registration"
                     theme="indigo"
@@ -720,7 +718,6 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId, itemId, ac
                 {currentQuestionIndex === 2 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="02_learning_plans_completion_policies_question3"
                     cloudFunctionName="course4_02_learning_plans_question3"
                     title="Scenario: Jordan's Inactivity Situation"
                     theme="indigo"
@@ -734,7 +731,6 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId, itemId, ac
                 {currentQuestionIndex === 3 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="02_learning_plans_completion_policies_question4"
                     cloudFunctionName="course4_02_learning_plans_question4"
                     title="Course Completion Timeline"
                     theme="indigo"
@@ -748,7 +744,6 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId, itemId, ac
                 {currentQuestionIndex === 4 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="02_learning_plans_completion_policies_question5"
                     cloudFunctionName="course4_02_learning_plans_question5"
                     title="Section 1 Withdrawal Policy"
                     theme="indigo"
@@ -762,7 +757,6 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId, itemId, ac
                 {currentQuestionIndex === 5 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="02_learning_plans_completion_policies_question6"
                     cloudFunctionName="course4_02_learning_plans_question6"
                     title="Diploma Exam Registration"
                     theme="indigo"
@@ -776,7 +770,6 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId, itemId, ac
                 {currentQuestionIndex === 6 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="02_learning_plans_completion_policies_question7"
                     cloudFunctionName="course4_02_learning_plans_question7"
                     title="Course Access Lock Policy"
                     theme="indigo"
@@ -790,7 +783,6 @@ const LearningPlansCourseCompletionDiplomaExamPolicies = ({ courseId, itemId, ac
                 {currentQuestionIndex === 7 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="02_learning_plans_completion_policies_question8"
                     cloudFunctionName="course4_02_learning_plans_question8"
                     title="Consequences of Not Responding"
                     theme="indigo"

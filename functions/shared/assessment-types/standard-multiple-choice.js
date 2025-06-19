@@ -341,7 +341,7 @@ class StandardMultipleChoiceCore {
       status: 'active',
       maxAttempts: maxAttempts,
       activityType: activityType,
-      pointsValue: config.pointsValue || activityConfig.pointValue || 2,
+      pointsValue: config.pointsValue || activityConfig.pointValue || 1,
       attemptPenalty: config.attemptPenalty || activityConfig.attemptPenalty || 0,
       usedQuestionIds: newUsedQuestionIds,
       selectedQuestionIndex: question.originalIndex,
@@ -507,7 +507,7 @@ class StandardMultipleChoiceCore {
     const existingGrade = existingGradeSnapshot.val();
     
     // Calculate current attempt score
-    const pointsValue = assessmentData.pointsValue || 2;
+    const pointsValue = assessmentData.pointsValue || 1;
     const currentScore = result.isCorrect ? pointsValue : 0;
     
     // Determine if we should update the grade record

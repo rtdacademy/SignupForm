@@ -400,7 +400,6 @@ const ConductExpectationsAlbertaEducationResponsibilities = ({ courseId, itemId,
                 {currentQuestionIndex === 0 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="04_conduct_expectations_responsibilities_question1"
                     cloudFunctionName="course4_04_conduct_expectations_question1"
                     title="Professional Email Communication"
                     theme="indigo"
@@ -414,7 +413,6 @@ const ConductExpectationsAlbertaEducationResponsibilities = ({ courseId, itemId,
                 {currentQuestionIndex === 1 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="04_conduct_expectations_responsibilities_question2"
                     cloudFunctionName="course4_04_conduct_expectations_question2"
                     title="Academic Integrity Requirements"
                     theme="indigo"
@@ -428,7 +426,6 @@ const ConductExpectationsAlbertaEducationResponsibilities = ({ courseId, itemId,
                 {currentQuestionIndex === 2 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="04_conduct_expectations_responsibilities_question3"
                     cloudFunctionName="course4_04_conduct_expectations_question3"
                     title="Virtual Meeting Etiquette"
                     theme="indigo"
@@ -442,7 +439,6 @@ const ConductExpectationsAlbertaEducationResponsibilities = ({ courseId, itemId,
                 {currentQuestionIndex === 3 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="04_conduct_expectations_responsibilities_question4"
                     cloudFunctionName="course4_04_conduct_expectations_question4"
                     title="Password Security Policy"
                     theme="indigo"
@@ -456,7 +452,6 @@ const ConductExpectationsAlbertaEducationResponsibilities = ({ courseId, itemId,
                 {currentQuestionIndex === 4 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="04_conduct_expectations_responsibilities_question5"
                     cloudFunctionName="course4_04_conduct_expectations_question5"
                     title="Student Responsibilities"
                     theme="indigo"
@@ -470,7 +465,6 @@ const ConductExpectationsAlbertaEducationResponsibilities = ({ courseId, itemId,
                 {currentQuestionIndex === 5 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="04_conduct_expectations_responsibilities_question6"
                     cloudFunctionName="course4_04_conduct_expectations_question6"
                     title="Scenario: Login Credential Request"
                     theme="indigo"
@@ -484,7 +478,6 @@ const ConductExpectationsAlbertaEducationResponsibilities = ({ courseId, itemId,
                 {currentQuestionIndex === 6 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="04_conduct_expectations_responsibilities_question7"
                     cloudFunctionName="course4_04_conduct_expectations_question7"
                     title="Scenario: Exam Sharing Request"
                     theme="indigo"
@@ -498,7 +491,6 @@ const ConductExpectationsAlbertaEducationResponsibilities = ({ courseId, itemId,
                 {currentQuestionIndex === 7 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="04_conduct_expectations_responsibilities_question8"
                     cloudFunctionName="course4_04_conduct_expectations_question8"
                     title="Scenario: Virtual Meeting Disruption"
                     theme="indigo"

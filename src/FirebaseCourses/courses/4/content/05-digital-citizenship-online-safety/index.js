@@ -1821,7 +1821,6 @@ const CoursePrerequisitesAndRequirements = ({ courseId, itemId, activeItem }) =>
                 {currentQuestionIndex === 0 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="05_course_prerequisites_question1"
                     cloudFunctionName="course4_05_course_prerequisites_question1"
                     title="Scenario: Missing Math Prerequisites"
                     theme="indigo"
@@ -1835,7 +1834,6 @@ const CoursePrerequisitesAndRequirements = ({ courseId, itemId, activeItem }) =>
                 {currentQuestionIndex === 1 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="05_course_prerequisites_question2"
                     cloudFunctionName="course4_05_course_prerequisites_question2"
                     title="Scenario: Physics Prerequisites Decision"
                     theme="indigo"
@@ -1849,7 +1847,6 @@ const CoursePrerequisitesAndRequirements = ({ courseId, itemId, activeItem }) =>
                 {currentQuestionIndex === 2 && (
                   <StandardMultipleChoiceQuestion
                     courseId={courseId}
-                    assessmentId="05_course_prerequisites_question3"
                     cloudFunctionName="course4_05_course_prerequisites_question3"
                     title="Scenario: Academic Pathway Planning"
                     theme="indigo"

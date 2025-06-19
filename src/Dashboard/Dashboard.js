@@ -13,7 +13,7 @@ import LMSWrapper from './LMSWrapper';
 import CourseRouter from '../FirebaseCourses/CourseRouter';
 import { useAuth } from '../context/AuthContext';
 import { useStudentData } from './hooks/useStudentData';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getDatabase, ref, get } from 'firebase/database';
 import ModernCourseViewer from '../courses/CourseViewer/ModernCourseViewer';
 import { useModernCourse } from './hooks/useModernCourse';
@@ -100,7 +100,10 @@ const Dashboard = () => {
     signOut, 
     loading: authLoading,
     isEmulating,
-    stopEmulation
+    stopEmulation,
+    addActivityEvent,
+    updateUserActivityInDatabase,
+    currentSessionId
   } = useAuth();
   
   const { 
@@ -116,10 +119,23 @@ const Dashboard = () => {
     forceRefresh
   } = useStudentData(current_user_email_key);
   
-  const [selectedCourse, setSelectedCourse] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
-  const [showLMS, setShowLMS] = useState(false);
+  
+  // Get state from URL parameters
+  const selectedCourseId = searchParams.get('courseId');
+  const showLMS = searchParams.get('view') === 'course';
+  const courseType = searchParams.get('courseType'); // 'firebase' or 'lms'
+  
+  // Debug logging for URL state
+  console.log('📍 Dashboard URL State:', {
+    selectedCourseId,
+    showLMS,
+    courseType,
+    searchParams: Object.fromEntries(searchParams),
+    timestamp: new Date().toLocaleTimeString()
+  });
   
   // Only set showWelcomeDialog initially, after data is loaded
   const [showWelcomeDialog, setShowWelcomeDialog] = useState(false);
@@ -128,6 +144,23 @@ const Dashboard = () => {
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
 
   const [forceProfileOpen, setForceProfileOpen] = useState(false);
+
+  // Get the current course object from the real-time courses array
+  const selectedCourse = selectedCourseId 
+    ? courses.find(course => course.CourseID === selectedCourseId || course.id === selectedCourseId)
+    : null;
+    
+  // Debug logging for selectedCourse
+  console.log('🎯 Dashboard selectedCourse:', {
+    selectedCourseId,
+    courseType,
+    selectedCourse: selectedCourse ? 'Found' : 'Not found',
+    courseDetails: selectedCourse?.courseDetails ? 'Has courseDetails' : 'Missing courseDetails',
+    firebaseCourse: selectedCourse?.courseDetails?.firebaseCourse,
+    coursesArrayLength: courses.length,
+    routingDecision: courseType ? `Explicit: ${courseType}` : 'Will fallback to course detection',
+    timestamp: new Date().toLocaleTimeString()
+  });
 
   const { isModernCourse, loading: courseTypeLoading } = useModernCourse(
     selectedCourse?.CourseID
@@ -176,6 +209,18 @@ const Dashboard = () => {
       setShowWelcomeDialog(true);
     }
   }, [dataLoading, courses.length]);
+
+  // Initialize activity tracking when dashboard loads
+  useEffect(() => {
+    if (!dataLoading && currentUser && addActivityEvent) {
+      // Add a page view event when dashboard loads
+      addActivityEvent('page_view', {
+        page: 'dashboard',
+        coursesCount: courses.length,
+        hasProfile: !!profile
+      });
+    }
+  }, [dataLoading, currentUser, addActivityEvent, courses.length, profile]);
 
   // Effect to handle the migration dialog
   useEffect(() => {
@@ -241,13 +286,27 @@ const Dashboard = () => {
   }, [signOut, navigate, isEmulating, stopEmulation]);
 
   const handleBackClick = useCallback(() => {
-    if (showLMS) {
-      setShowLMS(false);
-      setSelectedCourse(null);
-    } else if (selectedCourse) {
-      setSelectedCourse(null);
-    }
-  }, [showLMS, selectedCourse]);
+    // Clear URL parameters to go back to dashboard
+    setSearchParams({});
+  }, [setSearchParams]);
+
+  // Handler for Firebase courses
+  const handleGoToFirebaseCourse = useCallback((course) => {
+    setSearchParams({ 
+      courseId: course.CourseID || course.id,
+      view: 'course',
+      courseType: 'firebase'
+    });
+  }, [setSearchParams]);
+
+  // Handler for LMS courses
+  const handleGoToLMSCourse = useCallback((course) => {
+    setSearchParams({ 
+      courseId: course.CourseID || course.id,
+      view: 'course',
+      courseType: 'lms'
+    });
+  }, [setSearchParams]);
 
   const showBackButton = showLMS || selectedCourse;
 
@@ -343,8 +402,7 @@ const Dashboard = () => {
           onLogout={handleLogout}
           onBackClick={handleBackClick}
           onDashboardClick={() => {
-            setSelectedCourse(null);
-            setShowLMS(false);
+            setSearchParams({});
           }}
           portalType="Student Portal"
           isEmulating={isEmulating}
@@ -365,13 +423,27 @@ const Dashboard = () => {
               profile={profile}
               previewMode={false}
             />
-          ) : selectedCourse.courseDetails?.firebaseCourse ? (
+          ) : courseType === 'firebase' ? (
+            // Explicit Firebase course routing
+            <CourseRouter
+              course={selectedCourse}
+            />
+          ) : courseType === 'lms' ? (
+            // Explicit LMS course routing
+            <LMSWrapper
+              courseId={selectedCourse?.CourseID || selectedCourseId}
+              courseData={selectedCourse}
+              onReturn={handleBackClick}
+            />
+          ) : selectedCourse?.courseDetails?.firebaseCourse || selectedCourse?.firebaseCourse ? (
+            // Fallback for Firebase courses when courseType is not specified (backward compatibility)
             <CourseRouter
               course={selectedCourse}
             />
           ) : (
+            // Default fallback to LMS for regular courses
             <LMSWrapper
-              courseId={selectedCourse.CourseID}
+              courseId={selectedCourse?.CourseID || selectedCourseId}
               courseData={selectedCourse}
               onReturn={handleBackClick}
             />
@@ -530,18 +602,22 @@ const Dashboard = () => {
                   key={course.CourseID || course.id}
                   course={course}
                   profile={profile}
-                  onViewDetails={() => setSelectedCourse(course)}
+                  onViewDetails={() => setSearchParams({ courseId: course.CourseID || course.id })}
+                  onGoToFirebaseCourse={handleGoToFirebaseCourse}
+                  onGoToLMSCourse={handleGoToLMSCourse}
                   onGoToCourse={() => {
-                    setSelectedCourse(course);
-                    setShowLMS(true);
+                    // Legacy fallback for backward compatibility
+                    setSearchParams({ 
+                      courseId: course.CourseID || course.id,
+                      view: 'course'
+                    });
                   }}
                   customActions={
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
                         onClick={() => {
-                          setSelectedCourse(course);
-                          setShowLMS(false);
+                          setSearchParams({ courseId: course.CourseID || course.id });
                         }}
                         className="flex-1 border-gray-200 hover:bg-gray-50 hover:text-gray-900"
                         size="sm"
@@ -551,8 +627,12 @@ const Dashboard = () => {
                       <Button
                         className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
                         onClick={() => {
-                          setSelectedCourse(course);
-                          setShowLMS(true);
+                          // Use the appropriate handler based on course type
+                          if (course.courseDetails?.firebaseCourse) {
+                            handleGoToFirebaseCourse(course);
+                          } else {
+                            handleGoToLMSCourse(course);
+                          }
                         }}
                       >
                         Go to Course
