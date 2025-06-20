@@ -52,7 +52,8 @@ import {
   Activity,
   UserPlus,
   GripVertical,
-  List
+  List,
+  FileDown
 } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { useAuth } from '../context/AuthContext';
@@ -68,6 +69,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../com
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "../components/ui/sheet";
 import PasiActionButtons from "../components/PasiActionButtons";
 import PasiRecordDetails from "../TeacherDashboard/PasiRecordDetails";
+import PDFGenerationSheet from "./PDFGenerationSheet";
 import { toast } from 'sonner';
 import { getDatabase, ref, push, onValue, off, remove, update } from 'firebase/database';
 import { getStudentTypeInfo, getActiveFutureArchivedColor, getPaymentStatusColor } from '../config/DropdownOptions';
@@ -1513,6 +1515,7 @@ const PasiRecordsSimplified = () => {
   const [sortState, setSortState] = useState({ column: 'studentName', direction: 'asc' });
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false);
+  const [isPDFGenerationOpen, setIsPDFGenerationOpen] = useState(false);
   
   // Responsive breakpoint state
   const breakpoint = useResponsiveBreakpoint();
@@ -2928,16 +2931,29 @@ const PasiRecordsSimplified = () => {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>PASI Records - {currentSchoolYear}</span>
-            <Badge variant="outline">
-              {(() => {
-                const customView = customViews.find(view => view.id === activeTab);
-                if (customView?.groupByASN) {
-                  const uniqueASNs = new Set(filteredRecords.map(r => r.asn).filter(asn => asn));
-                  return `${uniqueASNs.size} Students`;
-                }
-                return `${filteredRecords.length} Records`;
-              })()}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline">
+                {(() => {
+                  const customView = customViews.find(view => view.id === activeTab);
+                  if (customView?.groupByASN) {
+                    const uniqueASNs = new Set(filteredRecords.map(r => r.asn).filter(asn => asn));
+                    return `${uniqueASNs.size} Students`;
+                  }
+                  return `${filteredRecords.length} Records`;
+                })()}
+              </Badge>
+              {filteredRecords.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPDFGenerationOpen(true)}
+                  className="h-8"
+                >
+                  <FileDown className="h-4 w-4 mr-1" />
+                  Generate PDFs
+                </Button>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -3314,8 +3330,7 @@ const PasiRecordsSimplified = () => {
                                   <SortableHeader column="StudentType_Value" label="Student Type" />
                                 )}
                                 <SortableHeader column="ActiveFutureArchived_Value" label="State" />
-                                {((activeTab === 'linked') || 
-                                  (customViews.find(view => view.id === activeTab)?.baseDataSource === 'linked')) && (
+                                {shouldShowPasiColumns(activeTab, customViews) && (
                                   <SortableHeader column="status" label="PASI Status" />
                                 )}
                                 <SortableHeader 
@@ -3762,9 +3777,8 @@ const PasiRecordsSimplified = () => {
                                     )}
                                   </TableCell>
                                   
-                                  {/* PASI Status - only for linked views */}
-                                  {((activeTab === 'linked') || 
-                                    (customViews.find(view => view.id === activeTab)?.baseDataSource === 'linked')) && (
+                                  {/* PASI Status - show for all views with PASI records */}
+                                  {shouldShowPasiColumns(activeTab, customViews) && (
                                     <TableCell 
                                       className="p-1 cursor-pointer truncate min-w-12 max-w-20" 
                                       onClick={(e) => {
@@ -3998,6 +4012,15 @@ const PasiRecordsSimplified = () => {
           )}
         </SheetContent>
       </Sheet>
+      
+      {/* PDF Generation Sheet */}
+      <PDFGenerationSheet
+        isOpen={isPDFGenerationOpen}
+        onOpenChange={setIsPDFGenerationOpen}
+        filteredRecords={filteredRecords}
+        selectedRecords={selectedPasiRecords ? Object.values(selectedPasiRecords) : []}
+        schoolYear={currentSchoolYear}
+      />
     </TooltipProvider>
   );
 };

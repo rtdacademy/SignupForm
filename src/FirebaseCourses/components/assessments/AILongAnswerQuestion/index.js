@@ -356,6 +356,7 @@ const AILongAnswerQuestion = ({
   const [regenerating, setRegenerating] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
   const [chatSheetOpen, setChatSheetOpen] = useState(false);
+  const [examAnswerSaved, setExamAnswerSaved] = useState(false);
   
   // Refs
   const textareaRef = useRef(null);
@@ -527,6 +528,7 @@ const AILongAnswerQuestion = ({
       return;
     }
     
+    setSubmitting(true);
     try {
       // Call exam answer save function
       const saveExamAnswerFunction = httpsCallable(functions, 'saveExamAnswer');
@@ -547,14 +549,17 @@ const AILongAnswerQuestion = ({
       // Notify parent component
       onExamAnswerSave(answer, effectiveAssessmentId);
       
-      // Show success feedback
-      alert('Answer saved successfully!');
+      // Mark as saved in exam mode
+      setExamAnswerSaved(true);
       
     } catch (error) {
       console.error('Error saving exam answer:', error);
       alert('Failed to save answer: ' + (error.message || error));
+    } finally {
+      setSubmitting(false);
     }
   };
+
 
   // Handle answer submission
   const handleSubmit = async () => {
@@ -1009,7 +1014,7 @@ You can now:
               {/* Answer Input */}
               {!result && (
                 <>
-                  <div className="space-y-2">
+                  <div className={`space-y-2 ${isExamMode && examAnswerSaved ? 'opacity-60 pointer-events-none' : ''}`}>
                     <div className="flex items-center justify-between">
                       <label className="text-sm font-medium text-gray-700">
                         Your Answer
@@ -1031,8 +1036,8 @@ You can now:
                       value={answer}
                       onChange={(e) => setAnswer(e.target.value)}
                       placeholder="Write your answer here..."
-                      className="min-h-[200px] resize-y"
-                      disabled={submitting || !!result}
+                      className={`min-h-[200px] resize-y ${isExamMode && examAnswerSaved ? 'cursor-not-allowed' : ''}`}
+                      disabled={submitting || !!result || (isExamMode && examAnswerSaved)}
                     />
                     {wordCount < (question.wordLimit?.min || 0) && wordCount > 0 && (
                       <p className="text-xs text-red-600">
@@ -1046,23 +1051,29 @@ You can now:
                     )}
                   </div>
 
-                  {/* Submit Button */}
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={submitting || !answer.trim() || wordCount < (question.wordLimit?.min || 0) || wordCount > (question.wordLimit?.max || 500)}
-                    style={{
-                      backgroundColor: themeColors.accent,
-                      color: 'white',
-                    }}
-                    className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md"
-                  >
-                    {submitting ? (isExamMode ? 'Saving...' : 'Evaluating...') : (isExamMode ? 'Save Answer' : 'Submit Answer')}
-                  </Button>
+                  {/* Submit Button or Saved State */}
+                  {isExamMode && examAnswerSaved ? (
+                    <div className="flex items-center justify-center p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700">Saved</span>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={submitting || !answer.trim() || wordCount < (question.wordLimit?.min || 0) || wordCount > (question.wordLimit?.max || 500)}
+                      style={{
+                        backgroundColor: themeColors.accent,
+                        color: 'white',
+                      }}
+                      className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md"
+                    >
+                      {submitting ? (isExamMode ? 'Saving...' : 'Evaluating...') : (isExamMode ? 'Save Answer' : 'Submit Answer')}
+                    </Button>
+                  )}
                 </>
               )}
 
-              {/* Result Display */}
-              {result && (
+              {/* Result Display - hidden in exam mode unless exam is completed */}
+              {result && (!isExamMode || false) && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1178,7 +1189,7 @@ You can now:
 
                   {/* Action Buttons - hide regenerate in exam mode */}
                   <div className="mt-4">
-                    {!question.maxAttemptsReached && question.attempts < question.maxAttempts && !isExamMode && (
+                    {!isExamMode && !question.maxAttemptsReached && question.attempts < question.maxAttempts && (
                       <Button
                         onClick={() => handleRegenerate()}
                         style={{

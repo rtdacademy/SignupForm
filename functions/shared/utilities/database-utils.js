@@ -57,6 +57,8 @@ function extractParameters(data, context) {
     userId,
     topic = 'general',
     difficulty = 'intermediate',
+    examMode = false,
+    examSessionId = null,
   } = actualData;
 
   // Log the received data for debugging
@@ -142,7 +144,9 @@ function extractParameters(data, context) {
     userId: finalUserId,
     studentKey,
     isEmulator,
-    isStaff
+    isStaff,
+    examMode,
+    examSessionId
   };
 }
 
@@ -1446,12 +1450,214 @@ async function trackTimeSpent(studentKey, courseId, itemId, timeSpent, isStaff =
 }
 
 /**
- * Validate gradebook structure completeness against course configuration
- * Checks if current gradebook has all items and categories from course-config.json
+ * Compare course configurations to detect changes
+ * @param {Object} currentConfig - Current course config in student's gradebook
+ * @param {Object} latestConfig - Latest course config from course-config.json
+ * @returns {Object} Comparison result with changes detected
+ */
+function compareCourseConfigs(currentConfig, latestConfig) {
+  const changes = {
+    hasChanges: false,
+    weightsChanged: false,
+    globalSettingsChanged: false,
+    progressionRequirementsChanged: false,
+    gradebookStructureChanged: false,
+    details: []
+  };
+
+  if (!currentConfig || !latestConfig) {
+    changes.hasChanges = true;
+    changes.details.push('Course config missing - full sync required');
+    return changes;
+  }
+
+  // Compare weights
+  const currentWeights = currentConfig.weights || {};
+  const latestWeights = latestConfig.weights || {};
+  
+  for (const [type, weight] of Object.entries(latestWeights)) {
+    if (currentWeights[type] !== weight) {
+      changes.hasChanges = true;
+      changes.weightsChanged = true;
+      changes.details.push(`Weight changed for ${type}: ${currentWeights[type]} → ${weight}`);
+    }
+  }
+
+  // Compare global settings
+  const currentGlobal = currentConfig.globalSettings || {};
+  const latestGlobal = latestConfig.globalSettings || {};
+  
+  for (const [setting, value] of Object.entries(latestGlobal)) {
+    if (currentGlobal[setting] !== value) {
+      changes.hasChanges = true;
+      changes.globalSettingsChanged = true;
+      changes.details.push(`Global setting changed - ${setting}: ${currentGlobal[setting]} → ${value}`);
+    }
+  }
+
+  // Compare progression requirements
+  const currentProgression = currentConfig.progressionRequirements || {};
+  const latestProgression = latestConfig.progressionRequirements || {};
+  
+  // Check enabled status
+  if (currentProgression.enabled !== latestProgression.enabled) {
+    changes.hasChanges = true;
+    changes.progressionRequirementsChanged = true;
+    changes.details.push(`Progression requirements enabled: ${currentProgression.enabled} → ${latestProgression.enabled}`);
+  }
+  
+  // Check default minimum percentage
+  if (currentProgression.defaultMinimumPercentage !== latestProgression.defaultMinimumPercentage) {
+    changes.hasChanges = true;
+    changes.progressionRequirementsChanged = true;
+    changes.details.push(`Default minimum percentage: ${currentProgression.defaultMinimumPercentage} → ${latestProgression.defaultMinimumPercentage}`);
+  }
+  
+  // Check lesson overrides
+  const currentOverrides = currentProgression.lessonOverrides || {};
+  const latestOverrides = latestProgression.lessonOverrides || {};
+  
+  for (const [lessonId, override] of Object.entries(latestOverrides)) {
+    const currentOverride = currentOverrides[lessonId];
+    if (!currentOverride || currentOverride.minimumPercentage !== override.minimumPercentage) {
+      changes.hasChanges = true;
+      changes.progressionRequirementsChanged = true;
+      changes.details.push(`Lesson override changed - ${lessonId}: ${currentOverride?.minimumPercentage} → ${override.minimumPercentage}`);
+    }
+  }
+
+  // Compare gradebook structure (item structure, not individual progress)
+  const currentGradebook = currentConfig.gradebook?.itemStructure || {};
+  const latestGradebook = latestConfig.gradebook?.itemStructure || {};
+  
+  // Check if number of items changed
+  if (Object.keys(currentGradebook).length !== Object.keys(latestGradebook).length) {
+    changes.hasChanges = true;
+    changes.gradebookStructureChanged = true;
+    changes.details.push(`Gradebook items count changed: ${Object.keys(currentGradebook).length} → ${Object.keys(latestGradebook).length}`);
+  }
+  
+  // Check for structural changes in existing items
+  for (const [itemId, latestItem] of Object.entries(latestGradebook)) {
+    const currentItem = currentGradebook[itemId];
+    if (!currentItem) {
+      changes.hasChanges = true;
+      changes.gradebookStructureChanged = true;
+      changes.details.push(`New gradebook item added: ${itemId}`);
+    } else {
+      // Check if questions changed
+      const currentQuestions = currentItem.questions || [];
+      const latestQuestions = latestItem.questions || [];
+      
+      if (currentQuestions.length !== latestQuestions.length) {
+        changes.hasChanges = true;
+        changes.gradebookStructureChanged = true;
+        changes.details.push(`Question count changed for ${itemId}: ${currentQuestions.length} → ${latestQuestions.length}`);
+      }
+    }
+  }
+
+  return changes;
+}
+
+/**
+ * Sync course configuration changes to student's gradebook
+ * Updates configuration while preserving student progress data
  * @param {string} studentKey - Sanitized student email
  * @param {string} courseId - Course ID
  * @param {boolean} isStaff - Whether this is a staff member
- * @returns {Promise<{isValid: boolean, missingItems: Array, missingCategories: Array}>}
+ * @returns {Promise<Object>} Sync result
+ */
+async function syncCourseConfig(studentKey, courseId, isStaff = false) {
+  try {
+    console.log(`🔄 Syncing course config for ${studentKey} in course ${courseId}`);
+    
+    // Get latest course configuration
+    const latestCourseConfig = await getCourseConfig(courseId);
+    
+    // Get current gradebook
+    const basePath = isStaff ? `staff_testing/${studentKey}/courses/${courseId}/Gradebook` 
+                              : `students/${studentKey}/courses/${courseId}/Gradebook`;
+    const gradebookRef = admin.database().ref(basePath);
+    const gradebookSnapshot = await gradebookRef.once('value');
+    const currentGradebook = gradebookSnapshot.val();
+    
+    if (!currentGradebook || !currentGradebook.initialized) {
+      console.log(`⚠️ Gradebook not initialized, skipping config sync`);
+      return { synced: false, reason: 'Gradebook not initialized' };
+    }
+    
+    const currentCourseConfig = currentGradebook.courseConfig || {};
+    
+    // Compare configurations
+    const comparison = compareCourseConfigs(currentCourseConfig, latestCourseConfig);
+    
+    if (!comparison.hasChanges) {
+      console.log(`✅ Course config is up to date for ${studentKey} in course ${courseId}`);
+      return { synced: true, changes: [], upToDate: true };
+    }
+    
+    console.log(`🔧 Course config changes detected for ${studentKey} in course ${courseId}:`, comparison.details);
+    
+    // Prepare updates - only update configuration, preserve student data
+    const updates = {};
+    
+    // Update course config
+    updates['courseConfig'] = {
+      weights: latestCourseConfig.weights || {},
+      globalSettings: latestCourseConfig.globalSettings || {},
+      gradebook: latestCourseConfig.gradebook || {},
+      progressionRequirements: latestCourseConfig.progressionRequirements || {}
+    };
+    
+    // Update course structure if it exists in the latest config
+    if (latestCourseConfig.courseStructure) {
+      updates['courseStructure'] = latestCourseConfig.courseStructure;
+    }
+    
+    // Update last sync timestamp
+    updates['lastConfigSync'] = getServerTimestamp();
+    updates['configSyncDetails'] = {
+      changes: comparison.details,
+      syncedAt: getServerTimestamp()
+    };
+    
+    // Apply updates
+    await gradebookRef.update(updates);
+    
+    // If weights changed, recalculate grades
+    if (comparison.weightsChanged) {
+      console.log(`🔄 Weights changed, recalculating grades for ${studentKey} in course ${courseId}`);
+      await recalculateCategoryGrades(studentKey, courseId, isStaff);
+      await updateGradebookSummary(studentKey, courseId, isStaff);
+    }
+    
+    console.log(`✅ Course config synced successfully for ${studentKey} in course ${courseId}`);
+    
+    return {
+      synced: true,
+      changes: comparison.details,
+      weightsRecalculated: comparison.weightsChanged,
+      upToDate: false
+    };
+    
+  } catch (error) {
+    console.error('Error syncing course config:', error);
+    return { 
+      synced: false, 
+      error: error.message,
+      changes: []
+    };
+  }
+}
+
+/**
+ * Validate gradebook structure completeness against course configuration
+ * Enhanced to include course config synchronization
+ * @param {string} studentKey - Sanitized student email
+ * @param {string} courseId - Course ID
+ * @param {boolean} isStaff - Whether this is a staff member
+ * @returns {Promise<{isValid: boolean, missingItems: Array, missingCategories: Array, configSynced: boolean}>}
  */
 async function validateGradebookStructure(studentKey, courseId, isStaff = false) {
   try {
@@ -1463,7 +1669,7 @@ async function validateGradebookStructure(studentKey, courseId, isStaff = false)
     
     if (!gradebookStructure) {
       console.log(`⚠️ No gradebook structure found in course config for course ${courseId}`);
-      return { isValid: true, missingItems: [], missingCategories: [] }; // Skip validation if no structure
+      return { isValid: true, missingItems: [], missingCategories: [], configSynced: false }; // Skip validation if no structure
     }
     
     // Get current gradebook data
@@ -1476,12 +1682,18 @@ async function validateGradebookStructure(studentKey, courseId, isStaff = false)
     // If gradebook doesn't exist, it's definitely incomplete
     if (!currentGradebook || !currentGradebook.initialized) {
       console.log(`❌ Gradebook not initialized for ${studentKey} in course ${courseId}`);
+      await initializeGradebook(studentKey, courseId, isStaff);
       return { 
-        isValid: false, 
-        missingItems: Object.keys(gradebookStructure), 
-        missingCategories: [...new Set(Object.values(gradebookStructure).map(item => item.type))]
+        isValid: true, 
+        missingItems: [], 
+        missingCategories: [],
+        wasRebuilt: true,
+        configSynced: true
       };
     }
+    
+    // ENHANCED: Sync course configuration changes
+    const configSyncResult = await syncCourseConfig(studentKey, courseId, isStaff);
     
     const currentItems = currentGradebook.items || {};
     const currentCategories = currentGradebook.categories || {};
@@ -1528,12 +1740,25 @@ async function validateGradebookStructure(studentKey, courseId, isStaff = false)
     
     const isValid = missingItems.length === 0 && missingCategories.length === 0;
     
+    // If structure is invalid, rebuild it
     if (!isValid) {
       console.log(`❌ Gradebook structure validation failed for ${studentKey} in course ${courseId}:`, {
         missingItems: missingItems.length,
         missingCategories: missingCategories.length,
         missingCourseItems: missingCourseItems.length
       });
+      
+      // Rebuild gradebook with updated structure
+      console.log(`🔧 Rebuilding gradebook structure for ${studentKey} in course ${courseId}`);
+      await initializeGradebook(studentKey, courseId, isStaff);
+      
+      return { 
+        isValid: true, 
+        missingItems: [], 
+        missingCategories: [],
+        wasRebuilt: true,
+        configSynced: configSyncResult.synced
+      };
     } else {
       console.log(`✅ Gradebook structure validation passed for ${studentKey} in course ${courseId}`);
     }
@@ -1544,7 +1769,9 @@ async function validateGradebookStructure(studentKey, courseId, isStaff = false)
       missingCategories, 
       missingCourseItems,
       expectedItemsCount: expectedQuestions.size,
-      currentItemsCount: Object.keys(currentItems).length
+      currentItemsCount: Object.keys(currentItems).length,
+      configSynced: configSyncResult.synced,
+      configChanges: configSyncResult.changes || []
     };
     
   } catch (error) {
@@ -1554,7 +1781,8 @@ async function validateGradebookStructure(studentKey, courseId, isStaff = false)
       isValid: false, 
       missingItems: [], 
       missingCategories: [], 
-      error: error.message 
+      error: error.message,
+      configSynced: false 
     };
   }
 }
@@ -1579,5 +1807,7 @@ module.exports = {
   cleanupLegacyAssessments, // NEW: Clean up legacy assessment duplicates
   updateCourseStructureItemSummary,
   trackTimeSpent,
-  validateGradebookStructure, // NEW: Gradebook structure validation
+  validateGradebookStructure, // ENHANCED: Gradebook structure validation with config sync
+  compareCourseConfigs, // NEW: Compare course configurations
+  syncCourseConfig, // NEW: Sync course config changes
 };

@@ -95,6 +95,7 @@ function MainApp() {
   }
 />
 
+{/* Firebase course admin routes removed - components archived
 <Route
   path="/firebase-course/:courseId?"
   element={
@@ -120,6 +121,7 @@ function MainApp() {
     <Navigate to="/staff-login" />
   }
 />
+*/}
 
 <Route 
   path="/employee-portal" 

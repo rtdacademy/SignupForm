@@ -365,7 +365,7 @@ const CollapsibleNavigation = ({
         return 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60';
       }
       if (isActive) {
-        return 'bg-blue-50 border-l-2 border-blue-500 pl-1.5';
+        return 'bg-blue-50 border border-blue-200 shadow-sm ring-2 ring-blue-300/50 rounded-md';
       }
       if (isNextItem) {
         return 'bg-purple-50 border-l-2 border-purple-400 pl-1.5';
@@ -386,6 +386,10 @@ const CollapsibleNavigation = ({
               // Original click handler (before sequential access): onClick={() => onItemSelect(item.itemId)}
               if (isAccessible) {
                 onItemSelect(item.itemId);
+                // Close navigation after selecting a lesson
+                if (onToggleExpand) {
+                  onToggleExpand();
+                }
               }
             }}
           >
@@ -404,7 +408,9 @@ const CollapsibleNavigation = ({
                     typeIcons[item.type] || <Info className="h-4 w-4" />
                   )}
                 </div>
-                <span className="font-medium line-clamp-2 flex-1">
+                <span className={`font-medium line-clamp-2 flex-1 ${
+                  isActive ? 'text-blue-800 font-semibold' : ''
+                }`}>
                   {item.title}
                 </span>
               </div>
@@ -481,39 +487,74 @@ const CollapsibleNavigation = ({
     );
   };
   
+  // Find current lesson for collapsed view
+  const currentLesson = useMemo(() => {
+    const effectiveUnitsList = course?.Gradebook?.courseStructure?.units ||
+      unitsList ||
+      course?.courseDetails?.courseStructure?.structure ||
+      [];
+    
+    for (const unit of effectiveUnitsList) {
+      if (unit.items) {
+        const foundItem = unit.items.find(item => item.itemId === activeItemId);
+        if (foundItem) {
+          return {
+            item: foundItem,
+            unit: unit,
+            unitIndex: unit.index || effectiveUnitsList.indexOf(unit)
+          };
+        }
+      }
+    }
+    return null;
+  }, [activeItemId, unitsList, course]);
+
   if (!expanded) {
     return (
-      <div className="w-full bg-white border-r border-gray-200 flex flex-col items-center py-4">
+      <div className="w-16 bg-white border-r border-gray-200 flex flex-col py-4">
         <Button
           variant="ghost"
           size="sm"
           onClick={onToggleExpand}
-          className="mt-2"
+          className="mx-auto mb-4"
         >
           <ChevronRight className="h-5 w-5" />
         </Button>
 
-        <div className="mt-6 flex flex-col items-center gap-4">
-          <TooltipProvider>
-            {unitsList.map((unit, index) => (
-              <Tooltip key={index}>
+        {/* Current lesson indicator at top when collapsed */}
+        {currentLesson && (
+          <div className="px-2 mb-4">
+            <TooltipProvider>
+              <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`w-8 h-8 rounded-full ${index === currentUnitIndex ? 'bg-blue-100' : ''}`}
-                    onClick={() => onItemSelect(unit.items?.[0]?.itemId)}
-                  >
-                    {unit.sequence || unit.order || index + 1}
-                  </Button>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 cursor-pointer" onClick={onToggleExpand}>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                        {currentLesson.unit.sequence || currentLesson.unit.order || currentLesson.unitIndex + 1}
+                      </div>
+                      <div className="text-xs text-blue-600 font-medium text-center leading-tight line-clamp-2">
+                        {currentLesson.item.title.split(' ').slice(0, 3).join(' ')}
+                      </div>
+                      <div className="w-full bg-blue-200 rounded-full h-1">
+                        <div className="bg-blue-600 rounded-full h-1 w-3/4"></div>
+                      </div>
+                    </div>
+                  </div>
                 </TooltipTrigger>
-                <TooltipContent side="right">
-                  {unit.name || unit.title || `Unit ${unit.sequence || unit.order || index + 1}`}
+                <TooltipContent side="right" className="max-w-xs">
+                  <div className="space-y-1">
+                    <p className="font-medium">Current Lesson</p>
+                    <p className="text-sm">{currentLesson.item.title}</p>
+                    <p className="text-xs text-gray-500">
+                      Unit {currentLesson.unit.sequence || currentLesson.unit.order || currentLesson.unitIndex + 1}: {currentLesson.unit.name || currentLesson.unit.title}
+                    </p>
+                  </div>
                 </TooltipContent>
               </Tooltip>
-            ))}
-          </TooltipProvider>
-        </div>
+            </TooltipProvider>
+          </div>
+        )}
+
       </div>
     );
   }
@@ -538,16 +579,6 @@ const CollapsibleNavigation = ({
           <span className="truncate">{courseTitle}</span>
         </h2>
         <div className="flex items-center gap-1 ml-1 flex-shrink-0">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="h-8 w-8 p-0"
-            title="Refresh course structure"
-          >
-            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-          </Button>
           {!isMobile && (
             <Button 
               variant="ghost" 
@@ -634,11 +665,19 @@ const CollapsibleNavigation = ({
                       >
                         <AccordionTrigger className="hover:no-underline py-2 px-3">
                           <div className="flex items-center gap-2 w-full">
-                            <div
-                              className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs
-                                ${isCurrentUnit ? 'bg-purple-600 text-white' : 'bg-blue-500 text-white'}`}
-                            >
-                              {unit.sequence || unit.order || unit.index + 1}
+                            <div className="relative">
+                              <div
+                                className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs
+                                  ${isCurrentUnit ? 'bg-purple-600 text-white' : 'bg-blue-500 text-white'}`}
+                              >
+                                {unit.sequence || unit.order || unit.index + 1}
+                              </div>
+                              {/* Show indicator if this unit contains the current lesson */}
+                              {currentLesson?.unitIndex === unit.index && (
+                                <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-600 rounded-full border-2 border-white">
+                                  <div className="w-full h-full bg-blue-600 rounded-full animate-pulse"></div>
+                                </div>
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">

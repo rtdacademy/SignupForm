@@ -43,8 +43,6 @@ import SchedulePurchaseDialog from './SchedulePurchaseDialog';
 import CreateScheduleButton from './CreateScheduleButton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '../components/ui/sheet';
 import ProofOfEnrollmentDialog from './ProofOfEnrollmentDialog';
-// Firebase Course Router import
-import CourseRouter from '../FirebaseCourses/CourseRouter';
 
 // Keep the enforcement date constant
 const PAYMENT_ENFORCEMENT_DATE = new Date('2024-11-22');
@@ -214,7 +212,7 @@ const CourseCard = ({
     // For required courses, we always allow access
     if (course.isRequiredCourse) {
       // Use appropriate handler based on course type
-      if (course.courseDetails?.firebaseCourse) {
+      if (course.courseDetails?.firebaseCourse || course.firebaseCourse) {
         if (onGoToFirebaseCourse) {
           onGoToFirebaseCourse(course);
         } else if (onGoToCourse) {
@@ -233,7 +231,7 @@ const CourseCard = ({
     // Allow developers to bypass all restrictions
     if (isDeveloper) {
       // Use appropriate handler based on course type
-      if (course.courseDetails?.firebaseCourse) {
+      if (course.courseDetails?.firebaseCourse || course.firebaseCourse) {
         if (onGoToFirebaseCourse) {
           onGoToFirebaseCourse(course);
         } else if (onGoToCourse) {
@@ -250,7 +248,7 @@ const CourseCard = ({
     }    
     
     // Handle Firebase Courses and regular courses differently
-    if (course.courseDetails?.firebaseCourse) {
+    if (course.courseDetails?.firebaseCourse || course.firebaseCourse) {
       // For Firebase courses, only restrict if Archived or Pending
       if (status === 'Archived' || status === 'Pending') {
         toast.error("This course is not currently available for access");
@@ -982,7 +980,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
                       ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
                       : isDeveloper
                         ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
-                        : course.courseDetails?.firebaseCourse
+                        : (course.courseDetails?.firebaseCourse || course.firebaseCourse)
                           ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
                             ? 'bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
                             : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white hover:shadow-xl hover:scale-[1.02] transform'
@@ -992,7 +990,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
                     }
                   `}
                   disabled={!course.isRequiredCourse && !isDeveloper && (
-                    course.courseDetails?.firebaseCourse 
+                    (course.courseDetails?.firebaseCourse || course.firebaseCourse)
                       ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
                       : ((!hasSchedule && !course.courseDetails?.doesNotRequireSchedule) || status !== 'Active' || computedPaymentStatus === 'unpaid')
                   )}
@@ -1003,7 +1001,7 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
                       ? 'Go to Required Course'
                       : isDeveloper
                         ? 'Go to Course (Developer)'
-                        : course.courseDetails?.firebaseCourse
+                        : (course.courseDetails?.firebaseCourse || course.firebaseCourse)
                           ? ((status === 'Archived' || status === 'Pending') || computedPaymentStatus === 'unpaid')
                             ? 'Course Unavailable'
                             : 'Go to Course'
