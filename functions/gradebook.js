@@ -353,137 +353,6 @@ exports.getGradebookSummary = onCall({
   }
 });
 
-/**
- * NEW: Trigger on assessment attempts (not just grades)
- * This captures all student activity including failed attempts
- * Listens to: /students/{studentKey}/courses/{courseId}/Assessments/{assessmentId}/timestamp
- */
-exports.updateGradebookOnAssessmentAttempt = onValueUpdated({
-  ref: '/students/{studentKey}/courses/{courseId}/Assessments/{assessmentId}/timestamp',
-  region: 'us-central1',
-  memory: '256MiB',
-  timeoutSeconds: 60
-}, async (event) => {
-  const { studentKey, courseId, assessmentId } = event.params;
-  
-  console.log(`📝 Assessment attempt trigger: ${studentKey}/${courseId}/${assessmentId}`);
-  
-  try {
-    // Get the full assessment data
-    const assessmentPath = `/students/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`;
-    const assessmentRef = admin.database().ref(assessmentPath);
-    const assessmentSnapshot = await assessmentRef.once('value');
-    const assessmentData = assessmentSnapshot.val();
-    
-    if (!assessmentData) {
-      console.log('No assessment data found, skipping');
-      return;
-    }
-    
-    // Calculate score based on assessment data
-    let score = 0;
-    if (assessmentData.lastSubmission?.isCorrect) {
-      score = assessmentData.pointsValue || 0;
-    }
-    
-    console.log(`📊 Assessment ${assessmentId}: attempts=${assessmentData.attempts}, score=${score}/${assessmentData.pointsValue}`);
-    
-    // Check if this is a staff member
-    const isStaff = studentKey.includes('@rtdacademy.com') || studentKey.includes('staff');
-    
-    // Initialize gradebook if it doesn't exist
-    const gradebookPath = `${isStaff ? 'staff_testing' : 'students'}/${studentKey}/courses/${courseId}/Gradebook`;
-    const gradebookRef = admin.database().ref(gradebookPath);
-    const gradebookSnapshot = await gradebookRef.once('value');
-    
-    if (!gradebookSnapshot.exists()) {
-      console.log('Initializing gradebook for student');
-      await initializeGradebook(studentKey, courseId, isStaff);
-    }
-    
-    // Create item config from assessment data
-    const itemConfig = {
-      title: assessmentData.questionText?.substring(0, 50) + '...' || assessmentId,
-      type: assessmentData.activityType || 'lesson',
-      // pointsValue will be determined from course config by updateGradebookItem
-      attempts: assessmentData.attempts || 0,
-      status: assessmentData.status || 'attempted'
-    };
-    
-    // Update gradebook item
-    await updateGradebookItem(studentKey, courseId, assessmentId, score, itemConfig, isStaff);
-    
-    console.log(`✅ Gradebook updated from assessment attempt: ${assessmentId}`);
-    
-  } catch (error) {
-    console.error('Error updating gradebook from assessment attempt:', error);
-    // Don't throw error to avoid function retries
-  }
-});
-
-/**
- * NEW: Trigger on staff assessment attempts
- * Listens to: /staff_testing/{studentKey}/courses/{courseId}/Assessments/{assessmentId}/timestamp
- */
-exports.updateStaffGradebookOnAssessmentAttempt = onValueUpdated({
-  ref: '/staff_testing/{studentKey}/courses/{courseId}/Assessments/{assessmentId}/timestamp',
-  region: 'us-central1',
-  memory: '256MiB',
-  timeoutSeconds: 60
-}, async (event) => {
-  const { studentKey, courseId, assessmentId } = event.params;
-  
-  console.log(`🧪 Staff assessment attempt trigger: ${studentKey}/${courseId}/${assessmentId}`);
-  
-  try {
-    // Get the full assessment data
-    const assessmentPath = `/staff_testing/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`;
-    const assessmentRef = admin.database().ref(assessmentPath);
-    const assessmentSnapshot = await assessmentRef.once('value');
-    const assessmentData = assessmentSnapshot.val();
-    
-    if (!assessmentData) {
-      console.log('No staff assessment data found, skipping');
-      return;
-    }
-    
-    // Calculate score based on assessment data
-    let score = 0;
-    if (assessmentData.lastSubmission?.isCorrect) {
-      score = assessmentData.pointsValue || 0;
-    }
-    
-    console.log(`📊 Staff Assessment ${assessmentId}: attempts=${assessmentData.attempts}, score=${score}/${assessmentData.pointsValue}`);
-    
-    // Initialize gradebook if it doesn't exist
-    const gradebookPath = `staff_testing/${studentKey}/courses/${courseId}/Gradebook`;
-    const gradebookRef = admin.database().ref(gradebookPath);
-    const gradebookSnapshot = await gradebookRef.once('value');
-    
-    if (!gradebookSnapshot.exists()) {
-      console.log('Initializing staff gradebook');
-      await initializeGradebook(studentKey, courseId, true);
-    }
-    
-    // Create item config from assessment data
-    const itemConfig = {
-      title: assessmentData.questionText?.substring(0, 50) + '...' || assessmentId,
-      type: assessmentData.activityType || 'lesson',
-      // pointsValue will be determined from course config by updateGradebookItem
-      attempts: assessmentData.attempts || 0,
-      status: assessmentData.status || 'attempted'
-    };
-    
-    // Update gradebook item (isStaff = true)
-    await updateGradebookItem(studentKey, courseId, assessmentId, score, itemConfig, true);
-    
-    console.log(`✅ Staff gradebook updated from assessment attempt: ${assessmentId}`);
-    
-  } catch (error) {
-    console.error('Error updating staff gradebook from assessment attempt:', error);
-    // Don't throw error to avoid function retries
-  }
-});
 
 /**
  * Callable function: Recalculate gradebook for a student (admin only)
@@ -664,20 +533,17 @@ exports.validateGradebookStructure = onCall({
   cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
 }, async (data, context) => {
   try {
-    // Authentication check
-    if (!context.auth) {
-      throw new Error('User must be authenticated');
-    }
-
     const { courseId, studentEmail } = data.data || data;
-    const userEmail = studentEmail || context.auth.token.email;
+    
+    // Get user email from data or auth context
+    const userEmail = studentEmail || context.auth?.token?.email;
     
     if (!userEmail || !courseId) {
       throw new Error('Missing required parameters: courseId, userEmail');
     }
     
     // Sanitize email for database key
-    const studentKey = userEmail.replace(/\./g, '_').replace(/@/g, ',');
+    const studentKey = sanitizeEmail(userEmail);
     const isStaff = userEmail.includes('@rtdacademy.com');
     
     console.log(`🔍 Validating gradebook structure for ${userEmail} in course ${courseId}`);

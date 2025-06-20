@@ -159,6 +159,7 @@ const AIShortAnswerQuestion = ({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [chatSheetOpen, setChatSheetOpen] = useState(false);
   const [attemptsMade, setAttemptsMade] = useState(0);
+  const [examAnswerSaved, setExamAnswerSaved] = useState(false);
   
   // Refs
   const textareaRef = useRef(null);
@@ -327,41 +328,88 @@ const AIShortAnswerQuestion = ({
     }
   };
 
-  // Handle exam answer save (no evaluation)
+  // Handle exam answer save with evaluation
   const handleExamAnswerSave = async () => {
     if (!currentAnswer.trim()) {
       alert("Please write an answer before submitting");
       return;
     }
+
+    const wordLimit = questionData?.wordLimit || { min: 5, max: 100 };
+    const currentWordCount = getWordCount(currentAnswer);
     
+    if (currentWordCount < (wordLimit.min || 0)) {
+      alert(`Your answer is too short. Please write at least ${wordLimit.min} words.`);
+      return;
+    }
+    
+    if (currentWordCount > (wordLimit.max || 100)) {
+      alert(`Your answer is too long. Please limit your response to ${wordLimit.max} words.`);
+      return;
+    }
+    
+    setSubmitting(true);
     try {
-      // Call exam answer save function
-      const saveExamAnswerFunction = httpsCallable(functions, 'saveExamAnswer');
-      
-      const functionParams = {
+      // First evaluate the answer using the normal evaluation logic
+      const assessmentFunction = httpsCallable(functions, cloudFunctionName);
+
+      const evaluateParams = {
         courseId: courseId,
         assessmentId: effectiveAssessmentId,
+        operation: 'evaluate',
         answer: currentAnswer,
-        examSessionId: examSessionId,
-        studentEmail: currentUser.email
+        studentEmail: currentUser.email,
+        userId: currentUser.uid,
+        topic: topic || questionData?.topic || 'general',
+        difficulty: questionData?.difficulty || 'intermediate',
+        examMode: true,
+        examSessionId: examSessionId
       };
-      
-      console.log('Saving exam answer:', functionParams);
-      
-      const result = await saveExamAnswerFunction(functionParams);
-      console.log('Exam answer saved:', result.data);
+
+      console.log(`Evaluating exam answer for ${effectiveAssessmentId}`, evaluateParams);
+
+      // Evaluate the answer - this will update grades in real-time
+      const evaluateResult = await assessmentFunction(evaluateParams);
+      console.log("Answer evaluated successfully:", evaluateResult);
+
+      // Store the evaluation result for later display (but don't show it now)
+      if (evaluateResult.data?.result) {
+        // Store result locally but don't display it
+        setEvaluation(evaluateResult.data.result);
+        
+        // Also save to exam session for tracking
+        const saveExamAnswerFunction = httpsCallable(functions, 'saveExamAnswer');
+        
+        const saveParams = {
+          courseId: courseId,
+          assessmentId: effectiveAssessmentId,
+          answer: currentAnswer,
+          examSessionId: examSessionId,
+          studentEmail: currentUser.email,
+          // Include evaluation result for exam session tracking
+          isCorrect: evaluateResult.data.result.isCorrect || evaluateResult.data.result.percentage >= 70,
+          points: (evaluateResult.data.result.isCorrect || evaluateResult.data.result.percentage >= 70) ? (questionData?.pointsValue || 1) : 0,
+          correctAnswer: 'See feedback', // AI questions don't have simple correct answers
+          feedback: evaluateResult.data.result.feedback || ''
+        };
+
+        await saveExamAnswerFunction(saveParams);
+      }
       
       // Notify parent component
       onExamAnswerSave(currentAnswer, effectiveAssessmentId);
       
-      // Show success feedback
-      alert('Answer saved successfully!');
+      // Mark as saved in exam mode
+      setExamAnswerSaved(true);
       
     } catch (error) {
       console.error('Error saving exam answer:', error);
       alert('Failed to save answer: ' + (error.message || error));
+    } finally {
+      setSubmitting(false);
     }
   };
+
 
   // Handle answer submission
   const handleSubmit = async () => {
@@ -766,7 +814,7 @@ You can now:
               {/* Answer Input */}
               {!isSubmitted && (
                 <>
-                  <div className="space-y-2">
+                  <div className={`space-y-2 ${isExamMode && examAnswerSaved ? 'opacity-60 pointer-events-none' : ''}`}>
                     <div className="flex items-center justify-between">
                       <label className="text-sm font-medium text-gray-700">
                         Your Answer
@@ -788,8 +836,8 @@ You can now:
                       value={currentAnswer}
                       onChange={(e) => setCurrentAnswer(e.target.value)}
                       placeholder="Write your answer here..."
-                      className="min-h-[120px] resize-y"
-                      disabled={submitting || !!evaluation}
+                      className={`min-h-[120px] resize-y ${isExamMode && examAnswerSaved ? 'cursor-not-allowed' : ''}`}
+                      disabled={submitting || !!evaluation || (isExamMode && examAnswerSaved)}
                     />
                     {wordCount < (questionData.wordLimit?.min || 0) && wordCount > 0 && (
                       <p className="text-xs text-red-600">
@@ -803,23 +851,29 @@ You can now:
                     )}
                   </div>
 
-                  {/* Submit Button */}
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={submitting || !currentAnswer.trim() || wordCount < (questionData.wordLimit?.min || 0) || wordCount > (questionData.wordLimit?.max || 100)}
-                    style={{
-                      backgroundColor: themeColors.accent,
-                      color: 'white',
-                    }}
-                    className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md"
-                  >
-                    {submitting ? (isExamMode ? 'Saving...' : 'Evaluating...') : (isExamMode ? 'Save Answer' : 'Submit Answer')}
-                  </Button>
+                  {/* Submit Button or Saved State */}
+                  {isExamMode && examAnswerSaved ? (
+                    <div className="flex items-center justify-center p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700">Saved</span>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={submitting || !currentAnswer.trim() || wordCount < (questionData.wordLimit?.min || 0) || wordCount > (questionData.wordLimit?.max || 100)}
+                      style={{
+                        backgroundColor: themeColors.accent,
+                        color: 'white',
+                      }}
+                      className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md"
+                    >
+                      {submitting ? (isExamMode ? 'Saving...' : 'Evaluating...') : (isExamMode ? 'Save Answer' : 'Submit Answer')}
+                    </Button>
+                  )}
                 </>
               )}
 
-              {/* Result Display */}
-              {evaluation && (
+              {/* Result Display - hidden in exam mode unless exam is completed */}
+              {evaluation && (!isExamMode || false) && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -923,9 +977,9 @@ You can now:
 
                   {/* Action Buttons - hide regenerate in exam mode */}
                   <div className="mt-4">
-                    {!questionData.maxAttemptsReached && questionData.attempts < questionData.maxAttempts && (
+                    {!isExamMode && !questionData.maxAttemptsReached && questionData.attempts < questionData.maxAttempts && (
                       <div className="flex gap-2">
-                        {!evaluation.isCorrect && !isExamMode && (
+                        {!evaluation.isCorrect && (
                           <Button
                             onClick={tryAgain}
                             variant="outline"
@@ -934,19 +988,17 @@ You can now:
                             Try Again
                           </Button>
                         )}
-                        {!isExamMode && (
-                          <Button
-                            onClick={() => handleRegenerate()}
-                            style={{
-                              backgroundColor: themeColors.accent,
-                              color: 'white',
-                            }}
-                            className="flex-1 text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:shadow-md"
-                          >
-                            <RefreshCw className="w-4 h-4 mr-1.5" />
-                            New Question
-                          </Button>
-                        )}
+                        <Button
+                          onClick={() => handleRegenerate()}
+                          style={{
+                            backgroundColor: themeColors.accent,
+                            color: 'white',
+                          }}
+                          className="flex-1 text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:shadow-md"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-1.5" />
+                          New Question
+                        </Button>
                       </div>
                     )}
                     

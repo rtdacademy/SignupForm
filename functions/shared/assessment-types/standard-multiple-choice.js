@@ -499,35 +499,42 @@ class StandardMultipleChoiceCore {
     // Update the assessment
     await assessmentRef.update(updates);
 
-    // Always update grade record, but use best score policy
+    // In exam mode, always update grade immediately (no "best score" policy for exams)
+    // In regular mode, use best score policy
     const gradeRef = getDatabaseRef('studentGrade', params.studentKey, params.courseId, params.assessmentId, params.isStaff);
-    
-    // Get existing grade to implement "best score" policy
-    const existingGradeSnapshot = await gradeRef.once('value');
-    const existingGrade = existingGradeSnapshot.val();
     
     // Calculate current attempt score
     const pointsValue = assessmentData.pointsValue || 1;
     const currentScore = result.isCorrect ? pointsValue : 0;
     
-    // Determine if we should update the grade record
     let shouldUpdateGrade = false;
     let finalScore = currentScore;
     
-    if (existingGrade === null || existingGrade === undefined) {
-      // First attempt - always save (even if 0)
-      shouldUpdateGrade = true;
-      console.log(`First attempt: saving grade ${currentScore}/${pointsValue}`);
-    } else if (currentScore > existingGrade) {
-      // Better score - save the improvement
+    if (params.examMode) {
+      // Exam mode: always update grade immediately (no best score policy)
       shouldUpdateGrade = true;
       finalScore = currentScore;
-      console.log(`Improved score: ${existingGrade} → ${currentScore}`);
+      console.log(`Exam mode: saving grade ${currentScore}/${pointsValue} (no best score policy)`);
     } else {
-      // Same or worse score - keep existing grade
-      shouldUpdateGrade = false;
-      finalScore = existingGrade;
-      console.log(`Score not improved: keeping existing grade ${existingGrade} (attempted: ${currentScore})`);
+      // Regular mode: use best score policy
+      const existingGradeSnapshot = await gradeRef.once('value');
+      const existingGrade = existingGradeSnapshot.val();
+      
+      if (existingGrade === null || existingGrade === undefined) {
+        // First attempt - always save (even if 0)
+        shouldUpdateGrade = true;
+        console.log(`First attempt: saving grade ${currentScore}/${pointsValue}`);
+      } else if (currentScore > existingGrade) {
+        // Better score - save the improvement
+        shouldUpdateGrade = true;
+        finalScore = currentScore;
+        console.log(`Improved score: ${existingGrade} → ${currentScore}`);
+      } else {
+        // Same or worse score - keep existing grade
+        shouldUpdateGrade = false;
+        finalScore = existingGrade;
+        console.log(`Score not improved: keeping existing grade ${existingGrade} (attempted: ${currentScore})`);
+      }
     }
 
     // Update grade record if needed

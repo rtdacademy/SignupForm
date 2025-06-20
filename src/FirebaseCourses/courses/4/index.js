@@ -42,11 +42,19 @@ const LessonContentWrapper = ({
   // Note: Access validation now uses assessment data instead of writing to Firebase progress
   useEffect(() => {
     if (activeItem?.itemId && !shouldBypassAccessControl(isStaffView, devMode)) {
+      console.log('🔍 Course4 access validation for:', activeItem.itemId, {
+        isStaffView,
+        devMode,
+        bypassControl: shouldBypassAccessControl(isStaffView, devMode)
+      });
+      
       // For assessment-based unlocking, we validate access using gradebook/assessment data
       const assessmentData = gradebookItems;
       
       const accessibility = getLessonAccessibility({ courseStructure }, assessmentData);
       const accessInfo = accessibility[activeItem.itemId];
+      
+      console.log('🔍 Access info for', activeItem.itemId, ':', accessInfo);
       
       if (!accessInfo) {
         console.warn('⚠️ No access info found for lesson:', activeItem.itemId);
@@ -55,6 +63,15 @@ const LessonContentWrapper = ({
       
       if (!accessInfo.accessible) {
         console.log('⚠️ Access denied for lesson:', activeItem.itemId, 'Reason:', accessInfo.reason);
+        
+        // Check if this is a URL-based navigation (on page load)
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlLesson = urlParams.get('lesson');
+        
+        if (urlLesson === activeItem.itemId) {
+          console.log('🔄 Lesson was from URL, allowing access despite restrictions for direct navigation');
+          return; // Don't redirect if user navigated directly via URL
+        }
         
         // Redirect to highest accessible lesson
         const highestAccessible = getHighestAccessibleLesson({ courseStructure }, assessmentData);
@@ -70,8 +87,15 @@ const LessonContentWrapper = ({
       } else {
         console.log('✅ Access granted for lesson:', activeItem.itemId);
       }
+    } else {
+      console.log('🔍 Course4 bypassing access control:', {
+        hasActiveItem: !!activeItem?.itemId,
+        shouldBypass: shouldBypassAccessControl(isStaffView, devMode),
+        isStaffView,
+        devMode
+      });
     }
-  }, [activeItem?.itemId, activeItem?.title, activeItem?.type, activeItem?.unitId, activeItem?.unitName, isStaffView, devMode, onItemSelect, setInternalActiveItemId, gradebookItems]);
+  }, [activeItem?.itemId, activeItem?.title, activeItem?.type, activeItem?.unitId, activeItem?.unitName, isStaffView, devMode, onItemSelect, setInternalActiveItemId, gradebookItems, courseStructure]);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -151,41 +175,71 @@ const Course4 = ({
 
   // Debug logging
   useEffect(() => {
-    console.log(`${courseDisplay.courseId}: Course loaded`, {
+    console.log(`${courseDisplay.courseId}: Course4 loaded with direct props`, {
       config: courseDisplay,
       structure: structure,
-      contentRegistry: Object.keys(contentRegistry)
+      contentRegistry: Object.keys(contentRegistry),
+      receivedProps: {
+        externalActiveItemId,
+        hasOnItemSelect: !!onItemSelect,
+        isStaffView,
+        devMode
+      }
     });
-  }, []);
+  }, [structure, externalActiveItemId, onItemSelect, isStaffView, devMode]);
 
   // Use external or internal active item ID
   const activeItemId = externalActiveItemId !== undefined ? externalActiveItemId : internalActiveItemId;
 
-  // Set default active item
+  // Set default active item - but don't override if external activeItemId is provided
   useEffect(() => {
-    if (!activeItemId && structure && structure.length > 0) {
+    console.log('🔍 Course4 default lesson logic:', {
+      activeItemId,
+      externalActiveItemId,
+      internalActiveItemId,
+      structureLoaded: structure && structure.length > 0,
+      shouldSetDefault: !activeItemId && structure && structure.length > 0
+    });
+    
+    // Only set default if no external activeItemId is provided AND no internal one is set
+    if (!activeItemId && externalActiveItemId === undefined && structure && structure.length > 0) {
       const firstUnit = structure[0];
       if (firstUnit.items && firstUnit.items.length > 0) {
         const firstItemId = firstUnit.items[0].itemId;
+        console.log('🔄 Course4 setting default lesson:', firstItemId);
         setInternalActiveItemId(firstItemId);
         if (onItemSelect) {
           onItemSelect(firstItemId);
         }
       }
     }
-  }, [activeItemId, structure, onItemSelect]);
+  }, [activeItemId, externalActiveItemId, internalActiveItemId, structure, onItemSelect]);
 
   // Find active item in structure
   const activeItem = React.useMemo(() => {
-    if (!activeItemId || !structure) return null;
+    console.log('🔍 Course4 looking for activeItem:', {
+      activeItemId,
+      structureExists: !!structure,
+      structureLength: structure?.length,
+      firstUnitItems: structure?.[0]?.items?.map(item => item.itemId)
+    });
+    
+    if (!activeItemId || !structure) {
+      console.log('❌ Course4 activeItem lookup failed: missing activeItemId or structure');
+      return null;
+    }
 
     for (const unit of structure) {
       for (const item of unit.items) {
         if (item.itemId === activeItemId) {
+          console.log('✅ Course4 found activeItem:', item.itemId, item.title);
           return { ...item, unitId: unit.unitId, unitName: unit.name };
         }
       }
     }
+    console.log('❌ Course4 activeItem not found in structure. Available items:', 
+      structure.flatMap(unit => unit.items || []).map(item => item.itemId)
+    );
     return null;
   }, [activeItemId, structure]);
 

@@ -48,9 +48,10 @@ const Course3 = ({
   // Use external or internal active item ID
   const activeItemId = externalActiveItemId !== undefined ? externalActiveItemId : internalActiveItemId;
 
-  // Set default active item
+  // Set default active item - but don't override if external activeItemId is provided
   useEffect(() => {
-    if (!activeItemId && structure && structure.length > 0) {
+    // Only set default if no external activeItemId is provided AND no internal one is set
+    if (!activeItemId && externalActiveItemId === undefined && structure && structure.length > 0) {
       const firstUnit = structure[0];
       if (firstUnit.items && firstUnit.items.length > 0) {
         const firstItemId = firstUnit.items[0].itemId;
@@ -60,7 +61,7 @@ const Course3 = ({
         }
       }
     }
-  }, [activeItemId, structure, onItemSelect]);
+  }, [activeItemId, externalActiveItemId, structure, onItemSelect]);
 
   // Find active item in structure
   const activeItem = React.useMemo(() => {

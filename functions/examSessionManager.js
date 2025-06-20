@@ -59,6 +59,36 @@ exports.startExamSession = onCall({
     const courseConfig = await getCourseConfig(courseId);
     const examConfig = courseConfig?.activityTypes?.exam || {};
     
+    // Check for existing sessions and validate attempt limits
+    const basePath = isStaff ? 'staff_testing' : 'students';
+    const sessionsPath = `${basePath}/${studentKey}/courses/${courseId}/ExamSessions`;
+    
+    const sessionsSnapshot = await admin.database().ref(sessionsPath).once('value');
+    const allSessions = sessionsSnapshot.val() || {};
+    
+    // Filter sessions for this specific exam
+    const examSessions = Object.values(allSessions).filter(session => 
+      session.examItemId === examItemId
+    );
+    
+    // Check for active session
+    const activeSession = examSessions.find(session => session.status === 'in_progress');
+    if (activeSession) {
+      throw new Error(`An active exam session already exists for this exam. Session ID: ${activeSession.sessionId}`);
+    }
+    
+    // Check attempt limits
+    const completedSessions = examSessions.filter(session => session.status === 'completed');
+    const maxAttempts = examConfig.maxAttempts || 1;
+    const attemptsUsed = completedSessions.length;
+    
+    if (attemptsUsed >= maxAttempts) {
+      throw new Error(`Maximum attempts (${maxAttempts}) reached for this exam. No more attempts allowed.`);
+    }
+    
+    const attemptNumber = attemptsUsed + 1;
+    console.log(`🎯 Starting attempt ${attemptNumber}/${maxAttempts} for exam ${examItemId}`);
+    
     // Ensure questions is an array of objects with at least questionId
     const normalizedQuestions = questions.map(q => {
       if (typeof q === 'string') {
@@ -84,15 +114,18 @@ exports.startExamSession = onCall({
       results: null,
       createdAt: getServerTimestamp(),
       
-      // Exam configuration
+      // Attempt tracking
+      attemptNumber: attemptNumber,
       maxAttempts: examConfig.maxAttempts || 1,
+      previousAttempts: completedSessions.length,
+      
+      // Exam configuration
       showDetailedFeedback: examConfig.showDetailedFeedback !== false, // Show after completion
       enableHints: examConfig.enableHints || false,
       theme: examConfig.theme || 'red'
     };
 
     // Save session to database
-    const basePath = isStaff ? 'staff_testing' : 'students';
     const sessionPath = `${basePath}/${studentKey}/courses/${courseId}/ExamSessions/${sessionId}`;
     
     await admin.database().ref(sessionPath).set(sessionData);
@@ -164,6 +197,7 @@ exports.saveExamAnswer = onCall({
       answer,
       examSessionId,
       studentEmail: dataStudentEmail
+      // No evaluation data - answers will be evaluated at exam submission
     } = actualData;
 
     // Get authentication info
@@ -200,12 +234,12 @@ exports.saveExamAnswer = onCall({
       throw new Error('Exam session is not active');
     }
     
-    // Update responses
+    // Update responses (answers only - no evaluation)
     const responses = sessionData.responses || {};
     const wasNewAnswer = !responses[assessmentId];
     responses[assessmentId] = answer;
     
-    // Update session
+    // Update session with answer only
     const updates = {
       responses: responses,
       questionsCompleted: Object.keys(responses).length,
@@ -287,79 +321,80 @@ exports.submitExamSession = onCall({
     // Use provided responses or session responses
     const finalResponses = Object.keys(responses).length > 0 ? responses : sessionData.responses || {};
     
-    console.log(`📝 Grading ${Object.keys(finalResponses).length} responses`);
+    console.log(`📝 Evaluating ${Object.keys(finalResponses).length} responses in real-time`);
     
-    // Grade each question
-    const gradingPromises = sessionData.questions.map(async (question) => {
+    // Read question results from database (questions will be evaluated in parallel by client)
+    console.log(`📝 Reading evaluation results from database for ${sessionData.questions.length} questions`);
+    
+    const questionResults = await Promise.all(sessionData.questions.map(async (question) => {
       // Handle both string questionId and object with questionId property
       const questionId = typeof question === 'string' ? question : question.questionId;
       
       if (!questionId) {
         console.error('Invalid question in grading:', question);
-        throw new Error('Question ID is missing during grading');
+        return {
+          questionId: 'unknown',
+          questionText: 'Invalid question',
+          studentAnswer: 'No answer',
+          correctAnswer: 'Unknown',
+          isCorrect: false,
+          feedback: 'This question could not be processed.',
+          points: 0,
+          maxPoints: 1
+        };
       }
       
       const studentAnswer = finalResponses[questionId];
       
       try {
-        // Get the assessment cloud function for this question
-        const assessmentFunction = admin.functions().httpsCallable(questionId);
+        // Read the evaluation result from the student's assessment data
+        const assessmentPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${questionId}`;
+        const assessmentSnapshot = await admin.database().ref(assessmentPath).once('value');
+        const assessmentData = assessmentSnapshot.val();
         
-        // Evaluate the answer
-        const result = await assessmentFunction({
-          courseId: courseId,
-          assessmentId: questionId,
-          operation: 'evaluate',
-          answer: studentAnswer || '', // Empty string if not answered
-          studentEmail: studentEmail,
-          examMode: true, // Special flag for exam mode
-          examSessionId: sessionId
-        });
-        
-        const questionResult = result.data?.result || {};
-        
-        // Update gradebook with the result
-        await updateGradebookItem(
-          studentKey,
-          courseId,
-          questionId,
-          questionResult.isCorrect ? (questionResult.maxScore || 1) : 0,
-          {
-            title: questionResult.title || questionId,
-            type: 'exam',
-            maxScore: questionResult.maxScore || 1,
-            courseStructureItemId: sessionData.examItemId
-          },
-          isStaff
-        );
-        
-        return {
-          questionId: questionId,
-          questionText: questionResult.questionText || '',
-          studentAnswer: studentAnswer || 'No answer',
-          correctAnswer: questionResult.correctAnswer || '',
-          isCorrect: questionResult.isCorrect || false,
-          feedback: questionResult.feedback || '',
-          points: questionResult.isCorrect ? (questionResult.maxScore || 1) : 0,
-          maxPoints: questionResult.maxScore || 1
-        };
+        if (assessmentData && assessmentData.lastSubmission) {
+          const submission = assessmentData.lastSubmission;
+          console.log(`✅ Found evaluation result for ${questionId}: ${submission.isCorrect ? 'Correct' : 'Incorrect'}`);
+          
+          return {
+            questionId: questionId,
+            questionText: question.title || questionId,
+            studentAnswer: studentAnswer || 'No answer',
+            correctAnswer: submission.correctOptionId || 'Unknown',
+            isCorrect: submission.isCorrect || false,
+            feedback: submission.feedback || '',
+            points: submission.isCorrect ? (question.points || 1) : 0,
+            maxPoints: question.points || 1
+          };
+        } else {
+          // No evaluation found - question was not answered or not evaluated
+          console.warn(`⚠️ No evaluation result found for ${questionId}`);
+          return {
+            questionId: questionId,
+            questionText: question.title || questionId,
+            studentAnswer: studentAnswer || 'No answer',
+            correctAnswer: 'Unknown',
+            isCorrect: false,
+            feedback: studentAnswer ? 'This question could not be graded due to a technical error.' : 'No answer provided.',
+            points: 0,
+            maxPoints: question.points || 1
+          };
+        }
         
       } catch (error) {
-        console.error(`Error grading question ${questionId}:`, error);
+        console.error(`❌ Error reading evaluation result for ${questionId}:`, error);
         return {
           questionId: questionId,
-          questionText: 'Question could not be loaded',
+          questionText: question.title || questionId,
           studentAnswer: studentAnswer || 'No answer',
           correctAnswer: 'Unknown',
           isCorrect: false,
           feedback: 'This question could not be graded due to a technical error.',
           points: 0,
-          maxPoints: 1
+          maxPoints: question.points || 1
         };
       }
-    });
-    
-    const questionResults = await Promise.all(gradingPromises);
+    }));
     
     // Calculate overall results
     const totalPoints = questionResults.reduce((sum, q) => sum + q.points, 0);
@@ -384,7 +419,7 @@ exports.submitExamSession = onCall({
       status: 'completed',
       endTime: getServerTimestamp(),
       responses: finalResponses,
-      results: examResults,
+      finalResults: examResults, // Store final compiled results separately from individual question results
       completedAt: getServerTimestamp()
     });
     
@@ -399,6 +434,193 @@ exports.submitExamSession = onCall({
   } catch (error) {
     console.error('❌ Error submitting exam session:', error);
     throw new Error(`Failed to submit exam session: ${error.message}`);
+  }
+});
+
+/**
+ * Exit/Cancel exam session (without grading)
+ */
+exports.exitExamSession = onCall({
+  region: 'us-central1',
+  memory: '256MiB',
+  timeoutSeconds: 60,
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
+}, async (data, context) => {
+  try {
+    // Extract parameters directly from data
+    const actualData = data.data || data;
+    const {
+      courseId,
+      sessionId,
+      studentEmail: dataStudentEmail
+    } = actualData;
+
+    // Get authentication info
+    const studentEmail = dataStudentEmail || context.auth?.token?.email;
+    
+    if (!studentEmail) {
+      throw new Error('Student email is required');
+    }
+
+    // Sanitize email for database key
+    const studentKey = sanitizeEmail(studentEmail);
+    const isStaff = studentEmail.includes('@rtdacademy.com');
+
+    if (!sessionId) {
+      throw new Error('Missing required parameter: sessionId');
+    }
+
+    console.log(`🚪 Exiting exam session: ${sessionId}`);
+    
+    const basePath = isStaff ? 'staff_testing' : 'students';
+    const sessionPath = `${basePath}/${studentKey}/courses/${courseId}/ExamSessions/${sessionId}`;
+    const sessionRef = admin.database().ref(sessionPath);
+    
+    // Get session data
+    const sessionSnapshot = await sessionRef.once('value');
+    const sessionData = sessionSnapshot.val();
+    
+    if (!sessionData) {
+      throw new Error('Exam session not found');
+    }
+    
+    if (sessionData.status !== 'in_progress') {
+      console.log(`Session ${sessionId} is already ${sessionData.status}`);
+      return {
+        success: true,
+        sessionId: sessionId,
+        status: sessionData.status
+      };
+    }
+    
+    // Update session status to exited
+    await sessionRef.update({
+      status: 'exited',
+      endTime: getServerTimestamp(),
+      exitedAt: getServerTimestamp(),
+      lastUpdated: getServerTimestamp()
+    });
+    
+    // Clean up any placeholder assessments that were created
+    const assessmentCleanupPromises = sessionData.questions.map(async (question) => {
+      const questionId = typeof question === 'string' ? question : question.questionId;
+      
+      if (!questionId) return;
+      
+      const assessmentPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${questionId}`;
+      const assessmentRef = admin.database().ref(assessmentPath);
+      
+      // Check if this is an exam placeholder
+      const assessmentSnapshot = await assessmentRef.once('value');
+      const assessmentData = assessmentSnapshot.val();
+      
+      if (assessmentData && assessmentData.status === 'exam_in_progress' && assessmentData.examSessionId === sessionId) {
+        // Remove the placeholder assessment
+        await assessmentRef.remove();
+        console.log(`🗑️ Cleaned up placeholder assessment: ${questionId}`);
+      }
+    });
+    
+    await Promise.all(assessmentCleanupPromises);
+    
+    console.log(`✅ Exam session exited: ${sessionId}`);
+    
+    return {
+      success: true,
+      sessionId: sessionId,
+      status: 'exited',
+      message: 'Exam session has been exited successfully'
+    };
+    
+  } catch (error) {
+    console.error('❌ Error exiting exam session:', error);
+    throw new Error(`Failed to exit exam session: ${error.message}`);
+  }
+});
+
+/**
+ * Detect active or available exam sessions for a student
+ */
+exports.detectActiveExamSession = onCall({
+  region: 'us-central1',
+  memory: '256MiB',
+  timeoutSeconds: 60,
+  cors: ["https://yourway.rtdacademy.com", "https://*.rtdacademy.com", "http://localhost:3000"]
+}, async (data, context) => {
+  try {
+    // Extract parameters directly from data
+    const actualData = data.data || data;
+    const {
+      courseId,
+      examItemId,
+      studentEmail: dataStudentEmail
+    } = actualData;
+
+    // Get authentication info
+    const studentEmail = dataStudentEmail || context.auth?.token?.email;
+    
+    if (!studentEmail) {
+      throw new Error('Student email is required');
+    }
+
+    // Sanitize email for database key
+    const studentKey = sanitizeEmail(studentEmail);
+    const isStaff = studentEmail.includes('@rtdacademy.com');
+
+    if (!courseId || !examItemId) {
+      throw new Error('Missing required parameters: courseId or examItemId');
+    }
+
+    console.log(`🔍 Detecting exam sessions for ${examItemId} in course ${courseId}`);
+    
+    const basePath = isStaff ? 'staff_testing' : 'students';
+    const sessionsPath = `${basePath}/${studentKey}/courses/${courseId}/ExamSessions`;
+    
+    // Get all exam sessions for this student/course
+    const sessionsSnapshot = await admin.database().ref(sessionsPath).once('value');
+    const allSessions = sessionsSnapshot.val() || {};
+    
+    // Filter sessions for this specific exam
+    const examSessions = Object.values(allSessions).filter(session => 
+      session.examItemId === examItemId
+    );
+    
+    // Sort by creation time (newest first)
+    examSessions.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    
+    // Find active session (in_progress)
+    const activeSession = examSessions.find(session => session.status === 'in_progress');
+    
+    // Find completed sessions
+    const completedSessions = examSessions.filter(session => session.status === 'completed');
+    
+    // Get course config to check attempt limits
+    const courseConfig = await getCourseConfig(courseId);
+    const examConfig = courseConfig?.activityTypes?.exam || {};
+    const maxAttempts = examConfig.maxAttempts || 1;
+    
+    // Calculate attempts used (completed + active sessions)
+    const attemptsUsed = completedSessions.length + (activeSession ? 1 : 0);
+    const attemptsRemaining = Math.max(0, maxAttempts - attemptsUsed);
+    
+    console.log(`📊 Exam session summary: ${attemptsUsed}/${maxAttempts} attempts used, ${attemptsRemaining} remaining`);
+    
+    return {
+      success: true,
+      activeSession: activeSession || null,
+      completedSessions: completedSessions,
+      allExamSessions: examSessions,
+      attemptsSummary: {
+        maxAttempts: maxAttempts,
+        attemptsUsed: attemptsUsed,
+        attemptsRemaining: attemptsRemaining,
+        canStartNewAttempt: attemptsRemaining > 0 && !activeSession
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ Error detecting exam sessions:', error);
+    throw new Error(`Failed to detect exam sessions: ${error.message}`);
   }
 });
 

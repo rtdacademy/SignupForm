@@ -33,7 +33,7 @@
     "defaultMinimumPercentage": 80,
     "lessonOverrides": {
       "lesson_welcome_rtd_academy": {
-        "minimumPercentage": 85,
+        "minimumPercentage": 50,
         "note": "Higher standard for introductory lesson"
       },
       "lesson_learning_plans_completion_policies": {
@@ -115,7 +115,7 @@
     },
     "exam": {
       "displayName": "Exam",
-      "maxAttempts": 1,
+      "maxAttempts": 3,
       "attemptPenalty": 0,
       "pointValue": 25,
       "theme": "red",
@@ -123,6 +123,13 @@
       "enableHints": false,
       "allowDifficultySelection": false,
       "defaultDifficulty": "advanced",
+      "multipleAttempts": {
+        "enabled": true,
+        "scoringMethod": "best",
+        "allowReviewBetweenAttempts": true,
+        "minimumTimeBetweenAttempts": 0,
+        "showPreviousScores": true
+      },
       "aiSettings": {
         "temperature": 0.5,
         "maxTokens": 1500,
@@ -450,17 +457,17 @@
           {
             "questionId": "course4_06_mid_exam_question1",
             "title": "RTD Academy Policies Review",
-            "points": 5
+            "points": 1
           },
           {
             "questionId": "course4_06_mid_exam_question2", 
             "title": "Time Management and Activity Requirements",
-            "points": 5
+            "points": 1
           },
           {
             "questionId": "course4_06_mid_exam_question3",
             "title": "Communication and Conduct Standards",
-            "points": 5
+            "points": 2
           }
         ]
       },

@@ -225,6 +225,8 @@ const StandardMultipleChoiceQuestion = ({
   examMode = false,        // Whether this question is part of an exam
   examSessionId = null,    // Exam session ID if in exam mode
   onExamAnswerSave = () => {}, // Callback when answer is saved in exam mode
+  hasExistingAnswer = false, // Whether this question already has a saved answer
+  currentSavedAnswer = null, // The currently saved answer for this question
   
   // Callback functions
   onCorrectAnswer = () => {}, // Callback when answer is correct
@@ -254,7 +256,6 @@ const StandardMultipleChoiceQuestion = ({
   const [regenerating, setRegenerating] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState(null);
   const [chatSheetOpen, setChatSheetOpen] = useState(false);
-  const [examAnswerSaved, setExamAnswerSaved] = useState(false);
   const [showExamFeedback, setShowExamFeedback] = useState(false);
   
   // Refs for debouncing and preventing multiple calls
@@ -270,6 +271,9 @@ const StandardMultipleChoiceQuestion = ({
   const isExamMode = examMode || question?.activityType === 'exam' || 
     (course?.Gradebook?.courseConfig?.activityTypes?.exam && 
      question?.type === 'exam');
+  
+  // Check if current selection differs from saved answer
+  const hasUnsavedChanges = isExamMode && currentSavedAnswer && selectedAnswer && selectedAnswer !== currentSavedAnswer;
   
   // Get theme colors - use theme from question settings if available, otherwise use prop
   const activeTheme = question?.settings?.theme || (isExamMode ? 'red' : theme);
@@ -713,7 +717,7 @@ const StandardMultipleChoiceQuestion = ({
     }
   };
 
-  // Handle saving answer in exam mode
+  // Handle saving answer in exam mode (NO EVALUATION - just save the choice)
   const handleExamAnswerSave = async () => {
     if (!selectedAnswer) {
       alert("Please select an answer");
@@ -722,26 +726,21 @@ const StandardMultipleChoiceQuestion = ({
 
     setSubmitting(true);
     try {
-      const assessmentFunction = httpsCallable(functions, cloudFunctionName);
+      // In exam mode, just save the answer choice without evaluation
+      const saveExamAnswerFunction = httpsCallable(functions, 'saveExamAnswer');
       
-      const functionParams = {
+      const saveParams = {
         courseId: courseId,
         assessmentId: finalAssessmentId,
-        operation: 'saveExamAnswer',
         answer: selectedAnswer,
-        studentEmail: currentUser.email,
-        userId: currentUser.uid,
         examSessionId: examSessionId,
-        topic: topic || question?.topic || 'general',
-        difficulty: question?.difficulty || 'intermediate'
+        studentEmail: currentUser.email
+        // NO evaluation data - answers will be evaluated when exam is submitted
       };
 
-      console.log(`Saving exam answer for ${cloudFunctionName}`, functionParams);
+      console.log(`Saving exam answer (no evaluation): ${finalAssessmentId} = ${selectedAnswer}`);
+      await saveExamAnswerFunction(saveParams);
 
-      const result = await assessmentFunction(functionParams);
-      console.log("Exam answer saved successfully:", result);
-
-      setExamAnswerSaved(true);
       onExamAnswerSave(selectedAnswer, finalAssessmentId);
       
     } catch (err) {
@@ -1040,7 +1039,7 @@ const StandardMultipleChoiceQuestion = ({
                         : 'bg-white hover:bg-gray-50 border-gray-200'
                     }`}
                     onClick={() => {
-                      // Only allow selection if there's no result yet (prevent resubmitting the same question)
+                      // Only allow selection if there's no result yet
                       if (!result) {
                         setSelectedAnswer(option.id);
                       }
@@ -1053,21 +1052,24 @@ const StandardMultipleChoiceQuestion = ({
                       value={option.id}
                       checked={selectedAnswer === option.id}
                       onChange={() => !result && setSelectedAnswer(option.id)}
-                      disabled={result !== null} // Disable after any submission (prevent resubmitting)
+                      disabled={result !== null} // Disable after submission
                       className={`mr-3 h-4 w-4 cursor-pointer text-${themeColors.name}-600 focus:ring-${themeColors.name}-500`}
                     />
-                    <label htmlFor={`${instanceId}_${option.id}`} className="text-gray-700 flex-grow cursor-pointer">
+                    <label 
+                      htmlFor={`${instanceId}_${option.id}`} 
+                      className="flex-grow text-gray-700 cursor-pointer"
+                    >
                       {renderEnhancedText(option.text)}
                     </label>
 
-                    {/* Show the correct/incorrect icon if there's a result */}
-                    {result?.isCorrect && selectedAnswer === option.id && (
+                    {/* Show the correct/incorrect icon if there's a result (but NOT in exam mode) */}
+                    {!isExamMode && result?.isCorrect && selectedAnswer === option.id && (
                       <span className="text-green-600 ml-2">✓</span>
                     )}
-                    {result?.correctOptionId === option.id && !result.isCorrect && (
+                    {!isExamMode && result?.correctOptionId === option.id && !result.isCorrect && (
                       <span className="text-green-600 ml-2">✓</span>
                     )}
-                    {!result?.isCorrect && result?.answer === option.id && result?.answer !== result?.correctOptionId && (
+                    {!isExamMode && !result?.isCorrect && result?.answer === option.id && result?.answer !== result?.correctOptionId && (
                       <span className="text-red-600 ml-2">✗</span>
                     )}
                   </motion.div>
@@ -1078,33 +1080,22 @@ const StandardMultipleChoiceQuestion = ({
               {!result && !showExamFeedback && (
                 <Button
                   onClick={handleSubmit}
-                  disabled={submitting || !selectedAnswer || (isExamMode && examAnswerSaved)}
+                  disabled={submitting || !selectedAnswer}
                   style={{
-                    backgroundColor: isExamMode && examAnswerSaved ? '#9CA3AF' : themeColors.accent,
+                    backgroundColor: hasUnsavedChanges ? '#f59e0b' : themeColors.accent,
                     color: 'white',
                   }}
-                  className="mt-3 w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md"
+                  className={`mt-3 w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md ${
+                    hasUnsavedChanges ? 'ring-2 ring-amber-300 ring-opacity-50' : ''
+                  }`}
                 >
                   {submitting ? 
                     (isExamMode ? 'Saving...' : 'Submitting...') : 
                     isExamMode ? 
-                      (examAnswerSaved ? 'Answer Saved ✓' : 'Save Answer') : 
+                      (hasUnsavedChanges ? 'Save Changes' : hasExistingAnswer ? 'Update Answer' : 'Save Answer') : 
                       'Submit Answer'
                   }
                 </Button>
-              )}
-              
-              {/* Exam mode saved confirmation */}
-              {isExamMode && examAnswerSaved && !showExamFeedback && (
-                <motion.div
-                  variants={animations.slideUp}
-                  initial="hidden"
-                  animate="show"
-                  className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm"
-                >
-                  <p className="font-medium mb-1">Answer Saved</p>
-                  <p>Your answer has been saved. You can change your selection before finishing the exam.</p>
-                </motion.div>
               )}
 
               {/* Result feedback - hidden in exam mode unless exam is completed */}
@@ -1251,14 +1242,14 @@ const StandardMultipleChoiceQuestion = ({
                         {renderEnhancedText(option.text)}
                       </label>
 
-                      {/* Show the correct/incorrect icon if there's a result */}
-                      {result?.isCorrect && selectedAnswer === option.id && (
+                      {/* Show the correct/incorrect icon if there's a result (but NOT in exam mode) */}
+                      {!isExamMode && result?.isCorrect && selectedAnswer === option.id && (
                         <span className="text-green-600 ml-2">✓</span>
                       )}
-                      {result?.correctOptionId === option.id && !result.isCorrect && (
+                      {!isExamMode && result?.correctOptionId === option.id && !result.isCorrect && (
                         <span className="text-green-600 ml-2">✓</span>
                       )}
-                      {!result?.isCorrect && result?.answer === option.id && result?.answer !== result?.correctOptionId && (
+                      {!isExamMode && !result?.isCorrect && result?.answer === option.id && result?.answer !== result?.correctOptionId && (
                         <span className="text-red-600 ml-2">✗</span>
                       )}
                     </div>
@@ -1341,6 +1332,22 @@ function getThemeColors(theme) {
       bgDark: '#fef3c7',
       border: '#fde68a',
       textDark: '#b45309'
+    },
+    gray: {
+      name: 'gray',
+      accent: '#6b7280',
+      bgLight: '#f9fafb',
+      bgDark: '#f3f4f6',
+      border: '#e5e7eb',
+      textDark: '#374151'
+    },
+    slate: {
+      name: 'slate',
+      accent: '#64748b',
+      bgLight: '#f8fafc',
+      bgDark: '#f1f5f9',
+      border: '#e2e8f0',
+      textDark: '#334155'
     }
   };
 

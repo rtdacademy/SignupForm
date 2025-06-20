@@ -14,6 +14,42 @@ import {
   CourseItemDetailModal, 
   QuestionReviewModal 
 } from './components/gradebook';
+import { Skeleton } from '../components/ui/skeleton';
+
+// Lazy load course components at module level to prevent re-importing
+const Course0 = React.lazy(() => import('./courses/PHY30'));
+const Course2 = React.lazy(() => import('./courses/2'));
+const Course3 = React.lazy(() => import('./courses/3'));
+const Course4 = React.lazy(() => import('./courses/4'));
+const Course100 = React.lazy(() => import('./courses/100'));
+
+// Skeleton fallback component for lazy loading
+const CourseLoadingSkeleton = () => (
+  <div className="p-6 space-y-6">
+    {/* Course header skeleton */}
+    <div className="space-y-4">
+      <Skeleton className="h-8 w-3/4" />
+      <Skeleton className="h-4 w-1/2" />
+    </div>
+    
+    {/* Content area skeleton */}
+    <div className="space-y-4">
+      <Skeleton className="h-6 w-1/3" />
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-4 w-2/3" />
+      <Skeleton className="h-4 w-1/2" />
+    </div>
+    
+    {/* Additional content skeleton */}
+    <div className="space-y-4">
+      <Skeleton className="h-24 w-full" />
+      <div className="flex space-x-4">
+        <Skeleton className="h-10 w-32" />
+        <Skeleton className="h-10 w-32" />
+      </div>
+    </div>
+  </div>
+);
 
 // Main wrapper component for all Firebase courses
 // Provides common layout, navigation, and context for course content
@@ -30,7 +66,28 @@ const FirebaseCourseWrapperContent = ({
   // Check if current user is an authorized developer
   const isAuthorizedDeveloper = isUserAuthorizedDeveloper(currentUser, course);
   const [activeTab, setActiveTab] = useState('content');
-  const [activeItemId, setActiveItemId] = useState(null);
+  // Initialize activeItemId from URL or localStorage
+  const [activeItemId, setActiveItemId] = useState(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const lessonFromUrl = urlParams.get('lesson');
+    
+    // If URL has lesson, use it
+    if (lessonFromUrl) {
+      console.log('🔍 Wrapper initializing from URL:', lessonFromUrl);
+      return lessonFromUrl;
+    }
+    
+    // Otherwise, try localStorage
+    const courseId = course?.CourseID || course?.courseId;
+    if (courseId) {
+      const storageKey = `lastLesson_${courseId}`;
+      const lessonFromStorage = localStorage.getItem(storageKey);
+      console.log('🔍 Wrapper initializing from localStorage:', lessonFromStorage);
+      return lessonFromStorage || null;
+    }
+    
+    return null;
+  });
   const [progress, setProgress] = useState({});
   const [navExpanded, setNavExpanded] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -39,6 +96,8 @@ const FirebaseCourseWrapperContent = ({
   const [selectedCourseItem, setSelectedCourseItem] = useState(null);
   const [isItemDetailModalOpen, setIsItemDetailModalOpen] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [isContentReady, setIsContentReady] = useState(false);
+  const [courseModuleLoaded, setCourseModuleLoaded] = useState(false);
   
   // Ref for navigation container to detect outside clicks
   const navigationRef = useRef(null);
@@ -154,13 +213,26 @@ const FirebaseCourseWrapperContent = ({
   const handleItemSelect = useCallback((itemId) => {
     setActiveItemId(itemId);
     
+    // Update URL parameter to persist lesson selection
+    const url = new URL(window.location);
+    url.searchParams.set('lesson', itemId);
+    window.history.replaceState({}, '', url);
+    
+    // Also save to localStorage for reliable persistence
+    const courseId = course?.CourseID || course?.courseId;
+    if (courseId) {
+      const storageKey = `lastLesson_${courseId}`;
+      localStorage.setItem(storageKey, itemId);
+      console.log('🔍 Saved to localStorage:', storageKey, '=', itemId);
+    }
+    
     // Scroll to top when selecting a new item
     window.scrollTo(0, 0);
 
     if (externalItemSelect) {
       externalItemSelect(itemId);
     }
-  }, [externalItemSelect]);
+  }, [externalItemSelect, course]);
 
   // Handle scroll to top and expand navigation
   const handleScrollToTopAndExpand = useCallback(() => {
@@ -278,6 +350,47 @@ const FirebaseCourseWrapperContent = ({
     return items;
   }, [unitsList]);
   
+  // Validate lesson from URL parameter exists in course structure
+  useEffect(() => {
+    // Only validate if we have both an activeItemId AND course structure is loaded
+    if (activeItemId && allCourseItems.length > 0) {
+      console.log('🔍 Wrapper validating lesson:', activeItemId, 'against', allCourseItems.length, 'items');
+      
+      // Validate that the current activeItemId (from URL) exists in course structure
+      const lessonExists = allCourseItems.find(item => item.itemId === activeItemId);
+      if (!lessonExists) {
+        console.log('❌ Wrapper: Lesson not found in course structure, clearing activeItemId');
+        // If lesson from URL doesn't exist, clear it so course can set default
+        setActiveItemId(null);
+        // Also clean up the URL and localStorage
+        const url = new URL(window.location);
+        url.searchParams.delete('lesson');
+        window.history.replaceState({}, '', url);
+        
+        const courseId = course?.CourseID || course?.courseId;
+        if (courseId) {
+          const storageKey = `lastLesson_${courseId}`;
+          localStorage.removeItem(storageKey);
+        }
+      } else {
+        console.log('✅ Wrapper: Lesson found in course structure, keeping activeItemId');
+        // If lesson exists and came from URL, save it to localStorage for future sessions
+        const urlParams = new URLSearchParams(window.location.search);
+        const lessonFromUrl = urlParams.get('lesson');
+        if (lessonFromUrl === activeItemId) {
+          const courseId = course?.CourseID || course?.courseId;
+          if (courseId) {
+            const storageKey = `lastLesson_${courseId}`;
+            localStorage.setItem(storageKey, activeItemId);
+            console.log('🔍 URL lesson validated, saved to localStorage:', storageKey, '=', activeItemId);
+          }
+        }
+      }
+    } else if (activeItemId && allCourseItems.length === 0) {
+      console.log('⏳ Wrapper: Have activeItemId but course structure not loaded yet, waiting...');
+    }
+  }, [allCourseItems, activeItemId, course]);
+  
   // Calculate lesson accessibility for the active lesson info panel
   const lessonAccessibility = useMemo(() => {
     // Skip access control for staff/dev/authorized developers or if no course structure
@@ -313,6 +426,118 @@ const FirebaseCourseWrapperContent = ({
     if (!activeItemId) return null;
     return allCourseItems.find(item => item.itemId === activeItemId);
   }, [activeItemId, allCourseItems]);
+  
+  // Preload course module when course ID is known
+  useEffect(() => {
+    const courseId = course?.CourseID;
+    if (courseId && !courseModuleLoaded) {
+      // Preload the appropriate course module
+      let modulePromise;
+      switch(courseId) {
+        case 4:
+        case '4':
+          modulePromise = import('./courses/4');
+          break;
+        case 2:
+        case '2':
+          modulePromise = import('./courses/2');
+          break;
+        case 3:
+        case '3':
+          modulePromise = import('./courses/3');
+          break;
+        case 0:
+        case '0':
+          modulePromise = import('./courses/PHY30');
+          break;
+        case 100:
+        case '100':
+          modulePromise = import('./courses/100');
+          break;
+        default:
+          setCourseModuleLoaded(true); // No module to load
+          return;
+      }
+      
+      modulePromise.then(() => {
+        console.log('✅ Course module loaded for courseId:', courseId);
+        setCourseModuleLoaded(true);
+      }).catch(err => {
+        console.error('❌ Failed to load course module:', err);
+        setCourseModuleLoaded(true); // Set to true anyway to show error state
+      });
+    }
+  }, [course?.CourseID, courseModuleLoaded]);
+
+  // Validate gradebook structure and sync course config when course loads
+  useEffect(() => {
+    const validateAndSyncCourseConfig = async () => {
+      // Only validate for authenticated users with a valid course
+      if (!currentUser?.email || !course?.CourseID) {
+        return;
+      }
+      
+      // Skip validation in staff/dev mode to avoid unnecessary overhead
+      if (shouldBypassAllRestrictions(isStaffView, devMode, currentUser, course)) {
+        return;
+      }
+      
+      try {
+        console.log('🔍 Validating gradebook structure and syncing course config...');
+        
+        const functions = getFunctions();
+        const validateGradebookStructure = httpsCallable(functions, 'validateGradebookStructure');
+        
+        const result = await validateGradebookStructure({
+          courseId: course.CourseID.toString(),
+          studentEmail: currentUser.email
+        });
+        
+        if (result.data?.success) {
+          const { configSynced, configChanges, wasRebuilt } = result.data;
+          
+          if (configSynced && configChanges?.length > 0) {
+            console.log('✅ Course config changes detected and synced:', configChanges);
+            
+            // If significant changes were made, we might want to refresh the course data
+            // For now, just log the changes - the realtime listener will pick up updates
+            if (wasRebuilt) {
+              console.log('🔄 Gradebook was rebuilt due to structure changes');
+              // Could trigger a course data refresh here if needed
+            }
+          } else if (configSynced) {
+            console.log('✅ Course config validation completed - no changes needed');
+          }
+        }
+      } catch (error) {
+        // Don't show errors to users for background validation
+        console.warn('Course config validation failed (non-critical):', error.message);
+      }
+    };
+    
+    // Run validation after course data is loaded
+    if (course?.CourseID && currentUser?.email && allCourseItems.length > 0) {
+      // Debounce validation to avoid multiple calls
+      const timer = setTimeout(validateAndSyncCourseConfig, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [course?.CourseID, currentUser?.email, allCourseItems.length, isStaffView, devMode]);
+
+  // Set content ready state when all necessary data is loaded including course module
+  useEffect(() => {
+    const hasStructure = allCourseItems.length > 0;
+    const hasCourseData = !!course;
+    const hasTitle = !!courseData.title;
+    const hasModule = courseModuleLoaded;
+    
+    if (hasStructure && hasCourseData && hasTitle && hasModule && !isContentReady) {
+      // Small delay to prevent flickering
+      const timer = setTimeout(() => {
+        setIsContentReady(true);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [allCourseItems.length, course, courseData.title, courseModuleLoaded, isContentReady]);
   
   // Show error state if no course structure available
   if (courseData.error) {
@@ -585,17 +810,52 @@ const FirebaseCourseWrapperContent = ({
                 </div>
               )}
               
-              
-              {React.Children.map(children, child =>
-                React.isValidElement(child)
-                  ? React.cloneElement(child, {
-                      course: course,
-                      courseId: course?.CourseID || '1',
-                      isStaffView,
-                      devMode
-                    })
-                  : child
-              )}
+              <React.Suspense fallback={<CourseLoadingSkeleton />}>
+                {!isContentReady ? (
+                  <CourseLoadingSkeleton />
+                ) : (() => {
+                  // Render course content directly in wrapper instead of going through CourseRouterEnhanced
+                  const courseId = course?.CourseID;
+                  console.log('🔍 Wrapper directly rendering course content for courseId:', courseId, 'activeItemId:', activeItemId);
+                  
+                  const courseProps = {
+                    course: course,
+                    activeItemId: activeItemId, // Course components expect this prop name
+                    onItemSelect: handleItemSelect,
+                    isStaffView,
+                    devMode,
+                    gradebookItems: course?.Gradebook?.items || course?.Assessments || {}
+                  };
+                  
+                  // Use pre-loaded components
+                  switch(courseId) {
+                    case 4:
+                    case '4':
+                      return <Course4 {...courseProps} />;
+                    case 2:
+                    case '2':
+                      return <Course2 {...courseProps} />;
+                    case 3:
+                    case '3':
+                      return <Course3 {...courseProps} />;
+                    case 0:
+                    case '0':
+                      return <Course0 {...courseProps} />;
+                    case 100:
+                    case '100':
+                      return <Course100 {...courseProps} />;
+                    default:
+                      return (
+                        <div className="p-8">
+                          <h1 className="text-2xl font-bold mb-4">{course?.Course?.Value || course?.courseDetails?.Title || 'Course'}</h1>
+                          <p className="text-gray-600">
+                            Course content for ID {courseId} is being developed. Check back soon!
+                          </p>
+                        </div>
+                      );
+                  }
+                })()}
+              </React.Suspense>
             </div>
           )}
           

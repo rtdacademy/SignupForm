@@ -48,6 +48,10 @@ const studentPropertiesFunctions = require('./studentProperties');
 
 // PASI data management
 const pasiDataFunctions = require('./uploadPasiData');
+
+// PDF generation
+const pdfGenerationFunctions = require('./generateRegistrationPDFs');
+const downloadPDFFunctions = require('./downloadRegistrationPDFs');
 const pasiCsvFunctions = require('./uploadPasiCsv');
 
 // Edge functions
@@ -178,6 +182,10 @@ exports.uploadPasiData = pasiDataFunctions.uploadPasiData;
 exports.retrievePasiData = pasiDataFunctions.retrievePasiData;
 exports.retrieveStudentPasiData = pasiDataFunctions.retrieveStudentPasiData;
 
+// PDF generation functions
+exports.generateRegistrationPDFs = pdfGenerationFunctions.generateRegistrationPDFs;
+exports.downloadRegistrationPDFs = downloadPDFFunctions.downloadRegistrationPDFs;
+
 // PASI CSV Upload V2
 exports.uploadPasiCsvV2 = pasiCsvFunctions.uploadPasiCsvV2;
 exports.validateParentInvitation = parentPortalFunctions.validateParentInvitation;
@@ -218,12 +226,16 @@ exports.getGradebookData = gradebookFunctions.getGradebookData;
 exports.getGradebookSummary = gradebookFunctions.getGradebookSummary;
 exports.recalculateGradebook = gradebookFunctions.recalculateGradebook;
 exports.recalculateMyGradebook = gradebookFunctions.recalculateMyGradebook;
+exports.validateGradebookStructure = gradebookFunctions.validateGradebookStructure;
+exports.cleanupLegacyAssessments = gradebookFunctions.cleanupLegacyAssessments;
 
 // Exam session management functions
 exports.startExamSession = examSessionFunctions.startExamSession;
 exports.saveExamAnswer = examSessionFunctions.saveExamAnswer;
 exports.submitExamSession = examSessionFunctions.submitExamSession;
 exports.getExamSession = examSessionFunctions.getExamSession;
+exports.detectActiveExamSession = examSessionFunctions.detectActiveExamSession;
+exports.exitExamSession = examSessionFunctions.exitExamSession;
 
 //==============================================================================
 // Assessment functions for courses

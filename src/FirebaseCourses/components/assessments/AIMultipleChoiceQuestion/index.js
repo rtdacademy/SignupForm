@@ -1468,14 +1468,14 @@ You can now:
                       {renderEnhancedText(option.text)}
                     </label>
 
-                    {/* Show the correct/incorrect icon if there's a result */}
-                    {result?.isCorrect && selectedAnswer === option.id && (
+                    {/* Show the correct/incorrect icon if there's a result (but NOT in exam mode) */}
+                    {!isExamMode && result?.isCorrect && selectedAnswer === option.id && (
                       <span className="text-green-600 ml-2">✓</span>
                     )}
-                    {result?.correctOptionId === option.id && !result.isCorrect && (
+                    {!isExamMode && result?.correctOptionId === option.id && !result.isCorrect && (
                       <span className="text-green-600 ml-2">✓</span>
                     )}
-                    {!result?.isCorrect && result?.answer === option.id && result?.answer !== result?.correctOptionId && (
+                    {!isExamMode && !result?.isCorrect && result?.answer === option.id && result?.answer !== result?.correctOptionId && (
                       <span className="text-red-600 ml-2">✗</span>
                     )}
                   </motion.div>
@@ -1497,8 +1497,8 @@ You can now:
                 </Button>
               )}
 
-              {/* Result feedback */}
-              {result && (
+              {/* Result feedback - hidden in exam mode unless exam is completed */}
+              {result && (!isExamMode || false) && (
                 <motion.div
                   variants={animations.slideUp}
                   initial="hidden"

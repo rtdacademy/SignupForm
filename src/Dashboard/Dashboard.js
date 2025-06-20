@@ -10,7 +10,7 @@ import MigrationWelcomeDialog from '../migration/MigrationWelcomeSheet';
 import ProfileComponent from './ProfileComponent';
 import CourseCard from './CourseCard';
 import LMSWrapper from './LMSWrapper';
-import CourseRouter from '../FirebaseCourses/CourseRouter';
+import FirebaseCourseWrapper from '../FirebaseCourses/FirebaseCourseWrapperImproved';
 import { useAuth } from '../context/AuthContext';
 import { useStudentData } from './hooks/useStudentData';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -425,7 +425,7 @@ const Dashboard = () => {
             />
           ) : courseType === 'firebase' ? (
             // Explicit Firebase course routing
-            <CourseRouter
+            <FirebaseCourseWrapper
               course={selectedCourse}
             />
           ) : courseType === 'lms' ? (
@@ -437,7 +437,7 @@ const Dashboard = () => {
             />
           ) : selectedCourse?.courseDetails?.firebaseCourse || selectedCourse?.firebaseCourse ? (
             // Fallback for Firebase courses when courseType is not specified (backward compatibility)
-            <CourseRouter
+            <FirebaseCourseWrapper
               course={selectedCourse}
             />
           ) : (
@@ -628,12 +628,13 @@ const Dashboard = () => {
                         className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
                         onClick={() => {
                           // Use the appropriate handler based on course type
-                          if (course.courseDetails?.firebaseCourse) {
+                          if (course.courseDetails?.firebaseCourse || course.firebaseCourse) {
                             handleGoToFirebaseCourse(course);
                           } else {
                             handleGoToLMSCourse(course);
                           }
                         }}
+                        disabled={!course.courseDetails && !course.firebaseCourse && !course.isRequiredCourse}
                       >
                         Go to Course
                       </Button>

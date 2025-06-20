@@ -17,7 +17,7 @@ exports.course4_06_mid_exam_question1 = createStandardMultipleChoice({
       topic: "RTD Academy Policies"
     }
   ],
-  pointsValue: 5,
+  pointsValue: 1,
   maxAttempts: 1,
   showFeedback: false // Exam mode - no feedback
 });
@@ -38,7 +38,7 @@ exports.course4_06_mid_exam_question2 = createStandardMultipleChoice({
       topic: "Time Management and Activity Requirements"
     }
   ],
-  pointsValue: 5,
+  pointsValue: 1,
   maxAttempts: 1,
   showFeedback: false // Exam mode - no feedback
 });
@@ -47,8 +47,8 @@ exports.course4_06_mid_exam_question3 = createAIShortAnswer({
   prompt: "Generate a short answer question about professional communication in RTD Academy's online learning environment. The question should ask students to explain professional communication and provide specific examples of appropriate online conduct.",
   expectedAnswers: ["Professional communication at RTD Academy involves clear, respectful, and academically appropriate interactions. This includes using proper email etiquette with clear subject lines and polite tone, participating respectfully in online discussions, properly citing sources to maintain academic integrity, and using technology appropriately for educational purposes."],
   keyWords: ["professional communication", "email etiquette", "respectful", "academic integrity", "online conduct"],
-  pointsValue: 5,
-  wordLimits: { min: 50, max: 200 },
+  pointsValue: 2,
+  wordLimits: { min: 10, max: 200 },
   activityType: "exam",
   maxAttempts: 1,
   showFeedback: false,
@@ -61,7 +61,7 @@ exports.course4_06_mid_exam_question3 = createAIShortAnswer({
       expectedAnswer: "Professional communication at RTD Academy involves clear, respectful, and academically appropriate interactions. This includes using proper email etiquette with clear subject lines and polite tone, participating respectfully in online discussions, properly citing sources to maintain academic integrity, and using technology appropriately for educational purposes.",
       sampleAnswer: "Professional communication in RTD Academy's online environment means communicating clearly and respectfully. For example, using proper email format with clear subject lines when contacting instructors, and participating in discussions with respectful language while properly citing any sources used.",
       acceptableAnswers: ["professional communication", "email etiquette", "respectful communication", "academic integrity"],
-      wordLimit: { min: 50, max: 200 },
+      wordLimit: { min: 10, max: 200 },
       difficulty: "intermediate"
     }
   ]

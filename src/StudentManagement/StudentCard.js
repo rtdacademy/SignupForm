@@ -486,7 +486,12 @@ const StudentCard = React.memo(({
       
       const db = getDatabase();
       // Get the student key consistently with how categories are handled
-      const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+      const rawEmail = student.StudentEmail;
+  if (!rawEmail) {
+    console.error('StudentEmail is missing for student:', student);
+    toast.error('Cannot update: Student email is missing');
+    return;
+  }
       const studentKey = sanitizeEmail(rawEmail);
       const profileHistoryRef = ref(db, `students/${studentKey}/profileHistory`);
       
@@ -521,14 +526,25 @@ const validateActiveFutureArchivedValue = useCallback((value) => {
 const updateStatus = useCallback(async (newStatus) => {
   const db = getDatabase();
   // Get the student key consistently with how categories are handled
-  const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+  const rawEmail = student.StudentEmail;
+  if (!rawEmail) {
+    console.error('StudentEmail is missing for student:', student);
+    toast.error('Cannot update: Student email is missing');
+    return;
+  }
   const studentKey = sanitizeEmail(rawEmail);
   const courseId = student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1);
   
   // Debug logging
   console.log('updateStatus - Database path:', `students/${studentKey}/courses/${courseId}/Status/Value`);
   console.log('updateStatus - studentKey:', studentKey, 'courseId:', courseId);
-  
+   console.log('Update attempt details:', {
+    rawEmail,
+    studentKey,
+    courseId,
+    fullPath: `students/${studentKey}/courses/${courseId}/Status/Value`,
+    newStatus
+  });
   try {
     const previousStatus = statusValue;
     const selectedStatusOption = STATUS_OPTIONS.find(option => option.value === newStatus);
@@ -671,7 +687,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
 
     const db = getDatabase();
     // Get the student key consistently with how categories are handled
-    const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+    const rawEmail = student.StudentEmail;
+  if (!rawEmail) {
+    console.error('StudentEmail is missing for student:', student);
+    toast.error('Cannot update: Student email is missing');
+    return;
+  }
     const studentKey = sanitizeEmail(rawEmail);
     const courseId = student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1);
     const autoStatusRef = ref(db, `students/${studentKey}/courses/${courseId}/autoStatus`);
@@ -693,7 +714,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
   const handleCategoryChange = useCallback(async (categoryId, teacherEmailKey) => {
     const db = getDatabase();
     // Use the actual student email and course ID from the student object
-    const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+    const rawEmail = student.StudentEmail;
+  if (!rawEmail) {
+    console.error('StudentEmail is missing for student:', student);
+    toast.error('Cannot update: Student email is missing');
+    return;
+  }
     const studentKey = sanitizeEmail(rawEmail);
     const courseId = student.CourseID || student.courseId;
     const categoryRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}/${categoryId}`);
@@ -737,7 +763,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
   const handleRemoveCategory = useCallback(async (categoryId, teacherEmailKey) => {
     const db = getDatabase();
     // Use the actual student email and course ID from the student object
-    const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+    const rawEmail = student.StudentEmail;
+  if (!rawEmail) {
+    console.error('StudentEmail is missing for student:', student);
+    toast.error('Cannot update: Student email is missing');
+    return;
+  }
     const studentKey = sanitizeEmail(rawEmail);
     const courseId = student.CourseID || student.courseId;
     const categoriesRef = ref(db, `students/${studentKey}/courses/${courseId}/categories/${teacherEmailKey}`);
@@ -759,7 +790,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
   const handleRemoveCourse = useCallback(async () => {
     const db = getDatabase();
     // Get the student key consistently with how categories are handled
-    const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+    const rawEmail = student.StudentEmail;
+  if (!rawEmail) {
+    console.error('StudentEmail is missing for student:', student);
+    toast.error('Cannot update: Student email is missing');
+    return;
+  }
     const studentKey = sanitizeEmail(rawEmail);
     const courseId = student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1);
     const courseRef = ref(db, `students/${studentKey}/courses/${courseId}`);
@@ -783,7 +819,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
     
     const db = getDatabase();
     // Get the student key consistently with how categories are handled
-    const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+    const rawEmail = student.StudentEmail;
+  if (!rawEmail) {
+    console.error('StudentEmail is missing for student:', student);
+    toast.error('Cannot update: Student email is missing');
+    return;
+  }
     const studentKey = sanitizeEmail(rawEmail);
     const courseId = student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1);
     const summaryKey = `${studentKey}_${courseId}`;
@@ -1684,7 +1725,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
         onOpenChange={setIsAsnIssuesDialogOpen}
         asn={student.asn}
         studentKey={(() => {
-          const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+          const rawEmail = student.StudentEmail;
+  if (!rawEmail) {
+    console.error('StudentEmail is missing for student:', student);
+    toast.error('Cannot update: Student email is missing');
+    return;
+  }
           return sanitizeEmail(rawEmail);
         })()}
         studentEmail={getStudentInfo.email}  
@@ -1703,7 +1749,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
         studentName={getStudentInfo.fullName}
         courseName={getSafeValue(student.Course_Value)}
         studentKey={(() => {
-          const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+          const rawEmail = student.StudentEmail;
+  if (!rawEmail) {
+    console.error('StudentEmail is missing for student:', student);
+    toast.error('Cannot update: Student email is missing');
+    return;
+  }
           return sanitizeEmail(rawEmail);
         })()}
         courseId={student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1)}
@@ -1726,7 +1777,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
         courseName={getSafeValue(student.Course_Value)}
         studentEmail={getStudentInfo.email} 
         studentKey={(() => {
-          const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+          const rawEmail = student.StudentEmail;
+  if (!rawEmail) {
+    console.error('StudentEmail is missing for student:', student);
+    toast.error('Cannot update: Student email is missing');
+    return;
+  }
           return sanitizeEmail(rawEmail);
         })()}
         courseId={student.CourseID || student.courseId || student.id.slice(student.id.lastIndexOf('_') + 1)}
@@ -1748,7 +1804,12 @@ const handleStatusChange = useCallback(async (newStatus) => {
           </DialogHeader>
           <div className="flex-grow overflow-auto">
             <ProfileHistory studentEmailKey={(() => {
-              const rawEmail = student.originalEmail || student.StudentEmail || student.email;
+              const rawEmail = student.StudentEmail;
+  if (!rawEmail) {
+    console.error('StudentEmail is missing for student:', student);
+    toast.error('Cannot update: Student email is missing');
+    return;
+  }
               return sanitizeEmail(rawEmail);
             })()} />
           </div>
