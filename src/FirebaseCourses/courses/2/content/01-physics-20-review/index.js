@@ -6,6 +6,261 @@ import LessonContent, { TextSection, MediaSection, LessonSummary } from '../../.
 import { DynamicQuestion } from '../../../../components/assessments';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import StandardMultipleChoiceQuestion from '../../../../components/assessments/StandardMultipleChoiceQuestion';
+
+/**
+ * Physics 20 Review Knowledge Check Component
+ */
+const PhysicsKnowledgeCheck = ({ courseId }) => {
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [questionsCompleted, setQuestionsCompleted] = useState({
+    question1: false,
+    question2: false,
+    question3: false,
+    question4: false,
+    question5: false,
+    question6: false,
+    question7: false,
+    question8: false,
+    question9: false,
+    question10: false,
+    question11: false,
+    question12: false,
+    question13: false
+  });
+  const [questionResults, setQuestionResults] = useState({
+    question1: null,
+    question2: null,
+    question3: null,
+    question4: null,
+    question5: null,
+    question6: null,
+    question7: null,
+    question8: null,
+    question9: null,
+    question10: null,
+    question11: null,
+    question12: null,
+    question13: null
+  });
+
+  const allQuestionsCompleted = Object.values(questionsCompleted).every(completed => completed);
+
+  const questions = [
+    {
+      id: 'question1',
+      assessmentId: '01_physics_20_review_q1',
+      cloudFunctionName: 'course2_01_physics_20_review_q1',
+      title: 'Displacement Calculation'
+    },
+    {
+      id: 'question2',
+      assessmentId: '01_physics_20_review_q2',
+      cloudFunctionName: 'course2_01_physics_20_review_q2',
+      title: 'Time Calculation'
+    },
+    {
+      id: 'question3',
+      assessmentId: '01_physics_20_review_q3',
+      cloudFunctionName: 'course2_01_physics_20_review_q3',
+      title: 'Average Speed'
+    },
+    {
+      id: 'question4',
+      assessmentId: '01_physics_20_review_q4',
+      cloudFunctionName: 'course2_01_physics_20_review_q4',
+      title: 'Acceleration Calculation'
+    },
+    {
+      id: 'question5',
+      assessmentId: '01_physics_20_review_q5',
+      cloudFunctionName: 'course2_01_physics_20_review_q5',
+      title: 'Vertical Motion Acceleration'
+    },
+    {
+      id: 'question6',
+      assessmentId: '01_physics_20_review_q6',
+      cloudFunctionName: 'course2_01_physics_20_review_q6',
+      title: 'Velocity on Slope'
+    },
+    {
+      id: 'question7',
+      assessmentId: '01_physics_20_review_q7',
+      cloudFunctionName: 'course2_01_physics_20_review_q7',
+      title: 'Electron Acceleration'
+    },
+    {
+      id: 'question8',
+      assessmentId: '01_physics_20_review_q8',
+      cloudFunctionName: 'course2_01_physics_20_review_q8',
+      title: 'Maximum Height'
+    },
+    {
+      id: 'question9',
+      assessmentId: '01_physics_20_review_q9',
+      cloudFunctionName: 'course2_01_physics_20_review_q9',
+      title: 'Falling Package'
+    },
+    {
+      id: 'question10',
+      assessmentId: '01_physics_20_review_q10',
+      cloudFunctionName: 'course2_01_physics_20_review_q10',
+      title: 'Free Fall'
+    },
+    {
+      id: 'question11',
+      assessmentId: '01_physics_20_review_q11',
+      cloudFunctionName: 'course2_01_physics_20_review_q11',
+      title: 'Vertical Throw'
+    },
+    {
+      id: 'question12',
+      assessmentId: '01_physics_20_review_q12',
+      cloudFunctionName: 'course2_01_physics_20_review_q12',
+      title: 'Cliff Throw Vertical'
+    },
+    {
+      id: 'question13',
+      assessmentId: '01_physics_20_review_q13',
+      cloudFunctionName: 'course2_01_physics_20_review_q13',
+      title: 'Horizontal Projectile'
+    }
+  ];
+
+  const handleQuestionAttempt = (questionId, isCorrect) => {
+    if (isCorrect) {
+      setQuestionsCompleted(prev => ({
+        ...prev,
+        [questionId]: true
+      }));
+    }
+    setQuestionResults(prev => ({
+      ...prev,
+      [questionId]: isCorrect ? 'correct' : 'incorrect'
+    }));
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto my-8">
+      <div className="text-center mb-6">
+        <h4 className="text-xl font-bold mb-4">Kinematics Practice Questions</h4>
+        
+      </div>
+
+      {/* Progress Indicator */}
+      <div className="flex justify-center mb-6">
+        <div className="flex space-x-2 flex-wrap justify-center gap-1">
+          {questions.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentQuestionIndex(index)}
+              className={`w-3 h-3 rounded-full transition-all duration-200 ${
+                index === currentQuestionIndex
+                  ? 'bg-blue-600 scale-125'
+                  : questionResults[`question${index + 1}`] === 'correct'
+                  ? 'bg-green-500'
+                  : questionResults[`question${index + 1}`] === 'incorrect'
+                  ? 'bg-red-500'
+                  : 'bg-gray-300 hover:bg-gray-400'
+              }`}
+              aria-label={`Go to question ${index + 1}`}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Question Display */}
+      <div className="relative">
+        {questions.map((question, index) => (
+          currentQuestionIndex === index && (
+            <div key={question.id}>
+              <StandardMultipleChoiceQuestion
+                courseId={courseId}
+                assessmentId={question.assessmentId}
+                cloudFunctionName={question.cloudFunctionName}
+                title={`${question.title} - Question ${index + 1} of ${questions.length}`}
+                theme="blue"
+                onAttempt={(isCorrect) => handleQuestionAttempt(question.id, isCorrect)}
+              />
+            </div>
+          )
+        ))}
+      </div>
+
+      {/* Navigation Controls */}
+      <div className="flex justify-between items-center mt-6">
+        <button
+          onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
+          disabled={currentQuestionIndex === 0}
+          className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+            currentQuestionIndex === 0
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Previous
+        </button>
+
+        <div className="text-sm text-gray-500">
+          Question {currentQuestionIndex + 1} of {questions.length}
+        </div>
+
+        <button
+          onClick={() => setCurrentQuestionIndex(Math.min(questions.length - 1, currentQuestionIndex + 1))}
+          disabled={currentQuestionIndex === questions.length - 1}
+          className={`flex items-center px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+            currentQuestionIndex === questions.length - 1
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+          }`}
+        >
+          Next
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Completion Summary */}
+      {allQuestionsCompleted && (
+        <section className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg p-6 sm:p-8 mt-8">
+          <h2 className="text-2xl font-bold mb-4 text-center">Physics Review Complete! 🎉</h2>
+          
+          <div className="text-center mb-6">
+            <p className="text-lg">
+              Excellent work! You've completed all 13 physics calculation problems.
+            </p>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur rounded-lg p-4">
+            <h3 className="font-semibold mb-2">Your Results:</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {questions.map((question, index) => (
+                <div key={question.id} className="flex items-center gap-2 text-sm">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs ${
+                    questionResults[question.id] === 'correct' ? 'bg-green-500' : 'bg-red-500'
+                  }`}>
+                    {questionResults[question.id] === 'correct' ? '✓' : '✗'}
+                  </span>
+                  <span>Q{index + 1}: {question.title}</span>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-4 text-center">
+              <p className="text-sm opacity-90">
+                Correct answers: {Object.values(questionResults).filter(r => r === 'correct').length} / {questions.length}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+};
 
 /**
  * Physics 20 Review lesson component
@@ -648,108 +903,8 @@ const Physics20Review = ({ course, courseId = '2' }) => {
               </div>
             </div>          )}        </div>
 
-        {/* Practice Problems - Slideshow */}
-        <div className="mt-8 mb-6">
-          <h3 className="text-xl font-semibold mb-4 text-green-900">Kinematics Practice Problems</h3>
-          <p className="mb-6 text-gray-700">
-            Work through these practice problems to test your understanding. Use the navigation arrows or 
-            click on the problem numbers to jump to specific problems.
-          </p>
-          
-          <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6">            {/* Problem Counter */}
-            <div className="flex justify-between items-center mb-4">
-              <div className="text-green-800 font-medium">
-                Problem {currentProblem + 1} of {practiceProblems.length}
-              </div>
-              <div className="flex space-x-1">
-                {practiceProblems.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => goToProblem(index)}
-                    className={`w-8 h-8 rounded-full text-xs font-medium transition-colors duration-200 ${
-                      index === currentProblem
-                        ? 'bg-green-800 text-white'
-                        : 'bg-green-200 text-green-800 hover:bg-green-300'
-                    }`}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Problem Content */}
-            <div className="bg-white rounded-lg p-6 border border-green-200">
-              <h4 className="text-lg font-semibold text-green-900 mb-4">
-                {practiceProblems[currentProblem].question}
-              </h4>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* Left Column - Given and Equation */}
-                <div>
-                  <div className="mb-4">
-                    <h5 className="font-medium text-green-700 mb-2">Given:</h5>
-                    <ul className="space-y-1">
-                      {practiceProblems[currentProblem].given.map((item, index) => (
-                        <li key={index} className="text-sm bg-green-50 px-3 py-1 rounded border-l-3 border-green-300">
-                          <InlineMath>{item}</InlineMath>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  
-                  <div className="mb-4">
-                    <h5 className="font-medium text-green-700 mb-2">Equation:</h5>
-                    <div className="bg-green-100 px-4 py-3 rounded border border-green-200">
-                      <BlockMath>{practiceProblems[currentProblem].equation}</BlockMath>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Column - Solution */}
-                <div>
-                  <div className="mb-4">
-                    <h5 className="font-medium text-green-700 mb-2">Solution:</h5>
-                    <div className="bg-gray-50 px-4 py-3 rounded border border-gray-200 text-sm">
-                      <InlineMath>{practiceProblems[currentProblem].solution}</InlineMath>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h5 className="font-medium text-green-700 mb-2">Answer:</h5>
-                    <div className="bg-green-600 text-white px-4 py-3 rounded font-medium text-center">
-                      <InlineMath>{`\\text{${practiceProblems[currentProblem].answer}}`}</InlineMath>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Controls */}
-            <div className="flex justify-between items-center mt-6">
-              <button
-                onClick={prevProblem}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={practiceProblems.length <= 1}
-              >
-                <span className="mr-2">←</span>
-                Previous
-              </button>
-              
-              <div className="text-green-700 font-medium">
-                {currentProblem + 1} / {practiceProblems.length}
-              </div>
-              
-              <button
-                onClick={nextProblem}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={practiceProblems.length <= 1}
-              >
-                Next
-                <span className="ml-2">→</span>
-              </button>            </div>
-          </div>
-        </div>
+        {/* Physics 20 Review Knowledge Check */}
+        <PhysicsKnowledgeCheck courseId={courseId} />
 
       <TextSection>
         <div className="mb-6">

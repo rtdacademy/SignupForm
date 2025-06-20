@@ -20,6 +20,9 @@ const LabMomentumConservation = () => {  // Track completion status for each sec
   });
   // Track procedure confirmation
   const [procedureRead, setProcedureRead] = useState(false);
+  
+  // Track if student has saved progress
+  const [hasSavedProgress, setHasSavedProgress] = useState(false);
 
   // Track notifications
   const [notification, setNotification] = useState({ message: '', type: '', visible: false });  // Track trial data for observations - completely separate storage for 1D and 2D collision modes
@@ -257,6 +260,7 @@ const LabMomentumConservation = () => {  // Track completion status for each sec
   };
   const saveAndEnd = () => {
     setLabStarted(false);
+    setHasSavedProgress(true);
     // Here you could also save progress to database
   };  const updateSectionContent = (section, content) => {
     setSectionContent(prev => ({
@@ -1499,14 +1503,48 @@ const LabMomentumConservation = () => {  // Track completion status for each sec
         </div>
           {/* Start Lab Box */}
         <div className="max-w-md mx-auto">
-          <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-md text-center">            <h2 className="text-xl font-semibold text-gray-800 mb-4">Ready to Begin?</h2>
+          <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-md text-center">            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              {hasSavedProgress ? 'Welcome Back!' : 'Ready to Begin?'}
+            </h2>
             <p className="text-gray-600 mb-4">
-              This lab contains all parts of a lab report and an interactive simulation. You can save your progress and return later if needed.
-            </p>            <button
+              {hasSavedProgress 
+                ? 'Your progress has been saved. You can continue where you left off.'
+                : 'This lab contains all parts of a lab report and an interactive simulation. You can save your progress and return later if needed.'
+              }
+            </p>
+            
+            {/* Progress Summary for returning students */}
+            {hasSavedProgress && (
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Your Progress:</h3>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {Object.entries(sectionStatus).map(([section, status]) => (
+                    <div key={section} className="flex items-center gap-1">
+                      <span className={`text-xs ${
+                        status === 'completed' ? 'text-green-600' : 
+                        status === 'in-progress' ? 'text-yellow-600' : 
+                        'text-gray-400'
+                      }`}>
+                        {status === 'completed' ? '✓' : 
+                         status === 'in-progress' ? '◐' : '○'}
+                      </span>
+                      <span className="text-xs text-gray-600 capitalize">
+                        {section}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {completedCount} of 7 sections completed
+                </p>
+              </div>
+            )}
+            
+            <button
               onClick={startLab}
               className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg border border-blue-600 hover:bg-blue-700 transition-all duration-200 text-lg"
             >
-              Start Lab
+              {hasSavedProgress ? 'Continue Lab' : 'Start Lab'}
             </button>
           </div>
         </div>

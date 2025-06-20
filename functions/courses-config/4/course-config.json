@@ -4,17 +4,17 @@
   "fullTitle": "4 - COM1255",
   "description": "Generated course: COM1255",
   "credits": 1,
-  "grade": "12",
+  "grade": "10",
   "prerequisites": [],
   "instructors": [],
   "duration": "1 semester",
   "contentFolder": "content",
   "functionsFolder": "functions/4",
   "weights": {
-    "lesson": 0.15,
-    "assignment": 0.35,
-    "lab": 0.2,
-    "exam": 0.3
+    "lesson": 1,
+    "assignment": 0,
+    "lab": 0,
+    "exam": 0
   },
   "globalSettings": {
     "allowLateSubmissions": true,

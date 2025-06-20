@@ -222,6 +222,21 @@ exports.PHY30_IntroToPhysics = require('./courses/PHY30/content/lessons/IntroToP
 exports.course2_02_momentum_one_dimension_aiQuestion = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_aiQuestion;
 exports.course2_02_momentum_one_dimension_aiLongAnswer = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_aiLongAnswer;
 
+// Course 2 - Physics 20 Review
+exports.course2_01_physics_20_review_q1 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q1;
+exports.course2_01_physics_20_review_q2 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q2;
+exports.course2_01_physics_20_review_q3 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q3;
+exports.course2_01_physics_20_review_q4 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q4;
+exports.course2_01_physics_20_review_q5 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q5;
+exports.course2_01_physics_20_review_q6 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q6;
+exports.course2_01_physics_20_review_q7 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q7;
+exports.course2_01_physics_20_review_q8 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q8;
+exports.course2_01_physics_20_review_q9 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q9;
+exports.course2_01_physics_20_review_q10 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q10;
+exports.course2_01_physics_20_review_q11 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q11;
+exports.course2_01_physics_20_review_q12 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q12;
+exports.course2_01_physics_20_review_q13 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q13;
+
 // 3 Course Functions (Financial Literacy)
 //exports.course3_shared_aiQuestion = require('./courses/3/shared/aiQuestions').course3_shared_aiQuestion;
 
