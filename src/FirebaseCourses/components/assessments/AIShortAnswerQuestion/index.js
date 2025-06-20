@@ -135,6 +135,11 @@ const AIShortAnswerQuestion = ({
   theme = 'purple',
   className = '',
   
+  // Exam mode props
+  examMode = false,        // Whether this is being used in exam mode
+  examSessionId = null,    // Exam session ID for saving answers
+  onExamAnswerSave = () => {}, // Callback for saving exam answers
+  
   // Callback functions
   onComplete = () => {},
   onAttempt = () => {},
@@ -142,6 +147,9 @@ const AIShortAnswerQuestion = ({
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [questionData, setQuestionData] = useState(null);
+  
+  // Use cloudFunctionName as fallback for assessmentId if not provided
+  const effectiveAssessmentId = assessmentId || cloudFunctionName;
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [wordCount, setWordCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -163,6 +171,9 @@ const AIShortAnswerQuestion = ({
   // Get theme colors
   const activeTheme = questionData?.settings?.theme || theme;
   const themeColors = getThemeColors(activeTheme);
+  
+  // Detect exam mode from course config or prop
+  const isExamMode = examMode || questionData?.activityType === 'exam';
 
   // Calculate word count
   useEffect(() => {
@@ -187,11 +198,11 @@ const AIShortAnswerQuestion = ({
     const loadAssessment = async () => {
       setLoading(true);
       try {
-        console.log(`Loading short answer assessment: ${assessmentId}`);
+        console.log(`Loading short answer assessment: ${effectiveAssessmentId}`);
 
         // Use appropriate path based on whether user is staff or student
         const basePath = isStaff ? 'staff_testing' : 'students';
-        const dbPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${assessmentId}`;
+        const dbPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${effectiveAssessmentId}`;
         const assessmentRef = ref(db, dbPath);
 
         const unsubscribe = onValue(assessmentRef, (snapshot) => {
@@ -244,7 +255,7 @@ const AIShortAnswerQuestion = ({
     return () => {
       unsubscribePromise?.then(unsubscribe => unsubscribe && unsubscribe());
     };
-  }, [currentUser, courseId, assessmentId, db]);
+  }, [currentUser, courseId, effectiveAssessmentId, db]);
 
   // Generate a new question
   const generateQuestion = async () => {
@@ -286,7 +297,7 @@ const AIShortAnswerQuestion = ({
       
       const functionParams = {
         courseId: courseId,
-        assessmentId: assessmentId,
+        assessmentId: effectiveAssessmentId,
         operation: 'generate',
         studentEmail: currentUser.email,
         userId: currentUser.uid,
@@ -316,8 +327,49 @@ const AIShortAnswerQuestion = ({
     }
   };
 
+  // Handle exam answer save (no evaluation)
+  const handleExamAnswerSave = async () => {
+    if (!currentAnswer.trim()) {
+      alert("Please write an answer before submitting");
+      return;
+    }
+    
+    try {
+      // Call exam answer save function
+      const saveExamAnswerFunction = httpsCallable(functions, 'saveExamAnswer');
+      
+      const functionParams = {
+        courseId: courseId,
+        assessmentId: effectiveAssessmentId,
+        answer: currentAnswer,
+        examSessionId: examSessionId,
+        studentEmail: currentUser.email
+      };
+      
+      console.log('Saving exam answer:', functionParams);
+      
+      const result = await saveExamAnswerFunction(functionParams);
+      console.log('Exam answer saved:', result.data);
+      
+      // Notify parent component
+      onExamAnswerSave(currentAnswer, effectiveAssessmentId);
+      
+      // Show success feedback
+      alert('Answer saved successfully!');
+      
+    } catch (error) {
+      console.error('Error saving exam answer:', error);
+      alert('Failed to save answer: ' + (error.message || error));
+    }
+  };
+
   // Handle answer submission
   const handleSubmit = async () => {
+    // In exam mode, save answer without evaluation
+    if (isExamMode) {
+      return handleExamAnswerSave();
+    }
+    
     if (!currentAnswer.trim()) {
       alert("Please write an answer before submitting");
       return;
@@ -341,7 +393,7 @@ const AIShortAnswerQuestion = ({
 
       const functionParams = {
         courseId: courseId,
-        assessmentId: assessmentId,
+        assessmentId: effectiveAssessmentId,
         operation: 'evaluate',
         answer: currentAnswer,
         studentEmail: currentUser.email,
@@ -361,7 +413,7 @@ const AIShortAnswerQuestion = ({
         setEvaluation(result.data.result);
         setIsSubmitted(true);
         
-        if (chatSheetOpen) {
+        if (chatSheetOpen && !isExamMode) {
           await sendContextUpdateToAI(result.data.result);
         }
         
@@ -429,7 +481,7 @@ const AIShortAnswerQuestion = ({
       const functions = getFunctions();
       const sendChatMessage = httpsCallable(functions, 'sendChatMessage');
       
-      const sessionIdentifier = `ai-short-answer-${courseId}-${assessmentId}-${questionData.timestamp || Date.now()}`;
+      const sessionIdentifier = `ai-short-answer-${courseId}-${effectiveAssessmentId}-${questionData.timestamp || Date.now()}`;
       const STORAGE_KEY_SESSION_ID = `google_ai_chat_session_id_${sessionIdentifier}`;
       let currentSessionId = null;
       
@@ -632,7 +684,7 @@ You can now:
                 AI-powered
               </span>
             )}
-            {questionData && questionData.enableAIChat !== false && (
+            {questionData && questionData.enableAIChat !== false && !isExamMode && (
               <Button
                 onClick={() => setChatSheetOpen(true)}
                 size="sm"
@@ -761,7 +813,7 @@ You can now:
                     }}
                     className="w-full text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:opacity-90 hover:shadow-md"
                   >
-                    {submitting ? 'Evaluating...' : 'Submit Answer'}
+                    {submitting ? (isExamMode ? 'Saving...' : 'Evaluating...') : (isExamMode ? 'Save Answer' : 'Submit Answer')}
                   </Button>
                 </>
               )}
@@ -869,11 +921,11 @@ You can now:
                     </div>
                   </details>
 
-                  {/* Action Buttons */}
+                  {/* Action Buttons - hide regenerate in exam mode */}
                   <div className="mt-4">
                     {!questionData.maxAttemptsReached && questionData.attempts < questionData.maxAttempts && (
                       <div className="flex gap-2">
-                        {!evaluation.isCorrect && (
+                        {!evaluation.isCorrect && !isExamMode && (
                           <Button
                             onClick={tryAgain}
                             variant="outline"
@@ -882,17 +934,19 @@ You can now:
                             Try Again
                           </Button>
                         )}
-                        <Button
-                          onClick={() => handleRegenerate()}
-                          style={{
-                            backgroundColor: themeColors.accent,
-                            color: 'white',
-                          }}
-                          className="flex-1 text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:shadow-md"
-                        >
-                          <RefreshCw className="w-4 h-4 mr-1.5" />
-                          New Question
-                        </Button>
+                        {!isExamMode && (
+                          <Button
+                            onClick={() => handleRegenerate()}
+                            style={{
+                              backgroundColor: themeColors.accent,
+                              color: 'white',
+                            }}
+                            className="flex-1 text-white font-medium py-2 px-4 rounded transition-all duration-200 hover:shadow-md"
+                          >
+                            <RefreshCw className="w-4 h-4 mr-1.5" />
+                            New Question
+                          </Button>
+                        )}
                       </div>
                     )}
                     
@@ -960,7 +1014,7 @@ You can now:
           <div className="w-full md:w-1/2 h-full">
             {questionData && (
               <GoogleAIChatApp
-                sessionIdentifier={`ai-short-answer-${courseId}-${assessmentId}-${questionData.timestamp || Date.now()}`}
+                sessionIdentifier={`ai-short-answer-${courseId}-${effectiveAssessmentId}-${questionData.timestamp || Date.now()}`}
                 instructions={getAIChatInstructions()}
                 firstMessage={getAIChatFirstMessage()}
                 showYouTube={false}

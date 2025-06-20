@@ -559,7 +559,6 @@ const WelcometoRTDAcademy = ({ courseId, itemId, activeItem, onNavigateToLesson,
               {currentQuestionIndex === 0 && (
                 <StandardMultipleChoiceQuestion
                   courseId={courseId}
-                  assessmentId="01_welcome_rtd_academy_knowledge_check"
                   cloudFunctionName="course4_01_welcome_rtd_academy_knowledge_check"
                   title="RTD Academy Knowledge Check - Question 1"
                   theme="indigo"
@@ -573,7 +572,6 @@ const WelcometoRTDAcademy = ({ courseId, itemId, activeItem, onNavigateToLesson,
               {currentQuestionIndex === 1 && (
                 <StandardMultipleChoiceQuestion
                   courseId={courseId}
-                  assessmentId="01_welcome_rtd_academy_question2"
                   cloudFunctionName="course4_01_welcome_rtd_academy_question2"
                   title="RTD Academy Knowledge Check - Question 2"
                   theme="indigo"
@@ -587,7 +585,6 @@ const WelcometoRTDAcademy = ({ courseId, itemId, activeItem, onNavigateToLesson,
               {currentQuestionIndex === 2 && (
                 <StandardMultipleChoiceQuestion
                   courseId={courseId}
-                  assessmentId="01_welcome_rtd_academy_question3"
                   cloudFunctionName="course4_01_welcome_rtd_academy_question3"
                   title="RTD Academy Knowledge Check - Question 3"
                   theme="indigo"

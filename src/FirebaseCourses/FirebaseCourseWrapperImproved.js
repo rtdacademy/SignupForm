@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { FaGraduationCap } from 'react-icons/fa';
-import { BookOpen, ClipboardCheck, Bug, ArrowUp, Menu } from 'lucide-react';
+import { BookOpen, ClipboardCheck, Bug, ArrowUp, Menu, RefreshCw, Loader, CheckCircle, Lock, PlayCircle, AlertCircle } from 'lucide-react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
+import { isUserAuthorizedDeveloper, shouldBypassAllRestrictions, getBypassReason } from './utils/authUtils';
+import { getLessonAccessibility } from './utils/lessonAccess';
+//import LessonInfoPanel from './components/navigation/LessonInfoPanel';
 import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
-import { GradebookProvider } from './context/GradebookContext';
+// Import the comprehensive GradebookDashboard component
 import { 
-  GradebookSummary, 
-  AssessmentGrid, 
-  CourseItemGrid, 
+  GradebookDashboard,
   CourseItemDetailModal, 
   QuestionReviewModal 
 } from './components/gradebook';
@@ -24,6 +26,9 @@ const FirebaseCourseWrapperContent = ({
   devMode = false
 }) => {
   const { currentUser } = useAuth();
+  
+  // Check if current user is an authorized developer
+  const isAuthorizedDeveloper = isUserAuthorizedDeveloper(currentUser, course);
   const [activeTab, setActiveTab] = useState('content');
   const [activeItemId, setActiveItemId] = useState(null);
   const [progress, setProgress] = useState({});
@@ -33,6 +38,7 @@ const FirebaseCourseWrapperContent = ({
   const [isQuestionReviewModalOpen, setIsQuestionReviewModalOpen] = useState(false);
   const [selectedCourseItem, setSelectedCourseItem] = useState(null);
   const [isItemDetailModalOpen, setIsItemDetailModalOpen] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
   
   // Ref for navigation container to detect outside clicks
   const navigationRef = useRef(null);
@@ -175,76 +181,93 @@ const FirebaseCourseWrapperContent = ({
       setDisableScrollCollapse(false);
     }, 1000); // Give enough time for smooth scroll to complete
   }, []);
+
+  // Handle gradebook recalculation
+  const handleRecalculateGradebook = useCallback(async () => {
+    try {
+      // Check if user is authenticated
+      if (!currentUser || !currentUser.email) {
+        console.error('User not authenticated');
+        return;
+      }
+      
+      setIsRecalculating(true);
+      console.log('🔄 Recalculating gradebook for user:', currentUser.email);
+      
+      const functions = getFunctions();
+      const recalculateMyGradebook = httpsCallable(functions, 'recalculateMyGradebook');
+      
+      const result = await recalculateMyGradebook({
+        courseId: course?.CourseID?.toString() || course?.courseId?.toString(),
+        studentEmail: currentUser.email
+      });
+      
+      console.log('✅ Gradebook recalculated:', result);
+      
+      // Force page refresh to reload course data with updated gradebook structure
+      window.location.reload();
+    } catch (error) {
+      console.error('❌ Error recalculating gradebook:', error);
+      setIsRecalculating(false);
+      alert('Error recalculating gradebook: ' + error.message);
+    }
+  }, [currentUser, course]);
   
-  // Get course data from the course object, either from database or fallback
+  // Get course data from the course object - now prioritizes database structure
   const getCourseData = () => {
     console.log("🔍 FirebaseCourseWrapper - Analyzing course data:", course);
     console.log("🔍 Course structure paths:", {
+      "course.Gradebook?.courseStructure": course.Gradebook?.courseStructure,
       "course.courseStructure": course.courseStructure,
       "course.courseStructure?.structure": course.courseStructure?.structure,
-      "course.courseStructure?.units": course.courseStructure?.units,
-      "course.courseDetails?.courseStructure?.structure": course.courseDetails?.courseStructure?.structure,
-      "course.courseDetails?.units": course.courseDetails?.units,
-      "course.units": course.units
+      "course.courseStructure?.units": course.courseStructure?.units
     });
 
-    // First priority: check direct courseStructure path (JSON file from CourseRouter)
-    if (course.courseStructure?.structure) {
-      console.log("Using courseStructure.structure from JSON file (via CourseRouter)");
+    // First priority: check gradebook courseStructure (database-driven from backend config)
+    if (course.Gradebook?.courseStructure) {
+      console.log("✅ Using course structure from gradebook (database-driven from backend config)");
+      return {
+        title: course.Gradebook.courseStructure.title || course.Course?.Value || '',
+        structure: course.Gradebook.courseStructure.units || [],
+        courseWeights: course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
+      };
+    }
+    
+    // Second priority: check direct courseStructure path (legacy JSON file approach)
+    else if (course.courseStructure?.structure) {
+      console.log("⚠️ Using legacy courseStructure.structure from JSON file");
       return {
         title: course.courseStructure.title || '',
         structure: course.courseStructure.structure || [],
-        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
+        courseWeights: course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
       };
     }
-    // Also check for nested courseStructure.units pattern
+    // Also check for nested courseStructure.units pattern (legacy)
     else if (course.courseStructure?.units) {
-      console.log("Using courseStructure.units from JSON file (via CourseRouter)");
+      console.log("⚠️ Using legacy courseStructure.units from JSON file");
       return {
         title: course.courseStructure.title || course.Course?.Value || '',
         structure: course.courseStructure.units || [],
-        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
-      };
-    }
-    // Second priority: check courseDetails.courseStructure.structure (database fallback)
-    else if (course.courseDetails?.courseStructure?.structure) {
-      console.log("Using courseDetails.courseStructure.structure from database");
-      return {
-        title: course.courseDetails.courseStructure.title || course.Title || '',
-        structure: course.courseDetails.courseStructure.structure,
-        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
-      };
-    }
-    // Third priority: units array
-    else if (course.units) {
-      console.log("Using units array directly");
-      return {
-        title: course.Title || '',
-        structure: [{
-          name: "Course Content",
-          section: "1",
-          unitId: "main_unit",
-          items: course.units.flatMap(unit => unit.items || [])
-        }],
-        courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
+        courseWeights: course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
       };
     }
 
-    // Fallback: use other course data
-    console.log("⚠️ WARNING: Using fallback - no JSON structure found!");
+    // Error state: no structure available
+    console.error("❌ ERROR: No course structure found! Gradebook may not be initialized.");
     return {
-      title: course.Course?.Value || course.courseDetails?.Title || '',
-      structure: course.courseDetails?.units || [],
-      courseWeights: course.weights || { lesson: 0.2, assignment: 0.4, exam: 0.4 }
+      title: course.Course?.Value || course.courseDetails?.Title || 'Course',
+      structure: [],
+      courseWeights: course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 },
+      error: "Course structure not available. Please refresh the page or contact support."
     };
   };
 
   const courseData = getCourseData();
   const courseTitle = courseData.title;
   const unitsList = courseData.structure || [];
-  const courseWeights = courseData.courseWeights || { lesson: 0.2, assignment: 0.4, exam: 0.4 };
+  const courseWeights = courseData.courseWeights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 };
   
-  // Flatten all course items for progress tracking
+  // Flatten all course items for progress tracking (moved after courseData)
   const allCourseItems = useMemo(() => {
     const items = [];
     unitsList.forEach(unit => {
@@ -254,6 +277,65 @@ const FirebaseCourseWrapperContent = ({
     });
     return items;
   }, [unitsList]);
+  
+  // Calculate lesson accessibility for the active lesson info panel
+  const lessonAccessibility = useMemo(() => {
+    // Skip access control for staff/dev/authorized developers or if no course structure
+    if (shouldBypassAllRestrictions(isStaffView, devMode, currentUser, course) || !course?.Gradebook) {
+      const accessibility = {};
+      const bypassReason = getBypassReason(isStaffView, devMode, currentUser, course);
+      allCourseItems.forEach(item => {
+        accessibility[item.itemId] = { accessible: true, reason: bypassReason };
+      });
+      return accessibility;
+    }
+    
+    // Use the gradebook directly from course.Gradebook
+    const gradebook = course.Gradebook;
+    const courseStructure = gradebook.courseStructure || course.courseStructure;
+    
+    // Only apply sequential access if enabled
+    if (!gradebook.courseConfig?.globalSettings?.requireSequentialProgress || 
+        !gradebook.courseConfig?.progressionRequirements?.enabled) {
+      const accessibility = {};
+      allCourseItems.forEach(item => {
+        accessibility[item.itemId] = { accessible: true, reason: 'Sequential access disabled' };
+      });
+      return accessibility;
+    }
+    
+    // Use the lesson access logic with gradebook data
+    return getLessonAccessibility(courseStructure, gradebook.items || {}, gradebook);
+  }, [allCourseItems, isStaffView, devMode, currentUser, course]);
+  
+  // Find the current active item for the info panel
+  const currentActiveItem = useMemo(() => {
+    if (!activeItemId) return null;
+    return allCourseItems.find(item => item.itemId === activeItemId);
+  }, [activeItemId, allCourseItems]);
+  
+  // Show error state if no course structure available
+  if (courseData.error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6 text-center">
+          <div className="text-red-600 mb-4">
+            <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Course Structure Loading</h2>
+          <p className="text-gray-600 mb-4">{courseData.error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Convert gradebook data to progress format for navigation
   useEffect(() => {
@@ -293,9 +375,12 @@ const FirebaseCourseWrapperContent = ({
 
   return (
     <div className="min-h-screen">
+
+      
       {/* Header - full width, sticky */}
       <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-20">
-        <div className="px-4 py-2 flex items-center gap-4">
+        <div className="px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-4">
           <button
               className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm ${
                 activeTab === 'content' 
@@ -310,26 +395,14 @@ const FirebaseCourseWrapperContent = ({
             
             <button
               className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm ${
-                activeTab === 'progress' 
+                (activeTab === 'progress' || activeTab === 'grades') 
                   ? 'bg-blue-100 text-blue-800' 
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
               onClick={() => setActiveTab('progress')}
             >
-              <ClipboardCheck className="h-4 w-4" />
-              <span>Progress</span>
-            </button>
-            
-            <button
-              className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 text-sm ${
-                activeTab === 'grades' 
-                  ? 'bg-blue-100 text-blue-800' 
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-              onClick={() => setActiveTab('grades')}
-            >
               <FaGraduationCap className="h-4 w-4" />
-              <span>Grades</span>
+              <span>Gradebook</span>
             </button>
             
             {/* Debug tab - only show for authorized users */}
@@ -346,6 +419,97 @@ const FirebaseCourseWrapperContent = ({
                 <span>Debug</span>
               </button>
             )}
+          </div>
+          
+          {/* Simple Lesson Status Indicator - hidden on small screens */}
+          {activeTab === 'content' && currentActiveItem && (
+            <div className="hidden md:flex items-center gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                {(() => {
+                  // Calculate lesson status (same logic as LessonInfoPanel)
+                  const gradebook = course?.Gradebook;
+                  const courseStructureItem = gradebook?.courseStructureItems?.[currentActiveItem.itemId];
+                  const gradebookItem = gradebook?.items?.[currentActiveItem.itemId];
+                  
+                  // Calculate lesson percentage
+                  let lessonPercentage = 0;
+                  if (courseStructureItem) {
+                    lessonPercentage = courseStructureItem.percentage || 0;
+                  } else {
+                    const gradebookConfig = gradebook?.courseConfig?.gradebook?.itemStructure?.[currentActiveItem.itemId];
+                    if (gradebookConfig && gradebookConfig.questions) {
+                      let calculatedScore = 0;
+                      let calculatedTotal = 0;
+                      gradebookConfig.questions.forEach(question => {
+                        const assessmentItem = gradebook?.items?.[question.questionId];
+                        if (assessmentItem) {
+                          calculatedScore += assessmentItem.score || 0;
+                          calculatedTotal += assessmentItem.maxScore || question.points || 0;
+                        } else {
+                          calculatedTotal += question.points || 0;
+                        }
+                      });
+                      lessonPercentage = calculatedTotal > 0 ? Math.round((calculatedScore / calculatedTotal) * 100) : 0;
+                    }
+                  }
+                  
+                  const isCompleted = courseStructureItem?.completed || gradebookItem?.status === 'completed' || lessonPercentage >= 100;
+                  const accessInfo = lessonAccessibility[currentActiveItem.itemId] || { accessible: true };
+                  const isAccessible = accessInfo.accessible;
+                  
+                  // Status icon and text
+                  let statusIcon, statusText, statusColor;
+                  if (!isAccessible) {
+                    statusIcon = <Lock className="h-4 w-4" />;
+                    statusText = 'Locked';
+                    statusColor = 'text-gray-500';
+                  } else if (isCompleted) {
+                    statusIcon = <CheckCircle className="h-4 w-4" />;
+                    statusText = 'Completed';
+                    statusColor = 'text-green-600';
+                  } else if (lessonPercentage > 0) {
+                    statusIcon = <PlayCircle className="h-4 w-4" />;
+                    statusText = 'In Progress';
+                    statusColor = 'text-purple-600';
+                  } else {
+                    statusIcon = <AlertCircle className="h-4 w-4" />;
+                    statusText = 'Not Started';
+                    statusColor = 'text-gray-500';
+                  }
+                  
+                  const getGradeColor = (percentage) => {
+                    if (percentage >= 90) return 'text-green-600';
+                    if (percentage >= 80) return 'text-blue-600';
+                    if (percentage >= 70) return 'text-yellow-600';
+                    if (percentage >= 60) return 'text-orange-600';
+                    return 'text-red-600';
+                  };
+                  
+                  return (
+                    <>
+                      <div className={`flex items-center gap-1 ${statusColor}`}>
+                        {statusIcon}
+                        <span className="font-medium">{statusText}</span>
+                      </div>
+                      {lessonPercentage > 0 && (
+                        <span className={`font-semibold ${getGradeColor(lessonPercentage)}`}>
+                          {lessonPercentage}%
+                        </span>
+                      )}
+                      {!isAccessible && accessInfo.reason && (
+                        <span className="text-xs text-red-600 max-w-xs truncate">
+                          {accessInfo.reason}
+                        </span>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+              <div className="text-gray-600 font-medium truncate max-w-xs">
+                {currentActiveItem.title}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -374,9 +538,9 @@ const FirebaseCourseWrapperContent = ({
               currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
               course={course}
               isMobile={false}
-              gradebookItems={course?.Gradebook?.items || {}}
-              isStaffView={false}
-              devMode={false}
+              isStaffView={isStaffView}
+              devMode={devMode}
+              lessonAccessibility={lessonAccessibility}
             />
           </div>
         )}
@@ -402,9 +566,9 @@ const FirebaseCourseWrapperContent = ({
             currentUnitIndex={currentUnitIndex !== -1 ? currentUnitIndex : 0}
             course={course}
             isMobile={true}
-            gradebookItems={course?.Gradebook?.items || {}}
-            isStaffView={false}
-            devMode={false}
+            isStaffView={isStaffView}
+            devMode={devMode}
+            lessonAccessibility={lessonAccessibility}
           />
         )}
 
@@ -420,10 +584,12 @@ const FirebaseCourseWrapperContent = ({
                   </span>
                 </div>
               )}
+              
+              
               {React.Children.map(children, child =>
                 React.isValidElement(child)
                   ? React.cloneElement(child, {
-                      course,
+                      course: course,
                       courseId: course?.CourseID || '1',
                       isStaffView,
                       devMode
@@ -433,130 +599,8 @@ const FirebaseCourseWrapperContent = ({
             </div>
           )}
           
-          {activeTab === 'progress' && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h1 className="text-xl font-bold mb-4">Your Progress</h1>
-              
-              <div className="mb-8">
-                <CourseProgressBar 
-                  progress={progress} 
-                  courseItems={allCourseItems} 
-                  className="mb-6" 
-                />
-                
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h2 className="text-lg font-medium text-blue-800 mb-2">Progress by Unit</h2>
-                  <div className="space-y-4">
-                    {unitsList.map((unit, unitIndex) => {
-                      // Calculate unit progress
-                      const unitItems = unit.items || [];
-                      const unitCompletedCount = unitItems.filter(item => progress[item.itemId]?.completed).length;
-                      const unitPercentage = unitItems.length > 0 
-                        ? Math.round((unitCompletedCount / unitItems.length) * 100) 
-                        : 0;
-                        
-                      return (
-                        <div key={unit.unitId || unitIndex}>
-                          <div className="flex justify-between mb-1">
-                            <span className="text-sm font-medium text-blue-700">
-                              {unit.name || `Unit ${unitIndex + 1}`}
-                            </span>
-                            <span className="text-sm text-blue-600">{unitPercentage}%</span>
-                          </div>
-                          <div className="h-2 w-full bg-blue-100 rounded-full">
-                            <div 
-                              className="h-full bg-blue-600 rounded-full"
-                              style={{ width: `${unitPercentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <h2 className="text-lg font-medium mb-4">Activity History</h2>
-                <div className="border rounded-lg overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Item
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Type
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Completed
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {allCourseItems.map((item) => {
-                        const itemProgress = progress[item.itemId] || {};
-                        return (
-                          <tr key={item.itemId}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {item.title}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              {itemProgress.completed ? (
-                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                  Completed
-                                </span>
-                              ) : (
-                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                  Not Started
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {itemProgress.completedAt 
-                                ? new Date(itemProgress.completedAt).toLocaleDateString() 
-                                : '-'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {activeTab === 'grades' && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="p-6">
-                <h1 className="text-2xl font-bold mb-6">Gradebook</h1>
-                
-                
-                {/* Gradebook Summary */}
-                <div className="mb-8">
-                  <GradebookSummary />
-                </div>
-                
-                {/* Course Items Grid */}
-                <div>
-                  <h2 className="text-xl font-semibold mb-4">Course Items</h2>
-                  <CourseItemGrid 
-                    courseStructure={course}
-                    onViewItemDetails={(item) => {
-                      setSelectedCourseItem(item);
-                      setIsItemDetailModalOpen(true);
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
+          {(activeTab === 'progress' || activeTab === 'grades') && (
+            <GradebookDashboard course={course} />
           )}
           
           {/* Debug tab - only accessible by authorized users */}
@@ -610,7 +654,7 @@ const FirebaseCourseWrapperContent = ({
               
               {/* Course Object Display */}
               <div className="mb-6">
-                <h2 className="text-lg font-semibold mb-2">Raw Course Object</h2>
+                <h2 className="text-lg font-semibold mb-2">Real-time Course Object</h2>
                 <div className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-auto max-h-96 text-sm font-mono">
                   <pre className="whitespace-pre-wrap">
                     {JSON.stringify(course, null, 2)}
@@ -626,11 +670,12 @@ const FirebaseCourseWrapperContent = ({
                     <div>
                       <h3 className="font-medium text-blue-800 mb-2">Available Paths:</h3>
                       <ul className="space-y-1 text-blue-700">
+                        <li>• course.Gradebook?.courseStructure: {course.Gradebook?.courseStructure ? '✓' : '✗'}</li>
                         <li>• course.courseStructure: {course.courseStructure ? '✓' : '✗'}</li>
                         <li>• course.courseStructure?.structure: {course.courseStructure?.structure ? '✓' : '✗'}</li>
                         <li>• course.courseStructure?.units: {course.courseStructure?.units ? '✓' : '✗'}</li>
                         <li>• course.courseDetails: {course.courseDetails ? '✓' : '✗'}</li>
-                        <li>• course.units: {course.units ? '✓' : '✗'}</li>
+                        <li>• course.Gradebook?.summary: {course.Gradebook?.summary ? '✓' : '✗'}</li>
                       </ul>
                     </div>
                     <div>
@@ -669,6 +714,52 @@ const FirebaseCourseWrapperContent = ({
                       </ul>
                     </div>
                   </div>
+                </div>
+              </div>
+              
+              {/* Gradebook Debug Tools */}
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold mb-2">Gradebook Debug Tools</h2>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <h3 className="font-medium text-yellow-800 mb-3">Development Tools</h3>
+                  <button
+                    onClick={handleRecalculateGradebook}
+                    disabled={isRecalculating}
+                    className={`flex items-center gap-2 px-4 py-2 text-white rounded transition-colors ${
+                      isRecalculating 
+                        ? 'bg-gray-400 cursor-not-allowed' 
+                        : 'bg-yellow-600 hover:bg-yellow-700'
+                    }`}
+                  >
+                    {isRecalculating ? (
+                      <>
+                        <Loader className="h-4 w-4 animate-spin" />
+                        Recalculating...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4" />
+                        Recalculate Gradebook with New Weights
+                      </>
+                    )}
+                  </button>
+                  {isRecalculating && (
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                      <div className="flex items-center gap-2 text-blue-700">
+                        <Loader className="h-4 w-4 animate-spin" />
+                        <span className="font-medium">Processing gradebook recalculation...</span>
+                      </div>
+                      <p className="text-xs text-blue-600 mt-1">
+                        This may take up to 10 seconds. The page will refresh automatically when complete.
+                      </p>
+                    </div>
+                  )}
+                  {!isRecalculating && (
+                    <p className="text-xs text-yellow-700 mt-2">
+                      Click to update gradebook with course config weights (lessons: 100%, others: 0%). 
+                      This will force a complete recalculation of all gradebook data.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -717,13 +808,5 @@ const FirebaseCourseWrapperContent = ({
   );
 };
 
-// Wrapper component that provides GradebookContext
-const FirebaseCourseWrapper = (props) => {
-  return (
-    <GradebookProvider course={props.course}>
-      <FirebaseCourseWrapperContent {...props} />
-    </GradebookProvider>
-  );
-};
-
-export default FirebaseCourseWrapper;
+// Export the main component directly - no provider wrapper needed
+export default FirebaseCourseWrapperContent;

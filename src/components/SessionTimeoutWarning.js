@@ -5,7 +5,7 @@ import { auth } from '../firebase';
 import { signOut as firebaseSignOut } from 'firebase/auth';
 
 const SessionTimeoutWarning = () => {
-  const { user, signOut, refreshSession, tokenExpirationTime } = useAuth();
+  const { user, signOut, refreshSession, tokenExpirationTime, addActivityEvent, updateUserActivityInDatabase } = useAuth();
   const [showWarning, setShowWarning] = useState(false);
   const [remainingTime, setRemainingTime] = useState(null);
   const [inactivityRemainingTime, setInactivityRemainingTime] = useState(null);
@@ -52,9 +52,21 @@ const SessionTimeoutWarning = () => {
       setIsActive(false);
     }, ACTIVITY_THRESHOLD);
     
+    // Add activity event and update database
+    if (addActivityEvent) {
+      addActivityEvent('session_activity', {
+        sessionWarningActive: showWarning,
+        remainingTime: remainingTime
+      });
+    }
+    
+    if (updateUserActivityInDatabase) {
+      updateUserActivityInDatabase();
+    }
+    
     // Refresh the session in Auth context
     refreshSession();
-  }, [showWarning, refreshSession]);
+  }, [showWarning, refreshSession, addActivityEvent, updateUserActivityInDatabase, remainingTime]);
 
   // Set up activity tracking
   useEffect(() => {

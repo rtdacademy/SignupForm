@@ -2045,7 +2045,6 @@ const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigat
             {currentQuestionIndex === 0 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="08_cell_phone_policy_question1"
                 cloudFunctionName="course4_08_cell_phone_policy_question1"
                 title="Secondary Camera Setup"
                 theme="indigo"
@@ -2060,7 +2059,6 @@ const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigat
             {currentQuestionIndex === 1 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="08_cell_phone_policy_question2"
                 cloudFunctionName="course4_08_cell_phone_policy_question2"
                 title="Phone Configuration Requirements"
                 theme="indigo"
@@ -2075,7 +2073,6 @@ const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigat
             {currentQuestionIndex === 2 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="08_cell_phone_policy_question3"
                 cloudFunctionName="course4_08_cell_phone_policy_question3"
                 title="Exam Day Restrictions"
                 theme="indigo"
@@ -2090,7 +2087,6 @@ const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigat
             {currentQuestionIndex === 3 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="08_cell_phone_policy_question4"
                 cloudFunctionName="course4_08_cell_phone_policy_question4"
                 title="Academic Integrity Principles"
                 theme="indigo"
@@ -2105,7 +2101,6 @@ const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigat
             {currentQuestionIndex === 4 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="08_cell_phone_policy_question5"
                 cloudFunctionName="course4_08_cell_phone_policy_question5"
                 title="Violation Consequences"
                 theme="indigo"
@@ -2120,7 +2115,6 @@ const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigat
             {currentQuestionIndex === 5 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="08_cell_phone_policy_question6"
                 cloudFunctionName="course4_08_cell_phone_policy_question6"
                 title="Technical Difficulties During Exam"
                 theme="indigo"
@@ -2135,7 +2129,6 @@ const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigat
             {currentQuestionIndex === 6 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="08_cell_phone_policy_question7"
                 cloudFunctionName="course4_08_cell_phone_policy_question7"
                 title="Academic Integrity Scenario"
                 theme="indigo"
@@ -2150,7 +2143,6 @@ const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigat
             {currentQuestionIndex === 7 && (
               <StandardMultipleChoiceQuestion
                 courseId={courseId}
-                assessmentId="08_cell_phone_policy_question8"
                 cloudFunctionName="course4_08_cell_phone_policy_question8"
                 title="Cell Phone Policy Scenario"
                 theme="indigo"

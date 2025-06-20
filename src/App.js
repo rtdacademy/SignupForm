@@ -148,7 +148,7 @@ function MainApp() {
 <Route path="/education-plan/2025-26" element={<EducationPlan />} />
 <Route path="/prerequisite-flowchart" element={<FlowChartPrerequisites />} />
 <Route path="/parent-login" element={<ParentLogin />} />
-<Route path="/parent-dashboard" element={<ParentDashboard />} />
+<Route path="/parent-dashboard" element={user ? <ParentDashboard /> : <Navigate to="/parent-login" />} />
         
       <Route 
   path="/dashboard" 

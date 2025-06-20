@@ -31,6 +31,7 @@ const PASIDataUploadV2 = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState(null);
   const [uploadHistory, setUploadHistory] = useState([]);
+  const [lastSystemUpload, setLastSystemUpload] = useState(null);
   const [selectedYear, setSelectedYear] = useState('');
   const { preferences } = useUserPreferences();
   const { refreshStudentSummaries } = useSchoolYear();
@@ -46,8 +47,8 @@ const PASIDataUploadV2 = () => {
   }, [schoolYears, selectedYear]);
 
   useEffect(() => {
-    // Load upload history
-    const loadUploadHistory = async () => {
+    // Load upload history and system-wide last upload
+    const loadUploadData = async () => {
       const db = getDatabase();
       const user = auth.currentUser;
       if (!user) return;
@@ -57,20 +58,29 @@ const PASIDataUploadV2 = () => {
       const unsubscribe = onValue(uploadsRef, (snapshot) => {
         if (snapshot.exists()) {
           const uploads = snapshot.val();
-          const userUploads = Object.entries(uploads)
-            .filter(([_, upload]) => upload.uploadedBy === user.email)
+          const allUploads = Object.entries(uploads)
             .map(([id, upload]) => ({ id, ...upload }))
-            .sort((a, b) => (b.startTime || 0) - (a.startTime || 0))
+            .filter((upload) => upload.status === 'completed') // Only completed uploads
+            .sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+
+          // Get user uploads for history
+          const userUploads = allUploads
+            .filter((upload) => upload.uploadedBy === user.email)
             .slice(0, 5); // Last 5 uploads
           
           setUploadHistory(userUploads);
+
+          // Get the most recent successful upload from any user
+          if (allUploads.length > 0) {
+            setLastSystemUpload(allUploads[0]);
+          }
         }
       });
 
       return () => off(uploadsRef, 'value', unsubscribe);
     };
 
-    loadUploadHistory();
+    loadUploadData();
   }, []);
 
   const handleFileSelect = (event) => {
@@ -184,6 +194,35 @@ const PASIDataUploadV2 = () => {
 
   return (
     <div className="space-y-6">
+      {/* Last Upload Summary */}
+      {lastSystemUpload && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-full">
+                  <Info className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-blue-900">Last System Upload</h3>
+                  <p className="text-sm text-blue-700">
+                    By <span className="font-medium">{lastSystemUpload.uploadedBy}</span> • {formatDate(lastSystemUpload.startTime)}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-bold text-blue-900">
+                  {lastSystemUpload.processedCount?.toLocaleString() || 'N/A'} records
+                </div>
+                <div className="text-sm text-blue-600">
+                  {lastSystemUpload.schoolYear}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Upload Section */}
       <Card className="border-2 border-dashed hover:border-solid transition-all duration-200">
         <CardHeader className="pb-4">

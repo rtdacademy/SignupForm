@@ -21,58 +21,8 @@ const Course3 = lazy(() => import('./courses/3'));
 const Course4 = lazy(() => import('./courses/4'));
 const Course100 = lazy(() => import('./courses/100'));
 
-// Course structure helper functions for Firebase courses
-const getCourse2Structure = () => {
-  const data = require('./courses/2/course-structure.json');
-  return {
-    title: "Physics 30",
-    structure: data.courseStructure?.units || []
-  };
-};
-
-const getCourse3Structure = () => {
-  const data = require('./courses/3/course-structure.json');
-  return {
-    title: "Financial Literacy",
-    structure: data.courseStructure?.units || []
-  };
-};
-
-const getCourse4Structure = () => {
-  const data = require('./courses/4/course-structure.json');
-  return {
-    title: "COM1255",
-    structure: data.courseStructure?.units || []
-  };
-};
-
-const getCourse100Structure = () => {
-  const data = require('./courses/100/course-structure.json');
-  return {
-    title: "Sample Course",
-    structure: data.courseStructure?.units || []
-  };
-};
-
-// Helper function to get course structure
-const getCourseStructure = (courseId) => {
-  switch(courseId) {
-    case 2:
-    case '2':
-      return getCourse2Structure();
-    case 3:
-    case '3':
-      return getCourse3Structure();
-    case 4:
-    case '4':
-      return getCourse4Structure();
-    case 100:
-    case '100':
-      return getCourse100Structure();
-    default:
-      return null;
-  }
-};
+// Course structure is now loaded from database via gradebook
+// No need for static JSON imports
 
 // Default template course component for courses without specific implementations
 const TemplateCourse = ({ course }) => {
@@ -125,6 +75,16 @@ const CourseRouterEnhanced = ({
   const courseId = course.CourseID;
   const [internalCurrentItemId, setInternalCurrentItemId] = useState(null);
 
+  // Debug logging for course object in CourseRouterEnhanced
+  console.log('🚀 CourseRouterEnhanced.js - Course object received:', {
+    courseId: course?.CourseID,
+    gradebook: course?.Gradebook,
+    gradebookItems: course?.Gradebook?.items,
+    assessments: course?.Grades?.assessments,
+    enhancedCourseGradebook: course?.Gradebook,
+    timestamp: new Date().toLocaleTimeString()
+  });
+
   // Use external navigation state if provided, otherwise use internal state
   const currentItemId = externalActiveItemId !== null ? externalActiveItemId : internalCurrentItemId;
   
@@ -140,17 +100,13 @@ const CourseRouterEnhanced = ({
     }
   }, [externalOnItemSelect]);
 
-  // Get enhanced course data with structure (if applicable)
-  const enhancedCourse = useMemo(() => {
-    const courseStructure = getCourseStructure(courseId);
-    return courseStructure ? {
-      ...course,
-      courseStructure
-    } : course;
-  }, [course, courseId]);
+  // Just use the course object directly for real-time updates
+  // No memoization - we want all changes to flow through immediately
+  const enhancedCourse = course;
 
   // This will dynamically render course components based on CourseID
-  const renderCourseContent = useCallback(() => {
+  // No useCallback - we want all changes to flow through immediately
+  const renderCourseContent = () => {
     const courseProps = {
       course: enhancedCourse,
       activeItemId: currentItemId,
@@ -204,7 +160,7 @@ const CourseRouterEnhanced = ({
       default:
         return <TemplateCourse course={course} />;
     }
-  }, [courseId, enhancedCourse, currentItemId, handleItemSelect, isStaffView, devMode]);
+  };
 
   // Render based on the specified mode
   switch (renderMode) {
@@ -247,6 +203,6 @@ const CourseRouterEnhanced = ({
   }
 };
 
-// Export both the enhanced version and helper functions
+// Export the enhanced version
 export default CourseRouterEnhanced;
-export { getCourseStructure, LoadingCourse };
+export { LoadingCourse };

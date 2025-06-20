@@ -8,7 +8,7 @@ import { BookOpen, ClipboardCheck } from 'lucide-react';
 import CourseProgressBar from './components/navigation/CourseProgressBar';
 import CollapsibleNavigation from './components/navigation/CollapsibleNavigation';
 import ModernSectionEditor from './components/codeEditor/ModernSectionEditor';
-import CourseRouterEnhanced, { getCourseStructure } from './CourseRouterEnhanced';
+import CourseRouterEnhanced from './CourseRouterEnhanced';
 
 /**
  * Refactored Staff Course Wrapper
@@ -86,16 +86,15 @@ const StaffCourseWrapperRefactored = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Get enhanced course with structure data using the centralized helper
+  // Course structure now comes from database (staff testing data)
+  // Load staff gradebook data to get course structure
   const enhancedCourse = useMemo(() => {
     if (!course) return null;
 
-    const courseStructure = getCourseStructure(courseId);
-    return courseStructure ? {
-      ...course,
-      courseStructure
-    } : course;
-  }, [course, courseId]);
+    // For staff, structure will be loaded from staff_testing gradebook data
+    // CourseRouterEnhanced will handle loading structure from database
+    return course;
+  }, [course]);
 
   // Get course data (memoized to prevent unnecessary re-calculations)
   const courseData = useMemo(() => {

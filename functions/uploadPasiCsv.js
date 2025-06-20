@@ -161,7 +161,7 @@ const uploadPasiCsvV2 = onCall({
         const courseCode = row[' Code']?.trim();
         const period = row['Value']?.trim() || 'Unknown';
         const grade = row['Value']?.trim() || '';
-        const term = row['Term']?.trim() || 'Unknown';
+        const pasiTerm = row['Term']?.trim() || 'Unknown';
         
         if (!asn) {
           errors.push({
@@ -173,7 +173,7 @@ const uploadPasiCsvV2 = onCall({
 
         // Generate unique key for this record using referenceNumber instead of period
         const referenceNumber = row['Reference #']?.trim() || 'NoRef';
-        const recordKey = `${asn}_${courseCode}_${referenceNumber}_${term}`;
+        const recordKey = `${asn}_${courseCode}_${referenceNumber}_${pasiTerm}`;
         
         // Get student key from ASN mapping
         const studentKeyMapping = asnEmailMap[asn] || asnEmailMap[`${asn.substring(0, 4)}-${asn.substring(4)}`] || null;
@@ -207,7 +207,7 @@ const uploadPasiCsvV2 = onCall({
           status: row['Status']?.trim() || '',
           period,
           grade,
-          term,
+          pasiTerm,
           schoolYear: formattedSchoolYear,
           
           // Additional fields

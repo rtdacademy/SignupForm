@@ -27,6 +27,16 @@ const CourseRouter = ({
   externalOnItemSelect = null,
   contentOnly = false
 }) => {
+  /* Debug logging for course object
+  console.log('🎯 CourseRouter.js - Course object received:', {
+    courseId: course?.CourseID,
+    gradebook: course?.Gradebook,
+    gradebookItems: course?.Gradebook?.items,
+    assessments: course?.Grades?.assessments,
+    timestamp: new Date().toLocaleTimeString()
+  });
+  */
+
   // Determine render mode based on contentOnly prop
   const renderMode = contentOnly ? 'content-only' : 'wrapped';
 

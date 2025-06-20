@@ -127,6 +127,13 @@ const ParentDashboard = () => {
   const [verificationError, setVerificationError] = useState('');
   const [verifying, setVerifying] = useState(false);
 
+  // Check authentication status immediately
+  useEffect(() => {
+    if (!currentUser && !loading) {
+      navigate('/parent-login');
+    }
+  }, [currentUser, loading, navigate]);
+
   // Debug effect to monitor dialog state
   useEffect(() => {
     console.log('=== State Debug ===');
@@ -141,6 +148,8 @@ const ParentDashboard = () => {
   const fetchParentData = async (showToast = true) => {
     if (!currentUser) {
       setLoading(false);
+      // Redirect to parent login if not authenticated
+      navigate('/parent-login');
       return;
     }
 
