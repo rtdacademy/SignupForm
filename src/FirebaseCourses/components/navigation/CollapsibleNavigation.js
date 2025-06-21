@@ -87,6 +87,7 @@ const CollapsibleNavigation = ({
   isStaffView = false,
   devMode = false,
   lessonAccessibility = {},
+  isDeveloperModeActive = false,
 }) => {
   const { user, currentUser } = useAuth();
   
@@ -563,13 +564,24 @@ const CollapsibleNavigation = ({
   const NavigationContent = () => (
     <>
       {/* Developer Access Indicator */}
-      {isAuthorizedDeveloper && (
+      {isAuthorizedDeveloper && isDeveloperModeActive && (
         <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 text-xs font-medium flex items-center gap-2">
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-            <span>DEVELOPER MODE</span>
+            <span>DEVELOPER MODE ACTIVE</span>
           </div>
           <span className="opacity-80">• All lessons unlocked • Access restrictions bypassed</span>
+        </div>
+      )}
+      
+      {/* Developer Available Indicator */}
+      {isAuthorizedDeveloper && !isDeveloperModeActive && (
+        <div className="bg-gray-100 text-gray-600 px-3 py-2 text-xs flex items-center gap-2 border-b border-gray-200">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+            <span className="font-medium">Developer Access Available</span>
+          </div>
+          <span className="opacity-80">• Enable Dev Mode in header to bypass restrictions</span>
         </div>
       )}
       
