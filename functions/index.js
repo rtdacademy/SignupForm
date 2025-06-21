@@ -266,6 +266,9 @@ exports.course2_01_physics_20_review_q11 = require('./courses/2/01-physics-20-re
 exports.course2_01_physics_20_review_q12 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q12;
 exports.course2_01_physics_20_review_q13 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q13;
 
+// Course 2 - Section Exams
+exports.course2_76_section_3_exam_question1 = require('./courses/2/78-diploma-exam/assessments').course2_76_section_3_exam_question1;
+
 // 3 Course Functions (Financial Literacy)
 //exports.course3_shared_aiQuestion = require('./courses/3/shared/aiQuestions').course3_shared_aiQuestion;
 
