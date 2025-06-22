@@ -466,17 +466,42 @@ const CollapsibleNavigation = ({
             {!isCompleted && isAccessible && (
               <p className="text-sm text-gray-600">Not yet completed</p>
             )}
-            {/* Show percentage requirements for course progression */}
+            {/* Show progression requirements for course progression */}
             {course?.Gradebook?.courseConfig?.progressionRequirements?.enabled && (
               <>
                 {(() => {
                   const progressionRequirements = course.Gradebook.courseConfig.progressionRequirements;
                   const lessonOverride = progressionRequirements.lessonOverrides?.[item.itemId];
-                  const requiredPercentage = lessonOverride?.minimumPercentage || progressionRequirements.defaultMinimumPercentage || 80;
+                  const defaultCriteria = progressionRequirements.defaultCriteria || {};
+                  
+                  // Get criteria for this lesson
+                  const criteria = {
+                    minimumPercentage: lessonOverride?.minimumPercentage ?? 
+                                      defaultCriteria.minimumPercentage ?? 
+                                      progressionRequirements.defaultMinimumPercentage ?? 
+                                      80,
+                    requireAllQuestions: lessonOverride?.requireAllQuestions ?? 
+                                        defaultCriteria.requireAllQuestions ?? 
+                                        false,
+                    questionCompletionPercentage: lessonOverride?.questionCompletionPercentage ?? 
+                                                 defaultCriteria.questionCompletionPercentage ?? 
+                                                 null
+                  };
+                  
+                  // Generate requirement text
+                  let requirementParts = [`${criteria.minimumPercentage}% score`];
+                  
+                  if (criteria.requireAllQuestions) {
+                    requirementParts.push('all questions');
+                  } else if (criteria.questionCompletionPercentage && criteria.questionCompletionPercentage > 0) {
+                    requirementParts.push(`${criteria.questionCompletionPercentage}% of questions`);
+                  }
+                  
+                  const requirementText = requirementParts.join(' + ');
                   
                   return (
                     <p className="text-xs text-blue-600 mt-1">
-                      📊 Need {requiredPercentage}% to unlock next lesson
+                      📊 Need {requirementText} to unlock next lesson
                     </p>
                   );
                 })()}

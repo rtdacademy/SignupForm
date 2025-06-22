@@ -30,15 +30,66 @@
   },
   "progressionRequirements": {
     "enabled": true,
-    "defaultMinimumPercentage": 80,
+    "defaultCriteria": {
+      "minimumPercentage": 80,
+      "questionCompletionPercentage": null,
+      "requireAllQuestions": false
+    },
     "lessonOverrides": {
       "lesson_welcome_rtd_academy": {
         "minimumPercentage": 50,
-        "note": "Higher standard for introductory lesson"
+        "requireAllQuestions": true,
+        "note": "Must get 50% correct AND answer all questions"
       },
       "lesson_learning_plans_completion_policies": {
         "minimumPercentage": 90,
-        "note": "Critical policy understanding required"
+        "requireAllQuestions": true,
+        "note": "Must get 90% correct AND answer all questions - critical policy understanding required"
+      },
+      "lesson_time_management_staying_active": {
+        "minimumPercentage": 70,
+        "requireAllQuestions": true,
+        "note": "Must get 70% correct AND answer all questions about time management"
+      },
+      "lesson_conduct_expectations_responsibilities": {
+        "minimumPercentage": 70,
+        "requireAllQuestions": true,
+        "note": "Must get 70% correct AND answer all questions about conduct expectations"
+      },
+      "lesson_digital_citizenship_online_safety": {
+        "minimumPercentage": 70,
+        "requireAllQuestions": true,
+        "note": "Must get 70% correct AND answer all questions about digital citizenship"
+      },
+      "lesson_technology_readiness_assistive_tools": {
+        "minimumPercentage": 70,
+        "requireAllQuestions": true,
+        "note": "Must get 70% correct AND answer all questions about technology requirements"
+      },
+      "lesson_cell_phone_policy_exam_proctoring": {
+        "minimumPercentage": 70,
+        "requireAllQuestions": true,
+        "note": "Must get 70% correct AND answer all questions about exam policies"
+      },
+      "lesson_academic_integrity_violation_consequences": {
+        "minimumPercentage": 70,
+        "requireAllQuestions": true,
+        "note": "Must get 70% correct AND answer all questions about academic integrity"
+      },
+      "lesson_exams_rewrites_student_support": {
+        "minimumPercentage": 70,
+        "requireAllQuestions": true,
+        "note": "Must get 70% correct AND answer all questions about exam and support policies"
+      },
+      "exam_mid_course_test": {
+        "minimumPercentage": 70,
+        "requireAllQuestions": true,
+        "note": "Must get 70% correct AND answer all exam questions"
+      },
+      "exam_final_comprehensive": {
+        "minimumPercentage": 70,
+        "requireAllQuestions": true,
+        "note": "Must get 70% correct AND answer all final exam questions"
       }
     }
   },

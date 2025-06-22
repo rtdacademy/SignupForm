@@ -220,14 +220,8 @@ exports.saveStudentSchedule = studentScheduleFunctions.saveStudentSchedule;
 // Gradebook functions
 exports.updateStudentGradebook = gradebookFunctions.updateStudentGradebook;
 exports.updateStudentGradebookOnChange = gradebookFunctions.updateStudentGradebookOnChange;
-exports.updateStaffGradebook = gradebookFunctions.updateStaffGradebook;
 exports.trackLessonAccess = gradebookFunctions.trackLessonAccess;
-exports.getGradebookData = gradebookFunctions.getGradebookData;
-exports.getGradebookSummary = gradebookFunctions.getGradebookSummary;
-exports.recalculateGradebook = gradebookFunctions.recalculateGradebook;
-exports.recalculateMyGradebook = gradebookFunctions.recalculateMyGradebook;
 exports.validateGradebookStructure = gradebookFunctions.validateGradebookStructure;
-exports.cleanupLegacyAssessments = gradebookFunctions.cleanupLegacyAssessments;
 
 // Exam session management functions
 exports.startExamSession = examSessionFunctions.startExamSession;

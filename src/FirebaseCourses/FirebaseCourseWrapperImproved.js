@@ -173,7 +173,6 @@ const FirebaseCourseWrapperContent = ({
   const [isQuestionReviewModalOpen, setIsQuestionReviewModalOpen] = useState(false);
   const [selectedCourseItem, setSelectedCourseItem] = useState(null);
   const [isItemDetailModalOpen, setIsItemDetailModalOpen] = useState(false);
-  const [isRecalculating, setIsRecalculating] = useState(false);
   const [isContentReady, setIsContentReady] = useState(false);
   const [courseModuleLoaded, setCourseModuleLoaded] = useState(false);
   
@@ -304,36 +303,6 @@ const FirebaseCourseWrapperContent = ({
     });
   }, []);
 
-  // Handle gradebook recalculation
-  const handleRecalculateGradebook = useCallback(async () => {
-    try {
-      // Check if user is authenticated
-      if (!currentUser || !currentUser.email) {
-        console.error('User not authenticated');
-        return;
-      }
-      
-      setIsRecalculating(true);
-      console.log('🔄 Recalculating gradebook for user:', currentUser.email);
-      
-      const functions = getFunctions();
-      const recalculateMyGradebook = httpsCallable(functions, 'recalculateMyGradebook');
-      
-      const result = await recalculateMyGradebook({
-        courseId: course?.CourseID?.toString() || course?.courseId?.toString(),
-        studentEmail: currentUser.email
-      });
-      
-      console.log('✅ Gradebook recalculated:', result);
-      
-      // Force page refresh to reload course data with updated gradebook structure
-      window.location.reload();
-    } catch (error) {
-      console.error('❌ Error recalculating gradebook:', error);
-      setIsRecalculating(false);
-      alert('Error recalculating gradebook: ' + error.message);
-    }
-  }, [currentUser, course]);
   
   // Flatten all course items for progress tracking (moved after courseData)
   const allCourseItems = useMemo(() => {
@@ -1012,45 +981,11 @@ const FirebaseCourseWrapperContent = ({
               <div className="mb-6">
                 <h2 className="text-lg font-semibold mb-2">Gradebook Debug Tools</h2>
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <h3 className="font-medium text-yellow-800 mb-3">Development Tools</h3>
-                  <button
-                    onClick={handleRecalculateGradebook}
-                    disabled={isRecalculating}
-                    className={`flex items-center gap-2 px-4 py-2 text-white rounded transition-colors ${
-                      isRecalculating 
-                        ? 'bg-gray-400 cursor-not-allowed' 
-                        : 'bg-yellow-600 hover:bg-yellow-700'
-                    }`}
-                  >
-                    {isRecalculating ? (
-                      <>
-                        <Loader className="h-4 w-4 animate-spin" />
-                        Recalculating...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4" />
-                        Recalculate Gradebook with New Weights
-                      </>
-                    )}
-                  </button>
-                  {isRecalculating && (
-                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                      <div className="flex items-center gap-2 text-blue-700">
-                        <Loader className="h-4 w-4 animate-spin" />
-                        <span className="font-medium">Processing gradebook recalculation...</span>
-                      </div>
-                      <p className="text-xs text-blue-600 mt-1">
-                        This may take up to 10 seconds. The page will refresh automatically when complete.
-                      </p>
-                    </div>
-                  )}
-                  {!isRecalculating && (
-                    <p className="text-xs text-yellow-700 mt-2">
-                      Click to update gradebook with course config weights (lessons: 100%, others: 0%). 
-                      This will force a complete recalculation of all gradebook data.
-                    </p>
-                  )}
+                  <h3 className="font-medium text-yellow-800 mb-3">Real-time Gradebook</h3>
+                  <p className="text-sm text-yellow-700">
+                    The gradebook is automatically updated in real-time when assessments are completed. 
+                    No manual recalculation needed - all updates are handled by database triggers.
+                  </p>
                 </div>
               </div>
             </div>
