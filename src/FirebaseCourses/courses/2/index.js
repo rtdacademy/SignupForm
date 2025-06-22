@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ProgressProvider } from '../../context/CourseProgressContext';
 import { Badge } from '../../../components/ui/badge';
 import contentRegistry from './content';
-import courseDisplay from './course-display.json';
 // Course structure now loaded from database via gradebook
 
 // Type-specific styling
@@ -29,7 +27,7 @@ const Course2 = ({
   devMode = false
 }) => {
   const [internalActiveItemId, setInternalActiveItemId] = useState(null);
-  const courseId = courseDisplay.courseId;
+  const courseId = course?.CourseID || '2';
   
   // Get course structure from course object (database-driven)
   const structure = course?.courseStructure?.units || 
@@ -38,8 +36,8 @@ const Course2 = ({
 
   // Debug logging
   useEffect(() => {
-    console.log(`${courseDisplay.courseId}: Course loaded`, {
-      config: courseDisplay,
+    console.log(`${courseId}: Course loaded`, {
+      courseId: courseId,
       structure: structure,
       contentRegistry: Object.keys(contentRegistry)
     });
@@ -138,7 +136,6 @@ const Course2 = ({
           <ContentComponent
             course={course}
             courseId={courseId}
-            courseDisplay={courseDisplay}
             itemConfig={activeItem}
             isStaffView={isStaffView}
             devMode={devMode}
@@ -192,23 +189,21 @@ const Course2 = ({
   }, [structure]);
 
   return (
-    <ProgressProvider courseId={courseId}>
-      <div className="max-w-4xl mx-auto p-6">
-        {/* Course Header */}
-        <div className="mb-6 bg-white rounded-lg shadow-sm p-4">
-          <h1 className="text-2xl font-bold text-gray-900">{courseDisplay.fullTitle}</h1>
-          <p className="text-gray-600 mt-1">{courseDisplay.description}</p>
-          <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-            <span>Grade {courseDisplay.grade}</span>
-            <span>•</span>
-            <span>{progressStats.percentage}% Complete</span>
-          </div>
+    <div className="max-w-4xl mx-auto p-6">
+      {/* Course Header */}
+      <div className="mb-6 bg-white rounded-lg shadow-sm p-4">
+        <h1 className="text-2xl font-bold text-gray-900">{course?.courseDetails?.Title || 'Physics 30'}</h1>
+        <p className="text-gray-600 mt-1">{course?.courseDetails?.description || 'Course description'}</p>
+        <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
+          <span>Grade {course?.courseDetails?.grade || '12'}</span>
+          <span>•</span>
+          <span>{progressStats.percentage}% Complete</span>
         </div>
-        
-        {/* Main Content */}
-        {renderContent()}
       </div>
-    </ProgressProvider>
+      
+      {/* Main Content */}
+      {renderContent()}
+    </div>
   );
 };
 

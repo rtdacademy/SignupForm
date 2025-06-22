@@ -1,8 +1,7 @@
-import React, { useEffect } from 'react';
-import { useProgress } from '../../context/CourseProgressContext';
+import React from 'react';
 
 /**
- * Component for displaying lesson content with auto-tracking of completion
+ * Component for displaying lesson content
  * 
  * @param {Object} props
  * @param {String} props.lessonId - Unique ID of the lesson
@@ -11,21 +10,6 @@ import { useProgress } from '../../context/CourseProgressContext';
  * @param {Object} props.metadata - Additional lesson metadata
  */
 const LessonContent = ({ lessonId, title, children, metadata = {} }) => {
-  const { markCompleted, progress } = useProgress();
-  const isCompleted = progress[lessonId]?.completed || false;
-  
-  // Auto-track completion when user views the lesson
-  useEffect(() => {
-    // Don't mark as completed if it's already completed
-    if (!isCompleted) {
-      const timer = setTimeout(() => {
-        markCompleted(lessonId);
-      }, 5000); // Mark as completed after 5 seconds of viewing
-      
-      return () => clearTimeout(timer);
-    }
-  }, [lessonId, markCompleted, isCompleted]);
-  
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
@@ -33,11 +17,6 @@ const LessonContent = ({ lessonId, title, children, metadata = {} }) => {
         {metadata.estimated_time && (
           <div className="mt-2 text-sm text-gray-600">
             Estimated time: {metadata.estimated_time}
-          </div>
-        )}
-        {isCompleted && (
-          <div className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            Completed
           </div>
         )}
       </div>
