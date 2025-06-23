@@ -108,7 +108,12 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
       const currentPercentage = previousLessonData?.percentage || 0;
       
       // Generate detailed reason based on criteria
-      let requirementParts = [`${criteria.minimumPercentage}% score`];
+      let requirementParts = [];
+      
+      // Only include score requirement if minimumPercentage > 0
+      if (criteria.minimumPercentage > 0) {
+        requirementParts.push(`${criteria.minimumPercentage}% score`);
+      }
       
       if (criteria.requireAllQuestions) {
         requirementParts.push('all questions');
@@ -116,8 +121,16 @@ export const getLessonAccessibility = (courseStructure, assessmentData = {}, cou
         requirementParts.push(`${criteria.questionCompletionPercentage}% of questions`);
       }
       
-      const requirementText = requirementParts.join(' + ');
-      detailedReason = `Need ${requirementText} in "${previousItem.title}" (currently ${currentPercentage}%)`;
+      const requirementText = requirementParts.length > 0 
+        ? requirementParts.join(' + ')
+        : 'completion';
+      
+      // Adjust the message based on whether we have score requirements
+      if (criteria.minimumPercentage > 0) {
+        detailedReason = `Need ${requirementText} in "${previousItem.title}" (currently ${currentPercentage}%)`;
+      } else {
+        detailedReason = `Answer ${requirementText} in "${previousItem.title}" to unlock`;
+      }
     }
     
     accessibility[currentItem.itemId] = {

@@ -438,7 +438,7 @@ const CollapsibleNavigation = ({
             {!isAccessible && (
               <>
                 <p className="text-sm text-red-600 font-medium">🔒 {accessInfo.reason}</p>
-                {accessInfo.requiredPercentage && (
+                {accessInfo.requiredPercentage && accessInfo.requiredPercentage > 0 && (
                   <p className="text-xs text-red-500">
                     Requires {accessInfo.requiredPercentage}% to unlock
                   </p>
@@ -489,7 +489,12 @@ const CollapsibleNavigation = ({
                   };
                   
                   // Generate requirement text
-                  let requirementParts = [`${criteria.minimumPercentage}% score`];
+                  let requirementParts = [];
+                  
+                  // Only show score requirement if minimumPercentage > 0
+                  if (criteria.minimumPercentage > 0) {
+                    requirementParts.push(`${criteria.minimumPercentage}% score`);
+                  }
                   
                   if (criteria.requireAllQuestions) {
                     requirementParts.push('all questions');
@@ -497,11 +502,17 @@ const CollapsibleNavigation = ({
                     requirementParts.push(`${criteria.questionCompletionPercentage}% of questions`);
                   }
                   
-                  const requirementText = requirementParts.join(' + ');
+                  // If no score requirement and only completion requirement, use simpler text
+                  const requirementText = requirementParts.length > 0 
+                    ? requirementParts.join(' + ')
+                    : 'completion';
                   
                   return (
                     <p className="text-xs text-blue-600 mt-1">
-                      📊 Need {requirementText} to unlock next lesson
+                      {criteria.minimumPercentage > 0 
+                        ? `📊 Need ${requirementText} to unlock next lesson`
+                        : `✅ Answer ${requirementText} to unlock next lesson`
+                      }
                     </p>
                   );
                 })()}

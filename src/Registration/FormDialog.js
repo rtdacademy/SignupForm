@@ -348,7 +348,14 @@ const FormDialog = ({ trigger, open, onOpenChange, importantDates }) => {
       }
     } catch (error) {
       console.error('Error submitting registration:', error);
-      setError(error.message || 'Failed to submit registration. Please try again.');
+      
+      // Handle specific blacklist error
+      if (error.code === 'functions/permission-denied' && 
+          error.message.includes('Registration not permitted')) {
+        setError('We are unable to process your registration at this time. Please contact the school administration for assistance.');
+      } else {
+        setError(error.message || 'Failed to submit registration. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }

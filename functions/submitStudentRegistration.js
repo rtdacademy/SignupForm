@@ -45,6 +45,35 @@ const submitStudentRegistration = onCall({
       throw new HttpsError('invalid-argument', 'Missing required registration fields');
     }
 
+    // Check blacklist before proceeding with registration
+    const blacklistRef = db.ref('blacklist/active');
+    const blacklistSnapshot = await blacklistRef.once('value');
+    
+    if (blacklistSnapshot.exists()) {
+      const blacklistData = blacklistSnapshot.val();
+      const blacklistEntries = Object.values(blacklistData);
+      
+      // Check if student's ASN or email is blacklisted
+      const isBlacklisted = blacklistEntries.some(entry => 
+        (formData.albertaStudentNumber && entry.asn === formData.albertaStudentNumber) ||
+        (userEmail && entry.email.toLowerCase() === userEmail.toLowerCase())
+      );
+      
+      if (isBlacklisted) {
+        // Log the blacklist attempt for audit purposes
+        const blacklistLogRef = db.ref('blacklist/rejectionLog');
+        await blacklistLogRef.push({
+          attemptedEmail: userEmail,
+          attemptedASN: formData.albertaStudentNumber || '',
+          attemptedCourse: formData.courseName || formData.courseId,
+          timestamp: new Date().toISOString(),
+          reason: 'Student is blacklisted'
+        });
+        
+        throw new HttpsError('permission-denied', 'Registration not permitted for this student account.');
+      }
+    }
+
     // Ensure courseId is a valid number
     const numericCourseId = Number(formData.courseId);
     if (isNaN(numericCourseId)) {

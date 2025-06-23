@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AIMultipleChoiceQuestion, StandardMultipleChoiceQuestion } from '../../../../components/assessments';
-import { useProgress } from '../../../../context/CourseProgressContext';
 
 const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigateToNext }) => {
-  const { markCompleted } = useProgress();
   const [activeSection, setActiveSection] = useState('general');
   const [setupProgress, setSetupProgress] = useState({
     step1: false,
@@ -220,15 +218,6 @@ const CellPhonePolicyExamProctoring = ({ courseId, itemId, activeItem, onNavigat
     questionsCompleted.question4 && questionsCompleted.question5 && questionsCompleted.question6 && 
     questionsCompleted.question7 && questionsCompleted.question8;
 
-  // Track completion when all questions are answered
-  useEffect(() => {
-    if (allQuestionsCompleted) {
-      const lessonItemId = itemId || activeItem?.itemId;
-      if (lessonItemId) {
-        markCompleted(lessonItemId);
-      }
-    }
-  }, [allQuestionsCompleted, markCompleted, itemId, activeItem?.itemId]);
 
   return (
     <div className="space-y-8">

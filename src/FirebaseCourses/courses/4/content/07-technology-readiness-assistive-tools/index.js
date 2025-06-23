@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AIMultipleChoiceQuestion, StandardMultipleChoiceQuestion } from '../../../../components/assessments';
-import { useProgress } from '../../../../context/CourseProgressContext';
 
 const TechnologyReadinessAssistiveTools = ({ courseId, itemId, activeItem }) => {
-  const { markCompleted } = useProgress();
   const [activeSection, setActiveSection] = useState('overview');
   const [techChecklist, setTechChecklist] = useState({});
   const [assistiveTools, setAssistiveTools] = useState(['', '', '']);
@@ -116,15 +114,6 @@ const TechnologyReadinessAssistiveTools = ({ courseId, itemId, activeItem }) => 
     questionsCompleted.question4 && questionsCompleted.question5 && questionsCompleted.question6 && 
     questionsCompleted.question7 && questionsCompleted.question8;
 
-  // Track completion when all questions are answered
-  useEffect(() => {
-    if (allQuestionsCompleted) {
-      const lessonItemId = itemId || activeItem?.itemId;
-      if (lessonItemId) {
-        markCompleted(lessonItemId);
-      }
-    }
-  }, [allQuestionsCompleted, markCompleted, itemId, activeItem?.itemId]);
 
   const checkTechReadiness = () => {
     const criticalItems = techRequirements.filter(item => item.critical);

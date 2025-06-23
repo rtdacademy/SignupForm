@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { CSVLink } from 'react-csv';
 import { Button } from "../components/ui/button";
@@ -22,6 +22,7 @@ import { parseStudentSummaryKey } from '../utils/sanitizeEmail';
 import { COURSE_OPTIONS } from '../config/DropdownOptions';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
+import { getDatabase, ref, get } from 'firebase/database';
 
 // Initialize Firebase Functions
 const functions = getFunctions();
@@ -141,6 +142,37 @@ function StudentList({
   const checkboxRef = useRef(null);
   const [accordionValue, setAccordionValue] = useState("");
   const [userClickedAccordion, setUserClickedAccordion] = useState(false);
+  const [blacklistData, setBlacklistData] = useState({});
+  const [blacklistLoading, setBlacklistLoading] = useState(false);
+
+  // Fetch blacklist data
+  useEffect(() => {
+    const fetchBlacklistData = async () => {
+      try {
+        setBlacklistLoading(true);
+        const db = getDatabase();
+        const blacklistRef = ref(db, 'blacklist/active');
+        const snapshot = await get(blacklistRef);
+        
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          // Convert to a lookup object for faster checks
+          const blacklistLookup = {};
+          Object.values(data).forEach(entry => {
+            if (entry.asn) blacklistLookup[entry.asn] = true;
+            if (entry.email) blacklistLookup[entry.email.toLowerCase()] = true;
+          });
+          setBlacklistData(blacklistLookup);
+        }
+      } catch (error) {
+        console.error('Error fetching blacklist data:', error);
+      } finally {
+        setBlacklistLoading(false);
+      }
+    };
+
+    fetchBlacklistData();
+  }, []);
 
   // Check if any students have ASN issues
   const hasAsnIssues = useMemo(() => {
@@ -534,6 +566,24 @@ function StudentList({
   }, [studentSummaries, filters, searchTerm, showMultipleAsnsOnly, asnsRecords, recordTypeFilter]);
 
 
+// Helper function to check if a student is blacklisted
+const isStudentBlacklisted = useCallback((student) => {
+  if (!blacklistData || Object.keys(blacklistData).length === 0) return false;
+  
+  // Check ASN
+  if (student.asn && blacklistData[student.asn]) {
+    return true;
+  }
+  
+  // Check email (try both formats)
+  const email = student.StudentEmail || getStudentEmail(student);
+  if (email && blacklistData[email.toLowerCase()]) {
+    return true;
+  }
+  
+  return false;
+}, [blacklistData]);
+
 // Sorting using useMemo for performance optimization
 const sortedStudents = useMemo(() => {
 return [...filteredStudents].sort((a, b) => {
@@ -876,7 +926,9 @@ return (
               user_email_key={user_email_key}
               isMobile={isMobile}
               onCourseRemoved={onCourseRemoved}
-              studentAsns={studentAsns} 
+              studentAsns={studentAsns}
+              isBlacklisted={isStudentBlacklisted(student)}
+              blacklistLoading={blacklistLoading} 
             />
           </div>
         );

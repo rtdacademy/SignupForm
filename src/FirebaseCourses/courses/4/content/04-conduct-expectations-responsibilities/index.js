@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { StandardMultipleChoiceQuestion } from '../../../../components/assessments';
-import { useProgress } from '../../../../context/CourseProgressContext';
+// useProgress removed - completion tracking is now handled automatically
 
 const ConductExpectationsAlbertaEducationResponsibilities = ({ courseId, itemId, activeItem }) => {
-  const { markCompleted } = useProgress();
+  // markCompleted removed - completion tracking is now handled automatically
   const [activeSection, setActiveSection] = useState('overview');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questionsCompleted, setQuestionsCompleted] = useState({
@@ -38,15 +38,15 @@ const ConductExpectationsAlbertaEducationResponsibilities = ({ courseId, itemId,
     questionsCompleted.question4 && questionsCompleted.question5 && questionsCompleted.question6 && 
     questionsCompleted.question7 && questionsCompleted.question8;
 
-  // Track completion when all questions are answered
-  useEffect(() => {
-    if (allQuestionsCompleted) {
-      const lessonItemId = itemId || activeItem?.itemId;
-      if (lessonItemId) {
-        markCompleted(lessonItemId);
-      }
-    }
-  }, [allQuestionsCompleted, markCompleted, itemId, activeItem?.itemId]);
+  // Completion tracking now handled automatically when all questions are answered
+  // useEffect(() => {
+  //   if (allQuestionsCompleted) {
+  //     const lessonItemId = itemId || activeItem?.itemId;
+  //     if (lessonItemId) {
+  //       markCompleted(lessonItemId);
+  //     }
+  //   }
+  // }, [allQuestionsCompleted, markCompleted, itemId, activeItem?.itemId]);
 
   return (
     <div className="space-y-8">
