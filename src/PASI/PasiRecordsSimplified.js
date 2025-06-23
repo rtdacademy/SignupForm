@@ -74,7 +74,7 @@ import { toast } from 'sonner';
 import { getDatabase, ref, push, onValue, off, remove, update } from 'firebase/database';
 import { getStudentTypeInfo, getActiveFutureArchivedColor, getPaymentStatusColor } from '../config/DropdownOptions';
 
-const ITEMS_PER_PAGE = 200;
+const ITEMS_PER_PAGE = 100;
 
 // Available icons for custom views
 const AVAILABLE_ICONS = [
