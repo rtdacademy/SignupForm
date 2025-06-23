@@ -25,7 +25,11 @@ import {
   AlertCircle,
   Info,
   Users,
-  File
+  File,
+  FileSpreadsheet,
+  ChevronDown,
+  ChevronRight,
+  Check
 } from 'lucide-react';
 import { httpsCallable } from 'firebase/functions';
 import { functions, database, storage } from '../firebase';
@@ -50,6 +54,11 @@ const PDFGenerationSheet = ({
   const [jobStatus, setJobStatus] = useState(null);
   const [progress, setProgress] = useState(0);
   const [downloadUrls, setDownloadUrls] = useState([]);
+  const [csvDownloadUrl, setCsvDownloadUrl] = useState(null);
+  const [includeCSV, setIncludeCSV] = useState(true);
+  const [selectedColumns, setSelectedColumns] = useState({});
+  const [columnCategories, setColumnCategories] = useState({});
+  const [showColumnSelector, setShowColumnSelector] = useState(false);
 
   // Get records to process (either selected or all filtered)
   const recordsToProcess = selectedRecords.length > 0 ? selectedRecords : filteredRecords;
@@ -57,6 +66,107 @@ const PDFGenerationSheet = ({
   // Group by unique ASN to get student count
   const uniqueStudents = [...new Set(recordsToProcess.map(r => r.asn).filter(Boolean))];
   const studentCount = uniqueStudents.length;
+
+  // Helper function to categorize columns
+  const categorizeColumns = (records) => {
+    if (!records || records.length === 0) return {};
+    
+    const categories = {
+      'Student Information': ['asn', 'studentName', 'firstName', 'lastName', 'StudentEmail', 
+        'StudentPhone', 'birthday', 'StudentType_Value', 'entryDate'],
+      'Course Information': ['Course_Value', 'courseCode', 'pasiTerm', 'schoolYear', 
+        'Created', 'startDate', 'ScheduleStartDate'],
+      'Parent Information': ['ParentFirstName', 'ParentLastName', 'ParentEmail', 
+        'ParentPhone_x0023_'],
+      'Registration Details': ['pasiStatus', 'InstructorName', 'CourseDeliveryType', 
+        'EntryType', 'ExitType', 'exitDate'],
+      'Other': []
+    };
+
+    // Get all unique columns from records
+    const allColumns = new Set();
+    records.forEach(record => {
+      Object.keys(record).forEach(key => allColumns.add(key));
+    });
+
+    // Initialize column selections
+    const initialSelections = {};
+    const organizedCategories = {};
+
+    // Organize columns by category
+    Object.entries(categories).forEach(([category, columns]) => {
+      organizedCategories[category] = [];
+      columns.forEach(col => {
+        if (allColumns.has(col)) {
+          organizedCategories[category].push(col);
+          initialSelections[col] = true; // Default to selected
+        }
+      });
+    });
+
+    // Add any remaining columns to "Other"
+    allColumns.forEach(col => {
+      let found = false;
+      Object.values(categories).forEach(catCols => {
+        if (catCols.includes(col)) found = true;
+      });
+      if (!found) {
+        organizedCategories['Other'].push(col);
+        initialSelections[col] = false; // Default uncategorized to unselected
+      }
+    });
+
+    // Remove empty categories
+    Object.keys(organizedCategories).forEach(cat => {
+      if (organizedCategories[cat].length === 0) {
+        delete organizedCategories[cat];
+      }
+    });
+
+    return { categories: organizedCategories, selections: initialSelections };
+  };
+
+  // Initialize column categories and selections when records change
+  useEffect(() => {
+    if (recordsToProcess.length > 0) {
+      const { categories, selections } = categorizeColumns(recordsToProcess);
+      setColumnCategories(categories);
+      setSelectedColumns(selections);
+    }
+  }, [recordsToProcess]);
+
+  // Column selection helpers
+  const toggleColumn = (column) => {
+    setSelectedColumns(prev => ({
+      ...prev,
+      [column]: !prev[column]
+    }));
+  };
+
+  const toggleAllColumns = (selected) => {
+    const newSelections = {};
+    Object.keys(selectedColumns).forEach(col => {
+      newSelections[col] = selected;
+    });
+    setSelectedColumns(newSelections);
+  };
+
+  const toggleCategory = (category) => {
+    const categoryColumns = columnCategories[category];
+    const allSelected = categoryColumns.every(col => selectedColumns[col]);
+    
+    setSelectedColumns(prev => {
+      const newSelections = { ...prev };
+      categoryColumns.forEach(col => {
+        newSelections[col] = !allSelected;
+      });
+      return newSelections;
+    });
+  };
+
+  const getSelectedColumnCount = () => {
+    return Object.values(selectedColumns).filter(Boolean).length;
+  };
 
   // Add a new custom property
   const addCustomProperty = () => {
@@ -90,6 +200,7 @@ const PDFGenerationSheet = ({
             console.log('Job completed:', jobData);
             setIsGenerating(false);
             setDownloadUrls(jobData.downloadUrls || []);
+            setCsvDownloadUrl(jobData.csvDownloadUrl || null);
             
             if (jobData.failedStudents && jobData.failedStudents.length > 0) {
               toast.warning(`PDF generation completed: ${jobData.downloadUrls?.length || 0} successful, ${jobData.failedStudents.length} failed. Check results below.`);
@@ -118,6 +229,7 @@ const PDFGenerationSheet = ({
       setIsGenerating(true);
       setProgress(0);
       setDownloadUrls([]);
+      setCsvDownloadUrl(null);
 
       // Validate custom properties and include descriptions
       const validCustomProps = customProperties.filter(p => p.key && p.value);
@@ -144,6 +256,36 @@ const PDFGenerationSheet = ({
         };
       });
 
+      // Prepare CSV configuration if enabled
+      const csvConfig = includeCSV ? {
+        enabled: true,
+        selectedColumns: Object.keys(selectedColumns).filter(col => selectedColumns[col]),
+        columnLabels: {
+          // Add human-readable labels for columns
+          'asn': 'ASN',
+          'studentName': 'Student Name',
+          'firstName': 'First Name',
+          'lastName': 'Last Name',
+          'StudentEmail': 'Student Email',
+          'StudentPhone': 'Student Phone',
+          'birthday': 'Date of Birth',
+          'StudentType_Value': 'Student Type',
+          'Course_Value': 'Course Name',
+          'courseCode': 'Course Code',
+          'pasiTerm': 'Term',
+          'schoolYear': 'School Year',
+          'ParentFirstName': 'Parent First Name',
+          'ParentLastName': 'Parent Last Name',
+          'ParentEmail': 'Parent Email',
+          'ParentPhone_x0023_': 'Parent Phone',
+          'pasiStatus': 'PASI Status',
+          'InstructorName': 'Instructor',
+          'CourseDeliveryType': 'Delivery Type',
+          'entryDate': 'Entry Date',
+          'exitDate': 'Exit Date'
+        }
+      } : null;
+
       // Call cloud function
       const generatePDFs = httpsCallable(functions, 'generateRegistrationPDFs');
       const result = await generatePDFs({
@@ -153,7 +295,8 @@ const PDFGenerationSheet = ({
           subtitle: documentSubtitle,
           customProperties: customPropsObject,
           schoolYear: schoolYear
-        }
+        },
+        csvConfig: csvConfig
       });
 
       setJobStatus(result.data);
@@ -231,6 +374,36 @@ const PDFGenerationSheet = ({
       }
       
       toast.error(errorMessage);
+    }
+  };
+
+  // Download CSV file
+  const handleDownloadCSV = async () => {
+    if (!csvDownloadUrl) {
+      toast.error('CSV file not available');
+      return;
+    }
+
+    try {
+      // Create Firebase Storage reference
+      const fileRef = storageRef(storage, csvDownloadUrl.filePath);
+      
+      // Get download URL with proper authentication
+      const downloadURL = await getDownloadURL(fileRef);
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = downloadURL;
+      link.download = csvDownloadUrl.fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('CSV download started');
+    } catch (error) {
+      console.error('Error downloading CSV:', error);
+      toast.error('Failed to download CSV file');
     }
   };
 
@@ -388,6 +561,98 @@ const PDFGenerationSheet = ({
               )}
             </div>
 
+            <Separator />
+
+            {/* CSV Export Configuration */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium">CSV Export Options</h3>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeCSV}
+                    onChange={(e) => setIncludeCSV(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm">Generate CSV file</span>
+                </label>
+              </div>
+
+              {includeCSV && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowColumnSelector(!showColumnSelector)}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileSpreadsheet className="h-4 w-4" />
+                      Select CSV Columns ({getSelectedColumnCount()} selected)
+                    </span>
+                    {showColumnSelector ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </Button>
+
+                  {showColumnSelector && (
+                    <div className="border rounded-md p-4 space-y-4 bg-gray-50 max-h-96 overflow-y-auto">
+                      <div className="flex gap-2 mb-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleAllColumns(true)}
+                        >
+                          Select All
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleAllColumns(false)}
+                        >
+                          Deselect All
+                        </Button>
+                      </div>
+
+                      {Object.entries(columnCategories).map(([category, columns]) => (
+                        <div key={category} className="space-y-2">
+                          <div 
+                            className="font-medium text-sm flex items-center gap-2 cursor-pointer hover:text-[#008B8B]"
+                            onClick={() => toggleCategory(category)}
+                          >
+                            <div className="w-4 h-4 border rounded flex items-center justify-center">
+                              {columns.every(col => selectedColumns[col]) && <Check className="h-3 w-3" />}
+                            </div>
+                            {category}
+                          </div>
+                          <div className="ml-6 space-y-1">
+                            {columns.map(column => (
+                              <label key={column} className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedColumns[column] || false}
+                                  onChange={() => toggleColumn(column)}
+                                  className="rounded border-gray-300"
+                                />
+                                <span className="text-sm">{column}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {getSelectedColumnCount() === 0 && includeCSV && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Please select at least one column for CSV export
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </>
+              )}
+            </div>
+
             {/* Progress Section */}
             {isGenerating && (
               <>
@@ -429,7 +694,10 @@ const PDFGenerationSheet = ({
                       <CheckCircle className="h-4 w-4 text-green-600" />
                       Generation Complete
                     </h3>
-                    <Badge variant="success">{downloadUrls.length} PDFs</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="success">{downloadUrls.length} PDFs</Badge>
+                      {csvDownloadUrl && <Badge variant="success">1 CSV</Badge>}
+                    </div>
                   </div>
                   
                   <Alert>
@@ -448,7 +716,7 @@ const PDFGenerationSheet = ({
                         variant="outline"
                       >
                         <Download className="h-4 w-4 mr-2" />
-                        Download Individually
+                        Download PDFs
                       </Button>
                       <Button 
                         onClick={handleDownloadZip}
@@ -459,6 +727,17 @@ const PDFGenerationSheet = ({
                         Download ZIP
                       </Button>
                     </div>
+                    
+                    {csvDownloadUrl && (
+                      <Button 
+                        onClick={handleDownloadCSV}
+                        className="w-full"
+                        variant="outline"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Download CSV Export
+                      </Button>
+                    )}
                     
                     <div className="space-y-2 max-h-40 overflow-y-auto">
                       {downloadUrls.map((item, index) => (
@@ -488,7 +767,7 @@ const PDFGenerationSheet = ({
         <SheetFooter className="flex-shrink-0 border-t pt-4">
           <Button
             onClick={handleGeneratePDFs}
-            disabled={isGenerating || studentCount === 0}
+            disabled={isGenerating || studentCount === 0 || (includeCSV && getSelectedColumnCount() === 0)}
             className="w-full bg-[#008B8B] hover:bg-[#20B2AA]"
           >
             {isGenerating ? (

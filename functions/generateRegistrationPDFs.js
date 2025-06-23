@@ -3,6 +3,7 @@ const admin = require('firebase-admin');
 const puppeteer = require('puppeteer');
 const handlebars = require('handlebars');
 const path = require('path');
+const { stringify } = require('csv-stringify/sync');
 
 // Initialize admin if not already initialized
 if (!admin.apps.length) {
@@ -188,6 +189,43 @@ const generateRandomWinterDate = (year) => {
   const randomMinute = Math.floor(Math.random() * 60);
   
   return new Date(year, randomMonth, randomDay, randomHour, randomMinute);
+};
+
+// Helper to prepare CSV data from student records
+const prepareCSVData = (students, selectedColumns, columnLabels) => {
+  const csvRows = [];
+  
+  students.forEach(student => {
+    const allCourseRecords = student.allCourseRecords || [student];
+    
+    // Create one row per course
+    allCourseRecords.forEach(courseRecord => {
+      const row = {};
+      
+      // Add selected columns
+      selectedColumns.forEach(column => {
+        let value = courseRecord[column];
+        
+        // Handle special cases
+        if (column === 'studentName' && !value && courseRecord.firstName && courseRecord.lastName) {
+          value = `${courseRecord.firstName} ${courseRecord.lastName}`;
+        }
+        
+        // Format dates
+        if (value && ['birthday', 'entryDate', 'exitDate', 'Created', 'startDate', 'ScheduleStartDate'].includes(column)) {
+          value = formatDate(value);
+        }
+        
+        // Use column label if available
+        const label = columnLabels[column] || column;
+        row[label] = value || '';
+      });
+      
+      csvRows.push(row);
+    });
+  });
+  
+  return csvRows;
 };
 
 // Helper to prepare course data with proper entry date handling
@@ -620,7 +658,7 @@ const generateRegistrationPDFs = onCall({
   timeoutSeconds: 540, // 9 minutes
   maxInstances: 10
 }, async (request) => {
-  const { students, documentConfig } = request.data;
+  const { students, documentConfig, csvConfig } = request.data;
   const userId = request.auth?.uid;
   const userEmail = request.auth?.token?.email;
   
@@ -848,6 +886,51 @@ const generateRegistrationPDFs = onCall({
       await Promise.all(batchPromises);
     }
     
+    // Generate CSV if configured
+    let csvDownloadUrl = null;
+    if (csvConfig && csvConfig.enabled && csvConfig.selectedColumns.length > 0) {
+      try {
+        console.log(`Generating CSV with ${csvConfig.selectedColumns.length} columns`);
+        
+        // Prepare CSV data
+        const csvData = prepareCSVData(students, csvConfig.selectedColumns, csvConfig.columnLabels || {});
+        
+        // Convert to CSV string
+        const csv = stringify(csvData, { header: true });
+        
+        // Generate CSV filename
+        const csvFileName = `Registration_Export_${sanitizedSchoolYear}_${new Date().toISOString().slice(0, 10)}.csv`;
+        const csvFilePath = `registrationDocuments/${sanitizedSchoolYear}/csv/${csvFileName}`;
+        
+        // Upload CSV to storage
+        const csvFile = storage.file(csvFilePath);
+        await csvFile.save(csv, {
+          metadata: {
+            contentType: 'text/csv',
+            metadata: {
+              jobId: jobId,
+              generatedBy: userEmail,
+              generatedAt: new Date().toISOString(),
+              studentCount: students.length,
+              recordCount: csvData.length,
+              columnCount: csvConfig.selectedColumns.length
+            }
+          }
+        });
+        
+        csvDownloadUrl = {
+          fileName: csvFileName,
+          filePath: csvFilePath,
+          recordCount: csvData.length
+        };
+        
+        console.log(`CSV generated successfully: ${csvFileName}`);
+      } catch (csvError) {
+        console.error('Error generating CSV:', csvError);
+        // Continue without CSV - don't fail the whole job
+      }
+    }
+
     // Create batch metadata
     const batchMetadata = {
       jobId: jobId,
@@ -857,6 +940,7 @@ const generateRegistrationPDFs = onCall({
       generatedBy: userEmail,
       generatedAt: new Date().toISOString(),
       customProperties: documentConfig.customProperties || {},
+      csvIncluded: csvDownloadUrl !== null,
       students: downloadUrls.map(item => ({
         asn: item.asn,
         status: 'completed',
@@ -885,6 +969,7 @@ const generateRegistrationPDFs = onCall({
       status: 'completed',
       completedAt: getTimestamp(),
       downloadUrls: downloadUrls,
+      csvDownloadUrl: csvDownloadUrl,
       failedStudents: failedStudents,
       metadataPath: metadataPath
     });
@@ -897,6 +982,7 @@ const generateRegistrationPDFs = onCall({
       processedCount: processedCount,
       failedCount: failedStudents.length,
       downloadUrls: downloadUrls,
+      csvDownloadUrl: csvDownloadUrl,
       failedStudents: failedStudents // Include failed students for frontend display
     };
     
