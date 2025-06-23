@@ -53,7 +53,8 @@ import {
   UserPlus,
   GripVertical,
   List,
-  FileDown
+  FileDown,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useSchoolYear } from '../context/SchoolYearContext';
 import { useAuth } from '../context/AuthContext';
@@ -70,6 +71,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import PasiActionButtons from "../components/PasiActionButtons";
 import PasiRecordDetails from "../TeacherDashboard/PasiRecordDetails";
 import PDFGenerationSheet from "./PDFGenerationSheet";
+import CSVExportSheet from "./CSVExportSheet";
 import { toast } from 'sonner';
 import { getDatabase, ref, push, onValue, off, remove, update } from 'firebase/database';
 import { getStudentTypeInfo, getActiveFutureArchivedColor, getPaymentStatusColor } from '../config/DropdownOptions';
@@ -1516,6 +1518,7 @@ const PasiRecordsSimplified = () => {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false);
   const [isPDFGenerationOpen, setIsPDFGenerationOpen] = useState(false);
+  const [isCSVExportOpen, setIsCSVExportOpen] = useState(false);
   
   // Responsive breakpoint state
   const breakpoint = useResponsiveBreakpoint();
@@ -2943,15 +2946,26 @@ const PasiRecordsSimplified = () => {
                 })()}
               </Badge>
               {filteredRecords.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsPDFGenerationOpen(true)}
-                  className="h-8"
-                >
-                  <FileDown className="h-4 w-4 mr-1" />
-                  Generate PDFs
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsCSVExportOpen(true)}
+                    className="h-8"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-1" />
+                    Export CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsPDFGenerationOpen(true)}
+                    className="h-8"
+                  >
+                    <FileDown className="h-4 w-4 mr-1" />
+                    Generate PDFs
+                  </Button>
+                </>
               )}
             </div>
           </CardTitle>
@@ -4017,6 +4031,15 @@ const PasiRecordsSimplified = () => {
       <PDFGenerationSheet
         isOpen={isPDFGenerationOpen}
         onOpenChange={setIsPDFGenerationOpen}
+        filteredRecords={filteredRecords}
+        selectedRecords={selectedPasiRecords ? Object.values(selectedPasiRecords) : []}
+        schoolYear={currentSchoolYear}
+      />
+      
+      {/* CSV Export Sheet */}
+      <CSVExportSheet
+        isOpen={isCSVExportOpen}
+        onOpenChange={setIsCSVExportOpen}
         filteredRecords={filteredRecords}
         selectedRecords={selectedPasiRecords ? Object.values(selectedPasiRecords) : []}
         schoolYear={currentSchoolYear}

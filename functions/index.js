@@ -51,7 +51,9 @@ const pasiDataFunctions = require('./uploadPasiData');
 
 // PDF generation
 const pdfGenerationFunctions = require('./generateRegistrationPDFs');
+const pdfStreamingFunctions = require('./generateRegistrationPDFsStreaming');
 const downloadPDFFunctions = require('./downloadRegistrationPDFs');
+const downloadJobFileFunctions = require('./downloadJobFile');
 const pasiCsvFunctions = require('./uploadPasiCsv');
 
 // Edge functions
@@ -184,7 +186,9 @@ exports.retrieveStudentPasiData = pasiDataFunctions.retrieveStudentPasiData;
 
 // PDF generation functions
 exports.generateRegistrationPDFs = pdfGenerationFunctions.generateRegistrationPDFs;
+exports.generateRegistrationPDFsStreaming = pdfStreamingFunctions.generateRegistrationPDFsStreaming;
 exports.downloadRegistrationPDFs = downloadPDFFunctions.downloadRegistrationPDFs;
+exports.downloadJobFile = downloadJobFileFunctions.downloadJobFile;
 
 // PASI CSV Upload V2
 exports.uploadPasiCsvV2 = pasiCsvFunctions.uploadPasiCsvV2;
@@ -193,6 +197,9 @@ exports.verifyStudentASN = parentPortalFunctions.verifyStudentASN;
 exports.processParentInvitationRequest = parentPortalFunctions.processParentInvitationRequest;
 exports.acceptParentInvitation = parentPortalFunctions.acceptParentInvitation;
 exports.approveStudentEnrollment = parentPortalFunctions.approveStudentEnrollment;
+
+// Student category update function
+exports.updateStudentCategories = require('./updateStudentCategories').updateStudentCategories;
 exports.resendParentInvitation = parentPortalFunctions.resendParentInvitation;
 exports.getParentDashboardData = parentPortalFunctions.getParentDashboardData;
 

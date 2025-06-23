@@ -29,7 +29,8 @@ import {
   FileSpreadsheet,
   ChevronDown,
   ChevronRight,
-  Check
+  Check,
+  FileJson
 } from 'lucide-react';
 import { httpsCallable } from 'firebase/functions';
 import { functions, database, storage } from '../firebase';
@@ -44,11 +45,11 @@ const PDFGenerationSheet = ({
   selectedRecords = [],
   schoolYear
 }) => {
-  const [documentTitle, setDocumentTitle] = useState('Official Student Registration Document');
+  const [documentTitle, setDocumentTitle] = useState('Student Registration');
   const [documentSubtitle, setDocumentSubtitle] = useState(`Academic Year ${schoolYear}`);
   const [customProperties, setCustomProperties] = useState([
-    { key: 'Parent Approved', value: 'Yes', description: 'Confirmation that parent/guardian has approved student enrollment' },
-    { key: 'Alberta Resident Verified', value: 'Yes', description: 'Verification of Alberta residency status for funding eligibility' }
+    { key: 'Parent Approved', value: 'Yes', description: 'Parent has been Contacted' },
+    { key: 'Alberta Resident Verified', value: 'Yes', description: 'Verification of Alberta residency status' }
   ]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [jobStatus, setJobStatus] = useState(null);
@@ -59,6 +60,7 @@ const PDFGenerationSheet = ({
   const [selectedColumns, setSelectedColumns] = useState({});
   const [columnCategories, setColumnCategories] = useState({});
   const [showColumnSelector, setShowColumnSelector] = useState(false);
+
 
   // Get records to process (either selected or all filtered)
   const recordsToProcess = selectedRecords.length > 0 ? selectedRecords : filteredRecords;
@@ -167,6 +169,7 @@ const PDFGenerationSheet = ({
   const getSelectedColumnCount = () => {
     return Object.values(selectedColumns).filter(Boolean).length;
   };
+
 
   // Add a new custom property
   const addCustomProperty = () => {
@@ -286,8 +289,10 @@ const PDFGenerationSheet = ({
         }
       } : null;
 
-      // Call cloud function
-      const generatePDFs = httpsCallable(functions, 'generateRegistrationPDFs');
+      // Call cloud function (original method) with extended timeout
+      const generatePDFs = httpsCallable(functions, 'generateRegistrationPDFs', {
+        timeout: 600000 // 10 minutes (600 seconds)
+      });
       const result = await generatePDFs({
         students: studentsData,
         documentConfig: {
@@ -305,6 +310,8 @@ const PDFGenerationSheet = ({
       if (result.data.success && result.data.downloadUrls) {
         setIsGenerating(false);
         setDownloadUrls(result.data.downloadUrls);
+        setCsvDownloadUrl(result.data.csvDownloadUrl || null);
+        // Note: metadataPath is usually only available in the database job record, not the immediate response
         
         if (result.data.failedCount > 0) {
           toast.warning(`PDF generation completed with ${result.data.failedCount} failures.`);
@@ -377,35 +384,52 @@ const PDFGenerationSheet = ({
     }
   };
 
-  // Download CSV file
-  const handleDownloadCSV = async () => {
-    if (!csvDownloadUrl) {
-      toast.error('CSV file not available');
+  // Download individual job file (CSV, metadata, or PDF)
+  const handleDownloadJobFile = async (fileType, fileName = null) => {
+    if (!jobStatus?.jobId) {
+      toast.error('No job ID available');
       return;
     }
 
     try {
-      // Create Firebase Storage reference
-      const fileRef = storageRef(storage, csvDownloadUrl.filePath);
-      
-      // Get download URL with proper authentication
-      const downloadURL = await getDownloadURL(fileRef);
-      
-      // Create download link
-      const link = document.createElement('a');
-      link.href = downloadURL;
-      link.download = csvDownloadUrl.fileName;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.success('CSV download started');
+      const downloadJobFile = httpsCallable(functions, 'downloadJobFile', {
+        timeout: 120000 // 2 minutes (120 seconds) - shorter timeout for individual files
+      });
+      const result = await downloadJobFile({
+        jobId: jobStatus.jobId,
+        fileType: fileType,
+        fileName: fileName
+      });
+
+      if (result.data.success) {
+        // Create Firebase Storage reference
+        const fileRef = storageRef(storage, result.data.filePath);
+        
+        // Get download URL with proper authentication
+        const downloadURL = await getDownloadURL(fileRef);
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.href = downloadURL;
+        link.download = result.data.fileName;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast.success(`${fileType.toUpperCase()} download started`);
+      }
     } catch (error) {
-      console.error('Error downloading CSV:', error);
-      toast.error('Failed to download CSV file');
+      console.error(`Error downloading ${fileType}:`, error);
+      toast.error(`Failed to download ${fileType} file`);
     }
   };
+
+  // Download CSV file
+  const handleDownloadCSV = () => handleDownloadJobFile('csv');
+  
+  // Download metadata file  
+  const handleDownloadMetadata = () => handleDownloadJobFile('metadata');
 
   // Download all PDFs as ZIP
   const handleDownloadZip = async () => {
@@ -417,7 +441,9 @@ const PDFGenerationSheet = ({
     try {
       toast.info('Creating ZIP file...');
       
-      const downloadPDFs = httpsCallable(functions, 'downloadRegistrationPDFs');
+      const downloadPDFs = httpsCallable(functions, 'downloadRegistrationPDFs', {
+        timeout: 600000 // 10 minutes (600 seconds)
+      });
       const result = await downloadPDFs({
         jobId: jobStatus.jobId,
         selectedAsns: [] // Empty means all PDFs
@@ -709,6 +735,7 @@ const PDFGenerationSheet = ({
                   </Alert>
 
                   <div className="space-y-3">
+                    {/* Main Download Options */}
                     <div className="flex gap-2">
                       <Button 
                         onClick={handleDownloadAll}
@@ -728,15 +755,36 @@ const PDFGenerationSheet = ({
                       </Button>
                     </div>
                     
-                    {csvDownloadUrl && (
-                      <Button 
-                        onClick={handleDownloadCSV}
-                        className="w-full"
-                        variant="outline"
-                      >
-                        <FileSpreadsheet className="h-4 w-4 mr-2" />
-                        Download CSV Export
-                      </Button>
+                    {/* Additional File Downloads - Prominently Displayed */}
+                    {(csvDownloadUrl || jobStatus?.metadataPath) && (
+                      <>
+                        <div className="border-t pt-3">
+                          <h4 className="text-sm font-medium mb-2 text-gray-700">Additional Files</h4>
+                          <div className="grid grid-cols-1 gap-2">
+                            {csvDownloadUrl && (
+                              <Button 
+                                onClick={handleDownloadCSV}
+                                className="w-full bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                                variant="outline"
+                              >
+                                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                Download CSV Export ({csvDownloadUrl.recordCount || 'Multiple'} records)
+                              </Button>
+                            )}
+                            
+                            {jobStatus?.metadataPath && (
+                              <Button 
+                                onClick={handleDownloadMetadata}
+                                className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                                variant="outline"
+                              >
+                                <FileJson className="h-4 w-4 mr-2" />
+                                Download Job Metadata
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </>
                     )}
                     
                     <div className="space-y-2 max-h-40 overflow-y-auto">

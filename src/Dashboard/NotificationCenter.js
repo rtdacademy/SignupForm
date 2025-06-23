@@ -23,7 +23,6 @@ import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { cn } from '../lib/utils';
-import { getDatabase, ref, update } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth } from 'firebase/auth';
 import { useAuth } from '../context/AuthContext';
@@ -1677,7 +1676,7 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
       // Process categories from answers - we still need to do this client-side
       // because categories are specific to the UI and how the user interacts
       if (selectedNotification.surveyQuestions && selectedNotification.surveyQuestions.length > 0) {
-        await processCategoryUpdates(answers, selectedNotification, courseId, sanitizeEmail(current_user_email_key));
+        await processCategoryUpdates(answers, selectedNotification, courseId);
       }
       
       // IMPORTANT: Also update using submitSurveyResponse to ensure course-specific tracking
@@ -1745,9 +1744,8 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
     }
   };
   
-  // Helper function to process category updates
-  const processCategoryUpdates = async (answers, notification, courseId, sanitizedUserEmail) => {
-    const db = getDatabase();
+  // Helper function to process category updates using cloud function
+  const processCategoryUpdates = async (answers, notification, courseId) => {
     const categoryUpdates = [];
     
     // Loop through each answer to check for categories
@@ -1795,23 +1793,32 @@ const NotificationCenter = ({ courses, profile, markNotificationAsSeen, submitSu
         
         // If we have a staff key and category, add to updates
         if (staffKey && staffKey !== 'none') {
-          const categoryPath = `students/${sanitizedUserEmail}/courses/${courseId}/categories/${staffKey}/${categoryId}`;
-          categoryUpdates.push({ path: categoryPath, value: true });
+          categoryUpdates.push({ 
+            staffKey: staffKey,
+            categoryId: categoryId,
+            value: true 
+          });
         }
       }
     }
     
-    // Apply all category updates if we have any
+    // Apply all category updates if we have any using cloud function
     if (categoryUpdates.length > 0) {
-      // Convert the updates array to an object for update() function
-      const updateObj = {};
-      for (const updateItem of categoryUpdates) {
-        updateObj[updateItem.path] = updateItem.value;
+      try {
+        const functions = getFunctions();
+        const updateCategories = httpsCallable(functions, 'updateStudentCategories');
+        
+        const result = await updateCategories({
+          categoryUpdates: categoryUpdates,
+          studentEmail: profile?.StudentEmail || current_user_email_key,
+          courseId: courseId
+        });
+        
+        console.log(`Updated ${result.data.updatedCount} categories for student via cloud function`);
+      } catch (error) {
+        console.error('Error updating categories via cloud function:', error);
+        // Don't throw - we don't want to fail the entire survey submission
       }
-      
-      // Use update instead of set to avoid overwriting other categories
-      await update(ref(db), updateObj);
-      console.log(`Added ${categoryUpdates.length} categories to student using update()`);
     }
   };
   

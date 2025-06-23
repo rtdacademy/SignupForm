@@ -137,6 +137,29 @@ const downloadRegistrationPDFs = onCall({
         // Continue without CSV - don't fail the whole ZIP
       }
     }
+
+    // Add metadata file to ZIP if available
+    if (jobData.metadataPath) {
+      try {
+        const metadataFile = storage.file(jobData.metadataPath);
+        const [metadataExists] = await metadataFile.exists();
+        
+        if (metadataExists) {
+          const [metadataBuffer] = await metadataFile.download();
+          const sanitizedSchoolYear = jobData.config?.schoolYear?.replace(/\//g, '_') || 'unknown';
+          const folderName = `Registration_PDFs_${sanitizedSchoolYear}`;
+          
+          // Add metadata to the root of the ZIP folder
+          archive.append(metadataBuffer, { name: `${folderName}/batch_metadata_${jobData.jobId || 'unknown'}.json` });
+          console.log(`Added metadata file to ZIP`);
+        } else {
+          console.warn(`Metadata file not found: ${jobData.metadataPath}`);
+        }
+      } catch (metadataError) {
+        console.error('Error adding metadata to ZIP:', metadataError);
+        // Continue without metadata - don't fail the whole ZIP
+      }
+    }
     
     // Finalize the archive
     archive.finalize();
@@ -174,9 +197,10 @@ const downloadRegistrationPDFs = onCall({
       downloadedBy: userEmail,
       downloadedAt: getTimestamp(),
       zipFileName: zipFileName,
-      fileCount: urlsToDownload.length + (jobData.csvDownloadUrl ? 1 : 0),
+      fileCount: urlsToDownload.length + (jobData.csvDownloadUrl ? 1 : 0) + (jobData.metadataPath ? 1 : 0),
       pdfCount: urlsToDownload.length,
       csvIncluded: !!jobData.csvDownloadUrl,
+      metadataIncluded: !!jobData.metadataPath,
       downloadType: selectedAsns.length > 0 ? 'selected' : 'all',
       selectedAsns: selectedAsns
     });
@@ -187,9 +211,10 @@ const downloadRegistrationPDFs = onCall({
       success: true,
       filePath: zipFilePath,  // Return path instead of URL
       fileName: zipFileName,
-      fileCount: urlsToDownload.length + (jobData.csvDownloadUrl ? 1 : 0),
+      fileCount: urlsToDownload.length + (jobData.csvDownloadUrl ? 1 : 0) + (jobData.metadataPath ? 1 : 0),
       pdfCount: urlsToDownload.length,
-      csvIncluded: !!jobData.csvDownloadUrl
+      csvIncluded: !!jobData.csvDownloadUrl,
+      metadataIncluded: !!jobData.metadataPath
     };
     
   } catch (error) {
