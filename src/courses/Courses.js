@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getDatabase, ref, update, remove } from 'firebase/database';
+import { getDatabase, ref, update, remove, get } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -11,7 +12,9 @@ import {
   FaRegLightbulb,
   FaLink,
   FaFire,
-  FaEnvelope
+  FaEnvelope,
+  FaSync,
+  FaDatabase
 } from 'react-icons/fa';
 import { BookOpen } from 'lucide-react';
 import Modal from 'react-modal';
@@ -35,8 +38,7 @@ import AddCourseDialog from './AddCourseDialog';
 import DeleteCourseDialog from './DeleteCourseDialog';
 import CourseWeightingDialog from './CourseWeightingDialog';
 import ImprovedEmailManager from './ImprovedEmailManager';
-import FirebaseCourseConfig from './FirebaseCourseConfig';
-import FirebaseCourseStructure from './FirebaseCourseStructure';
+import JsonDisplay from '../components/JsonDisplay';
 
 // Import UI kit Select components for single–value selects
 import {
@@ -339,6 +341,279 @@ function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
   );
 }
 
+// Component for displaying and managing Firebase course configuration from database
+function DatabaseCourseConfig({ courseId, isEditing }) {
+  const [config, setConfig] = useState(null);
+  const [versionControl, setVersionControl] = useState(null);
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [checkingSync, setCheckingSync] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState(null);
+
+  const checkSyncStatus = async () => {
+    if (!courseId) return;
+    
+    try {
+      setCheckingSync(true);
+      
+      // Read file config and database config to compare
+      const functions = getFunctions();
+      const getConfigFunction = httpsCallable(functions, 'getCourseConfigV2');
+      
+      // Get file config
+      const fileResult = await getConfigFunction({ courseId });
+      
+      if (!fileResult.data.success) {
+        setSyncStatus({ error: fileResult.data.error || 'Could not read course config file' });
+        return;
+      }
+      
+      // Calculate hash of file content
+      const fileConfig = fileResult.data.courseConfig;
+      const fileConfigString = JSON.stringify(fileConfig, null, 2);
+      const fileHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(fileConfigString));
+      const fileHashHex = Array.from(new Uint8Array(fileHash)).map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      // Compare with database version control hash
+      if (versionControl && versionControl.contentHash) {
+        if (versionControl.contentHash === fileHashHex) {
+          setSyncStatus({ 
+            upToDate: true, 
+            message: 'Database is up to date with file',
+            fileVersion: fileConfig.metadata?.version || 'Unknown',
+            dbVersion: versionControl.version || 'Unknown'
+          });
+        } else {
+          setSyncStatus({ 
+            needsSync: true, 
+            message: 'Configuration file has been updated and needs syncing',
+            fileVersion: fileConfig.metadata?.version || 'Unknown',
+            dbVersion: versionControl.version || 'Unknown'
+          });
+        }
+      } else {
+        // No version control data means database hasn't been synced yet
+        setSyncStatus({ 
+          needsSync: true, 
+          message: 'Configuration has never been synced to database',
+          fileVersion: fileConfig.metadata?.version || 'Unknown',
+          dbVersion: 'Not synced'
+        });
+      }
+      
+    } catch (err) {
+      console.error('Error checking sync status:', err);
+      setSyncStatus({ error: err.message });
+    } finally {
+      setCheckingSync(false);
+    }
+  };
+
+  const fetchCourseConfigFromDatabase = async () => {
+    if (!courseId) return;
+    
+    try {
+      setLoading(true);
+      const db = getDatabase();
+      
+      // Fetch both config and version control data
+      const configRef = ref(db, `courses/${courseId}/course-config`);
+      const versionRef = ref(db, `courses/${courseId}/course-config-version-control`);
+      
+      const [configSnapshot, versionSnapshot] = await Promise.all([
+        get(configRef),
+        get(versionRef)
+      ]);
+      
+      if (configSnapshot.exists()) {
+        setConfig(configSnapshot.val());
+        setError(null);
+      } else {
+        setConfig(null);
+        setError(`No course configuration found in database for course ${courseId}`);
+      }
+      
+      if (versionSnapshot.exists()) {
+        setVersionControl(versionSnapshot.val());
+      } else {
+        setVersionControl(null);
+      }
+      
+    } catch (err) {
+      console.error('Error fetching course config from database:', err);
+      setError(`Failed to fetch course configuration: ${err.message}`);
+      setConfig(null);
+      setVersionControl(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const manualSync = async () => {
+    try {
+      setSyncing(true);
+      const functions = getFunctions();
+      const syncFunction = httpsCallable(functions, 'syncCourseConfigToDatabase');
+      
+      // Force sync when user manually triggers
+      const result = await syncFunction({ courseId, force: true });
+      
+      if (result.data.success) {
+        console.log('Manual sync successful:', result.data);
+        // Refresh the data and sync status after sync
+        await Promise.all([
+          fetchCourseConfigFromDatabase(),
+          checkSyncStatus()
+        ]);
+        alert(`Sync successful! ${result.data.results[0]?.message || 'Configuration updated'}`);
+      } else {
+        console.error('Manual sync failed:', result.data);
+        alert(`Sync failed: ${result.data.error}`);
+      }
+    } catch (err) {
+      console.error('Error during manual sync:', err);
+      alert(`Sync error: ${err.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    const initializeData = async () => {
+      await fetchCourseConfigFromDatabase();
+      await checkSyncStatus();
+    };
+    
+    initializeData();
+  }, [courseId]);
+
+  const getSubtitle = () => {
+    if (loading) return 'Loading database configuration...';
+    if (error) return error;
+    if (!config) return 'No configuration data found in database';
+    
+    let subtitle = 'Live data from Realtime Database';
+    if (versionControl) {
+      subtitle += ` • Version: ${versionControl.version} • Last synced: ${new Date(versionControl.lastSynced).toLocaleString()}`;
+    }
+    return subtitle;
+  };
+
+  const getSyncStatusMessage = () => {
+    if (checkingSync) return 'Checking for changes...';
+    if (!syncStatus) return 'Sync status unknown';
+    
+    if (syncStatus.error) {
+      return `Error: ${syncStatus.error}`;
+    }
+    
+    if (syncStatus.upToDate) {
+      return `${syncStatus.message} (File: v${syncStatus.fileVersion}, DB: v${syncStatus.dbVersion})`;
+    }
+    
+    if (syncStatus.needsSync) {
+      return `${syncStatus.message} (File: v${syncStatus.fileVersion}, DB: v${syncStatus.dbVersion})`;
+    }
+    
+    return 'Ready to check sync status';
+  };
+
+  const getSyncStatusColor = () => {
+    if (checkingSync) return 'text-blue-500';
+    if (!syncStatus || syncStatus.error) return 'text-red-500';
+    if (syncStatus.upToDate) return 'text-green-500';
+    if (syncStatus.needsSync) return 'text-yellow-500';
+    return 'text-gray-500';
+  };
+
+  const shouldShowSyncButton = () => {
+    return syncStatus && (syncStatus.needsSync || syncStatus.error);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Sync Warning Banner - Only show when sync is needed */}
+      {syncStatus && syncStatus.needsSync && (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FaExclamationTriangle className="text-yellow-500" />
+              <span className="font-medium text-yellow-800">Configuration Out of Sync</span>
+            </div>
+            {isEditing && (
+              <Button
+                onClick={manualSync}
+                disabled={syncing || checkingSync}
+                variant="default"
+                size="sm"
+                className="flex items-center bg-yellow-600 hover:bg-yellow-700"
+              >
+                <FaSync className={`mr-1 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync Now'}
+              </Button>
+            )}
+          </div>
+          <div className="mt-2 text-sm text-yellow-700">
+            {getSyncStatusMessage()}
+          </div>
+        </div>
+      )}
+
+      {/* Sync Status and Controls */}
+      <div className="p-4 bg-gray-50 rounded-lg border">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FaDatabase className="text-blue-500" />
+            <span className="font-medium">Database Configuration</span>
+            {versionControl && (
+              <span className="text-sm text-gray-600">
+                (v{versionControl.version})
+              </span>
+            )}
+          </div>
+          
+          {isEditing && shouldShowSyncButton() && (
+            <Button
+              onClick={manualSync}
+              disabled={syncing || checkingSync}
+              variant="outline"
+              size="sm"
+              className="flex items-center"
+            >
+              <FaSync className={`mr-1 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync from File'}
+            </Button>
+          )}
+        </div>
+        
+        {/* Sync Status Display */}
+        <div className={`mt-2 text-sm ${getSyncStatusColor()}`}>
+          <span>{getSyncStatusMessage()}</span>
+        </div>
+      </div>
+
+      {/* Configuration Display */}
+      <JsonDisplay 
+        data={config || { error: error || 'No data available' }}
+        title="Course Configuration"
+        subtitle={getSubtitle()}
+        filePath={versionControl?.syncedFrom || `Database: /courses/${courseId}/course-config/`}
+      />
+      
+      {/* Version Control Information */}
+      {versionControl && (
+        <JsonDisplay 
+          data={versionControl}
+          title="Version Control Information"
+          subtitle="Sync metadata and version tracking"
+          filePath={`Database: /courses/${courseId}/course-config-version-control/`}
+        />
+      )}
+    </div>
+  );
+}
+
 function Courses({
   courses,
   staffMembers,
@@ -611,6 +886,27 @@ function Courses({
       .catch((error) => {
         console.error('Error updating ltiLinksComplete:', error);
         alert('An error occurred while updating LTI links status.');
+      });
+  };
+
+  const handleOnRegistrationChange = (checked) => {
+    if (!isEditing) return;
+
+    const updatedData = {
+      ...courseData,
+      OnRegistration: checked
+    };
+    onCourseUpdate(updatedData);
+
+    const db = getDatabase();
+    const courseRef = ref(db, `courses/${selectedCourseId}`);
+    update(courseRef, { OnRegistration: checked })
+      .then(() => {
+        console.log('Successfully updated OnRegistration');
+      })
+      .catch((error) => {
+        console.error('Error updating OnRegistration:', error);
+        alert('An error occurred while updating registration visibility.');
       });
   };
 
@@ -945,6 +1241,38 @@ function Courses({
                     </p>
                   </div>
 
+                  {/* Show on Registration Form */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                      <span>Show on Registration Form</span>
+                      <Switch
+                        checked={courseData.OnRegistration === true}
+                        onCheckedChange={handleOnRegistrationChange}
+                        disabled={!isEditing}
+                        className="ml-2"
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      When enabled, this course will appear in the registration form.
+                    </p>
+                  </div>
+
+                  {/* Restrict Course Access */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                      <span>Restrict Course Access</span>
+                      <Switch
+                        checked={courseData.restrictCourseAccess === true}
+                        onCheckedChange={(checked) => handleSelectChange(checked, "restrictCourseAccess")}
+                        disabled={!isEditing}
+                        className="ml-2"
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      When enabled, student access to this course will be restricted. Developers can still access.
+                    </p>
+                  </div>
+
                   {/* Course ID */}
                   <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
                     <label className="block text-sm font-medium text-gray-700">
@@ -1234,6 +1562,38 @@ function Courses({
                       {courseData.allowedEmails && courseData.allowedEmails.length > 0
                         ? `Restricted to ${courseData.allowedEmails.length} email${courseData.allowedEmails.length === 1 ? '' : 's'}`
                         : 'Available to all students'}
+                    </p>
+                  </div>
+
+                  {/* Show on Registration Form */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                      <span>Show on Registration Form</span>
+                      <Switch
+                        checked={courseData.OnRegistration === true}
+                        onCheckedChange={handleOnRegistrationChange}
+                        disabled={!isEditing}
+                        className="ml-2"
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      When enabled, this course will appear in the registration form.
+                    </p>
+                  </div>
+
+                  {/* Restrict Course Access */}
+                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
+                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                      <span>Restrict Course Access</span>
+                      <Switch
+                        checked={courseData.restrictCourseAccess === true}
+                        onCheckedChange={(checked) => handleSelectChange(checked, "restrictCourseAccess")}
+                        disabled={!isEditing}
+                        className="ml-2"
+                      />
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      When enabled, student access to this course will be restricted. Developers can still access.
                     </p>
                   </div>
 
@@ -1633,16 +1993,11 @@ function Courses({
               {/* Course Content - Different displays for Firebase vs regular courses */}
               <div className="mt-8">
                 {courseData.firebaseCourse ? (
-                  // Firebase Course - Show read-only configuration and structure
+                  // Firebase Course - Show database configuration with sync controls
                   <div className="space-y-8">
                     <div>
                       <h3 className="text-lg font-semibold mb-4">Firebase Course Configuration</h3>
-                      <FirebaseCourseConfig courseId={selectedCourseId} />
-                    </div>
-                    
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Course Structure</h3>
-                      <FirebaseCourseStructure courseId={selectedCourseId} />
+                      <DatabaseCourseConfig courseId={selectedCourseId} isEditing={isEditing} />
                     </div>
                   </div>
                 ) : (

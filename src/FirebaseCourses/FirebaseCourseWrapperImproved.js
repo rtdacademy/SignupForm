@@ -68,14 +68,25 @@ const FirebaseCourseWrapperContent = ({
     console.log("🔍 FirebaseCourseWrapper - Analyzing course data:", course);
     console.log("🔍 Course structure paths:", {
       "course.Gradebook?.courseStructure": course.Gradebook?.courseStructure,
+      "course.Gradebook?.courseConfig?.courseStructure": course.Gradebook?.courseConfig?.courseStructure,
       "course.courseStructure": course.courseStructure,
       "course.courseStructure?.structure": course.courseStructure?.structure,
       "course.courseStructure?.units": course.courseStructure?.units
     });
 
-    // First priority: check gradebook courseStructure (database-driven from backend config)
-    if (course.Gradebook?.courseStructure) {
-      console.log("✅ Using course structure from gradebook (database-driven from backend config)");
+    // First priority: check gradebook courseConfig courseStructure (database-driven from backend config)
+    if (course.Gradebook?.courseConfig?.courseStructure) {
+      console.log("✅ Using course structure from gradebook courseConfig (database-driven from backend config)");
+      return {
+        title: course.Gradebook.courseConfig.courseStructure.title || course.Course?.Value || '',
+        structure: course.Gradebook.courseConfig.courseStructure.units || [],
+        courseWeights: course.Gradebook.courseConfig.weights || course.weights || { lesson: 0.15, assignment: 0.35, exam: 0.35, project: 0.15 }
+      };
+    }
+    
+    // Second priority: check gradebook courseStructure (legacy database path)
+    else if (course.Gradebook?.courseStructure) {
+      console.log("✅ Using course structure from gradebook (legacy database path)");
       return {
         title: course.Gradebook.courseStructure.title || course.Course?.Value || '',
         structure: course.Gradebook.courseStructure.units || [],

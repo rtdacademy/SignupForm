@@ -687,20 +687,24 @@ const Dashboard = () => {
                       >
                         View Details
                       </Button>
-                      <Button
-                        className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
-                        onClick={() => {
-                          // Use the appropriate handler based on course type
-                          if (course.courseDetails?.firebaseCourse || course.firebaseCourse) {
-                            handleGoToFirebaseCourse(course);
-                          } else {
-                            handleGoToLMSCourse(course);
-                          }
-                        }}
-                        disabled={!course.courseDetails && !course.firebaseCourse && !course.isRequiredCourse}
-                      >
-                        Go to Course
-                      </Button>
+                      {/* Hide Go to Course button if course details are loading OR if course access is restricted (unless user is developer) */}
+                      {course.courseDetails && !(course.courseDetails?.restrictCourseAccess === true && 
+                         !course.courseDetails?.allowedEmails?.includes(currentUser?.email)) && (
+                        <Button
+                          className="flex-1 bg-customGreen-dark hover:bg-customGreen-hover text-white shadow-sm border-customGreen-dark"
+                          onClick={() => {
+                            // Use the appropriate handler based on course type
+                            if (course.courseDetails?.firebaseCourse || course.firebaseCourse) {
+                              handleGoToFirebaseCourse(course);
+                            } else {
+                              handleGoToLMSCourse(course);
+                            }
+                          }}
+                          disabled={!course.courseDetails && !course.firebaseCourse && !course.isRequiredCourse}
+                        >
+                          Go to Course
+                        </Button>
+                      )}
                     </div>
                   }
                   showProgressBar={true}

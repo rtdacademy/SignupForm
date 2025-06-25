@@ -117,8 +117,9 @@ const CollapsibleNavigation = ({
 
   // Process units by section or course code
   const sectionedUnits = useMemo(() => {
-    // Prioritize course.Gradebook.courseStructure.units, then fallback to props
-    const effectiveUnitsList = course?.Gradebook?.courseStructure?.units ||
+    // Prioritize course.Gradebook.courseConfig.courseStructure.units, then fallback to legacy paths
+    const effectiveUnitsList = course?.Gradebook?.courseConfig?.courseStructure?.units ||
+      course?.Gradebook?.courseStructure?.units ||
       unitsList ||
       course?.courseDetails?.courseStructure?.structure ||
       [];
@@ -164,8 +165,9 @@ const CollapsibleNavigation = ({
   const allCourseItems = useMemo(() => {
     const items = [];
 
-    // Prioritize course.Gradebook.courseStructure.units, then fallback to props
-    const effectiveUnitsList = course?.Gradebook?.courseStructure?.units ||
+    // Prioritize course.Gradebook.courseConfig.courseStructure.units, then fallback to legacy paths
+    const effectiveUnitsList = course?.Gradebook?.courseConfig?.courseStructure?.units ||
+      course?.Gradebook?.courseStructure?.units ||
       unitsList ||
       course?.courseDetails?.courseStructure?.structure ||
       [];
@@ -526,7 +528,8 @@ const CollapsibleNavigation = ({
   
   // Find current lesson for collapsed view
   const currentLesson = useMemo(() => {
-    const effectiveUnitsList = course?.Gradebook?.courseStructure?.units ||
+    const effectiveUnitsList = course?.Gradebook?.courseConfig?.courseStructure?.units ||
+      course?.Gradebook?.courseStructure?.units ||
       unitsList ||
       course?.courseDetails?.courseStructure?.structure ||
       [];
