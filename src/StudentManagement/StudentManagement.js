@@ -2,15 +2,20 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { getDatabase, ref, onValue, get } from 'firebase/database';
 import { useAuth } from '../context/AuthContext';
 import { useSchoolYear } from '../context/SchoolYearContext';
+import { useCourse } from '../context/CourseContext';
+import { useTeacherStudentData } from '../Dashboard/hooks/useTeacherStudentData';
+import { sanitizeEmail } from '../utils/sanitizeEmail';
 import FilterPanel from './FilterPanel';
 import StudentList from './StudentList';
 import StudentDetail from './StudentDetail';
 import StudentMessaging from './StudentMessaging';
+import GradebookDashboard from '../FirebaseCourses/components/gradebook/GradebookDashboard';
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Flame, User, ArrowLeft } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
+import { Badge } from "../components/ui/badge";
 
 function StudentManagement({ 
   isFullScreen, 
@@ -74,7 +79,8 @@ function StudentManagement({
   const [showMultipleAsnsOnly, setShowMultipleAsnsOnly] = useState(false);
   const [recordTypeFilter, setRecordTypeFilter] = useState('yourway'); // Default to 'yourway' (hide PASI-only records)
 
-  const { user_email_key } = useAuth();
+  const { user_email_key, user } = useAuth();
+  const { getCourseById } = useCourse();
 
   // Holds a count or a toggle to force re-mount
   const [detailRefreshKey, setDetailRefreshKey] = useState(0);
@@ -82,6 +88,50 @@ function StudentManagement({
   const handleRefreshStudent = useCallback(() => {
     setDetailRefreshKey(prev => prev + 1);
   }, []);
+
+  // Check if selected student has Firebase courses
+  const selectedStudentHasFirebaseCourse = useMemo(() => {
+    if (!selectedStudent?.CourseID) {
+      console.log('🔍 Firebase Course Check - No Course ID:', selectedStudent);
+      return false;
+    }
+    const courseData = getCourseById(selectedStudent.CourseID);
+    const isFirebase = courseData?.firebaseCourse === true;
+    
+    console.log('🔍 Firebase Course Check:', {
+      studentName: selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'None',
+      courseId: selectedStudent.CourseID,
+      courseData,
+      isFirebaseCourse: isFirebase,
+      timestamp: new Date().toLocaleTimeString()
+    });
+    
+    return isFirebase;
+  }, [selectedStudent?.CourseID, getCourseById]);
+
+  // Get student email key for teacher data hook
+  const selectedStudentEmailKey = useMemo(() => {
+    if (!selectedStudent?.StudentEmail) return null;
+    try {
+      return sanitizeEmail(selectedStudent.StudentEmail);
+    } catch (error) {
+      console.error('Error sanitizing student email:', error);
+      return null;
+    }
+  }, [selectedStudent?.StudentEmail]);
+
+  // Teacher permissions for accessing student data
+  const teacherPermissions = useMemo(() => ({
+    canViewStudentData: true,
+    isStaff: user?.email?.includes('@rtdacademy.com') || false,
+    isTeacher: true
+  }), [user?.email]);
+
+  // Fetch student Firebase course data when selected student has Firebase courses
+  const studentFirebaseData = useTeacherStudentData(
+    selectedStudentHasFirebaseCourse ? selectedStudentEmailKey : null,
+    teacherPermissions
+  );
 
   // Handle toggle for filtering by multiple ASNs
   const handleToggleMultipleAsnsOnly = useCallback(() => {
@@ -379,6 +429,76 @@ function StudentManagement({
 
   // Render student detail
   const renderStudentDetail = useCallback(() => {
+    // Debug logging for Firebase course detection
+    console.log('🔍 STUDENT MANAGEMENT - renderStudentDetail Debug:', {
+      selectedStudent: selectedStudent ? {
+        name: `${selectedStudent.firstName} ${selectedStudent.lastName}`,
+        courseId: selectedStudent.CourseID
+      } : null,
+      selectedStudentHasFirebaseCourse,
+      studentFirebaseDataLoading: studentFirebaseData.loading,
+      studentFirebaseDataCourses: studentFirebaseData.courses ? studentFirebaseData.courses.length : 0,
+      studentFirebaseDataError: studentFirebaseData.error,
+      timestamp: new Date().toLocaleTimeString()
+    });
+
+    // If the selected student has a Firebase course, show the GradebookDashboard
+    if (selectedStudentHasFirebaseCourse && studentFirebaseData.courses) {
+      const targetCourse = studentFirebaseData.courses.find(course => course.id === selectedStudent.CourseID);
+      
+      console.log('🎯 STUDENT MANAGEMENT - Firebase Course Search:', {
+        selectedStudentCourseId: selectedStudent.CourseID,
+        availableCourseIds: studentFirebaseData.courses.map(c => c.id),
+        targetCourseFound: !!targetCourse,
+        timestamp: new Date().toLocaleTimeString()
+      });
+      
+      if (targetCourse) {
+        // Console log for reviewing the course object passed to GradebookDashboard
+        console.log('📊 STUDENT MANAGEMENT - GradebookDashboard Course Data:', {
+          studentName: `${selectedStudent.firstName} ${selectedStudent.lastName}`,
+          courseId: selectedStudent.CourseID,
+          targetCourse,
+          gradebookData: targetCourse.Gradebook,
+          courseConfig: targetCourse.Gradebook?.courseConfig,
+          courseStructure: targetCourse.Gradebook?.courseConfig?.courseStructure || targetCourse.Gradebook?.courseStructure,
+          gradebookItems: targetCourse.Gradebook?.items,
+          gradebookSummary: targetCourse.Gradebook?.summary,
+          timestamp: new Date().toLocaleTimeString()
+        });
+
+        return (
+          <Card className="h-full bg-white shadow-md">
+            <CardContent className="h-full p-2 overflow-auto">
+              {/* Teacher Context Header */}
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Flame className="h-5 w-5 text-orange-600" />
+                    <span className="font-medium text-orange-900">Firebase Course View</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <User className="h-4 w-4" />
+                    {selectedStudent.firstName} {selectedStudent.lastName}
+                  </div>
+                  <Badge variant="secondary" className="bg-orange-100 text-orange-800">
+                    Teacher View
+                  </Badge>
+                </div>
+                <p className="text-sm text-orange-700 mt-1">
+                  Viewing student's gradebook data exactly as they would see it
+                </p>
+              </div>
+
+              {/* GradebookDashboard Component */}
+              <GradebookDashboard course={targetCourse} />
+            </CardContent>
+          </Card>
+        );
+      }
+    }
+
+    // Default to regular StudentDetail for non-Firebase courses or when no Firebase data
     return (
       <Card className="h-full bg-white shadow-md">
         <CardContent className="h-full p-4 overflow-auto">
@@ -393,6 +513,8 @@ function StudentManagement({
     );
   }, [
     selectedStudent, 
+    selectedStudentHasFirebaseCourse,
+    studentFirebaseData.courses,
     isMobile, 
     detailRefreshKey,
     handleRefreshStudent
