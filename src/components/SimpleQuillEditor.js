@@ -46,8 +46,15 @@ const CUSTOM_OPERATORS = [
   ["\\int^{s}_{x}{d}", "\\int"],
   ["\\binom{n}{k}", "\\binom"],
   ["\\pi", "\\pi"],
-  ["\\theta", "\\theta"]
+  ["\\theta", "\\theta"],
+  ["\\sin", "\\sin"],
+  ["\\cos", "\\cos"],
+  ["\\tan", "\\tan"],
+  ["\\sin^{-1}", "\\sin^{-1}"],
+  ["\\cos^{-1}", "\\cos^{-1}"],
+  ["\\tan^{-1}", "\\tan^{-1}"]
 ];
+
 
 function VideoInsertDialog({ open, onClose, onInsert }) {
   const [url, setUrl] = useState('');
@@ -157,18 +164,11 @@ const modules = {
   formula: true,
   toolbar: {
     container: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      ['blockquote', 'code-block'],
+      ['bold', 'italic', 'underline'],
       [{ 'list': 'ordered'}, { 'list': 'bullet' }],
       [{ 'script': 'sub'}, { 'script': 'super' }],
       [{ 'indent': '-1'}, { 'indent': '+1' }],
-      [{ 'direction': 'rtl' }],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'font': [] }],
-      [{ 'align': [] }],
-      ['link', 'image', 'video', 'formula'],
-      ['clean']
+      ['formula']
     ],
     handlers: {
       video: videoHandler

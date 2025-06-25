@@ -25,7 +25,26 @@
     "enableAIQuestions": true,
     "enableTextToSpeech": true,
     "enableCollaboration": false,
-    "requireSequentialProgress": false
+    "requireSequentialProgress": true,
+    "passingGrade": 50
+  },
+  "progressionRequirements": {
+    "enabled": true,
+    "defaultMinimumPercentage": 50,
+    "lessonOverrides": {
+      "exam_section_1": {
+        "minimumPercentage": 50,
+        "note": "Lower standard for section exams"
+      },
+      "exam_section_2": {
+        "minimumPercentage": 50,
+        "note": "Lower standard for section exams"
+      },
+      "exam_section_3": {
+        "minimumPercentage": 50,
+        "note": "Lower standard for section exams"
+      }
+    }
   },
   "activityTypes": {
     "lesson": {
@@ -167,10 +186,1626 @@
     "notifyOnFeedback": true,
     "notifyOnAnnouncement": true
   },
+  "gradebook": {
+    "itemStructure": {
+      "exam_section_1": {
+        "title": "Section 1 Exam - Momentum and Optics",
+        "type": "exam",
+        "contentPath": "24-section-1-exam",
+        "questions": [
+          {
+            "questionId": "course2_24_section_1_exam_question1",
+            "title": "Section 1 Comprehensive Assessment",
+            "points": 25
+          }
+        ]
+      },
+      "exam_section_2": {
+        "title": "Section 2 Exam - Electricity and Magnetism", 
+        "type": "exam",
+        "contentPath": "48-section-2-exam",
+        "questions": [
+          {
+            "questionId": "course2_48_section_2_exam_question1",
+            "title": "Section 2 Comprehensive Assessment",
+            "points": 25
+          }
+        ]
+      },
+      "exam_section_3": {
+        "title": "Section 3 Exam - Atomic Physics and Nuclear",
+        "type": "exam", 
+        "contentPath": "76-section-3-exam",
+        "questions": [
+          {
+            "questionId": "course2_76_section_3_exam_question1",
+            "title": "Section 3 Comprehensive Assessment",
+            "points": 25
+          }
+        ]
+      },
+      "02_momentum_one_dimension": {
+        "title": "Momentum in One Dimension",
+        "type": "lesson",
+        "contentPath": "02-momentum-one-dimension",
+        "questions": [
+          {
+            "questionId": "course2_02_momentum_inertia_difference",
+            "title": "Momentum vs Inertia Explanation",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_bowling_ball_momentum",
+            "title": "Bowling Ball Momentum Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_bullet_velocity",
+            "title": "Bullet Velocity from Momentum",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_hockey_puck_mass",
+            "title": "Hockey Puck Mass Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_jet_momentum_a",
+            "title": "Jet Momentum Basic Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "course2_02_jet_momentum_b",
+            "title": "Jet Momentum Scaling Factors",
+            "points": 2
+          }
+        ]
+      },
+      "02_momentum_one_dimension_collisions": {
+        "title": "Momentum Collision Practice",
+        "type": "lesson",
+        "contentPath": "02-momentum-one-dimension",
+        "questions": [
+          {
+            "questionId": "course2_02_collision_rebound",
+            "title": "Two-Object Collision with Rebound",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_ball_collision_type",
+            "title": "Ball Collision - Elastic vs Inelastic",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_unknown_mass_collision",
+            "title": "Car-Truck Collision - Unknown Mass",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_football_tackle_mass",
+            "title": "Football Tackle - Receiver Mass",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_arrow_apple_mass",
+            "title": "Arrow and Apple Collision",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_truck_car_headon",
+            "title": "Truck-Car Head-on Collision",
+            "points": 2
+          }
+        ]
+      },
+      "02_momentum_one_dimension_advanced": {
+        "title": "Advanced Momentum Practice",
+        "type": "lesson",
+        "contentPath": "02-momentum-one-dimension",
+        "questions": [
+          {
+            "questionId": "course2_02_astronaut_recoil",
+            "title": "Astronaut Recoil with Gas Ejection",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_rocket_separation",
+            "title": "Two-Stage Rocket Separation",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_machine_gun_recoil",
+            "title": "Machine Gun Recoil (James Bond)",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_uranium_disintegration",
+            "title": "Uranium Atom Disintegration",
+            "points": 2
+          },
+          {
+            "questionId": "course2_02_ballistic_pendulum",
+            "title": "Ballistic Pendulum with Energy Analysis",
+            "points": 3
+          },
+          {
+            "questionId": "course2_02_canoe_comparison",
+            "title": "Canoe Momentum Comparison",
+            "points": 3
+          },
+          {
+            "questionId": "course2_02_cart_jumping",
+            "title": "Two Men Jumping from Cart",
+            "points": 3
+          },
+          {
+            "questionId": "course2_02_atom_collision",
+            "title": "Elastic Atomic Collision",
+            "points": 3
+          }
+        ]
+      },
+      "assignment_l1_3": {
+        "title": "Assignment L1-3 - Momentum Fundamentals",
+        "type": "assignment",
+        "contentPath": "05-l1-3-assignment",
+        "questions": [
+          {
+            "questionId": "course2_05_l1_3_assignment_question1",
+            "title": "Momentum Calculations",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l1_4": {
+        "title": "Assignment L1-4 - Momentum Cumulative",
+        "type": "assignment",
+        "contentPath": "08-l1-4-cumulative-assignment", 
+        "questions": [
+          {
+            "questionId": "course2_08_l1_4_assignment_question1",
+            "title": "Momentum and Graphing",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l5_7": {
+        "title": "Assignment L5-7 - Optics Fundamentals",
+        "type": "assignment",
+        "contentPath": "12-l5-7-assignment",
+        "questions": [
+          {
+            "questionId": "course2_12_l5_7_assignment_question1",
+            "title": "Reflection and Refraction",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l8_9": {
+        "title": "Assignment L8-9 - Advanced Optics",
+        "type": "assignment",
+        "contentPath": "16-l8-9-assignment",
+        "questions": [
+          {
+            "questionId": "course2_16_l8_9_assignment_question1",
+            "title": "Lenses and Mirrors",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l1_12": {
+        "title": "Assignment L1-12 - Unit 1 Cumulative",
+        "type": "assignment",
+        "contentPath": "21-l1-12-cumulative-assignment",
+        "questions": [
+          {
+            "questionId": "course2_21_l1_12_assignment_question1",
+            "title": "Momentum and Optics Review",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l13_14": {
+        "title": "Assignment L13-14 - Electrostatics",
+        "type": "assignment",
+        "contentPath": "28-l13-14-assignment",
+        "questions": [
+          {
+            "questionId": "course2_28_l13_14_assignment_question1",
+            "title": "Electric Forces and Fields",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l15_18": {
+        "title": "Assignment L15-18 - Electric Circuits",
+        "type": "assignment",
+        "contentPath": "34-l15-18-assignment",
+        "questions": [
+          {
+            "questionId": "course2_34_l15_18_assignment_question1",
+            "title": "Current and Potential",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l1_18": {
+        "title": "Assignment L1-18 - Unit 2 Cumulative",
+        "type": "assignment",
+        "contentPath": "35-l1-18-cumulative-assignment",
+        "questions": [
+          {
+            "questionId": "course2_35_l1_18_assignment_question1",
+            "title": "Electricity Comprehensive",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l19_21": {
+        "title": "Assignment L19-21 - Magnetism",
+        "type": "assignment",
+        "contentPath": "39-l19-21-assignment",
+        "questions": [
+          {
+            "questionId": "course2_39_l19_21_assignment_question1",
+            "title": "Magnetic Forces and Fields",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l22_24": {
+        "title": "Assignment L22-24 - Electromagnetic Induction",
+        "type": "assignment",
+        "contentPath": "44-l22-24-assignment",
+        "questions": [
+          {
+            "questionId": "course2_44_l22_24_assignment_question1",
+            "title": "Generators and Motors",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l1_24": {
+        "title": "Assignment L1-24 - Unit 3-4 Cumulative",
+        "type": "assignment",
+        "contentPath": "45-l1-24-cumulative-assignment",
+        "questions": [
+          {
+            "questionId": "course2_45_l1_24_assignment_question1",
+            "title": "Electricity and Magnetism Review",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l25_27": {
+        "title": "Assignment L25-27 - Early Atomic Models",
+        "type": "assignment",
+        "contentPath": "52-l25-27-assignment",
+        "questions": [
+          {
+            "questionId": "course2_52_l25_27_assignment_question1",
+            "title": "Atomic Structure History",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l28_30": {
+        "title": "Assignment L28-30 - Quantum Effects",
+        "type": "assignment",
+        "contentPath": "59-l28-30-assignment",
+        "questions": [
+          {
+            "questionId": "course2_59_l28_30_assignment_question1",
+            "title": "Photoelectric and Planck",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l31_33": {
+        "title": "Assignment L31-33 - Wave-Particle Duality",
+        "type": "assignment",
+        "contentPath": "63-l31-33-assignment",
+        "questions": [
+          {
+            "questionId": "course2_63_l31_33_assignment_question1",
+            "title": "Bohr Model and Compton Effect",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l1_34": {
+        "title": "Assignment L1-34 - Unit 5 Cumulative",
+        "type": "assignment",
+        "contentPath": "65-l1-34-cumulative-assignment",
+        "questions": [
+          {
+            "questionId": "course2_65_l1_34_assignment_question1",
+            "title": "Quantum Physics Review",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l35_36": {
+        "title": "Assignment L35-36 - Nuclear Physics",
+        "type": "assignment",
+        "contentPath": "69-l35-36-assignment",
+        "questions": [
+          {
+            "questionId": "course2_69_l35_36_assignment_question1",
+            "title": "Nuclear Decay and Radiation",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l37_38": {
+        "title": "Assignment L37-38 - Particle Physics",
+        "type": "assignment",
+        "contentPath": "72-l37-38-assignment",
+        "questions": [
+          {
+            "questionId": "course2_72_l37_38_assignment_question1",
+            "title": "Quarks and Fundamental Particles",
+            "points": 10
+          }
+        ]
+      },
+      "assignment_l1_38": {
+        "title": "Assignment L1-38 - Final Cumulative",
+        "type": "assignment",
+        "contentPath": "73-l1-38-cumulative-assignment",
+        "questions": [
+          {
+            "questionId": "course2_73_l1_38_assignment_question1",
+            "title": "Complete Course Review",
+            "points": 10
+          }
+        ]
+      },
+      "lab_momentum_conservation": {
+        "title": "Lab - Momentum Conservation",
+        "type": "lab",
+        "contentPath": "07-lab-momentum-conservation",
+        "questions": [
+          {
+            "questionId": "course2_07_lab_momentum_question1", 
+            "title": "Conservation of Momentum Lab",
+            "points": 15
+          }
+        ]
+      },
+      "lab_mirrors_lenses": {
+        "title": "Lab - Mirrors and Lenses",
+        "type": "lab",
+        "contentPath": "15-lab-mirrors-lenses",
+        "questions": [
+          {
+            "questionId": "course2_15_lab_mirrors_lenses_question1", 
+            "title": "Optics Lab Analysis",
+            "points": 15
+          }
+        ]
+      },
+      "lab_laser_wavelength": {
+        "title": "Lab - Laser Wavelength",
+        "type": "lab",
+        "contentPath": "20-lab-laser-wavelength",
+        "questions": [
+          {
+            "questionId": "course2_20_lab_laser_wavelength_question1", 
+            "title": "Diffraction and Interference",
+            "points": 15
+          }
+        ]
+      },
+      "lab_electrostatic": {
+        "title": "Lab - Electrostatic Forces",
+        "type": "lab",
+        "contentPath": "27-lab-electrostatic",
+        "questions": [
+          {
+            "questionId": "course2_27_lab_electrostatic_question1", 
+            "title": "Coulomb's Law Verification",
+            "points": 15
+          }
+        ]
+      },
+      "lab_electric_fields": {
+        "title": "Lab - Electric Fields",
+        "type": "lab",
+        "contentPath": "33-lab-electric-fields",
+        "questions": [
+          {
+            "questionId": "course2_33_lab_electric_fields_question1", 
+            "title": "Field Mapping and Analysis",
+            "points": 15
+          }
+        ]
+      },
+      "lab_electromagnet": {
+        "title": "Lab - Electromagnet",
+        "type": "lab",
+        "contentPath": "43-lab-electromagnet",
+        "questions": [
+          {
+            "questionId": "course2_43_lab_electromagnet_question1", 
+            "title": "Electromagnetic Induction Lab",
+            "points": 15
+          }
+        ]
+      },
+      "lab_plancks_constant": {
+        "title": "Lab - Planck's Constant",
+        "type": "lab",
+        "contentPath": "54-lab-plancks-constant",
+        "questions": [
+          {
+            "questionId": "course2_54_lab_plancks_constant_question1", 
+            "title": "Quantum Energy Measurement",
+            "points": 15
+          }
+        ]
+      },
+      "lab_millikans_oil_drop": {
+        "title": "Lab - Millikan's Oil Drop",
+        "type": "lab",
+        "contentPath": "56-lab-millikans-oil-drop",
+        "questions": [
+          {
+            "questionId": "course2_56_lab_millikans_oil_drop_question1", 
+            "title": "Electron Charge Determination",
+            "points": 15
+          }
+        ]
+      },
+      "lab_marshmallow_speed_light": {
+        "title": "Lab - Speed of Light with Marshmallows",
+        "type": "lab",
+        "contentPath": "58-lab-marshmallow-speed-light",
+        "questions": [
+          {
+            "questionId": "course2_58_lab_marshmallow_speed_light_question1", 
+            "title": "Electromagnetic Wave Speed",
+            "points": 15
+          }
+        ]
+      },
+      "lab_half_life": {
+        "title": "Lab - Radioactive Half-Life",
+        "type": "lab",
+        "contentPath": "68-lab-half-life",
+        "questions": [
+          {
+            "questionId": "course2_68_lab_half_life_question1", 
+            "title": "Nuclear Decay Analysis",
+            "points": 15
+          }
+        ]
+      },
+      "10_reflection_of_light": {
+        "title": "Lesson 10 - Reflection of Light",
+        "type": "lesson",
+        "contentPath": "10-reflection-of-light",
+        "questions": [
+          {
+            "questionId": "angle_of_incidence_basic",
+            "title": "Basic Law of Reflection",
+            "points": 1
+          },
+          {
+            "questionId": "surface_to_normal_angle",
+            "title": "Surface vs Normal Angles",
+            "points": 1
+          },
+          {
+            "questionId": "total_angle_between_rays",
+            "title": "Angle Between Rays",
+            "points": 1
+          },
+          {
+            "questionId": "two_mirrors_scenario_a",
+            "title": "Two Mirrors - Scenario A",
+            "points": 1
+          },
+          {
+            "questionId": "two_mirrors_scenario_b",
+            "title": "Two Mirrors - Scenario B",
+            "points": 1
+          },
+          {
+            "questionId": "mirror_image_description",
+            "title": "Mirror Image Properties",
+            "points": 1
+          },
+          {
+            "questionId": "mirror_time_reading",
+            "title": "Mirror Time Reading",
+            "points": 1
+          }
+        ]
+      },
+      "11_curved_mirrors": {
+        "title": "Lesson 11 - Curved Mirrors",
+        "type": "lesson",
+        "contentPath": "11-curved-mirrors",
+        "questions": [
+          {
+            "questionId": "concave_mirror_image_distance",
+            "title": "Concave Mirror - Image Distance",
+            "points": 1
+          },
+          {
+            "questionId": "concave_mirror_image_size",
+            "title": "Concave Mirror - Image Size",
+            "points": 1
+          },
+          {
+            "questionId": "concave_mirror_image_description",
+            "title": "Concave Mirror - Image Properties",
+            "points": 1
+          },
+          {
+            "questionId": "convex_mirror_image_distance",
+            "title": "Convex Mirror - Image Distance",
+            "points": 1
+          },
+          {
+            "questionId": "convex_mirror_image_size",
+            "title": "Convex Mirror - Image Size",
+            "points": 1
+          },
+          {
+            "questionId": "convex_mirror_image_description",
+            "title": "Convex Mirror - Image Properties",
+            "points": 1
+          },
+          {
+            "questionId": "mirror_type_erect_80cm",
+            "title": "Mirror Type Identification - Erect Image",
+            "points": 1
+          },
+          {
+            "questionId": "mirror_type_identification_erect",
+            "title": "Mirror Type Properties - General",
+            "points": 1
+          },
+          {
+            "questionId": "mirror_radius_inverted_120cm",
+            "title": "Mirror Radius - Inverted Image",
+            "points": 1
+          },
+          {
+            "questionId": "mirror_type_inverted_120cm",
+            "title": "Mirror Type - Inverted Image",
+            "points": 1
+          },
+          {
+            "questionId": "convex_mirror_radius_20cm",
+            "title": "Convex Mirror Distance Calculation",
+            "points": 1
+          },
+          {
+            "questionId": "convex_mirror_type_identification",
+            "title": "Convex Mirror Characteristics",
+            "points": 1
+          },
+          {
+            "questionId": "object_movement_image_size",
+            "title": "Object Movement Effects",
+            "points": 1
+          },
+          {
+            "questionId": "object_movement_image_size_change",
+            "title": "Object Movement - Size Change",
+            "points": 1
+          },
+          {
+            "questionId": "concave_mirror_3x_inverted_distance",
+            "title": "Concave Mirror - 3x Inverted Distance",
+            "points": 1
+          },
+          {
+            "questionId": "concave_mirror_2x_erect_distance",
+            "title": "Concave Mirror - 2x Erect Distance",
+            "points": 1
+          },
+          {
+            "questionId": "convex_mirror_one_sixth_distance",
+            "title": "Convex Mirror - 1/6 Size Distance",
+            "points": 1
+          }
+        ]
+      }
+    }
+  },
+  "courseStructure": {
+    "title": "Physics 30",
+    "navigation": {
+      "allowSkipAhead": false,
+      "requireCompletion": true
+    },
+    "units": [
+      {
+        "unitId": "unit_1_momentum_optics",
+        "name": "Unit 1: Momentum and Optics",
+        "description": "Momentum conservation, collisions, and light phenomena",
+        "order": 1,
+        "items": [
+          {
+            "itemId": "01_physics_20_review",
+            "type": "lesson",
+            "title": "Physics 20 Review",
+            "description": "Review of essential Physics 20 concepts",
+            "contentPath": "01-physics-20-review",
+            "estimatedTime": 120,
+            "order": 1,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "02_momentum_one_dimension",
+            "type": "lesson",
+            "title": "Momentum in One Dimension",
+            "description": "Linear momentum and conservation principles",
+            "contentPath": "02-momentum-one-dimension",
+            "estimatedTime": 60,
+            "order": 2,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "03_momentum_two_dimensions",
+            "type": "lesson",
+            "title": "Momentum in Two Dimensions",
+            "description": "Vector momentum and collision analysis",
+            "contentPath": "03-momentum-two-dimensions",
+            "estimatedTime": 60,
+            "order": 3,
+            "required": true,
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_03_car_truck_2d_collision",
+                "title": "Car-Truck 2D Collision",
+                "points": 3
+              },
+              {
+                "questionId": "course2_03_nuclear_decay_2d",
+                "title": "Nuclear Decay Analysis",
+                "points": 3
+              },
+              {
+                "questionId": "course2_03_glancing_collision_2d",
+                "title": "Glancing Collision",
+                "points": 3
+              },
+              {
+                "questionId": "course2_03_space_capsule_projectile",
+                "title": "Space Capsule Projectile",
+                "points": 3
+              },
+              {
+                "questionId": "course2_03_steel_ball_deflection",
+                "title": "Steel Ball Collision with Deflection",
+                "points": 4
+              },
+              {
+                "questionId": "course2_03_mass_explosion",
+                "title": "Mass Explosion Analysis",
+                "points": 4
+              },
+              {
+                "questionId": "course2_03_elastic_collision_90",
+                "title": "Elastic Collision with 90° Separation",
+                "points": 4
+              },
+              {
+                "questionId": "course2_03_plasticene_collision",
+                "title": "Plasticene Inelastic Collision",
+                "points": 4
+              }
+            ]
+          },
+          {
+            "itemId": "04_impulse_momentum_change",
+            "type": "lesson",
+            "title": "Impulse and Momentum Change",
+            "description": "Impulse-momentum theorem and applications",
+            "contentPath": "04-impulse-momentum-change",
+            "estimatedTime": 60,
+            "order": 4,
+            "required": true,
+            "hasCloudFunctions": true,
+            "questions": [
+              {
+                "questionId": "course2_04_basic_impulse",
+                "title": "Basic Impulse Calculation",
+                "points": 3
+              },
+              {
+                "questionId": "course2_04_person_falling",
+                "title": "Person Falling and Landing",
+                "points": 3
+              },
+              {
+                "questionId": "course2_04_impulse_quantities",
+                "title": "Impulse Calculation Methods",
+                "points": 2
+              },
+              {
+                "questionId": "course2_04_karate_board",
+                "title": "Karate Board Breaking Physics",
+                "points": 3
+              },
+              {
+                "questionId": "course2_04_safety_features",
+                "title": "Safety Features and Impulse",
+                "points": 3
+              },
+              {
+                "questionId": "course2_04_golf_ball_driver",
+                "title": "Golf Ball Driver Analysis",
+                "points": 4
+              },
+              {
+                "questionId": "course2_04_child_ball",
+                "title": "Child Hitting Ball",
+                "points": 3
+              },
+              {
+                "questionId": "course2_04_ball_bat",
+                "title": "Ball Struck by Bat",
+                "points": 4
+              },
+              {
+                "questionId": "course2_04_bullet_wood",
+                "title": "Bullet Through Wood",
+                "points": 4
+              },
+              {
+                "questionId": "course2_04_water_turbine",
+                "title": "Water Turbine Blade",
+                "points": 4
+              }
+            ]
+          },
+          {
+            "itemId": "assignment_l1_3",
+            "type": "assignment",
+            "title": "Assignment L1-3 - Momentum Fundamentals",
+            "description": "Practice problems on momentum calculations",
+            "contentPath": "05-l1-3-assignment",
+            "estimatedTime": 45,
+            "order": 5,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "06_graphing_techniques",
+            "type": "lesson",
+            "title": "Graphing Techniques",
+            "description": "Data analysis and graphing methods",
+            "contentPath": "06-graphing-techniques",
+            "estimatedTime": 45,
+            "order": 6,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "lab_momentum_conservation",
+            "type": "lab",
+            "title": "Lab - Momentum Conservation",
+            "description": "Experimental verification of momentum conservation",
+            "contentPath": "07-lab-momentum-conservation",
+            "estimatedTime": 90,
+            "order": 7,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "assignment_l1_4",
+            "type": "assignment",
+            "title": "Assignment L1-4 - Momentum Cumulative",
+            "description": "Comprehensive momentum and graphing problems",
+            "contentPath": "08-l1-4-cumulative-assignment",
+            "estimatedTime": 60,
+            "order": 8,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "09_introduction_to_light",
+            "type": "lesson",
+            "title": "Introduction to Light",
+            "description": "Nature and properties of light",
+            "contentPath": "09-introduction-to-light",
+            "estimatedTime": 60,
+            "order": 9,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "10_reflection_of_light",
+            "type": "lesson",
+            "title": "Reflection of Light",
+            "description": "Laws of reflection and mirror optics",
+            "contentPath": "10-reflection-of-light",
+            "estimatedTime": 60,
+            "order": 10,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "11_curved_mirrors",
+            "type": "lesson",
+            "title": "Curved Mirrors",
+            "description": "Concave and convex mirror analysis",
+            "contentPath": "11-curved-mirrors",
+            "estimatedTime": 75,
+            "order": 11,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "assignment_l5_7",
+            "type": "assignment",
+            "title": "Assignment L5-7 - Optics Fundamentals",
+            "description": "Reflection and refraction problems",
+            "contentPath": "12-l5-7-assignment",
+            "estimatedTime": 45,
+            "order": 12,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "13_refraction_of_light",
+            "type": "lesson",
+            "title": "Refraction of Light",
+            "description": "Snell's law and light bending",
+            "contentPath": "13-refraction-of-light",
+            "estimatedTime": 60,
+            "order": 13,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "14_optics_lenses",
+            "type": "lesson",
+            "title": "Optics and Lenses",
+            "description": "Thin lens equations and applications",
+            "contentPath": "14-optics-lenses",
+            "estimatedTime": 75,
+            "order": 14,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "lab_mirrors_lenses",
+            "type": "lab",
+            "title": "Lab - Mirrors and Lenses",
+            "description": "Experimental optics with focal lengths",
+            "contentPath": "15-lab-mirrors-lenses",
+            "estimatedTime": 90,
+            "order": 15,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "assignment_l8_9",
+            "type": "assignment",
+            "title": "Assignment L8-9 - Advanced Optics",
+            "description": "Lenses and mirrors calculations",
+            "contentPath": "16-l8-9-assignment",
+            "estimatedTime": 60,
+            "order": 16,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "17_dispersion_scattering",
+            "type": "lesson",
+            "title": "Dispersion and Scattering",
+            "description": "Color separation and light scattering",
+            "contentPath": "17-dispersion-scattering",
+            "estimatedTime": 45,
+            "order": 17,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "18_interference_of_light",
+            "type": "lesson",
+            "title": "Interference of Light",
+            "description": "Wave interference patterns",
+            "contentPath": "18-interference-of-light",
+            "estimatedTime": 60,
+            "order": 18,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "19_diffraction_gratings",
+            "type": "lesson",
+            "title": "Diffraction Gratings",
+            "description": "Multiple slit interference",
+            "contentPath": "19-diffraction-gratings",
+            "estimatedTime": 60,
+            "order": 19,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "lab_laser_wavelength",
+            "type": "lab",
+            "title": "Lab - Laser Wavelength",
+            "description": "Measuring wavelength using diffraction",
+            "contentPath": "20-lab-laser-wavelength",
+            "estimatedTime": 90,
+            "order": 20,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "assignment_l1_12",
+            "type": "assignment",
+            "title": "Assignment L1-12 - Unit 1 Cumulative",
+            "description": "Comprehensive momentum and optics review",
+            "contentPath": "21-l1-12-cumulative-assignment",
+            "estimatedTime": 75,
+            "order": 21,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "22_unit_1_review",
+            "type": "lesson",
+            "title": "Unit 1 Review",
+            "description": "Review of momentum and optics",
+            "contentPath": "22-unit-1-review",
+            "estimatedTime": 60,
+            "order": 22,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "23_unit_2_review",
+            "type": "lesson",
+            "title": "Unit 2 Review - Optics and Wave Properties of Light",
+            "description": "Comprehensive review of reflection, refraction, mirrors, lenses, and wave properties of light",
+            "contentPath": "23-unit-2-review",
+            "estimatedTime": 90,
+            "order": 23,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "exam_section_1",
+            "type": "exam",
+            "title": "Section 1 Exam - Momentum and Optics",
+            "description": "Comprehensive exam covering momentum and optics topics",
+            "contentPath": "24-section-1-exam",
+            "estimatedTime": 120,
+            "order": 24,
+            "required": true,
+            "hasCloudFunctions": true
+          }
+        ]
+      },
+      {
+        "unitId": "unit_2_electricity_magnetism",
+        "name": "Unit 2: Electricity and Magnetism",
+        "description": "Electric fields, circuits, and magnetic phenomena",
+        "order": 2,
+        "items": [
+          {
+            "itemId": "25_electrostatics",
+            "type": "lesson",
+            "title": "Electrostatics",
+            "description": "Electric charge and static electricity",
+            "contentPath": "25-electrostatics",
+            "estimatedTime": 60,
+            "order": 1,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "26_coulombs_law",
+            "type": "lesson",
+            "title": "Coulomb's Law",
+            "description": "Force between electric charges",
+            "contentPath": "26-coulombs-law",
+            "estimatedTime": 60,
+            "order": 2,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "lab_electrostatic",
+            "type": "lab",
+            "title": "Lab - Electrostatic Forces",
+            "description": "Experimental verification of Coulomb's law",
+            "contentPath": "27-lab-electrostatic",
+            "estimatedTime": 90,
+            "order": 3,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "assignment_l13_14",
+            "type": "assignment",
+            "title": "Assignment L13-14 - Electrostatics",
+            "description": "Electric forces and fields problems",
+            "contentPath": "28-l13-14-assignment",
+            "estimatedTime": 45,
+            "order": 4,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "29_electric_fields",
+            "type": "lesson",
+            "title": "Electric Fields",
+            "description": "Electric field concepts and calculations",
+            "contentPath": "29-electric-fields",
+            "estimatedTime": 75,
+            "order": 5,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "30_electric_potential",
+            "type": "lesson",
+            "title": "Electric Potential",
+            "description": "Voltage and electric potential energy",
+            "contentPath": "30-electric-potential",
+            "estimatedTime": 75,
+            "order": 6,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "31_parallel_plates",
+            "type": "lesson",
+            "title": "Parallel Plates",
+            "description": "Uniform electric fields and capacitors",
+            "contentPath": "31-parallel-plates",
+            "estimatedTime": 60,
+            "order": 7,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "32_electric_current",
+            "type": "lesson",
+            "title": "Electric Current",
+            "description": "Current, resistance, and Ohm's law",
+            "contentPath": "32-electric-current",
+            "estimatedTime": 60,
+            "order": 8,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "lab_electric_fields",
+            "type": "lab",
+            "title": "Lab - Electric Fields",
+            "description": "Mapping electric field patterns",
+            "contentPath": "33-lab-electric-fields",
+            "estimatedTime": 90,
+            "order": 9,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "assignment_l15_18",
+            "type": "assignment",
+            "title": "Assignment L15-18 - Electric Circuits",
+            "description": "Current and potential calculations",
+            "contentPath": "34-l15-18-assignment",
+            "estimatedTime": 60,
+            "order": 10,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "assignment_l1_18",
+            "type": "assignment",
+            "title": "Assignment L1-18 - Unit 2 Cumulative",
+            "description": "Comprehensive electricity review",
+            "contentPath": "35-l1-18-cumulative-assignment",
+            "estimatedTime": 75,
+            "order": 11,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "36_magnetic_fields",
+            "type": "lesson",
+            "title": "Magnetic Fields",
+            "description": "Magnetic field concepts and sources",
+            "contentPath": "36-magnetic-fields",
+            "estimatedTime": 60,
+            "order": 12,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "37_magnetic_forces_particles",
+            "type": "lesson",
+            "title": "Magnetic Forces on Particles",
+            "description": "Lorentz force and particle motion",
+            "contentPath": "37-magnetic-forces-particles",
+            "estimatedTime": 75,
+            "order": 13,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "38_motor_effect",
+            "type": "lesson",
+            "title": "Motor Effect",
+            "description": "Force on current-carrying conductors",
+            "contentPath": "38-motor-effect",
+            "estimatedTime": 60,
+            "order": 14,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "assignment_l19_21",
+            "type": "assignment",
+            "title": "Assignment L19-21 - Magnetism",
+            "description": "Magnetic forces and fields problems",
+            "contentPath": "39-l19-21-assignment",
+            "estimatedTime": 60,
+            "order": 15,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "40_generator_effect",
+            "type": "lesson",
+            "title": "Generator Effect",
+            "description": "Electromagnetic induction principles",
+            "contentPath": "40-generator-effect",
+            "estimatedTime": 75,
+            "order": 16,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "41_activities",
+            "type": "lesson",
+            "title": "Activities",
+            "description": "Practice activities and applications",
+            "contentPath": "41-activities",
+            "estimatedTime": 45,
+            "order": 17,
+            "required": false,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "42_electromagnetic_radiation",
+            "type": "lesson",
+            "title": "Electromagnetic Radiation",
+            "description": "EM waves and the electromagnetic spectrum",
+            "contentPath": "42-electromagnetic-radiation",
+            "estimatedTime": 60,
+            "order": 18,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "lab_electromagnet",
+            "type": "lab",
+            "title": "Lab - Electromagnet",
+            "description": "Building and testing electromagnets",
+            "contentPath": "43-lab-electromagnet",
+            "estimatedTime": 90,
+            "order": 19,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "assignment_l22_24",
+            "type": "assignment",
+            "title": "Assignment L22-24 - Electromagnetic Induction",
+            "description": "Generators and motors problems",
+            "contentPath": "44-l22-24-assignment",
+            "estimatedTime": 60,
+            "order": 20,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "assignment_l1_24",
+            "type": "assignment",
+            "title": "Assignment L1-24 - Unit 3-4 Cumulative",
+            "description": "Comprehensive electricity and magnetism review",
+            "contentPath": "45-l1-24-cumulative-assignment",
+            "estimatedTime": 90,
+            "order": 21,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "46_unit_3_review",
+            "type": "lesson",
+            "title": "Unit 3 Review",
+            "description": "Review of electric fields and circuits",
+            "contentPath": "46-unit-3-review",
+            "estimatedTime": 60,
+            "order": 22,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "47_unit_4_review",
+            "type": "lesson",
+            "title": "Unit 4 Review",
+            "description": "Review of magnetism and induction",
+            "contentPath": "47-unit-4-review",
+            "estimatedTime": 60,
+            "order": 23,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "exam_section_2",
+            "type": "exam",
+            "title": "Section 2 Exam - Electricity and Magnetism",
+            "description": "Comprehensive exam covering electricity and magnetism",
+            "contentPath": "48-section-2-exam",
+            "estimatedTime": 120,
+            "order": 24,
+            "required": true,
+            "hasCloudFunctions": true
+          }
+        ]
+      },
+      {
+        "unitId": "unit_3_atomic_nuclear",
+        "name": "Unit 3: Atomic and Nuclear Physics",
+        "description": "Atomic models, quantum mechanics, and nuclear physics",
+        "order": 3,
+        "items": [
+          {
+            "itemId": "49_early_atomic_models",
+            "type": "lesson",
+            "title": "Early Atomic Models",
+            "description": "Historical development of atomic theory",
+            "contentPath": "49-early-atomic-models",
+            "estimatedTime": 60,
+            "order": 1,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "50_cathode_rays",
+            "type": "lesson",
+            "title": "Cathode Rays",
+            "description": "Discovery of the electron",
+            "contentPath": "50-cathode-rays",
+            "estimatedTime": 60,
+            "order": 2,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "51_rutherford_atom",
+            "type": "lesson",
+            "title": "Rutherford Atom",
+            "description": "Nuclear model of the atom",
+            "contentPath": "51-rutherford-atom",
+            "estimatedTime": 60,
+            "order": 3,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "assignment_l25_27",
+            "type": "assignment",
+            "title": "Assignment L25-27 - Early Atomic Models",
+            "description": "Atomic structure history problems",
+            "contentPath": "52-l25-27-assignment",
+            "estimatedTime": 45,
+            "order": 4,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "53_quantization_of_light",
+            "type": "lesson",
+            "title": "Quantization of Light",
+            "description": "Planck's quantum hypothesis",
+            "contentPath": "53-quantization-of-light",
+            "estimatedTime": 60,
+            "order": 5,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "lab_plancks_constant",
+            "type": "lab",
+            "title": "Lab - Planck's Constant",
+            "description": "Determining Planck's constant experimentally",
+            "contentPath": "54-lab-plancks-constant",
+            "estimatedTime": 90,
+            "order": 6,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "55_photoelectric_effect",
+            "type": "lesson",
+            "title": "Photoelectric Effect",
+            "description": "Einstein's explanation of the photoelectric effect",
+            "contentPath": "55-photoelectric-effect",
+            "estimatedTime": 75,
+            "order": 7,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "lab_millikans_oil_drop",
+            "type": "lab",
+            "title": "Lab - Millikan's Oil Drop",
+            "description": "Measuring elementary charge",
+            "contentPath": "56-lab-millikans-oil-drop",
+            "estimatedTime": 90,
+            "order": 8,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "57_light_spectra_excitation",
+            "type": "lesson",
+            "title": "Light Spectra and Excitation",
+            "description": "Atomic emission and absorption spectra",
+            "contentPath": "57-light-spectra-excitation",
+            "estimatedTime": 60,
+            "order": 9,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "lab_marshmallow_speed_light",
+            "type": "lab",
+            "title": "Lab - Speed of Light with Marshmallows",
+            "description": "Creative measurement of light speed",
+            "contentPath": "58-lab-marshmallow-speed-light",
+            "estimatedTime": 90,
+            "order": 10,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "assignment_l28_30",
+            "type": "assignment",
+            "title": "Assignment L28-30 - Quantum Effects",
+            "description": "Photoelectric and Planck problems",
+            "contentPath": "59-l28-30-assignment",
+            "estimatedTime": 60,
+            "order": 11,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "60_bohr_model",
+            "type": "lesson",
+            "title": "Bohr Model",
+            "description": "Bohr's quantum model of hydrogen",
+            "contentPath": "60-bohr-model",
+            "estimatedTime": 75,
+            "order": 12,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "61_compton_effect",
+            "type": "lesson",
+            "title": "Compton Effect",
+            "description": "Photon scattering and momentum",
+            "contentPath": "61-compton-effect",
+            "estimatedTime": 60,
+            "order": 13,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "62_wave_particle_nature",
+            "type": "lesson",
+            "title": "Wave-Particle Nature",
+            "description": "de Broglie waves and duality",
+            "contentPath": "62-wave-particle-nature",
+            "estimatedTime": 60,
+            "order": 14,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "assignment_l31_33",
+            "type": "assignment",
+            "title": "Assignment L31-33 - Wave-Particle Duality",
+            "description": "Bohr model and Compton effect problems",
+            "contentPath": "63-l31-33-assignment",
+            "estimatedTime": 60,
+            "order": 15,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "64_quantum_mechanics",
+            "type": "lesson",
+            "title": "Quantum Mechanics",
+            "description": "Introduction to quantum mechanical principles",
+            "contentPath": "64-quantum-mechanics",
+            "estimatedTime": 75,
+            "order": 16,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "assignment_l1_34",
+            "type": "assignment",
+            "title": "Assignment L1-34 - Unit 5 Cumulative",
+            "description": "Comprehensive quantum physics review",
+            "contentPath": "65-l1-34-cumulative-assignment",
+            "estimatedTime": 90,
+            "order": 17,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "66_nuclear_physics",
+            "type": "lesson",
+            "title": "Nuclear Physics",
+            "description": "Nuclear structure and properties",
+            "contentPath": "66-nuclear-physics",
+            "estimatedTime": 60,
+            "order": 18,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "67_radioactivity",
+            "type": "lesson",
+            "title": "Radioactivity",
+            "description": "Nuclear decay and radiation types",
+            "contentPath": "67-radioactivity",
+            "estimatedTime": 75,
+            "order": 19,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "lab_half_life",
+            "type": "lab",
+            "title": "Lab - Radioactive Half-Life",
+            "description": "Modeling nuclear decay processes",
+            "contentPath": "68-lab-half-life",
+            "estimatedTime": 90,
+            "order": 20,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "assignment_l35_36",
+            "type": "assignment",
+            "title": "Assignment L35-36 - Nuclear Physics",
+            "description": "Nuclear decay and radiation problems",
+            "contentPath": "69-l35-36-assignment",
+            "estimatedTime": 60,
+            "order": 21,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "70_particle_physics",
+            "type": "lesson",
+            "title": "Particle Physics",
+            "description": "Elementary particles and interactions",
+            "contentPath": "70-particle-physics",
+            "estimatedTime": 60,
+            "order": 22,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "71_quarks",
+            "type": "lesson",
+            "title": "Quarks",
+            "description": "Quark model and hadron structure",
+            "contentPath": "71-quarks",
+            "estimatedTime": 60,
+            "order": 23,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "assignment_l37_38",
+            "type": "assignment",
+            "title": "Assignment L37-38 - Particle Physics",
+            "description": "Quarks and fundamental particles problems",
+            "contentPath": "72-l37-38-assignment",
+            "estimatedTime": 60,
+            "order": 24,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "assignment_l1_38",
+            "type": "assignment",
+            "title": "Assignment L1-38 - Final Cumulative",
+            "description": "Complete course review assignment",
+            "contentPath": "73-l1-38-cumulative-assignment",
+            "estimatedTime": 120,
+            "order": 25,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "74_unit_5_review",
+            "type": "lesson",
+            "title": "Unit 5 Review",
+            "description": "Review of quantum mechanics concepts",
+            "contentPath": "74-unit-5-review",
+            "estimatedTime": 60,
+            "order": 26,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "75_unit_6_review",
+            "type": "lesson",
+            "title": "Unit 6 Review",
+            "description": "Review of nuclear and particle physics",
+            "contentPath": "75-unit-6-review",
+            "estimatedTime": 60,
+            "order": 27,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "exam_section_3",
+            "type": "exam",
+            "title": "Section 3 Exam - Atomic Physics and Nuclear",
+            "description": "Comprehensive exam covering atomic and nuclear physics",
+            "contentPath": "76-section-3-exam",
+            "estimatedTime": 120,
+            "order": 28,
+            "required": true,
+            "hasCloudFunctions": true
+          },
+          {
+            "itemId": "77_diploma_exam_review",
+            "type": "lesson",
+            "title": "Diploma Exam Review",
+            "description": "Preparation for provincial diploma exam",
+            "contentPath": "77-diploma-exam-review",
+            "estimatedTime": 90,
+            "order": 29,
+            "required": true,
+            "hasCloudFunctions": false
+          },
+          {
+            "itemId": "78_diploma_exam",
+            "type": "lesson",
+            "title": "Diploma Exam",
+            "description": "Information about the provincial diploma exam",
+            "contentPath": "78-diploma-exam",
+            "estimatedTime": 30,
+            "order": 30,
+            "required": false,
+            "hasCloudFunctions": false
+          }
+        ]
+      }
+    ]
+  },
   "metadata": {
     "createdDate": "2025-05-28T13:33:55.646Z",
-    "lastModified": "2025-05-28T13:33:55.646Z",
-    "version": "1.0.0",
-    "status": "draft"
+    "lastModified": "2025-06-20T10:00:00.000Z",
+    "version": "2.0.0",
+    "status": "development"
   }
 }

@@ -82,3 +82,10 @@ For complex issues:
 5. Consider edge cases and error handling
 
 Remember that you can access the database through the Firebase CLI to better understand the data structure. Always explore thoroughly before making recommendations or changes.
+
+## Slideshow Knowledge Check Setup
+
+For detailed instructions on how to add slideshow knowledge checks to lessons, review:
+`@src/FirebaseCourses/components/assessments/SlideshowKnowledgeCheck/README.md`
+
+This file contains the complete setup process, question formats, and Claude command patterns for adding interactive slideshow knowledge checks to any lesson.

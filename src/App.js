@@ -29,6 +29,7 @@ import MigrationLogin from './migration/MigrationLogin';
  
 import ModernCourseViewer from './courses/CourseViewer/ModernCourseViewer';
 import CourseEditor from './courses/CourseEditor/CourseEditor';
+import CourseOutline from './courses/CourseOutline';
 import EmployeePortal from './TeacherDashboard/EmployeePortal';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import ParentLogin from './ParentPortal/ParentLogin';
@@ -93,6 +94,11 @@ function MainApp() {
     <CourseEditor /> :
     <Navigate to="/staff-login" />
   }
+/>
+
+<Route
+  path="/course-outline/:courseId"
+  element={<CourseOutline />}
 />
 
 {/* Firebase course admin routes removed - components archived

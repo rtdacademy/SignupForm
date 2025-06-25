@@ -142,6 +142,7 @@
     "clean": "node scripts/build.js --clean-only",
     "prebuild": "node scripts/build.js --clean-only",
     "create-course": "node scripts/create-course.js",
+    "generate-slideshow": "node scripts/generate-slideshow-questions.js",
     "create-course-from-structure": "node scripts/create-course.js",
     "delete-course": "node scripts/delete-course.js"
   },

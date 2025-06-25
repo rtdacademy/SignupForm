@@ -3,6 +3,7 @@ import { useAuth } from '../../../../../context/AuthContext';
 import { getFunctions } from 'firebase/functions';
 import { getDatabase } from 'firebase/database';
 import LessonContent, { TextSection, MediaSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -783,7 +784,7 @@ const GraphingTechniques = ({ course, courseId = '2' }) => {
                         <strong>Slope calculation using two points on the line:</strong>
                       </p>
                       <div className="text-center">
-                        <BlockMath>{'\\text{slope} = \\frac{\\Delta E_k}{\\Delta v^2} = \\frac{250 - 50}{100 - 20} = \\frac{200\\text{ J}}{80\\text{ m}^2\\text{/s}^2} = 2.5\\text{ J·s}^2\\text{/m}^2'}</BlockMath>
+                        <BlockMath>{'\\text{slope} = \\frac{\\Delta E_k}{\\Delta v^2} = \\frac{250 - 50}{100 - 20} = \\frac{200\\text{ J}}{80\\text{ m}^2\\text{/s}^2} = 2.5\\text{ J}\\cdot\\text{s}^2\\text{/m}^2'}</BlockMath>
                       </div>
                       <p className="text-sm text-gray-600 mt-3 text-center">
                         The green triangle shows the rise and run used to calculate the slope between points (20, 50) and (100, 250) on the line of best fit.
@@ -799,7 +800,7 @@ const GraphingTechniques = ({ course, courseId = '2' }) => {
                         <BlockMath>{'\\text{slope} = \\frac{1}{2}m'}</BlockMath>
                       </div>
                       <div className="text-center mb-2">
-                        <BlockMath>{'m = 2 \\times \\text{slope} = 2 \\times 2.5\\text{ J·s}^2\\text{/m}^2 = 5.0\\text{ kg}'}</BlockMath>
+                        <BlockMath>{'m = 2 \\times \\text{slope} = 2 \\times 2.5\\text{ J}\\cdot\\text{s}^2\\text{/m}^2 = 5.0\\text{ kg}'}</BlockMath>
                       </div>
                       <p className="text-center font-semibold">
                         Answer: The mass of the object is 5.0 kg
@@ -1036,98 +1037,42 @@ const GraphingTechniques = ({ course, courseId = '2' }) => {
 
       <TextSection>
         <div className="mb-6">
-          <h3 className="text-xl font-semibold text-green-800 mb-4">Practice Problems</h3>
-          <div className="bg-green-50 p-6 rounded-lg border border-green-200">
-            {/* Problem Counter and Indicators */}
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-800">
-                Problem {currentProblemSet1 + 1} of {practiceProblems1.length}
-              </h4>
-              <div className="flex items-center space-x-2">
-                {practiceProblems1.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => goToProblem1(index)}
-                    className={`w-8 h-8 rounded-full text-sm font-medium transition-colors duration-200 ${
-                      index === currentProblemSet1
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                    }`}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Problem Display with 2x2 Grid */}
-            <div className="bg-white rounded-lg border border-green-300 p-6 mb-4">
-              {/* Question Box */}
-              <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
-                <h5 className="font-semibold text-blue-800 mb-2">Question:</h5>
-                <p className="text-blue-900">{practiceProblems1[currentProblemSet1].question}</p>
-              </div>
-
-              {/* 2x2 Grid Layout */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Given Values */}
-                <div className="bg-gray-50 p-4 rounded border border-gray-200">
-                  <h5 className="font-semibold text-gray-800 mb-2">Given:</h5>
-                  <ul className="space-y-1">
-                    {practiceProblems1[currentProblemSet1].given.map((item, index) => (
-                      <li key={index} className="text-gray-700 flex items-center text-sm">
-                        <span className="w-2 h-2 bg-gray-400 rounded-full mr-3"></span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Equation */}
-                <div className="bg-purple-50 p-4 rounded border border-purple-200">
-                  <h5 className="font-semibold text-purple-800 mb-2">Equation:</h5>
-                  <div className="text-center">
-                    <BlockMath>{practiceProblems1[currentProblemSet1].equation}</BlockMath>
-                  </div>
-                </div>
-
-                {/* Solution */}
-                <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
-                  <h5 className="font-semibold text-yellow-800 mb-2">Solution:</h5>
-                  <div className="text-center">
-                    <BlockMath>{practiceProblems1[currentProblemSet1].solution}</BlockMath>
-                  </div>
-                </div>
-
-                {/* Answer */}
-                <div className="bg-green-100 p-4 rounded border border-green-300">
-                  <h5 className="font-semibold text-green-800 mb-2">Answer:</h5>
-                  <p className="text-green-900 font-medium">
-                    {practiceProblems1[currentProblemSet1].answer}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Controls */}
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={prevProblem1}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors duration-200"
-              >
-                <span className="mr-2">←</span>
-                Previous
-              </button>
-              
-              <button
-                onClick={nextProblem1}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors duration-200"
-              >
-                Next
-                <span className="ml-2">→</span>
-              </button>
-            </div>
+          <h3 className="text-xl font-semibold text-green-800 mb-4">Graphing Analysis Knowledge Check</h3>
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
+            <p className="text-blue-900">
+              <strong>Instructions:</strong> For each question below, use the provided data table to sketch the graph on paper. 
+              Determine the line of best fit and calculate the slope. Use the hint buttons if you need help with the formulas.
+            </p>
           </div>
+          
+          <SlideshowKnowledgeCheck
+            courseId={courseId}
+            lessonPath="06-graphing-techniques"
+            questions={[
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_06_graphing_techniques_question1',
+                title: 'Question 1: Distance vs Time Analysis'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_06_graphing_techniques_question2',
+                title: 'Question 2: Force vs Acceleration Analysis'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_06_graphing_techniques_question3',
+                title: 'Question 3: Velocity vs Time Analysis'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'course2_06_graphing_techniques_question4',
+                title: 'Question 4: Current vs Voltage Analysis'
+              }
+            ]}
+            onComplete={(score, results) => console.log(`Graphing Techniques Knowledge Check completed with ${score}%`)}
+            theme="green"
+          />
         </div>
       </TextSection>
 

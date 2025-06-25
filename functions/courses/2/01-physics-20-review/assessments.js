@@ -18,7 +18,7 @@ const formatScientific = (num, sigFigs = 2) => {
   if (num === 0) return '0';
   const exponent = Math.floor(Math.log10(Math.abs(num)));
   const mantissa = num / Math.pow(10, exponent);
-  return `${mantissa.toFixed(sigFigs - 1)} \\times 10^{${exponent}}`;
+  return `${mantissa.toFixed(sigFigs - 1)} \\\\times 10^{${exponent}}`;
 };
 
 // Helper function to generate random integer in range
@@ -30,1427 +30,2128 @@ const randFloat = (min, max, decimals = 1) => {
   return parseFloat(num.toFixed(decimals));
 };
 
-// Question 1: Displacement calculation
-const createQuestion1Pool = () => {
-  const questions = [];
+// ===== EXAMPLE PHYSICS QUESTION PATTERNS =====
+// These are examples showing how to structure physics questions
+// They are kept as reference but not exported as assessments
+
+// Example 1: Displacement calculation pattern
+const createDisplacementQuestionExample = () => {
+  const initial = randInt(-20, 20);
+  const final = randInt(-20, 20);
+  const displacement = final - initial;
   
-  for (let i = 0; i < 5; i++) {
-    const initial = randInt(-20, 20);
-    const final = randInt(-20, 20);
-    const displacement = final - initial;
-    
-    // Generate distractors
-    const distractors = [
-      Math.abs(final - initial),  // Common error: taking absolute value
-      initial - final,            // Common error: reversing subtraction
-      final + initial,            // Common error: adding instead
-      -displacement              // Common error: wrong sign
-    ].filter(d => d !== displacement);
-    
-    const question = {
-      question: `State the displacement when position changes from ${initial} km to ${final} km.`,
-      options: [
-        {
-          text: `${displacement} km`,
-          correct: true,
-          feedback: "Correct! Displacement = final position - initial position."
-        },
-        {
-          text: `${distractors[0]} km`,
-          correct: false,
-          feedback: "Remember that displacement is a vector quantity with direction. Don't take the absolute value."
-        },
-        {
-          text: `${distractors[1]} km`,
-          correct: false,
-          feedback: "Check your calculation. Displacement = final position - initial position."
-        },
-        {
-          text: `${distractors[2]} km`,
-          correct: false,
-          feedback: "You seem to have added the positions. Displacement = final - initial position."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Initial position: $x_i = ${initial}$ km
-- Final position: $x_f = ${final}$ km
-
-**Required:**
-- Displacement: $\\Delta x = ?$
-
-**Formula:**
-$$\\Delta x = x_f - x_i$$
-
-**Substitute:**
-$$\\Delta x = ${final} \\text{ km} - (${initial} \\text{ km})$$
-
-**Solve:**
-$$\\Delta x = ${displacement} \\text{ km}$$
-
-**Statement:**
-The displacement is ${displacement} km${displacement > 0 ? ' in the positive direction' : displacement < 0 ? ' in the negative direction' : ' (no net displacement)'}.
-      `
-    };
-    
-    questions.push(question);
-  }
-  
-  return questions;
+  return {
+    questionText: `State the displacement when position changes from ${initial} km to ${final} km.`,
+    options: [
+      { id: 'a', text: `${displacement} km` },
+      { id: 'b', text: `${Math.abs(displacement)} km` },
+      { id: 'c', text: `${initial - final} km` },
+      { id: 'd', text: `${final + initial} km` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Displacement = final position - initial position = ${final} - (${initial}) = ${displacement} km`,
+    difficulty: 'intermediate'
+  };
 };
 
-// Question 2: Time calculation from speed and distance
-const createQuestion2Pool = () => {
-  const questions = [];
+// Example 2: Kinematic calculation pattern
+const createKinematicQuestionExample = () => {
+  const v_i = randInt(5, 15);
+  const v_f = randInt(25, 35);
+  const time = randFloat(8, 12, 1);
+  const acceleration = (v_f - v_i) / time;
   
-  for (let i = 0; i < 5; i++) {
-    const velocity = randFloat(0.5, 3.0, 1) * 1e5; // 0.5-3.0 × 10^5 m/s
-    const distance = randFloat(0.5, 2.0, 1); // 0.5-2.0 m
-    const time = distance / velocity;
-    const timeInMicroseconds = time * 1e6;
-    
-    // Generate distractors
-    const distractors = [
-      timeInMicroseconds * 10,
-      timeInMicroseconds / 10,
-      timeInMicroseconds * 1000,
-      distance * velocity * 1e6  // Using wrong formula
-    ];
-    
-    const question = {
-      question: `An electron travels at a uniform speed of $${formatScientific(velocity)}$ m/s. How much time is required for the electron to move a distance of ${distance} m?`,
-      options: [
-        {
-          text: `$${timeInMicroseconds.toFixed(1)} \\, \\mu\\text{s}$`,
-          correct: true,
-          feedback: "Correct! You properly applied t = d/v and converted to microseconds."
-        },
-        {
-          text: `$${distractors[0].toFixed(1)} \\, \\mu\\text{s}$`,
-          correct: false,
-          feedback: "Check your unit conversion. This is off by an order of magnitude."
-        },
-        {
-          text: `$${distractors[1].toFixed(1)} \\, \\mu\\text{s}$`,
-          correct: false,
-          feedback: "This is off by an order of magnitude. Review your calculation."
-        },
-        {
-          text: `$${(distance * velocity * 1e6).toExponential(1)} \\, \\mu\\text{s}$`,
-          correct: false,
-          feedback: "Check your formula. Time = distance ÷ velocity, not distance × velocity."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Velocity: $v = ${formatScientific(velocity)}$ m/s
-- Distance: $d = ${distance}$ m
-
-**Required:**
-- Time: $t = ?$
-
-**Formula:**
-$$v = \\frac{d}{t} \\quad \\Rightarrow \\quad t = \\frac{d}{v}$$
-
-**Substitute:**
-$$t = \\frac{${distance} \\text{ m}}{${formatScientific(velocity)} \\text{ m/s}}$$
-
-**Solve:**
-$$t = ${formatScientific(time, 3)} \\text{ s}$$
-$$t = ${(time * 1e6).toFixed(1)} \\times 10^{-6} \\text{ s}$$
-$$t = ${timeInMicroseconds.toFixed(1)} \\, \\mu\\text{s}$$
-
-**Statement:**
-The electron requires ${timeInMicroseconds.toFixed(1)} microseconds to travel ${distance} m.
-      `
-    };
-    
-    questions.push(question);
-  }
-  
-  return questions;
+  return {
+    questionText: `A car accelerates uniformly from ${v_i} m/s to ${v_f} m/s in ${time} s. What is the acceleration?`,
+    options: [
+      { id: 'a', text: `${acceleration.toFixed(1)} m/s²` },
+      { id: 'b', text: `${((v_f + v_i) / time).toFixed(1)} m/s²` },
+      { id: 'c', text: `${(v_f / time).toFixed(1)} m/s²` },
+      { id: 'd', text: `${Math.abs(v_f - v_i).toFixed(1)} m/s²` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Using a = (v_f - v_i) / t = (${v_f} - ${v_i}) / ${time} = ${acceleration.toFixed(1)} m/s²`,
+    difficulty: 'intermediate'
+  };
 };
 
-// Question 3: Average speed calculation
-const createQuestion3Pool = () => {
-  const questions = [];
+// ===== SLIDESHOW KNOWLEDGE CHECK ASSESSMENTS =====
+
+// Helper function to create a randomized displacement question
+const createRandomDisplacementQuestion = () => {
+  const initial = randInt(-20, 20);
+  const final = randInt(-20, 20);
+  const displacement = final - initial;
   
-  for (let i = 0; i < 5; i++) {
-    // Generate three sections with distances and times
-    const d1 = randFloat(8, 12, 1);
-    const d2 = randFloat(15, 20, 1);
-    const d3 = randFloat(8, 12, 1);
-    
-    const t1 = randFloat(6, 9, 2);
-    const t2 = randFloat(12, 16, 2);
-    const t3 = randFloat(5, 7, 2);
-    
-    const totalDistance = d1 + d2 + d3;
-    const totalTime = t1 + t2 + t3;
-    const avgSpeed = totalDistance / totalTime;
-    
-    // Generate distractors
-    const distractors = [
-      (d1/t1 + d2/t2 + d3/t3) / 3,  // Common error: averaging speeds
-      Math.max(d1/t1, d2/t2, d3/t3), // Taking max speed
-      Math.min(d1/t1, d2/t2, d3/t3)  // Taking min speed
-    ];
-    
-    const question = {
-      question: `A rally driver completes three consecutive sections of a straight rally course as follows: section 1 (${d1} km) in ${t1} min, section 2 (${d2} km) in ${t2} min, and section 3 (${d3} km) in ${t3} min. What was the average speed through the three sections?`,
-      options: [
-        {
-          text: `${avgSpeed.toFixed(1)} km/min`,
-          correct: true,
-          feedback: "Correct! Average speed = total distance ÷ total time."
-        },
-        {
-          text: `${distractors[0].toFixed(1)} km/min`,
-          correct: false,
-          feedback: "You can't average speeds directly. Use total distance ÷ total time."
-        },
-        {
-          text: `${distractors[1].toFixed(1)} km/min`,
-          correct: false,
-          feedback: "This is the maximum speed in one section, not the average for all sections."
-        },
-        {
-          text: `${distractors[2].toFixed(1)} km/min`,
-          correct: false,
-          feedback: "This is the minimum speed in one section, not the average for all sections."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Section 1: $d_1 = ${d1}$ km in $t_1 = ${t1}$ min
-- Section 2: $d_2 = ${d2}$ km in $t_2 = ${t2}$ min
-- Section 3: $d_3 = ${d3}$ km in $t_3 = ${t3}$ min
-
-**Required:**
-- Average speed: $v_{avg} = ?$
-
-**Formula:**
-$$v_{avg} = \\frac{\\text{total distance}}{\\text{total time}}$$
-
-**Calculate totals:**
-$$d_{total} = d_1 + d_2 + d_3 = ${d1} + ${d2} + ${d3} = ${totalDistance.toFixed(1)} \\text{ km}$$
-$$t_{total} = t_1 + t_2 + t_3 = ${t1} + ${t2} + ${t3} = ${totalTime.toFixed(2)} \\text{ min}$$
-
-**Substitute:**
-$$v_{avg} = \\frac{${totalDistance.toFixed(1)} \\text{ km}}{${totalTime.toFixed(2)} \\text{ min}}$$
-
-**Solve:**
-$$v_{avg} = ${avgSpeed.toFixed(1)} \\text{ km/min}$$
-
-**Statement:**
-The average speed through the three sections is ${avgSpeed.toFixed(1)} km/min.
-      `
-    };
-    
-    questions.push(question);
-  }
+  // Helper function to format numbers with proper signs
+  const formatNumber = (num) => num > 0 ? `+${num}` : `${num}`;
   
-  return questions;
+  return {
+    questionText: `State the displacement when position changes from ${formatNumber(initial)} km to ${formatNumber(final)} km.`,
+    options: [
+      { id: 'a', text: `${formatNumber(displacement)} km`, feedback: "Correct! Displacement = final position - initial position." },
+      { id: 'b', text: `${formatNumber(Math.abs(displacement))} km`, feedback: "This is the magnitude (distance) but displacement includes direction. Don't take the absolute value." },
+      { id: 'c', text: `${formatNumber(initial - final)} km`, feedback: "You subtracted in the wrong order. It should be final - initial, not initial - final." },
+      { id: 'd', text: `${formatNumber(final + initial)} km`, feedback: "You added the positions instead of subtracting. Displacement = final - initial, not final + initial." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Displacement = final position - initial position = (${final}) - (${initial}) = ${displacement} km`,
+    difficulty: "intermediate",
+    topic: "Displacement"
+  };
 };
 
-// Question 4: Acceleration calculation
-const createQuestion4Pool = () => {
-  const questions = [];
-  
-  for (let i = 0; i < 5; i++) {
-    const v_i = randInt(5, 15);
-    const v_f = randInt(25, 35);
-    const time = randFloat(8, 12, 1);
-    const acceleration = (v_f - v_i) / time;
-    
-    // Generate distractors
-    const distractors = [
-      (v_f + v_i) / time,           // Adding velocities instead
-      v_f / time,                   // Forgetting initial velocity
-      (v_i - v_f) / time,          // Wrong sign
-      Math.abs(v_f - v_i)          // Forgetting to divide by time
-    ];
-    
-    const question = {
-      question: `A car accelerates uniformly from ${v_i} m/s to ${v_f} m/s in ${time} s. What is the acceleration?`,
-      options: [
-        {
-          text: `$${acceleration.toFixed(1)} \\text{ m/s}^2$`,
-          correct: true,
-          feedback: "Correct! You used a = (v_f - v_i) / t properly."
-        },
-        {
-          text: `$${distractors[0].toFixed(1)} \\text{ m/s}^2$`,
-          correct: false,
-          feedback: "Check your formula. Acceleration = change in velocity ÷ time."
-        },
-        {
-          text: `$${distractors[1].toFixed(1)} \\text{ m/s}^2$`,
-          correct: false,
-          feedback: "Don't forget the initial velocity. Use a = (v_f - v_i) / t."
-        },
-        {
-          text: `$${distractors[3].toFixed(1)} \\text{ m/s}^2$`,
-          correct: false,
-          feedback: "Remember to divide by time. Acceleration has units of m/s²."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Initial velocity: $v_i = ${v_i}$ m/s
-- Final velocity: $v_f = ${v_f}$ m/s
-- Time: $t = ${time}$ s
-
-**Required:**
-- Acceleration: $a = ?$
-
-**Formula:**
-$$a = \\frac{v_f - v_i}{t}$$
-
-**Substitute:**
-$$a = \\frac{${v_f} \\text{ m/s} - ${v_i} \\text{ m/s}}{${time} \\text{ s}}$$
-
-**Solve:**
-$$a = \\frac{${v_f - v_i} \\text{ m/s}}{${time} \\text{ s}}$$
-$$a = ${acceleration.toFixed(1)} \\text{ m/s}^2$$
-
-**Statement:**
-The car's acceleration is ${acceleration.toFixed(1)} m/s².
-      `
-    };
-    
-    questions.push(question);
-  }
-  
-  return questions;
-};
-
-// Question 5: Acceleration from initial velocity and time to max height
-const createQuestion5Pool = () => {
-  const questions = [];
-  
-  for (let i = 0; i < 5; i++) {
-    const v_i = randInt(30, 50);
-    const time = randFloat(3.0, 5.0, 1);
-    const acceleration = -v_i / time;  // Negative because it's decelerating
-    
-    // Generate distractors
-    const distractors = [
-      v_i / time,                    // Forgetting negative sign
-      -time / v_i,                   // Inverted formula
-      -(v_i * time),                 // Wrong operation
-      -9.81                          // Assuming standard gravity
-    ];
-    
-    const question = {
-      question: `A ball thrown straight up in the air has an initial velocity of ${v_i} m/s and reaches its maximum height in ${time} s. What was the acceleration of the ball?`,
-      options: [
-        {
-          text: `$${acceleration.toFixed(1)} \\text{ m/s}^2$`,
-          correct: true,
-          feedback: "Correct! At max height, v_f = 0, so a = -v_i / t."
-        },
-        {
-          text: `$${distractors[0].toFixed(1)} \\text{ m/s}^2$`,
-          correct: false,
-          feedback: "The acceleration should be negative (downward) for upward motion."
-        },
-        {
-          text: `$${distractors[3].toFixed(2)} \\text{ m/s}^2$`,
-          correct: false,
-          feedback: "Don't assume standard gravity. Calculate from the given information."
-        },
-        {
-          text: `$${(v_i / time / 2).toFixed(1)} \\text{ m/s}^2$`,
-          correct: false,
-          feedback: "Check your calculation. At max height, final velocity is zero."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Initial velocity: $v_i = ${v_i}$ m/s (upward)
-- Time to reach maximum height: $t = ${time}$ s
-- Final velocity at max height: $v_f = 0$ m/s
-
-**Required:**
-- Acceleration: $a = ?$
-
-**Formula:**
-$$a = \\frac{v_f - v_i}{t}$$
-
-**Substitute:**
-$$a = \\frac{0 \\text{ m/s} - ${v_i} \\text{ m/s}}{${time} \\text{ s}}$$
-
-**Solve:**
-$$a = \\frac{-${v_i} \\text{ m/s}}{${time} \\text{ s}}$$
-$$a = ${acceleration.toFixed(1)} \\text{ m/s}^2$$
-
-**Statement:**
-The acceleration of the ball is ${acceleration.toFixed(1)} m/s² (downward).
-      `
-    };
-    
-    questions.push(question);
-  }
-  
-  return questions;
-};
-
-// Export all questions (1-5 for now)
-exports.course2_01_physics_20_review_q1 = createStandardMultipleChoice({
-  questionPool: createQuestion1Pool(),
-  config: {
-    ...activityDefaults,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: '01_physics_20_review_q1',
-    title: 'Displacement Calculation',
-    description: 'Calculate displacement from position changes',
-    activityType: ACTIVITY_TYPE
-  }
+exports.course2_01_physics_20_review_question1 = createStandardMultipleChoice({
+  questions: [
+    createRandomDisplacementQuestion(),
+    createRandomDisplacementQuestion(),
+    createRandomDisplacementQuestion(),
+    createRandomDisplacementQuestion(),
+    createRandomDisplacementQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
 });
 
-exports.course2_01_physics_20_review_q2 = createStandardMultipleChoice({
-  questionPool: createQuestion2Pool(),
-  config: {
-    maxAttempts: 999,
-    pointsValue: 1,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: 'physics_20_review_q2',
-    title: 'Time Calculation',
-    description: 'Calculate time from velocity and distance',
-    activityType: 'lesson'
-  }
-});
-
-exports.course2_01_physics_20_review_q3 = createStandardMultipleChoice({
-  questionPool: createQuestion3Pool(),
-  config: {
-    maxAttempts: 999,
-    pointsValue: 1,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: 'physics_20_review_q3',
-    title: 'Average Speed',
-    description: 'Calculate average speed over multiple sections',
-    activityType: 'lesson'
-  }
-});
-
-exports.course2_01_physics_20_review_q4 = createStandardMultipleChoice({
-  questionPool: createQuestion4Pool(),
-  config: {
-    maxAttempts: 999,
-    pointsValue: 1,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: 'physics_20_review_q4',
-    title: 'Acceleration Calculation',
-    description: 'Calculate acceleration from velocity change',
-    activityType: 'lesson'
-  }
-});
-
-exports.course2_01_physics_20_review_q5 = createStandardMultipleChoice({
-  questionPool: createQuestion5Pool(),
-  config: {
-    maxAttempts: 999,
-    pointsValue: 1,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: 'physics_20_review_q5',
-    title: 'Vertical Motion Acceleration',
-    description: 'Find acceleration from vertical motion',
-    activityType: 'lesson'
-  }
-});
-
-// Question 6: Velocity after time with constant acceleration (choosing part b: after 3.0s)
-const createQuestion6Pool = () => {
-  const questions = [];
+// Helper function to create a randomized speed/time question
+const createRandomSpeedTimeQuestion = () => {
+  const speed = randFloat(1.0, 2.0, 1) * Math.pow(10, 5); // 1.0-2.0 × 10⁵ m/s
+  const distance = randFloat(0.5, 2.0, 1); // 0.5-2.0 m
+  const time = distance / speed; // in seconds
+  const timeMicroseconds = time * 1e6; // convert to microseconds
   
-  for (let i = 0; i < 5; i++) {
-    const v_i = randFloat(4, 8, 1);
-    const a = -randFloat(1.5, 2.5, 1); // Negative acceleration (deceleration)
-    const time = v_i / Math.abs(a); // Time when velocity becomes zero
-    const v_f = 0; // Velocity at this specific time
-    
-    // Generate distractors
-    const distractors = [
-      v_i + Math.abs(a) * time,     // Using positive acceleration
-      v_i,                          // No change
-      -v_i,                         // Just negative of initial
-      v_i * time                    // Wrong formula
-    ];
-    
-    const question = {
-      question: `A ball is rolled up a slope with an initial speed of ${v_i} m/s. The ball experiences an acceleration of ${Math.abs(a).toFixed(1)} m/s² down the slope. What is its velocity after ${time.toFixed(1)} s?`,
-      options: [
-        {
-          text: `0 m/s`,
-          correct: true,
-          feedback: "Correct! This is the turning point where the ball momentarily stops."
-        },
-        {
-          text: `${distractors[0].toFixed(1)} m/s`,
-          correct: false,
-          feedback: "Check the direction of acceleration. It's down the slope (negative)."
-        },
-        {
-          text: `${v_i.toFixed(1)} m/s`,
-          correct: false,
-          feedback: "The velocity changes due to acceleration. Use v = v_i + at."
-        },
-        {
-          text: `${(-v_i).toFixed(1)} m/s`,
-          correct: false,
-          feedback: "Calculate using v = v_i + at with the correct signs."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Initial velocity: $v_i = ${v_i}$ m/s (up the slope, positive)
-- Acceleration: $a = -${Math.abs(a).toFixed(1)}$ m/s² (down the slope, negative)
-- Time: $t = ${time.toFixed(1)}$ s
-
-**Required:**
-- Final velocity: $v_f = ?$
-
-**Formula:**
-$$v_f = v_i + at$$
-
-**Substitute:**
-$$v_f = ${v_i} \\text{ m/s} + (-${Math.abs(a).toFixed(1)} \\text{ m/s}^2)(${time.toFixed(1)} \\text{ s})$$
-
-**Solve:**
-$$v_f = ${v_i} \\text{ m/s} - ${(Math.abs(a) * time).toFixed(1)} \\text{ m/s}$$
-$$v_f = 0 \\text{ m/s}$$
-
-**Statement:**
-After ${time.toFixed(1)} s, the ball has come to rest (v = 0 m/s) and is about to roll back down.
-      `
-    };
-    
-    questions.push(question);
-  }
-  
-  return questions;
+  return {
+    questionText: `An electron travels at a uniform speed of ${speed.toExponential(1)} m/s. How much time is required for the electron to move a distance of ${distance} m?`,
+    options: [
+      { id: 'a', text: `${timeMicroseconds.toFixed(1)} μs`, feedback: "Correct! Time = distance ÷ speed, then convert to microseconds." },
+      { id: 'b', text: `${(timeMicroseconds * 10).toFixed(1)} μs`, feedback: "You made an error in unit conversion or calculation. Check your division and microsecond conversion." },
+      { id: 'c', text: `${(timeMicroseconds / 10).toFixed(1)} μs`, feedback: "This is too small. You may have made an error in the calculation or unit conversion." },
+      { id: 'd', text: `${(speed / 1e5).toFixed(1)} μs`, feedback: "You used the wrong formula. Time = distance ÷ speed, not a function of speed alone." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Time = distance ÷ speed = ${distance} m ÷ (${speed.toExponential(1)} m/s) = ${time.toExponential(1)} s = ${timeMicroseconds.toFixed(1)} μs`,
+    difficulty: "intermediate",
+    topic: "Time Calculation"
+  };
 };
 
-// Question 7: Acceleration and time for electron
-const createQuestion7Pool = () => {
-  const questions = [];
-  
-  for (let i = 0; i < 5; i++) {
-    const v_f = randFloat(1.5, 2.5, 1) * 1e7; // Final velocity
-    const distance = randFloat(0.08, 0.12, 2); // Distance in meters
-    const v_i = 0; // Starting from rest
-    
-    // Calculate acceleration using v_f² = v_i² + 2ad
-    const acceleration = (v_f * v_f) / (2 * distance);
-    const time = v_f / acceleration;
-    
-    // Generate distractors
-    const accelDistractors = [
-      acceleration / 10,
-      acceleration * 10,
-      v_f / distance,
-      v_f * distance
-    ];
-    
-    const timeDistractors = [
-      time * 10,
-      time / 10,
-      distance / v_f,
-      v_f / distance
-    ];
-    
-    const question = {
-      question: `An electron is accelerated uniformly from rest to a speed of $${formatScientific(v_f)}$ m/s. If the electron travelled ${distance} m while it was being accelerated, what was its acceleration? How long did it take?`,
-      options: [
-        {
-          text: `$a = ${formatScientific(acceleration)}$ m/s², $t = ${formatScientific(time)}$ s`,
-          correct: true,
-          feedback: "Correct! You used the kinematic equations properly."
-        },
-        {
-          text: `$a = ${formatScientific(accelDistractors[0])}$ m/s², $t = ${formatScientific(timeDistractors[0])}$ s`,
-          correct: false,
-          feedback: "Check your calculations. Use v² = v₀² + 2ad and v = v₀ + at."
-        },
-        {
-          text: `$a = ${formatScientific(v_f / distance)}$ m/s², $t = ${formatScientific(distance / v_f)}$ s`,
-          correct: false,
-          feedback: "These formulas are incorrect. Use kinematic equations for constant acceleration."
-        },
-        {
-          text: `$a = ${formatScientific(acceleration)}$ m/s², $t = ${formatScientific(distance / v_f)}$ s`,
-          correct: false,
-          feedback: "Your acceleration is correct but check the time calculation."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Initial velocity: $v_i = 0$ m/s (from rest)
-- Final velocity: $v_f = ${formatScientific(v_f)}$ m/s
-- Distance: $d = ${distance}$ m
-
-**Required:**
-- Acceleration: $a = ?$
-- Time: $t = ?$
-
-**Step 1: Find acceleration using:**
-$$v_f^2 = v_i^2 + 2ad$$
-
-**Substitute:**
-$$(${formatScientific(v_f)})^2 = 0^2 + 2a(${distance})$$
-
-**Solve for a:**
-$$a = \\frac{v_f^2}{2d} = \\frac{(${formatScientific(v_f)})^2}{2(${distance})}$$
-$$a = ${formatScientific(acceleration)} \\text{ m/s}^2$$
-
-**Step 2: Find time using:**
-$$v_f = v_i + at$$
-
-**Substitute:**
-$$${formatScientific(v_f)} = 0 + (${formatScientific(acceleration)})t$$
-
-**Solve for t:**
-$$t = \\frac{v_f}{a} = ${formatScientific(time)} \\text{ s}$$
-
-**Statement:**
-The electron's acceleration was ${formatScientific(acceleration)} m/s² and it took ${formatScientific(time)} s to reach its final speed.
-      `
-    };
-    
-    questions.push(question);
-  }
-  
-  return questions;
-};
-
-// Question 8: Bullet shot vertically - maximum height (part b)
-const createQuestion8Pool = () => {
-  const questions = [];
-  
-  for (let i = 0; i < 5; i++) {
-    const v_i = randInt(400, 600); // Initial velocity in m/s
-    const g = 9.81; // Gravity
-    
-    // Calculate maximum height using v² = v₀² + 2ad where v = 0 at max height
-    const maxHeight = (v_i * v_i) / (2 * g);
-    const maxHeightKm = maxHeight / 1000;
-    
-    // Generate distractors
-    const distractors = [
-      maxHeight / 2,           // Common error: forgetting the 2 in formula
-      v_i * v_i / g,           // Missing the 2 in denominator
-      v_i / g,                 // Using wrong formula
-      maxHeight * 2            // Doubling by mistake
-    ];
-    
-    const question = {
-      question: `A bullet is shot vertically into the air with an initial velocity of ${v_i} m/s. Ignoring air resistance, how high does the bullet go?`,
-      options: [
-        {
-          text: `$${formatScientific(maxHeight)}$ m`,
-          correct: true,
-          feedback: "Correct! You used v² = v₀² - 2gh with v = 0 at maximum height."
-        },
-        {
-          text: `$${formatScientific(distractors[0])}$ m`,
-          correct: false,
-          feedback: "Check your formula. Remember h = v₀²/(2g) for maximum height."
-        },
-        {
-          text: `$${formatScientific(distractors[1])}$ m`,
-          correct: false,
-          feedback: "You're missing the factor of 2 in the denominator. h = v₀²/(2g)."
-        },
-        {
-          text: `$${(v_i * v_i / (2 * g * 1000)).toFixed(1)} \\times 10^{3}$ m`,
-          correct: false,
-          feedback: "Check your unit conversion. The answer should be in meters."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Initial velocity: $v_i = ${v_i}$ m/s (upward)
-- Acceleration due to gravity: $g = 9.81$ m/s² (downward)
-- Final velocity at maximum height: $v_f = 0$ m/s
-
-**Required:**
-- Maximum height: $h = ?$
-
-**Formula:**
-$$v_f^2 = v_i^2 - 2gh$$
-
-**At maximum height, $v_f = 0$:**
-$$0 = v_i^2 - 2gh$$
-
-**Rearrange:**
-$$h = \\frac{v_i^2}{2g}$$
-
-**Substitute:**
-$$h = \\frac{(${v_i} \\text{ m/s})^2}{2(9.81 \\text{ m/s}^2)}$$
-
-**Solve:**
-$$h = \\frac{${v_i * v_i}}{19.62}$$
-$$h = ${maxHeight.toFixed(0)} \\text{ m}$$
-$$h = ${(maxHeight/1000).toFixed(1)} \\times 10^{3} \\text{ m}$$
-
-**Statement:**
-The bullet reaches a maximum height of ${formatScientific(maxHeight)} m or ${(maxHeight/1000).toFixed(1)} km.
-      `
-    };
-    
-    questions.push(question);
-  }
-  
-  return questions;
-};
-
-// Question 9: Package dropped from ascending balloon
-const createQuestion9Pool = () => {
-  const questions = [];
-  
-  for (let i = 0; i < 5; i++) {
-    const v_balloon = randFloat(7, 11, 1); // Balloon velocity (m/s)
-    const height = randInt(70, 90); // Initial height (m)
-    const g = 9.81;
-    
-    // Package starts with same velocity as balloon (upward)
-    // Using s = ut + (1/2)at² where s = -height (negative because falling)
-    // -height = v_balloon*t - (1/2)g*t²
-    // (1/2)g*t² - v_balloon*t - height = 0
-    
-    const a = g / 2;
-    const b = -v_balloon;
-    const c = -height;
-    
-    const discriminant = b * b - 4 * a * c;
-    const time = (-b + Math.sqrt(discriminant)) / (2 * a);
-    
-    // Generate distractors
-    const distractors = [
-      Math.sqrt(2 * height / g),              // Ignoring initial velocity
-      (height + v_balloon * time) / g,        // Wrong formula
-      time / 2,                               // Arbitrary reduction
-      (-b - Math.sqrt(discriminant)) / (2 * a) // Wrong root (negative time)
-    ];
-    
-    const question = {
-      question: `A balloon is ascending at the rate of ${v_balloon} m/s and has reached a height of ${height} m above the ground when the occupant releases a package. How long does the package take to hit the ground?`,
-      options: [
-        {
-          text: `${time.toFixed(1)} s`,
-          correct: true,
-          feedback: "Correct! You accounted for the initial upward velocity of the package."
-        },
-        {
-          text: `${distractors[0].toFixed(1)} s`,
-          correct: false,
-          feedback: "Remember the package initially has the same upward velocity as the balloon."
-        },
-        {
-          text: `${(time * 0.8).toFixed(1)} s`,
-          correct: false,
-          feedback: "Check your calculation. Use the quadratic formula with the correct initial velocity."
-        },
-        {
-          text: `${(time * 1.2).toFixed(1)} s`,
-          correct: false,
-          feedback: "Review your setup. The package starts with an upward velocity."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Balloon velocity: $v_0 = ${v_balloon}$ m/s (upward, positive)
-- Initial height: $h_0 = ${height}$ m
-- Acceleration: $a = -g = -9.81$ m/s² (downward)
-- Final position: $h = 0$ m (ground level)
-
-**Required:**
-- Time to hit ground: $t = ?$
-
-**Using position equation:**
-$$h = h_0 + v_0t + \\frac{1}{2}at^2$$
-
-**Substitute (taking downward as negative):**
-$$0 = ${height} + ${v_balloon}t - \\frac{1}{2}(9.81)t^2$$
-
-**Rearrange:**
-$$4.905t^2 - ${v_balloon}t - ${height} = 0$$
-
-**Using quadratic formula:**
-$$t = \\frac{${v_balloon} \\pm \\sqrt{${v_balloon}^2 + 4(4.905)(${height})}}{2(4.905)}$$
-
-**Calculate:**
-$$t = \\frac{${v_balloon} + \\sqrt{${(v_balloon * v_balloon).toFixed(1)} + ${(4 * 4.905 * height).toFixed(1)}}}{9.81}$$
-$$t = \\frac{${v_balloon} + ${Math.sqrt(discriminant).toFixed(1)}}{9.81}$$
-$$t = ${time.toFixed(1)} \\text{ s}$$
-
-**Statement:**
-The package takes ${time.toFixed(1)} seconds to hit the ground.
-      `
-    };
-    
-    questions.push(question);
-  }
-  
-  return questions;
-};
-
-// Export questions 6-9
-exports.course2_01_physics_20_review_q6 = createStandardMultipleChoice({
-  questionPool: createQuestion6Pool(),
-  config: {
-    maxAttempts: 999,
-    pointsValue: 1,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: 'physics_20_review_q6',
-    title: 'Velocity on Slope',
-    description: 'Calculate velocity at specific time on slope',
-    activityType: 'lesson'
-  }
+exports.course2_01_physics_20_review_question2 = createStandardMultipleChoice({
+  questions: [
+    createRandomSpeedTimeQuestion(),
+    createRandomSpeedTimeQuestion(),
+    createRandomSpeedTimeQuestion(),
+    createRandomSpeedTimeQuestion(),
+    createRandomSpeedTimeQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
 });
 
-exports.course2_01_physics_20_review_q7 = createStandardMultipleChoice({
-  questionPool: createQuestion7Pool(),
-  config: {
-    maxAttempts: 999,
-    pointsValue: 1,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: 'physics_20_review_q7',
-    title: 'Electron Acceleration',
-    description: 'Calculate acceleration and time for electron',
-    activityType: 'lesson'
-  }
-});
-
-exports.course2_01_physics_20_review_q8 = createStandardMultipleChoice({
-  questionPool: createQuestion8Pool(),
-  config: {
-    maxAttempts: 999,
-    pointsValue: 1,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: 'physics_20_review_q8',
-    title: 'Maximum Height',
-    description: 'Calculate maximum height of projectile',
-    activityType: 'lesson'
-  }
-});
-
-exports.course2_01_physics_20_review_q9 = createStandardMultipleChoice({
-  questionPool: createQuestion9Pool(),
-  config: {
-    maxAttempts: 999,
-    pointsValue: 1,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: 'physics_20_review_q9',
-    title: 'Falling Package',
-    description: 'Calculate time for package to fall from balloon',
-    activityType: 'lesson'
-  }
-});
-
-// Question 10: Ball dropped from height
-const createQuestion10Pool = () => {
-  const questions = [];
+// Helper function to create a randomized average speed question
+const createRandomAverageSpeedQuestion = () => {
+  const section1Dist = randFloat(8, 15, 1);
+  const section2Dist = randFloat(15, 25, 1);
+  const section3Dist = randFloat(5, 12, 1);
+  const section1Time = randFloat(5, 10, 2);
+  const section2Time = randFloat(10, 18, 2);
+  const section3Time = randFloat(3, 8, 2);
   
-  for (let i = 0; i < 5; i++) {
-    const height = randInt(15, 25); // Height in meters
-    const g = 9.81;
-    
-    // Calculate time using h = (1/2)gt²
-    const time = Math.sqrt(2 * height / g);
-    
-    // Calculate final velocity using v² = u² + 2as where u = 0
-    const finalVelocity = Math.sqrt(2 * g * height);
-    
-    // Generate distractors
-    const timeDistractors = [
-      Math.sqrt(height / g),        // Missing the 2
-      height / g,                   // Wrong formula
-      time * 1.5,                   // Arbitrary multiplier
-      Math.sqrt(height)             // Missing gravity
-    ];
-    
-    const velocityDistractors = [
-      Math.sqrt(g * height),        // Missing the 2
-      g * time,                     // Using wrong formula
-      height / time,                // Wrong approach
-      finalVelocity / 2             // Arbitrary division
-    ];
-    
-    const question = {
-      question: `A person drops a ball from a height of ${height} m. What is the ball's final velocity and how long does it take to fall?`,
-      options: [
-        {
-          text: `$v = ${finalVelocity.toFixed(1)}$ m/s, $t = ${time.toFixed(1)}$ s`,
-          correct: true,
-          feedback: "Correct! You used the kinematic equations for free fall properly."
-        },
-        {
-          text: `$v = ${velocityDistractors[0].toFixed(1)}$ m/s, $t = ${timeDistractors[0].toFixed(1)}$ s`,
-          correct: false,
-          feedback: "Check your formulas. For free fall: v² = 2gh and h = ½gt²."
-        },
-        {
-          text: `$v = ${velocityDistractors[1].toFixed(1)}$ m/s, $t = ${timeDistractors[1].toFixed(1)}$ s`,
-          correct: false,
-          feedback: "Use kinematic equations: v = √(2gh) and t = √(2h/g)."
-        },
-        {
-          text: `$v = ${finalVelocity.toFixed(1)}$ m/s, $t = ${timeDistractors[2].toFixed(1)}$ s`,
-          correct: false,
-          feedback: "Your velocity is correct but check the time calculation."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Initial height: $h = ${height}$ m
-- Initial velocity: $v_i = 0$ m/s (dropped, not thrown)
-- Acceleration: $a = g = 9.81$ m/s² (downward)
-
-**Required:**
-- Final velocity: $v_f = ?$
-- Time of fall: $t = ?$
-
-**Step 1: Find time using:**
-$$h = v_i t + \\frac{1}{2}gt^2$$
-
-**Since $v_i = 0$:**
-$$h = \\frac{1}{2}gt^2$$
-
-**Solve for t:**
-$$t = \\sqrt{\\frac{2h}{g}} = \\sqrt{\\frac{2(${height})}{9.81}}$$
-$$t = \\sqrt{${(2 * height / 9.81).toFixed(2)}}$$
-$$t = ${time.toFixed(1)} \\text{ s}$$
-
-**Step 2: Find final velocity using:**
-$$v_f^2 = v_i^2 + 2gh$$
-
-**Since $v_i = 0$:**
-$$v_f^2 = 2gh$$
-$$v_f = \\sqrt{2gh} = \\sqrt{2(9.81)(${height})}$$
-$$v_f = \\sqrt{${(2 * g * height).toFixed(1)}}$$
-$$v_f = ${finalVelocity.toFixed(1)} \\text{ m/s}$$
-
-**Statement:**
-The ball reaches a final velocity of ${finalVelocity.toFixed(1)} m/s downward and takes ${time.toFixed(1)} s to fall.
-      `
-    };
-    
-    questions.push(question);
-  }
+  const totalDistance = section1Dist + section2Dist + section3Dist;
+  const totalTime = section1Time + section2Time + section3Time;
+  const averageSpeed = totalDistance / totalTime;
   
-  return questions;
+  return {
+    questionText: `A rally driver completes: section 1 (${section1Dist} km) in ${section1Time} min, section 2 (${section2Dist} km) in ${section2Time} min, and section 3 (${section3Dist} km) in ${section3Time} min. What was the average speed?`,
+    options: [
+      { id: 'a', text: `${averageSpeed.toFixed(1)} km/min`, feedback: "Correct! Average speed = total distance ÷ total time for the entire journey." },
+      { id: 'b', text: `${(averageSpeed * 1.2).toFixed(1)} km/min`, feedback: "This is too high. Make sure you're dividing total distance by total time, not averaging the individual speeds." },
+      { id: 'c', text: `${(averageSpeed * 0.8).toFixed(1)} km/min`, feedback: "This is too low. Check your addition of distances and times." },
+      { id: 'd', text: `${(totalDistance / 10).toFixed(1)} km/min`, feedback: "You divided by the wrong value. Use total time, not an arbitrary number." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Average speed = total distance ÷ total time = (${section1Dist} + ${section2Dist} + ${section3Dist}) km ÷ (${section1Time} + ${section2Time} + ${section3Time}) min = ${totalDistance.toFixed(1)} km ÷ ${totalTime.toFixed(1)} min = ${averageSpeed.toFixed(1)} km/min`,
+    difficulty: "intermediate",
+    topic: "Average Speed"
+  };
 };
 
-// Question 11: Stone thrown upward
-const createQuestion11Pool = () => {
-  const questions = [];
-  
-  for (let i = 0; i < 5; i++) {
-    const v_i = randInt(9, 13); // Initial velocity in m/s
-    const g = 9.81;
-    
-    // Calculate maximum height using v² = u² - 2gh where v = 0 at max height
-    const maxHeight = (v_i * v_i) / (2 * g);
-    
-    // Calculate total time in air (up and down) using v = u - gt at top, then double it
-    const timeToTop = v_i / g;
-    const totalTime = 2 * timeToTop;
-    
-    // Generate distractors
-    const heightDistractors = [
-      maxHeight / 2,                // Missing factor
-      v_i * v_i / g,               // Missing the 2
-      v_i / g,                     // Wrong formula
-      maxHeight * 2                // Doubling error
-    ];
-    
-    const timeDistractors = [
-      timeToTop,                   // Only time to top
-      v_i / (2 * g),              // Wrong calculation
-      totalTime * 1.5,            // Arbitrary multiplier
-      Math.sqrt(2 * maxHeight / g) // Using wrong approach
-    ];
-    
-    const question = {
-      question: `A stone is thrown upward with an initial velocity of ${v_i} m/s. Calculate the maximum height and the time the stone is in the air.`,
-      options: [
-        {
-          text: `$h = ${maxHeight.toFixed(1)}$ m, $t = ${totalTime.toFixed(1)}$ s`,
-          correct: true,
-          feedback: "Correct! You calculated both the maximum height and total flight time properly."
-        },
-        {
-          text: `$h = ${heightDistractors[0].toFixed(1)}$ m, $t = ${timeDistractors[0].toFixed(1)}$ s`,
-          correct: false,
-          feedback: "Check your formulas. Use h = v₀²/(2g) and remember total time = 2 × time to reach maximum height."
-        },
-        {
-          text: `$h = ${heightDistractors[1].toFixed(1)}$ m, $t = ${totalTime.toFixed(1)}$ s`,
-          correct: false,
-          feedback: "Your time is correct but check the height formula: h = v₀²/(2g)."
-        },
-        {
-          text: `$h = ${maxHeight.toFixed(1)}$ m, $t = ${timeDistractors[0].toFixed(1)}$ s`,
-          correct: false,
-          feedback: "Your height is correct but you only calculated time to reach maximum height. Total time is twice that."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Initial velocity: $v_i = ${v_i}$ m/s (upward)
-- Acceleration: $a = -g = -9.81$ m/s² (downward)
-
-**Required:**
-- Maximum height: $h_{max} = ?$
-- Total time in air: $t_{total} = ?$
-
-**Step 1: Find maximum height using:**
-$$v_f^2 = v_i^2 + 2ah$$
-
-**At maximum height, $v_f = 0$:**
-$$0 = v_i^2 - 2gh_{max}$$
-
-**Solve for $h_{max}$:**
-$$h_{max} = \\frac{v_i^2}{2g} = \\frac{(${v_i})^2}{2(9.81)}$$
-$$h_{max} = \\frac{${v_i * v_i}}{19.62}$$
-$$h_{max} = ${maxHeight.toFixed(1)} \\text{ m}$$
-
-**Step 2: Find total time in air:**
-**Time to reach maximum height:**
-$$v_f = v_i - gt$$
-$$0 = ${v_i} - 9.81t$$
-$$t_{up} = \\frac{${v_i}}{9.81} = ${timeToTop.toFixed(2)} \\text{ s}$$
-
-**Total time (up + down):**
-$$t_{total} = 2 \\times t_{up} = 2 \\times ${timeToTop.toFixed(2)}$$
-$$t_{total} = ${totalTime.toFixed(1)} \\text{ s}$$
-
-**Statement:**
-The stone reaches a maximum height of ${maxHeight.toFixed(1)} m and is in the air for ${totalTime.toFixed(1)} s total.
-      `
-    };
-    
-    questions.push(question);
-  }
-  
-  return questions;
-};
-
-// Question 12: Stone thrown upward from cliff
-const createQuestion12Pool = () => {
-  const questions = [];
-  
-  for (let i = 0; i < 5; i++) {
-    const cliffHeight = randFloat(100, 130, 2);
-    const v_i = randFloat(18, 22, 2);
-    const g = 9.81;
-    
-    // Using h = h₀ + v₀t - ½gt² where final h = 0 (water level)
-    // 0 = cliffHeight + v_i*t - (1/2)*g*t²
-    // (1/2)*g*t² - v_i*t - cliffHeight = 0
-    
-    const a = g / 2;
-    const b = -v_i;
-    const c = -cliffHeight;
-    
-    const discriminant = b * b - 4 * a * c;
-    const time = (-b + Math.sqrt(discriminant)) / (2 * a);
-    
-    // Generate distractors
-    const distractors = [
-      Math.sqrt(2 * cliffHeight / g),          // Ignoring initial velocity
-      (cliffHeight + v_i * time) / g,          // Wrong formula
-      time * 0.8,                              // Arbitrary reduction
-      v_i / g + Math.sqrt(2 * cliffHeight / g) // Adding wrong components
-    ];
-    
-    const question = {
-      question: `A stone is thrown vertically upward from a ${cliffHeight} m high cliff with an initial velocity of ${v_i} m/s. How long will it take for the stone to hit the water below?`,
-      options: [
-        {
-          text: `${time.toFixed(2)} s`,
-          correct: true,
-          feedback: "Correct! You used the quadratic formula accounting for both initial height and velocity."
-        },
-        {
-          text: `${distractors[0].toFixed(2)} s`,
-          correct: false,
-          feedback: "You ignored the initial upward velocity. The stone goes up first before falling."
-        },
-        {
-          text: `${distractors[3].toFixed(2)} s`,
-          correct: false,
-          feedback: "This approach is incorrect. Use the position equation with quadratic formula."
-        },
-        {
-          text: `${(time * 0.9).toFixed(2)} s`,
-          correct: false,
-          feedback: "Check your calculation. Set up the equation: 0 = h₀ + v₀t - ½gt²."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Initial height: $h_0 = ${cliffHeight}$ m
-- Initial velocity: $v_i = ${v_i}$ m/s (upward)
-- Acceleration: $a = -g = -9.81$ m/s² (downward)
-- Final position: $h = 0$ m (water level)
-
-**Required:**
-- Time to hit water: $t = ?$
-
-**Using position equation:**
-$$h = h_0 + v_i t - \\frac{1}{2}gt^2$$
-
-**Substitute:**
-$$0 = ${cliffHeight} + ${v_i}t - \\frac{1}{2}(9.81)t^2$$
-
-**Rearrange to standard form:**
-$$4.905t^2 - ${v_i}t - ${cliffHeight} = 0$$
-
-**Using quadratic formula:**
-$$t = \\frac{${v_i} \\pm \\sqrt{(${v_i})^2 + 4(4.905)(${cliffHeight})}}{2(4.905)}$$
-
-**Calculate:**
-$$t = \\frac{${v_i} \\pm \\sqrt{${(v_i * v_i).toFixed(2)} + ${(4 * 4.905 * cliffHeight).toFixed(1)}}}{9.81}$$
-$$t = \\frac{${v_i} + ${Math.sqrt(discriminant).toFixed(2)}}{9.81}$$
-$$t = ${time.toFixed(2)} \\text{ s}$$
-
-**Statement:**
-The stone takes ${time.toFixed(2)} seconds to hit the water below.
-      `
-    };
-    
-    questions.push(question);
-  }
-  
-  return questions;
-};
-
-// Question 13: Horizontal projectile motion
-const createQuestion13Pool = () => {
-  const questions = [];
-  
-  for (let i = 0; i < 5; i++) {
-    const cliffHeight = randFloat(100, 130, 2);
-    const v_horizontal = randFloat(18, 22, 2);
-    const g = 9.81;
-    
-    // Time to fall (vertical motion only)
-    const time = Math.sqrt(2 * cliffHeight / g);
-    
-    // Horizontal distance
-    const horizontalDistance = v_horizontal * time;
-    
-    // Generate distractors
-    const timeDistractors = [
-      time / 2,                             // Wrong calculation
-      Math.sqrt(cliffHeight / g),          // Missing factor of 2
-      v_horizontal / g,                     // Using wrong formula
-      time * 1.2                           // Arbitrary multiplier
-    ];
-    
-    const distanceDistractors = [
-      horizontalDistance / 2,               // Using wrong time
-      v_horizontal * Math.sqrt(cliffHeight / g), // Using wrong time formula
-      Math.sqrt(v_horizontal * cliffHeight), // Wrong approach
-      cliffHeight * v_horizontal / g        // Wrong formula
-    ];
-    
-    const question = {
-      question: `A stone is thrown horizontally at ${v_horizontal} m/s from a ${cliffHeight} m high cliff. How long will it take for the stone to hit the water below? How far from the base of the cliff will the stone land?`,
-      options: [
-        {
-          text: `$t = ${time.toFixed(2)}$ s, $d = ${horizontalDistance.toFixed(1)}$ m`,
-          correct: true,
-          feedback: "Correct! You properly separated horizontal and vertical motion."
-        },
-        {
-          text: `$t = ${timeDistractors[0].toFixed(2)}$ s, $d = ${distanceDistractors[0].toFixed(1)}$ m`,
-          correct: false,
-          feedback: "Check your time calculation. Use t = √(2h/g) for vertical motion."
-        },
-        {
-          text: `$t = ${timeDistractors[1].toFixed(2)}$ s, $d = ${distanceDistractors[1].toFixed(1)}$ m`,
-          correct: false,
-          feedback: "You're missing the factor of 2 in the time formula: t = √(2h/g)."
-        },
-        {
-          text: `$t = ${time.toFixed(2)}$ s, $d = ${distanceDistractors[2].toFixed(1)}$ m`,
-          correct: false,
-          feedback: "Your time is correct but the distance should be d = v_horizontal × t."
-        }
-      ],
-      explanation: `
-**Detailed Solution:**
-
-**Given:**
-- Initial height: $h = ${cliffHeight}$ m
-- Horizontal velocity: $v_x = ${v_horizontal}$ m/s (constant)
-- Initial vertical velocity: $v_{y0} = 0$ m/s (thrown horizontally)
-- Acceleration: $a_y = g = 9.81$ m/s² (downward)
-
-**Required:**
-- Time to hit water: $t = ?$
-- Horizontal distance: $d = ?$
-
-**Step 1: Find time using vertical motion:**
-**Vertical motion equation:**
-$$h = v_{y0}t + \\frac{1}{2}gt^2$$
-
-**Since $v_{y0} = 0$ (horizontal throw):**
-$$h = \\frac{1}{2}gt^2$$
-
-**Solve for t:**
-$$t = \\sqrt{\\frac{2h}{g}} = \\sqrt{\\frac{2(${cliffHeight})}{9.81}}$$
-$$t = \\sqrt{${(2 * cliffHeight / 9.81).toFixed(2)}}$$
-$$t = ${time.toFixed(2)} \\text{ s}$$
-
-**Step 2: Find horizontal distance:**
-**Horizontal motion (constant velocity):**
-$$d = v_x \\times t$$
-$$d = ${v_horizontal} \\times ${time.toFixed(2)}$$
-$$d = ${horizontalDistance.toFixed(1)} \\text{ m}$$
-
-**Statement:**
-The stone takes ${time.toFixed(2)} s to hit the water and lands ${horizontalDistance.toFixed(1)} m from the base of the cliff.
-      `
-    };
-    
-    questions.push(question);
-  }
-  
-  return questions;
-};
-
-// Export questions 10-13
-exports.course2_01_physics_20_review_q10 = createStandardMultipleChoice({
-  questionPool: createQuestion10Pool(),
-  config: {
-    maxAttempts: 999,
-    pointsValue: 1,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: 'physics_20_review_q10',
-    title: 'Free Fall',
-    description: 'Calculate velocity and time for free fall',
-    activityType: 'lesson'
-  }
+exports.course2_01_physics_20_review_question3 = createStandardMultipleChoice({
+  questions: [
+    createRandomAverageSpeedQuestion(),
+    createRandomAverageSpeedQuestion(),
+    createRandomAverageSpeedQuestion(),
+    createRandomAverageSpeedQuestion(),
+    createRandomAverageSpeedQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
 });
 
-exports.course2_01_physics_20_review_q11 = createStandardMultipleChoice({
-  questionPool: createQuestion11Pool(),
-  config: {
-    maxAttempts: 999,
-    pointsValue: 1,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: 'physics_20_review_q11',
-    title: 'Vertical Throw',
-    description: 'Calculate height and time for vertical throw',
-    activityType: 'lesson'
-  }
+// Helper function to create a randomized acceleration question
+const createRandomAccelerationQuestion = () => {
+  const v_i = randInt(5, 20);
+  const v_f = randInt(25, 45);
+  const time = randInt(8, 15);
+  const acceleration = (v_f - v_i) / time;
+  
+  return {
+    questionText: `A car accelerates uniformly from ${v_i} m/s to ${v_f} m/s in ${time} s. What is the acceleration?`,
+    options: [
+      { id: 'a', text: `${acceleration.toFixed(1)} m/s²`, feedback: "Correct! Acceleration = (change in velocity) ÷ time." },
+      { id: 'b', text: `${(acceleration * 2).toFixed(1)} m/s²`, feedback: "This is double the correct answer. Check your calculation - you may have made an arithmetic error." },
+      { id: 'c', text: `${(v_f - v_i).toFixed(1)} m/s²`, feedback: "You forgot to divide by time. Acceleration = Δv ÷ t, not just Δv." },
+      { id: 'd', text: `${(acceleration / 2).toFixed(1)} m/s²`, feedback: "This is half the correct answer. Check your calculation." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Acceleration = (final velocity - initial velocity) ÷ time = (${v_f} - ${v_i}) m/s ÷ ${time} s = ${acceleration.toFixed(1)} m/s²`,
+    difficulty: "intermediate",
+    topic: "Acceleration"
+  };
+};
+
+exports.course2_01_physics_20_review_question4 = createStandardMultipleChoice({
+  questions: [
+    createRandomAccelerationQuestion(),
+    createRandomAccelerationQuestion(),
+    createRandomAccelerationQuestion(),
+    createRandomAccelerationQuestion(),
+    createRandomAccelerationQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
 });
 
-exports.course2_01_physics_20_review_q12 = createStandardMultipleChoice({
-  questionPool: createQuestion12Pool(),
-  config: {
-    maxAttempts: 999,
-    pointsValue: 1,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: 'physics_20_review_q12',
-    title: 'Cliff Throw Vertical',
-    description: 'Calculate time for vertical throw from cliff',
-    activityType: 'lesson'
-  }
+// Helper function to create a randomized vertical motion question
+const createRandomVerticalMotionQuestion = () => {
+  const v_i = randInt(30, 50);
+  const time = randFloat(3.0, 5.0, 1);
+  const acceleration = -v_i / time;
+  
+  return {
+    questionText: `A ball thrown straight up has an initial velocity of ${v_i} m/s and reaches maximum height in ${time} s. What was the acceleration?`,
+    options: [
+      { id: 'a', text: `${acceleration.toFixed(1)} m/s²`, feedback: "Correct! Acceleration = (final velocity - initial velocity) ÷ time. Final velocity at max height is 0." },
+      { id: 'b', text: `${Math.abs(acceleration).toFixed(1)} m/s²`, feedback: "You forgot the negative sign. Acceleration due to gravity is always downward (negative)." },
+      { id: 'c', text: "-9.8 m/s²", feedback: "This is the standard gravity value, but you should calculate the actual acceleration from the given data." },
+      { id: 'd', text: "0 m/s²", feedback: "The velocity at maximum height is 0, but acceleration due to gravity is still acting on the ball." }
+    ],
+    correctOptionId: 'a',
+    explanation: `At maximum height, final velocity = 0. Acceleration = (0 - ${v_i}) m/s ÷ ${time} s = ${acceleration.toFixed(1)} m/s²`,
+    difficulty: "intermediate",
+    topic: "Vertical Motion"
+  };
+};
+
+exports.course2_01_physics_20_review_question5 = createStandardMultipleChoice({
+  questions: [
+    createRandomVerticalMotionQuestion(),
+    createRandomVerticalMotionQuestion(),
+    createRandomVerticalMotionQuestion(),
+    createRandomVerticalMotionQuestion(),
+    createRandomVerticalMotionQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
 });
 
-exports.course2_01_physics_20_review_q13 = createStandardMultipleChoice({
-  questionPool: createQuestion13Pool(),
-  config: {
-    maxAttempts: 999,
-    pointsValue: 1,
-    showFeedback: true,
-    enableHints: true,
-    attemptPenalty: 0,
-    theme: 'blue',
-    randomizeQuestions: true,
-    randomizeOptions: true,
-    allowSameQuestion: false,
-    showExplanationAfterCorrect: true,
-    showExplanationAfterIncorrect: true
-  },
-  metadata: {
-    courseId: '2',
-    lessonId: '01-physics-20-review',
-    assessmentId: 'physics_20_review_q13',
-    title: 'Horizontal Projectile',
-    description: 'Calculate time and distance for horizontal projectile',
-    activityType: 'lesson'
+// Helper function to create a randomized slope motion question
+const createRandomSlopeMotionQuestion = () => {
+  const v_i = randFloat(4.0, 8.0, 1);
+  const acceleration = randFloat(1.5, 2.5, 1);
+  const time = v_i / acceleration; // Time to stop
+  const finalVelocity = v_i - acceleration * time;
+  
+  return {
+    questionText: `A ball is rolled up a slope with initial speed ${v_i} m/s and acceleration ${acceleration} m/s² down the slope. What is its velocity after ${time.toFixed(1)} s?`,
+    options: [
+      { id: 'a', text: `${finalVelocity.toFixed(1)} m/s`, feedback: "Correct! Using v = v₀ + at, the ball stops at this moment before rolling back." },
+      { id: 'b', text: `+${(v_i - acceleration).toFixed(1)} m/s`, feedback: "You subtracted acceleration directly instead of multiplying by time first. Use v = v₀ + at." },
+      { id: 'c', text: `-${acceleration.toFixed(1)} m/s`, feedback: "This is just the negative acceleration value, not the velocity after time t." },
+      { id: 'd', text: `+${v_i.toFixed(1)} m/s`, feedback: "You ignored the effect of acceleration. The ball slows down due to the downslope acceleration." }
+    ],
+    correctOptionId: 'a',
+    explanation: `v = v₀ + at = ${v_i} + (-${acceleration})(${time.toFixed(1)}) = ${v_i} - ${(acceleration * time).toFixed(1)} = ${finalVelocity.toFixed(1)} m/s. The ball momentarily stops before rolling back.`,
+    difficulty: "intermediate",
+    topic: "Motion on Slope"
+  };
+};
+
+exports.course2_01_physics_20_review_question6 = createStandardMultipleChoice({
+  questions: [
+    createRandomSlopeMotionQuestion(),
+    createRandomSlopeMotionQuestion(),
+    createRandomSlopeMotionQuestion(),
+    createRandomSlopeMotionQuestion(),
+    createRandomSlopeMotionQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create a randomized electron acceleration question
+const createRandomElectronAccelerationQuestion = () => {
+  const finalVelocity = randFloat(1.5, 2.5, 1) * Math.pow(10, 7);
+  const distance = randFloat(0.08, 0.15, 2);
+  const acceleration = (finalVelocity * finalVelocity) / (2 * distance);
+  
+  return {
+    questionText: `An electron accelerates from rest to ${finalVelocity.toExponential(1)} m/s over ${distance} m. What was its acceleration?`,
+    options: [
+      { id: 'a', text: `${acceleration.toExponential(1)} m/s²`, feedback: "Correct! Using v² = u² + 2as, solve for acceleration a." },
+      { id: 'b', text: `${(acceleration / 10).toExponential(1)} m/s²`, feedback: "This is too small by a factor of 10. Check your calculation or unit conversion." },
+      { id: 'c', text: `${(acceleration / 2).toExponential(1)} m/s²`, feedback: "You forgot to divide by 2 in the kinematic equation. Remember: a = v²/(2s) when starting from rest." },
+      { id: 'd', text: `${(acceleration * 2).toExponential(1)} m/s²`, feedback: "This is double the correct answer. You may have forgotten to divide by 2 in the formula." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Using v² = u² + 2as: (${finalVelocity.toExponential(1)})² = 0 + 2a(${distance}), so a = ${(finalVelocity * finalVelocity).toExponential(1)} ÷ ${(2 * distance).toFixed(2)} = ${acceleration.toExponential(1)} m/s²`,
+    difficulty: "advanced",
+    topic: "Electron Motion"
+  };
+};
+
+exports.course2_01_physics_20_review_question7 = createStandardMultipleChoice({
+  questions: [
+    createRandomElectronAccelerationQuestion(),
+    createRandomElectronAccelerationQuestion(),
+    createRandomElectronAccelerationQuestion(),
+    createRandomElectronAccelerationQuestion(),
+    createRandomElectronAccelerationQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create a randomized projectile time question
+const createRandomProjectileTimeQuestion = () => {
+  const v_i = randInt(400, 600);
+  const time = v_i / 9.8;
+  
+  return {
+    questionText: `A bullet shot vertically with initial velocity ${v_i} m/s. How long to reach maximum height?`,
+    options: [
+      { id: 'a', text: `${time.toFixed(0)} s`, feedback: "Correct! At maximum height, velocity = 0. Use v = u + at to solve for time." },
+      { id: 'b', text: `${(time / 2).toFixed(0)} s`, feedback: "This is half the correct time. You may have confused this with time to reach half the maximum height." },
+      { id: 'c', text: `${(time * 2).toFixed(0)} s`, feedback: "This is the total flight time (up and down). The question asks only for time to reach maximum height." },
+      { id: 'd', text: `${(v_i / 50).toFixed(0)} s`, feedback: "You divided by the wrong value. Use gravity (9.8 m/s²) not an arbitrary number." }
+    ],
+    correctOptionId: 'a',
+    explanation: `At maximum height, v = 0. Using v = u + at: 0 = ${v_i} + (-9.8)t, so t = ${v_i} ÷ 9.8 = ${time.toFixed(0)} s`,
+    difficulty: "intermediate",
+    topic: "Projectile Motion"
+  };
+};
+
+exports.course2_01_physics_20_review_question8 = createStandardMultipleChoice({
+  questions: [
+    createRandomProjectileTimeQuestion(),
+    createRandomProjectileTimeQuestion(),
+    createRandomProjectileTimeQuestion(),
+    createRandomProjectileTimeQuestion(),
+    createRandomProjectileTimeQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create a randomized falling object question
+const createRandomFallingObjectQuestion = () => {
+  const v_0 = randFloat(8.0, 12.0, 1);
+  const h_0 = randInt(60, 100);
+  
+  // Solve quadratic: 0 = h_0 + v_0*t - 4.9*t^2
+  // Using quadratic formula: t = (-v_0 + sqrt(v_0^2 + 4*4.9*h_0)) / (2*(-4.9))
+  const discriminant = v_0 * v_0 + 4 * 4.9 * h_0;
+  const time = (-v_0 + Math.sqrt(discriminant)) / (2 * (-4.9));
+  
+  return {
+    questionText: `A balloon ascending at ${v_0} m/s at height ${h_0} m releases a package. How long until it hits the ground?`,
+    options: [
+      { id: 'a', text: `${time.toFixed(1)} s`, feedback: "Correct! This requires solving a quadratic equation: 0 = h₀ + v₀t - ½gt²." },
+      { id: 'b', text: `${(time * 0.8).toFixed(1)} s`, feedback: "This is too short. Make sure you account for the initial upward velocity of the package." },
+      { id: 'c', text: `${(time * 0.6).toFixed(1)} s`, feedback: "This is much too short. The package continues upward briefly before falling." },
+      { id: 'd', text: `${(h_0 / 10).toFixed(1)} s`, feedback: "You used a simple ratio instead of the kinematic equation. This ignores the initial upward velocity." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Using h = h₀ + v₀t - ½gt²: 0 = ${h_0} + ${v_0}t - 4.9t². Solving the quadratic gives t = ${time.toFixed(1)} s`,
+    difficulty: "advanced",
+    topic: "Falling Objects"
+  };
+};
+
+exports.course2_01_physics_20_review_question9 = createStandardMultipleChoice({
+  questions: [
+    createRandomFallingObjectQuestion(),
+    createRandomFallingObjectQuestion(),
+    createRandomFallingObjectQuestion(),
+    createRandomFallingObjectQuestion(),
+    createRandomFallingObjectQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create a randomized free fall question
+const createRandomFreeFallQuestion = () => {
+  const height = randInt(15, 30);
+  const finalVelocity = Math.sqrt(2 * 9.8 * height);
+  
+  return {
+    questionText: `A ball dropped from ${height} m height. What is the final velocity when it hits the ground?`,
+    options: [
+      { id: 'a', text: `${-finalVelocity.toFixed(1)} m/s`, feedback: "Correct! Using v² = u² + 2as. Velocity is negative because it's directed downward." },
+      { id: 'b', text: `+${finalVelocity.toFixed(1)} m/s`, feedback: "The magnitude is correct, but you missed the direction. Downward velocity should be negative." },
+      { id: 'c', text: `${-(finalVelocity * 0.7).toFixed(1)} m/s`, feedback: "You have the right direction but the magnitude is too small. Check your calculation." },
+      { id: 'd', text: `+${(finalVelocity * 0.7).toFixed(1)} m/s`, feedback: "Both the magnitude and direction are wrong. The velocity should be larger and negative." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Using v² = u² + 2as: v² = 0 + 2(9.8)(${height}) = ${(2 * 9.8 * height).toFixed(0)}, so v = ±${finalVelocity.toFixed(1)} m/s. Negative since downward.`,
+    difficulty: "intermediate",
+    topic: "Free Fall"
+  };
+};
+
+exports.course2_01_physics_20_review_question10 = createStandardMultipleChoice({
+  questions: [
+    createRandomFreeFallQuestion(),
+    createRandomFreeFallQuestion(),
+    createRandomFreeFallQuestion(),
+    createRandomFreeFallQuestion(),
+    createRandomFreeFallQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create a randomized maximum height question
+const createRandomMaxHeightQuestion = () => {
+  const v_i = randInt(8, 15);
+  const maxHeight = (v_i * v_i) / (2 * 9.8);
+  
+  return {
+    questionText: `A stone thrown upward with initial velocity ${v_i} m/s. What is the maximum height?`,
+    options: [
+      { id: 'a', text: `${maxHeight.toFixed(1)} m`, feedback: "Correct! At maximum height, v = 0. Use v² = u² + 2as to solve for height." },
+      { id: 'b', text: `${v_i} m`, feedback: "You confused velocity with height. The maximum height is not numerically equal to initial velocity." },
+      { id: 'c', text: `${(maxHeight / 2).toFixed(1)} m`, feedback: "This is half the maximum height. You may have made an error in the calculation." },
+      { id: 'd', text: `${(maxHeight * 2).toFixed(1)} m`, feedback: "This is double the maximum height. Check your use of the kinematic equation." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Using v² = u² + 2as at maximum height (v = 0): 0 = ${v_i}² - 2(9.8)h, so h = ${v_i * v_i} ÷ ${2 * 9.8} = ${maxHeight.toFixed(1)} m`,
+    difficulty: "intermediate",
+    topic: "Maximum Height"
+  };
+};
+
+exports.course2_01_physics_20_review_question11 = createStandardMultipleChoice({
+  questions: [
+    createRandomMaxHeightQuestion(),
+    createRandomMaxHeightQuestion(),
+    createRandomMaxHeightQuestion(),
+    createRandomMaxHeightQuestion(),
+    createRandomMaxHeightQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create a randomized horizontal projectile question
+const createRandomHorizontalProjectileQuestion = () => {
+  const horizontalVelocity = randFloat(15, 25, 2);
+  const height = randInt(80, 150);
+  const time = Math.sqrt(2 * height / 9.8);
+  
+  return {
+    questionText: `A stone thrown horizontally at ${horizontalVelocity} m/s from a ${height} m cliff. How long until it hits water?`,
+    options: [
+      { id: 'a', text: `${time.toFixed(2)} s`, feedback: "Correct! For horizontal projectiles, only vertical motion determines the time: t = √(2h/g)." },
+      { id: 'b', text: `${(time * 1.2).toFixed(2)} s`, feedback: "This is too long. The horizontal velocity doesn't affect the fall time." },
+      { id: 'c', text: `${(time * 0.7).toFixed(2)} s`, feedback: "This is too short. Make sure you're using the correct kinematic equation for vertical motion." },
+      { id: 'd', text: `${(height / 50).toFixed(2)} s`, feedback: "You used an incorrect approach. Use h = ½t² to find the time, not a simple ratio." }
+    ],
+    correctOptionId: 'a',
+    explanation: `For vertical motion: h = ½gt², so t = √(2h/g) = √(2 × ${height} ÷ 9.8) = √${(2 * height / 9.8).toFixed(2)} = ${time.toFixed(2)} s`,
+    difficulty: "intermediate",
+    topic: "Horizontal Projectile"
+  };
+};
+
+exports.course2_01_physics_20_review_question12 = createStandardMultipleChoice({
+  questions: [
+    createRandomHorizontalProjectileQuestion(),
+    createRandomHorizontalProjectileQuestion(),
+    createRandomHorizontalProjectileQuestion(),
+    createRandomHorizontalProjectileQuestion(),
+    createRandomHorizontalProjectileQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// ===== VECTOR KNOWLEDGE CHECK ASSESSMENTS =====
+
+// Helper function to create randomized ski lift trigonometry question
+const createRandomSkiLiftQuestion = () => {
+  const length = randInt(2500, 3500);
+  const angle = randFloat(12, 18, 1);
+  const height = length * Math.sin(angle * Math.PI / 180);
+  const cosineError = length * Math.cos(angle * Math.PI / 180); // Common mistake
+  
+  return {
+    questionText: `The gondola ski lift at a resort is ${length} m long. On average, the ski lift rises ${angle}° above the horizontal. How high is the top of the ski lift relative to the base?`,
+    options: [
+      { id: 'a', text: `${height.toFixed(0)} m`, feedback: `Correct! Using trigonometry: height = length × sin(angle) = ${length} m × sin(${angle}°) = ${height.toFixed(0)} m` },
+      { id: 'b', text: `${(height * 0.85).toFixed(0)} m`, feedback: `This is too small. Remember to use sine function: height = length × sin(angle)` },
+      { id: 'c', text: `${(height * 1.15).toFixed(0)} m`, feedback: `This is too large. Check your calculation: ${length} × sin(${angle}°) = ${height.toFixed(0)} m` },
+      { id: 'd', text: `${cosineError.toFixed(0)} m`, feedback: `This uses cosine instead of sine. For height, use: height = length × sin(angle)` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Using trigonometry: height = length × sin(angle) = ${length} m × sin(${angle}°) = ${height.toFixed(0)} m`,
+    difficulty: "intermediate",
+    topic: "Vector Components"
+  };
+};
+
+// Vector Question 1: Ski lift trigonometry
+exports.course2_01_physics_20_review_vector_q1 = createStandardMultipleChoice({
+  questions: [
+    createRandomSkiLiftQuestion(),
+    createRandomSkiLiftQuestion(),
+    createRandomSkiLiftQuestion(),
+    createRandomSkiLiftQuestion(),
+    createRandomSkiLiftQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized distance and bearing question
+const createRandomDistanceBearingQuestion = () => {
+  const southDistance = randFloat(25, 45, 1);
+  const westDistance = randFloat(60, 90, 1);
+  const totalDistance = Math.sqrt(westDistance * westDistance + southDistance * southDistance);
+  const bearing = Math.atan(southDistance / westDistance) * (180 / Math.PI);
+  
+  return {
+    questionText: `A highway is planned between two towns, one of which lies ${southDistance} km south and ${westDistance} km west of the other. What is the shortest length of highway that can be built and what would be its bearing?`,
+    options: [
+      { id: 'a', text: `${totalDistance.toFixed(1)} km @ ${bearing.toFixed(0)}° S of W`, feedback: `Correct! Distance = √(${westDistance}² + ${southDistance}²) = ${totalDistance.toFixed(1)} km. Bearing = tan⁻¹(${southDistance}/${westDistance}) = ${bearing.toFixed(0)}° S of W` },
+      { id: 'b', text: `${(westDistance + southDistance).toFixed(1)} km @ ${bearing.toFixed(0)}° S of W`, feedback: `The angle is correct but the distance is wrong. Use Pythagorean theorem: √(${westDistance}² + ${southDistance}²) = ${totalDistance.toFixed(1)} km` },
+      { id: 'c', text: `${totalDistance.toFixed(1)} km @ ${(90 - bearing).toFixed(0)}° S of W`, feedback: `The distance is correct but the angle is wrong. Use tan⁻¹(${southDistance}/${westDistance}) = ${bearing.toFixed(0)}°, not ${(90 - bearing).toFixed(0)}°` },
+      { id: 'd', text: `${westDistance.toFixed(1)} km @ ${bearing.toFixed(0)}° S of W`, feedback: `This is just the west component. Use Pythagorean theorem for total distance: √(${westDistance}² + ${southDistance}²) = ${totalDistance.toFixed(1)} km` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Distance = √(${westDistance}² + ${southDistance}²) = √(${(westDistance * westDistance).toFixed(0)} + ${(southDistance * southDistance).toFixed(0)}) = √${(westDistance * westDistance + southDistance * southDistance).toFixed(0)} = ${totalDistance.toFixed(1)} km. Bearing = tan⁻¹(${southDistance}/${westDistance}) = ${bearing.toFixed(0)}° S of W`,
+    difficulty: "intermediate",
+    topic: "Vector Magnitude and Direction"
+  };
+};
+
+// Vector Question 2: Distance and bearing
+exports.course2_01_physics_20_review_vector_q2 = createStandardMultipleChoice({
+  questions: [
+    createRandomDistanceBearingQuestion(),
+    createRandomDistanceBearingQuestion(),
+    createRandomDistanceBearingQuestion(),
+    createRandomDistanceBearingQuestion(),
+    createRandomDistanceBearingQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized force equilibrium question
+const createRandomForceEquilibriumQuestion = () => {
+  const eastForce = randInt(400, 550);
+  const southForce = randInt(250, 400);
+  const resultantMagnitude = Math.sqrt(eastForce * eastForce + southForce * southForce);
+  const resultantAngle = Math.atan(southForce / eastForce) * (180 / Math.PI);
+  
+  return {
+    questionText: `Three ropes are attached to a heavy box on a frictionless surface. One rope applies a ${eastForce} N force due east and the other applies a ${southForce} N force due south. What force must be applied to the other rope to cancel the other forces?`,
+    options: [
+      { id: 'a', text: `${resultantMagnitude.toFixed(0)} N @ ${resultantAngle.toFixed(0)}° N of W`, feedback: `Correct! Resultant of first two forces: √(${eastForce}² + ${southForce}²) = ${resultantMagnitude.toFixed(0)} N @ ${resultantAngle.toFixed(0)}° S of E. To cancel, need equal and opposite: ${resultantMagnitude.toFixed(0)} N @ ${resultantAngle.toFixed(0)}° N of W` },
+      { id: 'b', text: `${eastForce} N @ ${resultantAngle.toFixed(0)}° N of W`, feedback: `This is just the magnitude of the east force. You need the resultant of both forces: √(${eastForce}² + ${southForce}²) = ${resultantMagnitude.toFixed(0)} N` },
+      { id: 'c', text: `${southForce} N @ ${resultantAngle.toFixed(0)}° N of W`, feedback: `This is just the magnitude of the south force. You need the resultant of both forces: √(${eastForce}² + ${southForce}²) = ${resultantMagnitude.toFixed(0)} N` },
+      { id: 'd', text: `${eastForce + southForce} N @ ${resultantAngle.toFixed(0)}° N of W`, feedback: `This is the sum of the magnitudes, not the vector sum. Use Pythagorean theorem: √(${eastForce}² + ${southForce}²) = ${resultantMagnitude.toFixed(0)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `First find the resultant of the two given forces: magnitude = √(${eastForce}² + ${southForce}²) = ${resultantMagnitude.toFixed(0)} N, direction = tan⁻¹(${southForce}/${eastForce}) = ${resultantAngle.toFixed(0)}° S of E. To cancel this, the third force must be ${resultantMagnitude.toFixed(0)} N @ ${resultantAngle.toFixed(0)}° N of W`,
+    difficulty: "intermediate",
+    topic: "Vector Addition and Equilibrium"
+  };
+};
+
+// Vector Question 3: Force equilibrium
+exports.course2_01_physics_20_review_vector_q3 = createStandardMultipleChoice({
+  questions: [
+    createRandomForceEquilibriumQuestion(),
+    createRandomForceEquilibriumQuestion(),
+    createRandomForceEquilibriumQuestion(),
+    createRandomForceEquilibriumQuestion(),
+    createRandomForceEquilibriumQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized velocity components question
+const createRandomVelocityComponentsQuestion = () => {
+  const speed = randFloat(55, 80, 1);
+  const angle = randFloat(30, 50, 1);
+  const eastComponent = speed * Math.cos(angle * Math.PI / 180);
+  const southComponent = speed * Math.sin(angle * Math.PI / 180);
+  
+  return {
+    questionText: `A helicopter is travelling with a speed of ${speed} m/s @ ${angle}° south of east. What are the south and east components of the helicopter's velocity?`,
+    options: [
+      { id: 'a', text: `${southComponent.toFixed(1)} m/s south, ${eastComponent.toFixed(1)} m/s east`, feedback: `Correct! East component = ${speed} × cos(${angle}°) = ${eastComponent.toFixed(1)} m/s. South component = ${speed} × sin(${angle}°) = ${southComponent.toFixed(1)} m/s` },
+      { id: 'b', text: `${eastComponent.toFixed(1)} m/s south, ${southComponent.toFixed(1)} m/s east`, feedback: `You switched the components. East uses cosine: ${speed} × cos(${angle}°) = ${eastComponent.toFixed(1)} m/s. South uses sine: ${speed} × sin(${angle}°) = ${southComponent.toFixed(1)} m/s` },
+      { id: 'c', text: `${(southComponent * 1.1).toFixed(1)} m/s south, ${(eastComponent * 0.9).toFixed(1)} m/s east`, feedback: `Check your trigonometry calculations. East = ${speed} × cos(${angle}°) = ${eastComponent.toFixed(1)} m/s, South = ${speed} × sin(${angle}°) = ${southComponent.toFixed(1)} m/s` },
+      { id: 'd', text: `${angle} m/s south, ${speed} m/s east`, feedback: `These aren't the components. Use trigonometry: East = magnitude × cos(angle), South = magnitude × sin(angle)` }
+    ],
+    correctOptionId: 'a',
+    explanation: `For a vector at angle θ south of east: East component = magnitude × cos(θ) = ${speed} × cos(${angle}°) = ${eastComponent.toFixed(1)} m/s. South component = magnitude × sin(θ) = ${speed} × sin(${angle}°) = ${southComponent.toFixed(1)} m/s`,
+    difficulty: "intermediate",
+    topic: "Vector Components"
+  };
+};
+
+// Vector Question 4: Velocity components
+exports.course2_01_physics_20_review_vector_q4 = createStandardMultipleChoice({
+  questions: [
+    createRandomVelocityComponentsQuestion(),
+    createRandomVelocityComponentsQuestion(),
+    createRandomVelocityComponentsQuestion(),
+    createRandomVelocityComponentsQuestion(),
+    createRandomVelocityComponentsQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized relative velocity question
+const createRandomRelativeVelocityQuestion = () => {
+  const airplaneSpeed = randInt(100, 150);
+  const windSpeed = randInt(50, 90);
+  const windAngle = randFloat(25, 40, 0);
+  
+  const windEastComponent = windSpeed * Math.cos(windAngle * Math.PI / 180);
+  const windSouthComponent = windSpeed * Math.sin(windAngle * Math.PI / 180);
+  const totalEastSpeed = airplaneSpeed + windEastComponent;
+  const totalSouthSpeed = windSouthComponent;
+  
+  const resultantSpeed = Math.sqrt(totalEastSpeed * totalEastSpeed + totalSouthSpeed * totalSouthSpeed);
+  const resultantAngle = Math.atan(totalSouthSpeed / totalEastSpeed) * (180 / Math.PI);
+  
+  return {
+    questionText: `An airplane is being flown due east with respect to the air at ${airplaneSpeed} km/h. If a wind is blowing ${windSpeed} km/h @ ${windAngle}° south of east relative to the ground, what is the airplane's velocity relative to the ground?`,
+    options: [
+      { id: 'a', text: `${resultantSpeed.toFixed(0)} km/h @ ${resultantAngle.toFixed(0)}° S of E`, feedback: `Correct! Wind components: ${windSpeed}cos(${windAngle}°) = ${windEastComponent.toFixed(1)} km/h east, ${windSpeed}sin(${windAngle}°) = ${windSouthComponent.toFixed(1)} km/h south. Total: ${totalEastSpeed.toFixed(1)} km/h east, ${totalSouthSpeed.toFixed(1)} km/h south. Resultant = √(${totalEastSpeed.toFixed(1)}² + ${totalSouthSpeed.toFixed(1)}²) = ${resultantSpeed.toFixed(0)} km/h @ ${resultantAngle.toFixed(0)}° S of E` },
+      { id: 'b', text: `${(resultantSpeed * 1.1).toFixed(0)} km/h @ ${resultantAngle.toFixed(0)}° S of E`, feedback: `The direction is correct but the magnitude is too large. Check your calculation: √(${totalEastSpeed.toFixed(1)}² + ${totalSouthSpeed.toFixed(1)}²) = ${resultantSpeed.toFixed(0)} km/h` },
+      { id: 'c', text: `${resultantSpeed.toFixed(0)} km/h @ ${(resultantAngle * 1.5).toFixed(0)}° S of E`, feedback: `The magnitude is correct but the angle is wrong. Use tan⁻¹(${totalSouthSpeed.toFixed(1)}/${totalEastSpeed.toFixed(1)}) = ${resultantAngle.toFixed(0)}°, not ${(resultantAngle * 1.5).toFixed(0)}°` },
+      { id: 'd', text: `${airplaneSpeed} km/h @ ${resultantAngle.toFixed(0)}° S of E`, feedback: `This ignores the wind. You must add the airplane's velocity vector to the wind velocity vector.` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Wind components: East = ${windSpeed}cos(${windAngle}°) = ${windEastComponent.toFixed(1)} km/h, South = ${windSpeed}sin(${windAngle}°) = ${windSouthComponent.toFixed(1)} km/h. Adding to airplane's ${airplaneSpeed} km/h east: Total east = ${airplaneSpeed} + ${windEastComponent.toFixed(1)} = ${totalEastSpeed.toFixed(1)} km/h. Resultant magnitude = √(${totalEastSpeed.toFixed(1)}² + ${totalSouthSpeed.toFixed(1)}²) = ${resultantSpeed.toFixed(0)} km/h. Direction = tan⁻¹(${totalSouthSpeed.toFixed(1)}/${totalEastSpeed.toFixed(1)}) = ${resultantAngle.toFixed(0)}° S of E`,
+    difficulty: "advanced",
+    topic: "Relative Velocity"
+  };
+};
+
+// Vector Question 5: Relative velocity
+exports.course2_01_physics_20_review_vector_q5 = createStandardMultipleChoice({
+  questions: [
+    createRandomRelativeVelocityQuestion(),
+    createRandomRelativeVelocityQuestion(),
+    createRandomRelativeVelocityQuestion(),
+    createRandomRelativeVelocityQuestion(),
+    createRandomRelativeVelocityQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized force addition question
+const createRandomForceAdditionQuestion = () => {
+  const force1Magnitude = randFloat(35, 55, 1);
+  const force1Angle = randFloat(25, 40, 1);
+  const force2Magnitude = randFloat(65, 85, 1);
+  
+  const force1East = force1Magnitude * Math.cos(force1Angle * Math.PI / 180);
+  const force1North = force1Magnitude * Math.sin(force1Angle * Math.PI / 180);
+  const totalEast = force1East;
+  const totalNorth = force2Magnitude + force1North;
+  
+  const resultantMagnitude = Math.sqrt(totalEast * totalEast + totalNorth * totalNorth);
+  const resultantAngle = Math.atan(totalEast / totalNorth) * (180 / Math.PI);
+  
+  return {
+    questionText: `A force vector of ${force1Magnitude} N @ ${force1Angle}° north of east is added to another force vector ${force2Magnitude} N [N]. What is the resulting force?`,
+    options: [
+      { id: 'a', text: `${resultantMagnitude.toFixed(0)} N @ ${resultantAngle.toFixed(0)}° E of N`, feedback: `Correct! Force 1 components: ${force1Magnitude}cos(${force1Angle}°) = ${force1East.toFixed(1)} N east, ${force1Magnitude}sin(${force1Angle}°) = ${force1North.toFixed(1)} N north. Total: ${totalEast.toFixed(1)} N east, ${totalNorth.toFixed(1)} N north. Resultant = √(${totalEast.toFixed(1)}² + ${totalNorth.toFixed(1)}²) = ${resultantMagnitude.toFixed(0)} N @ ${resultantAngle.toFixed(0)}° E of N` },
+      { id: 'b', text: `${(resultantMagnitude * 1.15).toFixed(0)} N @ ${resultantAngle.toFixed(0)}° E of N`, feedback: `The direction is correct but the magnitude is too large. Use Pythagorean theorem: √(${totalEast.toFixed(1)}² + ${totalNorth.toFixed(1)}²) = ${resultantMagnitude.toFixed(0)} N` },
+      { id: 'c', text: `${resultantMagnitude.toFixed(0)} N @ ${(90 - resultantAngle).toFixed(0)}° E of N`, feedback: `The magnitude is correct but the angle is wrong. Use tan⁻¹(${totalEast.toFixed(1)}/${totalNorth.toFixed(1)}) = ${resultantAngle.toFixed(0)}° E of N, not ${(90 - resultantAngle).toFixed(0)}°` },
+      { id: 'd', text: `${(resultantMagnitude * 0.85).toFixed(0)} N @ ${resultantAngle.toFixed(0)}° E of N`, feedback: `The direction is correct but the magnitude is too small. Check your calculation: √(${totalEast.toFixed(1)}² + ${totalNorth.toFixed(1)}²) = ${resultantMagnitude.toFixed(0)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Force 1 components: East = ${force1Magnitude}cos(${force1Angle}°) = ${force1East.toFixed(1)} N, North = ${force1Magnitude}sin(${force1Angle}°) = ${force1North.toFixed(1)} N. Adding to ${force2Magnitude} N north: Total east = ${totalEast.toFixed(1)} N, Total north = ${force2Magnitude} + ${force1North.toFixed(1)} = ${totalNorth.toFixed(1)} N. Resultant = √(${totalEast.toFixed(1)}² + ${totalNorth.toFixed(1)}²) = ${resultantMagnitude.toFixed(0)} N @ tan⁻¹(${totalEast.toFixed(1)}/${totalNorth.toFixed(1)}) = ${resultantAngle.toFixed(0)}° E of N`,
+    difficulty: "intermediate",
+    topic: "Vector Addition"
+  };
+};
+
+// Vector Question 6: Force addition
+exports.course2_01_physics_20_review_vector_q6 = createStandardMultipleChoice({
+  questions: [
+    createRandomForceAdditionQuestion(),
+    createRandomForceAdditionQuestion(),
+    createRandomForceAdditionQuestion(),
+    createRandomForceAdditionQuestion(),
+    createRandomForceAdditionQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized displacement vectors question
+const createRandomDisplacementVectorsQuestion = () => {
+  const leg1Distance = randInt(200, 300);
+  const leg1Angle = randFloat(45, 60, 1);
+  const leg2Distance = randInt(40, 80);
+  const leg2Angle = randFloat(15, 30, 1);
+  
+  const leg1East = leg1Distance * Math.cos(leg1Angle * Math.PI / 180);
+  const leg1North = leg1Distance * Math.sin(leg1Angle * Math.PI / 180);
+  const leg2East = leg2Distance * Math.cos(leg2Angle * Math.PI / 180);
+  const leg2South = leg2Distance * Math.sin(leg2Angle * Math.PI / 180); // Note: this is south (negative north)
+  
+  const totalEast = leg1East + leg2East;
+  const totalNorth = leg1North - leg2South; // Subtracting because leg2 is south
+  
+  const resultantDistance = Math.sqrt(totalEast * totalEast + totalNorth * totalNorth);
+  const resultantAngle = Math.atan(totalNorth / totalEast) * (180 / Math.PI);
+  
+  return {
+    questionText: `A pilot flies from point A to B to C in two straight line segments. The displacement vector for the first leg is ${leg1Distance} km @ ${leg1Angle}° N of E and the second leg displacement vector is ${leg2Distance} km @ ${leg2Angle}° S of E. What is the resultant displacement vector?`,
+    options: [
+      { id: 'a', text: `${resultantDistance.toFixed(0)} km @ ${resultantAngle.toFixed(0)}° N of E`, feedback: `Correct! Leg 1: ${leg1East.toFixed(1)} km east, ${leg1North.toFixed(1)} km north. Leg 2: ${leg2East.toFixed(1)} km east, -${leg2South.toFixed(1)} km north. Total: ${totalEast.toFixed(1)} km east, ${totalNorth.toFixed(1)} km north. Resultant = √(${totalEast.toFixed(1)}² + ${totalNorth.toFixed(1)}²) = ${resultantDistance.toFixed(0)} km @ ${resultantAngle.toFixed(0)}° N of E` },
+      { id: 'b', text: `${(resultantDistance * 1.15).toFixed(0)} km @ ${resultantAngle.toFixed(0)}° N of E`, feedback: `The direction is correct but the magnitude is too large. Check your component calculations and Pythagorean theorem.` },
+      { id: 'c', text: `${resultantDistance.toFixed(0)} km @ ${(resultantAngle * 1.3).toFixed(0)}° N of E`, feedback: `The magnitude is correct but the angle is wrong. Use tan⁻¹(${totalNorth.toFixed(1)}/${totalEast.toFixed(1)}) = ${resultantAngle.toFixed(0)}° N of E` },
+      { id: 'd', text: `${leg1Distance} km @ ${resultantAngle.toFixed(0)}° N of E`, feedback: `This is just the magnitude of the first leg. You must add both displacement vectors to get the resultant.` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Leg 1 components: East = ${leg1Distance}cos(${leg1Angle}°) = ${leg1East.toFixed(1)} km, North = ${leg1Distance}sin(${leg1Angle}°) = ${leg1North.toFixed(1)} km. Leg 2 components: East = ${leg2Distance}cos(${leg2Angle}°) = ${leg2East.toFixed(1)} km, North = -${leg2Distance}sin(${leg2Angle}°) = -${leg2South.toFixed(1)} km. Total: East = ${totalEast.toFixed(1)} km, North = ${totalNorth.toFixed(1)} km. Resultant = √(${totalEast.toFixed(1)}² + ${totalNorth.toFixed(1)}²) = ${resultantDistance.toFixed(0)} km @ tan⁻¹(${totalNorth.toFixed(1)}/${totalEast.toFixed(1)}) = ${resultantAngle.toFixed(0)}° N of E`,
+    difficulty: "advanced",
+    topic: "Vector Addition"
+  };
+};
+
+// Vector Question 7: Displacement vectors
+exports.course2_01_physics_20_review_vector_q7 = createStandardMultipleChoice({
+  questions: [
+    createRandomDisplacementVectorsQuestion(),
+    createRandomDisplacementVectorsQuestion(),
+    createRandomDisplacementVectorsQuestion(),
+    createRandomDisplacementVectorsQuestion(),
+    createRandomDisplacementVectorsQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// ===== CIRCULAR MOTION KNOWLEDGE CHECK ASSESSMENTS =====
+
+// Helper function to create randomized circular motion question
+const createRandomCircularMotionQuestion = () => {
+  const mass = randFloat(0.15, 0.35, 2);
+  const radius = randFloat(0.8, 1.5, 1);
+  const tangentialSpeed = randFloat(3.5, 5.5, 1);
+  const centripetalAcceleration = (tangentialSpeed * tangentialSpeed) / radius;
+  const tension = mass * (9.8 + centripetalAcceleration); // Weight + centripetal force
+  
+  return {
+    questionText: `A ${mass} kg ball on a ${radius} m string is being swung horizontally at a tangential speed of ${tangentialSpeed} m/s. What is the speed and tension?`,
+    options: [
+      { id: 'a', text: `${tangentialSpeed} m/s, ${tension.toFixed(1)} N`, feedback: `Correct! Speed = ${tangentialSpeed} m/s (given). For tension: T = mg + mac = ${mass}(9.8) + ${mass}(${tangentialSpeed}²/${radius}) = ${mass}(9.8 + ${centripetalAcceleration.toFixed(1)}) = ${tension.toFixed(1)} N` },
+      { id: 'b', text: `${tangentialSpeed} m/s, ${(mass * 9.8).toFixed(1)} N`, feedback: `Speed is correct, but tension is wrong. You only included weight. Tension = mg + mac = weight + centripetal force = ${tension.toFixed(1)} N` },
+      { id: 'c', text: `${centripetalAcceleration.toFixed(1)} m/s, ${tension.toFixed(1)} N`, feedback: `Tension is correct, but you confused speed with centripetal acceleration. Speed = ${tangentialSpeed} m/s (given).` },
+      { id: 'd', text: `${radius} m/s, ${(mass * centripetalAcceleration).toFixed(1)} N`, feedback: `Both values are wrong. Speed = ${tangentialSpeed} m/s (given). Tension = mg + mac = ${tension.toFixed(1)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Speed = ${tangentialSpeed} m/s (given). Centripetal acceleration = v²/r = ${tangentialSpeed}²/${radius} = ${centripetalAcceleration.toFixed(1)} m/s². Tension = mg + mac = ${mass}(9.8) + ${mass}(${centripetalAcceleration.toFixed(1)}) = ${(mass * 9.8).toFixed(1)} + ${(mass * centripetalAcceleration).toFixed(1)} = ${tension.toFixed(1)} N`,
+    difficulty: "intermediate",
+    topic: "Circular Motion"
+  };
+};
+
+// Circular Motion Question 1: Ball on rope
+exports.course2_01_physics_20_review_circular_q1 = createStandardMultipleChoice({
+  questions: [
+    createRandomCircularMotionQuestion(),
+    createRandomCircularMotionQuestion(),
+    createRandomCircularMotionQuestion(),
+    createRandomCircularMotionQuestion(),
+    createRandomCircularMotionQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized car cornering question
+const createRandomCarCorneringQuestion = () => {
+  const speed = randFloat(12, 18, 1);
+  const radius = randFloat(45, 75, 1);
+  const mass = randInt(1200, 1800);
+  const centripetalForce = mass * (speed * speed) / radius;
+  
+  return {
+    questionText: `A ${mass} kg car rounds a curve of radius ${radius} m at ${speed} m/s. What centripetal force is required?`,
+    options: [
+      { id: 'a', text: `${centripetalForce.toFixed(0)} N`, feedback: `Correct! Centripetal force = mv²/r = ${mass} × ${speed}² ÷ ${radius} = ${mass} × ${(speed * speed).toFixed(1)} ÷ ${radius} = ${centripetalForce.toFixed(0)} N` },
+      { id: 'b', text: `${(centripetalForce / 2).toFixed(0)} N`, feedback: `This is half the correct answer. Make sure you're using Fc = mv²/r, not mv/r.` },
+      { id: 'c', text: `${(mass * 9.8).toFixed(0)} N`, feedback: `This is the car's weight, not centripetal force. Use Fc = mv²/r = ${centripetalForce.toFixed(0)} N` },
+      { id: 'd', text: `${(mass * speed).toFixed(0)} N`, feedback: `This uses mv instead of mv²/r. Centripetal force = mv²/r = ${centripetalForce.toFixed(0)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Centripetal force = mv²/r = ${mass} kg × (${speed} m/s)² ÷ ${radius} m = ${mass} × ${(speed * speed).toFixed(1)} ÷ ${radius} = ${centripetalForce.toFixed(0)} N`,
+    difficulty: "intermediate",
+    topic: "Centripetal Force"
+  };
+};
+
+// Circular Motion Question 2: Car cornering
+exports.course2_01_physics_20_review_circular_q2 = createStandardMultipleChoice({
+  questions: [
+    createRandomCarCorneringQuestion(),
+    createRandomCarCorneringQuestion(),
+    createRandomCarCorneringQuestion(),
+    createRandomCarCorneringQuestion(),
+    createRandomCarCorneringQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized satellite motion question
+const createRandomSatelliteMotionQuestion = () => {
+  const altitude = randInt(200, 500);
+  const earthRadius = 6380;
+  const orbitRadius = earthRadius + altitude;
+  const orbitalSpeed = 7.8 * Math.sqrt(earthRadius / orbitRadius); // Simplified calculation
+  const period = (2 * Math.PI * orbitRadius) / orbitalSpeed / 60; // in minutes
+  
+  return {
+    questionText: `A satellite orbits ${altitude} km above Earth's surface. If Earth's radius is ${earthRadius} km, what is approximately the orbital period?`,
+    options: [
+      { id: 'a', text: `${period.toFixed(0)} minutes`, feedback: `Correct! Orbital radius = ${earthRadius} + ${altitude} = ${orbitRadius} km. Using simplified orbital mechanics, the period is approximately ${period.toFixed(0)} minutes.` },
+      { id: 'b', text: `${(period * 0.7).toFixed(0)} minutes`, feedback: `This is too short. For higher orbits, the period increases. Check your calculation.` },
+      { id: 'c', text: `${(period * 1.4).toFixed(0)} minutes`, feedback: `This is too long. The period should be around ${period.toFixed(0)} minutes for this altitude.` },
+      { id: 'd', text: `${altitude} minutes`, feedback: `The period is not simply equal to the altitude. Use orbital mechanics: T ∝ r^(3/2)` }
+    ],
+    correctOptionId: 'a',
+    explanation: `For a satellite at ${altitude} km altitude, the orbital radius is ${orbitRadius} km. Using Kepler's laws and simplified orbital mechanics, the period is approximately ${period.toFixed(0)} minutes.`,
+    difficulty: "advanced",
+    topic: "Satellite Motion"
+  };
+};
+
+// Circular Motion Question 3: Satellite motion
+exports.course2_01_physics_20_review_circular_q3 = createStandardMultipleChoice({
+  questions: [
+    createRandomSatelliteMotionQuestion(),
+    createRandomSatelliteMotionQuestion(),
+    createRandomSatelliteMotionQuestion(),
+    createRandomSatelliteMotionQuestion(),
+    createRandomSatelliteMotionQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// ===== DYNAMICS KNOWLEDGE CHECK ASSESSMENTS =====
+
+// Helper function to create randomized net force question
+const createRandomNetForceQuestion = () => {
+  const mass = randFloat(5.5, 8.5, 1);
+  const acceleration = randFloat(2.2, 3.8, 1);
+  const netForce = mass * acceleration;
+  
+  return {
+    questionText: `A ${mass} kg object accelerates at ${acceleration} m/s². What is the net force acting on it?`,
+    options: [
+      { id: 'a', text: `${netForce.toFixed(1)} N`, feedback: `Correct! Using Newton's second law: F = ma = ${mass} kg × ${acceleration} m/s² = ${netForce.toFixed(1)} N` },
+      { id: 'b', text: `${(netForce / mass).toFixed(1)} N`, feedback: `This is the acceleration value, not force. Use F = ma = ${mass} × ${acceleration} = ${netForce.toFixed(1)} N` },
+      { id: 'c', text: `${(mass * 9.8).toFixed(1)} N`, feedback: `This is the object's weight, not the net force. Net force = ma = ${netForce.toFixed(1)} N` },
+      { id: 'd', text: `${(netForce / 2).toFixed(1)} N`, feedback: `This is half the correct answer. Make sure you're using F = ma correctly: ${mass} × ${acceleration} = ${netForce.toFixed(1)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Using Newton's second law: F = ma = ${mass} kg × ${acceleration} m/s² = ${netForce.toFixed(1)} N`,
+    difficulty: "intermediate",
+    topic: "Newton's Second Law"
+  };
+};
+
+// Dynamics Question 1: Net force and acceleration
+exports.course2_01_physics_20_review_dynamics_q1 = createStandardMultipleChoice({
+  questions: [
+    createRandomNetForceQuestion(),
+    createRandomNetForceQuestion(),
+    createRandomNetForceQuestion(),
+    createRandomNetForceQuestion(),
+    createRandomNetForceQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized friction force question
+const createRandomFrictionForceQuestion = () => {
+  const mass = randFloat(8.5, 15.5, 1);
+  const appliedForce = randFloat(45, 75, 1);
+  const acceleration = randFloat(1.8, 3.2, 1);
+  const netForce = mass * acceleration;
+  const frictionForce = appliedForce - netForce;
+  
+  return {
+    questionText: `A ${mass} kg box is pushed with ${appliedForce} N and accelerates at ${acceleration} m/s². What is the friction force?`,
+    options: [
+      { id: 'a', text: `${frictionForce.toFixed(1)} N`, feedback: `Correct! Net force = ma = ${mass} × ${acceleration} = ${netForce.toFixed(1)} N. Friction = Applied force - Net force = ${appliedForce} - ${netForce.toFixed(1)} = ${frictionForce.toFixed(1)} N` },
+      { id: 'b', text: `${appliedForce} N`, feedback: `This is the applied force, not friction. Friction = Applied force - Net force = ${appliedForce} - ${netForce.toFixed(1)} = ${frictionForce.toFixed(1)} N` },
+      { id: 'c', text: `${netForce.toFixed(1)} N`, feedback: `This is the net force, not friction. Friction = Applied force - Net force = ${appliedForce} - ${netForce.toFixed(1)} = ${frictionForce.toFixed(1)} N` },
+      { id: 'd', text: `${(mass * 9.8).toFixed(1)} N`, feedback: `This is the weight of the box, not friction force. Use: Friction = Applied force - Net force = ${frictionForce.toFixed(1)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Net force = ma = ${mass} kg × ${acceleration} m/s² = ${netForce.toFixed(1)} N. Since Net force = Applied force - Friction force: Friction = ${appliedForce} N - ${netForce.toFixed(1)} N = ${frictionForce.toFixed(1)} N`,
+    difficulty: "intermediate",
+    topic: "Friction Forces"
+  };
+};
+
+// Dynamics Question 2: Friction force
+exports.course2_01_physics_20_review_dynamics_q2 = createStandardMultipleChoice({
+  questions: [
+    createRandomFrictionForceQuestion(),
+    createRandomFrictionForceQuestion(),
+    createRandomFrictionForceQuestion(),
+    createRandomFrictionForceQuestion(),
+    createRandomFrictionForceQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized inclined plane question
+const createRandomInclinedPlaneQuestion = () => {
+  const mass = randFloat(12, 25, 1);
+  const angle = randFloat(25, 40, 1);
+  const parallelComponent = mass * 9.8 * Math.sin(angle * Math.PI / 180);
+  const perpendicularComponent = mass * 9.8 * Math.cos(angle * Math.PI / 180);
+  
+  return {
+    questionText: `A ${mass} kg object sits on a ${angle}° inclined plane. What is the component of weight parallel to the plane?`,
+    options: [
+      { id: 'a', text: `${parallelComponent.toFixed(1)} N`, feedback: `Correct! Parallel component = mg sin(θ) = ${mass} × 9.8 × sin(${angle}°) = ${parallelComponent.toFixed(1)} N` },
+      { id: 'b', text: `${perpendicularComponent.toFixed(1)} N`, feedback: `This is the perpendicular component (mg cos θ). Parallel component = mg sin(θ) = ${parallelComponent.toFixed(1)} N` },
+      { id: 'c', text: `${(mass * 9.8).toFixed(1)} N`, feedback: `This is the total weight. Parallel component = mg sin(θ) = ${parallelComponent.toFixed(1)} N` },
+      { id: 'd', text: `${(parallelComponent * 0.7).toFixed(1)} N`, feedback: `This is too small. Use: Parallel component = mg sin(θ) = ${mass} × 9.8 × sin(${angle}°) = ${parallelComponent.toFixed(1)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `On an inclined plane, the parallel component of weight = mg sin(θ) = ${mass} kg × 9.8 m/s² × sin(${angle}°) = ${parallelComponent.toFixed(1)} N`,
+    difficulty: "intermediate",
+    topic: "Inclined Planes"
+  };
+};
+
+// Dynamics Question 3: Inclined plane
+exports.course2_01_physics_20_review_dynamics_q3 = createStandardMultipleChoice({
+  questions: [
+    createRandomInclinedPlaneQuestion(),
+    createRandomInclinedPlaneQuestion(),
+    createRandomInclinedPlaneQuestion(),
+    createRandomInclinedPlaneQuestion(),
+    createRandomInclinedPlaneQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized tension question
+const createRandomTensionQuestion = () => {
+  const mass1 = randFloat(3.5, 6.5, 1);
+  const mass2 = randFloat(4.5, 7.5, 1);
+  const totalMass = mass1 + mass2;
+  const acceleration = (mass2 - mass1) * 9.8 / totalMass;
+  const tension = mass1 * (9.8 + acceleration);
+  
+  return {
+    questionText: `Two masses (${mass1} kg and ${mass2} kg) are connected by a rope over a pulley. What is the tension in the rope?`,
+    options: [
+      { id: 'a', text: `${tension.toFixed(1)} N`, feedback: `Correct! First find acceleration: a = (m₂ - m₁)g/(m₁ + m₂) = ${acceleration.toFixed(2)} m/s². Then tension: T = m₁(g + a) = ${mass1}(9.8 + ${acceleration.toFixed(2)}) = ${tension.toFixed(1)} N` },
+      { id: 'b', text: `${(mass1 * 9.8).toFixed(1)} N`, feedback: `This is just the weight of mass 1. You need to account for the acceleration of the system. T = ${tension.toFixed(1)} N` },
+      { id: 'c', text: `${(mass2 * 9.8).toFixed(1)} N`, feedback: `This is just the weight of mass 2. The tension is different from either weight when the system accelerates. T = ${tension.toFixed(1)} N` },
+      { id: 'd', text: `${((mass1 + mass2) * 9.8 / 2).toFixed(1)} N`, feedback: `This is the average of the two weights, but that's not how tension works in this system. T = ${tension.toFixed(1)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `For an Atwood machine: acceleration = (m₂ - m₁)g/(m₁ + m₂) = (${mass2} - ${mass1}) × 9.8/(${mass1} + ${mass2}) = ${acceleration.toFixed(2)} m/s². Tension = m₁(g + a) = ${mass1}(9.8 + ${acceleration.toFixed(2)}) = ${tension.toFixed(1)} N`,
+    difficulty: "advanced",
+    topic: "Pulley Systems"
+  };
+};
+
+// Dynamics Question 4: Tension in rope
+exports.course2_01_physics_20_review_dynamics_q4 = createStandardMultipleChoice({
+  questions: [
+    createRandomTensionQuestion(),
+    createRandomTensionQuestion(),
+    createRandomTensionQuestion(),
+    createRandomTensionQuestion(),
+    createRandomTensionQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized coefficient of friction question
+const createRandomCoefficientFrictionQuestion = () => {
+  const mass = randFloat(15, 30, 1);
+  const frictionForce = randFloat(45, 80, 1);
+  const coefficient = frictionForce / (mass * 9.8);
+  
+  return {
+    questionText: `A ${mass} kg object experiences ${frictionForce} N of friction when sliding on a horizontal surface. What is the coefficient of kinetic friction?`,
+    options: [
+      { id: 'a', text: `${coefficient.toFixed(2)}`, feedback: `Correct! Coefficient of friction = Friction force ÷ Normal force = ${frictionForce} N ÷ (${mass} kg × 9.8 m/s²) = ${frictionForce} ÷ ${(mass * 9.8).toFixed(1)} = ${coefficient.toFixed(2)}` },
+      { id: 'b', text: `${(coefficient * 1.3).toFixed(2)}`, feedback: `This is too large. Use μ = Ff ÷ N = ${frictionForce} ÷ ${(mass * 9.8).toFixed(1)} = ${coefficient.toFixed(2)}` },
+      { id: 'c', text: `${(coefficient * 0.7).toFixed(2)}`, feedback: `This is too small. Check your calculation: μ = ${frictionForce} ÷ ${(mass * 9.8).toFixed(1)} = ${coefficient.toFixed(2)}` },
+      { id: 'd', text: `${(frictionForce / mass).toFixed(2)}`, feedback: `You forgot to include gravity. Use μ = Ff ÷ (mg) = ${frictionForce} ÷ (${mass} × 9.8) = ${coefficient.toFixed(2)}` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Coefficient of kinetic friction = Friction force ÷ Normal force. Since the object is on a horizontal surface, Normal force = mg = ${mass} kg × 9.8 m/s² = ${(mass * 9.8).toFixed(1)} N. Therefore: μₖ = ${frictionForce} N ÷ ${(mass * 9.8).toFixed(1)} N = ${coefficient.toFixed(2)}`,
+    difficulty: "intermediate",
+    topic: "Coefficient of Friction"
+  };
+};
+
+// Dynamics Question 5: Coefficient of friction
+exports.course2_01_physics_20_review_dynamics_q5 = createStandardMultipleChoice({
+  questions: [
+    createRandomCoefficientFrictionQuestion(),
+    createRandomCoefficientFrictionQuestion(),
+    createRandomCoefficientFrictionQuestion(),
+    createRandomCoefficientFrictionQuestion(),
+    createRandomCoefficientFrictionQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized normal force question
+const createRandomNormalForceQuestion = () => {
+  const mass = randFloat(8, 18, 1);
+  const angle = randFloat(15, 35, 1);
+  const normalForce = mass * 9.8 * Math.cos(angle * Math.PI / 180);
+  
+  return {
+    questionText: `A ${mass} kg object rests on a ${angle}° inclined plane. What is the normal force?`,
+    options: [
+      { id: 'a', text: `${normalForce.toFixed(1)} N`, feedback: `Correct! Normal force = mg cos(θ) = ${mass} × 9.8 × cos(${angle}°) = ${normalForce.toFixed(1)} N` },
+      { id: 'b', text: `${(mass * 9.8).toFixed(1)} N`, feedback: `This is the total weight. On an incline, normal force = mg cos(θ) = ${normalForce.toFixed(1)} N` },
+      { id: 'c', text: `${(mass * 9.8 * Math.sin(angle * Math.PI / 180)).toFixed(1)} N`, feedback: `This is the parallel component (mg sin θ). Normal force = mg cos(θ) = ${normalForce.toFixed(1)} N` },
+      { id: 'd', text: `${(normalForce * 0.8).toFixed(1)} N`, feedback: `This is too small. Use: Normal force = mg cos(θ) = ${mass} × 9.8 × cos(${angle}°) = ${normalForce.toFixed(1)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `On an inclined plane, the normal force = mg cos(θ) = ${mass} kg × 9.8 m/s² × cos(${angle}°) = ${normalForce.toFixed(1)} N`,
+    difficulty: "intermediate",
+    topic: "Normal Force"
+  };
+};
+
+// Dynamics Question 6: Normal force on incline
+exports.course2_01_physics_20_review_dynamics_q6 = createStandardMultipleChoice({
+  questions: [
+    createRandomNormalForceQuestion(),
+    createRandomNormalForceQuestion(),
+    createRandomNormalForceQuestion(),
+    createRandomNormalForceQuestion(),
+    createRandomNormalForceQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized acceleration question
+const createRandomAccelerationVectorQuestion = () => {
+  const mass = randFloat(12, 25, 1);
+  const eastForce = randFloat(35, 55, 1);
+  const northForce = randFloat(25, 45, 1);
+  const netForce = Math.sqrt(eastForce * eastForce + northForce * northForce);
+  const acceleration = netForce / mass;
+  const angle = Math.atan(northForce / eastForce) * (180 / Math.PI);
+  
+  return {
+    questionText: `A ${mass} kg object experiences forces of ${eastForce} N east and ${northForce} N north. What is the acceleration?`,
+    options: [
+      { id: 'a', text: `${acceleration.toFixed(1)} m/s² @ ${angle.toFixed(0)}° N of E`, feedback: `Correct! Net force = √(${eastForce}² + ${northForce}²) = ${netForce.toFixed(1)} N. Acceleration = F/m = ${netForce.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s² @ ${angle.toFixed(0)}° N of E` },
+      { id: 'b', text: `${(acceleration * 0.85).toFixed(1)} m/s² @ ${angle.toFixed(0)}° N of E`, feedback: `The direction is correct but magnitude is wrong. Use a = F_net/m = ${netForce.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` },
+      { id: 'c', text: `${acceleration.toFixed(1)} m/s² @ ${(90 - angle).toFixed(0)}° N of E`, feedback: `The magnitude is correct but angle is wrong. Use tan⁻¹(${northForce}/${eastForce}) = ${angle.toFixed(0)}° N of E` },
+      { id: 'd', text: `${(eastForce / mass).toFixed(1)} m/s² @ ${angle.toFixed(0)}° N of E`, feedback: `You only used the east component. Net force = √(${eastForce}² + ${northForce}²) = ${netForce.toFixed(1)} N, so a = ${acceleration.toFixed(1)} m/s²` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Net force magnitude = √(F_east² + F_north²) = √(${eastForce}² + ${northForce}²) = ${netForce.toFixed(1)} N. Direction = tan⁻¹(${northForce}/${eastForce}) = ${angle.toFixed(0)}° N of E. Acceleration = F_net/m = ${netForce.toFixed(1)} N / ${mass} kg = ${acceleration.toFixed(1)} m/s² @ ${angle.toFixed(0)}° N of E`,
+    difficulty: "intermediate",
+    topic: "Vector Acceleration"
+  };
+};
+
+// Dynamics Question 7: Vector acceleration
+exports.course2_01_physics_20_review_dynamics_q7 = createStandardMultipleChoice({
+  questions: [
+    createRandomAccelerationVectorQuestion(),
+    createRandomAccelerationVectorQuestion(),
+    createRandomAccelerationVectorQuestion(),
+    createRandomAccelerationVectorQuestion(),
+    createRandomAccelerationVectorQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized elevator question
+const createRandomElevatorQuestion = () => {
+  const mass = randFloat(45, 75, 1);
+  const acceleration = randFloat(1.5, 2.8, 1);
+  const direction = Math.random() > 0.5 ? 'up' : 'down';
+  let apparentWeight;
+  
+  if (direction === 'up') {
+    apparentWeight = mass * (9.8 + acceleration);
+  } else {
+    apparentWeight = mass * (9.8 - acceleration);
   }
+  
+  return {
+    questionText: `A ${mass} kg person stands on a scale in an elevator accelerating ${acceleration} m/s² ${direction}ward. What does the scale read?`,
+    options: [
+      { id: 'a', text: `${apparentWeight.toFixed(0)} N`, feedback: `Correct! When accelerating ${direction}ward: F_scale = m(g ${direction === 'up' ? '+' : '-'} a) = ${mass}(9.8 ${direction === 'up' ? '+' : '-'} ${acceleration}) = ${apparentWeight.toFixed(0)} N` },
+      { id: 'b', text: `${(mass * 9.8).toFixed(0)} N`, feedback: `This would be the reading if the elevator had constant velocity. With acceleration, the scale reads ${apparentWeight.toFixed(0)} N` },
+      { id: 'c', text: `${direction === 'up' ? (mass * (9.8 - acceleration)).toFixed(0) : (mass * (9.8 + acceleration)).toFixed(0)} N`, feedback: `You have the formula backwards. When accelerating ${direction}ward: F_scale = mg ${direction === 'up' ? '+' : '-'} ma = ${apparentWeight.toFixed(0)} N` },
+      { id: 'd', text: `${(mass * acceleration).toFixed(0)} N`, feedback: `This is just ma. The scale reads the normal force: F_scale = m(g ${direction === 'up' ? '+' : '-'} a) = ${apparentWeight.toFixed(0)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `In an accelerating elevator, the scale reads the normal force. Using Newton's second law: F_scale - mg = ma (for upward acceleration) or mg - F_scale = ma (for downward acceleration). Therefore: F_scale = m(g ${direction === 'up' ? '+' : '-'} a) = ${mass} kg × (9.8 ${direction === 'up' ? '+' : '-'} ${acceleration}) m/s² = ${apparentWeight.toFixed(0)} N`,
+    difficulty: "intermediate",
+    topic: "Apparent Weight"
+  };
+};
+
+// Dynamics Question 8: Elevator (apparent weight)
+exports.course2_01_physics_20_review_dynamics_q8 = createStandardMultipleChoice({
+  questions: [
+    createRandomElevatorQuestion(),
+    createRandomElevatorQuestion(),
+    createRandomElevatorQuestion(),
+    createRandomElevatorQuestion(),
+    createRandomElevatorQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized static friction question
+const createRandomStaticFrictionQuestion = () => {
+  const mass = randFloat(18, 35, 1);
+  const coefficient = randFloat(0.15, 0.45, 2);
+  const maxStaticFriction = coefficient * mass * 9.8;
+  const appliedForce = randFloat(maxStaticFriction * 0.7, maxStaticFriction * 0.9, 1);
+  
+  return {
+    questionText: `A ${mass} kg box sits on a surface with μₛ = ${coefficient}. If you push with ${appliedForce} N horizontally, what is the friction force?`,
+    options: [
+      { id: 'a', text: `${appliedForce} N`, feedback: `Correct! Since the applied force (${appliedForce} N) is less than the maximum static friction (${maxStaticFriction.toFixed(1)} N), the box doesn't slide. Static friction equals the applied force to maintain equilibrium.` },
+      { id: 'b', text: `${maxStaticFriction.toFixed(1)} N`, feedback: `This is the maximum static friction, but the box isn't sliding. Static friction only equals the applied force: ${appliedForce} N` },
+      { id: 'c', text: `${(coefficient * mass * 9.8 * 0.5).toFixed(1)} N`, feedback: `This uses kinetic friction formula. Since the box isn't moving, static friction = applied force = ${appliedForce} N` },
+      { id: 'd', text: `${(mass * 9.8).toFixed(1)} N`, feedback: `This is the normal force (weight). Static friction = applied force = ${appliedForce} N (as long as it doesn't exceed maximum)` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Maximum static friction = μₛN = ${coefficient} × ${mass} × 9.8 = ${maxStaticFriction.toFixed(1)} N. Since the applied force (${appliedForce} N) is less than this maximum, the box remains stationary. Static friction adjusts to equal the applied force: ${appliedForce} N`,
+    difficulty: "intermediate",
+    topic: "Static Friction"
+  };
+};
+
+// Dynamics Question 9: Static friction
+exports.course2_01_physics_20_review_dynamics_q9 = createStandardMultipleChoice({
+  questions: [
+    createRandomStaticFrictionQuestion(),
+    createRandomStaticFrictionQuestion(),
+    createRandomStaticFrictionQuestion(),
+    createRandomStaticFrictionQuestion(),
+    createRandomStaticFrictionQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized ball speed question for circular motion
+const createRandomBallSpeedQuestion = () => {
+  const radius = randFloat(2.0, 4.0, 1);
+  const period = randFloat(0.8, 1.5, 2);
+  const speed = (2 * Math.PI * radius) / period;
+  
+  return {
+    questionText: `A ball moves in a horizontal circle with a radius of ${radius} m. If the ball completes one revolution in ${period} s, what is the ball's speed?`,
+    options: [
+      { id: 'a', text: `${speed.toFixed(1)} m/s`, feedback: `Correct! Speed = circumference ÷ period = 2πr ÷ T = 2π(${radius}) ÷ ${period} = ${speed.toFixed(1)} m/s` },
+      { id: 'b', text: `${(speed * 0.5).toFixed(1)} m/s`, feedback: "This is too small. Remember that speed = 2πr/T for circular motion." },
+      { id: 'c', text: `${(speed * 2).toFixed(1)} m/s`, feedback: "This is too large. Check your calculation: speed = 2πr/T." },
+      { id: 'd', text: `${(radius / period).toFixed(1)} m/s`, feedback: "This uses radius instead of circumference. Speed = 2πr/T, not r/T." }
+    ],
+    correctOptionId: 'a',
+    explanation: `For circular motion, speed = circumference ÷ period = 2πr ÷ T = 2π(${radius}) ÷ ${period} = ${speed.toFixed(1)} m/s`,
+    difficulty: "intermediate",
+    topic: "Circular Motion"
+  };
+};
+
+// Circular Motion Question 1: Ball speed calculation
+exports.course2_01_physics_20_review_circular_q1 = createStandardMultipleChoice({
+  questions: [
+    createRandomBallSpeedQuestion(),
+    createRandomBallSpeedQuestion(),
+    createRandomBallSpeedQuestion(),
+    createRandomBallSpeedQuestion(),
+    createRandomBallSpeedQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized rope tension question
+const createRandomRopeTensionQuestion = () => {
+  const mass = randFloat(0.8, 1.5, 1);
+  const radius = randFloat(2.0, 3.5, 1);
+  const period = randFloat(0.8, 1.2, 2);
+  const speed = (2 * Math.PI * radius) / period;
+  const centripetalForce = (mass * speed * speed) / radius;
+  const weight = mass * 9.8;
+  const tension = centripetalForce + weight;
+  
+  const formatScientific = (num) => {
+    if (num >= 100) {
+      return `${(num / 100).toFixed(1)} × 10² N`;
+    } else {
+      return `${num.toFixed(0)} N`;
+    }
+  };
+  
+  return {
+    questionText: `A ${mass} kg ball at the end of a ${radius} m rope rotates once every ${period} s. What is the tension in the rope?`,
+    options: [
+      { id: 'a', text: formatScientific(tension), feedback: `Correct! Tension = mv²/r + mg = (${mass})(${speed.toFixed(1)})²/${radius} + (${mass})(9.8) = ${centripetalForce.toFixed(1)} + ${weight.toFixed(1)} = ${formatScientific(tension)}` },
+      { id: 'b', text: formatScientific(tension * 0.85), feedback: "This is too small. Remember to add both centripetal force and weight: T = mv²/r + mg" },
+      { id: 'c', text: formatScientific(tension * 1.2), feedback: `This is too large. Check your calculation: mv²/r + mg = (${mass})(${speed.toFixed(1)})²/${radius} + ${weight.toFixed(1)}` },
+      { id: 'd', text: formatScientific(weight), feedback: "This is just the weight. You need to add the centripetal force: T = mv²/r + mg" }
+    ],
+    correctOptionId: 'a',
+    explanation: `For vertical circular motion, tension = centripetal force + weight. First find speed: v = 2πr/T = ${speed.toFixed(1)} m/s. Then T = mv²/r + mg = (${mass} kg)(${speed.toFixed(1)} m/s)²/(${radius} m) + (${mass} kg)(9.8 m/s²) = ${centripetalForce.toFixed(1)} N + ${weight.toFixed(1)} N = ${formatScientific(tension)}`,
+    difficulty: "intermediate",
+    topic: "Circular Motion"
+  };
+};
+
+// Circular Motion Question 2: Rope tension calculation
+exports.course2_01_physics_20_review_circular_q2 = createStandardMultipleChoice({
+  questions: [
+    createRandomRopeTensionQuestion(),
+    createRandomRopeTensionQuestion(),
+    createRandomRopeTensionQuestion(),
+    createRandomRopeTensionQuestion(),
+    createRandomRopeTensionQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized car friction question
+const createRandomCarFrictionQuestion = () => {
+  const mass = randInt(700, 1000);
+  const speed = randFloat(25, 35, 1);
+  const radius = randInt(80, 130);
+  const centripetalForce = (mass * speed * speed) / radius;
+  
+  const formatLargeNumber = (num) => {
+    return `${(num / 1000).toFixed(2)} × 10³ N`;
+  };
+  
+  return {
+    questionText: `A car with a mass of ${mass} kg rounds an unbanked curve in the road at a speed of ${speed} m/s. If the radius of the curve is ${radius} m, what is the minimum frictional force required to keep the car on the road?`,
+    options: [
+      { id: 'a', text: formatLargeNumber(centripetalForce), feedback: `Correct! Centripetal force = mv²/r = (${mass})(${speed})²/${radius} = (${mass})(${(speed * speed).toFixed(0)})/${radius} = ${formatLargeNumber(centripetalForce)}` },
+      { id: 'b', text: formatLargeNumber(centripetalForce * 0.85), feedback: `This is too small. Check your calculation: (${mass} kg)(${speed} m/s)²/(${radius} m)` },
+      { id: 'c', text: formatLargeNumber(centripetalForce * 1.2), feedback: `This is too large. Make sure you're using the correct values: mv²/r = (${mass})(${(speed * speed).toFixed(0)})/${radius}` },
+      { id: 'd', text: formatLargeNumber(centripetalForce * 0.7), feedback: `This is too small. The centripetal force needed is mv²/r = (${mass})(${speed})²/${radius}` }
+    ],
+    correctOptionId: 'a',
+    explanation: `For an unbanked curve, friction provides the centripetal force. F_friction = F_centripetal = mv²/r = (${mass} kg)(${speed} m/s)²/(${radius} m) = (${mass})(${(speed * speed).toFixed(0)})/${radius} = ${formatLargeNumber(centripetalForce)}`,
+    difficulty: "intermediate",
+    topic: "Circular Motion"
+  };
+};
+
+// Circular Motion Question 3: Car on curve
+exports.course2_01_physics_20_review_circular_q3 = createStandardMultipleChoice({
+  questions: [
+    createRandomCarFrictionQuestion(),
+    createRandomCarFrictionQuestion(),
+    createRandomCarFrictionQuestion(),
+    createRandomCarFrictionQuestion(),
+    createRandomCarFrictionQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized horizontal circular motion question
+const createRandomHorizontalCircularQuestion = () => {
+  const mass = randFloat(1.2, 2.5, 1);
+  const radius = randFloat(0.4, 0.8, 2);
+  const period = randFloat(0.9, 1.4, 1);
+  const speed = (2 * Math.PI * radius) / period;
+  const tension = (mass * speed * speed) / radius;
+  
+  return {
+    questionText: `A ${mass} kg object is swung from the end of a ${radius} m string in a horizontal circle. If the time of one revolution is ${period} s, what is the tension in the string?`,
+    options: [
+      { id: 'a', text: `${tension.toFixed(0)} N`, feedback: `Correct! First find speed: v = 2πr/T = 2π(${radius})/${period} = ${speed.toFixed(2)} m/s. Then tension = mv²/r = (${mass})(${speed.toFixed(2)})²/${radius} = ${tension.toFixed(0)} N` },
+      { id: 'b', text: `${(tension * 0.85).toFixed(0)} N`, feedback: `This is too small. Check your speed calculation: v = 2πr/T, then T = mv²/r` },
+      { id: 'c', text: `${(tension * 1.15).toFixed(0)} N`, feedback: `This is too large. Make sure you calculated the speed correctly: v = 2π(${radius})/${period} = ${speed.toFixed(2)} m/s` },
+      { id: 'd', text: `${(tension * 0.75).toFixed(0)} N`, feedback: `This is too small. Use v = 2πr/T to find speed, then T = mv²/r for tension` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Step 1: Find speed using v = 2πr/T = 2π(${radius} m)/(${period} s) = ${speed.toFixed(2)} m/s. Step 2: For horizontal circular motion, tension provides centripetal force: T = mv²/r = (${mass} kg)(${speed.toFixed(2)} m/s)²/(${radius} m) = ${tension.toFixed(0)} N`,
+    difficulty: "intermediate",
+    topic: "Circular Motion"
+  };
+};
+
+// Circular Motion Question 4: Horizontal circular motion
+exports.course2_01_physics_20_review_circular_q4 = createStandardMultipleChoice({
+  questions: [
+    createRandomHorizontalCircularQuestion(),
+    createRandomHorizontalCircularQuestion(),
+    createRandomHorizontalCircularQuestion(),
+    createRandomHorizontalCircularQuestion(),
+    createRandomHorizontalCircularQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// ===== DYNAMICS KNOWLEDGE CHECK ASSESSMENTS =====
+
+// Helper function to create randomized net force and acceleration question
+const createRandomNetForceAccelerationQuestion = () => {
+  const mass = randFloat(4.5, 6.0, 1);
+  const northForce = randInt(12, 18);
+  const westForce = randInt(20, 30);
+  const southEastForce = randInt(18, 25);
+  const southEastAngle = randInt(25, 35);
+  
+  // Calculate force components
+  const seForceEast = southEastForce * Math.cos(southEastAngle * Math.PI / 180);
+  const seForceSouth = southEastForce * Math.sin(southEastAngle * Math.PI / 180);
+  
+  // Net force components
+  const netForceEast = seForceEast - westForce;
+  const netForceNorth = northForce - seForceSouth;
+  
+  const netForceMagnitude = Math.sqrt(netForceEast * netForceEast + netForceNorth * netForceNorth);
+  const acceleration = netForceMagnitude / mass;
+  
+  let direction;
+  if (netForceEast < 0 && netForceNorth < 0) {
+    const angle = Math.atan(Math.abs(netForceNorth) / Math.abs(netForceEast)) * (180 / Math.PI);
+    direction = `${angle.toFixed(0)}° S of W`;
+  } else if (netForceEast < 0 && netForceNorth > 0) {
+    const angle = Math.atan(netForceNorth / Math.abs(netForceEast)) * (180 / Math.PI);
+    direction = `${angle.toFixed(0)}° N of W`;
+  } else if (netForceEast > 0 && netForceNorth < 0) {
+    const angle = Math.atan(Math.abs(netForceNorth) / netForceEast) * (180 / Math.PI);
+    direction = `${angle.toFixed(0)}° S of E`;
+  } else {
+    const angle = Math.atan(netForceNorth / netForceEast) * (180 / Math.PI);
+    direction = `${angle.toFixed(0)}° N of E`;
+  }
+  
+  return {
+    questionText: `A ${mass} kg object is acted upon by three forces: ${northForce} N North, ${westForce} N West, and ${southEastForce} N at ${southEastAngle}° S of E. What is the acceleration of the object?`,
+    options: [
+      { id: 'a', text: `${acceleration.toFixed(1)} m/s² @ ${direction}`, feedback: `Correct! Net force components: East = ${seForceEast.toFixed(1)} - ${westForce} = ${netForceEast.toFixed(1)} N, North = ${northForce} - ${seForceSouth.toFixed(1)} = ${netForceNorth.toFixed(1)} N. Net force = √(${netForceEast.toFixed(1)}² + ${netForceNorth.toFixed(1)}²) = ${netForceMagnitude.toFixed(1)} N. Acceleration = ${netForceMagnitude.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` },
+      { id: 'b', text: `${(acceleration * 0.9).toFixed(1)} m/s² @ ${direction}`, feedback: `Direction is correct but magnitude is too small. Check your force component calculations and Newton's second law.` },
+      { id: 'c', text: `${acceleration.toFixed(1)} m/s² @ ${(Math.random() * 20 + 50).toFixed(0)}° S of W`, feedback: `Magnitude is correct but direction is wrong. Calculate net force components carefully.` },
+      { id: 'd', text: `${(acceleration * 1.15).toFixed(1)} m/s² @ ${direction}`, feedback: `Direction is correct but magnitude is too large. Use F_net = ma, so a = F_net/m.` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Find net force components: Fx = 0 + (-${westForce}) + ${southEastForce}cos(${southEastAngle}°) = ${netForceEast.toFixed(1)} N, Fy = ${northForce} + 0 + (-${southEastForce}sin(${southEastAngle}°)) = ${netForceNorth.toFixed(1)} N. Net force = √(${netForceEast.toFixed(1)}² + ${netForceNorth.toFixed(1)}²) = ${netForceMagnitude.toFixed(1)} N. Acceleration = F_net/m = ${netForceMagnitude.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²`,
+    difficulty: "advanced",
+    topic: "Newton's Second Law"
+  };
+};
+
+// Dynamics Question 1: Net force and acceleration
+exports.course2_01_physics_20_review_dynamics_q1 = createStandardMultipleChoice({
+  questions: [
+    createRandomNetForceAccelerationQuestion(),
+    createRandomNetForceAccelerationQuestion(),
+    createRandomNetForceAccelerationQuestion(),
+    createRandomNetForceAccelerationQuestion(),
+    createRandomNetForceAccelerationQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized upward force question
+const createRandomUpwardForceQuestion = () => {
+  const mass = randInt(40, 60);
+  const acceleration = randFloat(1.5, 2.5, 1);
+  const requiredForce = mass * (acceleration + 9.8);
+  
+  return {
+    questionText: `What is the force required to accelerate a ${mass} kg object upward at ${acceleration} m/s²?`,
+    options: [
+      { id: 'a', text: `${requiredForce.toFixed(0)} N`, feedback: `Correct! Apply Newton's second law: F - mg = ma, so F = m(a + g) = ${mass}(${acceleration} + 9.8) = ${requiredForce.toFixed(0)} N upward` },
+      { id: 'b', text: `${(mass * 9.8).toFixed(0)} N`, feedback: `This is just the weight. You need additional force for upward acceleration: F = m(a + g)` },
+      { id: 'c', text: `${(mass * acceleration).toFixed(0)} N`, feedback: `This is only the force for acceleration. You must also overcome weight: F = ma + mg = m(a + g)` },
+      { id: 'd', text: `${(requiredForce * 1.2).toFixed(0)} N`, feedback: `This is too large. Use F = m(a + g) = ${mass}(${acceleration} + 9.8) = ${requiredForce.toFixed(0)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `For upward motion, the net upward force must overcome weight and provide acceleration. Using Newton's second law: F - mg = ma, so F = m(a + g) = ${mass} kg × (${acceleration} + 9.8) m/s² = ${requiredForce.toFixed(0)} N`,
+    difficulty: "intermediate",
+    topic: "Newton's Second Law - Vertical Motion"
+  };
+};
+
+// Dynamics Question 2: Upward force calculation
+exports.course2_01_physics_20_review_dynamics_q2 = createStandardMultipleChoice({
+  questions: [
+    createRandomUpwardForceQuestion(),
+    createRandomUpwardForceQuestion(),
+    createRandomUpwardForceQuestion(),
+    createRandomUpwardForceQuestion(),
+    createRandomUpwardForceQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized horizontal force with friction question
+const createRandomHorizontalFrictionQuestion = () => {
+  const mass = randFloat(1.8, 2.5, 1);
+  const appliedForce = randInt(12, 18);
+  const frictionForce = randFloat(6, 10, 1);
+  const netForce = appliedForce - frictionForce;
+  const acceleration = netForce / mass;
+  
+  return {
+    questionText: `A ${mass} kg object rests on a table. If a horizontal force of ${appliedForce} N is applied and the frictional force is ${frictionForce} N, what is the acceleration?`,
+    options: [
+      { id: 'a', text: `${acceleration.toFixed(1)} m/s²`, feedback: `Correct! Net force = Applied force - Friction = ${appliedForce} - ${frictionForce} = ${netForce.toFixed(1)} N. Using F = ma: a = F/m = ${netForce.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` },
+      { id: 'b', text: `${(appliedForce / mass).toFixed(1)} m/s²`, feedback: `This ignores friction. Net force = ${appliedForce} - ${frictionForce} = ${netForce.toFixed(1)} N, so a = ${netForce.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` },
+      { id: 'c', text: `${(acceleration * 0.7).toFixed(1)} m/s²`, feedback: `This is too small. Net force = ${appliedForce} - ${frictionForce} = ${netForce.toFixed(1)} N, so a = ${netForce.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` },
+      { id: 'd', text: `${(acceleration * 1.5).toFixed(1)} m/s²`, feedback: `This is too large. Make sure to subtract friction: Net force = ${appliedForce} - ${frictionForce} = ${netForce.toFixed(1)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `The net horizontal force is the applied force minus friction: F_net = ${appliedForce} N - ${frictionForce} N = ${netForce.toFixed(1)} N. Using Newton's second law: a = F_net/m = ${netForce.toFixed(1)} N / ${mass} kg = ${acceleration.toFixed(1)} m/s²`,
+    difficulty: "intermediate",
+    topic: "Newton's Second Law - Friction"
+  };
+};
+
+// Dynamics Question 3: Horizontal force with friction
+exports.course2_01_physics_20_review_dynamics_q3 = createStandardMultipleChoice({
+  questions: [
+    createRandomHorizontalFrictionQuestion(),
+    createRandomHorizontalFrictionQuestion(),
+    createRandomHorizontalFrictionQuestion(),
+    createRandomHorizontalFrictionQuestion(),
+    createRandomHorizontalFrictionQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized angled force question
+const createRandomAngledForceQuestion = () => {
+  const mass = randInt(35, 45);
+  const appliedForce = randInt(80, 100);
+  const angle = randInt(25, 35);
+  const frictionForce = randFloat(25, 30, 2);
+  
+  const horizontalComponent = appliedForce * Math.cos(angle * Math.PI / 180);
+  const netHorizontalForce = horizontalComponent - frictionForce;
+  const acceleration = netHorizontalForce / mass;
+  
+  return {
+    questionText: `A force of ${appliedForce} N is applied to a wagon (mass ${mass} kg) at an angle of ${angle}° to the horizontal. If the frictional force is ${frictionForce} N, what is the resulting acceleration?`,
+    options: [
+      { id: 'a', text: `${acceleration.toFixed(2)} m/s²`, feedback: `Correct! Horizontal component: Fx = ${appliedForce}cos(${angle}°) = ${horizontalComponent.toFixed(2)} N. Net horizontal force = ${horizontalComponent.toFixed(2)} - ${frictionForce} = ${netHorizontalForce.toFixed(2)} N. Acceleration = F/m = ${netHorizontalForce.toFixed(2)}/${mass} = ${acceleration.toFixed(2)} m/s²` },
+      { id: 'b', text: `${(appliedForce / mass).toFixed(2)} m/s²`, feedback: `This uses the total force, not just the horizontal component. Use Fx = ${appliedForce}cos(${angle}°) = ${horizontalComponent.toFixed(2)} N` },
+      { id: 'c', text: `${(acceleration * 0.8).toFixed(2)} m/s²`, feedback: `This is too small. Check your horizontal component calculation: ${appliedForce}cos(${angle}°) = ${horizontalComponent.toFixed(2)} N` },
+      { id: 'd', text: `${(acceleration * 1.3).toFixed(2)} m/s²`, feedback: `This is too large. Make sure to subtract friction from the horizontal force component.` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Only the horizontal component of the applied force contributes to horizontal acceleration. Horizontal component: Fx = ${appliedForce} × cos(${angle}°) = ${horizontalComponent.toFixed(2)} N. Net horizontal force = ${horizontalComponent.toFixed(2)} - ${frictionForce} = ${netHorizontalForce.toFixed(2)} N. Acceleration = F_net/m = ${netHorizontalForce.toFixed(2)}/${mass} = ${acceleration.toFixed(2)} m/s²`,
+    difficulty: "intermediate",
+    topic: "Newton's Second Law - Angled Forces"
+  };
+};
+
+// Dynamics Question 4: Angled force with friction
+exports.course2_01_physics_20_review_dynamics_q4 = createStandardMultipleChoice({
+  questions: [
+    createRandomAngledForceQuestion(),
+    createRandomAngledForceQuestion(),
+    createRandomAngledForceQuestion(),
+    createRandomAngledForceQuestion(),
+    createRandomAngledForceQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized simple force calculation question
+const createRandomSimpleForceQuestion = () => {
+  const mass = randInt(40, 50);
+  const acceleration = randFloat(1.0, 1.5, 1);
+  const force = mass * acceleration;
+  
+  return {
+    questionText: `An object has a mass of ${mass} kg. What net force is required to give it an acceleration of ${acceleration} m/s²?`,
+    options: [
+      { id: 'a', text: `${force.toFixed(0)} N`, feedback: `Correct! Using Newton's second law: F = ma = ${mass} kg × ${acceleration} m/s² = ${force.toFixed(0)} N` },
+      { id: 'b', text: `${(force * 0.8).toFixed(0)} N`, feedback: `This is too small. Use F = ma = ${mass} × ${acceleration} = ${force.toFixed(0)} N` },
+      { id: 'c', text: `${(mass + acceleration).toFixed(0)} N`, feedback: `You added instead of multiplied. Use F = ma = ${mass} × ${acceleration} = ${force.toFixed(0)} N` },
+      { id: 'd', text: `${(mass / acceleration).toFixed(0)} N`, feedback: `You divided instead of multiplied. Newton's second law is F = ma, not F = m/a` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Newton's second law states that F = ma. Therefore, F = ${mass} kg × ${acceleration} m/s² = ${force.toFixed(0)} N`,
+    difficulty: "basic",
+    topic: "Newton's Second Law - Basic"
+  };
+};
+
+// Dynamics Question 5: Simple force calculation
+exports.course2_01_physics_20_review_dynamics_q5 = createStandardMultipleChoice({
+  questions: [
+    createRandomSimpleForceQuestion(),
+    createRandomSimpleForceQuestion(),
+    createRandomSimpleForceQuestion(),
+    createRandomSimpleForceQuestion(),
+    createRandomSimpleForceQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized coefficient of friction question
+const createRandomFrictionCoefficientQuestion = () => {
+  const mass = randInt(8, 12);
+  const appliedForce = randInt(35, 45);
+  const normalForce = mass * 9.8;
+  const coefficient = appliedForce / normalForce;
+  
+  return {
+    questionText: `A ${mass} kg box is dragged over a horizontal surface by a force of ${appliedForce} N. If the box moves with a constant speed, what is the coefficient of kinetic friction?`,
+    options: [
+      { id: 'a', text: `${coefficient.toFixed(2)}`, feedback: `Correct! At constant velocity, forces are balanced: friction = applied force = ${appliedForce} N. Normal force = mg = ${mass} × 9.8 = ${normalForce.toFixed(0)} N. Coefficient of friction μk = f/N = ${appliedForce}/${normalForce.toFixed(0)} = ${coefficient.toFixed(2)}` },
+      { id: 'b', text: `${(coefficient * 0.7).toFixed(2)}`, feedback: `This is too small. At constant velocity, friction force equals applied force: ${appliedForce} N` },
+      { id: 'c', text: `${(coefficient * 1.3).toFixed(2)}`, feedback: `This is too large. Use μk = f/N = ${appliedForce}/${normalForce.toFixed(0)} = ${coefficient.toFixed(2)}` },
+      { id: 'd', text: `${(appliedForce / mass).toFixed(2)}`, feedback: `You divided by mass instead of normal force. Use μk = f/N where N = mg = ${normalForce.toFixed(0)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `At constant velocity, the net force is zero, so friction force equals applied force (${appliedForce} N). Normal force = mg = ${mass} kg × 9.8 m/s² = ${normalForce.toFixed(0)} N. Coefficient of kinetic friction μk = f/N = ${appliedForce} N / ${normalForce.toFixed(0)} N = ${coefficient.toFixed(2)}`,
+    difficulty: "intermediate",
+    topic: "Friction and Equilibrium"
+  };
+};
+
+// Dynamics Question 6: Coefficient of friction
+exports.course2_01_physics_20_review_dynamics_q6 = createStandardMultipleChoice({
+  questions: [
+    createRandomFrictionCoefficientQuestion(),
+    createRandomFrictionCoefficientQuestion(),
+    createRandomFrictionCoefficientQuestion(),
+    createRandomFrictionCoefficientQuestion(),
+    createRandomFrictionCoefficientQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized two forces magnitude question
+const createRandomTwoForcesMagnitudeQuestion = () => {
+  const mass = randFloat(2.5, 3.5, 1);
+  const horizontalForce = randInt(10, 14);
+  const verticalForce = randFloat(6, 10, 1);
+  const netForceMagnitude = Math.sqrt(horizontalForce * horizontalForce + verticalForce * verticalForce);
+  const acceleration = netForceMagnitude / mass;
+  
+  return {
+    questionText: `Two forces act on a ${mass} kg object: ${horizontalForce} N horizontally to the right, and ${verticalForce} N vertically upward. What is the magnitude of the acceleration?`,
+    options: [
+      { id: 'a', text: `${acceleration.toFixed(1)} m/s²`, feedback: `Correct! Net force components: Fx = ${horizontalForce} N, Fy = ${verticalForce} N. Net force magnitude = √(${horizontalForce}² + ${verticalForce}²) = √(${horizontalForce * horizontalForce} + ${(verticalForce * verticalForce).toFixed(0)}) = ${netForceMagnitude.toFixed(1)} N. Acceleration = F/m = ${netForceMagnitude.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` },
+      { id: 'b', text: `${(horizontalForce / mass).toFixed(1)} m/s²`, feedback: `This only uses the horizontal force. You need the magnitude of the resultant force: √(${horizontalForce}² + ${verticalForce}²)` },
+      { id: 'c', text: `${((horizontalForce + verticalForce) / mass).toFixed(1)} m/s²`, feedback: `This adds the magnitudes instead of using vector addition. Use the Pythagorean theorem: √(${horizontalForce}² + ${verticalForce}²)` },
+      { id: 'd', text: `${(acceleration * 0.8).toFixed(1)} m/s²`, feedback: `This is too small. Net force = √(${horizontalForce}² + ${verticalForce}²) = ${netForceMagnitude.toFixed(1)} N, so a = ${netForceMagnitude.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` }
+    ],
+    correctOptionId: 'a',
+    explanation: `The two perpendicular forces combine as vectors. Net force magnitude = √(Fx² + Fy²) = √(${horizontalForce}² + ${verticalForce}²) = √(${horizontalForce * horizontalForce + verticalForce * verticalForce}) = ${netForceMagnitude.toFixed(1)} N. Using F = ma: a = ${netForceMagnitude.toFixed(1)} N / ${mass} kg = ${acceleration.toFixed(1)} m/s²`,
+    difficulty: "intermediate",
+    topic: "Vector Forces"
+  };
+};
+
+// Dynamics Question 7: Two perpendicular forces
+exports.course2_01_physics_20_review_dynamics_q7 = createStandardMultipleChoice({
+  questions: [
+    createRandomTwoForcesMagnitudeQuestion(),
+    createRandomTwoForcesMagnitudeQuestion(),
+    createRandomTwoForcesMagnitudeQuestion(),
+    createRandomTwoForcesMagnitudeQuestion(),
+    createRandomTwoForcesMagnitudeQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized car acceleration force question
+const createRandomCarAccelerationQuestion = () => {
+  const mass = randInt(1100, 1300);
+  const initialVelocity = 0;
+  const finalVelocity = randInt(20, 30);
+  const time = randFloat(7, 9, 1);
+  const acceleration = (finalVelocity - initialVelocity) / time;
+  const netForce = mass * acceleration;
+  
+  return {
+    questionText: `A car with a mass of ${mass} kg accelerates from rest to ${finalVelocity} m/s in ${time} s. What is the net force acting on the car?`,
+    options: [
+      { id: 'a', text: `${netForce.toFixed(0)} N`, feedback: `Correct! First find acceleration: a = Δv/t = (${finalVelocity} - 0)/${time} = ${acceleration.toFixed(2)} m/s². Then F = ma = ${mass} × ${acceleration.toFixed(2)} = ${netForce.toFixed(0)} N` },
+      { id: 'b', text: `${(netForce * 0.8).toFixed(0)} N`, feedback: `This is too small. Acceleration = ${finalVelocity}/${time} = ${acceleration.toFixed(2)} m/s², so F = ${mass} × ${acceleration.toFixed(2)} = ${netForce.toFixed(0)} N` },
+      { id: 'c', text: `${(mass * finalVelocity).toFixed(0)} N`, feedback: `This uses velocity instead of acceleration. First find a = Δv/t = ${finalVelocity}/${time} = ${acceleration.toFixed(2)} m/s², then F = ma` },
+      { id: 'd', text: `${(netForce * 1.2).toFixed(0)} N`, feedback: `This is too large. Check your calculation: a = ${finalVelocity}/${time} = ${acceleration.toFixed(2)} m/s², F = ${mass} × ${acceleration.toFixed(2)} = ${netForce.toFixed(0)} N` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Step 1: Find acceleration using a = Δv/t = (${finalVelocity} - 0)/${time} = ${acceleration.toFixed(2)} m/s². Step 2: Apply Newton's second law: F = ma = ${mass} kg × ${acceleration.toFixed(2)} m/s² = ${netForce.toFixed(0)} N`,
+    difficulty: "intermediate",
+    topic: "Newton's Second Law - Kinematics"
+  };
+};
+
+// Dynamics Question 8: Car acceleration force
+exports.course2_01_physics_20_review_dynamics_q8 = createStandardMultipleChoice({
+  questions: [
+    createRandomCarAccelerationQuestion(),
+    createRandomCarAccelerationQuestion(),
+    createRandomCarAccelerationQuestion(),
+    createRandomCarAccelerationQuestion(),
+    createRandomCarAccelerationQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function to create randomized angled pull with friction question
+const createRandomAngledPullFrictionQuestion = () => {
+  const mass = randInt(20, 30);
+  const pullForce = randInt(100, 140);
+  const pullAngle = randInt(20, 30);
+  const frictionCoefficient = randFloat(0.25, 0.35, 2);
+  
+  const horizontalComponent = pullForce * Math.cos(pullAngle * Math.PI / 180);
+  const verticalComponent = pullForce * Math.sin(pullAngle * Math.PI / 180);
+  const normalForce = mass * 9.8 - verticalComponent;
+  const frictionForce = frictionCoefficient * normalForce;
+  const netForce = horizontalComponent - frictionForce;
+  const acceleration = netForce / mass;
+  
+  return {
+    questionText: `A ${mass} kg object is pulled across a horizontal surface with a force of ${pullForce} N at an angle of ${pullAngle}° above the horizontal. The coefficient of kinetic friction is ${frictionCoefficient}. What is the acceleration?`,
+    options: [
+      { id: 'a', text: `${acceleration.toFixed(1)} m/s²`, feedback: `Correct! Horizontal force: Fx = ${pullForce}cos(${pullAngle}°) = ${horizontalComponent.toFixed(1)} N. Vertical force: Fy = ${pullForce}sin(${pullAngle}°) = ${verticalComponent.toFixed(1)} N. Normal force: N = mg - Fy = ${mass}(9.8) - ${verticalComponent.toFixed(1)} = ${normalForce.toFixed(1)} N. Friction: f = μN = ${frictionCoefficient}(${normalForce.toFixed(1)}) = ${frictionForce.toFixed(1)} N. Net force: Fnet = ${horizontalComponent.toFixed(1)} - ${frictionForce.toFixed(1)} = ${netForce.toFixed(1)} N. Acceleration: a = ${netForce.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²` },
+      { id: 'b', text: `${(acceleration * 0.8).toFixed(1)} m/s²`, feedback: `This is too small. Check your normal force calculation: N = mg - Fy where Fy is the upward component of the pull.` },
+      { id: 'c', text: `${(acceleration * 1.3).toFixed(1)} m/s²`, feedback: `This is too large. Make sure you're subtracting friction and accounting for the reduced normal force.` },
+      { id: 'd', text: `${(horizontalComponent / mass).toFixed(1)} m/s²`, feedback: `This ignores friction. You must subtract the friction force from the horizontal component.` }
+    ],
+    correctOptionId: 'a',
+    explanation: `Horizontal component of pull: Fx = ${pullForce}cos(${pullAngle}°) = ${horizontalComponent.toFixed(1)} N. Vertical component: Fy = ${pullForce}sin(${pullAngle}°) = ${verticalComponent.toFixed(1)} N. Normal force: N = mg - Fy = ${mass}(9.8) - ${verticalComponent.toFixed(1)} = ${normalForce.toFixed(1)} N. Friction force: f = μN = ${frictionCoefficient} × ${normalForce.toFixed(1)} = ${frictionForce.toFixed(1)} N. Net horizontal force: ${horizontalComponent.toFixed(1)} - ${frictionForce.toFixed(1)} = ${netForce.toFixed(1)} N. Acceleration: a = ${netForce.toFixed(1)}/${mass} = ${acceleration.toFixed(1)} m/s²`,
+    difficulty: "advanced",
+    topic: "Complex Forces with Friction"
+  };
+};
+
+// Dynamics Question 9: Angled pull with friction
+exports.course2_01_physics_20_review_dynamics_q9 = createStandardMultipleChoice({
+  questions: [
+    createRandomAngledPullFrictionQuestion(),
+    createRandomAngledPullFrictionQuestion(),
+    createRandomAngledPullFrictionQuestion(),
+    createRandomAngledPullFrictionQuestion(),
+    createRandomAngledPullFrictionQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// ===== PHYSICS 20 REVIEW KNOWLEDGE CHECK QUESTIONS =====
+// Questions for the four SlideshowKnowledgeCheck components
+
+// ===== KINEMATICS KNOWLEDGE CHECK (Questions 1-13) =====
+
+// Helper function for displacement calculations (Question 1)
+const createKcDisplacementQuestion = () => {
+  const scenarios = [
+    { initial: -8, final: -2, description: "-8 km to -2 km" },
+    { initial: 2, final: -8, description: "+2 km to -8 km" },
+    { initial: 0, final: 8, description: "0 km to +8 km" },
+    { initial: -8, final: 20, description: "-8 km to +20 km" },
+    { initial: 8, final: -8, description: "+8 km to -8 km" }
+  ];
+  
+  const scenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+  const displacement = scenario.final - scenario.initial;
+  
+  return {
+    questionText: `State the displacement when position changes from ${scenario.description}.`,
+    options: [
+      { id: 'a', text: `${displacement > 0 ? '+' : ''}${displacement} km`, feedback: "Correct! Displacement = final position - initial position." },
+      { id: 'b', text: `${Math.abs(displacement)} km`, feedback: "This is the magnitude (distance) but displacement includes direction. Don't take absolute value." },
+      { id: 'c', text: `${scenario.initial - scenario.final} km`, feedback: "You subtracted in wrong order. Displacement = final - initial, not initial - final." },
+      { id: 'd', text: `${scenario.initial + scenario.final} km`, feedback: "You added the positions instead of subtracting. Displacement = final - initial." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Displacement = final position - initial position = (${scenario.final}) - (${scenario.initial}) = ${displacement} km`,
+    difficulty: "beginner",
+    topic: "Displacement"
+  };
+};
+
+exports.course2_01_physics_20_review_kc_kinematics_q1 = createStandardMultipleChoice({
+  questions: [
+    createKcDisplacementQuestion(),
+    createKcDisplacementQuestion(),
+    createKcDisplacementQuestion(),
+    createKcDisplacementQuestion(),
+    createKcDisplacementQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function for electron speed/time (Question 2)
+const createKcElectronTimeQuestion = () => {
+  const speed = randFloat(1.2, 1.4, 1) * 1e5; // 1.2-1.4 × 10⁵ m/s
+  const distance = randFloat(0.8, 1.2, 1); // 0.8-1.2 m
+  const time = distance / speed; // in seconds
+  const timeMicroseconds = time * 1e6; // convert to μs
+  
+  return {
+    questionText: `An electron travels at a uniform speed of ${speed.toExponential(1)} m/s. How much time is required for the electron to move a distance of ${distance} m?`,
+    options: [
+      { id: 'a', text: `${timeMicroseconds.toFixed(1)} μs`, feedback: "Correct! Time = distance ÷ speed, then convert to microseconds." },
+      { id: 'b', text: `${(timeMicroseconds * 10).toFixed(1)} μs`, feedback: "Check your unit conversion. 1 second = 1,000,000 microseconds." },
+      { id: 'c', text: `${(timeMicroseconds / 10).toFixed(1)} μs`, feedback: "This is too small. Make sure you're dividing distance by speed correctly." },
+      { id: 'd', text: `${(speed / 1000).toFixed(1)} μs`, feedback: "You used the wrong formula. Time = distance ÷ speed, not a function of speed alone." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Time = distance ÷ speed = ${distance} m ÷ ${speed.toExponential(1)} m/s = ${time.toExponential(1)} s = ${timeMicroseconds.toFixed(1)} μs`,
+    difficulty: "intermediate",
+    topic: "Speed and Time"
+  };
+};
+
+exports.course2_01_physics_20_review_kc_kinematics_q2 = createStandardMultipleChoice({
+  questions: [
+    createKcElectronTimeQuestion(),
+    createKcElectronTimeQuestion(),
+    createKcElectronTimeQuestion(),
+    createKcElectronTimeQuestion(),
+    createKcElectronTimeQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function for rally average speed (Question 3)
+const createKcRallyAverageSpeedQuestion = () => {
+  const d1 = randFloat(9, 11, 1); // 9-11 km
+  const d2 = randFloat(16, 20, 1); // 16-20 km
+  const d3 = randFloat(8, 12, 1); // 8-12 km
+  const t1 = randFloat(6.5, 8.5, 1); // 6.5-8.5 min
+  const t2 = randFloat(12, 16, 1); // 12-16 min
+  const t3 = randFloat(4.5, 7.5, 1); // 4.5-7.5 min
+  
+  const totalDistance = d1 + d2 + d3;
+  const totalTime = t1 + t2 + t3;
+  const averageSpeed = totalDistance / totalTime;
+  
+  return {
+    questionText: `A rally driver completes: section 1 (${d1} km) in ${t1} min, section 2 (${d2} km) in ${t2} min, section 3 (${d3} km) in ${t3} min. What was the average speed?`,
+    options: [
+      { id: 'a', text: `${averageSpeed.toFixed(1)} km/min`, feedback: "Correct! Average speed = total distance ÷ total time." },
+      { id: 'b', text: `${(averageSpeed * 1.2).toFixed(1)} km/min`, feedback: "Too high. Don't average the individual speeds - use total distance ÷ total time." },
+      { id: 'c', text: `${(averageSpeed * 0.8).toFixed(1)} km/min`, feedback: "Too low. Make sure you're adding all distances and all times correctly." },
+      { id: 'd', text: `${(totalDistance / 10).toFixed(1)} km/min`, feedback: "Wrong denominator. Use total time, not an arbitrary number." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Average speed = total distance ÷ total time = (${d1} + ${d2} + ${d3}) km ÷ (${t1} + ${t2} + ${t3}) min = ${totalDistance.toFixed(1)} km ÷ ${totalTime.toFixed(1)} min = ${averageSpeed.toFixed(1)} km/min`,
+    difficulty: "intermediate",
+    topic: "Average Speed"
+  };
+};
+
+exports.course2_01_physics_20_review_kc_kinematics_q3 = createStandardMultipleChoice({
+  questions: [
+    createKcRallyAverageSpeedQuestion(),
+    createKcRallyAverageSpeedQuestion(),
+    createKcRallyAverageSpeedQuestion(),
+    createKcRallyAverageSpeedQuestion(),
+    createKcRallyAverageSpeedQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function for uniform acceleration (Question 4)
+const createKcUniformAccelerationQuestion = () => {
+  const vi = randFloat(8, 12, 1); // 8-12 m/s initial
+  const vf = randFloat(28, 32, 1); // 28-32 m/s final
+  const time = randFloat(8, 12, 1); // 8-12 s
+  const acceleration = (vf - vi) / time;
+  
+  return {
+    questionText: `A car accelerates uniformly from ${vi} m/s to ${vf} m/s in ${time} s. What is the acceleration?`,
+    options: [
+      { id: 'a', text: `${acceleration.toFixed(1)} m/s²`, feedback: "Correct! Acceleration = (final velocity - initial velocity) ÷ time." },
+      { id: 'b', text: `${((vf + vi) / time).toFixed(1)} m/s²`, feedback: "You added the velocities instead of subtracting. Use a = (vf - vi)/t." },
+      { id: 'c', text: `${(vf / time).toFixed(1)} m/s²`, feedback: "You forgot to subtract the initial velocity. Use a = (vf - vi)/t." },
+      { id: 'd', text: `${(vf - vi).toFixed(1)} m/s²`, feedback: "You forgot to divide by time. Acceleration = change in velocity ÷ time." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Acceleration = (vf - vi)/t = (${vf} - ${vi})/s = ${(vf - vi).toFixed(1)} m/s ÷ ${time} s = ${acceleration.toFixed(1)} m/s²`,
+    difficulty: "intermediate",
+    topic: "Uniform Acceleration"
+  };
+};
+
+exports.course2_01_physics_20_review_kc_kinematics_q4 = createStandardMultipleChoice({
+  questions: [
+    createKcUniformAccelerationQuestion(),
+    createKcUniformAccelerationQuestion(),
+    createKcUniformAccelerationQuestion(),
+    createKcUniformAccelerationQuestion(),
+    createKcUniformAccelerationQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// ===== VECTORS KNOWLEDGE CHECK (Questions 1-7) =====
+
+// Helper function for ski lift height calculation (Question 1)
+const createKcSkiLiftQuestion = () => {
+  const length = randFloat(2700, 2900, 50); // 2700-2900 m
+  const angle = randFloat(13, 16, 1); // 13-16 degrees
+  const height = length * Math.sin(angle * Math.PI / 180);
+  
+  return {
+    questionText: `A gondola ski lift is ${length} m long and rises ${angle}° above horizontal. How high is the top relative to the base?`,
+    options: [
+      { id: 'a', text: `${height.toFixed(0)} m`, feedback: "Correct! Use trigonometry: height = length × sin(angle)." },
+      { id: 'b', text: `${(length * Math.cos(angle * Math.PI / 180)).toFixed(0)} m`, feedback: "You used cosine instead of sine. For vertical height, use sine of the angle." },
+      { id: 'c', text: `${(length * Math.tan(angle * Math.PI / 180)).toFixed(0)} m`, feedback: "You used tangent. For height given hypotenuse and angle, use sine." },
+      { id: 'd', text: `${(length / 2).toFixed(0)} m`, feedback: "This ignores the angle completely. Use trigonometry: height = length × sin(angle)." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Height = length × sin(angle) = ${length} m × sin(${angle}°) = ${height.toFixed(0)} m`,
+    difficulty: "intermediate",
+    topic: "Trigonometry and Vectors"
+  };
+};
+
+exports.course2_01_physics_20_review_kc_vectors_q1 = createStandardMultipleChoice({
+  questions: [
+    createKcSkiLiftQuestion(),
+    createKcSkiLiftQuestion(),
+    createKcSkiLiftQuestion(),
+    createKcSkiLiftQuestion(),
+    createKcSkiLiftQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// Helper function for highway distance and bearing (Question 2)
+const createKcHighwayBearingQuestion = () => {
+  const south = randFloat(30, 40, 1); // 30-40 km south
+  const west = randFloat(65, 75, 1); // 65-75 km west
+  const distance = Math.sqrt(south * south + west * west);
+  const angle = Math.atan(south / west) * 180 / Math.PI;
+  
+  return {
+    questionText: `A highway is planned between two towns, one ${south} km south and ${west} km west of the other. What is the shortest length and bearing?`,
+    options: [
+      { id: 'a', text: `${distance.toFixed(1)} km @ ${angle.toFixed(0)}° S of W`, feedback: "Correct! Use Pythagorean theorem for distance and inverse tangent for angle." },
+      { id: 'b', text: `${(south + west).toFixed(1)} km @ ${angle.toFixed(0)}° S of W`, feedback: "You added the components instead of using Pythagorean theorem. Distance = √(south² + west²)." },
+      { id: 'c', text: `${distance.toFixed(1)} km @ ${(90 - angle).toFixed(0)}° W of S`, feedback: "Distance is correct but check the bearing convention. It should be degrees south of west." },
+      { id: 'd', text: `${(distance * 1.2).toFixed(1)} km @ ${angle.toFixed(0)}° S of W`, feedback: "Angle is correct but check distance calculation: √(south² + west²)." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Distance = √(${south}² + ${west}²) = ${distance.toFixed(1)} km. Angle = arctan(${south}/${west}) = ${angle.toFixed(0)}° S of W`,
+    difficulty: "intermediate",
+    topic: "Vector Addition and Bearing"
+  };
+};
+
+exports.course2_01_physics_20_review_kc_vectors_q2 = createStandardMultipleChoice({
+  questions: [
+    createKcHighwayBearingQuestion(),
+    createKcHighwayBearingQuestion(),
+    createKcHighwayBearingQuestion(),
+    createKcHighwayBearingQuestion(),
+    createKcHighwayBearingQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// ===== CIRCULAR MOTION KNOWLEDGE CHECK (Questions 1-3) =====
+
+// Helper function for ball on rope speed and tension (Question 1)
+const createKcBallRopeQuestion = () => {
+  const mass = randFloat(0.8, 1.2, 1); // 0.8-1.2 kg
+  const radius = randFloat(2.5, 3.0, 1); // 2.5-3.0 m
+  const period = randFloat(0.9, 1.1, 2); // 0.9-1.1 s
+  
+  const speed = (2 * Math.PI * radius) / period;
+  const centripetal_force = mass * speed * speed / radius;
+  const tension = Math.sqrt(centripetal_force * centripetal_force + (mass * 9.8) * (mass * 9.8));
+  
+  return {
+    questionText: `A ${mass} kg ball at the end of a ${radius} m rope rotates once every ${period} s. What is the speed and tension?`,
+    options: [
+      { id: 'a', text: `Speed: ${speed.toFixed(0)} m/s, Tension: ${tension.toFixed(0)} N`, feedback: "Correct! Speed = 2πr/T, then use circular motion dynamics for tension." },
+      { id: 'b', text: `Speed: ${(speed * 0.8).toFixed(0)} m/s, Tension: ${tension.toFixed(0)} N`, feedback: "Check speed calculation: v = 2πr/T = circumference ÷ period." },
+      { id: 'c', text: `Speed: ${speed.toFixed(0)} m/s, Tension: ${centripetal_force.toFixed(0)} N`, feedback: "Speed is correct, but tension must account for both centripetal force and weight." },
+      { id: 'd', text: `Speed: ${(radius / period).toFixed(0)} m/s, Tension: ${tension.toFixed(0)} N`, feedback: "You used radius/period instead of circumference/period for speed." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Speed = 2πr/T = 2π(${radius})/${period} = ${speed.toFixed(1)} m/s. Tension combines centripetal force and weight: ${tension.toFixed(0)} N`,
+    difficulty: "advanced",
+    topic: "Circular Motion"
+  };
+};
+
+exports.course2_01_physics_20_review_kc_circular_q1 = createStandardMultipleChoice({
+  questions: [
+    createKcBallRopeQuestion(),
+    createKcBallRopeQuestion(),
+    createKcBallRopeQuestion(),
+    createKcBallRopeQuestion(),
+    createKcBallRopeQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
+});
+
+// ===== DYNAMICS KNOWLEDGE CHECK (Questions 1-9) =====
+
+// Helper function for net force and acceleration (Question 2)
+const createKcNetForceQuestion = () => {
+  const force = randFloat(25, 35, 1); // 25-35 N
+  const mass = randFloat(8, 12, 1); // 8-12 kg
+  const acceleration = force / mass;
+  
+  return {
+    questionText: `A net force of ${force} N south acts on a ${mass} kg object. What is the acceleration?`,
+    options: [
+      { id: 'a', text: `${acceleration.toFixed(1)} m/s² south`, feedback: "Correct! Using Newton's second law: F = ma, so a = F/m." },
+      { id: 'b', text: `${(force * mass).toFixed(1)} m/s² south`, feedback: "You multiplied instead of dividing. Use a = F/m, not F×m." },
+      { id: 'c', text: `${acceleration.toFixed(1)} m/s² north`, feedback: "Magnitude is correct but direction is wrong. Acceleration is in the same direction as net force." },
+      { id: 'd', text: `${force.toFixed(1)} m/s² south`, feedback: "This is the force value. You need to divide force by mass to get acceleration." }
+    ],
+    correctOptionId: 'a',
+    explanation: `Using Newton's second law: a = F/m = ${force} N ÷ ${mass} kg = ${acceleration.toFixed(1)} m/s² south`,
+    difficulty: "intermediate",
+    topic: "Newton's Second Law"
+  };
+};
+
+exports.course2_01_physics_20_review_kc_dynamics_q1 = createStandardMultipleChoice({
+  questions: [
+    createKcNetForceQuestion(),
+    createKcNetForceQuestion(),
+    createKcNetForceQuestion(),
+    createKcNetForceQuestion(),
+    createKcNetForceQuestion()
+  ],
+  randomizeQuestions: true,
+  allowSameQuestion: false,
+  pointsValue: 1,
+  maxAttempts: 9999,
+  showFeedback: true
 });

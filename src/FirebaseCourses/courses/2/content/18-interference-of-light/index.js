@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -1561,6 +1562,54 @@ const InterferenceOfLight = ({ course, courseId = 'default' }) => {
           )}
         </div>
       </TextSection>
+
+      <SlideshowKnowledgeCheck
+        title="Interference of Light - Knowledge Check"
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_18_constructive_amplitude'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_18_destructive_amplitude'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_18_dark_fringes_cause'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_18_wavelength_fringe_spacing'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_18_path_difference_interference'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_18_coherence_requirement'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_18_single_slit_blocking'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_18_lightbulb_incoherence'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_18_fringe_count_factors'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_18_sound_dead_spots'
+          }
+        ]}
+        courseId={courseId}
+        lessonPath="lesson_18_interference_of_light"
+      />
 
       <LessonSummary
         points={[

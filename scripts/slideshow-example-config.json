@@ -1,0 +1,182 @@
+{
+  "courseId": 4,
+  "lessonPath": "02-learning-strategies",
+  "lessonTitle": "Lesson 2 - Effective Online Learning Strategies",
+  "questions": [
+    {
+      "type": "multiple-choice",
+      "question": "Which of the following is the most effective study technique for online learning?",
+      "options": [
+        "Cramming all content the night before an exam",
+        "Spacing out study sessions over multiple days",
+        "Reading materials only once quickly",
+        "Multitasking while studying"
+      ],
+      "correctAnswer": "Spacing out study sessions over multiple days",
+      "explanation": "Spaced repetition has been proven to improve long-term retention and understanding of material.",
+      "points": 1,
+      "difficulty": "intermediate"
+    },
+    {
+      "type": "multiple-choice",
+      "question": "What is the recommended minimum login frequency for RTD Academy students?",
+      "options": [
+        "Once per month",
+        "Once per week",
+        "Three times per week",
+        "Daily"
+      ],
+      "correctAnswer": "Three times per week",
+      "explanation": "Students should log in at least three times per week to maintain consistent progress and avoid course lockout.",
+      "points": 1,
+      "difficulty": "easy"
+    },
+    {
+      "type": "ai-short-answer",
+      "question": "Describe two strategies you will use to manage your time effectively while studying at RTD Academy.",
+      "expectedAnswers": [
+        "I will create a weekly schedule that dedicates specific time blocks for studying and use a calendar to track assignment due dates. I will also minimize distractions by finding a quiet study space and turning off notifications during study sessions."
+      ],
+      "keyWords": ["schedule", "time blocks", "calendar", "distractions", "study space", "planning", "routine"],
+      "wordLimits": { "min": 30, "max": 150 },
+      "points": 2,
+      "difficulty": "intermediate",
+      "topic": "Time Management"
+    },
+    {
+      "type": "multiple-choice",
+      "question": "Which tool is most helpful for organizing your course workload?",
+      "options": [
+        "Social media reminders",
+        "Mental notes only",
+        "A structured planner or digital calendar",
+        "Sticky notes on your computer"
+      ],
+      "correctAnswer": "A structured planner or digital calendar",
+      "explanation": "A structured planner or digital calendar helps you visualize deadlines, plan study sessions, and track progress systematically.",
+      "points": 1,
+      "difficulty": "easy"
+    },
+    {
+      "type": "multiple-choice",
+      "question": "What should you do if you're struggling with course material?",
+      "options": [
+        "Skip the difficult sections and hope they're not on the exam",
+        "Wait until the last minute to ask for help",
+        "Contact your instructor or use available support resources promptly",
+        "Copy answers from other students"
+      ],
+      "correctAnswer": "Contact your instructor or use available support resources promptly",
+      "explanation": "RTD Academy provides various support resources, and instructors are available to help when you're struggling with material.",
+      "points": 1,
+      "difficulty": "easy"
+    },
+    {
+      "type": "ai-short-answer",
+      "question": "Explain why maintaining regular communication with your instructor is important in an online learning environment.",
+      "expectedAnswers": [
+        "Regular communication with instructors is important because it helps build rapport, allows for timely clarification of concepts, ensures you're meeting course expectations, and provides opportunities for feedback and support when facing challenges."
+      ],
+      "keyWords": ["communication", "rapport", "clarification", "feedback", "support", "expectations", "help"],
+      "wordLimits": { "min": 40, "max": 200 },
+      "points": 2,
+      "difficulty": "intermediate",
+      "topic": "Communication"
+    },
+    {
+      "type": "multiple-choice",
+      "question": "Which of these is a characteristic of successful online learners?",
+      "options": [
+        "They work in isolation without seeking help",
+        "They are self-motivated and proactive",
+        "They only study when they feel like it",
+        "They rely entirely on instructor reminders"
+      ],
+      "correctAnswer": "They are self-motivated and proactive",
+      "explanation": "Successful online learners take initiative in their learning, set goals, and actively engage with course materials.",
+      "points": 1,
+      "difficulty": "intermediate"
+    },
+    {
+      "type": "multiple-choice",
+      "question": "What is the best approach to handling technical difficulties during your course?",
+      "options": [
+        "Ignore them and hope they resolve themselves",
+        "Immediately contact IT support and document the issue",
+        "Use technical issues as an excuse to skip assignments",
+        "Switch to a different course"
+      ],
+      "correctAnswer": "Immediately contact IT support and document the issue",
+      "explanation": "Prompt reporting of technical issues ensures they're resolved quickly and documented properly for any necessary accommodations.",
+      "points": 1,
+      "difficulty": "easy"
+    },
+    {
+      "type": "ai-short-answer",
+      "question": "How will you create an effective study environment at home for your online courses?",
+      "expectedAnswers": [
+        "I will designate a specific area for studying that is quiet, well-lit, and free from distractions. I'll ensure I have reliable internet, necessary supplies, and will inform family members of my study schedule to minimize interruptions."
+      ],
+      "keyWords": ["quiet", "designated area", "distractions", "internet", "supplies", "schedule", "environment", "organized"],
+      "wordLimits": { "min": 30, "max": 150 },
+      "points": 2,
+      "difficulty": "intermediate",
+      "topic": "Study Environment"
+    },
+    {
+      "type": "multiple-choice",
+      "question": "How often should you check your RTD Academy email?",
+      "options": [
+        "Once per semester",
+        "Only when expecting specific messages",
+        "Daily or every few days",
+        "Only during exam periods"
+      ],
+      "correctAnswer": "Daily or every few days",
+      "explanation": "Regular email checking ensures you don't miss important announcements, deadline reminders, or communications from instructors.",
+      "points": 1,
+      "difficulty": "easy"
+    },
+    {
+      "type": "multiple-choice",
+      "question": "What is the purpose of the course gradebook?",
+      "options": [
+        "To compare your grades with other students",
+        "To track your progress and identify areas needing improvement",
+        "To show only your final grade",
+        "To display instructor comments only"
+      ],
+      "correctAnswer": "To track your progress and identify areas needing improvement",
+      "explanation": "The gradebook helps you monitor your performance throughout the course and identify topics that may need additional study.",
+      "points": 1,
+      "difficulty": "intermediate"
+    },
+    {
+      "type": "ai-short-answer",
+      "question": "Describe how you will balance your RTD Academy coursework with other responsibilities in your life.",
+      "expectedAnswers": [
+        "I will create a weekly schedule that allocates specific time for coursework while considering my other commitments. I'll communicate with family about my study needs, use time-management techniques like the Pomodoro method, and prioritize tasks based on deadlines and importance."
+      ],
+      "keyWords": ["balance", "schedule", "priorities", "time management", "commitments", "communication", "planning"],
+      "wordLimits": { "min": 40, "max": 200 },
+      "points": 2,
+      "difficulty": "advanced",
+      "topic": "Work-Life Balance"
+    },
+    {
+      "type": "multiple-choice",
+      "question": "Which resource should you consult first when you have questions about course policies?",
+      "options": [
+        "Social media groups",
+        "Other students' opinions",
+        "The course syllabus and student handbook",
+        "External websites"
+      ],
+      "correctAnswer": "The course syllabus and student handbook",
+      "explanation": "The course syllabus and student handbook contain official policies and procedures that should be your primary reference.",
+      "points": 1,
+      "difficulty": "easy",
+      "title": "Final Question - Course Resources"
+    }
+  ]
+}

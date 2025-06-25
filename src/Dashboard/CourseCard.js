@@ -889,6 +889,40 @@ if (computedPaymentStatus === 'paid' || computedPaymentStatus === 'active') {
               </Alert>
             )}
 
+            {/* Course resources if they exist */}
+            {course.courseDetails?.resources && (
+              <Alert className="mb-4 bg-green-50 border-green-200">
+                <FaFileAlt className="h-4 w-4 text-green-500" />
+                <AlertDescription className="text-green-700">
+                  <p className="font-medium mb-2">Course Resources</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li>
+                      <a href={course.courseDetails.resources.courseOutline} 
+                         className="text-green-600 hover:text-green-800 underline">
+                        Course Outline
+                      </a>
+                    </li>
+                    <li>
+                      <a href={course.courseDetails.resources.dataBooklet} 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="text-green-600 hover:text-green-800 underline">
+                        Data Booklet
+                      </a>
+                    </li>
+                    <li>
+                      <a href={course.courseDetails.resources.textbook} 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="text-green-600 hover:text-green-800 underline">
+                        Textbook
+                      </a>
+                    </li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {renderRegistrationMessage()}
             {renderTrialMessage()}
             {renderParentApprovalStatus()}

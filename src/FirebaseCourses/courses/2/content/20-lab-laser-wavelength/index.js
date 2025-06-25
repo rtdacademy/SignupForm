@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
-import QuillEditor from '../../../../../courses/CourseEditor/QuillEditor';
-import MathInputEditor from '../../../../../components/MathInputEditor';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useAuth } from '../../../../../context/AuthContext';
+import { sanitizeEmail } from '../../../../../utils/sanitizeEmail';
+import SimpleQuillEditor from '../../../../../components/SimpleQuillEditor';
 
 /**
  * Lab 20 - Laser Wavelength for Physics 30
@@ -393,7 +395,9 @@ const DiffractionSimulation = ({ onDataCollected }) => {
   );
 };
 
-const LabLaserWavelength = () => {
+const LabLaserWavelength = ({ courseId = '2' }) => {
+  const { currentUser } = useAuth();
+  
   // Track lab started state
   const [labStarted, setLabStarted] = useState(false);
   
@@ -486,6 +490,11 @@ const LabLaserWavelength = () => {
   // Track notifications
   const [notification, setNotification] = useState({ message: '', type: '', visible: false });
   
+  // Track saving/loading state
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  
   // Reference for calculation work textarea
   const calculationTextareaRef = useRef(null);
   
@@ -499,11 +508,136 @@ const LabLaserWavelength = () => {
     setCurrentSection('hypothesis');
   };
   
+  // Save lab progress to cloud function
+  const saveLabProgress = async (isAutoSave = false) => {
+    if (!currentUser) {
+      setNotification({ 
+        message: 'Please log in to save your progress', 
+        type: 'error', 
+        visible: true 
+      });
+      return false;
+    }
+
+    try {
+      setIsSaving(true);
+      
+      const functions = getFunctions();
+      const saveFunction = httpsCallable(functions, 'course2_lab_laser_wavelength');
+      
+      const studentKey = sanitizeEmail(currentUser.email);
+      
+      // Prepare lab data for saving
+      const labData = {
+        sectionStatus,
+        hypothesis,
+        labMethod,
+        procedureUnderstood,
+        collectedGratings: Array.from(collectedGratings),
+        observationData,
+        analysisData,
+        errorAnalysis,
+        postLabAnswers,
+        currentSection,
+        labStarted,
+        timestamp: new Date().toISOString()
+      };
+      
+      const result = await saveFunction({
+        operation: 'save',
+        studentKey: studentKey,
+        courseId: courseId,
+        assessmentId: 'lab_laser_wavelength',
+        labData: labData,
+        saveType: isAutoSave ? 'auto' : 'manual',
+        studentEmail: currentUser.email,
+        userId: currentUser.uid
+      });
+      
+      if (result.data.success) {
+        setHasSavedProgress(true);
+        if (!isAutoSave) {
+          setNotification({ 
+            message: `Lab progress saved successfully! (${result.data.completionPercentage}% complete)`, 
+            type: 'success', 
+            visible: true 
+          });
+        }
+        return true;
+      } else {
+        throw new Error('Save operation failed');
+      }
+    } catch (error) {
+      console.error('Error saving lab progress:', error);
+      setNotification({ 
+        message: `Failed to save progress: ${error.message}`, 
+        type: 'error', 
+        visible: true 
+      });
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  // Load lab progress from cloud function
+  const loadLabProgress = async () => {
+    if (!currentUser) return;
+
+    try {
+      setIsLoading(true);
+      
+      const functions = getFunctions();
+      const loadFunction = httpsCallable(functions, 'course2_lab_laser_wavelength');
+      
+      const studentKey = sanitizeEmail(currentUser.email);
+      
+      const result = await loadFunction({
+        operation: 'load',
+        studentKey: studentKey,
+        courseId: courseId,
+        assessmentId: 'lab_laser_wavelength',
+        studentEmail: currentUser.email,
+        userId: currentUser.uid
+      });
+      
+      if (result.data.success && result.data.found) {
+        const savedData = result.data.labData;
+        
+        // Restore saved state
+        if (savedData.sectionStatus) setSectionStatus(savedData.sectionStatus);
+        if (savedData.hypothesis !== undefined) setHypothesis(savedData.hypothesis);
+        if (savedData.labMethod !== undefined) setLabMethod(savedData.labMethod);
+        if (savedData.procedureUnderstood !== undefined) setProcedureUnderstood(savedData.procedureUnderstood);
+        if (savedData.collectedGratings) setCollectedGratings(new Set(savedData.collectedGratings));
+        if (savedData.observationData) setObservationData(savedData.observationData);
+        if (savedData.analysisData) setAnalysisData(savedData.analysisData);
+        if (savedData.errorAnalysis) setErrorAnalysis(savedData.errorAnalysis);
+        if (savedData.postLabAnswers) setPostLabAnswers(savedData.postLabAnswers);
+        if (savedData.currentSection) setCurrentSection(savedData.currentSection);
+        if (savedData.labStarted !== undefined) setLabStarted(savedData.labStarted);
+        
+        setHasSavedProgress(true);
+        console.log('Lab progress loaded successfully');
+      }
+    } catch (error) {
+      console.error('Error loading lab progress:', error);
+      setNotification({ 
+        message: 'Failed to load saved progress', 
+        type: 'error', 
+        visible: true 
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   // Helper function to save and end
-  const saveAndEnd = () => {
-    setLabStarted(false);
-    setHasSavedProgress(true);
-    showNotification('Progress saved successfully!', 'success');
+  const saveAndEnd = async () => {
+    const saved = await saveLabProgress(false);
+    if (saved) {
+      setLabStarted(false);
+    }
   };
   
   // Show notification function
@@ -513,6 +647,24 @@ const LabLaserWavelength = () => {
       setNotification(prev => ({ ...prev, visible: false }));
     }, 3000);
   };
+  
+  // Load progress on component mount
+  useEffect(() => {
+    if (currentUser) {
+      loadLabProgress();
+    }
+  }, [currentUser]);
+
+  // Auto-save functionality
+  useEffect(() => {
+    if (!autoSaveEnabled || !currentUser || !hasSavedProgress) return;
+
+    const autoSaveInterval = setInterval(() => {
+      saveLabProgress(true); // Auto-save
+    }, 30000); // Auto-save every 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [autoSaveEnabled, currentUser, hasSavedProgress, sectionStatus, hypothesis, labMethod, procedureUnderstood, observationData, analysisData, errorAnalysis, postLabAnswers]);
   
   // Insert symbol into calculation work
   const insertSymbol = (symbol) => {
@@ -845,16 +997,58 @@ const LabLaserWavelength = () => {
               ))}
             </div>
             
+            {/* Save Progress Button */}
+            <button 
+              onClick={() => saveLabProgress(false)}
+              disabled={isSaving || !currentUser}
+              className={`px-3 py-2 text-sm font-medium rounded border transition-all duration-200 mr-2 ${
+                isSaving || !currentUser
+                  ? 'bg-gray-400 border-gray-400 text-white cursor-not-allowed'
+                  : 'bg-green-600 border-green-600 text-white hover:bg-green-700'
+              }`}
+            >
+              {isSaving ? 'Saving...' : 'Save Progress'}
+            </button>
+            
             {/* Save and End Button */}
             <button 
               onClick={saveAndEnd}
-              className="px-4 py-2 bg-blue-600 text-white font-medium rounded border border-blue-600 hover:bg-blue-700 transition-all duration-200"
+              disabled={isSaving || !currentUser}
+              className={`px-4 py-2 font-medium rounded border transition-all duration-200 ${
+                isSaving || !currentUser
+                  ? 'bg-gray-400 border-gray-400 text-white cursor-not-allowed'
+                  : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
-              Save and End
+              {isSaving ? 'Saving...' : 'Save and End'}
             </button>
           </div>
         </div>
       </div>
+      
+      {/* Status Indicators */}
+      {(isLoading || isSaving || autoSaveEnabled) && (
+        <div className="fixed bottom-4 right-4 z-40 bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm">
+          {isLoading && (
+            <div className="flex items-center text-blue-600 mb-1">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+              Loading progress...
+            </div>
+          )}
+          {isSaving && (
+            <div className="flex items-center text-yellow-600 mb-1">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>
+              Saving progress...
+            </div>
+          )}
+          {autoSaveEnabled && currentUser && hasSavedProgress && !isSaving && (
+            <div className="flex items-center text-green-600">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+              Auto-save enabled
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Notification Component */}
       {notification.visible && (
@@ -1312,7 +1506,7 @@ const LabLaserWavelength = () => {
             </div>
           </div>
           
-          {/* Interactive Calculation Editor */}
+          {/* Calculation Work Editor */}
           <div className="mt-6">
             <h4 className="font-semibold text-gray-800 mb-3">Show Your Calculation Work:</h4>
             <p className="text-sm text-gray-600 mb-3">
@@ -1320,33 +1514,15 @@ const LabLaserWavelength = () => {
             </p>
             
             <div className="border border-gray-300 rounded-lg overflow-hidden">
-              <QuillEditor
+              <SimpleQuillEditor
                 courseId="2"
                 unitId="20-lab-laser-wavelength"
                 itemId="calculation-work"
                 initialContent={analysisData.calculationWork || ''}
                 onSave={(content) => updateAnalysisData('calculationWork', content)}
-                onError={(error) => console.error('QuillEditor error:', error)}
+                onError={(error) => console.error('SimpleQuillEditor error:', error)}
               />
             </div>
-          </div>
-          
-          {/* Alternative Math Input Editor */}
-          <div className="mt-6">
-            <h4 className="font-semibold text-gray-800 mb-3">Alternative: Simple Math Input Editor</h4>
-            <p className="text-sm text-gray-600 mb-3">
-              If you prefer a simpler interface, you can use this alternative editor with math shortcuts and preview.
-            </p>
-            
-            <MathInputEditor
-              value={analysisData.calculationWorkAlt || ''}
-              onChange={(value) => updateAnalysisData('calculationWorkAlt', value)}
-              placeholder="Type your response here..."
-              label=""
-              rows={4}
-              showPreview={true}
-              seamlessMode={true}
-            />
           </div>
         </div>
       </div>

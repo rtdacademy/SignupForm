@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useAuth } from '../../../../../context/AuthContext';
+import { sanitizeEmail } from '../../../../../utils/sanitizeEmail';
 
 /**
  * Lab 1 - Conservation of Momentum for Physics 30
  * Item ID: assignment_1747283296776_954
  * Unit: Momentum and Energy
  */
-const LabMomentumConservation = () => {  // Track completion status for each section
+const LabMomentumConservation = ({ courseId = '2' }) => {
+  const { currentUser } = useAuth();
+  
+  // Track completion status for each section
   const [sectionStatus, setSectionStatus] = useState({
     hypothesis: 'not-started', // 'not-started', 'in-progress', 'completed'
     procedure: 'not-started',
@@ -25,7 +31,12 @@ const LabMomentumConservation = () => {  // Track completion status for each sec
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
 
   // Track notifications
-  const [notification, setNotification] = useState({ message: '', type: '', visible: false });  // Track trial data for observations - completely separate storage for 1D and 2D collision modes
+  const [notification, setNotification] = useState({ message: '', type: '', visible: false });
+  
+  // Track saving/loading state
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);  // Track trial data for observations - completely separate storage for 1D and 2D collision modes
   // Clean separation: Each collision type only stores data relevant to that type
   const [trialData, setTrialData] = useState({
     '1D': {
@@ -258,11 +269,136 @@ const LabMomentumConservation = () => {  // Track completion status for each sec
       }
     }, 100);
   };
-  const saveAndEnd = () => {
-    setLabStarted(false);
-    setHasSavedProgress(true);
-    // Here you could also save progress to database
-  };  const updateSectionContent = (section, content) => {
+  // Save lab progress to database
+  const saveLabProgress = async (isAutoSave = false) => {
+    if (!currentUser) {
+      setNotification({ 
+        message: 'Please log in to save your progress', 
+        type: 'error', 
+        visible: true 
+      });
+      return false;
+    }
+
+    try {
+      setIsSaving(true);
+      
+      const functions = getFunctions();
+      const saveFunction = httpsCallable(functions, 'course2_lab_momentum_conservation');
+      
+      const studentKey = sanitizeEmail(currentUser.email);
+      
+      // Prepare lab data for saving
+      const labData = {
+        sectionStatus,
+        sectionContent,
+        procedureRead,
+        trialData,
+        averagePercentDifference,
+        simulationState,
+        currentSection,
+        labStarted,
+        timestamp: new Date().toISOString()
+      };
+      
+      const result = await saveFunction({
+        operation: 'save',
+        studentKey: studentKey,
+        courseId: courseId,
+        assessmentId: 'lab_momentum_conservation',
+        labData: labData,
+        saveType: isAutoSave ? 'auto' : 'manual',
+        studentEmail: currentUser.email,
+        userId: currentUser.uid
+      });
+      
+      if (result.data.success) {
+        setHasSavedProgress(true);
+        if (!isAutoSave) {
+          setNotification({ 
+            message: `Lab progress saved successfully! (${result.data.completionPercentage}% complete)`, 
+            type: 'success', 
+            visible: true 
+          });
+        }
+        return true;
+      } else {
+        throw new Error('Save operation failed');
+      }
+    } catch (error) {
+      console.error('Error saving lab progress:', error);
+      setNotification({ 
+        message: `Failed to save progress: ${error.message}`, 
+        type: 'error', 
+        visible: true 
+      });
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Load lab progress from database
+  const loadLabProgress = async () => {
+    if (!currentUser) return;
+
+    try {
+      setIsLoading(true);
+      
+      const functions = getFunctions();
+      const loadFunction = httpsCallable(functions, 'course2_lab_momentum_conservation');
+      
+      const studentKey = sanitizeEmail(currentUser.email);
+      
+      const result = await loadFunction({
+        operation: 'load',
+        studentKey: studentKey,
+        courseId: courseId,
+        assessmentId: 'lab_momentum_conservation',
+        studentEmail: currentUser.email,
+        userId: currentUser.uid
+      });
+      
+      if (result.data.success && result.data.found) {
+        const savedData = result.data.labData;
+        
+        // Restore saved state
+        if (savedData.sectionStatus) setSectionStatus(savedData.sectionStatus);
+        if (savedData.sectionContent) setSectionContent(savedData.sectionContent);
+        if (savedData.procedureRead !== undefined) setProcedureRead(savedData.procedureRead);
+        if (savedData.trialData) setTrialData(savedData.trialData);
+        if (savedData.averagePercentDifference) setAveragePercentDifference(savedData.averagePercentDifference);
+        if (savedData.simulationState) setSimulationState(savedData.simulationState);
+        if (savedData.currentSection) setCurrentSection(savedData.currentSection);
+        if (savedData.labStarted !== undefined) setLabStarted(savedData.labStarted);
+        
+        setHasSavedProgress(true);
+        setNotification({ 
+          message: `Previous progress loaded! (${result.data.completionPercentage}% complete)`, 
+          type: 'success', 
+          visible: true 
+        });
+      }
+    } catch (error) {
+      console.error('Error loading lab progress:', error);
+      setNotification({ 
+        message: 'Failed to load previous progress', 
+        type: 'error', 
+        visible: true 
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const saveAndEnd = async () => {
+    const saved = await saveLabProgress(false);
+    if (saved) {
+      setLabStarted(false);
+    }
+  };
+
+  const updateSectionContent = (section, content) => {
     setSectionContent(prev => ({
       ...prev,
       [section]: content
@@ -1335,6 +1471,25 @@ const LabMomentumConservation = () => {  // Track completion status for each sec
   React.useEffect(() => {
     checkErrorProgress(averagePercentDifference);
   }, [averagePercentDifference]);
+
+  // Load saved progress on component mount
+  React.useEffect(() => {
+    if (currentUser) {
+      loadLabProgress();
+    }
+  }, [currentUser]);
+
+  // Auto-save functionality
+  React.useEffect(() => {
+    if (!autoSaveEnabled || !currentUser || !hasSavedProgress) return;
+
+    const autoSaveInterval = setInterval(() => {
+      saveLabProgress(true); // Auto-save
+    }, 30000); // Auto-save every 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [autoSaveEnabled, currentUser, hasSavedProgress, sectionStatus, sectionContent, trialData, averagePercentDifference]);
+
   // Function to update percent difference values for 1D collisions
   const updatePercentDifference1D = (trial, field, value) => {
     const trialKey = `trial${trial}`;
@@ -1603,13 +1758,23 @@ const LabMomentumConservation = () => {  // Track completion status for each sec
               })}
             </div>
 
-            {/* Save and End Button */}
-            <button 
-              onClick={saveAndEnd}
-              className="px-4 py-2 bg-blue-600 text-white font-medium rounded border border-blue-600 hover:bg-blue-700 transition-all duration-200"
-            >
-              Save and End
-            </button>
+            {/* Action Buttons */}
+            <div className="flex space-x-3">
+              <button 
+                onClick={() => saveLabProgress(false)}
+                disabled={isSaving || !currentUser}
+                className="px-4 py-2 bg-green-600 text-white font-medium rounded border border-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                {isSaving ? 'Saving...' : 'Save Progress'}
+              </button>
+              <button 
+                onClick={saveAndEnd}
+                disabled={isSaving || !currentUser}
+                className="px-4 py-2 bg-blue-600 text-white font-medium rounded border border-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                Save and End
+              </button>
+            </div>
           </div>        </div>
       </div>
 
@@ -1629,6 +1794,24 @@ const LabMomentumConservation = () => {  // Track completion status for each sec
               ×
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Status Indicators */}
+      {(isLoading || autoSaveEnabled) && (
+        <div className="fixed bottom-4 right-4 z-40 bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm">
+          {isLoading && (
+            <div className="flex items-center text-blue-600 mb-1">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+              Loading progress...
+            </div>
+          )}
+          {autoSaveEnabled && currentUser && hasSavedProgress && (
+            <div className="flex items-center text-green-600">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+              Auto-save enabled
+            </div>
+          )}
         </div>
       )}
 

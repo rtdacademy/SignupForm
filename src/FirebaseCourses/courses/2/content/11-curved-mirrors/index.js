@@ -3,6 +3,7 @@ import { useAuth } from '../../../../../context/AuthContext';
 import { getFunctions } from 'firebase/functions';
 import { getDatabase } from 'firebase/database';
 import LessonContent, { TextSection, MediaSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -1877,6 +1878,46 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
           )}
         </div>
 
+        {/* Curved Mirrors Practice Questions */}
+        <SlideshowKnowledgeCheck
+          courseId={effectiveCourseId}
+          lessonPath="11-curved-mirrors"
+          questions={[
+            {
+              type: 'multiple-choice',
+              questionId: 'concave_mirror_image_distance',
+              title: 'Question 1: Concave Mirror - Image Distance'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'concave_mirror_image_size',
+              title: 'Question 2: Concave Mirror - Image Size'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'concave_mirror_image_description',
+              title: 'Question 3: Concave Mirror - Image Properties'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'convex_mirror_image_distance',
+              title: 'Question 4: Convex Mirror - Image Distance'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'convex_mirror_image_size',
+              title: 'Question 5: Convex Mirror - Image Size'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'convex_mirror_image_description',
+              title: 'Question 6: Convex Mirror - Image Properties'
+            }
+          ]}
+          onComplete={(score, results) => console.log(`Curved Mirrors Knowledge Check completed with ${score}%`)}
+          theme="green"
+        />
+
         {/* Example 3 Problem Section */}
         <div className="mb-6">
           <button
@@ -1969,6 +2010,72 @@ const CurvedMirrors = ({ course, courseId = '2' }) => {
             </div>
           )}
         </div>
+
+        {/* Slideshow Knowledge Check - Additional Practice Questions */}
+        <SlideshowKnowledgeCheck
+          courseId={effectiveCourseId}
+          lessonPath="11-curved-mirrors"
+          title="Curved Mirrors Practice - Questions 7-17"
+          questions={[
+            {
+              type: 'multiple-choice',
+              questionId: 'mirror_type_erect_80cm',
+              title: 'Question 7: Mirror Type Identification'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'mirror_type_identification_erect',
+              title: 'Question 8: Mirror Type Properties'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'mirror_radius_inverted_120cm',
+              title: 'Question 9: Mirror Radius Calculation'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'mirror_type_inverted_120cm',
+              title: 'Question 10: Mirror Type from Image'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'convex_mirror_radius_20cm',
+              title: 'Question 11: Convex Mirror Distance'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'convex_mirror_type_identification',
+              title: 'Question 12: Mirror Type Characteristics'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'object_movement_image_size',
+              title: 'Question 13: Object Movement Effects'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'object_movement_image_size_change',
+              title: 'Question 14: Object Movement - Size Change'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'concave_mirror_3x_inverted_distance',
+              title: 'Question 15: Concave Mirror - 3x Inverted Image'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'concave_mirror_2x_erect_distance',
+              title: 'Question 16: Concave Mirror - 2x Erect Image'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'convex_mirror_one_sixth_distance',
+              title: 'Question 17: Convex Mirror - 1/6 Size Image'
+            }
+          ]}
+          onComplete={(score, results) => console.log(`Curved Mirrors Extended Practice completed with ${score}%`)}
+          theme="blue"
+        />
       </TextSection>
 
       <LessonSummary

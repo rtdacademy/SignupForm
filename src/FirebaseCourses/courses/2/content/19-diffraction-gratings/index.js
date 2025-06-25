@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -586,6 +587,62 @@ const DiffractionGratings = ({ course, courseId = 'default' }) => {
           )}
         </div>
       </TextSection>
+
+      <SlideshowKnowledgeCheck
+        title="Diffraction Gratings - Knowledge Check"
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_19_green_light_grating'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_19_second_order_minimum'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_19_yellow_light_spacing'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_19_frequency_third_order'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_19_spectral_orders_red'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_19_water_trough_fringes'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_19_cd_player_laser'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_19_bright_dark_bands'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_19_frequency_measurement'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_19_grating_change'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_19_distance_change'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_19_frequency_change'
+          }
+        ]}
+        courseId={courseId}
+        lessonPath="lesson_19_diffraction_gratings"
+      />
 
       <LessonSummary
         points={[

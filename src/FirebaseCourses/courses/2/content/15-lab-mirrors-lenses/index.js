@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useAuth } from '../../../../../context/AuthContext';
+import { sanitizeEmail } from '../../../../../utils/sanitizeEmail';
 
 /**
  * Lab 2 - Mirrors and Lenses for Physics 30
@@ -29,18 +32,18 @@ const OpticsSimulation = ({ onDataCollected }) => {
       reflectedAngle: 35
     },
     D: { // Mirror Focal Length
-      currentMirror: 'converging1',
+      currentMirror: 'converging',
       mirrors: {
-        converging1: { type: 'converging', focal: 25.0, name: 'Converging Mirror 1' },
-        converging2: { type: 'converging', focal: 35.0, name: 'Converging Mirror 2' },
-        diverging1: { type: 'diverging', focal: -30.0, name: 'Diverging Mirror 1' },
-        diverging2: { type: 'diverging', focal: -22.0, name: 'Diverging Mirror 2' }
+        converging: { type: 'converging', focal: 30.0, name: 'Converging Mirror' },
+        diverging: { type: 'diverging', focal: -25.0, name: 'Diverging Mirror' }
       }
     },
     E: { // Lens Focal Length
-      convergingFocal: 10.0,
-      divergingFocal: -8.0,
-      beamSpacing: 20
+      currentLens: 'converging',
+      lenses: {
+        converging: { type: 'converging', focal: 10.0, name: 'Converging Lens' },
+        diverging: { type: 'diverging', focal: -8.0, name: 'Diverging Lens' }
+      }
     }
   });
   
@@ -369,131 +372,343 @@ const OpticsSimulation = ({ onDataCollected }) => {
     const centerX = width / 2;
     const centerY = height / 2;
     const currentMirror = simulationState.D.mirrors[simulationState.D.currentMirror];
-    const focalLength = Math.abs(currentMirror.focal);
+    const focalLength = Math.abs(currentMirror.focal) * 2; // Scale up for better visualization
     const isConverging = currentMirror.type === 'converging';
-    const mirrorHeight = 80;
+    const mirrorHeight = 140; // Increased mirror size
     
-    // Draw mirror surface
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 4;
+    // Draw principal axis
+    ctx.strokeStyle = '#9ca3af';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(0, centerY);
+    ctx.lineTo(width, centerY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Mirror surface parameters
+    const mirrorStartY = centerY - mirrorHeight / 2;
+    const mirrorEndY = centerY + mirrorHeight / 2;
+    const mirrorX = isConverging ? centerX + 100 : centerX + 50; // Position converging mirror further right
+    
+    // Draw mirror surface (larger and more visible)
+    ctx.strokeStyle = '#1e40af';
+    ctx.lineWidth = 6;
     
     if (isConverging) {
-      // Draw converging mirror (concave)
+      // Draw converging mirror (concave) - curved surface facing left
+      const radius = focalLength * 2;
+      const centerOfCurvature = mirrorX - radius;
       ctx.beginPath();
-      ctx.arc(centerX + focalLength * 1.8, centerY, focalLength * 1.8, Math.PI * 0.8, Math.PI * 1.2);
+      const startAngle = Math.asin(mirrorHeight / 2 / radius);
+      ctx.arc(centerOfCurvature, centerY, radius, -startAngle, startAngle);
       ctx.stroke();
     } else {
-      // Draw diverging mirror (convex)
+      // Draw diverging mirror (convex) - curved surface facing right
+      const radius = focalLength * 2;
+      const centerOfCurvature = mirrorX + radius;
       ctx.beginPath();
-      ctx.arc(centerX - focalLength * 1.8, centerY, focalLength * 1.8, Math.PI * 1.8, Math.PI * 0.2);
+      const startAngle = Math.asin(mirrorHeight / 2 / radius);
+      ctx.arc(centerOfCurvature, centerY, radius, Math.PI - startAngle, Math.PI + startAngle);
       ctx.stroke();
     }
     
-    // Draw rays that touch the top and bottom of the mirror
-    const rayPositions = [centerY - mirrorHeight/2, centerY + mirrorHeight/2];
+    // Draw multiple parallel incident rays (solid lines)
+    const rayYPositions = [
+      centerY - mirrorHeight / 3,
+      centerY,
+      centerY + mirrorHeight / 3
+    ];
     
-    rayPositions.forEach(rayY => {
-      // Incident ray
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(centerX - 80, rayY);
-      ctx.lineTo(centerX, rayY);
-      ctx.stroke();
-      
-      // Reflected ray
-      ctx.strokeStyle = '#10b981';
-      ctx.beginPath();
-      ctx.moveTo(centerX, rayY);
+    rayYPositions.forEach((rayY, index) => {
+      // Calculate intersection point with mirror first
+      let intersectionX = mirrorX;
+      let intersectionY = rayY;
       
       if (isConverging) {
-        // For converging mirror: rays go to focal point
-        ctx.lineTo(centerX + focalLength, centerY);
+        // For concave mirror, adjust intersection based on curvature
+        const radius = focalLength * 2;
+        const centerOfCurvature = mirrorX - radius;
+        const distFromAxis = Math.abs(rayY - centerY);
+        intersectionX = centerOfCurvature + Math.sqrt(radius * radius - distFromAxis * distFromAxis);
       } else {
-        // For diverging mirror: rays appear to come from virtual focal point
-        const raySlope = (rayY - centerY) / focalLength;
-        ctx.lineTo(centerX + 80, rayY + 80 * raySlope);
+        // For convex mirror, adjust intersection based on curvature
+        const radius = focalLength * 2;
+        const centerOfCurvature = mirrorX + radius;
+        const distFromAxis = Math.abs(rayY - centerY);
+        intersectionX = centerOfCurvature - Math.sqrt(radius * radius - distFromAxis * distFromAxis);
+      }
+      
+      // Incident ray (solid line) - make shorter for converging mirror
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      const incidentStartX = isConverging ? Math.max(20, intersectionX - 150) : 50;
+      ctx.moveTo(incidentStartX, rayY);
+      ctx.lineTo(intersectionX, intersectionY);
+      ctx.stroke();
+      
+      // Reflected ray (dotted line)
+      ctx.strokeStyle = '#059669';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(intersectionX, intersectionY);
+      
+      if (isConverging) {
+        // For converging mirror: all rays converge to focal point
+        const focalX = mirrorX - focalLength;
+        ctx.lineTo(focalX, centerY);
+        
+        // Extend beyond focal point (shorter for top/bottom rays)
+        const isOffAxis = Math.abs(rayY - centerY) > 5; // Check if it's top or bottom ray
+        const extensionLength = isOffAxis ? 40 : 60; // Shorter extension for off-axis rays
+        const extendedX = focalX - extensionLength;
+        const slope = (centerY - intersectionY) / (focalX - intersectionX);
+        const extendedY = centerY + slope * (extendedX - focalX);
+        ctx.lineTo(extendedX, extendedY);
+      } else {
+        // For diverging mirror: rays appear to diverge from virtual focal point
+        const virtualFocalX = mirrorX + focalLength;
+        const slope = (intersectionY - centerY) / (intersectionX - virtualFocalX);
+        const endX = width - 50;
+        const endY = intersectionY + slope * (endX - intersectionX);
+        ctx.lineTo(endX, endY);
+        
+        // Draw virtual rays (lighter dotted lines) showing where they appear to come from
+        ctx.strokeStyle = '#a7f3d0';
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(virtualFocalX, centerY);
+        ctx.lineTo(intersectionX, intersectionY);
+        ctx.stroke();
       }
       ctx.stroke();
+      ctx.setLineDash([]);
     });
     
-    // Draw center ray
-    ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(centerX - 80, centerY);
-    ctx.lineTo(centerX, centerY);
-    ctx.stroke();
-    
-    ctx.strokeStyle = '#10b981';
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
+    // Draw center ray (along principal axis) for converging mirror
     if (isConverging) {
-      ctx.lineTo(centerX + focalLength, centerY);
-    } else {
-      ctx.lineTo(centerX + 80, centerY);
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(50, centerY);
+      ctx.lineTo(mirrorX, centerY);
+      ctx.stroke();
+      
+      // Extend center ray to the right (reflects back on itself)
+      ctx.strokeStyle = '#059669';
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(mirrorX, centerY);
+      ctx.lineTo(width - 50, centerY);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
-    ctx.stroke();
     
     // Draw focal point
-    ctx.fillStyle = isConverging ? '#ef4444' : '#8b5cf6';
+    const focalX = isConverging ? mirrorX - focalLength : mirrorX + focalLength;
+    ctx.fillStyle = isConverging ? '#dc2626' : '#7c3aed';
     ctx.beginPath();
-    const focalX = isConverging ? centerX + focalLength : centerX - focalLength;
-    ctx.arc(focalX, centerY, 3, 0, 2 * Math.PI);
+    ctx.arc(focalX, centerY, 4, 0, 2 * Math.PI);
     ctx.fill();
     
     // Draw focal point label
     ctx.fillStyle = '#374151';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('F', focalX - 5, centerY - 10);
+    ctx.fillText(`f = ${currentMirror.focal.toFixed(1)} cm`, focalX - 25, centerY + 25);
+    
+    // Draw mirror type label
+    ctx.font = '16px sans-serif';
+    ctx.fillStyle = '#1e40af';
+    ctx.fillText(currentMirror.name, centerX - 60, centerY - 80);
+    
+    // Add legend
     ctx.font = '12px sans-serif';
-    ctx.fillText(`f = ${currentMirror.focal.toFixed(1)} cm`, focalX - 15, centerY + 20);
-    ctx.fillText(currentMirror.name, centerX - 40, centerY - 60);
+    ctx.fillStyle = '#374151';
+    ctx.fillText('Legend:', 20, 30);
+    
+    // Incident ray legend
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(20, 45);
+    ctx.lineTo(60, 45);
+    ctx.stroke();
+    ctx.fillText('Incident rays', 70, 49);
+    
+    // Reflected ray legend
+    ctx.strokeStyle = '#059669';
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(20, 65);
+    ctx.lineTo(60, 65);
+    ctx.stroke();
+    ctx.fillText('Reflected rays', 70, 69);
+    ctx.setLineDash([]);
   };
   
   // Draw lens simulation (Part E)
   const drawLensSimulation = (ctx, width, height) => {
     const centerX = width / 2;
     const centerY = height / 2;
-    const focalLength = simulationState.E.convergingFocal;
+    const currentLens = simulationState.E.currentLens || 'converging';
+    const lensData = simulationState.E.lenses[currentLens];
+    const focalLength = Math.abs(lensData.focal) * 2; // Scale up for better visualization
+    const isConverging = currentLens === 'converging';
+    const lensHeight = 140; // Same as mirror height
     
-    // Draw converging lens
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 4;
+    // Draw principal axis
+    ctx.strokeStyle = '#9ca3af';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
     ctx.beginPath();
-    ctx.arc(centerX - 30, centerY, 30, -Math.PI/3, Math.PI/3);
-    ctx.arc(centerX + 30, centerY, 30, Math.PI*2/3, Math.PI*4/3);
+    ctx.moveTo(0, centerY);
+    ctx.lineTo(width, centerY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Lens position
+    const lensX = centerX + 50;
+    
+    // Draw lens
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    
+    if (isConverging) {
+      // Draw converging lens (biconvex) - surfaces touch at top and bottom
+      ctx.arc(lensX - 70, centerY, 100, -Math.PI/4, Math.PI/4);
+      ctx.arc(lensX + 70, centerY, 100, Math.PI*3/4, Math.PI*5/4);
+    } else {
+      // Draw diverging lens (biconcave) - longer
+      ctx.arc(lensX + 110, centerY, 100, Math.PI*3/4, Math.PI*5/4);
+      ctx.arc(lensX - 110, centerY, 100, -Math.PI/4, Math.PI/4);
+    }
     ctx.stroke();
     
-    // Draw parallel rays
-    for (let i = -2; i <= 2; i++) {
-      if (i === 0) continue;
-      const y = centerY + i * 15;
-      
-      // Incident ray
-      ctx.strokeStyle = '#ef4444';
+    // Draw multiple parallel incident rays
+    const rayYPositions = [
+      centerY - lensHeight / 3,
+      centerY,
+      centerY + lensHeight / 3
+    ];
+    
+    rayYPositions.forEach((rayY, index) => {
+      // Incident ray (solid line)
+      ctx.strokeStyle = '#dc2626';
       ctx.lineWidth = 2;
+      ctx.setLineDash([]);
       ctx.beginPath();
-      ctx.moveTo(centerX - 60, y);
-      ctx.lineTo(centerX, y);
+      ctx.moveTo(20, rayY);
+      ctx.lineTo(lensX, rayY);
       ctx.stroke();
       
-      // Refracted ray to focal point
-      ctx.strokeStyle = '#10b981';
+      // Refracted ray (dotted line)
+      ctx.strokeStyle = '#047857'; // Darker green
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
       ctx.beginPath();
-      ctx.moveTo(centerX, y);
-      ctx.lineTo(centerX + focalLength, centerY);
+      ctx.moveTo(lensX, rayY);
+      
+      if (isConverging) {
+        // For converging lens: all rays converge to focal point
+        const focalX = lensX + focalLength + 60; // Match the focal point position
+        ctx.lineTo(focalX, centerY);
+        
+        // Extend beyond focal point (shorter for top/bottom rays)
+        const isOffAxis = Math.abs(rayY - centerY) > 5;
+        const extensionLength = isOffAxis ? 40 : 60;
+        const extendedX = focalX + extensionLength;
+        const slope = (centerY - rayY) / (focalX - lensX);
+        const extendedY = centerY + slope * extensionLength;
+        ctx.lineTo(extendedX, extendedY);
+      } else {
+        // For diverging lens: rays appear to diverge from virtual focal point
+        const virtualFocalX = lensX - focalLength - 80; // Match the focal point position
+        const slope = (rayY - centerY) / (lensX - virtualFocalX);
+        const endX = width - 15; // Extended even further to the right for all rays
+        const endY = rayY + slope * (endX - lensX);
+        ctx.lineTo(endX, endY);
+        
+        // Draw virtual rays (lighter dotted lines) showing where they appear to come from
+        ctx.strokeStyle = '#86efac'; // Lighter version of darker green
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(virtualFocalX, centerY);
+        ctx.lineTo(lensX, rayY);
+        ctx.stroke();
+      }
       ctx.stroke();
-    }
+      ctx.setLineDash([]);
+    });
+    
+    // Draw center ray (along principal axis)
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(20, centerY);
+    ctx.lineTo(lensX, centerY);
+    ctx.stroke();
+    
+    // Center ray passes through lens unchanged
+    ctx.strokeStyle = '#047857'; // Darker green
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(lensX, centerY);
+    ctx.lineTo(width - 20, centerY); // Extended further to the right
+    ctx.stroke();
+    ctx.setLineDash([]);
     
     // Draw focal point
-    ctx.fillStyle = '#ef4444';
+    const focalX = isConverging ? lensX + focalLength + 60 : lensX - focalLength - 80;
+    ctx.fillStyle = isConverging ? '#dc2626' : '#7c3aed';
     ctx.beginPath();
-    ctx.arc(centerX + focalLength, centerY, 3, 0, 2 * Math.PI);
+    ctx.arc(focalX, centerY, 4, 0, 2 * Math.PI);
     ctx.fill();
     
-    // Label
+    // Draw focal point label
     ctx.fillStyle = '#374151';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('F', focalX - 5, centerY - 10);
+    const actualFocalLength = lensData.focal;
+    ctx.fillText(`f = ${actualFocalLength.toFixed(1)} cm`, focalX - 25, centerY + 25);
+    
+    // Draw lens type label
+    ctx.font = '16px sans-serif';
+    ctx.fillStyle = '#3b82f6';
+    const lensName = isConverging ? 'Converging Lens' : 'Diverging Lens';
+    ctx.fillText(lensName, centerX - 60, centerY - 80);
+    
+    // Add legend
     ctx.font = '12px sans-serif';
-    ctx.fillText(`f = ${focalLength.toFixed(1)} cm`, centerX + focalLength - 10, centerY + 20);
+    ctx.fillStyle = '#374151';
+    ctx.fillText('Legend:', 20, 30);
+    
+    // Incident ray legend
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(20, 45);
+    ctx.lineTo(60, 45);
+    ctx.stroke();
+    ctx.fillText('Incident rays', 70, 49);
+    
+    // Refracted ray legend
+    ctx.strokeStyle = '#059669';
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(20, 65);
+    ctx.lineTo(60, 65);
+    ctx.stroke();
+    ctx.fillText('Refracted rays', 70, 69);
+    ctx.setLineDash([]);
   };
   
   // Update simulation parameters
@@ -613,9 +828,9 @@ const OpticsSimulation = ({ onDataCollected }) => {
           };
           break;
         case 'E':
+          const currentLens = simulationState.E.lenses[simulationState.E.currentLens];
           data = {
-            converging: simulationState.E.convergingFocal.toFixed(1),
-            diverging: simulationState.E.divergingFocal.toFixed(1)
+            [currentLens.type]: currentLens.focal.toFixed(1)
           };
           break;
       }
@@ -740,8 +955,8 @@ const OpticsSimulation = ({ onDataCollected }) => {
           
           {currentPart === 'D' && (
             <div className="col-span-2">
-              <label className="block text-sm text-gray-700 mb-2">Select Mirror:</label>
-              <div className="grid grid-cols-2 gap-2">
+              <label className="block text-sm text-gray-700 mb-2">Select Mirror Type:</label>
+              <div className="grid grid-cols-2 gap-3">
                 {Object.entries(simulationState.D.mirrors).map(([key, mirror]) => (
                   <button
                     key={key}
@@ -751,52 +966,77 @@ const OpticsSimulation = ({ onDataCollected }) => {
                         D: { ...prev.D, currentMirror: key }
                       }));
                     }}
-                    className={`px-3 py-2 text-sm font-medium rounded border transition-colors ${
+                    className={`px-4 py-3 text-sm font-medium rounded-lg border transition-colors ${
                       simulationState.D.currentMirror === key
-                        ? 'bg-blue-100 border-blue-300 text-blue-700'
-                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        ? 'bg-blue-100 border-blue-300 text-blue-700 shadow-md'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
                     }`}
                   >
-                    {mirror.name}
-                    <br />
-                    <span className="text-xs text-gray-500">f = {mirror.focal.toFixed(1)} cm</span>
+                    <div className="font-semibold">{mirror.name}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      f = {mirror.focal.toFixed(1)} cm
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {mirror.type === 'converging' ? '(Concave)' : '(Convex)'}
+                    </div>
                   </button>
                 ))}
               </div>
-              <div className="mt-2 text-sm text-gray-600">
-                Current: {simulationState.D.mirrors[simulationState.D.currentMirror].name} 
-                (f = {simulationState.D.mirrors[simulationState.D.currentMirror].focal.toFixed(1)} cm)
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                <div className="text-sm font-medium text-blue-800">
+                  Current: {simulationState.D.mirrors[simulationState.D.currentMirror].name}
+                </div>
+                <div className="text-xs text-blue-600 mt-1">
+                  Focal Length: {simulationState.D.mirrors[simulationState.D.currentMirror].focal.toFixed(1)} cm
+                  {simulationState.D.mirrors[simulationState.D.currentMirror].type === 'converging' 
+                    ? ' (positive - real focus)' 
+                    : ' (negative - virtual focus)'}
+                </div>
               </div>
             </div>
           )}
           
           {currentPart === 'E' && (
-            <>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Converging Lens Focal Length (cm)</label>
-                <input
-                  type="range"
-                  min="5"
-                  max="20"
-                  value={simulationState.E.convergingFocal}
-                  onChange={(e) => updateParameter('E', 'convergingFocal', e.target.value)}
-                  className="w-full"
-                />
-                <span className="text-sm text-gray-600">{simulationState.E.convergingFocal.toFixed(1)} cm</span>
+            <div className="col-span-2">
+              <label className="block text-sm text-gray-700 mb-2">Select Lens Type:</label>
+              <div className="grid grid-cols-2 gap-3">
+                {Object.entries(simulationState.E.lenses).map(([key, lens]) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setSimulationState(prev => ({
+                        ...prev,
+                        E: { ...prev.E, currentLens: key }
+                      }));
+                    }}
+                    className={`px-4 py-3 text-sm font-medium rounded-lg border transition-colors ${
+                      simulationState.E.currentLens === key
+                        ? 'bg-blue-100 border-blue-300 text-blue-700 shadow-md'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="font-semibold">{lens.name}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      f = {lens.focal.toFixed(1)} cm
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {lens.type === 'converging' ? '(Biconvex)' : '(Biconcave)'}
+                    </div>
+                  </button>
+                ))}
               </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Diverging Lens Focal Length (cm)</label>
-                <input
-                  type="range"
-                  min="-20"
-                  max="-5"
-                  value={simulationState.E.divergingFocal}
-                  onChange={(e) => updateParameter('E', 'divergingFocal', e.target.value)}
-                  className="w-full"
-                />
-                <span className="text-sm text-gray-600">{simulationState.E.divergingFocal.toFixed(1)} cm</span>
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                <div className="text-sm font-medium text-blue-800">
+                  Current: {simulationState.E.lenses[simulationState.E.currentLens].name}
+                </div>
+                <div className="text-xs text-blue-600 mt-1">
+                  Focal Length: {simulationState.E.lenses[simulationState.E.currentLens].focal.toFixed(1)} cm
+                  {simulationState.E.lenses[simulationState.E.currentLens].type === 'converging' 
+                    ? ' (positive - real focus)' 
+                    : ' (negative - virtual focus)'}
+                </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -838,7 +1078,9 @@ const OpticsSimulation = ({ onDataCollected }) => {
     </div>
   );
 };
-const LabMirrorsLenses = () => {
+const LabMirrorsLenses = ({ courseId = '2' }) => {
+  const { currentUser } = useAuth();
+  
   // Track lab started state
   const [labStarted, setLabStarted] = useState(false);
   
@@ -920,6 +1162,11 @@ const LabMirrorsLenses = () => {
   // Track notifications
   const [notification, setNotification] = useState({ message: '', type: '', visible: false });
   
+  // Track saving/loading state
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  
   // Calculate completion counts
   const completedCount = Object.values(sectionStatus).filter(status => status === 'completed').length;
   const totalSections = Object.keys(sectionStatus).length;
@@ -936,11 +1183,130 @@ const LabMirrorsLenses = () => {
     }));
   };
   
+  // Save lab progress to cloud function
+  const saveLabProgress = async (isAutoSave = false) => {
+    if (!currentUser) {
+      setNotification({ 
+        message: 'Please log in to save your progress', 
+        type: 'error', 
+        visible: true 
+      });
+      return false;
+    }
+
+    try {
+      setIsSaving(true);
+      
+      const functions = getFunctions();
+      const saveFunction = httpsCallable(functions, 'course2_lab_mirrors_lenses');
+      
+      const studentKey = sanitizeEmail(currentUser.email);
+      
+      // Prepare lab data for saving
+      const labData = {
+        sectionStatus,
+        equipmentMethod,
+        procedureUnderstood,
+        observationData,
+        analysisData,
+        postLabAnswers,
+        currentSection,
+        labStarted,
+        timestamp: new Date().toISOString()
+      };
+      
+      const result = await saveFunction({
+        operation: 'save',
+        studentKey: studentKey,
+        courseId: courseId,
+        assessmentId: 'lab_mirrors_lenses',
+        labData: labData,
+        saveType: isAutoSave ? 'auto' : 'manual',
+        studentEmail: currentUser.email,
+        userId: currentUser.uid
+      });
+      
+      if (result.data.success) {
+        setHasSavedProgress(true);
+        if (!isAutoSave) {
+          setNotification({ 
+            message: `Lab progress saved successfully! (${result.data.completionPercentage}% complete)`, 
+            type: 'success', 
+            visible: true 
+          });
+        }
+        return true;
+      } else {
+        throw new Error('Save operation failed');
+      }
+    } catch (error) {
+      console.error('Error saving lab progress:', error);
+      setNotification({ 
+        message: `Failed to save progress: ${error.message}`, 
+        type: 'error', 
+        visible: true 
+      });
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  // Load lab progress from cloud function
+  const loadLabProgress = async () => {
+    if (!currentUser) return;
+
+    try {
+      setIsLoading(true);
+      
+      const functions = getFunctions();
+      const loadFunction = httpsCallable(functions, 'course2_lab_mirrors_lenses');
+      
+      const studentKey = sanitizeEmail(currentUser.email);
+      
+      const result = await loadFunction({
+        operation: 'load',
+        studentKey: studentKey,
+        courseId: courseId,
+        assessmentId: 'lab_mirrors_lenses',
+        studentEmail: currentUser.email,
+        userId: currentUser.uid
+      });
+      
+      if (result.data.success && result.data.found) {
+        const savedData = result.data.labData;
+        
+        // Restore saved state
+        if (savedData.sectionStatus) setSectionStatus(savedData.sectionStatus);
+        if (savedData.equipmentMethod) setEquipmentMethod(savedData.equipmentMethod);
+        if (savedData.procedureUnderstood !== undefined) setProcedureUnderstood(savedData.procedureUnderstood);
+        if (savedData.observationData) setObservationData(savedData.observationData);
+        if (savedData.analysisData) setAnalysisData(savedData.analysisData);
+        if (savedData.postLabAnswers) setPostLabAnswers(savedData.postLabAnswers);
+        if (savedData.currentSection) setCurrentSection(savedData.currentSection);
+        if (savedData.labStarted !== undefined) setLabStarted(savedData.labStarted);
+        
+        setHasSavedProgress(true);
+        console.log('Lab progress loaded successfully');
+      }
+    } catch (error) {
+      console.error('Error loading lab progress:', error);
+      setNotification({ 
+        message: 'Failed to load saved progress', 
+        type: 'error', 
+        visible: true 
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
   // Helper function to save and end
-  const saveAndEnd = () => {
-    setLabStarted(false);
-    setHasSavedProgress(true);
-    showNotification('Progress saved successfully!', 'success');
+  const saveAndEnd = async () => {
+    const saved = await saveLabProgress(false);
+    if (saved) {
+      setLabStarted(false);
+    }
   };
   
   // Show notification function
@@ -950,6 +1316,24 @@ const LabMirrorsLenses = () => {
       setNotification(prev => ({ ...prev, visible: false }));
     }, 3000);
   };
+  
+  // Load progress on component mount
+  useEffect(() => {
+    if (currentUser) {
+      loadLabProgress();
+    }
+  }, [currentUser]);
+
+  // Auto-save functionality
+  useEffect(() => {
+    if (!autoSaveEnabled || !currentUser || !hasSavedProgress) return;
+
+    const autoSaveInterval = setInterval(() => {
+      saveLabProgress(true); // Auto-save
+    }, 30000); // Auto-save every 30 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [autoSaveEnabled, currentUser, hasSavedProgress, sectionStatus, equipmentMethod, procedureUnderstood, observationData, analysisData, postLabAnswers]);
   
   // Scroll to section
   const scrollToSection = (sectionName) => {
@@ -1312,16 +1696,58 @@ const LabMirrorsLenses = () => {
               ))}
             </div>
             
+            {/* Save Progress Button */}
+            <button 
+              onClick={() => saveLabProgress(false)}
+              disabled={isSaving || !currentUser}
+              className={`px-3 py-2 text-sm font-medium rounded border transition-all duration-200 mr-2 ${
+                isSaving || !currentUser
+                  ? 'bg-gray-400 border-gray-400 text-white cursor-not-allowed'
+                  : 'bg-green-600 border-green-600 text-white hover:bg-green-700'
+              }`}
+            >
+              {isSaving ? 'Saving...' : 'Save Progress'}
+            </button>
+            
             {/* Save and End Button */}
             <button 
               onClick={saveAndEnd}
-              className="px-4 py-2 bg-blue-600 text-white font-medium rounded border border-blue-600 hover:bg-blue-700 transition-all duration-200"
+              disabled={isSaving || !currentUser}
+              className={`px-4 py-2 font-medium rounded border transition-all duration-200 ${
+                isSaving || !currentUser
+                  ? 'bg-gray-400 border-gray-400 text-white cursor-not-allowed'
+                  : 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
-              Save and End
+              {isSaving ? 'Saving...' : 'Save and End'}
             </button>
           </div>
         </div>
       </div>
+      
+      {/* Status Indicators */}
+      {(isLoading || isSaving || autoSaveEnabled) && (
+        <div className="fixed bottom-4 right-4 z-40 bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm">
+          {isLoading && (
+            <div className="flex items-center text-blue-600 mb-1">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+              Loading progress...
+            </div>
+          )}
+          {isSaving && (
+            <div className="flex items-center text-yellow-600 mb-1">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>
+              Saving progress...
+            </div>
+          )}
+          {autoSaveEnabled && currentUser && hasSavedProgress && !isSaving && (
+            <div className="flex items-center text-green-600">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+              Auto-save enabled
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Notification Component */}
       {notification.visible && (
@@ -1333,7 +1759,7 @@ const LabMirrorsLenses = () => {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">{notification.message}</span>
             <button 
-              onClick={() => setNotification(prev => ({ ...prev, visible: false }))}
+              onClick={() => setNotification(prev => ({ ...prev, visible: false }))
               className="ml-2 text-gray-500 hover:text-gray-700"
             >
               ×
@@ -1642,8 +2068,8 @@ const LabMirrorsLenses = () => {
                 type="number"
                 step="0.1"
                 value={observationData.mirrorFocalLength.converging}
-                onChange={(e) => updateObservationData('mirrorFocalLength', null, 'converging', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded"
+                readOnly
+                className="px-3 py-2 border border-gray-300 rounded bg-gray-100 text-gray-700"
                 placeholder="0.0"
               />
               <span className="text-gray-600">cm</span>
@@ -1654,8 +2080,8 @@ const LabMirrorsLenses = () => {
                 type="number"
                 step="0.1"
                 value={observationData.mirrorFocalLength.diverging}
-                onChange={(e) => updateObservationData('mirrorFocalLength', null, 'diverging', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded"
+                readOnly
+                className="px-3 py-2 border border-gray-300 rounded bg-gray-100 text-gray-700"
                 placeholder="0.0"
               />
               <span className="text-gray-600">cm</span>
@@ -1673,8 +2099,8 @@ const LabMirrorsLenses = () => {
                 type="number"
                 step="0.1"
                 value={observationData.lensFocalLength.converging}
-                onChange={(e) => updateObservationData('lensFocalLength', null, 'converging', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded"
+                readOnly
+                className="px-3 py-2 border border-gray-300 rounded bg-gray-100 text-gray-700"
                 placeholder="0.0"
               />
               <span className="text-gray-600">cm</span>
@@ -1685,8 +2111,8 @@ const LabMirrorsLenses = () => {
                 type="number"
                 step="0.1"
                 value={observationData.lensFocalLength.diverging}
-                onChange={(e) => updateObservationData('lensFocalLength', null, 'diverging', e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded"
+                readOnly
+                className="px-3 py-2 border border-gray-300 rounded bg-gray-100 text-gray-700"
                 placeholder="0.0"
               />
               <span className="text-gray-600">cm</span>
@@ -1737,27 +2163,6 @@ const LabMirrorsLenses = () => {
           </div>
         </div>
         
-        
-        {/* Part D & E Analysis */}
-        <div className="mb-8 bg-blue-50 p-4 rounded-lg">
-          <h3 className="font-semibold text-gray-800 mb-3">Summary of Focal Lengths</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <h4 className="font-semibold text-gray-700 mb-2">Mirrors:</h4>
-              <ul className="space-y-1 text-gray-600">
-                <li>Converging: {observationData.mirrorFocalLength.converging || '___'} cm</li>
-                <li>Diverging: {observationData.mirrorFocalLength.diverging || '___'} cm</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-gray-700 mb-2">Lenses:</h4>
-              <ul className="space-y-1 text-gray-600">
-                <li>Converging: {observationData.lensFocalLength.converging || '___'} cm</li>
-                <li>Diverging: {observationData.lensFocalLength.diverging || '___'} cm</li>
-              </ul>
-            </div>
-          </div>
-        </div>
       </div>
       
       {/* Post-Lab Questions Section */}

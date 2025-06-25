@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { sanitizeEmail } from '../../utils/sanitizeEmail';
 import { Button } from '../../components/ui/button';
 import { StandardMultipleChoiceQuestion, AIShortAnswerQuestion, AILongAnswerQuestion } from './assessments';
+import StandardLongAnswerQuestion from './assessments/StandardLongAnswerQuestion';
 import { Clock, AlertCircle, CheckCircle, FileText, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '../../components/ui/card';
 import { Sheet, SheetContent } from '../../components/ui/sheet';
@@ -849,6 +850,16 @@ const ExamSession = ({
                       theme="slate"
                       hasExistingAnswer={!!savedAnswers[currentQuestion.questionId]}
                       currentSavedAnswer={savedAnswers[currentQuestion.questionId]}
+                    />
+                  )}
+                  {currentQuestion.type === 'standard-long-answer' && (
+                    <StandardLongAnswerQuestion
+                      courseId={courseId}
+                      cloudFunctionName={currentQuestion.questionId}
+                      examMode={true}
+                      examSessionId={examSession.sessionId}
+                      onExamAnswerSave={handleAnswerSave}
+                      theme="slate"
                     />
                   )}
                 </>

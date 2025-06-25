@@ -3,6 +3,7 @@ import { useAuth } from '../../../../../context/AuthContext';
 import { getFunctions } from 'firebase/functions';
 import { getDatabase } from 'firebase/database';
 import LessonContent, { TextSection, MediaSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -916,100 +917,37 @@ const MomentumTwoDimensions = ({ course, courseId = '2' }) => {
       </TextSection>
 
       <TextSection>
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold text-green-800 mb-4">Practice Problems</h3>
-          <div className="bg-green-50 p-6 rounded-lg border border-green-200">
-            {/* Top Section: Problem Counter Left, Indicators Right */}
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-800">
-                Problem {currentTwoDProblem1 + 1} of {twoDimensionalProblems1.length}
-              </h4>
-              <div className="flex items-center space-x-2">
-                {twoDimensionalProblems1.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => goToTwoDProblem1(index)}
-                    className={`w-8 h-8 rounded-full text-sm font-medium transition-colors duration-200 ${
-                      index === currentTwoDProblem1
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                    }`}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Problem Display */}
-            <div className="bg-white rounded-lg border border-green-300 p-6 mb-4">
-              {/* Question */}
-              <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
-                <h5 className="font-semibold text-blue-800 mb-2">Question:</h5>
-                <p className="text-blue-900">{twoDimensionalProblems1[currentTwoDProblem1].question}</p>
-              </div>
-
-              {/* 2x2 Grid Layout */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Given Values */}
-                <div className="bg-gray-50 p-4 rounded border border-gray-200">
-                  <h5 className="font-semibold text-gray-800 mb-2">Given:</h5>
-                  <ul className="space-y-1">
-                    {twoDimensionalProblems1[currentTwoDProblem1].given.map((item, index) => (
-                      <li key={index} className="text-gray-700 flex items-center text-sm">
-                        <span className="w-2 h-2 bg-gray-400 rounded-full mr-3"></span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Equation */}
-                <div className="bg-purple-50 p-4 rounded border border-purple-200">
-                  <h5 className="font-semibold text-purple-800 mb-2">Equation:</h5>
-                  <div className="text-center">
-                    <BlockMath>{twoDimensionalProblems1[currentTwoDProblem1].equation}</BlockMath>
-                  </div>
-                </div>
-
-                {/* Solution */}
-                <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
-                  <h5 className="font-semibold text-yellow-800 mb-2">Solution:</h5>
-                  <div className="text-center">
-                    <BlockMath>{twoDimensionalProblems1[currentTwoDProblem1].solution}</BlockMath>
-                  </div>
-                </div>
-
-                {/* Answer */}
-                <div className="bg-green-100 p-4 rounded border border-green-300">
-                  <h5 className="font-semibold text-green-800 mb-2">Answer:</h5>
-                  <p className="text-green-900 font-medium">
-                    {twoDimensionalProblems1[currentTwoDProblem1].answer}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Controls */}
-            <div className="flex items-center justify-between mb-4">              <button
-                onClick={prevTwoDProblem1}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors duration-200"
-                disabled={twoDimensionalProblems1.length <= 1}
-              >
-                <span className="mr-2">←</span>
-                Previous
-              </button>
-              
-              <button
-                onClick={nextTwoDProblem1}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors duration-200"
-                disabled={twoDimensionalProblems1.length <= 1}
-              >
-                Next                <span className="ml-2">→</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <SlideshowKnowledgeCheck
+          courseId="2"
+          lessonPath="03-momentum-two-dimensions"
+          questions={[
+            {
+              type: 'multiple-choice',
+              question: 'Car-Truck 2D Collision',
+              questionId: 'course2_03_car_truck_2d_collision',
+              points: 3
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Nuclear Decay Analysis',
+              questionId: 'course2_03_nuclear_decay_2d',
+              points: 3
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Glancing Collision',
+              questionId: 'course2_03_glancing_collision_2d',
+              points: 3
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Space Capsule Projectile',
+              questionId: 'course2_03_space_capsule_projectile',
+              points: 3
+            }
+          ]}
+          theme="blue"
+        />
       </TextSection>
 
       <TextSection>
@@ -1488,111 +1426,39 @@ const MomentumTwoDimensions = ({ course, courseId = '2' }) => {
                 </div>
               </div>
             </div>
-          )}        </div>      </TextSection>      {/* Practice Problems Set 2 - After Example 5 */}
+          )}        </div>      </TextSection>      {/* Advanced Practice Problems */}
       <TextSection>
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold text-green-800 mb-4">Practice Problems</h3>
-          <div className="bg-green-50 p-6 rounded-lg border border-green-200">
-            {/* Top Section: Problem Counter Left, Indicators Right */}
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-800">
-                Problem {currentTwoDProblem2 + 1} of {twoDimensionalProblems2.length}
-              </h4>
-              <div className="flex items-center space-x-2">
-                {twoDimensionalProblems2.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => goToTwoDProblem2(index)}
-                    className={`w-8 h-8 rounded-full text-sm font-medium transition-colors duration-200 ${
-                      index === currentTwoDProblem2
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                    }`}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Problem Display */}
-            <div className="bg-white rounded-lg border border-green-300 p-6 mb-4">
-              {/* Question */}
-              <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
-                <h5 className="font-semibold text-blue-800 mb-2">Question:</h5>
-                <p className="text-blue-900">{twoDimensionalProblems2[currentTwoDProblem2].question}</p>
-              </div>
-
-              {/* 2x2 Grid Layout */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Given Values */}
-                <div className="bg-gray-50 p-4 rounded border border-gray-200">
-                  <h5 className="font-semibold text-gray-800 mb-2">Given:</h5>
-                  <ul className="space-y-1">
-                    {twoDimensionalProblems2[currentTwoDProblem2].given.map((item, index) => (
-                      <li key={index} className="text-gray-700 flex items-center text-sm">
-                        <span className="w-2 h-2 bg-gray-400 rounded-full mr-3"></span>
-                        <InlineMath>{item}</InlineMath>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Equation */}
-                <div className="bg-purple-50 p-4 rounded border border-purple-200">
-                  <h5 className="font-semibold text-purple-800 mb-2">Equation:</h5>
-                  <div className="text-center">
-                    <BlockMath>{twoDimensionalProblems2[currentTwoDProblem2].equation}</BlockMath>
-                  </div>
-                </div>
-
-                {/* Solution */}
-                <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
-                  <h5 className="font-semibold text-yellow-800 mb-2">Solution:</h5>
-                  <div className="space-y-2 text-sm">
-                    {twoDimensionalProblems2[currentTwoDProblem2].solution.map((step, index) => (
-                      <div key={index} className="mb-2">
-                        <div className="font-medium text-yellow-700 mb-1">{step.step}:</div>
-                        <div className="ml-2">
-                          <InlineMath>{step.math}</InlineMath>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Answer */}
-                <div className="bg-green-100 p-4 rounded border border-green-300">
-                  <h5 className="font-semibold text-green-800 mb-2">Answer:</h5>
-                  <p className="text-green-900 font-medium">
-                    <InlineMath>{twoDimensionalProblems2[currentTwoDProblem2].answer}</InlineMath>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Controls */}
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={prevTwoDProblem2}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors duration-200"
-                disabled={twoDimensionalProblems2.length <= 1}
-              >
-                <span className="mr-2">←</span>
-                Previous
-              </button>
-              
-              <button
-                onClick={nextTwoDProblem2}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors duration-200"
-                disabled={twoDimensionalProblems2.length <= 1}
-              >
-                Next
-                <span className="ml-2">→</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <SlideshowKnowledgeCheck
+          courseId="2"
+          lessonPath="03-momentum-two-dimensions-advanced"
+          questions={[
+            {
+              type: 'multiple-choice',
+              question: 'Steel Ball Collision with Deflection',
+              questionId: 'course2_03_steel_ball_deflection',
+              points: 4
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Mass Explosion Analysis',
+              questionId: 'course2_03_mass_explosion',
+              points: 4
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Elastic Collision with 90° Separation',
+              questionId: 'course2_03_elastic_collision_90',
+              points: 4
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Plasticene Inelastic Collision',
+              questionId: 'course2_03_plasticene_collision',
+              points: 4
+            }
+          ]}
+          theme="blue"
+        />
       </TextSection>
 
       <LessonSummary

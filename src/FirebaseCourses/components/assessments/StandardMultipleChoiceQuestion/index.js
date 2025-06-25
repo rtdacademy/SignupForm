@@ -365,8 +365,9 @@ const StandardMultipleChoiceQuestion = ({
     const studentEmail = currentUser.email;
     const studentKey = sanitizeEmail(studentEmail);
     
-    // Check if user is staff (has @rtdacademy.com email)
-    const isStaff = studentEmail && studentEmail.toLowerCase().endsWith('@rtdacademy.com');
+    // TEMPORARY FIX: Always use 'students' path to avoid permission issues
+    // TODO: Restore staff detection once Firebase permissions are fixed
+    // const isStaff = studentEmail && studentEmail.toLowerCase().endsWith('@rtdacademy.com');
 
     // Listen for assessment data in the database
     let unsubscribeRef = null;
@@ -374,8 +375,8 @@ const StandardMultipleChoiceQuestion = ({
     const loadAssessment = () => {
       setLoading(true);
       try {
-        // Use appropriate path based on whether user is staff or student
-        const basePath = isStaff ? 'staff_testing' : 'students';
+        // TEMPORARY: Always use students path
+        const basePath = 'students';
         const dbPath = `${basePath}/${studentKey}/courses/${courseId}/Assessments/${finalAssessmentId}`;
         console.log(`Creating database ref for question: ${dbPath}`);
 

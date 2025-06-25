@@ -251,20 +251,410 @@ exports.PHY30_IntroToPhysics = require('./courses/PHY30/content/lessons/IntroToP
 exports.course2_02_momentum_one_dimension_aiQuestion = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_aiQuestion;
 exports.course2_02_momentum_one_dimension_aiLongAnswer = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_aiLongAnswer;
 
+// Momentum Knowledge Check Questions (New Functions)
+exports.course2_02_momentum_one_dimension_kc_q1 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q1;
+exports.course2_02_momentum_one_dimension_kc_q2 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q2;
+exports.course2_02_momentum_one_dimension_kc_q3 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q3;
+exports.course2_02_momentum_one_dimension_kc_q4 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q4;
+exports.course2_02_momentum_one_dimension_kc_q5 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q5;
+
+// Collision Knowledge Check Questions (Questions 6-11)
+exports.course2_02_momentum_one_dimension_kc_q6 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q6;
+exports.course2_02_momentum_one_dimension_kc_q7 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q7;
+exports.course2_02_momentum_one_dimension_kc_q8 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q8;
+exports.course2_02_momentum_one_dimension_kc_q9 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q9;
+exports.course2_02_momentum_one_dimension_kc_q10 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q10;
+exports.course2_02_momentum_one_dimension_kc_q11 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q11;
+
+// Advanced Knowledge Check Questions (Questions 12-19)
+exports.course2_02_momentum_one_dimension_kc_q12 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q12;
+exports.course2_02_momentum_one_dimension_kc_q13 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q13;
+exports.course2_02_momentum_one_dimension_kc_q14 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q14;
+exports.course2_02_momentum_one_dimension_kc_q15 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q15;
+exports.course2_02_momentum_one_dimension_kc_q16 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q16;
+exports.course2_02_momentum_one_dimension_kc_q17 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q17;
+exports.course2_02_momentum_one_dimension_kc_q18 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q18;
+exports.course2_02_momentum_one_dimension_kc_q19 = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_one_dimension_kc_q19;
+
+// Slideshow Knowledge Check Questions (Legacy - kept for compatibility)
+exports.course2_02_momentum_inertia_difference = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_momentum_inertia_difference;
+exports.course2_02_bowling_ball_momentum = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_bowling_ball_momentum;
+exports.course2_02_bullet_velocity = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_bullet_velocity;
+exports.course2_02_hockey_puck_mass = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_hockey_puck_mass;
+exports.course2_02_jet_momentum_a = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_jet_momentum_a;
+exports.course2_02_jet_momentum_b = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_jet_momentum_b;
+
+// Collision Practice Problems
+exports.course2_02_collision_rebound = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_collision_rebound;
+exports.course2_02_ball_collision_type = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_ball_collision_type;
+exports.course2_02_unknown_mass_collision = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_unknown_mass_collision;
+exports.course2_02_football_tackle_mass = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_football_tackle_mass;
+exports.course2_02_arrow_apple_mass = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_arrow_apple_mass;
+exports.course2_02_truck_car_headon = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_truck_car_headon;
+
+// Advanced Practice Problems
+exports.course2_02_astronaut_recoil = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_astronaut_recoil;
+exports.course2_02_rocket_separation = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_rocket_separation;
+exports.course2_02_machine_gun_recoil = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_machine_gun_recoil;
+exports.course2_02_uranium_disintegration = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_uranium_disintegration;
+exports.course2_02_ballistic_pendulum = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_ballistic_pendulum;
+exports.course2_02_canoe_comparison = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_canoe_comparison;
+exports.course2_02_cart_jumping = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_cart_jumping;
+exports.course2_02_atom_collision = require('./courses/2/02-momentum-one-dimension/assessments').course2_02_atom_collision;
+
+// Course 2 - Momentum in Two Dimensions
+exports.course2_03_car_truck_2d_collision = require('./courses/2/03-momentum-two-dimensions/assessments').course2_03_car_truck_2d_collision;
+exports.course2_03_nuclear_decay_2d = require('./courses/2/03-momentum-two-dimensions/assessments').course2_03_nuclear_decay_2d;
+exports.course2_03_glancing_collision_2d = require('./courses/2/03-momentum-two-dimensions/assessments').course2_03_glancing_collision_2d;
+exports.course2_03_space_capsule_projectile = require('./courses/2/03-momentum-two-dimensions/assessments').course2_03_space_capsule_projectile;
+
+// Course 2 - Momentum in Two Dimensions (Advanced)
+exports.course2_03_steel_ball_deflection = require('./courses/2/03-momentum-two-dimensions/assessments').course2_03_steel_ball_deflection;
+exports.course2_03_mass_explosion = require('./courses/2/03-momentum-two-dimensions/assessments').course2_03_mass_explosion;
+exports.course2_03_elastic_collision_90 = require('./courses/2/03-momentum-two-dimensions/assessments').course2_03_elastic_collision_90;
+exports.course2_03_plasticene_collision = require('./courses/2/03-momentum-two-dimensions/assessments').course2_03_plasticene_collision;
+
+// Course 2 - Impulse and Momentum Change
+exports.course2_04_basic_impulse = require('./courses/2/04-impulse-momentum-change/assessments').course2_04_basic_impulse;
+exports.course2_04_person_falling = require('./courses/2/04-impulse-momentum-change/assessments').course2_04_person_falling;
+exports.course2_04_impulse_quantities = require('./courses/2/04-impulse-momentum-change/assessments').course2_04_impulse_quantities;
+exports.course2_04_karate_board = require('./courses/2/04-impulse-momentum-change/assessments').course2_04_karate_board;
+exports.course2_04_safety_features = require('./courses/2/04-impulse-momentum-change/assessments').course2_04_safety_features;
+exports.course2_04_golf_ball_driver = require('./courses/2/04-impulse-momentum-change/assessments').course2_04_golf_ball_driver;
+exports.course2_04_child_ball = require('./courses/2/04-impulse-momentum-change/assessments').course2_04_child_ball;
+exports.course2_04_ball_bat = require('./courses/2/04-impulse-momentum-change/assessments').course2_04_ball_bat;
+exports.course2_04_bullet_wood = require('./courses/2/04-impulse-momentum-change/assessments').course2_04_bullet_wood;
+exports.course2_04_water_turbine = require('./courses/2/04-impulse-momentum-change/assessments').course2_04_water_turbine;
+
+// Course 2 - L1-3 Assignment (Momentum and Impulse)
+exports.course2_05_l13_question1 = require('./courses/2/05-l1-3-assignment/assessments').course2_05_l13_question1;
+exports.course2_05_l13_question2 = require('./courses/2/05-l1-3-assignment/assessments').course2_05_l13_question2;
+exports.course2_05_l13_question3 = require('./courses/2/05-l1-3-assignment/assessments').course2_05_l13_question3;
+exports.course2_05_l13_question4 = require('./courses/2/05-l1-3-assignment/assessments').course2_05_l13_question4;
+exports.course2_05_l13_question5 = require('./courses/2/05-l1-3-assignment/assessments').course2_05_l13_question5;
+exports.course2_05_l13_question6 = require('./courses/2/05-l1-3-assignment/assessments').course2_05_l13_question6;
+exports.course2_05_l13_question7 = require('./courses/2/05-l1-3-assignment/assessments').course2_05_l13_question7;
+exports.course2_05_l13_question8 = require('./courses/2/05-l1-3-assignment/assessments').course2_05_l13_question8;
+exports.course2_05_l13_question9 = require('./courses/2/05-l1-3-assignment/assessments').course2_05_l13_question9;
+exports.course2_05_l13_question10 = require('./courses/2/05-l1-3-assignment/assessments').course2_05_l13_question10;
+exports.course2_05_l13_question11 = require('./courses/2/05-l1-3-assignment/assessments').course2_05_l13_question11;
+exports.course2_05_l13_question12 = require('./courses/2/05-l1-3-assignment/assessments').course2_05_l13_question12;
+
+// Course 2 - L1-4 Cumulative Assignment
+exports.course2_08_l14_question1 = require('./courses/2/08-l1-4-cumulative-assignment/assessments').course2_08_l14_question1;
+exports.course2_08_l14_question2 = require('./courses/2/08-l1-4-cumulative-assignment/assessments').course2_08_l14_question2;
+exports.course2_08_l14_question3 = require('./courses/2/08-l1-4-cumulative-assignment/assessments').course2_08_l14_question3;
+exports.course2_08_l14_question4 = require('./courses/2/08-l1-4-cumulative-assignment/assessments').course2_08_l14_question4;
+exports.course2_08_l14_question5 = require('./courses/2/08-l1-4-cumulative-assignment/assessments').course2_08_l14_question5;
+exports.course2_08_l14_question6 = require('./courses/2/08-l1-4-cumulative-assignment/assessments').course2_08_l14_question6;
+exports.course2_08_l14_question7 = require('./courses/2/08-l1-4-cumulative-assignment/assessments').course2_08_l14_question7;
+exports.course2_08_l14_question8 = require('./courses/2/08-l1-4-cumulative-assignment/assessments').course2_08_l14_question8;
+exports.course2_08_l14_question9 = require('./courses/2/08-l1-4-cumulative-assignment/assessments').course2_08_l14_question9;
+exports.course2_08_l14_question10 = require('./courses/2/08-l1-4-cumulative-assignment/assessments').course2_08_l14_question10;
+
+// Course 2 - Unit 1 Review
+exports.course2_22_unit1_q1a = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q1a;
+exports.course2_22_unit1_q1b = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q1b;
+exports.course2_22_unit1_q2 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q2;
+exports.course2_22_unit1_q3a = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q3a;
+exports.course2_22_unit1_q3b = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q3b;
+exports.course2_22_unit1_q4a = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q4a;
+exports.course2_22_unit1_q4b = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q4b;
+exports.course2_22_unit1_q5 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q5;
+exports.course2_22_unit1_q6 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q6;
+exports.course2_22_unit1_q7 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q7;
+exports.course2_22_unit1_q8 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q8;
+exports.course2_22_unit1_q9a = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q9a;
+exports.course2_22_unit1_q9b = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q9b;
+exports.course2_22_unit1_q10 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q10;
+exports.course2_22_unit1_q11 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q11;
+exports.course2_22_unit1_q12 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q12;
+exports.course2_22_unit1_q13a = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q13a;
+exports.course2_22_unit1_q13b = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q13b;
+exports.course2_22_unit1_q14 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q14;
+exports.course2_22_unit1_q15 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q15;
+exports.course2_22_unit1_q16 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q16;
+exports.course2_22_unit1_q17 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q17;
+
+// Course 2 - Graphing Techniques
+exports.course2_06_graphing_techniques_question1 = require('./courses/2/06-graphing-techniques/assessments').course2_06_graphing_techniques_question1;
+exports.course2_06_graphing_techniques_question2 = require('./courses/2/06-graphing-techniques/assessments').course2_06_graphing_techniques_question2;
+exports.course2_06_graphing_techniques_question3 = require('./courses/2/06-graphing-techniques/assessments').course2_06_graphing_techniques_question3;
+exports.course2_06_graphing_techniques_question4 = require('./courses/2/06-graphing-techniques/assessments').course2_06_graphing_techniques_question4;
+
 // Course 2 - Physics 20 Review
-exports.course2_01_physics_20_review_q1 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q1;
-exports.course2_01_physics_20_review_q2 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q2;
-exports.course2_01_physics_20_review_q3 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q3;
-exports.course2_01_physics_20_review_q4 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q4;
-exports.course2_01_physics_20_review_q5 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q5;
-exports.course2_01_physics_20_review_q6 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q6;
-exports.course2_01_physics_20_review_q7 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q7;
-exports.course2_01_physics_20_review_q8 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q8;
-exports.course2_01_physics_20_review_q9 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q9;
-exports.course2_01_physics_20_review_q10 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q10;
-exports.course2_01_physics_20_review_q11 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q11;
-exports.course2_01_physics_20_review_q12 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q12;
-exports.course2_01_physics_20_review_q13 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_q13;
+exports.course2_01_physics_20_review_question1 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_question1;
+exports.course2_01_physics_20_review_question2 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_question2;
+exports.course2_01_physics_20_review_question3 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_question3;
+exports.course2_01_physics_20_review_question4 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_question4;
+exports.course2_01_physics_20_review_question5 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_question5;
+exports.course2_01_physics_20_review_question6 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_question6;
+exports.course2_01_physics_20_review_question7 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_question7;
+exports.course2_01_physics_20_review_question8 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_question8;
+exports.course2_01_physics_20_review_question9 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_question9;
+exports.course2_01_physics_20_review_question10 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_question10;
+exports.course2_01_physics_20_review_question11 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_question11;
+exports.course2_01_physics_20_review_question12 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_question12;
+
+// Vector Knowledge Check Questions
+exports.course2_01_physics_20_review_vector_q1 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_vector_q1;
+exports.course2_01_physics_20_review_vector_q2 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_vector_q2;
+exports.course2_01_physics_20_review_vector_q3 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_vector_q3;
+exports.course2_01_physics_20_review_vector_q4 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_vector_q4;
+exports.course2_01_physics_20_review_vector_q5 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_vector_q5;
+exports.course2_01_physics_20_review_vector_q6 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_vector_q6;
+exports.course2_01_physics_20_review_vector_q7 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_vector_q7;
+
+// Circular Motion Knowledge Check Questions
+exports.course2_01_physics_20_review_circular_q1 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_circular_q1;
+exports.course2_01_physics_20_review_circular_q2 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_circular_q2;
+exports.course2_01_physics_20_review_circular_q3 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_circular_q3;
+exports.course2_01_physics_20_review_circular_q4 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_circular_q4;
+
+// Dynamics Knowledge Check Questions
+exports.course2_01_physics_20_review_dynamics_q1 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q1;
+exports.course2_01_physics_20_review_dynamics_q2 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q2;
+exports.course2_01_physics_20_review_dynamics_q3 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q3;
+exports.course2_01_physics_20_review_dynamics_q4 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q4;
+exports.course2_01_physics_20_review_dynamics_q5 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q5;
+exports.course2_01_physics_20_review_dynamics_q6 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q6;
+exports.course2_01_physics_20_review_dynamics_q7 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q7;
+exports.course2_01_physics_20_review_dynamics_q8 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q8;
+exports.course2_01_physics_20_review_dynamics_q9 = require('./courses/2/01-physics-20-review/assessments').course2_01_physics_20_review_dynamics_q9;
+
+// Course 2 - Lab: Conservation of Momentum
+exports.course2_lab_momentum_conservation = require('./courses/2/07-lab-momentum-conservation/assessments').course2_lab_momentum_conservation;
+
+// Course 2 - Lesson 09: Introduction to Light - Pinhole Camera Practice
+exports.pinhole_distance_calculation = require('./courses/2/09-introduction-to-light/assessments').pinhole_distance_calculation;
+exports.building_height_calculation = require('./courses/2/09-introduction-to-light/assessments').building_height_calculation;
+exports.shadow_size_calculation = require('./courses/2/09-introduction-to-light/assessments').shadow_size_calculation;
+exports.shadow_area_calculation = require('./courses/2/09-introduction-to-light/assessments').shadow_area_calculation;
+exports.fence_shadow_calculation = require('./courses/2/09-introduction-to-light/assessments').fence_shadow_calculation;
+
+// Course 2 - Lesson 09: Introduction to Light - Michelson Method Practice
+exports.michelson_six_sided_calculation = require('./courses/2/09-introduction-to-light/assessments').michelson_six_sided_calculation;
+exports.michelson_eight_sided_frequency = require('./courses/2/09-introduction-to-light/assessments').michelson_eight_sided_frequency;
+exports.michelson_pentagonal_frequency = require('./courses/2/09-introduction-to-light/assessments').michelson_pentagonal_frequency;
+exports.michelson_twelve_sided_distance = require('./courses/2/09-introduction-to-light/assessments').michelson_twelve_sided_distance;
+
+// Course 2 - Lesson 09: Introduction to Light - Light-Year and Space Communication Practice
+exports.space_station_radio_signal = require('./courses/2/09-introduction-to-light/assessments').space_station_radio_signal;
+exports.light_travel_three_years = require('./courses/2/09-introduction-to-light/assessments').light_travel_three_years;
+exports.star_explosion_observation = require('./courses/2/09-introduction-to-light/assessments').star_explosion_observation;
+exports.proxima_centauri_distance = require('./courses/2/09-introduction-to-light/assessments').proxima_centauri_distance;
+exports.spacecraft_travel_time = require('./courses/2/09-introduction-to-light/assessments').spacecraft_travel_time;
+exports.sunlight_travel_time = require('./courses/2/09-introduction-to-light/assessments').sunlight_travel_time;
+exports.galileo_light_travel = require('./courses/2/09-introduction-to-light/assessments').galileo_light_travel;
+exports.earth_jupiter_speed_calculation = require('./courses/2/09-introduction-to-light/assessments').earth_jupiter_speed_calculation;
+
+// Course 2 - Lesson 10: Reflection of Light - Practice Questions
+exports.angle_of_incidence_basic = require('./courses/2/10-reflection-of-light/assessments').angle_of_incidence_basic;
+exports.surface_to_normal_angle = require('./courses/2/10-reflection-of-light/assessments').surface_to_normal_angle;
+exports.total_angle_between_rays = require('./courses/2/10-reflection-of-light/assessments').total_angle_between_rays;
+exports.two_mirrors_scenario_a = require('./courses/2/10-reflection-of-light/assessments').two_mirrors_scenario_a;
+exports.two_mirrors_scenario_b = require('./courses/2/10-reflection-of-light/assessments').two_mirrors_scenario_b;
+exports.mirror_image_description = require('./courses/2/10-reflection-of-light/assessments').mirror_image_description;
+exports.mirror_time_reading = require('./courses/2/10-reflection-of-light/assessments').mirror_time_reading;
+
+// Course 2 - Lesson 11: Curved Mirrors - Practice Questions
+exports.concave_mirror_image_distance = require('./courses/2/11-curved-mirrors/assessments').concave_mirror_image_distance;
+exports.concave_mirror_image_size = require('./courses/2/11-curved-mirrors/assessments').concave_mirror_image_size;
+exports.concave_mirror_image_description = require('./courses/2/11-curved-mirrors/assessments').concave_mirror_image_description;
+exports.convex_mirror_image_distance = require('./courses/2/11-curved-mirrors/assessments').convex_mirror_image_distance;
+exports.convex_mirror_image_size = require('./courses/2/11-curved-mirrors/assessments').convex_mirror_image_size;
+exports.convex_mirror_image_description = require('./courses/2/11-curved-mirrors/assessments').convex_mirror_image_description;
+exports.mirror_type_erect_80cm = require('./courses/2/11-curved-mirrors/assessments').mirror_type_erect_80cm;
+exports.mirror_type_identification_erect = require('./courses/2/11-curved-mirrors/assessments').mirror_type_identification_erect;
+exports.mirror_radius_inverted_120cm = require('./courses/2/11-curved-mirrors/assessments').mirror_radius_inverted_120cm;
+exports.mirror_type_inverted_120cm = require('./courses/2/11-curved-mirrors/assessments').mirror_type_inverted_120cm;
+exports.convex_mirror_radius_20cm = require('./courses/2/11-curved-mirrors/assessments').convex_mirror_radius_20cm;
+exports.convex_mirror_type_identification = require('./courses/2/11-curved-mirrors/assessments').convex_mirror_type_identification;
+exports.object_movement_image_size = require('./courses/2/11-curved-mirrors/assessments').object_movement_image_size;
+exports.object_movement_image_size_change = require('./courses/2/11-curved-mirrors/assessments').object_movement_image_size_change;
+exports.concave_mirror_3x_inverted_distance = require('./courses/2/11-curved-mirrors/assessments').concave_mirror_3x_inverted_distance;
+exports.concave_mirror_2x_erect_distance = require('./courses/2/11-curved-mirrors/assessments').concave_mirror_2x_erect_distance;
+exports.convex_mirror_one_sixth_distance = require('./courses/2/11-curved-mirrors/assessments').convex_mirror_one_sixth_distance;
+
+// Course 2 - L5-7 Assignment (Reflection and Optics)
+exports.course2_12_l57_question1 = require('./courses/2/12-l5-7-assignment/assessments').course2_12_l57_question1;
+exports.course2_12_l57_question2 = require('./courses/2/12-l5-7-assignment/assessments').course2_12_l57_question2;
+exports.course2_12_l57_question3 = require('./courses/2/12-l5-7-assignment/assessments').course2_12_l57_question3;
+exports.course2_12_l57_question4 = require('./courses/2/12-l5-7-assignment/assessments').course2_12_l57_question4;
+exports.course2_12_l57_question5 = require('./courses/2/12-l5-7-assignment/assessments').course2_12_l57_question5;
+exports.course2_12_l57_question6 = require('./courses/2/12-l5-7-assignment/assessments').course2_12_l57_question6;
+exports.course2_12_l57_question7 = require('./courses/2/12-l5-7-assignment/assessments').course2_12_l57_question7;
+exports.course2_12_l57_question8 = require('./courses/2/12-l5-7-assignment/assessments').course2_12_l57_question8;
+exports.course2_12_l57_question9 = require('./courses/2/12-l5-7-assignment/assessments').course2_12_l57_question9;
+exports.course2_12_l57_question10 = require('./courses/2/12-l5-7-assignment/assessments').course2_12_l57_question10;
+
+// Course 2 - Lesson 13: Refraction of Light - Knowledge Check Questions
+exports.course2_13_refraction_kc_q1 = require('./courses/2/13-refraction-of-light/assessments').course2_13_refraction_kc_q1;
+exports.course2_13_refraction_kc_q2 = require('./courses/2/13-refraction-of-light/assessments').course2_13_refraction_kc_q2;
+exports.course2_13_refraction_kc_q3 = require('./courses/2/13-refraction-of-light/assessments').course2_13_refraction_kc_q3;
+exports.course2_13_refraction_kc_q4 = require('./courses/2/13-refraction-of-light/assessments').course2_13_refraction_kc_q4;
+exports.course2_13_refraction_kc_q5 = require('./courses/2/13-refraction-of-light/assessments').course2_13_refraction_kc_q5;
+exports.course2_13_refraction_kc_q6 = require('./courses/2/13-refraction-of-light/assessments').course2_13_refraction_kc_q6;
+exports.course2_13_refraction_kc_q7 = require('./courses/2/13-refraction-of-light/assessments').course2_13_refraction_kc_q7;
+exports.course2_13_slideshow_q1 = require('./courses/2/13-refraction-of-light/assessments').course2_13_slideshow_q1;
+exports.course2_13_slideshow_q2 = require('./courses/2/13-refraction-of-light/assessments').course2_13_slideshow_q2;
+exports.course2_13_critical_q1 = require('./courses/2/13-refraction-of-light/assessments').course2_13_critical_q1;
+exports.course2_13_critical_q2 = require('./courses/2/13-refraction-of-light/assessments').course2_13_critical_q2;
+exports.course2_13_critical_q3 = require('./courses/2/13-refraction-of-light/assessments').course2_13_critical_q3;
+
+// Course 2 - Lesson 14: Optics: Lenses - Practice Questions
+exports.converging_lens_position = require('./courses/2/14-optics-lenses/assessments').converging_lens_position;
+exports.converging_lens_height = require('./courses/2/14-optics-lenses/assessments').converging_lens_height;
+exports.diverging_lens_position = require('./courses/2/14-optics-lenses/assessments').diverging_lens_position;
+exports.diverging_lens_height = require('./courses/2/14-optics-lenses/assessments').diverging_lens_height;
+exports.camera_lens_calculation = require('./courses/2/14-optics-lenses/assessments').camera_lens_calculation;
+exports.camera_image_size = require('./courses/2/14-optics-lenses/assessments').camera_image_size;
+exports.infinity_focus = require('./courses/2/14-optics-lenses/assessments').infinity_focus;
+exports.slide_projector_screen = require('./courses/2/14-optics-lenses/assessments').slide_projector_screen;
+exports.slide_projector_image_size = require('./courses/2/14-optics-lenses/assessments').slide_projector_image_size;
+exports.slide_projector_adjustment = require('./courses/2/14-optics-lenses/assessments').slide_projector_adjustment;
+exports.object_image_separation = require('./courses/2/14-optics-lenses/assessments').object_image_separation;
+exports.projector_focal_length = require('./courses/2/14-optics-lenses/assessments').projector_focal_length;
+exports.optical_bench_problem = require('./courses/2/14-optics-lenses/assessments').optical_bench_problem;
+exports.optical_bench_image_size = require('./courses/2/14-optics-lenses/assessments').optical_bench_image_size;
+exports.camera_film_distance = require('./courses/2/14-optics-lenses/assessments').camera_film_distance;
+
+// Course 2 - L8-9 Assignment (Refraction and Lenses)
+exports.course2_16_l89_question1 = require('./courses/2/16-l8-9-assignment/assessments').course2_16_l89_question1;
+exports.course2_16_l89_question2 = require('./courses/2/16-l8-9-assignment/assessments').course2_16_l89_question2;
+exports.course2_16_l89_question3 = require('./courses/2/16-l8-9-assignment/assessments').course2_16_l89_question3;
+exports.course2_16_l89_question4 = require('./courses/2/16-l8-9-assignment/assessments').course2_16_l89_question4;
+exports.course2_16_l89_question5 = require('./courses/2/16-l8-9-assignment/assessments').course2_16_l89_question5;
+exports.course2_16_l89_question6 = require('./courses/2/16-l8-9-assignment/assessments').course2_16_l89_question6;
+exports.course2_16_l89_question7 = require('./courses/2/16-l8-9-assignment/assessments').course2_16_l89_question7;
+exports.course2_16_l89_question8 = require('./courses/2/16-l8-9-assignment/assessments').course2_16_l89_question8;
+
+// Course 2 - L1-12 Cumulative Assignment (Comprehensive Physics)
+exports.course2_21_l112_question1 = require('./courses/2/21-l1-12-cumulative-assignment/assessments').course2_21_l112_question1;
+exports.course2_21_l112_question2 = require('./courses/2/21-l1-12-cumulative-assignment/assessments').course2_21_l112_question2;
+exports.course2_21_l112_question3 = require('./courses/2/21-l1-12-cumulative-assignment/assessments').course2_21_l112_question3;
+exports.course2_21_l112_question4 = require('./courses/2/21-l1-12-cumulative-assignment/assessments').course2_21_l112_question4;
+exports.course2_21_l112_question5 = require('./courses/2/21-l1-12-cumulative-assignment/assessments').course2_21_l112_question5;
+exports.course2_21_l112_question6 = require('./courses/2/21-l1-12-cumulative-assignment/assessments').course2_21_l112_question6;
+exports.course2_21_l112_question7 = require('./courses/2/21-l1-12-cumulative-assignment/assessments').course2_21_l112_question7;
+exports.course2_21_l112_question8 = require('./courses/2/21-l1-12-cumulative-assignment/assessments').course2_21_l112_question8;
+exports.course2_21_l112_question9 = require('./courses/2/21-l1-12-cumulative-assignment/assessments').course2_21_l112_question9;
+exports.course2_21_l112_question10 = require('./courses/2/21-l1-12-cumulative-assignment/assessments').course2_21_l112_question10;
+
+// Course 2 - Lesson 17: Dispersion, Scattering, Colour, Polarisation - Knowledge Check Questions
+exports.course2_17_dispersion_air_speeds = require('./courses/2/17-dispersion-scattering/assessments').course2_17_dispersion_air_speeds;
+exports.course2_17_diamond_dispersion = require('./courses/2/17-dispersion-scattering/assessments').course2_17_diamond_dispersion;
+exports.course2_17_microscopy_scattering = require('./courses/2/17-dispersion-scattering/assessments').course2_17_microscopy_scattering;
+exports.course2_17_clothing_color_heat = require('./courses/2/17-dispersion-scattering/assessments').course2_17_clothing_color_heat;
+exports.course2_17_red_orange_difference = require('./courses/2/17-dispersion-scattering/assessments').course2_17_red_orange_difference;
+exports.course2_17_stage_lighting_color = require('./courses/2/17-dispersion-scattering/assessments').course2_17_stage_lighting_color;
+exports.course2_17_window_glass_dispersion = require('./courses/2/17-dispersion-scattering/assessments').course2_17_window_glass_dispersion;
+exports.course2_17_green_object_lighting = require('./courses/2/17-dispersion-scattering/assessments').course2_17_green_object_lighting;
+exports.course2_17_cat_color_vision = require('./courses/2/17-dispersion-scattering/assessments').course2_17_cat_color_vision;
+exports.course2_17_moonlight_colorless = require('./courses/2/17-dispersion-scattering/assessments').course2_17_moonlight_colorless;
+
+// Course 2 - Lesson 18: Interference of Light - Knowledge Check Questions
+exports.course2_18_constructive_amplitude = require('./courses/2/18-interference-of-light/assessments').course2_18_constructive_amplitude;
+exports.course2_18_destructive_amplitude = require('./courses/2/18-interference-of-light/assessments').course2_18_destructive_amplitude;
+exports.course2_18_dark_fringes_cause = require('./courses/2/18-interference-of-light/assessments').course2_18_dark_fringes_cause;
+exports.course2_18_wavelength_fringe_spacing = require('./courses/2/18-interference-of-light/assessments').course2_18_wavelength_fringe_spacing;
+exports.course2_18_path_difference_interference = require('./courses/2/18-interference-of-light/assessments').course2_18_path_difference_interference;
+exports.course2_18_coherence_requirement = require('./courses/2/18-interference-of-light/assessments').course2_18_coherence_requirement;
+exports.course2_18_single_slit_blocking = require('./courses/2/18-interference-of-light/assessments').course2_18_single_slit_blocking;
+exports.course2_18_lightbulb_incoherence = require('./courses/2/18-interference-of-light/assessments').course2_18_lightbulb_incoherence;
+exports.course2_18_fringe_count_factors = require('./courses/2/18-interference-of-light/assessments').course2_18_fringe_count_factors;
+exports.course2_18_sound_dead_spots = require('./courses/2/18-interference-of-light/assessments').course2_18_sound_dead_spots;
+
+// Course 2 - Lesson 19: Diffraction Gratings - Knowledge Check Questions
+exports.course2_19_green_light_grating = require('./courses/2/19-diffraction-gratings/assessments').course2_19_green_light_grating;
+exports.course2_19_second_order_minimum = require('./courses/2/19-diffraction-gratings/assessments').course2_19_second_order_minimum;
+exports.course2_19_yellow_light_spacing = require('./courses/2/19-diffraction-gratings/assessments').course2_19_yellow_light_spacing;
+exports.course2_19_frequency_third_order = require('./courses/2/19-diffraction-gratings/assessments').course2_19_frequency_third_order;
+exports.course2_19_spectral_orders_red = require('./courses/2/19-diffraction-gratings/assessments').course2_19_spectral_orders_red;
+exports.course2_19_water_trough_fringes = require('./courses/2/19-diffraction-gratings/assessments').course2_19_water_trough_fringes;
+exports.course2_19_cd_player_laser = require('./courses/2/19-diffraction-gratings/assessments').course2_19_cd_player_laser;
+exports.course2_19_bright_dark_bands = require('./courses/2/19-diffraction-gratings/assessments').course2_19_bright_dark_bands;
+exports.course2_19_frequency_measurement = require('./courses/2/19-diffraction-gratings/assessments').course2_19_frequency_measurement;
+exports.course2_19_grating_change = require('./courses/2/19-diffraction-gratings/assessments').course2_19_grating_change;
+exports.course2_19_distance_change = require('./courses/2/19-diffraction-gratings/assessments').course2_19_distance_change;
+exports.course2_19_frequency_change = require('./courses/2/19-diffraction-gratings/assessments').course2_19_frequency_change;
+
+// Course 2 - Lesson 22: Unit 1 Review - Knowledge Check Questions
+exports.course2_22_unit1_q1a = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q1a;
+exports.course2_22_unit1_q1b = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q1b;
+exports.course2_22_unit1_q2 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q2;
+exports.course2_22_unit1_q3a = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q3a;
+exports.course2_22_unit1_q3b = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q3b;
+exports.course2_22_unit1_q4a = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q4a;
+exports.course2_22_unit1_q4b = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q4b;
+exports.course2_22_unit1_q5 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q5;
+exports.course2_22_unit1_q6 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q6;
+exports.course2_22_unit1_q7 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q7;
+exports.course2_22_unit1_q8 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q8;
+exports.course2_22_unit1_q9a = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q9a;
+exports.course2_22_unit1_q9b = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q9b;
+exports.course2_22_unit1_q10 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q10;
+exports.course2_22_unit1_q11 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q11;
+exports.course2_22_unit1_q12 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q12;
+exports.course2_22_unit1_q13a = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q13a;
+exports.course2_22_unit1_q13b = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q13b;
+exports.course2_22_unit1_q14 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q14;
+exports.course2_22_unit1_q15 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q15;
+exports.course2_22_unit1_q16 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q16;
+exports.course2_22_unit1_q17 = require('./courses/2/22-unit-1-review/assessments').course2_22_unit1_q17;
+
+// Course 2 - Lesson 23: Unit 2 Review - Knowledge Check Questions
+exports.course2_23_unit2_q1 = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q1;
+exports.course2_23_unit2_q2 = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q2;
+exports.course2_23_unit2_q3 = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q3;
+exports.course2_23_unit2_q4 = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q4;
+exports.course2_23_unit2_q5a = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q5a;
+exports.course2_23_unit2_q5b = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q5b;
+exports.course2_23_unit2_q6a = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q6a;
+exports.course2_23_unit2_q6b = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q6b;
+exports.course2_23_unit2_q7a = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q7a;
+exports.course2_23_unit2_q7b = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q7b;
+exports.course2_23_unit2_q8a = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q8a;
+exports.course2_23_unit2_q8b = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q8b;
+exports.course2_23_unit2_q9 = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q9;
+exports.course2_23_unit2_q10 = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q10;
+exports.course2_23_unit2_q11a = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q11a;
+exports.course2_23_unit2_q11b = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q11b;
+exports.course2_23_unit2_q12a = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q12a;
+exports.course2_23_unit2_q12b = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q12b;
+exports.course2_23_unit2_q13 = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q13;
+exports.course2_23_unit2_q14 = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q14;
+exports.course2_23_unit2_q15 = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q15;
+exports.course2_23_unit2_q16 = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q16;
+exports.course2_23_unit2_q17 = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q17;
+exports.course2_23_unit2_q18 = require('./courses/2/23-unit-2-review/assessments').course2_23_unit2_q18;
+
+// Course 2 - Lesson 24: Section 1 Exam (Momentum and Light)
+exports.course2_24_section1_exam_q1 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q1;
+exports.course2_24_section1_exam_q2 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q2;
+exports.course2_24_section1_exam_q3 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q3;
+exports.course2_24_section1_exam_q4 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q4;
+exports.course2_24_section1_exam_q5 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q5;
+exports.course2_24_section1_exam_q6 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q6;
+exports.course2_24_section1_exam_q7 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q7;
+exports.course2_24_section1_exam_q8 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q8;
+exports.course2_24_section1_exam_q9 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q9;
+exports.course2_24_section1_exam_q10 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q10;
+exports.course2_24_section1_exam_q11 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q11;
+exports.course2_24_section1_exam_q12 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q12;
+exports.course2_24_section1_exam_q13 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q13;
+exports.course2_24_section1_exam_q14 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q14;
+exports.course2_24_section1_exam_q15 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q15;
+exports.course2_24_section1_exam_q16 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q16;
+exports.course2_24_section1_exam_q17 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q17;
+exports.course2_24_section1_exam_q18 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q18;
+exports.course2_24_section1_exam_q19 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q19;
+exports.course2_24_section1_exam_q20 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q20;
+exports.course2_24_section1_exam_q21 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q21;
+exports.course2_24_section1_exam_q22 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q22;
+exports.course2_24_section1_exam_q23 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_q23;
+exports.course2_24_section1_exam_long1 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_long1;
+exports.course2_24_section1_exam_long2 = require('./courses/2/24-section-1-exam/assessments').course2_24_section1_exam_long2;
 
 // 3 Course Functions (Financial Literacy)
 //exports.course3_shared_aiQuestion = require('./courses/3/shared/aiQuestions').course3_shared_aiQuestion;

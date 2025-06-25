@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { useProgress } from '../../context/CourseProgressContext';
+// TEMPORARY FIX: Commented out to avoid undefined useProgress errors
+// import { useProgress } from '../../context/CourseProgressContext';
 
 /**
  * Component for displaying lesson content with auto-tracking of completion
@@ -11,20 +12,21 @@ import { useProgress } from '../../context/CourseProgressContext';
  * @param {Object} props.metadata - Additional lesson metadata
  */
 const LessonContent = ({ lessonId, title, children, metadata = {} }) => {
-  const { markCompleted, progress } = useProgress();
-  const isCompleted = progress[lessonId]?.completed || false;
+  // TEMPORARY FIX: Commented out progress tracking to avoid errors
+  // const { markCompleted, progress } = useProgress();
+  // const isCompleted = progress[lessonId]?.completed || false;
   
-  // Auto-track completion when user views the lesson
-  useEffect(() => {
-    // Don't mark as completed if it's already completed
-    if (!isCompleted) {
-      const timer = setTimeout(() => {
-        markCompleted(lessonId);
-      }, 5000); // Mark as completed after 5 seconds of viewing
-      
-      return () => clearTimeout(timer);
-    }
-  }, [lessonId, markCompleted, isCompleted]);
+  // TEMPORARY FIX: Commented out auto-tracking completion
+  // useEffect(() => {
+  //   // Don't mark as completed if it's already completed
+  //   if (!isCompleted) {
+  //     const timer = setTimeout(() => {
+  //       markCompleted(lessonId);
+  //     }, 5000); // Mark as completed after 5 seconds of viewing
+  //     
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [lessonId, markCompleted, isCompleted]);
   
   return (
     <div className="max-w-4xl mx-auto">
@@ -35,11 +37,12 @@ const LessonContent = ({ lessonId, title, children, metadata = {} }) => {
             Estimated time: {metadata.estimated_time}
           </div>
         )}
-        {isCompleted && (
+        {/* TEMPORARY FIX: Commented out completion badge to avoid isCompleted error */}
+        {/* {isCompleted && (
           <div className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
             Completed
           </div>
-        )}
+        )} */}
       </div>
       
       <div className="prose max-w-none">

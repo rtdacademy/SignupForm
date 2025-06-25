@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import LessonContent, { TextSection, LessonSummary } from '../../../../components/content/LessonContent';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 
 const RefractionOfLight = ({ course, courseId = 'default' }) => {
   const [isNotesOpen, setIsNotesOpen] = useState(false);
@@ -1039,6 +1040,58 @@ const RefractionOfLight = ({ course, courseId = 'default' }) => {
         </div>
       </TextSection>
 
+      {/* Refraction Knowledge Check */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="13-refraction-of-light"
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_13_refraction_kc_q1',
+            title: 'Question 1: Refractive Index of Plastic'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_13_refraction_kc_q2',
+            title: 'Question 2: Speed of Light in Crown Glass'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_13_refraction_kc_q3',
+            title: 'Question 3: Angles of Reflection and Refraction'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_13_refraction_kc_q4',
+            title: 'Question 4: Air to Glass Refraction'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_13_refraction_kc_q5',
+            title: 'Question 5: Finding Index of Refraction'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_13_refraction_kc_q6',
+            title: 'Question 6: Wavelength in Water'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_13_refraction_kc_q7',
+            title: 'Question 7: Multi-layer Refraction'
+          }
+        ]}
+        metadata={{
+          title: 'Refraction Practice Problems',
+          subject: 'Physics',
+          gradeLevel: '30',
+          totalQuestions: 7,
+          estimatedTime: '15 minutes',
+          description: 'Test your understanding of refraction concepts and calculations.'
+        }}
+        theme="purple"
+      />
+
       <TextSection>
         <div className="mb-6">
           <button
@@ -1387,6 +1440,25 @@ const RefractionOfLight = ({ course, courseId = 'default' }) => {
           )}
         </div>
       </TextSection>
+
+      {/* Slideshow Knowledge Check after Example 7 */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="13-refraction-of-light"
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_13_slideshow_q1',
+            title: 'Question 1: Light Refraction Behavior'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_13_slideshow_q2',
+            title: 'Question 2: Prism Dispersion'
+          }
+        ]}
+        theme="indigo"
+      />
 
       <TextSection>
         <div className="mb-6">
@@ -1770,6 +1842,30 @@ const RefractionOfLight = ({ course, courseId = 'default' }) => {
           )}
         </div>
       </TextSection>
+
+      {/* Critical Angle Slideshow Knowledge Check after Example 9 */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="13-refraction-of-light"
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_13_critical_q1',
+            title: 'Question 1: Rock Salt Critical Angle'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_13_critical_q2',
+            title: 'Question 2: Liquid Critical Angle'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_13_critical_q3',
+            title: 'Question 3: Diamond to Glass Critical Angle'
+          }
+        ]}
+        theme="purple"
+      />
 
       <LessonSummary
         points={[

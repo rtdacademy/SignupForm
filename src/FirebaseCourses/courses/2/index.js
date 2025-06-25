@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { ProgressProvider } from '../../context/CourseProgressContext';
+// TEMPORARY FIX: Commented out to avoid Firebase permission errors
+// import { ProgressProvider } from '../../context/CourseProgressContext';
 import { Badge } from '../../../components/ui/badge';
 import contentRegistry from './content';
 import courseDisplay from './course-display.json';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import remarkGfm from 'remark-gfm';
+import remarkEmoji from 'remark-emoji';
+import remarkDeflist from 'remark-deflist';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
+import 'katex/dist/katex.min.css';
 // Course structure now loaded from database via gradebook
 
 // Type-specific styling
@@ -11,6 +21,68 @@ const typeColors = {
   assignment: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   exam: 'bg-purple-100 text-purple-800 border-purple-200',
   info: 'bg-amber-100 text-amber-800 border-amber-200',
+};
+
+// Helper function to detect if text contains markdown patterns
+const containsMarkdown = (text) => {
+  if (!text) return false;
+  
+  const markdownPatterns = [
+    /\*\*.*?\*\*/,        // Bold text
+    /\*.*?\*/,            // Italic text
+    /\[.*?\]\(.*?\)/,     // Links
+    /^#+\s/m,             // Headers
+    /^[\s]*[-*+]\s/m,     // Unordered lists
+    /^[\s]*\d+\.\s/m,     // Ordered lists
+    /```[\s\S]*?```/,     // Code blocks
+    /`.*?`/,              // Inline code
+    /^\s*>/m,             // Blockquotes
+    /\n\n/,               // Multiple line breaks
+  ];
+  
+  return markdownPatterns.some(pattern => pattern.test(text));
+};
+
+// Helper function to render text with markdown support
+const renderTextWithMarkdown = (text, className = '') => {
+  if (!text) return text;
+  
+  if (containsMarkdown(text)) {
+    return (
+      <div className={`prose prose-sm max-w-none ${className}`}>
+        <ReactMarkdown
+          remarkPlugins={[remarkMath, remarkGfm, remarkEmoji, remarkDeflist]}
+          rehypePlugins={[
+            [rehypeSanitize, {
+              allowedElements: [
+                'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'blockquote', 
+                'pre', 'code', 'em', 'strong', 'del', 'table', 'thead', 'tbody', 'tr', 
+                'th', 'td', 'a', 'img', 'hr', 'br', 'div', 'span'
+              ],
+              allowedAttributes: {
+                'a': ['href', 'title', 'target', 'rel'],
+                'img': ['src', 'alt', 'title', 'width', 'height'],
+                'div': ['class'],
+                'span': ['class'],
+                'pre': ['class'],
+                'code': ['class']
+              }
+            }],
+            [rehypeKatex, { displayMode: false }],
+            rehypeRaw
+          ]}
+        >
+          {text}
+        </ReactMarkdown>
+      </div>
+    );
+  }
+  
+  return (
+    <div className={className} style={{ whiteSpace: 'pre-wrap' }}>
+      {text}
+    </div>
+  );
 };
 
 /**
@@ -192,23 +264,23 @@ const Course2 = ({
   }, [structure]);
 
   return (
-    <ProgressProvider courseId={courseId}>
-      <div className="max-w-4xl mx-auto p-6">
-        {/* Course Header */}
-        <div className="mb-6 bg-white rounded-lg shadow-sm p-4">
-          <h1 className="text-2xl font-bold text-gray-900">{courseDisplay.fullTitle}</h1>
-          <p className="text-gray-600 mt-1">{courseDisplay.description}</p>
-          <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-            <span>Grade {courseDisplay.grade}</span>
-            <span>•</span>
-            <span>{progressStats.percentage}% Complete</span>
-          </div>
+    // TEMPORARY FIX: Removed ProgressProvider to avoid Firebase permission errors
+    <div className="max-w-4xl mx-auto p-6">
+      {/* Course Header */}
+      <div className="mb-6 bg-white rounded-lg shadow-sm p-4">
+        <h1 className="text-2xl font-bold text-gray-900">{courseDisplay.fullTitle}</h1>
+        {renderTextWithMarkdown(courseDisplay.description, "text-gray-600 mt-1")}
+        <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
+          <span>Grade {courseDisplay.grade}</span>
+          <span>•</span>
+          <span>{progressStats.percentage}% Complete</span>
         </div>
-        
-        {/* Main Content */}
-        {renderContent()}
       </div>
-    </ProgressProvider>
+      
+      {/* Main Content */}
+      {renderContent()}
+    </div>
+    // TEMPORARY FIX: Removed ProgressProvider wrapper
   );
 };
 

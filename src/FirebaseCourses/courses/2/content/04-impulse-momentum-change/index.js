@@ -3,6 +3,7 @@ import { useAuth } from '../../../../../context/AuthContext';
 import { getFunctions } from 'firebase/functions';
 import { getDatabase } from 'firebase/database';
 import LessonContent, { TextSection, MediaSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -565,100 +566,49 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
       </TextSection>
 
       <TextSection>
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold text-green-800 mb-4">Practice Problems - Set 1</h3>
-          <div className="bg-green-50 p-6 rounded-lg border border-green-200">
-            {/* Problem Counter and Indicators */}
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-800">
-                Problem {currentProblemSet1 + 1} of {practiceProblems1.length}
-              </h4>
-              <div className="flex items-center space-x-2">
-                {practiceProblems1.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => goToProblem1(index)}
-                    className={`w-8 h-8 rounded-full text-sm font-medium transition-colors duration-200 ${
-                      index === currentProblemSet1
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                    }`}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Problem Display with 2x2 Grid */}
-            <div className="bg-white rounded-lg border border-green-300 p-6 mb-4">
-              {/* Question Box */}
-              <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
-                <h5 className="font-semibold text-blue-800 mb-2">Question:</h5>
-                <p className="text-blue-900">{practiceProblems1[currentProblemSet1].question}</p>
-              </div>
-
-              {/* 2x2 Grid Layout */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Given Values */}
-                <div className="bg-gray-50 p-4 rounded border border-gray-200">
-                  <h5 className="font-semibold text-gray-800 mb-2">Given:</h5>
-                  <ul className="space-y-1">
-                    {practiceProblems1[currentProblemSet1].given.map((item, index) => (
-                      <li key={index} className="text-gray-700 flex items-center text-sm">
-                        <span className="w-2 h-2 bg-gray-400 rounded-full mr-3"></span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Equation */}
-                <div className="bg-purple-50 p-4 rounded border border-purple-200">
-                  <h5 className="font-semibold text-purple-800 mb-2">Equation:</h5>
-                  <div className="text-center">
-                    <BlockMath>{practiceProblems1[currentProblemSet1].equation}</BlockMath>
-                  </div>
-                </div>
-
-                {/* Solution */}
-                <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
-                  <h5 className="font-semibold text-yellow-800 mb-2">Solution:</h5>
-                  <div className="text-center">
-                    <BlockMath>{practiceProblems1[currentProblemSet1].solution}</BlockMath>
-                  </div>
-                </div>
-
-                {/* Answer */}
-                <div className="bg-green-100 p-4 rounded border border-green-300">
-                  <h5 className="font-semibold text-green-800 mb-2">Answer:</h5>
-                  <p className="text-green-900 font-medium">
-                    {practiceProblems1[currentProblemSet1].answer}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Controls */}
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={prevProblem1}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors duration-200"
-              >
-                <span className="mr-2">←</span>
-                Previous
-              </button>
-              
-              <button
-                onClick={nextProblem1}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors duration-200"
-              >
-                Next
-                <span className="ml-2">→</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <SlideshowKnowledgeCheck
+          courseId="2"
+          lessonPath="04-impulse-momentum-change-basics"
+          questions={[
+            {
+              type: 'multiple-choice',
+              question: 'Basic Impulse Calculation',
+              questionId: 'course2_04_basic_impulse',
+              points: 3
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Person Falling and Landing',
+              questionId: 'course2_04_person_falling',
+              points: 3
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Impulse Calculation Methods',
+              questionId: 'course2_04_impulse_quantities',
+              points: 2
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Karate Board Breaking Physics',
+              questionId: 'course2_04_karate_board',
+              points: 3
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Safety Features and Impulse',
+              questionId: 'course2_04_safety_features',
+              points: 3
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Golf Ball Driver Analysis',
+              questionId: 'course2_04_golf_ball_driver',
+              points: 4
+            }
+          ]}
+          theme="blue"
+        />
       </TextSection>
 
       <TextSection>
@@ -823,7 +773,7 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
             onClick={() => setIsExample4Open(!isExample4Open)}
             className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200 flex items-center justify-between"
           >
-            <h3 className="text-xl font-semibold">Example 4 - Force on a Ball as a Function of Time</h3>
+            <h3 className="text-xl font-semibold">Example 3 - Force on a Ball as a Function of Time</h3>
             <span className="text-blue-600">{isExample4Open ? '▼' : '▶'}</span>
           </button>
 
@@ -973,100 +923,37 @@ const ImpulseMomentumChange = ({ course, courseId = '2' }) => {
       </TextSection>
 
       <TextSection>
-        <div className="mb-6">
-          <h3 className="text-xl font-semibold text-green-800 mb-4">Practice Problems - Set 2</h3>
-          <div className="bg-green-50 p-6 rounded-lg border border-green-200">
-            {/* Problem Counter and Indicators */}
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-800">
-                Problem {currentProblemSet2 + 1} of {practiceProblems2.length}
-              </h4>
-              <div className="flex items-center space-x-2">
-                {practiceProblems2.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => goToProblem2(index)}
-                    className={`w-8 h-8 rounded-full text-sm font-medium transition-colors duration-200 ${
-                      index === currentProblemSet2
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                    }`}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Problem Display with 2x2 Grid */}
-            <div className="bg-white rounded-lg border border-green-300 p-6 mb-4">
-              {/* Question Box */}
-              <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
-                <h5 className="font-semibold text-blue-800 mb-2">Question:</h5>
-                <p className="text-blue-900">{practiceProblems2[currentProblemSet2].question}</p>
-              </div>
-
-              {/* 2x2 Grid Layout */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Given Values */}
-                <div className="bg-gray-50 p-4 rounded border border-gray-200">
-                  <h5 className="font-semibold text-gray-800 mb-2">Given:</h5>
-                  <ul className="space-y-1">
-                    {practiceProblems2[currentProblemSet2].given.map((item, index) => (
-                      <li key={index} className="text-gray-700 flex items-center text-sm">
-                        <span className="w-2 h-2 bg-gray-400 rounded-full mr-3"></span>
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Equation */}
-                <div className="bg-purple-50 p-4 rounded border border-purple-200">
-                  <h5 className="font-semibold text-purple-800 mb-2">Equation:</h5>
-                  <div className="text-center">
-                    <BlockMath>{practiceProblems2[currentProblemSet2].equation}</BlockMath>
-                  </div>
-                </div>
-
-                {/* Solution */}
-                <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
-                  <h5 className="font-semibold text-yellow-800 mb-2">Solution:</h5>
-                  <div className="text-center">
-                    <BlockMath>{practiceProblems2[currentProblemSet2].solution}</BlockMath>
-                  </div>
-                </div>
-
-                {/* Answer */}
-                <div className="bg-green-100 p-4 rounded border border-green-300">
-                  <h5 className="font-semibold text-green-800 mb-2">Answer:</h5>
-                  <p className="text-green-900 font-medium">
-                    {practiceProblems2[currentProblemSet2].answer}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Navigation Controls */}
-            <div className="flex items-center justify-between mb-4">
-              <button
-                onClick={prevProblem2}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors duration-200"
-              >
-                <span className="mr-2">←</span>
-                Previous
-              </button>
-              
-              <button
-                onClick={nextProblem2}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors duration-200"
-              >
-                Next
-                <span className="ml-2">→</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        <SlideshowKnowledgeCheck
+          courseId="2"
+          lessonPath="04-impulse-momentum-change-advanced"
+          questions={[
+            {
+              type: 'multiple-choice',
+              question: 'Child Hitting Ball',
+              questionId: 'course2_04_child_ball',
+              points: 3
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Ball Struck by Bat',
+              questionId: 'course2_04_ball_bat',
+              points: 4
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Bullet Through Wood',
+              questionId: 'course2_04_bullet_wood',
+              points: 4
+            },
+            {
+              type: 'multiple-choice',
+              question: 'Water Turbine Blade',
+              questionId: 'course2_04_water_turbine',
+              points: 4
+            }
+          ]}
+          theme="blue"
+        />
       </TextSection>
 
       <LessonSummary

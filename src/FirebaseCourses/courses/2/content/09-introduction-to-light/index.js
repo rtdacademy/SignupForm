@@ -3,6 +3,7 @@ import { useAuth } from '../../../../../context/AuthContext';
 import { getFunctions } from 'firebase/functions';
 import { getDatabase } from 'firebase/database';
 import LessonContent, { TextSection, MediaSection, LessonSummary } from '../../../../components/content/LessonContent';
+import SlideshowKnowledgeCheck from '../../../../components/assessments/SlideshowKnowledgeCheck';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -814,6 +815,42 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
           )}
         </div>
 
+        {/* Pinhole Camera Practice Problems */}
+        <div className="mb-6">
+          <SlideshowKnowledgeCheck
+            courseId={effectiveCourseId}
+            lessonPath="09-introduction-to-light"
+            questions={[
+              {
+                type: 'multiple-choice',
+                questionId: 'pinhole_distance_calculation',
+                title: 'Question 1: Pinhole Camera Distance Calculation'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'building_height_calculation',
+                title: 'Question 2: Building Height Calculation'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'shadow_size_calculation',
+                title: 'Question 3: Shadow Size Calculation'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'shadow_area_calculation',
+                title: 'Question 4: Shadow Area Calculation'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'fence_shadow_calculation',
+                title: 'Question 5: Fence Shadow Length Calculation'
+              }
+            ]}
+            theme="indigo"
+          />
+        </div>
+
         {/* Speed of Light Section */}
         <div className="mb-6">
           <button
@@ -1199,247 +1236,20 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
                   mirror faces into a small telescope through which the observer looked.
                 </p>
 
-                {/* Michelson's Apparatus Animation */}
-                <div className="my-6 p-4 bg-gray-100 rounded-lg border border-gray-300">
-                  <h4 className="font-semibold text-gray-800 mb-3 text-center">Michelson's Rotating Mirror Apparatus</h4>
-                  
-                  <div className="flex flex-col items-center">
-                    <div className="relative w-full max-w-4xl mb-4">
-                      <svg width="100%" height="350" viewBox="0 0 800 350" className="border border-gray-400 bg-white rounded">
-                        
-                        {/* Light source - moved slightly to the left */}
-                        <g transform="translate(215, 280)">
-                          <circle cx="0" cy="0" r="8" fill="#FFD700" stroke="#FFA500" strokeWidth="2" />
-                          <circle cx="0" cy="0" r="5" fill="#FFEB3B" opacity="0.8" />
-                          <text x="0" y="25" fontSize="12" fill="#333" textAnchor="middle" fontWeight="bold">Light Source</text>
-                        </g>
-
-                        {/* Eight-sided rotating mirror - made bigger */}
-                        <g transform="translate(200, 175)">
-                          {(() => {
-                            // Mirror should rotate 1/8 turn (45°) during the complete 4-phase cycle (200 time units)
-                            // So rotation speed = 45° / 200 = 0.225° per time unit
-                            const rotationAngle = (michelsonAnimationTime * 0.225) % 360;
-                            return (
-                              <g transform={`rotate(${rotationAngle})`}>
-                                {/* Octagonal mirror - made bigger */}
-                                <polygon 
-                                  points="0,-30 21,-21 30,0 21,21 0,30 -21,21 -30,0 -21,-21" 
-                                  fill="#E8E8E8" 
-                                  stroke="#666" 
-                                  strokeWidth="3"
-                                />
-                                {/* Mirror faces - made bigger */}
-                                <line x1="-21" y1="-21" x2="0" y2="-30" stroke="#B0B0B0" strokeWidth="4" />
-                                <line x1="0" y1="-30" x2="21" y2="-21" stroke="#B0B0B0" strokeWidth="4" />
-                                <line x1="21" y1="-21" x2="30" y2="0" stroke="#B0B0B0" strokeWidth="4" />
-                                <line x1="30" y1="0" x2="21" y2="21" stroke="#B0B0B0" strokeWidth="4" />
-                                <line x1="21" y1="21" x2="0" y2="30" stroke="#B0B0B0" strokeWidth="4" />
-                                <line x1="0" y1="30" x2="-21" y2="21" stroke="#B0B0B0" strokeWidth="4" />
-                                <line x1="-21" y1="21" x2="-30" y2="0" stroke="#B0B0B0" strokeWidth="4" />
-                                <line x1="-30" y1="0" x2="-21" y2="-21" stroke="#B0B0B0" strokeWidth="4" />
-                              </g>
-                            );
-                          })()}
-                          
-                          {/* Center dot */}
-                          <circle cx="0" cy="0" r="4" fill="#333" />
-                        </g>
-
-                        {/* Distant stationary mirror */}
-                        <g transform="translate(650, 175)">
-                          <rect x="-15" y="-40" width="30" height="80" fill="#E8E8E8" stroke="#666" strokeWidth="2" />
-                          <rect x="-12" y="-37" width="24" height="74" fill="#F0F0F0" />
-                          <text x="0" y="60" fontSize="12" fill="#333" textAnchor="middle" fontWeight="bold">Stationary</text>
-                          <text x="0" y="75" fontSize="12" fill="#333" textAnchor="middle" fontWeight="bold">Mirror</text>
-                        </g>
-
-                        {/* Observer with telescope */}
-                        <g transform="translate(200, 100)">
-                          {/* Telescope */}
-                          <rect x="-25" y="-8" width="50" height="16" fill="#4A4A4A" stroke="#333" strokeWidth="2" rx="8" />
-                          <circle cx="-25" cy="0" r="6" fill="#2A2A2A" stroke="#000" strokeWidth="1" />
-                          <circle cx="25" cy="0" r="4" fill="#2A2A2A" stroke="#000" strokeWidth="1" />
-                          
-                          {/* Observer's eye */}
-                          <circle cx="-35" cy="0" r="3" fill="#FFD1A9" stroke="#333" strokeWidth="1" />
-                          
-                          <text x="0" y="-25" fontSize="12" fill="#333" textAnchor="middle" fontWeight="bold">Observer</text>
-                          <text x="0" y="-10" fontSize="12" fill="#333" textAnchor="middle" fontWeight="bold">Telescope</text>
-                        </g>
-
-                        {/* Animated light paths */}
-                        {(() => {
-                          const totalCycle = 200; // Total animation cycle
-                          const phaseTime = 50; // Time for each phase
-                          const currentTime = michelsonAnimationTime % totalCycle;
-                          
-                          return (
-                            <g>
-                              {/* Phase 1: Light from source straight up to hit octagon */}
-                              {currentTime < phaseTime && (
-                                <g>
-                                  {(() => {
-                                    const startX = 215;
-                                    const startY = 272;
-                                    // Light travels straight up to hit the octagon at point (215, 195)
-                                    const endX = 215;
-                                    const endY = 195; // Where vertical line hits octagon perimeter
-                                    const progress = currentTime / phaseTime;
-                                    const currentX = startX;
-                                    const currentY = startY + (endY - startY) * progress;
-                                    return (
-                                      <>
-                                        <line x1={startX} y1={startY} x2={currentX} y2={currentY} stroke="#FFD700" strokeWidth="4" opacity="0.9" />
-                                        <circle cx={currentX} cy={currentY} r="3" fill="#FFEB3B" opacity="0.9" />
-                                      </>
-                                    );
-                                  })()}
-                                </g>
-                              )}
-                              
-                              {/* Phase 2: Light reflects from octagon at upward angle to stationary mirror center */}
-                              {currentTime >= phaseTime && currentTime < phaseTime * 2 && (
-                                <g>
-                                  {(() => {
-                                    const startX = 215; // Where light hit octagon
-                                    const startY = 195;
-                                    const endX = 650; // Center of stationary mirror
-                                    const endY = 175; // Center of stationary mirror (slightly higher)
-                                    const progress = (currentTime - phaseTime) / phaseTime;
-                                    const currentX = startX + (endX - startX) * progress;
-                                    const currentY = startY + (endY - startY) * progress;
-                                    return (
-                                      <>
-                                        <line x1={startX} y1={startY} x2={currentX} y2={currentY} stroke="#FFD700" strokeWidth="4" opacity="0.9" />
-                                        <circle cx={currentX} cy={currentY} r="3" fill="#FFEB3B" opacity="0.9" />
-                                      </>
-                                    );
-                                  })()}
-                                </g>
-                              )}
-                              
-                              {/* Phase 3: Light returning from stationary mirror center back to octagon */}
-                              {currentTime >= phaseTime * 2 && currentTime < phaseTime * 3 && (
-                                <g>
-                                  {(() => {
-                                    const startX = 650; // Center of stationary mirror
-                                    const startY = 175;
-                                    const endX = 185; // Point on octagon where return ray hits
-                                    const endY = 165; // Slightly different point due to mirror rotation
-                                    const progress = (currentTime - phaseTime * 2) / phaseTime;
-                                    const currentX = startX + (endX - startX) * progress;
-                                    const currentY = startY + (endY - startY) * progress;
-                                    return (
-                                      <>
-                                        <line x1={startX} y1={startY} x2={currentX} y2={currentY} stroke="#FF6B6B" strokeWidth="4" opacity="0.9" strokeDasharray="6,6" />
-                                        <circle cx={currentX} cy={currentY} r="3" fill="#FF6B6B" opacity="0.9" />
-                                      </>
-                                    );
-                                  })()}
-                                </g>
-                              )}
-                              
-                              {/* Phase 4: Light from octagon to telescope (successful reflection) */}
-                              {currentTime >= phaseTime * 3 && currentTime < phaseTime * 4 && (
-                                <g>
-                                  {(() => {
-                                    const startX = 185; // Point on octagon where return ray hit
-                                    const startY = 165;
-                                    const endX = 200; // Telescope position
-                                    const endY = 100; // Telescope position
-                                    const progress = (currentTime - phaseTime * 3) / phaseTime;
-                                    const currentX = startX + (endX - startX) * progress;
-                                    const currentY = startY + (endY - startY) * progress;
-                                    return (
-                                      <>
-                                        <line x1={startX} y1={startY} x2={currentX} y2={currentY} stroke="#00FF00" strokeWidth="4" opacity="0.9" />
-                                        <circle cx={currentX} cy={currentY} r="3" fill="#00FF00" opacity="0.9" />
-                                      </>
-                                    );
-                                  })()}
-                                  
-                                  {/* Success indicator */}
-                                  {(currentTime - phaseTime * 3) > phaseTime * 0.6 && (
-                                    <text x="400" y="50" fontSize="14" fill="#00FF00" textAnchor="middle" fontWeight="bold">
-                                      SUCCESS: Light reaches telescope!
-                                    </text>
-                                  )}
-                                </g>
-                              )}
-                              
-                              {/* Static path indicators when not animating */}
-                              {!isMichelsonPlaying && (
-                                <g>
-                                  <line x1="215" y1="272" x2="215" y2="195" stroke="#FFD700" strokeWidth="2" opacity="0.4" />
-                                  <line x1="215" y1="195" x2="650" y2="175" stroke="#FFD700" strokeWidth="2" opacity="0.4" />
-                                  <line x1="650" y1="175" x2="185" y2="165" stroke="#FF6B6B" strokeWidth="2" opacity="0.4" strokeDasharray="5,5" />
-                                  <line x1="185" y1="165" x2="200" y2="100" stroke="#00FF00" strokeWidth="2" opacity="0.4" />
-                                </g>
-                              )}
-                            </g>
-                          );
-                        })()}
-
-                        {/* Distance measurement */}
-                        <g>
-                          <line x1="200" y1="330" x2="650" y2="330" stroke="#4ECDC4" strokeWidth="2" />
-                          <polygon points="645,325 650,330 645,335" fill="#4ECDC4" />
-                          <polygon points="205,325 200,330 205,335" fill="#4ECDC4" />
-                          <text x="425" y="320" fontSize="12" fill="#4ECDC4" textAnchor="middle" fontWeight="bold">
-                            Large distance (d)
-                          </text>
-                          <text x="425" y="345" fontSize="11" fill="#4ECDC4" textAnchor="middle">
-                            Total light path = 2d
-                          </text>
-                        </g>
-
-                        {/* Arrow marker definition */}
-                        <defs>
-                          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="#FF6B6B" />
-                          </marker>
-                        </defs>
-
-                        {/* Animation phase labels */}
-                        {isMichelsonPlaying && (() => {
-                          const phase = Math.floor(michelsonAnimationTime / 50) % 4;
-                          const phaseLabels = [
-                            "1. Light emitted from source",
-                            "2. Light travels to distant mirror", 
-                            "3. Light returns to rotating mirror",
-                            "4. Light reflects to telescope"
-                          ];
-                          return (
-                            <text x="400" y="320" fontSize="13" fill="#333" textAnchor="middle" fontWeight="bold">
-                              {phaseLabels[phase]}
-                            </text>
-                          );
-                        })()}
-
-                        {/* Title */}
-                        <text x="400" y="30" fontSize="16" fill="#333" textAnchor="middle" fontWeight="bold">
-                          Michelson's Method: Timing Light with a Rotating Mirror
-                        </text>
-                        
-                      </svg>
+                {/* Michelson's Method Video */}
+                <div className="my-6 flex justify-center">
+                  <div className="relative w-full max-w-4xl">
+                    <div className="relative pb-[56.25%] h-0 overflow-hidden rounded-lg shadow-lg">
+                      <iframe 
+                        className="absolute top-0 left-0 w-full h-full"
+                        src="https://www.youtube.com/embed/NxAwkraCaf8?si=i-PadfDL4nJ-uCyY" 
+                        title="YouTube video player" 
+                        frameBorder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                        referrerPolicy="strict-origin-when-cross-origin" 
+                        allowFullScreen
+                      />
                     </div>
-                    
-                    {/* Controls */}
-                    <div className="flex items-center space-x-4">
-                      <button
-                        onClick={() => setIsMichelsonPlaying(!isMichelsonPlaying)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                      >
-                        {isMichelsonPlaying ? 'Pause' : 'Play'} Animation
-                      </button>
-                    </div>
-                    
-                    <p className="text-sm text-gray-600 mt-3 text-center max-w-3xl">
-                      This animation shows the 4-phase process: light emission, travel to distant mirror, 
-                      return journey, and successful reflection to telescope when mirror timing is perfect. 
-                      The rotating mirror must turn exactly 1/8 revolution during the light's round trip.
-                    </p>
                   </div>
                 </div>
 
@@ -1605,6 +1415,37 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
           )}
         </div>
 
+        {/* Michelson Method Practice Problems */}
+        <div className="mb-6">
+          <SlideshowKnowledgeCheck
+            courseId={effectiveCourseId}
+            lessonPath="09-introduction-to-light-michelson"
+            questions={[
+              {
+                type: 'multiple-choice',
+                questionId: 'michelson_six_sided_calculation',
+                title: 'Question 13: Six-sided Mirror Speed Calculation'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'michelson_eight_sided_frequency',
+                title: 'Question 14: Eight-sided Mirror Frequency'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'michelson_pentagonal_frequency',
+                title: 'Question 15: Pentagonal Mirror Frequency'
+              },
+              {
+                type: 'multiple-choice',
+                questionId: 'michelson_twelve_sided_distance',
+                title: 'Question 16: Twelve-sided Mirror Distance'
+              }
+            ]}
+            theme="purple"
+          />
+        </div>
+
         {/* Light Year Section */}
         <div className="mb-6">
           <button
@@ -1705,6 +1546,55 @@ const IntroductionToLight = ({ course, courseId = '2' }) => {
             </div>
           )}
         </div>
+
+        {/* SlideshowKnowledgeCheck: Light-Year and Space Communication Practice */}
+        <SlideshowKnowledgeCheck
+          courseId={effectiveCourseId}
+          lessonPath="09-introduction-to-light"
+          questions={[
+            {
+              type: 'multiple-choice',
+              questionId: 'space_station_radio_signal',
+              title: 'Question 17: Space Station Communication Time'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'light_travel_three_years',
+              title: 'Question 18: Light Travel Distance Calculation'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'star_explosion_observation',
+              title: 'Question 19: Stellar Event Observation Delay'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'proxima_centauri_distance',
+              title: 'Question 20: Proxima Centauri Distance Conversion'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'spacecraft_travel_time',
+              title: 'Question 21: Interstellar Spacecraft Journey'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'sunlight_travel_time',
+              title: 'Question 22: Sunlight Travel Time to Earth'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'galileo_light_travel',
+              title: 'Question 23: Historical Jupiter Distance Calculation'
+            },
+            {
+              type: 'multiple-choice',
+              questionId: 'earth_jupiter_speed_calculation',
+              title: 'Question 24: Earth-Jupiter Distance from Light Travel'
+            }
+          ]}
+          theme="purple"
+        />
       </TextSection>
 
       <LessonSummary

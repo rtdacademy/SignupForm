@@ -2,7 +2,12 @@
   "courseId": "2",
   "title": "Physics 30",
   "fullTitle": "2 - Physics 30",
-  "description": "Physics 30 explores advanced concepts in mechanics, waves, electricity, magnetism, and modern physics. Students will develop problem-solving skills and mathematical modeling abilities while investigating momentum, circular motion, electromagnetic radiation, and quantum phenomena.",
+  "description": "Physics 30 explores advanced concepts in mechanics, waves, electricity, magnetism, and modern physics.\n\n**Course Resources:**\n- [Course Outline](/course-outline/2)\n- [Data Booklet](https://www.alberta.ca/system/files/custom_downloaded_images/edc-physics30-data-booklet.pdf)\n- [Textbook](https://rtdacademy-my.sharepoint.com/%3Ab%3A/p/charlie/EcHGv2TVKRJElwMsk1H29aYBYC9P3mkjOOq_qnQPoGWMIg?e=cpj28i)",
+  "resources": {
+    "courseOutline": "/course-outline/2",
+    "dataBooklet": "https://www.alberta.ca/system/files/custom_downloaded_images/edc-physics30-data-booklet.pdf",
+    "textbook": "https://rtdacademy-my.sharepoint.com/%3Ab%3A/p/charlie/EcHGv2TVKRJElwMsk1H29aYBYC9P3mkjOOq_qnQPoGWMIg?e=cpj28i"
+  },
   "grade": "12",
   "prerequisites": ["Physics 20", "Math 20-1 or Math 20-2"],
   "instructors": [],
