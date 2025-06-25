@@ -1,15 +1,6 @@
 {
   "courseId": "2",
   "title": "Physics 30",
-  "fullTitle": "2 - Physics 30",
-  "description": "This is a template course description. Replace this with a detailed description of what students will learn in this course.",
-  "credits": 3,
-  "grade": "12",
-  "prerequisites": [],
-  "instructors": [],
-  "duration": "1 semester",
-  "contentFolder": "content",
-  "functionsFolder": "functions/2",
   "weights": {
     "lesson": 0.15,
     "assignment": 0.35,
@@ -18,31 +9,32 @@
   },
   "globalSettings": {
     "allowLateSubmissions": true,
-    "latePenaltyPerDay": 0.1,
-    "maxLateDays": 7,
     "showProgressBar": true,
     "showGrades": true,
     "enableAIQuestions": true,
     "enableTextToSpeech": true,
     "enableCollaboration": false,
-    "requireSequentialProgress": true,
-    "passingGrade": 50
+    "requireSequentialProgress": true
   },
   "progressionRequirements": {
     "enabled": true,
-    "defaultMinimumPercentage": 50,
+     "defaultCriteria": {
+      "minimumPercentage": 50,
+      "questionCompletionPercentage": null,
+      "requireAllQuestions": true
+    },
     "lessonOverrides": {
       "exam_section_1": {
-        "minimumPercentage": 50,
-        "note": "Lower standard for section exams"
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
       },
       "exam_section_2": {
-        "minimumPercentage": 50,
-        "note": "Lower standard for section exams"
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
       },
       "exam_section_3": {
-        "minimumPercentage": 50,
-        "note": "Lower standard for section exams"
+        "minimumPercentage": 1,
+        "requireAllQuestions": false
       }
     }
   },
@@ -1454,9 +1446,7 @@
     ]
   },
   "metadata": {
-    "createdDate": "2025-05-28T13:33:55.646Z",
-    "lastModified": "2025-06-20T10:00:00.000Z",
-    "version": "2.0.0",
+  
     "status": "development"
   }
 }
