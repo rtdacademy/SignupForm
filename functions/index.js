@@ -435,6 +435,9 @@ exports.course2_01_physics_20_review_dynamics_q9 = require('./courses/2/01-physi
 // Course 2 - Lab: Conservation of Momentum
 exports.course2_lab_momentum_conservation = require('./courses/2/07-lab-momentum-conservation/assessments').course2_lab_momentum_conservation;
 
+// Course 2 - Lab: Mirrors and Lenses
+exports.course2_lab_mirrors_lenses = require('./courses/2/15-lab-mirrors-lenses/assessments').course2_lab_mirrors_lenses;
+
 // Course 2 - Lesson 09: Introduction to Light - Pinhole Camera Practice
 exports.pinhole_distance_calculation = require('./courses/2/09-introduction-to-light/assessments').pinhole_distance_calculation;
 exports.building_height_calculation = require('./courses/2/09-introduction-to-light/assessments').building_height_calculation;

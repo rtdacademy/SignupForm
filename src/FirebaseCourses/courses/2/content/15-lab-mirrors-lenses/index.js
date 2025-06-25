@@ -1759,7 +1759,7 @@ const LabMirrorsLenses = ({ courseId = '2' }) => {
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">{notification.message}</span>
             <button 
-              onClick={() => setNotification(prev => ({ ...prev, visible: false }))
+              onClick={() => setNotification(prev => ({ ...prev, visible: false }))}
               className="ml-2 text-gray-500 hover:text-gray-700"
             >
               ×
