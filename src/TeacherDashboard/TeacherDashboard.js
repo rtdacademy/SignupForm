@@ -25,7 +25,8 @@ import {
   FilePenLine,
   Shield,
   Grid,
-  Database
+  Database,
+  FolderOpen
 } from 'lucide-react';
 import ChatApp from '../chat/ChatApp';
 import CoursesWithSheet from '../courses/CoursesWithSheet';
@@ -46,6 +47,8 @@ import EnrollmentStatistics from '../Statistics/EnrollmentStatistics';
 import PASIDataUpload from '../PASI/PASIDataUpload';
 import DataRectification from './DataRectification';
 import PASIDataUploadV2 from '../PASI/PASIDataUploadV2';
+import TeacherFileStorage from './TeacherFileStorage';
+import ParentStudentManagement from './ParentStudentManagement';
 
 
 function TeacherDashboard() {
@@ -194,9 +197,11 @@ function TeacherDashboard() {
         indicatorCount: unreadChatsCount
       },
       { icon: MessageSquare, label: 'Chats', key: 'chat' },
+      { icon: FolderOpen, label: 'File Storage', key: 'file-storage' },
       { icon: FilePenLine, label: 'Email Templates', key: 'templates' },
       { icon: CalendarPlus, label: 'Calendars', key: 'calendar-creator' },
       { icon: Link, label: 'Links', key: 'external-links' },
+      { icon: Shield, label: 'Parent Management', key: 'parent-management' },
       { icon: Users, label: 'Org Chart', key: 'org-chart' },
     ];
 
@@ -267,6 +272,10 @@ function TeacherDashboard() {
         return <PASIDataUpload />;
       case 'data-rectification':
         return <PASIDataUploadV2 />;
+      case 'file-storage':
+        return <TeacherFileStorage />;
+      case 'parent-management':
+        return <ParentStudentManagement />;
       default:
         return null;
     }

@@ -11,6 +11,7 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { auth, googleProvider, microsoftProvider } from '../firebase';
 import { sanitizeEmail } from '../utils/sanitizeEmail';
+import { useAuth } from '../context/AuthContext';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ const ParentLogin = () => {
   const token = searchParams.get('token');
   const isFirstTime = searchParams.get('firstTime') === 'true';
   const emailFromParam = searchParams.get('email');
+  const { parentLoginProgress, setParentLoginProgress } = useAuth();
 
   // Invitation state
   const [loading, setLoading] = useState(true);
@@ -76,6 +78,15 @@ const ParentLogin = () => {
   // Success state
   const [success, setSuccess] = useState(false);
   const [linkingResult, setLinkingResult] = useState(null);
+
+  // Clear parent login progress on mount
+  useEffect(() => {
+    setParentLoginProgress({
+      isLoading: false,
+      step: '',
+      message: ''
+    });
+  }, [setParentLoginProgress]);
 
   // Validate invitation token on mount (if token provided)
   useEffect(() => {
@@ -276,6 +287,11 @@ const ParentLogin = () => {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
+      // Set localStorage flag for parent portal access when not using token/invitation
+      if (!token && !invitation) {
+        localStorage.setItem('parentPortalSignup', 'true');
+      }
+
       if (!user.email) {
         setError('Unable to retrieve email from provider. Please try again.');
         setAuthLoading(false);
@@ -294,14 +310,20 @@ const ParentLogin = () => {
         setShowStudentVerificationDialog(true);
         setAuthLoading(false);
       } else {
-        // Regular parent login: redirect to parent dashboard
+        // Regular parent login: Set progress and let AuthContext handle the rest
+        setParentLoginProgress({
+          isLoading: true,
+          step: 'social_auth',
+          message: `Signing in with ${provider.providerId.includes('google') ? 'Google' : 'Microsoft'}...`
+        });
         setAuthLoading(false);
-        navigate('/parent-dashboard');
+        // Don't clear progress here - let AuthContext handle it
       }
     } catch (error) {
       console.error('Social sign-in error:', error);
       setError(getFriendlyErrorMessage(error));
       setAuthLoading(false);
+      setParentLoginProgress({ isLoading: false, step: '', message: '' });
     }
   };
 
@@ -337,45 +359,71 @@ const ParentLogin = () => {
           return;
         }
 
+        // Set localStorage flag for parent portal signup to ensure portal-based detection
+        localStorage.setItem('parentPortalSignup', 'true');
+
+        setParentLoginProgress({
+          isLoading: true,
+          step: 'email_signup',
+          message: 'Creating your parent account...'
+        });
+
         const userCredential = await createUserWithEmailAndPassword(auth, emailInput.trim(), password);
+        
+        // IMMEDIATELY sign out to prevent AuthContext from processing unverified user
+        await auth.signOut();
+        
+        // Send verification email after signing out
         await sendEmailVerification(userCredential.user);
         
         if (token && invitation) {
           // Token-based flow: show verification dialog
           setShowStudentVerificationDialog(true);
           setAuthLoading(false);
+          setParentLoginProgress({ isLoading: false, step: '', message: '' });
         } else {
-          // Regular signup: redirect to parent dashboard
+          // Regular signup: redirect to verification page
           setAuthLoading(false);
-          navigate('/parent-dashboard');
+          setParentLoginProgress({ isLoading: false, step: '', message: '' });
+          navigate(`/parent-verify-email?email=${encodeURIComponent(emailInput.trim())}`);
         }
       } else {
         // Sign in with existing account
         const userCredential = await signInWithEmailAndPassword(auth, emailInput.trim(), password);
         const user = userCredential.user;
         
+        // Set localStorage flag for parent portal access when not using token/invitation
+        if (!token && !invitation) {
+          localStorage.setItem('parentPortalSignup', 'true');
+        }
+
         if (user.emailVerified) {
           if (token && invitation) {
             // Token-based flow: show verification dialog
             setShowStudentVerificationDialog(true);
             setAuthLoading(false);
           } else {
-            // Regular sign-in: redirect to parent dashboard
+            // Regular sign-in: Set progress and let AuthContext handle the rest
+            setParentLoginProgress({
+              isLoading: true,
+              step: 'email_auth',
+              message: 'Signing in with email and password...'
+            });
             setAuthLoading(false);
-            navigate('/parent-dashboard');
+            // Don't clear progress here - let AuthContext handle it
           }
         } else {
           await sendEmailVerification(user);
           await auth.signOut();
-          setVerificationEmail(emailInput.trim());
-          setShowEmailVerificationDialog(true);
           setAuthLoading(false);
+          navigate(`/parent-verify-email?email=${encodeURIComponent(emailInput.trim())}`);
         }
       }
     } catch (error) {
       console.error('Email/password auth error:', error);
       setError(getFriendlyErrorMessage(error));
       setAuthLoading(false);
+      setParentLoginProgress({ isLoading: false, step: '', message: '' });
     }
   };
 
@@ -1086,6 +1134,41 @@ const ParentLogin = () => {
           <p>&copy; {new Date().getFullYear()} RTD Math Academy. All rights reserved.</p>
         </footer>
       </div>
+
+      {/* Loading Overlay for Parent Login Progress */}
+      {parentLoginProgress.isLoading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Setting Up Your Parent Account
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {parentLoginProgress.message || 'Please wait while we set up your account...'}
+            </p>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-purple-600 h-2 rounded-full transition-all duration-300 ease-in-out"
+                style={{
+                  width: parentLoginProgress.step === 'social_auth' ? '15%' :
+                         parentLoginProgress.step === 'email_auth' ? '15%' :
+                         parentLoginProgress.step === 'email_signup' ? '15%' :
+                         parentLoginProgress.step === 'authenticating' ? '25%' :
+                         parentLoginProgress.step === 'creating_profile' ? '40%' :
+                         parentLoginProgress.step === 'updating_profile' ? '40%' :
+                         parentLoginProgress.step === 'initializing_session' ? '60%' :
+                         parentLoginProgress.step === 'redirecting' ? '80%' :
+                         parentLoginProgress.step === 'loading_dashboard' ? '95%' :
+                         '10%'
+                }}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Step: {parentLoginProgress.step || 'starting'}
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 };

@@ -44,8 +44,13 @@ function MultiActionAuthHandler() {
             // After successful verification, set status and redirect
             setStatus('Email verified successfully! You can now sign in.');
             console.log("Verification complete, redirecting to login");
+            
+            // Check if this is a parent verification by looking at localStorage flag
+            const isParentVerification = localStorage.getItem('parentPortalSignup') === 'true';
+            const redirectPath = isParentVerification ? '/parent-login' : '/login';
+            
             setTimeout(() => {
-              navigate('/login', { 
+              navigate(redirectPath, { 
                 state: { 
                   message: 'Email verified successfully! You can now sign in.' 
                 }
@@ -128,8 +133,13 @@ function MultiActionAuthHandler() {
       await confirmPasswordReset(auth, actionCode, newPassword);
       
       setStatus('Password reset successful! You can now sign in with your new password.');
+      
+      // Check if this is a parent password reset by looking at localStorage flag
+      const isParentReset = localStorage.getItem('parentPortalSignup') === 'true';
+      const redirectPath = isParentReset ? '/parent-login' : '/login';
+      
       setTimeout(() => {
-        navigate('/login', { 
+        navigate(redirectPath, { 
           state: { 
             message: 'Password reset successful! You can now sign in with your new password.' 
           }

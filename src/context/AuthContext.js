@@ -33,10 +33,7 @@ const SUPER_ADMIN_EMAILS = [
 ];
 
 // Blocked emails that should never be allowed to login
-const BLOCKED_EMAILS = [
-  'marc@rtdacademy.com',
-  'marc@rtdlearning.com'
-];
+const BLOCKED_EMAILS = [];
 
 // Session timeout constants
 const SESSION_TIMEOUT = 60 * 60 * 1000; // 60 minutes by default
@@ -66,6 +63,13 @@ export function AuthProvider({ children }) {
   const [staffMembers, setStaffMembers] = useState({});
   const [adminEmails, setAdminEmails] = useState([]);
   const [tokenExpirationTime, setTokenExpirationTime] = useState(null);
+
+  // Parent login progress tracking
+  const [parentLoginProgress, setParentLoginProgress] = useState({
+    isLoading: false,
+    step: '',
+    message: ''
+  });
 
   // Emulation states
   const [emulatedUser, setEmulatedUser] = useState(null);
@@ -117,7 +121,8 @@ export function AuthProvider({ children }) {
     '/parent-login',
     '/aerr/2023-24',
     '/education-plan/2025-26',
-    '/prerequisite-flowchart'
+    '/prerequisite-flowchart',
+    '/parent-verify-email'
   ].map(route => route.toLowerCase());
 
   // Helper function to check if current route is public
@@ -161,6 +166,70 @@ export function AuthProvider({ children }) {
         return false;
       }
       console.error('Error checking parent status:', error);
+      return false;
+    }
+  };
+
+  // Ensure parent node exists in database
+  const ensureParentNode = async (user, emailKey) => {
+    if (!user.emailVerified) {
+      console.log("Skipping parent data creation - email not verified");
+      await signOut();
+      navigate('/parent-login', { 
+        state: { 
+          message: "Please verify your email before signing in. Check your inbox for a verification link." 
+        } 
+      });
+      return false;
+    }
+
+    const db = getDatabase();
+    const parentRef = ref(db, `parents/${emailKey}/profile`);
+    
+    try {
+      setParentLoginProgress({
+        isLoading: true,
+        step: 'creating_profile',
+        message: 'Setting up your parent account...'
+      });
+
+      const snapshot = await get(parentRef);
+      if (!snapshot.exists()) {
+        // Create parent profile
+        setParentLoginProgress({
+          isLoading: true,
+          step: 'creating_profile',
+          message: 'Creating your parent profile...'
+        });
+        
+        await set(parentRef, {
+          email: user.email,
+          displayName: user.displayName || '',
+          createdAt: Date.now(),
+          lastLogin: Date.now(),
+          provider: user.providerData[0]?.providerId || 'password',
+          emailVerified: user.emailVerified
+        });
+        console.log('Parent profile created successfully');
+      } else {
+        // Update last login
+        setParentLoginProgress({
+          isLoading: true,
+          step: 'updating_profile',
+          message: 'Updating your login information...'
+        });
+        
+        await set(ref(db, `parents/${emailKey}/profile/lastLogin`), Date.now());
+        console.log('Parent last login updated');
+      }
+      return true;
+    } catch (error) {
+      console.error("Error ensuring parent node:", error);
+      setParentLoginProgress({
+        isLoading: false,
+        step: 'error',
+        message: 'Error setting up parent account'
+      });
       return false;
     }
   };
@@ -667,6 +736,163 @@ export function AuthProvider({ children }) {
     return null;
   };
 
+  // Custom Claims Helper Functions
+  const checkAndSetCustomClaims = async (user, forceRefresh = false) => {
+    if (!user) {
+      console.log('[Custom Claims] No user provided');
+      return null;
+    }
+    
+    try {
+      console.log('[Custom Claims] Checking custom claims for user:', user.email);
+      
+      // Get the user's current ID token with claims
+      const idTokenResult = await user.getIdTokenResult();
+      const claims = idTokenResult.claims;
+      
+      console.log('[Custom Claims] Current claims:', {
+        hasClaims: !!claims,
+        hasRoles: !!claims.roles,
+        hasPermissions: !!claims.permissions,
+        hasLastUpdated: !!claims.lastUpdated,
+        claims: claims
+      });
+      
+      // Determine which portal the user is trying to access
+      const currentPath = location.pathname.toLowerCase();
+      const isAccessingParentPortal = currentPath.includes('parent');
+      const isAccessingStaffPortal = currentPath.includes('staff') || currentPath.includes('teacher');
+      
+      // Check if current claims support the portal being accessed
+      let needsClaimsUpdate = false;
+      
+      if (isAccessingParentPortal && claims.permissions && !claims.permissions.canAccessParentPortal) {
+        console.log('[Custom Claims] User accessing parent portal but lacks parent permissions');
+        needsClaimsUpdate = true;
+      }
+      
+      if (isAccessingStaffPortal && claims.permissions && !claims.permissions.isStaff) {
+        console.log('[Custom Claims] User accessing staff portal but lacks staff permissions');
+        needsClaimsUpdate = true;
+      }
+      
+      // Check if custom claims exist and are recent (within 24 hours)
+      const hasValidClaims = claims.roles && 
+                           claims.permissions && 
+                           claims.lastUpdated &&
+                           (Date.now() - claims.lastUpdated) < 24 * 60 * 60 * 1000;
+      
+      if (!hasValidClaims || needsClaimsUpdate || forceRefresh) {
+        console.log('[Custom Claims] Claims need update:', {
+          reason: !hasValidClaims ? 'missing/outdated' : (needsClaimsUpdate ? 'portal mismatch' : 'forced refresh'),
+          hasRoles: !!claims.roles,
+          hasPermissions: !!claims.permissions,
+          hasLastUpdated: !!claims.lastUpdated,
+          isRecent: claims.lastUpdated ? (Date.now() - claims.lastUpdated) < 24 * 60 * 60 * 1000 : false,
+          needsClaimsUpdate,
+          forceRefresh
+        });
+        
+        // Import the cloud function
+        console.log('[Custom Claims] Importing Firebase functions...');
+        const { getFunctions, httpsCallable } = await import('firebase/functions');
+        const functions = getFunctions();
+        const setUserRoles = httpsCallable(functions, 'setUserRoles');
+        
+        // Call the function to set custom claims
+        console.log('[Custom Claims] Calling setUserRoles cloud function...');
+        const result = await setUserRoles();
+        console.log('[Custom Claims] setUserRoles result:', result.data);
+        
+        // Force token refresh to get new claims
+        console.log('[Custom Claims] Forcing token refresh...');
+        await user.getIdToken(true);
+        
+        // Get updated token with new claims
+        const updatedTokenResult = await user.getIdTokenResult();
+        console.log('[Custom Claims] Updated claims after refresh:', updatedTokenResult.claims);
+        return updatedTokenResult.claims;
+      }
+      
+      console.log('[Custom Claims] Using existing valid claims');
+      return claims;
+    } catch (error) {
+      console.error('[Custom Claims] Error checking/setting custom claims:', error);
+      return null;
+    }
+  };
+
+  const getUserRolesFromClaims = (claims) => {
+    if (!claims || !claims.roles || !claims.permissions) {
+      return {
+        roles: [],
+        primaryRole: 'student',
+        permissions: {},
+        hasCustomClaims: false
+      };
+    }
+    
+    return {
+      roles: claims.roles || [],
+      primaryRole: claims.primaryRole || 'student',
+      permissions: claims.permissions || {},
+      hasCustomClaims: true,
+      lastUpdated: claims.lastUpdated
+    };
+  };
+
+  // Enhanced role checking with custom claims fallback
+  const checkUserRoles = async (user, emailKey, forceRefresh = false) => {
+    console.log('[checkUserRoles] Starting role check for:', user?.email);
+    
+    // First try to get roles from custom claims
+    const claims = await checkAndSetCustomClaims(user, forceRefresh);
+    const claimsData = getUserRolesFromClaims(claims);
+    
+    console.log('[checkUserRoles] Claims data:', claimsData);
+    
+    if (claimsData.hasCustomClaims) {
+      console.log('[checkUserRoles] Using custom claims for role determination:', claimsData);
+      return claimsData;
+    }
+    
+    // Fallback to existing database checking logic
+    console.log('[checkUserRoles] No valid custom claims, using database fallback');
+    const roles = [];
+    const permissions = {};
+    
+    // Check staff status
+    const staffStatus = checkIsStaff(user);
+    if (staffStatus) {
+      roles.push('staff');
+      permissions.isStaff = true;
+    }
+    
+    // Check parent status
+    const parentStatus = await checkIsParent(user, emailKey);
+    console.log('[checkUserRoles] Parent status check result:', parentStatus);
+    if (parentStatus) {
+      roles.push('parent');
+      permissions.canAccessParentPortal = true;
+    }
+    
+    // Default to student if no other roles
+    if (roles.length === 0) {
+      roles.push('student');
+      permissions.canAccessStudentPortal = true;
+    }
+    
+    const result = {
+      roles,
+      primaryRole: staffStatus ? 'staff' : (parentStatus ? 'parent' : 'student'),
+      permissions,
+      hasCustomClaims: false
+    };
+    
+    console.log('[checkUserRoles] Final role determination from database:', result);
+    return result;
+  };
+
   // Updated auth state change handler
   useEffect(() => {
     let isMounted = true;
@@ -717,6 +943,11 @@ export function AuthProvider({ children }) {
               dataCreated = await ensureStaffNode(currentUser, emailKey);
               if (dataCreated) {
                 try {
+                  // Check and set custom claims for staff user
+                  console.log('[AuthContext] Checking custom claims for staff user...');
+                  const userRoles = await checkUserRoles(currentUser, emailKey);
+                  console.log('[AuthContext] Staff user roles determined:', userRoles);
+                  
                   await Promise.all([
                     fetchStaffMembers(),
                     fetchCourseTeachers(),
@@ -740,42 +971,85 @@ export function AuthProvider({ children }) {
               }
             }
           } else {
-            // Check if user is a parent (skip this check if on parent-login page with invitation token or parent-dashboard)
-            const isParentInvitationFlow = location.pathname === '/parent-login' && 
-                                          new URLSearchParams(location.search).get('token');
-            const isParentDashboard = location.pathname === '/parent-dashboard';
+            // Determine user type based on which portal they're accessing
+            const isParentPortalAccess = location.pathname === '/parent-login' || 
+                                        location.pathname === '/parent-dashboard' ||
+                                        localStorage.getItem('parentPortalSignup') === 'true';
             
-            const parentStatus = !isParentInvitationFlow && !isParentDashboard && await checkIsParent(currentUser, emailKey);
-            
-            if (parentStatus) {
-              // Parent user - don't create student node
-              try {
-                await Promise.all([
-                  checkTokenExpiration(),
-                  archivePreviousSession(currentUser).then(() => initializeUserSession(currentUser))
-                ]);
-              } catch (error) {
-                console.error('Error initializing parent activity tracking:', error);
-              }
-              
-              setUser(currentUser);
-              setUserEmailKey(emailKey);
-              setIsStaffUser(false);
-              setIsAdminUser(false);
-              setIsSuperAdminUser(false);
-              setIsParentUser(true);
-              
-              // Navigate to parent dashboard
-              if (location.pathname.toLowerCase() === '/login') {
-                authTimeout = setTimeout(() => {
-                  if (isMounted) navigate('/parent-dashboard');
-                }, 500);
+            if (isParentPortalAccess) {
+              // Parent user - create/update parent node
+              setParentLoginProgress({
+                isLoading: true,
+                step: 'authenticating',
+                message: 'Authenticating parent account...'
+              });
+
+              const parentCreated = await ensureParentNode(currentUser, emailKey);
+              if (parentCreated && isMounted) {
+                setParentLoginProgress({
+                  isLoading: true,
+                  step: 'initializing_session',
+                  message: 'Initializing your session...'
+                });
+
+                try {
+                  // Check and set custom claims for parent user - force refresh to ensure parent permissions are checked
+                  console.log('[AuthContext] Checking custom claims for parent user (forcing refresh)...');
+                  const userRoles = await checkUserRoles(currentUser, emailKey, true);
+                  console.log('[AuthContext] Parent user roles determined:', userRoles);
+                  
+                  await Promise.all([
+                    checkTokenExpiration(),
+                    archivePreviousSession(currentUser).then(() => initializeUserSession(currentUser))
+                  ]);
+                } catch (error) {
+                  console.error('Error initializing parent activity tracking:', error);
+                }
+                
+                setUser(currentUser);
+                setUserEmailKey(emailKey);
+                setIsStaffUser(false);
+                setIsAdminUser(false);
+                setIsSuperAdminUser(false);
+                setIsParentUser(true);
+                
+                // Clear parent signup flag if it exists
+                localStorage.removeItem('parentPortalSignup');
+                
+                setParentLoginProgress({
+                  isLoading: true,
+                  step: 'redirecting',
+                  message: 'Redirecting to your dashboard...'
+                });
+                
+                // Navigate to parent dashboard
+                if (location.pathname.toLowerCase() === '/parent-login') {
+                  authTimeout = setTimeout(() => {
+                    if (isMounted) navigate('/parent-dashboard');
+                  }, 500);
+                }
+              } else {
+                setParentLoginProgress({
+                  isLoading: false,
+                  step: 'error',
+                  message: 'Failed to set up parent account'
+                });
               }
             } else {
               // Regular student user
               dataCreated = await ensureUserNode(currentUser, emailKey);
               if (dataCreated && isMounted) {
                 try {
+                  // Check and set custom claims for the user
+                  console.log('[AuthContext] Checking custom claims for student user...');
+                  const userRoles = await checkUserRoles(currentUser, emailKey);
+                  console.log('[AuthContext] User roles determined:', userRoles);
+                  
+                  // Set parent user status based on custom claims or database check
+                  if (userRoles.permissions.canAccessParentPortal) {
+                    console.log('[AuthContext] User has parent portal access');
+                  }
+                  
                   await archivePreviousSession(currentUser);
                   await initializeUserSession(currentUser);
                   await checkTokenExpiration();
@@ -1063,7 +1337,25 @@ export function AuthProvider({ children }) {
     // Activity tracking functions
     addActivityEvent,
     updateUserActivityInDatabase,
-    currentSessionId
+    currentSessionId,
+
+    // Parent login progress
+    parentLoginProgress,
+    setParentLoginProgress,
+
+    // Custom Claims functions
+    checkAndSetCustomClaims,
+    getUserRolesFromClaims,
+    checkUserRoles,
+    
+    // Helper to force refresh custom claims
+    refreshUserRoles: async () => {
+      if (user) {
+        const emailKey = sanitizeEmail(user.email);
+        return await checkUserRoles(user, emailKey, true);
+      }
+      return null;
+    }
   };
 
   return (

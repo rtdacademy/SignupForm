@@ -8,6 +8,7 @@ import Dashboard from './Dashboard/Dashboard';
 import Layout from './Layout/Layout';
 import StaffLogin from './Admin/StaffLogin';
 import TeacherDashboard from './TeacherDashboard/TeacherDashboard';
+import TeacherFileStorage from './TeacherDashboard/TeacherFileStorage';
 import LMSWrapper from './Dashboard/LMSWrapper';
 import Courses from './courses/Courses'; 
 import MultiActionAuthHandler from './MultiActionAuthHandler';
@@ -33,6 +34,7 @@ import EmployeePortal from './TeacherDashboard/EmployeePortal';
 import SessionTimeoutWarning from './components/SessionTimeoutWarning';
 import ParentLogin from './ParentPortal/ParentLogin';
 import ParentDashboard from './ParentPortal/ParentDashboard';
+import ParentEmailVerification from './ParentPortal/ParentEmailVerification';
 import FlowChartPrerequisites from './components/PrerequisiteFlowChart/FlowChartPrerequisites';
 
 // EdBotz imports
@@ -150,6 +152,7 @@ function MainApp() {
 <Route path="/education-plan/2025-26" element={<EducationPlan />} />
 <Route path="/prerequisite-flowchart" element={<FlowChartPrerequisites />} />
 <Route path="/parent-login" element={<ParentLogin />} />
+<Route path="/parent-verify-email" element={<ParentEmailVerification />} />
 <Route path="/parent-dashboard" element={user ? <ParentDashboard /> : <Navigate to="/parent-login" />} />
         
       <Route 
@@ -176,6 +179,10 @@ function MainApp() {
         } />
         <Route path="/teacher-dashboard" element={
           user && isStaff(user) ? <Layout><TeacherDashboard /></Layout> : <Navigate to="/staff-login" />
+        } />
+        
+        <Route path="/file-storage" element={
+          user && isStaff(user) ? <Layout><TeacherFileStorage /></Layout> : <Navigate to="/staff-login?redirect=/file-storage" />
         } />
 
         <Route path="/payment/result" element={
