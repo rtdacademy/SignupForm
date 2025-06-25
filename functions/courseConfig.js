@@ -154,14 +154,18 @@ async function syncSingleCourse(db, courseId, force = false) {
     const configString = JSON.stringify(configData, null, 2);
     const contentHash = crypto.createHash('sha256').update(configString).digest('hex');
 
-    // Check if update is needed (unless forced)
-    if (!force) {
-      try {
-        const versionControlRef = db.ref(`courses/${courseId}/course-config-version-control`);
-        const existingVersionData = await versionControlRef.once('value');
-        const existingVersion = existingVersionData.val();
+    // Get existing version control data to check for changes and increment version
+    let existingVersion = null;
+    let newVersion = '1.0.0';
+    
+    try {
+      const versionControlRef = db.ref(`courses/${courseId}/course-config-version-control`);
+      const existingVersionData = await versionControlRef.once('value');
+      existingVersion = existingVersionData.val();
 
-        if (existingVersion && existingVersion.contentHash === contentHash) {
+      if (existingVersion) {
+        // Check if update is needed (unless forced)
+        if (!force && existingVersion.contentHash === contentHash) {
           return {
             success: true,
             message: 'No changes detected, skipping update',
@@ -170,42 +174,56 @@ async function syncSingleCourse(db, courseId, force = false) {
             lastSynced: existingVersion.lastSynced
           };
         }
-      } catch (error) {
-        console.log(`No existing version data for course ${courseId}, proceeding with sync`);
+        
+        // Auto-increment version number
+        const currentVersion = existingVersion.version || '1.0.0';
+        const versionParts = currentVersion.split('.').map(Number);
+        versionParts[2] = (versionParts[2] || 0) + 1; // Increment patch version
+        newVersion = versionParts.join('.');
       }
+    } catch (error) {
+      console.log(`No existing version data for course ${courseId}, starting with v1.0.0`);
     }
 
-    // Prepare version control metadata
+    // Prepare version control metadata with auto-incremented version
     const versionControlData = {
-      version: configData.metadata?.version || '1.0.0',
+      version: newVersion,
       contentHash,
       lastSynced: new Date().toISOString(),
       syncedFrom: `functions/courses-config/${courseId}/course-config.json`,
-      fileModified: configData.metadata?.lastModified || null,
-      originalVersion: configData.metadata?.version || null
+      changesSince: existingVersion?.version || 'Initial sync',
+      syncCount: (existingVersion?.syncCount || 0) + 1
     };
 
     // Update database in transaction
     const courseConfigRef = db.ref(`courses/${courseId}/course-config`);
     const versionControlRef = db.ref(`courses/${courseId}/course-config-version-control`);
+    const courseTitleRef = db.ref(`courses/${courseId}/Title`);
 
-    // Remove metadata from config data before storing
-    const { metadata, ...cleanConfigData } = configData;
-
-    // Update both paths
-    await Promise.all([
-      courseConfigRef.set(cleanConfigData),
+    // Prepare updates - store config data and update course title if available
+    const updates = [
+      courseConfigRef.set(configData),
       versionControlRef.set(versionControlData)
-    ]);
+    ];
+
+    // If the config has a title property, also update the main course Title
+    if (configData.title) {
+      updates.push(courseTitleRef.set(configData.title));
+    }
+
+    await Promise.all(updates);
 
     return {
       success: true,
-      message: 'Configuration synced successfully',
+      message: configData.title ? 
+        'Configuration and course title synced successfully' : 
+        'Configuration synced successfully',
       updated: true,
       version: versionControlData.version,
       contentHash,
       lastSynced: versionControlData.lastSynced,
-      configPath: `functions/courses-config/${courseId}/course-config.json`
+      configPath: `functions/courses-config/${courseId}/course-config.json`,
+      titleUpdated: !!configData.title
     };
 
   } catch (error) {
@@ -213,3 +231,98 @@ async function syncSingleCourse(db, courseId, force = false) {
     throw error;
   }
 }
+
+/**
+ * Checks if course configuration file and database are in sync
+ * Returns sync status without making any changes
+ */
+exports.checkCourseConfigSyncStatus = onCall(async (request) => {
+  try {
+    const { courseId } = request.data;
+    
+    if (!courseId) {
+      throw new Error('Course ID is required');
+    }
+
+    const db = getDatabase();
+    
+    // Read the course configuration file
+    const configPath = path.join(__dirname, 'courses-config', courseId.toString(), 'course-config.json');
+    
+    let fileConfig;
+    try {
+      const configFileContent = await fs.readFile(configPath, 'utf8');
+      fileConfig = JSON.parse(configFileContent);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return {
+          success: false,
+          error: `No configuration file found for course ${courseId}`,
+          status: 'file_not_found'
+        };
+      }
+      throw new Error(`Failed to read config file: ${error.message}`);
+    }
+
+    // Calculate file content hash
+    const fileConfigString = JSON.stringify(fileConfig, null, 2);
+    const fileContentHash = crypto.createHash('sha256').update(fileConfigString).digest('hex');
+
+    // Check database version control data
+    const versionControlRef = db.ref(`courses/${courseId}/course-config-version-control`);
+    const versionSnapshot = await versionControlRef.once('value');
+    const versionControlData = versionSnapshot.val();
+
+    // Check if configuration data exists in database
+    const configRef = db.ref(`courses/${courseId}/course-config`);
+    const configSnapshot = await configRef.once('value');
+    const dbConfigExists = configSnapshot.exists();
+
+    // Since we no longer store version in file, we'll use "File" as identifier
+    const fileVersion = "File";
+
+    if (!versionControlData || !dbConfigExists) {
+      return {
+        success: true,
+        status: 'never_synced',
+        message: 'Configuration has never been synced to database',
+        fileVersion,
+        dbVersion: null,
+        needsSync: true
+      };
+    }
+
+    const dbVersion = versionControlData.version || '1.0.0';
+    const dbContentHash = versionControlData.contentHash;
+
+    if (fileContentHash === dbContentHash) {
+      return {
+        success: true,
+        status: 'up_to_date',
+        message: 'Database is up to date with file',
+        fileVersion,
+        dbVersion,
+        needsSync: false,
+        lastSynced: versionControlData.lastSynced
+      };
+    } else {
+      return {
+        success: true,
+        status: 'out_of_sync',
+        message: 'Configuration file has been updated and needs syncing',
+        fileVersion,
+        dbVersion,
+        needsSync: true,
+        lastSynced: versionControlData.lastSynced
+      };
+    }
+
+  } catch (error) {
+    console.error('Error checking course config sync status:', error);
+    return {
+      success: false,
+      error: error.message,
+      status: 'error'
+    };
+  }
+});

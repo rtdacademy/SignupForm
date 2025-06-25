@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getDatabase, ref, update, remove, get } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -127,7 +128,7 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
             type="date"
             value={diplomaTime.displayDate || formatDateForDisplay(diplomaTime.date) || ''}
             onChange={handleDateChange}
-            disabled={!isEditing}
+            disabled={!courseIsEditing}
           />
         </div>
 
@@ -139,7 +140,7 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
                 name="hour"
                 value={diplomaTime.hour}
                 onValueChange={(value) => handleTimeChange({ value }, { name: 'hour' })}
-                disabled={!isEditing}
+                disabled={!courseIsEditing}
               >
                 <SelectTrigger className="w-24">
                   <SelectValue placeholder="Hour" />
@@ -157,7 +158,7 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
                 name="minute"
                 value={diplomaTime.minute}
                 onValueChange={(value) => handleTimeChange({ value }, { name: 'minute' })}
-                disabled={!isEditing}
+                disabled={!courseIsEditing}
               >
                 <SelectTrigger className="w-24">
                   <SelectValue placeholder="Min" />
@@ -174,7 +175,7 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
                 name="period"
                 value={diplomaTime.period}
                 onValueChange={(value) => handleTimeChange({ value }, { name: 'period' })}
-                disabled={!isEditing}
+                disabled={!courseIsEditing}
               >
                 <SelectTrigger className="w-24">
                   <SelectValue placeholder="AM/PM" />
@@ -197,7 +198,7 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
             name="month"
             value={diplomaTime.month}
             onValueChange={(value) => onChange({ ...diplomaTime, month: value })}
-            disabled={!isEditing}
+            disabled={!courseIsEditing}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select Month" />
@@ -217,7 +218,7 @@ function DiplomaTimeEntry({ diplomaTime, onChange, onDelete, isEditing }) {
             <Switch
               checked={diplomaTime.confirmed || false}
               onCheckedChange={(checked) => onChange({ ...diplomaTime, confirmed: checked })}
-              disabled={!isEditing}
+              disabled={!courseIsEditing}
             />
             <label className="text-sm">Confirmed</label>
           </div>
@@ -332,7 +333,7 @@ function DiplomaTimes({ courseId, diplomaTimes, isEditing }) {
               diplomaTime={time}
               onChange={(updatedTime) => handleChange(index, updatedTime)}
               onDelete={() => handleDelete(index)}
-              isEditing={isEditing}
+              isEditing={courseIsEditing}
             />
           ))
         )}
@@ -357,54 +358,52 @@ function DatabaseCourseConfig({ courseId, isEditing }) {
     try {
       setCheckingSync(true);
       
-      // Read file config and database config to compare
       const functions = getFunctions();
-      const getConfigFunction = httpsCallable(functions, 'getCourseConfigV2');
+      const checkSyncFunction = httpsCallable(functions, 'checkCourseConfigSyncStatus');
       
-      // Get file config
-      const fileResult = await getConfigFunction({ courseId });
+      const result = await checkSyncFunction({ courseId });
       
-      if (!fileResult.data.success) {
-        setSyncStatus({ error: fileResult.data.error || 'Could not read course config file' });
+      if (!result.data.success) {
+        setSyncStatus({ 
+          error: result.data.error,
+          status: result.data.status 
+        });
+        toast.error('Sync status check failed', {
+          description: result.data.error || 'Unable to check configuration sync status'
+        });
         return;
       }
       
-      // Calculate hash of file content
-      const fileConfig = fileResult.data.courseConfig;
-      const fileConfigString = JSON.stringify(fileConfig, null, 2);
-      const fileHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(fileConfigString));
-      const fileHashHex = Array.from(new Uint8Array(fileHash)).map(b => b.toString(16).padStart(2, '0')).join('');
+      // Map the cloud function result to our component state
+      const { status, message, fileVersion, dbVersion, needsSync, lastSynced } = result.data;
       
-      // Compare with database version control hash
-      if (versionControl && versionControl.contentHash) {
-        if (versionControl.contentHash === fileHashHex) {
-          setSyncStatus({ 
-            upToDate: true, 
-            message: 'Database is up to date with file',
-            fileVersion: fileConfig.metadata?.version || 'Unknown',
-            dbVersion: versionControl.version || 'Unknown'
-          });
-        } else {
-          setSyncStatus({ 
-            needsSync: true, 
-            message: 'Configuration file has been updated and needs syncing',
-            fileVersion: fileConfig.metadata?.version || 'Unknown',
-            dbVersion: versionControl.version || 'Unknown'
-          });
-        }
-      } else {
-        // No version control data means database hasn't been synced yet
-        setSyncStatus({ 
-          needsSync: true, 
-          message: 'Configuration has never been synced to database',
-          fileVersion: fileConfig.metadata?.version || 'Unknown',
-          dbVersion: 'Not synced'
+      setSyncStatus({
+        status,
+        message,
+        fileVersion,
+        dbVersion: dbVersion || 'Not synced',
+        needsSync,
+        lastSynced,
+        upToDate: !needsSync,
+        error: null
+      });
+
+      // Show toast notification when configuration is out of sync
+      if (needsSync) {
+        toast.warning('Configuration Out of Sync', {
+          description: `File version ${fileVersion} is newer than database version ${dbVersion || 'Not synced'}. Consider syncing to update the database.`
         });
       }
       
     } catch (err) {
       console.error('Error checking sync status:', err);
-      setSyncStatus({ error: err.message });
+      setSyncStatus({ 
+        error: err.message,
+        status: 'error'
+      });
+      toast.error('Sync status error', {
+        description: err.message || 'An error occurred while checking sync status'
+      });
     } finally {
       setCheckingSync(false);
     }
@@ -466,14 +465,20 @@ function DatabaseCourseConfig({ courseId, isEditing }) {
           fetchCourseConfigFromDatabase(),
           checkSyncStatus()
         ]);
-        alert(`Sync successful! ${result.data.results[0]?.message || 'Configuration updated'}`);
+        toast.success('Sync successful!', {
+          description: result.data.results[0]?.message || 'Configuration updated successfully'
+        });
       } else {
         console.error('Manual sync failed:', result.data);
-        alert(`Sync failed: ${result.data.error}`);
+        toast.error('Sync failed', {
+          description: result.data.error || 'Failed to sync configuration'
+        });
       }
     } catch (err) {
       console.error('Error during manual sync:', err);
-      alert(`Sync error: ${err.message}`);
+      toast.error('Sync error', {
+        description: err.message || 'An error occurred during sync'
+      });
     } finally {
       setSyncing(false);
     }
@@ -481,7 +486,9 @@ function DatabaseCourseConfig({ courseId, isEditing }) {
 
   useEffect(() => {
     const initializeData = async () => {
+      // First fetch the database config to get version control info
       await fetchCourseConfigFromDatabase();
+      // Then check sync status
       await checkSyncStatus();
     };
     
@@ -496,6 +503,9 @@ function DatabaseCourseConfig({ courseId, isEditing }) {
     let subtitle = 'Live data from Realtime Database';
     if (versionControl) {
       subtitle += ` • Version: ${versionControl.version} • Last synced: ${new Date(versionControl.lastSynced).toLocaleString()}`;
+      if (versionControl.syncedFrom) {
+        subtitle += ` • Source: ${versionControl.syncedFrom}`;
+      }
     }
     return subtitle;
   };
@@ -541,18 +551,16 @@ function DatabaseCourseConfig({ courseId, isEditing }) {
               <FaExclamationTriangle className="text-yellow-500" />
               <span className="font-medium text-yellow-800">Configuration Out of Sync</span>
             </div>
-            {isEditing && (
-              <Button
-                onClick={manualSync}
-                disabled={syncing || checkingSync}
-                variant="default"
-                size="sm"
-                className="flex items-center bg-yellow-600 hover:bg-yellow-700"
-              >
-                <FaSync className={`mr-1 ${syncing ? 'animate-spin' : ''}`} />
-                {syncing ? 'Syncing...' : 'Sync Now'}
-              </Button>
-            )}
+            <Button
+              onClick={manualSync}
+              disabled={syncing || checkingSync}
+              variant="default"
+              size="sm"
+              className="flex items-center bg-yellow-600 hover:bg-yellow-700"
+            >
+              <FaSync className={`mr-1 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync Now'}
+            </Button>
           </div>
           <div className="mt-2 text-sm text-yellow-700">
             {getSyncStatusMessage()}
@@ -568,23 +576,40 @@ function DatabaseCourseConfig({ courseId, isEditing }) {
             <span className="font-medium">Database Configuration</span>
             {versionControl && (
               <span className="text-sm text-gray-600">
-                (v{versionControl.version})
+                (v{versionControl.version}{versionControl.syncedFrom ? ` from ${versionControl.syncedFrom}` : ''})
               </span>
             )}
           </div>
           
-          {isEditing && shouldShowSyncButton() && (
-            <Button
-              onClick={manualSync}
-              disabled={syncing || checkingSync}
-              variant="outline"
-              size="sm"
-              className="flex items-center"
-            >
-              <FaSync className={`mr-1 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync from File'}
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {/* Show sync button when sync is needed */}
+            {shouldShowSyncButton() && (
+              <Button
+                onClick={manualSync}
+                disabled={syncing || checkingSync}
+                variant="outline"
+                size="sm"
+                className="flex items-center"
+              >
+                <FaSync className={`mr-1 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync from File'}
+              </Button>
+            )}
+            
+            {/* Show check for updates button when up to date */}
+            {syncStatus && syncStatus.upToDate && (
+              <Button
+                onClick={checkSyncStatus}
+                disabled={syncing || checkingSync}
+                variant="outline"
+                size="sm"
+                className="flex items-center"
+              >
+                <FaSync className={`mr-1 ${checkingSync ? 'animate-spin' : ''}`} />
+                {checkingSync ? 'Checking...' : 'Check for Updates'}
+              </Button>
+            )}
+          </div>
         </div>
         
         {/* Sync Status Display */}
@@ -627,6 +652,8 @@ function Courses({
   toggleEditing
 }) {
   const { user, isStaff, hasSuperAdminAccess } = useAuth();
+  // Always enable editing for courses
+  const courseIsEditing = hasSuperAdminAccess();
   const navigate = useNavigate();
   
   // Local UI state (not moved to parent)
@@ -795,18 +822,10 @@ function Courses({
       });
   };
 
-  const handleEditClick = () => {
-    if (hasSuperAdminAccess()) {
-      toggleEditing(true);
-    } else {
-      // Optional: show a toast or small notification that super admin access is required
-      alert("Super Admin access required to edit courses");
-    }
-  };
 
 
   const handleSwitchChange = (checked) => {
-    if (!isEditing) return;
+    if (!courseIsEditing) return;
 
     const updatedData = {
       ...courseData,
@@ -827,7 +846,7 @@ function Courses({
   };
 
   const handleDoesNotRequireScheduleChange = (checked) => {
-    if (!isEditing) return;
+    if (!courseIsEditing) return;
 
     const updatedData = {
       ...courseData,
@@ -848,7 +867,7 @@ function Courses({
   };
 
   const handleStatsChange = (checked) => {
-    if (!isEditing) return;
+    if (!courseIsEditing) return;
 
     const updatedData = {
       ...courseData,
@@ -869,7 +888,7 @@ function Courses({
   };
 
   const handleLtiLinksChange = (checked) => {
-    if (!isEditing) return;
+    if (!courseIsEditing) return;
 
     const updatedData = {
       ...courseData,
@@ -890,7 +909,7 @@ function Courses({
   };
 
   const handleOnRegistrationChange = (checked) => {
-    if (!isEditing) return;
+    if (!courseIsEditing) return;
 
     const updatedData = {
       ...courseData,
@@ -911,7 +930,7 @@ function Courses({
   };
 
   const inputClass = `mt-1 block w-full p-2 border ${
-    isEditing ? 'border-gray-300' : 'border-gray-200 bg-gray-100'
+    courseIsEditing ? 'border-gray-300' : 'border-gray-200 bg-gray-100'
   } rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm`;
 
   const groupedCourses = useMemo(() => {
@@ -1098,23 +1117,6 @@ function Courses({
                 )}
               </div>
               <div className="flex items-center space-x-2">
-  {!isEditing && (
-    <>
-      <button
-        onClick={handleEditClick}
-        className={`flex items-center px-3 py-1 ${
-          hasSuperAdminAccess()
-            ? 'bg-blue-600 hover:bg-blue-700'
-            : 'bg-gray-400 cursor-not-allowed'
-        } text-white rounded transition duration-200 text-sm`}
-        disabled={!hasSuperAdminAccess()}
-      >
-        <FaEdit className="mr-1" /> Edit Course
-        {!hasSuperAdminAccess() && (
-          <PermissionIndicator type="SUPER_ADMIN" className="ml-1" />
-        )}
-      </button>
-
       {/* Add this new button for modern courses only */}
       {courseData?.modernCourse && !courseData?.firebaseCourse && (
   <Button
@@ -1125,8 +1127,6 @@ function Courses({
     <BookOpen className="mr-2 h-4 w-4" /> Edit Course Content
   </Button>
 )}
-    </>
-  )}
   {/* Only show Course Weighting Dialog for non-Firebase courses */}
   {!courseData?.firebaseCourse && (
     <CourseWeightingDialog
@@ -1196,7 +1196,7 @@ function Courses({
                       alert('An error occurred while preparing the updates: ' + error.message);
                     }
                   }}
-                  isEditing={isEditing}
+                  isEditing={courseIsEditing}
                 />
   )}
               </div>
@@ -1218,8 +1218,8 @@ function Courses({
                       className={`mt-1 block w-full p-2 border border-gray-200 bg-gray-100 rounded-md shadow-sm text-sm`}
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Read-only. To change the course name, edit the "title" field in:<br />
-                      <code className="bg-gray-100 px-1 rounded">src/FirebaseCourses/courses/{selectedCourseId}/course-display.json</code>
+                      Read-only<br />
+                    
                     </p>
                   </div>
 
@@ -1231,7 +1231,7 @@ function Courses({
                     <ImprovedEmailManager
                       courseId={selectedCourseId}
                       allowedEmails={courseData.allowedEmails || []}
-                      isEditing={isEditing}
+                      isEditing={courseIsEditing}
                       onUpdate={handleAllowedEmailsUpdate}
                     />
                     <p className="text-xs text-gray-500 mt-1">
@@ -1241,36 +1241,44 @@ function Courses({
                     </p>
                   </div>
 
-                  {/* Show on Registration Form */}
-                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                      <span>Show on Registration Form</span>
-                      <Switch
-                        checked={courseData.OnRegistration === true}
-                        onCheckedChange={handleOnRegistrationChange}
-                        disabled={!isEditing}
-                        className="ml-2"
-                      />
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1">
-                      When enabled, this course will appear in the registration form.
-                    </p>
-                  </div>
+                  {/* Student Access Controls - Grouped together prominently */}
+                  <div className="w-full px-2 mb-6">
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h4 className="text-md font-semibold text-blue-800 mb-3">Student Access Controls</h4>
+                      <div className="flex flex-wrap gap-6">
+                        {/* Show on Registration Form */}
+                        <div className="flex-1 min-w-64">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                            <span>Show on Registration Form</span>
+                            <Switch
+                              checked={courseData.OnRegistration === true}
+                              onCheckedChange={handleOnRegistrationChange}
+                              disabled={!courseIsEditing}
+                              className="ml-2"
+                            />
+                          </label>
+                          <p className="text-xs text-gray-500 mt-1">
+                            When enabled, this course will appear in the registration form.
+                          </p>
+                        </div>
 
-                  {/* Restrict Course Access */}
-                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                      <span>Restrict Course Access</span>
-                      <Switch
-                        checked={courseData.restrictCourseAccess === true}
-                        onCheckedChange={(checked) => handleSelectChange(checked, "restrictCourseAccess")}
-                        disabled={!isEditing}
-                        className="ml-2"
-                      />
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1">
-                      When enabled, student access to this course will be restricted. Developers can still access.
-                    </p>
+                        {/* Restrict Course Access */}
+                        <div className="flex-1 min-w-64">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                            <span>Restrict Course Access</span>
+                            <Switch
+                              checked={courseData.restrictCourseAccess === true}
+                              onCheckedChange={(checked) => handleSelectChange(checked, "restrictCourseAccess")}
+                              disabled={!courseIsEditing}
+                              className="ml-2"
+                            />
+                          </label>
+                          <p className="text-xs text-gray-500 mt-1">
+                            When enabled, student access to this course will be restricted. Developers can still access.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Course ID */}
@@ -1296,7 +1304,7 @@ function Courses({
                       name="Active"
                       value={courseData.Active}
                       onValueChange={(value) => handleSelectChange(value, "Active")}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                     >
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select active status" />
@@ -1321,7 +1329,7 @@ function Courses({
                       name="minCompletionMonths"
                       value={courseData.minCompletionMonths || ''}
                       onChange={handleNumberInputChange}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       className={inputClass}
                       min="0"
                       step="1"
@@ -1342,7 +1350,7 @@ function Courses({
                       name="recommendedCompletionMonths"
                       value={courseData.recommendedCompletionMonths || ''}
                       onChange={handleNumberInputChange}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       className={inputClass}
                       min="0"
                       step="1"
@@ -1362,7 +1370,7 @@ function Courses({
                       name="DiplomaCourse"
                       value={courseData.DiplomaCourse}
                       onValueChange={(value) => handleSelectChange(value, "DiplomaCourse")}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                     >
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select Diploma Course" />
@@ -1386,7 +1394,7 @@ function Courses({
                       name="CourseType"
                       value={courseData.CourseType || ''}
                       onValueChange={(value) => handleSelectChange(value, "CourseType")}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                     >
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select course type" />
@@ -1404,7 +1412,7 @@ function Courses({
                         name="CourseTypeCustom"
                         value={courseData.CourseTypeCustom || ''}
                         onChange={handleInputChange}
-                        disabled={!isEditing}
+                        disabled={!courseIsEditing}
                         className={`${inputClass} mt-2`}
                         placeholder="Enter custom value"
                       />
@@ -1420,7 +1428,7 @@ function Courses({
                       name="grade"
                       value={courseData.grade || ''}
                       onValueChange={(value) => handleSelectChange(value, "grade")}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                     >
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select grade" />
@@ -1444,7 +1452,7 @@ function Courses({
                       name="description"
                       value={courseData.description || ''}
                       onChange={handleInputChange}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       className={inputClass}
                       placeholder="Enter course description"
                       rows={4}
@@ -1461,7 +1469,7 @@ function Courses({
                       <Switch
                         checked={courseData.allowStudentChats || false}
                         onCheckedChange={handleSwitchChange}
-                        disabled={!isEditing}
+                        disabled={!courseIsEditing}
                         className="ml-2"
                       />
                     </label>
@@ -1477,7 +1485,7 @@ function Courses({
                       <Switch
                         checked={courseData.doesNotRequireSchedule || false}
                         onCheckedChange={handleDoesNotRequireScheduleChange}
-                        disabled={!isEditing}
+                        disabled={!courseIsEditing}
                         className="ml-2"
                       />
                     </label>
@@ -1504,7 +1512,7 @@ function Courses({
                           courseData.Teachers.includes(staff.value)
                       )}
                       onChange={handleMultiSelectChange}
-                      isDisabled={!isEditing}
+                      isDisabled={!courseIsEditing}
                       className="mt-1"
                     />
                   </div>
@@ -1524,7 +1532,7 @@ function Courses({
                           courseData.SupportStaff.includes(staff.value)
                       )}
                       onChange={handleMultiSelectChange}
-                      isDisabled={!isEditing}
+                      isDisabled={!courseIsEditing}
                       className="mt-1"
                     />
                   </div>
@@ -1542,7 +1550,7 @@ function Courses({
                       name="Title"
                       value={courseData.Title || ''}
                       onChange={handleInputChange}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       className={inputClass}
                     />
                   </div>
@@ -1555,7 +1563,7 @@ function Courses({
                     <ImprovedEmailManager
                       courseId={selectedCourseId}
                       allowedEmails={courseData.allowedEmails || []}
-                      isEditing={isEditing}
+                      isEditing={courseIsEditing}
                       onUpdate={handleAllowedEmailsUpdate}
                     />
                     <p className="text-xs text-gray-500 mt-1">
@@ -1565,36 +1573,44 @@ function Courses({
                     </p>
                   </div>
 
-                  {/* Show on Registration Form */}
-                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                      <span>Show on Registration Form</span>
-                      <Switch
-                        checked={courseData.OnRegistration === true}
-                        onCheckedChange={handleOnRegistrationChange}
-                        disabled={!isEditing}
-                        className="ml-2"
-                      />
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1">
-                      When enabled, this course will appear in the registration form.
-                    </p>
-                  </div>
+                  {/* Student Access Controls - Grouped together prominently */}
+                  <div className="w-full px-2 mb-6">
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <h4 className="text-md font-semibold text-blue-800 mb-3">Student Access Controls</h4>
+                      <div className="flex flex-wrap gap-6">
+                        {/* Show on Registration Form */}
+                        <div className="flex-1 min-w-64">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                            <span>Show on Registration Form</span>
+                            <Switch
+                              checked={courseData.OnRegistration === true}
+                              onCheckedChange={handleOnRegistrationChange}
+                              disabled={!courseIsEditing}
+                              className="ml-2"
+                            />
+                          </label>
+                          <p className="text-xs text-gray-500 mt-1">
+                            When enabled, this course will appear in the registration form.
+                          </p>
+                        </div>
 
-                  {/* Restrict Course Access */}
-                  <div className="w-full md:w-1/2 lg:w-1/3 px-2 mb-4">
-                    <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                      <span>Restrict Course Access</span>
-                      <Switch
-                        checked={courseData.restrictCourseAccess === true}
-                        onCheckedChange={(checked) => handleSelectChange(checked, "restrictCourseAccess")}
-                        disabled={!isEditing}
-                        className="ml-2"
-                      />
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1">
-                      When enabled, student access to this course will be restricted. Developers can still access.
-                    </p>
+                        {/* Restrict Course Access */}
+                        <div className="flex-1 min-w-64">
+                          <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                            <span>Restrict Course Access</span>
+                            <Switch
+                              checked={courseData.restrictCourseAccess === true}
+                              onCheckedChange={(checked) => handleSelectChange(checked, "restrictCourseAccess")}
+                              disabled={!courseIsEditing}
+                              className="ml-2"
+                            />
+                          </label>
+                          <p className="text-xs text-gray-500 mt-1">
+                            When enabled, student access to this course will be restricted. Developers can still access.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* LMS Course ID  */}
@@ -1638,7 +1654,7 @@ function Courses({
                           .then(() => console.log('Updated Course Version'))
                           .catch((error) => alert('Error updating course version'));
                       }}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select course version" />
@@ -1660,7 +1676,7 @@ function Courses({
                       name="Active"
                       value={courseData.Active}
                       onValueChange={(value) => handleSelectChange(value, "Active")}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       >
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select active status" />
@@ -1679,7 +1695,7 @@ function Courses({
                         name="ActiveCustom"
                         value={courseData.ActiveCustom || ''}
                         onChange={handleInputChange}
-                        disabled={!isEditing}
+                        disabled={!courseIsEditing}
                         className={`${inputClass} mt-2`}
                         placeholder="Enter custom value"
                       />
@@ -1693,7 +1709,7 @@ function Courses({
                       <Switch
                         checked={courseData.showStats || false}
                         onCheckedChange={handleStatsChange}
-                        disabled={!isEditing}
+                        disabled={!courseIsEditing}
                         className="ml-2"
                       />
                     </label>
@@ -1709,7 +1725,7 @@ function Courses({
                       <Switch
                         checked={courseData.ltiLinksComplete || false}
                         onCheckedChange={handleLtiLinksChange}
-                        disabled={!isEditing}
+                        disabled={!courseIsEditing}
                         className="ml-2"
                       />
                     </label>
@@ -1728,7 +1744,7 @@ function Courses({
                       name="courseCredits"
                       value={courseData.courseCredits || ''}
                       onChange={handleNumberInputChange}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       className={inputClass}
                       min="0"
                       step="1"
@@ -1749,7 +1765,7 @@ function Courses({
                       name="minCompletionMonths"
                       value={courseData.minCompletionMonths || ''}
                       onChange={handleNumberInputChange}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       className={inputClass}
                       min="0"
                       step="1"
@@ -1770,7 +1786,7 @@ function Courses({
                       name="recommendedCompletionMonths"
                       value={courseData.recommendedCompletionMonths || ''}
                       onChange={handleNumberInputChange}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       className={inputClass}
                       min="0"
                       step="1"
@@ -1792,7 +1808,7 @@ function Courses({
                           name="DiplomaCourse"
                           value={courseData.DiplomaCourse}
                           onValueChange={(value) => handleSelectChange(value, "DiplomaCourse")}
-                          disabled={!isEditing}
+                          disabled={!courseIsEditing}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select Diploma Course" />
@@ -1812,7 +1828,7 @@ function Courses({
                             <Button 
                               variant="outline" 
                               type="button"
-                              disabled={!isEditing}
+                              disabled={!courseIsEditing}
                               className="flex-shrink-0"
                             >
                               <FaClock className="mr-2" /> Manage Diploma Times
@@ -1834,7 +1850,7 @@ function Courses({
                                 <DiplomaTimes
                                   courseId={selectedCourseId}
                                   diplomaTimes={courseData.diplomaTimes || []}
-                                  isEditing={isEditing}
+                                  isEditing={courseIsEditing}
                                 />
                               </div>
                             </ScrollArea>
@@ -1853,7 +1869,7 @@ function Courses({
                       name="CourseType"
                       value={courseData.CourseType || ''}
                       onValueChange={(value) => handleSelectChange(value, "CourseType")}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                     >
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select course type" />
@@ -1871,7 +1887,7 @@ function Courses({
                         name="CourseTypeCustom"
                         value={courseData.CourseTypeCustom || ''}
                         onChange={handleInputChange}
-                        disabled={!isEditing}
+                        disabled={!courseIsEditing}
                         className={`${inputClass} mt-2`}
                         placeholder="Enter custom value"
                       />
@@ -1888,7 +1904,7 @@ function Courses({
                       name="NumberOfHours"
                       value={courseData.NumberOfHours || ''}
                       onChange={handleInputChange}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       className={inputClass}
                       min="0"
                     />
@@ -1907,7 +1923,7 @@ function Courses({
                       name="grade"
                       value={courseData.grade || ''}
                       onChange={handleInputChange}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       className={inputClass}
                       placeholder="Enter grade"
                     />
@@ -1922,7 +1938,7 @@ function Courses({
                       name="description"
                       value={courseData.description || ''}
                       onChange={handleInputChange}
-                      disabled={!isEditing}
+                      disabled={!courseIsEditing}
                       className={inputClass}
                       placeholder="Enter course description"
                       rows={4}
@@ -1939,7 +1955,7 @@ function Courses({
                       <Switch
                         checked={courseData.allowStudentChats || false}
                         onCheckedChange={handleSwitchChange}
-                        disabled={!isEditing}
+                        disabled={!courseIsEditing}
                         className="ml-2"
                       />
                     </label>
@@ -1963,7 +1979,7 @@ function Courses({
                           courseData.Teachers.includes(staff.value)
                       )}
                       onChange={handleMultiSelectChange}
-                      isDisabled={!isEditing}
+                      isDisabled={!courseIsEditing}
                       className="mt-1"
                     />
                   </div>
@@ -1983,7 +1999,7 @@ function Courses({
                           courseData.SupportStaff.includes(staff.value)
                       )}
                       onChange={handleMultiSelectChange}
-                      isDisabled={!isEditing}
+                      isDisabled={!courseIsEditing}
                       className="mt-1"
                     />
                   </div>
@@ -1997,7 +2013,7 @@ function Courses({
                   <div className="space-y-8">
                     <div>
                       <h3 className="text-lg font-semibold mb-4">Firebase Course Configuration</h3>
-                      <DatabaseCourseConfig courseId={selectedCourseId} isEditing={isEditing} />
+                      <DatabaseCourseConfig courseId={selectedCourseId} isEditing={courseIsEditing} />
                     </div>
                   </div>
                 ) : (
@@ -2006,7 +2022,7 @@ function Courses({
                     courseId={selectedCourseId}
                     units={courseData.units || []}
                     onUnitsChange={handleUnitsChange}
-                    isEditing={isEditing}
+                    isEditing={courseIsEditing}
                   />
                 )}
               </div>

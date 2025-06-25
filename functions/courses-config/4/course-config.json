@@ -1,15 +1,7 @@
 {
   "courseId": "4",
   "title": "COM1255",
-  "fullTitle": "4 - COM1255",
-  "description": "Generated course: COM1255",
   "credits": 1,
-  "grade": "10",
-  "prerequisites": [],
-  "instructors": [],
-  "duration": "1 semester",
-  "contentFolder": "content",
-  "functionsFolder": "functions/4",
   "weights": {
     "lesson": 1,
     "assignment": 0,
@@ -18,8 +10,6 @@
   },
   "globalSettings": {
     "allowLateSubmissions": true,
-    "latePenaltyPerDay": 0.1,
-    "maxLateDays": 7,
     "showProgressBar": true,
     "showGrades": true,
     "enableAIQuestions": true,

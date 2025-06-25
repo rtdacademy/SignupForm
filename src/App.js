@@ -36,6 +36,7 @@ import ParentLogin from './ParentPortal/ParentLogin';
 import ParentDashboard from './ParentPortal/ParentDashboard';
 import ParentEmailVerification from './ParentPortal/ParentEmailVerification';
 import FlowChartPrerequisites from './components/PrerequisiteFlowChart/FlowChartPrerequisites';
+import TeacherFirebaseCourseView from './StudentManagement/TeacherFirebaseCourseView';
 
 // EdBotz imports
 import EdBotzDashboard from './edbotz/Dashboard';
@@ -165,6 +166,15 @@ function MainApp() {
   element={
     user && isStaff(user) ? 
     <Emulate /> : 
+    <Navigate to="/staff-login" />
+  } 
+/>
+
+<Route 
+  path="/firebase-course/:courseId" 
+  element={
+    user && isStaff(user) ? 
+    <TeacherFirebaseCourseView /> : 
     <Navigate to="/staff-login" />
   } 
 />

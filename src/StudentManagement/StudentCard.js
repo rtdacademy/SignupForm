@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { STATUS_OPTIONS, STATUS_CATEGORIES, getStatusColor, getStatusAllowsAutoStatus, getStudentTypeInfo, COURSE_OPTIONS, getCourseInfo, TERM_OPTIONS, getTermInfo, ACTIVE_FUTURE_ARCHIVED_OPTIONS } from '../config/DropdownOptions';
-import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon, UserX } from 'lucide-react';
+import { ChevronDown, Plus, CheckCircle, BookOpen, MessageSquare, X, Zap, AlertTriangle, ArrowUp, ArrowDown, Maximize2, Trash2, UserCheck, User, CircleSlash, Circle, Square, Triangle, BookOpen as BookOpenIcon, GraduationCap, Trophy, Target, ClipboardCheck, Brain, Lightbulb, Clock, Calendar as CalendarIcon, BarChart, TrendingUp, AlertCircle, HelpCircle, MessageCircle, Users, Presentation, FileText, Bookmark, Grid2X2, Database, Ban, ArchiveRestore, FileText as FileTextIcon, UserX, Flame } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { getDatabase, ref, set, get, push, remove, update, runTransaction, serverTimestamp  } from 'firebase/database';
@@ -24,6 +24,7 @@ import {
 import { Badge } from "../components/ui/badge";
 import ChatApp from '../chat/ChatApp';
 import { useAuth } from '../context/AuthContext';
+import { useCourse } from '../context/CourseContext';
 import { Checkbox } from "../components/ui/checkbox";
 import StudentDetail from './StudentDetail';
 import { useMode, MODES } from '../context/ModeContext';
@@ -409,6 +410,9 @@ const StudentCard = React.memo(({
 
   // Access the logged-in teacher's info
   const { user, isAdminUser } = useAuth();
+  
+  // Access course data from CourseContext
+  const { getCourseById } = useCourse();
 
   const customHoverStyle = "hover:bg-accent hover:text-accent-foreground";
 
@@ -1024,6 +1028,13 @@ const handleStatusChange = useCallback(async (newStatus) => {
     return COURSE_OPTIONS.find(course => String(course.courseId) === String(courseId));
   };
 
+  // Helper function to check if a course is a Firebase course using CourseContext
+  const isFirebaseCourse = useCallback((courseId) => {
+    if (!courseId) return false;
+    const courseData = getCourseById(courseId);
+    return courseData?.firebaseCourse === true;
+  }, [getCourseById]);
+
   const groupedStatusOptions = useMemo(() => {
     return STATUS_OPTIONS.reduce((acc, option) => {
       if (!acc[option.category]) {
@@ -1171,19 +1182,28 @@ const handleStatusChange = useCallback(async (newStatus) => {
               {student.CourseID ? (
                 (() => {
                   const courseInfo = findCourseById(student.CourseID);
+                  const isFirebase = isFirebaseCourse(student.CourseID);
+                  
                   return (
                     <div className="flex items-center gap-2">
                       <Badge 
                         className="flex items-center gap-2 px-3 py-1 h-7 text-sm font-medium border-0 rounded-md shadow-sm"
                         style={{
-                          backgroundColor: `${courseInfo?.color || '#6B7280'}15`,
-                          color: courseInfo?.color || '#6B7280'
+                          backgroundColor: isFirebase ? '#F59E0B15' : `${courseInfo?.color || '#6B7280'}15`,
+                          color: isFirebase ? '#F59E0B' : (courseInfo?.color || '#6B7280')
                         }}
                       >
-                        {React.createElement(courseInfo?.icon || BookOpen, {
-                          className: "w-4 h-4"
-                        })}
+                        {isFirebase ? (
+                          <Flame className="w-4 h-4" />
+                        ) : (
+                          React.createElement(courseInfo?.icon || BookOpen, {
+                            className: "w-4 h-4"
+                          })
+                        )}
                         {courseInfo?.label || `Course ${student.CourseID}`}
+                        {isFirebase && (
+                          <span className="ml-1 text-xs font-bold text-orange-600">FIREBASE</span>
+                        )}
                       </Badge>
                       
                       {student.pasiTerm && (
@@ -1553,9 +1573,13 @@ const handleStatusChange = useCallback(async (newStatus) => {
 
           {/* Action Buttons */}
           {(() => {
+            // Check if this is a Firebase course
+            const isStudentFirebaseCourse = isFirebaseCourse(student.CourseID);
+            
             // Calculate number of visible buttons
             const buttonCount = 
               (checkAsnIssues ? 1 : 0) +
+              (isStudentFirebaseCourse ? 1 : 0) + // Firebase course button
               1 + // Chat is always visible
               (hasProfileHistory ? 1 : 0) +
               1 + // Emulate is always visible
@@ -1599,6 +1623,24 @@ const handleStatusChange = useCallback(async (newStatus) => {
                   >
                     <AlertTriangle className={iconClass} />
                     {useShortLabels ? "ASN" : "ASN Issues"}
+                  </Button>
+                )}
+
+                {isStudentFirebaseCourse && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`${buttonClass} text-orange-600 hover:text-orange-700 border-orange-200`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Navigate to Firebase course view for this student
+                      const studentEmail = getStudentInfo.email;
+                      const courseId = student.CourseID;
+                      window.open(`/firebase-course/${courseId}?student=${encodeURIComponent(studentEmail)}`, 'firebaseCourseTab');
+                    }}
+                  >
+                    <Flame className={iconClass} />
+                    {useShortLabels ? "Course" : "Firebase Course"}
                   </Button>
                 )}
 
