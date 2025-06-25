@@ -773,16 +773,28 @@ async function updateGradebookSummary(studentKey, courseId, isStaff = false) {
 }
 
 /**
- * Get course configuration (always fresh from file)
+ * Get course configuration (database first, then file fallback)
  */
 async function getCourseConfig(courseId) {
   try {
-    // Load from secure config - no caching to ensure fresh config
+    // NEW: First try to get config from database
+    const db = admin.database();
+    const courseConfigRef = db.ref(`courses/${courseId}/course-config`);
+    const configSnapshot = await courseConfigRef.once('value');
+    
+    if (configSnapshot.exists()) {
+      console.log(`✅ Using course config from database for course ${courseId}`);
+      return configSnapshot.val();
+    }
+    
+    // Fallback: Load from local file if database doesn't have config
+    console.log(`⚠️ Course config not found in database for ${courseId}, trying local file...`);
     const config = require(`../../courses-config/${courseId}/course-config.json`);
+    console.log(`✅ Using course config from local file for course ${courseId}`);
     return config;
   } catch (error) {
-    console.warn(`Course config not found for ${courseId}, using defaults`);
-    return getDefaultCourseConfig();
+    console.warn(`Course config not found in database or file for ${courseId}, returning null`);
+    return null; // Return null instead of defaults - let calling code handle gracefully
   }
 }
 

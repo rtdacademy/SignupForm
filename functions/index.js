@@ -157,6 +157,7 @@ exports.loadCourseCode = courseCodeLoaderFunctions.loadCourseCode;
 
 // Course configuration functions
 exports.getCourseConfigV2 = courseConfigFunctions.getCourseConfigV2;
+exports.syncCourseConfigToDatabase = courseConfigFunctions.syncCourseConfigToDatabase;
 
 // JSX transformation is now handled automatically by autoTransformSectionCode trigger
 // No manual transformation endpoint needed
