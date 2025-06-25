@@ -55,6 +55,26 @@ const TeacherFirebaseCourseViewContent = () => {
   const targetCourse = studentData.courses?.find(course => course.id === courseId);
   const isFirebaseCourse = targetCourse?.courseDetails?.firebaseCourse === true;
 
+  // Console logging for course object review
+  useEffect(() => {
+    if (targetCourse) {
+      console.log('🎓 TEACHER FIREBASE COURSE VIEW - Course Object Review:', {
+        courseId,
+        studentEmail,
+        isFirebaseCourse,
+        fullCourseObject: targetCourse,
+        courseDetails: targetCourse.courseDetails,
+        gradebook: targetCourse.Gradebook,
+        courseConfig: targetCourse.Gradebook?.courseConfig,
+        courseStructure: targetCourse.Gradebook?.courseConfig?.courseStructure || targetCourse.Gradebook?.courseStructure,
+        payment: targetCourse.payment,
+        teachers: targetCourse.courseDetails?.teachers,
+        supportStaff: targetCourse.courseDetails?.supportStaff,
+        timestamp: new Date().toLocaleTimeString()
+      });
+    }
+  }, [targetCourse, courseId, studentEmail, isFirebaseCourse]);
+
   // Handle navigation back
   const handleBack = () => {
     window.close(); // Close the popup/tab
