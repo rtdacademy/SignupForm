@@ -547,49 +547,6 @@ const Physics20Review = ({ course, courseId = '2' }) => {
       </TextSection>
 
       {/* Vector Practice Problems - Knowledge Check */}
-      <SlideshowKnowledgeCheck
-        courseId={courseId}
-        lessonPath="01-physics-20-review"
-        questions={[
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_01_physics_20_review_vector_q1',
-            title: 'Question 1: Ski Lift Height'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_01_physics_20_review_vector_q2',
-            title: 'Question 2: Highway Distance and Bearing'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_01_physics_20_review_vector_q3',
-            title: 'Question 3: Force Equilibrium'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_01_physics_20_review_vector_q4',
-            title: 'Question 4: Velocity Components'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_01_physics_20_review_vector_q5',
-            title: 'Question 5: Relative Velocity'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_01_physics_20_review_vector_q6',
-            title: 'Question 6: Force Addition'
-          },
-          {
-            type: 'multiple-choice',
-            questionId: 'course2_01_physics_20_review_vector_q7',
-            title: 'Question 7: Displacement Vectors'
-          }
-        ]}
-        onComplete={(score, results) => console.log(`Vector Knowledge Check completed with ${score}%`)}
-        theme="green"
-      />
       <TextSection>
         <div className="mb-6">
           <button
@@ -1105,6 +1062,50 @@ const Physics20Review = ({ course, courseId = '2' }) => {
           )}        </div>
       </TextSection>
 
+      {/* Vector Practice Problems - Knowledge Check */}
+      <SlideshowKnowledgeCheck
+        courseId={courseId}
+        lessonPath="01-physics-20-review"
+        questions={[
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_01_physics_20_review_vector_q1',
+            title: 'Question 1: Ski Lift Height'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_01_physics_20_review_vector_q2',
+            title: 'Question 2: Highway Distance and Bearing'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_01_physics_20_review_vector_q3',
+            title: 'Question 3: Force Equilibrium'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_01_physics_20_review_vector_q4',
+            title: 'Question 4: Velocity Components'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_01_physics_20_review_vector_q5',
+            title: 'Question 5: Relative Velocity'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_01_physics_20_review_vector_q6',
+            title: 'Question 6: Force Addition'
+          },
+          {
+            type: 'multiple-choice',
+            questionId: 'course2_01_physics_20_review_vector_q7',
+            title: 'Question 7: Displacement Vectors'
+          }
+        ]}
+        onComplete={(score, results) => console.log(`Vector Knowledge Check completed with ${score}%`)}
+        theme="green"
+      />
 
       <TextSection>
         <div className="mb-6">
